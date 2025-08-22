@@ -28,9 +28,9 @@ def repo():
         third_party_http_archive,
         name = "riegeli",
         doc_version = "20250607-c4d1f27",
-        urls = mirror_url("https://github.com/google/riegeli/archive/c4d1f275ed44db839385e494c3a969ae232d6e10.tar.gz"),  # master(2025-06-07)
-        sha256 = "0ca5be90a2e184fc2a9590e804c476a004f04b48c40ca488a6b608fcd224b32f",
-        strip_prefix = "riegeli-c4d1f275ed44db839385e494c3a969ae232d6e10",
+        urls = mirror_url("https://github.com/google/riegeli/archive/4214a733e7aad4654cc789e3b1ff4687f923323d.tar.gz"),  # master(2025-08-19)
+        sha256 = "06c618ffa11be504b561a0103bdd469ceae6b3b6b844bba5d581bdffc7301f4f",
+        strip_prefix = "riegeli-4214a733e7aad4654cc789e3b1ff4687f923323d",
         repo_mapping = {
             "@net_zstd": "@zstd",
             "@com_google_googleapis": "@googleapis",
@@ -50,6 +50,7 @@ def repo():
                 "riegeli/records/**",
                 "riegeli/snappy/**",
                 "riegeli/tensorflow/**",
+                "riegeli/gcs/**",
             ],
         },
     )

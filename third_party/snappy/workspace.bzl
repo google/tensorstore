@@ -26,9 +26,9 @@ def repo():
         third_party_http_archive,
         name = "snappy",
         doc_version = "1.2.2-20250426-6af9287",
-        urls = mirror_url("https://github.com/google/snappy/archive/6af9287fbdb913f0794d0148c6aa43b58e63c8e3.tar.gz"),  # main(2025-04-26)
-        sha256 = "31c566ed653abfa68963232e52a97b9b89841d5255dad3c88bd9d74db3039d28",
-        strip_prefix = "snappy-6af9287fbdb913f0794d0148c6aa43b58e63c8e3",
+        urls = mirror_url("https://github.com/google/snappy/archive/6f99459b5b837fa18abb1be317d3ac868530f384.tar.gz"),  # main(2025-08-19)
+        sha256 = "787aba190f05da2ac5e77e847896baf64b91905489c7ede1d09b01b363b2ff81",
+        strip_prefix = "snappy-6f99459b5b837fa18abb1be317d3ac868530f384",
         build_file = Label("//third_party:snappy/snappy.BUILD.bazel"),
         system_build_file = Label("//third_party:snappy/system.BUILD.bazel"),
         cmake_name = "Snappy",

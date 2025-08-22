@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_mqtt",
-        sha256 = "c2ea5d3b34692c5b71ec4ff3efd8277af01f16706970e8851373c361abaf1d72",
-        strip_prefix = "aws-c-mqtt-0.12.3",
-        urls = mirror_url("https://github.com/awslabs/aws-c-mqtt/archive/v0.12.3.tar.gz"),
+        sha256 = "1dfc11d6b3dc1a6d408df64073e8238739b4c50374078d36d3f2d30491d15527",
+        strip_prefix = "aws-c-mqtt-0.13.3",
+        urls = mirror_url("https://github.com/awslabs/aws-c-mqtt/archive/v0.13.3.tar.gz"),
         build_file = Label("//third_party:aws_c_mqtt/aws_c_mqtt.BUILD.bazel"),
         cmake_name = "aws_c_mqtt",
         cmake_target_mapping = {

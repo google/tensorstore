@@ -27,9 +27,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "googletest",
-        urls = mirror_url("https://github.com/google/googletest/archive/cd430b47a54841ec45d64d2377d7cabaf0eba610.zip"),  # main(2025-04-23)
-        sha256 = "0970814192d0a48be6ea6626d05569fd8587c54e874323dd0dc85d9ef36c7c86",
-        strip_prefix = "googletest-cd430b47a54841ec45d64d2377d7cabaf0eba610",
+        urls = mirror_url("https://github.com/google/googletest/archive/a05c0915074bcd1b82f232e081da9bb6c205c28d.zip"),  # main(2025-08-19)
+        sha256 = "c05716867701b60562a647d0c9202d6effee53c79e4bc10d4106b3d30fb4482c",
+        strip_prefix = "googletest-a05c0915074bcd1b82f232e081da9bb6c205c28d",
         cmake_name = "GTest",
         bazel_to_cmake = {
             "include": [""],

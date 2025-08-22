@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_http",
-        sha256 = "18cb2a19a7cd80eafc4c29e6845ec97135a381a1e32fc848bdb8340cc747204a",
-        strip_prefix = "aws-c-http-0.9.7",
-        urls = mirror_url("https://github.com/awslabs/aws-c-http/archive/v0.9.7.tar.gz"),
+        sha256 = "dfeeeaa2e84ccda4c8cb0c29f412298df80a57a27003e716f2d3df9794956fc1",
+        strip_prefix = "aws-c-http-0.10.4",
+        urls = mirror_url("https://github.com/awslabs/aws-c-http/archive/v0.10.4.tar.gz"),
         build_file = Label("//third_party:aws_c_http/aws_c_http.BUILD.bazel"),
         cmake_name = "aws_c_http",
         cmake_target_mapping = {

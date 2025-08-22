@@ -25,7 +25,7 @@ def repo():
     maybe(
         http_archive,
         name = "toolchains_llvm",
-        urls = mirror_url("https://github.com/bazel-contrib/toolchains_llvm/releases/download/v1.2.0/toolchains_llvm-v1.2.0.tar.gz"),
-        strip_prefix = "toolchains_llvm-v1.2.0",
-        sha256 = "e3fb6dc6b77eaf167cb2b0c410df95d09127cbe20547e5a329c771808a816ab4",
+        urls = mirror_url("https://github.com/bazel-contrib/toolchains_llvm/archive/v1.4.0.tar.gz"),
+        strip_prefix = "toolchains_llvm-1.4.0",
+        sha256 = "87d8d82531654825713dba466675c23ba64f8430a0044ff050d543cc6626f7d8",
     )

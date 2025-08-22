@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "google_benchmark",
-        urls = mirror_url("https://github.com/google/benchmark/archive/v1.9.2.zip"),
-        sha256 = "a13cdcd3b0e3725e371f977a2855fecd651fc0236c67da16e325b726057b15b4",
-        strip_prefix = "benchmark-1.9.2",
+        urls = mirror_url("https://github.com/google/benchmark/archive/v1.9.4.zip"),
+        sha256 = "7a273667fbc23480df1306f82bdb960672811dd29a0342bb34e14040307cf820",
+        strip_prefix = "benchmark-1.9.4",
         patches = [
             Label("//third_party:google_benchmark/patches/fix_mingw.diff"),
         ],

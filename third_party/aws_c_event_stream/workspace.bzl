@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_event_stream",
-        sha256 = "cef8b78e362836d15514110fb43a0a0c7a86b0a210d5fe25fd248a82027a7272",
-        strip_prefix = "aws-c-event-stream-0.5.4",
-        urls = mirror_url("https://github.com/awslabs/aws-c-event-stream/archive/v0.5.4.tar.gz"),
+        sha256 = "e94a8172e7d198d11bc7aa769c5334f1a8518f2b5bd4446d37d18fb5683623fd",
+        strip_prefix = "aws-c-event-stream-0.5.6",
+        urls = mirror_url("https://github.com/awslabs/aws-c-event-stream/archive/v0.5.6.tar.gz"),
         build_file = Label("//third_party:aws_c_event_stream/aws_c_event_stream.BUILD.bazel"),
         cmake_name = "aws_c_event_stream",
         cmake_target_mapping = {
