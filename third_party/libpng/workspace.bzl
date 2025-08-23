@@ -30,10 +30,10 @@ def repo():
         # "org_libjpng" because this repository may actually refer to the
         # system png.
         name = "libpng",
-        doc_version = "1.6.47",
-        urls = mirror_url("https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.47.tar.gz"),
-        sha256 = "631a4c58ea6c10c81f160c4b21fa8495b715d251698ebc2552077e8450f30454",
-        strip_prefix = "libpng-1.6.47",
+        doc_version = "1.6.50",
+        urls = mirror_url("https://github.com/pnggroup/libpng/archive/v1.6.50.tar.gz"),
+        sha256 = "71158e53cfdf2877bc99bcab33641d78df3f48e6e0daad030afe9cb8c031aa46",
+        strip_prefix = "libpng-1.6.50",
         build_file = Label("//third_party:libpng/png.BUILD.bazel"),
         system_build_file = Label("//third_party:libpng/system.BUILD.bazel"),
         cmake_name = "PNG",
