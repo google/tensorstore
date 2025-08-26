@@ -55,3 +55,6 @@ def emit_os_cpu_compiler_group(os, cpu, compiler):
             name = name,
             match_all = [x for x in m if x != None],
         )
+
+def repository_source_root():
+    return Label(native.repository_name() + "//:fake_target").workspace_root
