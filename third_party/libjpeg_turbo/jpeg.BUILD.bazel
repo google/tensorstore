@@ -2,12 +2,13 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@rules_nasm//nasm:nasm_library.bzl", "nasm_library")
 
-
 package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])
 
 exports_files(["LICENSE.md"])
+
+WORKSPACE_ROOT = "external/libjpeg_turbo"
 
 cc_library(
     name = "jpeg",
@@ -136,13 +137,19 @@ cc_library(
         "simd/x86_64/jsimd.c",
         ":simd_x86_64_asm",
     ],
-    hdrs = glob(["simd/*.h", "simd/x86_64/*.h"]),
+    hdrs = glob(["src/*.h", "simd/*.h", "simd/x86_64/*.h"]),
     copts = [
         "-w",
+        "-iquote", "{}/src".format(WORKSPACE_ROOT),
+        # debug options
+        "-H",
+        "-v",
+        "-dI",
     ],
     linkstatic = 1,
     target_compatible_with = ["@platforms//cpu:x86_64"],
-    deps = [":simd_headers"],
+    deps = [":jpeg_config"],
+    defines = ["WITH_SIMD"],
 )
 
 nasm_library(
@@ -195,10 +202,11 @@ cc_library(
     ),
     hdrs = [
         "neon-compat.h",
-    ] + glob(["simd/*.h", "simd/arm/*.h"]),
+    ] + glob(["src/*.h", "simd/*.h", "simd/arm/*.h"]),
     copts = [
         "-DNEON_INTRINSICS",
         "-w",
+        "-iquote", "{}/src".format(WORKSPACE_ROOT),
     ],
     target_compatible_with = [
         "@platforms//cpu:arm64",
@@ -207,7 +215,8 @@ cc_library(
         "simd/arm/*ext-neon.c",
         "simd/arm/aarch64/*ext-neon.c",
     ]),
-    deps = [":simd_headers"],
+    defines = ["WITH_SIMD"],
+    deps = [":jpeg_config"],
 )
 
 cc_library(
@@ -218,7 +227,7 @@ cc_library(
     ),
     hdrs = [
         "neon-compat.h",
-    ] + glob(["simd/*.h", "simd/arm/*.h"]),
+    ] + glob(["src/*.h", "simd/*.h", "simd/arm/*.h"]),
     copts = [
         "-D__ARM_NEON__",
         "-DNEON_INTRINSICS",
@@ -227,6 +236,7 @@ cc_library(
         "-mfloat-abi=softfp",
         "-fprefetch-loop-arrays",
         "-w",
+        "-iquote", "{}/src".format(WORKSPACE_ROOT),
     ],
     target_compatible_with = [
         ":armeabi-v7a",
@@ -235,7 +245,8 @@ cc_library(
         "simd/arm/*ext-neon.c",
         "simd/arm/aarch32/*ext-neon.c",
     ]),
-    deps = [":simd_headers"],
+    defines = ["WITH_SIMD"],
+    deps = [":jpeg_config"],
 )
 
 cc_library(
@@ -244,23 +255,17 @@ cc_library(
         include = ["simd/powerpc/*.c"],
         exclude = ["simd/powerpc/*ext-altivec.c"],
     ),
-    hdrs = glob(["simd/*.h", "simd/powerpc/*.h"]),
+    hdrs = glob(["src/*.h", "simd/*.h", "simd/powerpc/*.h"]),
     textual_hdrs = glob(["simd/powerpc/*ext-altivec.c"]),
     copts = [
         "-mcpu=power8",
         "-mtune=power8",
         "-w",
+        "-iquote", "{}/src".format(WORKSPACE_ROOT),
     ],
-    target_compatible_with = ["@platforms//cpu:ppc"],
-    deps = [":simd_headers"],
-)
-
-cc_library(
-    name = "simd_headers",
-    hdrs = glob(["src/*.h"]),
-    deps = [":jpeg_config"],
     defines = ["WITH_SIMD"],
-    strip_include_prefix = "src",
+    target_compatible_with = ["@platforms//cpu:ppc"],
+    deps = [":jpeg_config"],
 )
 
 # libjpeg-turbo configure rules
