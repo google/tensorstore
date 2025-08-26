@@ -22,7 +22,7 @@ On Linux x86_64, invoke:
 
   ./cibuildwheel.py -- --platform linux
 
-to build manylinux2014_x86_64 wheels locally.  The wheels are
+to build manylinux_2_28_x86_64 wheels locally.  The wheels are
 written to the `dist/` sub-directory of the git repository root.
 
 WARNING: It is not recommended to run this locally on non-Linux
@@ -101,8 +101,8 @@ def run(args, extra_args):
   env["CIBW_TEST_COMMAND"] = (
       "python -m pytest {project}/python/tensorstore/tests -vv -s"
   )
-  env["CIBW_MANYLINUX_X86_64_IMAGE"] = "manylinux2014"
-  env["CIBW_MANYLINUX_AARCH64_IMAGE"] = "manylinux2014"
+  env["CIBW_MANYLINUX_X86_64_IMAGE"] = "manylinux_2_28"
+  env["CIBW_MANYLINUX_AARCH64_IMAGE"] = "manylinux_2_28"
   env["CIBW_BUILD_VERBOSITY"] = "1"
 
   script_dir = os.path.dirname(__file__)
