@@ -298,6 +298,7 @@ COMMON_SUBSTITUTIONS = {
     "@JPEG_LIB_VERSION@": "62",
     "#cmakedefine C_ARITH_CODING_SUPPORTED": "#define C_ARITH_CODING_SUPPORTED",
     "#cmakedefine D_ARITH_CODING_SUPPORTED": "#define D_ARITH_CODING_SUPPORTED",
+    "#undef WITH_SIMD": "// #undef WITH_SIMD",
     "#cmakedefine WITH_SIMD": "// #define WITH_SIMD",
     "#cmakedefine RIGHT_SHIFT_IS_UNSIGNED": "// #undef RIGHT_SHIFT_IS_UNSIGNED",
 }
