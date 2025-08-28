@@ -28,10 +28,10 @@ def repo():
         # "org_libjpeg_turbo" because this repository may actually refer to the
         # system jpeg.
         name = "libjpeg_turbo",
-        strip_prefix = "libjpeg-turbo-2.1.5.1",
-        urls = mirror_url("https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.5.1.tar.gz"),
-        sha256 = "61846251941e5791005fb7face196eec24541fce04f12570c308557529e92c75",
-        doc_version = "2.1.5.1",
+        strip_prefix = "libjpeg-turbo-3.1.1",
+        urls = mirror_url("https://github.com/libjpeg-turbo/libjpeg-turbo/archive/3.1.1.tar.gz"),
+        sha256 = "304165ae11e64ab752e9cfc07c37bfdc87abd0bfe4bc699e59f34036d9c84f72",
+        doc_version = "3.1.1",
         build_file = Label("//third_party:libjpeg_turbo/jpeg.BUILD.bazel"),
         system_build_file = Label("//third_party:libjpeg_turbo/system.BUILD.bazel"),
         cmake_name = "JPEG",
