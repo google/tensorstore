@@ -152,11 +152,16 @@ class DeadlineTaskQueue {
   Thread thread_;
 };
 
+double ToHistogramMilliseconds(absl::Time target_time) {
+  auto now = absl::Now();
+  if (target_time <= now) return 0;
+  return absl::ToInt64Milliseconds(target_time - now);
+}
+
 void DeadlineTaskQueue::ScheduleAt(absl::Time target_time, ScheduleAtTask task,
                                    const StopToken& stop_token) {
   schedule_at_queued_ops.Increment();
-  schedule_at_insert_histogram_ms.Observe(
-      absl::ToInt64Milliseconds(target_time - absl::Now()));
+  schedule_at_insert_histogram_ms.Observe(ToHistogramMilliseconds(target_time));
 
   internal_os::AbortIfForkDetected();
 

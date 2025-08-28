@@ -54,6 +54,7 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/thread/thread.h"
 
 ABSL_FLAG(std::optional<uint32_t>, tensorstore_http_threads, std::nullopt,
@@ -594,7 +595,12 @@ CurlTransport::CurlTransport(std::shared_ptr<CurlHandleFactory> factory)
     : impl_(std::make_unique<Impl>(std::move(factory),
                                    /*nthreads=*/GetHttpThreads())) {}
 
-CurlTransport::~CurlTransport() = default;
+CurlTransport::~CurlTransport() {
+  // The last reference to `this` may be dropped when a request receives a
+  // response, and self deletion may lead to crashes, so move the actual
+  // deletion to a background thread.
+  internal::ScheduleAt(absl::InfinitePast(), [impl = std::move(impl_)] {});
+};
 
 void CurlTransport::IssueRequestWithHandler(
     const HttpRequest& request, IssueRequestOptions options,

@@ -19,6 +19,9 @@
 
 #include "tensorstore/internal/curl/curl_transport.h"
 
+#include <stdint.h>
+
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -27,14 +30,21 @@
 #include <gtest/gtest.h>
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/synchronization/notification.h"
+#include "tensorstore/internal/curl/default_factory.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/thread/thread.h"
 
+using ::tensorstore::internal_http::CurlTransport;
+using ::tensorstore::internal_http::GetDefaultCurlHandleFactory;
 using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::HttpResponseHandler;
+using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;
 using ::tensorstore::transport_test_utils::AssertSend;
@@ -209,6 +219,60 @@ TEST_F(CurlTransportTest, Http1Resend) {
         HasSubstr("Content-Type: application/x-www-form-urlencoded\r\n"));
     EXPECT_THAT(request, HasSubstr("Hello"));
   }
+}
+
+class SelfDeletingHandler : public HttpResponseHandler {
+  std::shared_ptr<HttpTransport>& transport_ref;
+  absl::Notification& done_ref;
+
+ public:
+  SelfDeletingHandler(std::shared_ptr<HttpTransport>& transport_ref,
+                      absl::Notification& done_ref)
+      : transport_ref(transport_ref), done_ref(done_ref) {}
+
+  void OnStatus(int32_t) override {}
+  void OnResponseHeader(std::string_view, std::string_view) override {}
+  void OnHeaderBlockDone() override {}
+  void OnResponseBody(std::string_view) override {}
+
+  void OnFailure(absl::Status) override {
+    transport_ref.reset();
+    done_ref.Notify();
+  }
+  void OnComplete() override {
+    transport_ref.reset();
+    done_ref.Notify();
+  }
+};
+
+TEST(CurlTransport, SelfDeletion) {
+  std::shared_ptr<HttpTransport> transport =
+      std::make_shared<CurlTransport>(GetDefaultCurlHandleFactory());
+
+  std::weak_ptr<HttpTransport> weak_transport = transport;
+
+  // Issue a request and wait for the handler to complete.
+  {
+    absl::Notification done;
+    SelfDeletingHandler handler(transport, done);
+
+    transport->IssueRequestWithHandler(
+        HttpRequestBuilder("POST", "http://invalid.host.example.com")
+            .AddHeader("x-foo", "bar")
+            .EnableAcceptEncoding()
+            .BuildRequest(),
+        IssueRequestOptions(absl::Cord("Hello")), &handler);
+    done.WaitForNotification();
+  }
+
+  // Since there are no other references, it's impossible for this
+  // expect statement to fail, however the test is written this way
+  // to document the intent.
+  //
+  // NOTE: The internal implementation of CurlTransport is deleted on a
+  // background thread.
+  EXPECT_EQ(weak_transport.lock(), nullptr)
+      << "CurlTransport was not deleted after handler completion.";
 }
 
 }  // namespace
