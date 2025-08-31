@@ -1,0 +1,56 @@
+TensorStore C++ Benchmark Results - Run 3/5
+============================================
+Configuration: 1024MB total data, int32, n5 driver, file
+Tensor dimensions: [67108864, 1024]
+
+Running WRITE benchmarks...
+Block size: 1MB
+Block dimensions: [256, 1024]
+Write time: 15260ms
+-----------------------------
+Block size: 4MB
+Block dimensions: [1024, 1024]
+Write time: 12096ms
+-----------------------------
+Block size: 16MB
+Block dimensions: [4096, 1024]
+Write time: 14323ms
+-----------------------------
+Block size: 64MB
+Block dimensions: [16384, 1024]
+Write time: 13983ms
+-----------------------------
+Block size: 256MB
+Block dimensions: [65536, 1024]
+Write time: 15898ms
+-----------------------------
+Block size: 1024MB
+Block dimensions: [262144, 1024]
+Write time: 15722ms
+-----------------------------
+
+Running READ benchmarks...
+Block size: 1MB
+Block dimensions: [256, 1024]
+Read time: 7907ms
+-----------------------------
+Block size: 4MB
+Block dimensions: [1024, 1024]
+Read time: 8107ms
+-----------------------------
+Block size: 16MB
+Block dimensions: [4096, 1024]
+Read time: 7426ms
+-----------------------------
+Block size: 64MB
+Block dimensions: [16384, 1024]
+Read time: 1362ms
+-----------------------------
+Block size: 256MB
+Block dimensions: [65536, 1024]
+Read time: 2861ms
+-----------------------------
+Block size: 1024MB
+Block dimensions: [262144, 1024]
+Read time: 2347ms
+-----------------------------

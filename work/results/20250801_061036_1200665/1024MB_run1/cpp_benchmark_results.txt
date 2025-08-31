@@ -1,0 +1,80 @@
+TensorStore C++ Benchmark Results - Run 1/2
+============================================
+Configuration: 1024MB total data, int32, n5 driver, file
+Tensor dimensions: [1048576, 1024]
+
+Running WRITE benchmarks...
+Block size: 16MB
+Block dimensions: [4, 1024]
+Write time: 1061ms
+-----------------------------
+Block size: 64MB
+Block dimensions: [16, 1024]
+Write time: 674ms
+-----------------------------
+Block size: 256MB
+Block dimensions: [64, 1024]
+Write time: 642ms
+-----------------------------
+Block size: 1024MB
+Block dimensions: [256, 1024]
+Write time: 710ms
+-----------------------------
+Block size: 4096MB
+Block dimensions: [1024, 1024]
+Write time: 668ms
+-----------------------------
+Block size: 16384MB
+Block dimensions: [4096, 1024]
+Write time: 720ms
+-----------------------------
+Block size: 65536MB
+Block dimensions: [16384, 1024]
+Write time: 630ms
+-----------------------------
+Block size: 262144MB
+Block dimensions: [65536, 1024]
+Write time: 629ms
+-----------------------------
+Block size: 1048576MB
+Block dimensions: [262144, 1024]
+Write time: 650ms
+-----------------------------
+
+Running READ benchmarks...
+Block size: 16MB
+Block dimensions: [4, 1024]
+Read time: 643ms
+-----------------------------
+Block size: 64MB
+Block dimensions: [16, 1024]
+Read time: 639ms
+-----------------------------
+Block size: 256MB
+Block dimensions: [64, 1024]
+Read time: 644ms
+-----------------------------
+Block size: 1024MB
+Block dimensions: [256, 1024]
+Read time: 654ms
+-----------------------------
+Block size: 4096MB
+Block dimensions: [1024, 1024]
+Read time: 704ms
+-----------------------------
+Block size: 16384MB
+Block dimensions: [4096, 1024]
+Read time: 765ms
+-----------------------------
+Block size: 65536MB
+Block dimensions: [16384, 1024]
+Read time: 795ms
+-----------------------------
+Block size: 262144MB
+Block dimensions: [65536, 1024]
+Read time: 860ms
+-----------------------------
+Block size: 1048576MB
+Block dimensions: [262144, 1024]
+Read time: 1344ms
+-----------------------------

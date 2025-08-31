@@ -1,0 +1,28 @@
+TensorStore C++ Benchmark Results - AVERAGE (5 runs)
+================================================
+Configuration:
+  Total size: 4096MB
+  Data type: int32
+  Driver: n5
+  Compression: none
+  Strategy: sequential (sequential/random)
+  Storage type: memory (file/memory)
+  Cache clearing: Always enabled
+  Process ID: 8471
+  Output directory: /home/rifatxia/Desktop/TensorStore/Trial/tensorstore/work/results/20250801_071643_8165
+  Tensor dimensions: [4194304, 1024]
+
+Block sizes tested: 16KB, 64KB, 256KB, 1MB, 4MB, 16MB, 64MB, 256MB, 1024MB
+
+Average Results (5 runs):
+Block Size | Write Time (Avg±StdDev) | Read Time (Avg±StdDev) | Total Time (Avg)
+----------|---------------------------|------------------------|------------------
+     16KB |                      2072±33ms |                   2144±23ms |             4216ms
+     64KB |                      2069±25ms |                   2125±41ms |             4194ms
+    256KB |                      2052±15ms |                   2165±59ms |             4217ms
+      1MB |                      2066±27ms |                   2120±13ms |             4186ms
+      4MB |                      2092±31ms |                   2206±105ms |             4298ms
+     16MB |                      2082±42ms |                   2288±80ms |             4370ms
+     64MB |                      2086±35ms |                   2325±40ms |             4410ms
+    256MB |                      2073±23ms |                   2409±40ms |             4482ms
+   1024MB |                      2102±33ms |                   2905±424ms |             5007ms

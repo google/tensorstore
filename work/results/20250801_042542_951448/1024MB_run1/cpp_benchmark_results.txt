@@ -1,0 +1,80 @@
+TensorStore C++ Benchmark Results - Run 1/1
+============================================
+Configuration: 1024MB total data, int32, n5 driver, file
+Tensor dimensions: [1048576, 1024]
+
+Running WRITE benchmarks...
+Block size: 16MB
+Block dimensions: [4, 1024]
+Write time: 150242ms
+-----------------------------
+Block size: 64MB
+Block dimensions: [16, 1024]
+Write time: 39833ms
+-----------------------------
+Block size: 256MB
+Block dimensions: [64, 1024]
+Write time: 13413ms
+-----------------------------
+Block size: 1024MB
+Block dimensions: [256, 1024]
+Write time: 6554ms
+-----------------------------
+Block size: 4096MB
+Block dimensions: [1024, 1024]
+Write time: 4880ms
+-----------------------------
+Block size: 16384MB
+Block dimensions: [4096, 1024]
+Write time: 4388ms
+-----------------------------
+Block size: 65536MB
+Block dimensions: [16384, 1024]
+Write time: 4340ms
+-----------------------------
+Block size: 262144MB
+Block dimensions: [65536, 1024]
+Write time: 4301ms
+-----------------------------
+Block size: 1048576MB
+Block dimensions: [262144, 1024]
+Write time: 4309ms
+-----------------------------
+
+Running READ benchmarks...
+Block size: 16MB
+Block dimensions: [4, 1024]
+Read time: 8992ms
+-----------------------------
+Block size: 64MB
+Block dimensions: [16, 1024]
+Read time: 2021ms
+-----------------------------
+Block size: 256MB
+Block dimensions: [64, 1024]
+Read time: 1975ms
+-----------------------------
+Block size: 1024MB
+Block dimensions: [256, 1024]
+Read time: 1283ms
+-----------------------------
+Block size: 4096MB
+Block dimensions: [1024, 1024]
+Read time: 703ms
+-----------------------------
+Block size: 16384MB
+Block dimensions: [4096, 1024]
+Read time: 660ms
+-----------------------------
+Block size: 65536MB
+Block dimensions: [16384, 1024]
+Read time: 684ms
+-----------------------------
+Block size: 262144MB
+Block dimensions: [65536, 1024]
+Read time: 736ms
+-----------------------------
+Block size: 1048576MB
+Block dimensions: [262144, 1024]
+Read time: 1302ms
+-----------------------------

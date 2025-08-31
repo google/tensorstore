@@ -1,0 +1,2 @@
+Block_Size_MB,Block_Dim_0,Block_Dim_1,Write_Time_ms_Avg,Read_Time_ms_Avg,Total_Time_ms_Avg,Write_Time_ms_StdDev,Read_Time_ms_StdDev
+16KB,4,1024,196065.20,4235.80,200301.00,20343.33,1818.59

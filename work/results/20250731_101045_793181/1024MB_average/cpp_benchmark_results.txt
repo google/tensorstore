@@ -1,0 +1,14 @@
+TensorStore C++ Benchmark Results - AVERAGE (5 runs)
+================================================
+Configuration: 1024MB total data, int32, n5 driver, file
+Tensor dimensions: [67108864, 1024]
+
+Average Results (5 runs):
+Block Size | Write Time (Avg±StdDev) | Read Time (Avg±StdDev) | Total Time (Avg)
+----------|---------------------------|------------------------|------------------
+        1MB |                      8349±876ms |                    918±190ms |             9267ms
+        4MB |                      5996±416ms |                    790±142ms |             6786ms
+       16MB |                      5026±384ms |                    797±136ms |             5823ms
+       64MB |                      4720±352ms |                   1182±881ms |             5902ms
+      256MB |                      4661±292ms |                    891±184ms |             5552ms
+     1024MB |                      4689±170ms |                   1313±154ms |             6003ms
