@@ -18,6 +18,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <mutex>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -30,7 +31,6 @@
 #include "absl/time/clock.h"
 #include "absl/types/compare.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/transaction_impl.h"
 #include "tensorstore/util/future.h"
@@ -65,7 +65,7 @@ TransactionState::Node::~Node() {
 }
 
 void TransactionState::NoMoreCommitReferences() {
-  UniqueWriterLock lock(mutex_);
+  std::unique_lock lock(mutex_);
   const size_t count = commit_reference_count_.load(std::memory_order_relaxed);
   if (count >= kCommitReferenceIncrement) {
     // Another commit reference was created concurrently.
@@ -183,11 +183,11 @@ void TransactionState::RequestCommit() {
 void TransactionState::RequestAbort() { RequestAbort(GetCancelledError()); }
 
 void TransactionState::RequestAbort(const absl::Status& error) {
-  RequestAbort(error, UniqueWriterLock(mutex_));
+  RequestAbort(error, std::unique_lock(mutex_));
 }
 
 void TransactionState::RequestAbort(const absl::Status& error,
-                                    UniqueWriterLock<absl::Mutex> lock) {
+                                    std::unique_lock<absl::Mutex> lock) {
   auto commit_state = commit_state_;
   if (commit_state > kOpenAndCommitRequested) return;
   if (open_reference_count_.load(std::memory_order_relaxed) != 0) {
@@ -407,7 +407,7 @@ absl::Status TransactionState::Node::MarkAsTerminal() {
   if (!transaction->atomic()) {
     return absl::OkStatus();
   }
-  UniqueWriterLock lock(transaction->mutex_);
+  std::unique_lock lock(transaction->mutex_);
   if (transaction->existing_terminal_node_) {
     auto error = GetAtomicError(
         transaction->existing_terminal_node_->Describe(), this->Describe());
@@ -427,7 +427,7 @@ absl::Status TransactionState::Node::GetAtomicError(
 
 absl::Status TransactionState::Node::Register() {
   auto* transaction = transaction_.get();
-  UniqueWriterLock lock(transaction->mutex_);
+  std::unique_lock lock(transaction->mutex_);
   switch (transaction->commit_state_) {
     case kOpen:
     case kOpenAndCommitRequested:
@@ -460,7 +460,7 @@ absl::Status TransactionState::Node::Register() {
 Result<OpenTransactionNodePtr<TransactionState::Node>>
 TransactionState::GetOrCreateMultiPhaseNode(
     void* associated_data, absl::FunctionRef<Node*()> make_node) {
-  UniqueWriterLock lock(mutex_);
+  std::unique_lock lock(mutex_);
   switch (commit_state_) {
     case kOpen:
     case kOpenAndCommitRequested:
@@ -490,7 +490,7 @@ TransactionState::GetOrCreateMultiPhaseNode(
 
 OpenTransactionNodePtr<TransactionState::Node>
 TransactionState::GetExistingMultiPhaseNode(void* associated_data) {
-  UniqueWriterLock lock(mutex_);
+  std::unique_lock lock(mutex_);
   switch (commit_state_) {
     case kOpen:
     case kOpenAndCommitRequested:

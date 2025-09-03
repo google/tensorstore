@@ -338,7 +338,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:mutex",
         "//tensorstore/internal:open_mode_spec",
         "//tensorstore/internal:path",
         "//tensorstore/internal:unowned_to_shared",

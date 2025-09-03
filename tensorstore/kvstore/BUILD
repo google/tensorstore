@@ -179,7 +179,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:driver_kind_registry",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
-        "//tensorstore/internal:mutex",
         "//tensorstore/internal:path",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:tagged_ptr",

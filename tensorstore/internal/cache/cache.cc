@@ -154,7 +154,7 @@ void MaybeEvictEntries(CachePoolImpl* pool) noexcept {
   size_t num_entries_to_delete = 0;
 
   const auto destroy_entries = [&] {
-    internal::ScopedWriterUnlock unlock(pool->lru_mutex_);
+    internal::ScopedUnlock unlock(pool->lru_mutex_);
     for (size_t i = 0; i < num_entries_to_delete; ++i) {
       auto* entry = entries_to_delete[i];
       if (should_delete_cache_for_entry[i]) {
@@ -282,7 +282,7 @@ void DestroyCache(CachePoolImpl* pool,
 //
 // If `reference_count` was decreased to a value less than or equal to
 // `lock_threshold`, returns a lock on `mutex`.  Otherwise, returns an
-// unlocked `UniqueWriterLock`.
+// unlocked `std::unique_lock`.
 //
 // Args:
 //   reference_count: Reference count to adjust.
@@ -292,7 +292,7 @@ void DestroyCache(CachePoolImpl* pool,
 //   decrease_amount: Amount to subtract from `reference_count`.
 //   lock_threshold: Maximum reference count for which `mutex` must be locked.
 template <typename T, typename LockFn>
-inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
+inline std::unique_lock<absl::Mutex> DecrementReferenceCountWithLock(
     std::atomic<T>& reference_count, LockFn mutex_fn, T& new_count,
     internal::type_identity_t<T> decrease_amount,
     internal::type_identity_t<T> lock_threshold) {
@@ -318,7 +318,7 @@ inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
 
   // Handle the case of the reference_count possibly becoming less than or
   // equal to lock_threshold.
-  UniqueWriterLock lock(mutex_fn());
+  std::unique_lock lock(mutex_fn());
   // Reference count may have changed between the time at which we last
   // checked it and the time at which we acquired the mutex.
   auto count =
@@ -765,10 +765,10 @@ CacheEntry::~CacheEntry() {
 
 void CacheEntry::DoInitialize() {}
 
-void CacheEntry::WriterLock() { mutex_.WriterLock(); }
+void CacheEntry::lock() { mutex_.lock(); }
 
-void CacheEntry::WriterUnlock() {
-  UniqueWriterLock lock(mutex_, std::adopt_lock);
+void CacheEntry::unlock() {
+  std::unique_lock lock(mutex_, std::adopt_lock);
   auto flags = std::exchange(flags_, 0);
   if (!flags) return;
 

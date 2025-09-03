@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -263,7 +264,7 @@ class MemoryDriver::TransactionNode
     if (!single_phase_mutation.remaining_entries_.HasError()) {
       auto& data = static_cast<MemoryDriver&>(*this->driver()).data();
       TimestampedStorageGeneration generation;
-      UniqueWriterLock lock(data.mutex);
+      std::unique_lock lock(data.mutex);
       absl::Time commit_time = absl::Now();
       if (!ValidateEntryConditions(data, single_phase_mutation, commit_time)) {
         lock.unlock();

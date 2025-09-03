@@ -20,7 +20,7 @@
 #include <atomic>
 #include <cassert>
 #include <functional>
-#include <mutex>  // NOLINT
+#include <mutex>
 #include <type_traits>
 #include <utility>
 
@@ -39,7 +39,6 @@
 #include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
@@ -112,7 +111,7 @@ const AsyncCache::ReadRequestState& GetEffectiveReadRequestState(
 
 template <typename EntryOrNode>
 void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
-                          UniqueWriterLock<Entry> lock, Batch::View batch) {
+                          std::unique_lock<Entry> lock, Batch::View batch) {
   static_assert(std::is_same_v<EntryOrNode, Entry> ||
                 std::is_same_v<EntryOrNode, TransactionNode>);
   auto& request_state = entry_or_node.read_request_state_;
@@ -149,7 +148,7 @@ void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
 ///
 /// This function is called when a read or writeback operation completes, or a
 /// new writeback is requested.
-void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock,
+void MaybeStartReadOrWriteback(Entry& entry, std::unique_lock<Entry> lock,
                                Batch::View read_batch) {
   auto& read_request_state = entry.read_request_state_;
 
@@ -213,7 +212,7 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock,
       }
       if (!next) return;
       committing_transaction_node = next;
-      lock = UniqueWriterLock<Entry>(entry);
+      lock = std::unique_lock<Entry>(entry);
     }
   }
 
@@ -223,12 +222,12 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock,
   }
 }
 
-void MaybeIssueRead(Entry& entry, UniqueWriterLock<Entry> lock,
+void MaybeIssueRead(Entry& entry, std::unique_lock<Entry> lock,
                     Batch::View batch) {
   MaybeStartReadOrWriteback(entry, std::move(lock), batch);
 }
 
-void MaybeIssueRead(TransactionNode& node, UniqueWriterLock<Entry> lock,
+void MaybeIssueRead(TransactionNode& node, std::unique_lock<Entry> lock,
                     Batch::View batch) {
   if (!node.read_request_state_.issued.null()) return;
   EntryOrNodeStartRead(node, std::move(lock), batch);
@@ -286,7 +285,7 @@ class AsyncCacheBatchEntry : public Batch::Impl::Entry {
     ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
         << *entry_or_node_ << "Submitting batch read";
     auto& entry = GetOwningEntry(*entry_or_node_);
-    UniqueWriterLock lock(entry);
+    std::unique_lock lock(entry);
     auto& read_request_state = entry_or_node_->read_request_state_;
     if (!HaveSameSharedState(read_request_state.queued, promise_)) {
       // Read was cancelled or already issued, nothing to do.
@@ -308,7 +307,7 @@ Future<const void> RequestRead(EntryOrNode& entry_or_node,
   static_assert(std::is_same_v<EntryOrNode, Entry> ||
                 std::is_same_v<EntryOrNode, TransactionNode>);
   auto& entry = GetOwningEntry(entry_or_node);
-  UniqueWriterLock lock(entry);
+  std::unique_lock lock(entry);
 
   auto& effective_request_state = GetEffectiveReadRequestState(entry_or_node);
   const auto existing_time = effective_request_state.read_state.stamp.time;
@@ -384,7 +383,7 @@ class QueuedReadHandler {
 
 template <typename EntryOrNode>
 void ResolveIssuedRead(EntryOrNode& entry_or_node, absl::Status status,
-                       UniqueWriterLock<Entry> lock) {
+                       std::unique_lock<Entry> lock) {
   static_assert(std::is_same_v<EntryOrNode, Entry> ||
                 std::is_same_v<EntryOrNode, TransactionNode>);
   auto& request_state = entry_or_node.read_request_state_;
@@ -416,7 +415,7 @@ void EntryOrNodeReadSuccess(EntryOrNode& entry_or_node,
                 std::is_same_v<EntryOrNode, TransactionNode>);
   Entry& entry = GetOwningEntry(entry_or_node);
   const size_t read_state_size = GetReadStateSize(entry, read_state.data.get());
-  UniqueWriterLock lock(entry);
+  std::unique_lock lock(entry);
   assert(read_state.stamp.time != absl::InfinitePast());
   assert(!StorageGeneration::IsUnknown(read_state.stamp.generation));
   SetReadState(entry_or_node, std::move(read_state), read_state_size);
@@ -429,7 +428,7 @@ void EntryOrNodeReadError(EntryOrNode& entry_or_node, absl::Status error) {
                 std::is_same_v<EntryOrNode, TransactionNode>);
   assert(!error.ok());
   ResolveIssuedRead(entry_or_node, std::move(error),
-                    UniqueWriterLock{GetOwningEntry(entry_or_node)});
+                    std::unique_lock{GetOwningEntry(entry_or_node)});
 }
 
 void RemoveTransactionFromMap(TransactionNode& node) {
@@ -442,7 +441,7 @@ void RemoveTransactionFromMap(TransactionNode& node) {
 }
 
 void ResolveIssuedWriteback(AsyncCache::TransactionNode& node,
-                            UniqueWriterLock<Entry> lock) {
+                            std::unique_lock<Entry> lock) {
   auto& entry = GetOwningEntry(node);
 
   // Writeback of this transaction must have been in progress.
@@ -556,7 +555,7 @@ void AsyncCache::TransactionNode::PrepareForCommit() {
   // Acquire reference to be released by `Commit`.
   intrusive_ptr_increment(this);
   auto& entry = GetOwningEntry(*this);
-  UniqueWriterLock lock(entry);
+  std::unique_lock lock(entry);
   RemoveTransactionFromMap(*this);
   if (entry.committing_transaction_node_) {
     // Another node is already being committed.  Add this node to the end of the
@@ -588,9 +587,10 @@ void AsyncCache::TransactionNode::PrepareForCommit() {
 void AsyncCache::TransactionNode::Abort() {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "Abort";
   auto& entry = GetOwningEntry(*this);
-  UniqueWriterLock lock(entry);
-  RemoveTransactionFromMap(*this);
-  lock.unlock();
+  {
+    std::scoped_lock lock(entry);
+    RemoveTransactionFromMap(*this);
+  }
   AbortDone();
 }
 
@@ -600,7 +600,7 @@ void AsyncCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
       << ", data=" << read_state.data.get();
   auto& entry = GetOwningEntry(*this);
   const size_t read_state_size = GetReadStateSize(entry, read_state.data.get());
-  UniqueWriterLock lock{entry};
+  std::unique_lock lock{entry};
   auto& request_state = entry.read_request_state_;
   absl::Time read_state_time = read_state.stamp.time;
   if (!StorageGeneration::IsUnknown(read_state.stamp.generation)) {
@@ -618,7 +618,7 @@ void AsyncCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
 
 void AsyncCache::TransactionNode::WritebackError() {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "WritebackError";
-  ResolveIssuedWriteback(*this, UniqueWriterLock{GetOwningEntry(*this)});
+  ResolveIssuedWriteback(*this, std::unique_lock{GetOwningEntry(*this)});
 }
 
 Result<OpenTransactionNodePtr<AsyncCache::TransactionNode>>
@@ -637,7 +637,7 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
       if (node.initialized_status_.ok()) {
         if (new_implicit_transaction) {
           node.SetTransaction(GetOrCreateOpenTransaction(transaction));
-          UniqueWriterLock lock(entry);
+          std::lock_guard lock(entry);
           entry.transactions_.FindOrInsert(
               [&](TransactionNode& existing_node) {
                 return internal::DoThreeWayComparison(
@@ -653,7 +653,7 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
         node.initialized_status_ = node.Register();
       } else if (!new_implicit_transaction) {
         // If initialization failed, remove reference in cache entry to node.
-        UniqueWriterLock lock(entry);
+        std::lock_guard lock(entry);
         RemoveTransactionFromMap(node);
       }
       initialized = true;
@@ -685,7 +685,7 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
     size_t min_phase = transaction->phase();
     WeakTransactionNodePtr<TransactionNode> stale_node;
     while (true) {
-      UniqueWriterLock lock(*this);
+      std::unique_lock lock(*this);
       const auto MakeNode = [&] {
         auto* node = GetOwningCache(*this).DoAllocateTransactionNode(*this);
         node->SetTransaction(*transaction);
@@ -736,11 +736,11 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
 
 void AsyncCache::TransactionNode::Commit() { intrusive_ptr_decrement(this); }
 
-void AsyncCache::TransactionNode::WriterLock() { mutex_.WriterLock(); }
+void AsyncCache::TransactionNode::lock() { mutex_.lock(); }
 
-void AsyncCache::TransactionNode::WriterUnlock() {
+void AsyncCache::TransactionNode::unlock() {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "unlock";
-  UniqueWriterLock lock(mutex_, std::adopt_lock);
+  std::lock_guard lock(mutex_, std::adopt_lock);
   if (!size_updated_) return;
   size_updated_ = false;
   const size_t new_size = this->ComputeWriteStateSizeInBytes();
@@ -750,9 +750,9 @@ void AsyncCache::TransactionNode::WriterUnlock() {
 }
 
 bool AsyncCache::TransactionNode::try_lock() {
-  mutex_.WriterLock();
+  mutex_.lock();
   if (!IsRevoked()) return true;
-  mutex_.WriterUnlock();
+  mutex_.unlock();
   return false;
 }
 

@@ -45,7 +45,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
@@ -65,6 +64,7 @@
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
@@ -444,8 +444,7 @@ class MinishardIndexCache
 
 MinishardAndChunkId GetMinishardAndChunkId(std::string_view key) {
   assert(key.size() == 16);
-  return {absl::big_endian::Load64(key.data()),
-          {absl::big_endian::Load64(key.data() + 8)}};
+  return {big_endian::Load64(key.data()), {big_endian::Load64(key.data() + 8)}};
 }
 
 /// Cache used to buffer writes to the KeyValueStore.
@@ -469,13 +468,13 @@ class ShardedKeyValueStoreWriteCache
   static std::string ShardToKey(ShardIndex shard) {
     std::string key;
     key.resize(sizeof(ShardIndex));
-    absl::big_endian::Store64(key.data(), shard);
+    big_endian::Store64(key.data(), shard);
     return key;
   }
 
   static ShardIndex KeyToShard(std::string_view key) {
     assert(key.size() == sizeof(ShardIndex));
-    return absl::big_endian::Load64(key.data());
+    return big_endian::Load64(key.data());
   }
 
   class Entry : public Base::Entry {
@@ -571,7 +570,8 @@ class ShardedKeyValueStoreWriteCache
     void Revoke() override {
       Base::TransactionNode::Revoke();
       {
-        UniqueWriterLock(*this);
+        this->lock();
+        this->unlock();
       }
       // At this point, no new entries may be added and we can safely traverse
       // the list of entries without a lock.
@@ -1109,8 +1109,8 @@ class ShardedKeyValueStore
         write_cache_, ShardedKeyValueStoreWriteCache::ShardToKey(shard));
     std::string key_within_shard;
     key_within_shard.resize(16);
-    absl::big_endian::Store64(key_within_shard.data(), shard_info.minishard);
-    absl::big_endian::Store64(key_within_shard.data() + 8, chunk_id.value);
+    big_endian::Store64(key_within_shard.data(), shard_info.minishard);
+    big_endian::Store64(key_within_shard.data() + 8, chunk_id.value);
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto node, GetWriteLockedTransactionNode(*entry, transaction));
     node->ReadModifyWrite(phase, std::move(key_within_shard), source);
@@ -1655,8 +1655,8 @@ Future<kvstore::ReadResult> ShardedKeyValueStore::TransactionalRead(
   const ShardIndex shard = shard_info.shard;
   std::string key_within_shard;
   key_within_shard.resize(16);
-  absl::big_endian::Store64(key_within_shard.data(), shard_info.minishard);
-  absl::big_endian::Store64(key_within_shard.data() + 8, chunk_id.value);
+  big_endian::Store64(key_within_shard.data(), shard_info.minishard);
+  big_endian::Store64(key_within_shard.data() + 8, chunk_id.value);
   auto entry = GetCacheEntry(write_cache_,
                              ShardedKeyValueStoreWriteCache::ShardToKey(shard));
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -1731,13 +1731,13 @@ kvstore::DriverPtr GetShardedKeyValueStore(
 std::string ChunkIdToKey(ChunkId chunk_id) {
   std::string key;
   key.resize(sizeof(uint64_t));
-  absl::big_endian::Store64(key.data(), chunk_id.value);
+  big_endian::Store64(key.data(), chunk_id.value);
   return key;
 }
 
 std::optional<ChunkId> KeyToChunkId(std::string_view key) {
   if (key.size() != 8) return std::nullopt;
-  return ChunkId{absl::big_endian::Load64(key.data())};
+  return ChunkId{big_endian::Load64(key.data())};
 }
 
 }  // namespace neuroglancer_uint64_sharded

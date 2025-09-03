@@ -165,8 +165,7 @@ using WeakPinnedCacheEntry = internal_cache::WeakPinnedCacheEntry;
 
 /// Base class for cache entries.
 ///
-/// This class can be used with `tensorstore::UniqueWriterLock`.  Refer to
-/// `WriterLock` and `WriterUnlock` for details.
+/// This class can be used with `std::std::unique_lock`.
 class ABSL_LOCKABLE CacheEntry : private internal_cache::CacheEntryImpl {
  public:
   /// Alias required by the `GetOwningCache` function.  Derived `Entry` classes
@@ -190,12 +189,12 @@ class ABSL_LOCKABLE CacheEntry : private internal_cache::CacheEntryImpl {
   absl::Mutex& mutex() { return mutex_; }
 
   /// Acquires a lock on `mutex()`.
-  void WriterLock() ABSL_EXCLUSIVE_LOCK_FUNCTION();
+  void lock() ABSL_EXCLUSIVE_LOCK_FUNCTION();
 
   /// Releases a previously-acquired lock on `mutex()`, and updates the size in
   /// the cache pool, if the size is being tracked and `NotifySizeChanged()` was
   /// called.
-  void WriterUnlock() ABSL_UNLOCK_FUNCTION();
+  void unlock() ABSL_UNLOCK_FUNCTION();
 
   void DebugAssertMutexHeld() {
 #ifndef NDEBUG

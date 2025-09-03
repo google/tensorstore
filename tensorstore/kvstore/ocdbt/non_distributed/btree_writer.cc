@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -47,7 +48,6 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/btree_writer.h"
@@ -112,7 +112,7 @@ struct CommitOperation final
   //   writer: Btree writer for which to commit pending mutations.
   //   lock: Handle to lock on `writer.mutex_`.
   static void MaybeStart(NonDistributedBtreeWriter& writer,
-                         UniqueWriterLock<absl::Mutex> lock);
+                         std::unique_lock<absl::Mutex>&& lock);
 
   // Starts an asynchronous commit operation.
   //
@@ -146,7 +146,7 @@ struct CommitOperation final
 };
 
 void CommitOperation::MaybeStart(NonDistributedBtreeWriter& writer,
-                                 UniqueWriterLock<absl::Mutex> lock) {
+                                 std::unique_lock<absl::Mutex>&& lock) {
   if (writer.commit_in_progress_) return;
   // TODO(jbms): Consider adding a delay here, using `ScheduleAt`.
 
@@ -172,7 +172,7 @@ void CommitOperation::Fail(const absl::Status& error) {
   auto& writer = *writer_;
   PendingRequests pending;
   {
-    UniqueWriterLock lock(writer.mutex_);
+    absl::MutexLock lock(writer.mutex_);
     writer.commit_in_progress_ = false;
     std::swap(pending, writer.pending_);
   }
@@ -261,7 +261,7 @@ void CommitOperation::CommitSuccessful(absl::Time time) {
   internal_ocdbt::CommitSuccessful(staged_, time);
   auto writer = std::move(writer_);
   delete this;
-  UniqueWriterLock lock(writer->mutex_);
+  std::unique_lock lock(writer->mutex_);
   writer->commit_in_progress_ = false;
   if (!writer->pending_.requests.empty()) {
     CommitOperation::MaybeStart(*writer, std::move(lock));
@@ -298,7 +298,7 @@ Future<TimestampedStorageGeneration> NonDistributedBtreeWriter::Write(
           value_ref.emplace<IndirectDataReference>());
     }
   }
-  UniqueWriterLock lock{writer.mutex_};
+  std::unique_lock lock{writer.mutex_};
   writer.pending_.requests.emplace_back(
       MutationEntryUniquePtr(request.release()));
   if (!value_future.null()) {
@@ -315,7 +315,7 @@ Future<const void> NonDistributedBtreeWriter::DeleteRange(KeyRange range) {
   request->kind_ = MutationEntry::kDeleteRange;
   request->key_ = std::move(range.inclusive_min);
   request->exclusive_max_ = std::move(range.exclusive_max);
-  UniqueWriterLock lock{writer.mutex_};
+  std::unique_lock lock{writer.mutex_};
   writer.pending_.requests.emplace_back(
       MutationEntryUniquePtr(request.release()));
   Future<const void> future;
@@ -348,7 +348,7 @@ struct CopySubtreeListReceiver {
   void set_value(std::string_view key_prefix,
                  span<const LeafNodeEntry> entries) {
     if (entries.empty()) return;
-    UniqueWriterLock lock{writer->mutex_};
+    std::unique_lock lock{writer->mutex_};
     for (auto& entry : entries) {
       auto key = tensorstore::StrCat(
           add_prefix,

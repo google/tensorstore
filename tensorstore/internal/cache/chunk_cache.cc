@@ -198,9 +198,9 @@ struct ReadChunkTransactionImpl {
         // We are allowed to read from a revoked transaction node (and in fact
         // it is necessary in order to avoid potential livelock).  Therefore,
         // this always succeeds unconditionally.
-        node.WriterLock();
+        node.lock();
       } else {
-        node.WriterUnlock();
+        node.unlock();
       }
       return true;
     };
@@ -321,7 +321,7 @@ struct WriteChunkImpl {
       if (lock) {
         return node.try_lock();
       } else {
-        node.WriterUnlock();
+        node.unlock();
         return true;
       }
     };
@@ -545,7 +545,7 @@ Future<const void> ChunkCache::DeleteCell(
 }
 
 absl::Status ChunkCache::TransactionNode::Delete() {
-  UniqueWriterLock lock(*this);
+  std::lock_guard lock(*this);
   this->MarkSizeUpdated();
   this->is_modified = true;
   auto& entry = GetOwningEntry(*this);
@@ -653,7 +653,7 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
     auto& entry = GetOwningEntry(*this);
     auto& grid = GetOwningCache(entry).grid();
     {
-      UniqueWriterLock<AsyncCache::TransactionNode> lock(*this);
+      std::lock_guard lock(*this);
       for (size_t component_i = 0; component_i < grid.components.size();
            ++component_i) {
         auto& component = this->components()[component_i];
@@ -691,7 +691,7 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
         if (is_modified) {
           // Protect against concurrent calls to `DoApply`, since this may
           // modify the write arrays to incorporate the read state.
-          UniqueWriterLock<AsyncCache::TransactionNode> lock(*this);
+          std::lock_guard lock(*this);
           WritebackSnapshot snapshot(
               *this, AsyncCache::ReadView<ReadData>(read_state));
           read_state.data = std::move(snapshot.new_read_data());

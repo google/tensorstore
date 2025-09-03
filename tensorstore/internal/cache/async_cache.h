@@ -36,7 +36,6 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
@@ -268,7 +267,7 @@ class AsyncCache : public Cache {
     }
 
    private:
-    UniqueWriterLock<absl::Mutex> lock_;
+    std::unique_lock<absl::Mutex> lock_;
   };
 
   // Class template argument deduction (CTAD) would make `ReadLock` more
@@ -312,13 +311,13 @@ class AsyncCache : public Cache {
     internal::OpenTransactionNodePtr<DerivedNode> unlock()
         ABSL_NO_THREAD_SAFETY_ANALYSIS {
       if (node_) {
-        node_->WriterUnlock();
+        node_->unlock();
       }
       return std::exchange(node_, {});
     }
 
     ~WriteLock() ABSL_NO_THREAD_SAFETY_ANALYSIS {
-      if (node_) node_->WriterUnlock();
+      if (node_) node_->unlock();
     }
 
    private:
@@ -455,7 +454,7 @@ class AsyncCache : public Cache {
     // Below members should be treated as private:
 
     ReadState& LockReadState() ABSL_NO_THREAD_SAFETY_ANALYSIS {
-      mutex().WriterLock();
+      mutex().lock();
       return read_request_state_.read_state;
     }
 
@@ -516,13 +515,13 @@ class AsyncCache : public Cache {
 
     /// Acquires an exclusive lock on the "modification state" (i.e. `mutex_`).
     /// When recording modifications, this lock must be held.  `TransactionNode`
-    /// may be used with `UniqueWriterLock`.
-    void WriterLock() ABSL_EXCLUSIVE_LOCK_FUNCTION();
+    /// may be used with `std::unique_lock`.
+    void lock() ABSL_EXCLUSIVE_LOCK_FUNCTION();
 
     /// Updates the transaction or `CachePool` size accounting by calling
     /// `ComputeSizeInBytes()`, and then releases the lock acquired by
-    /// `WriterLock()`.
-    void WriterUnlock() ABSL_UNLOCK_FUNCTION();
+    /// `lock()`.
+    void unlock() ABSL_UNLOCK_FUNCTION();
 
     void DebugAssertMutexHeld() {
 #ifndef NDEBUG
@@ -783,7 +782,7 @@ class AsyncCache : public Cache {
 
     ReadState& LockReadState() ABSL_NO_THREAD_SAFETY_ANALYSIS {
       auto& entry = GetOwningEntry(*this);
-      entry.mutex().WriterLock();
+      entry.mutex().lock();
       if (reads_committed_) {
         return entry.read_request_state_.read_state;
       } else {

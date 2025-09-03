@@ -191,7 +191,7 @@ Result<absl::Cord> EncodeWithOptionalCompression(
   riegeli::CordWriter writer(&encoded);
   bool success = [&] {
     char header[12];
-    absl::big_endian::Store32(header, magic);
+    big_endian::Store32(header, magic);
 
     // Leave 12-byte placeholder to be filled in later.
     if (!writer.Write(riegeli::ByteFill(12))) return false;

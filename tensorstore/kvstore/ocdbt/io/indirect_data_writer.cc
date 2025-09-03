@@ -17,6 +17,7 @@
 #include <stddef.h>
 
 #include <cassert>
+#include <mutex>
 #include <string>
 #include <utility>
 
@@ -105,7 +106,8 @@ void intrusive_ptr_decrement(IndirectDataWriter* p) {
 }
 
 namespace {
-void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
+void MaybeFlush(IndirectDataWriter& self,
+                std::unique_lock<absl::Mutex>&& lock) {
   bool buffer_at_target =
       self.target_size_ > 0 && self.buffer_.size() >= self.target_size_;
 
@@ -159,7 +161,7 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
         } else {
           promise.SetResult(absl::OkStatus());
         }
-        UniqueWriterLock lock{self->mutex_};
+        std::unique_lock lock{self->mutex_};
         assert(self->in_flight_ > 0);
         self->in_flight_--;
         // Another flush may have been requested even while this flush was in
@@ -182,7 +184,7 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
     ref.length = 0;
     return absl::OkStatus();
   }
-  UniqueWriterLock lock{self.mutex_};
+  std::unique_lock lock{self.mutex_};
   Future<const void> future;
   if (self.promise_.null() || (future = self.promise_.future()).null()) {
     // Create new data file.
@@ -194,7 +196,7 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
         [self = internal::IntrusivePtr<IndirectDataWriter>(&self)](
             Promise<void> promise) {
           ABSL_LOG_IF(INFO, ocdbt_logging) << "Force called";
-          UniqueWriterLock lock{self->mutex_};
+          std::unique_lock lock{self->mutex_};
           if (!HaveSameSharedState(promise, self->promise_)) return;
           self->flush_requested_ = true;
           MaybeFlush(*self, std::move(lock));

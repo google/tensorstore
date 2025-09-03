@@ -14,6 +14,13 @@
 
 #include "tensorstore/internal/lock_collection.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+
+#include "absl/base/thread_annotations.h"
+#include "absl/synchronization/mutex.h"
+
 namespace tensorstore {
 namespace internal {
 
@@ -21,9 +28,9 @@ bool LockCollection::MutexSharedLockFunction(void* mutex, bool lock)
     ABSL_NO_THREAD_SAFETY_ANALYSIS {
   auto& m = *static_cast<absl::Mutex*>(mutex);
   if (lock) {
-    m.ReaderLock();
+    m.lock_shared();
   } else {
-    m.ReaderUnlock();
+    m.unlock_shared();
   }
   return true;
 }
@@ -32,9 +39,9 @@ bool LockCollection::MutexExclusiveLockFunction(void* mutex, bool lock)
     ABSL_NO_THREAD_SAFETY_ANALYSIS {
   auto& m = *static_cast<absl::Mutex*>(mutex);
   if (lock) {
-    m.WriterLock();
+    m.lock();
   } else {
-    m.WriterUnlock();
+    m.unlock();
   }
   return true;
 }

@@ -37,7 +37,6 @@ tensorstore_cc_library(
         "//tensorstore/driver/zarr3/codec:codec_chain_spec",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:mutex",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:async_cache",
         "//tensorstore/internal/cache:cache_pool_resource",

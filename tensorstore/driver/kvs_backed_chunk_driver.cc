@@ -19,6 +19,7 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -56,7 +57,6 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/unowned_to_shared.h"
@@ -1129,7 +1129,7 @@ Future<MetadataPtr> MetadataCache::Entry::ReadMetadata(
 
 Result<MetadataCache::MetadataPtr>
 MetadataCache::TransactionNode::GetUpdatedMetadata(MetadataPtr metadata) {
-  UniqueWriterLock lock(*this);
+  std::lock_guard lock(*this);
   if (this->updated_metadata_base_state_ == metadata) {
     return this->updated_metadata_;
   }

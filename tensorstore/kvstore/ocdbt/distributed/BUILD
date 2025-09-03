@@ -267,7 +267,6 @@ tensorstore_cc_library(
         ":cooperator",
         ":rpc_security",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:mutex",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",

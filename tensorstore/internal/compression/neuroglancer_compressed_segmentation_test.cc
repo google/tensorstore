@@ -24,6 +24,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/random/random.h"
+#include "tensorstore/util/endian.h"
 
 namespace {
 
@@ -39,7 +40,7 @@ std::vector<uint32_t> AsVec(std::string_view s) {
   EXPECT_EQ(0, s.size() % 4);
   std::vector<uint32_t> out(s.size() / 4);
   for (size_t i = 0; i < out.size(); ++i) {
-    out[i] = absl::little_endian::Load32(s.data() + i * 4);
+    out[i] = tensorstore::little_endian::Load32(s.data() + i * 4);
   }
   return out;
 }
@@ -48,7 +49,7 @@ std::string FromVec(std::vector<uint32_t> v) {
   std::string s;
   s.resize(v.size() * 4);
   for (size_t i = 0; i < v.size(); ++i) {
-    absl::little_endian::Store32(s.data() + i * 4, v[i]);
+    tensorstore::little_endian::Store32(s.data() + i * 4, v[i]);
   }
   return s;
 }

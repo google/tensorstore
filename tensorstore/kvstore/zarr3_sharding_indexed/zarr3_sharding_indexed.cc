@@ -49,7 +49,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -460,7 +459,7 @@ class ShardedKeyValueStoreWriteCache
     void RecordEntryWritebackError(
         internal_kvstore::ReadModifyWriteEntry& entry,
         absl::Status error) override {
-      absl::MutexLock lock(&mutex_);
+      absl::MutexLock lock(mutex_);
       if (apply_status_.ok()) {
         apply_status_ = std::move(error);
       }
@@ -469,7 +468,8 @@ class ShardedKeyValueStoreWriteCache
     void Revoke() override {
       Base::TransactionNode::Revoke();
       {
-        UniqueWriterLock(*this);
+        lock();
+        unlock();
       }
       // At this point, no new entries may be added and we can safely traverse
       // the list of entries without a lock.
