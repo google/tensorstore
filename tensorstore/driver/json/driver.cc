@@ -18,6 +18,7 @@
 
 #include <cassert>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -53,7 +54,6 @@
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_pointer.h"
 #include "tensorstore/internal/lock_collection.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/unowned_to_shared.h"
@@ -479,7 +479,7 @@ struct ReadChunkTransactionImpl {
     auto value = std::allocate_shared<::nlohmann::json>(
         ArenaAllocator<::nlohmann::json>(arena));
     {
-      UniqueWriterLock lock(*node);
+      std::lock_guard lock(*node);
       if ((node->transaction()->mode() & repeatable_read) &&
           !node->changes_.CanApplyUnconditionally(driver->json_pointer_)) {
         TENSORSTORE_RETURN_IF_ERROR(
@@ -515,7 +515,7 @@ void JsonDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto node, GetTransactionNode(*cache_entry_, request.transaction));
       const bool unconditional = [&] {
-        UniqueWriterLock<AsyncCache::TransactionNode> lock(*node);
+        std::lock_guard lock(*node);
         return node->changes_.CanApplyUnconditionally(json_pointer_);
       }();
       auto read_future = unconditional ? MakeReadyFuture()

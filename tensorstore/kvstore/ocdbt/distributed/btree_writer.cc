@@ -142,11 +142,13 @@
 #include <cassert>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/base/attributes.h"
@@ -158,13 +160,13 @@
 #include <blake3.h>
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_write_mutation.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
@@ -269,7 +271,7 @@ struct WriterCommitOperation
   //   lock: Handle to lock on `writer.mutex_`.
   static void MaybeStart(DistributedBtreeWriter& writer,
                          absl::Time manifest_staleness_bound,
-                         UniqueWriterLock<absl::Mutex> lock);
+                         std::unique_lock<absl::Mutex>&& lock);
 
   // Starts an asynchronous commit operation.
   static void StartCommit(DistributedBtreeWriter& writer,
@@ -362,7 +364,7 @@ struct WriterCommitOperation
 
 void WriterCommitOperation::MaybeStart(DistributedBtreeWriter& writer,
                                        absl::Time manifest_staleness_bound,
-                                       UniqueWriterLock<absl::Mutex> lock) {
+                                       std::unique_lock<absl::Mutex>&& lock) {
   if (writer.commit_in_progress_) return;
   // FIXME: maybe have a delay
 
@@ -698,7 +700,7 @@ void WriterCommitOperation::SubmitRequests(
         // Retry
         ABSL_LOG_IF(INFO, ocdbt_logging)
             << "Retrying mutation batch: " << r.status();
-        UniqueWriterLock lock{writer->mutex_};
+        std::unique_lock lock{writer->mutex_};
         auto& pending = writer->pending_.write_requests;
         pending.insert(pending.end(), write_requests.begin(),
                        write_requests.end());
@@ -743,7 +745,7 @@ Future<TimestampedStorageGeneration> DistributedBtreeWriter::Write(
           value_ref.emplace<IndirectDataReference>());
     }
   }
-  UniqueWriterLock lock{writer.mutex_};
+  std::unique_lock lock{writer.mutex_};
   writer.pending_.write_requests.emplace_back(std::move(request));
   if (needs_inline_value_pass) {
     writer.pending_.needs_inline_value_pass = true;

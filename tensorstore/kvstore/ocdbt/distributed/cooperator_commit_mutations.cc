@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -446,7 +447,7 @@ void NodeCommitOperation::ApplyMutations(NodeCommitOperation::Ptr commit_op,
 }
 
 void NodeCommitOperation::Done() {
-  UniqueWriterLock lock{mutation_requests->mutex};
+  std::unique_lock lock{mutation_requests->mutex};
   mutation_requests->commit_in_progress = false;
   MaybeCommit(*server, std::move(mutation_requests), std::move(lock));
 }
@@ -847,7 +848,7 @@ void NodeCommitOperation::RetryCommit(NodeCommitOperation::Ptr commit_op) {
 // Starts a commit operation if one is not already in progress.
 void MaybeCommit(Cooperator& server,
                  internal::IntrusivePtr<NodeMutationRequests> mutation_requests,
-                 UniqueWriterLock<absl::Mutex>&& lock) {
+                 std::unique_lock<absl::Mutex>&& lock) {
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server.listening_port_ << "] MaybeCommit: node_identifier="
       << mutation_requests->lease_node->node_identifier
@@ -861,7 +862,7 @@ void MaybeCommit(Cooperator& server,
       server.node_mutation_map_.erase(mutation_requests->node_key());
       return;
     }
-    lock = UniqueWriterLock{mutation_requests->mutex};
+    lock = std::unique_lock{mutation_requests->mutex};
   }
   if (mutation_requests->commit_in_progress) return;
   mutation_requests->commit_in_progress = true;

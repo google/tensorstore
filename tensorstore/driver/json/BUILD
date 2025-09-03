@@ -43,7 +43,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_pointer",
         "//tensorstore/internal:lock_collection",
-        "//tensorstore/internal:mutex",
         "//tensorstore/internal:nditerable",
         "//tensorstore/internal:nditerable_transformed_array",
         "//tensorstore/internal:unowned_to_shared",

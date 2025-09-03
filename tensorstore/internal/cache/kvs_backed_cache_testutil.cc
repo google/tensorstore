@@ -19,6 +19,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <random>
 #include <string>
@@ -41,7 +42,6 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/testing/dynamic.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/kvstore/generation.h"
@@ -177,7 +177,7 @@ void KvsBackedTestCache::TransactionNode::DoApply(ApplyOptions options,
     return execution::set_value(receiver, std::move(read_state));
   };
   if ([&] {
-        UniqueWriterLock lock(*this);
+        std::lock_guard lock(*this);
         return !IsUnconditional();
       }()) {
     this->Read({options.staleness_bound})

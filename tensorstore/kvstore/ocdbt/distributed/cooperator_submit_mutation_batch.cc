@@ -15,6 +15,7 @@
 #include <stddef.h>
 
 #include <cassert>
+#include <mutex>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -158,7 +159,7 @@ struct SubmitMutationBatchOperation
 
     auto node_mutation_requests = state->server->GetNodeMutationRequests(
         *state->lease_node, state->node_identifier.height);
-    UniqueWriterLock lock(node_mutation_requests->mutex);
+    std::unique_lock lock(node_mutation_requests->mutex);
     PendingRequests new_pending;
     new_pending.requests = std::move(pending_requests);
     node_mutation_requests->pending.Append(std::move(new_pending));
@@ -350,7 +351,7 @@ void EnqueueWriteRequest(Cooperator& server,
   batch.node_generation_at_latest_root_generation.value =
       request->node_generation();
 
-  UniqueWriterLock lock(mutation_requests->mutex);
+  std::unique_lock lock(mutation_requests->mutex);
   mutation_requests->pending.Append(std::move(batch));
   MaybeCommit(server, std::move(mutation_requests), std::move(lock));
 }

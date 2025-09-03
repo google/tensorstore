@@ -972,10 +972,7 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "mutex",
     hdrs = ["mutex.h"],
-    deps = [
-        "@abseil-cpp//absl/base:core_headers",
-        "@abseil-cpp//absl/synchronization",
-    ],
+    deps = ["@abseil-cpp//absl/synchronization"],
 )
 
 tensorstore_cc_library(

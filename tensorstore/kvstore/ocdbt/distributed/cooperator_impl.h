@@ -153,7 +153,7 @@ void NoLeaseError(grpc::ServerUnaryReactor* reactor);
 void MaybeCommit(
     Cooperator& server,
     internal::IntrusivePtr<Cooperator::NodeMutationRequests> mutation_requests,
-    UniqueWriterLock<absl::Mutex>&& lock);
+    std::unique_lock<absl::Mutex>&& lock);
 
 // Returns `true` if `status` returned from a gRPC request to another cooperator
 // indicates that the lease should be revoked.

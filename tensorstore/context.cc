@@ -244,7 +244,7 @@ Result<ResourceImplStrongPtr> CreateResource(ContextImpl& context,
   context.resources_.insert(std::move(container));
   Result<ResourceImplStrongPtr> result{};
   {
-    internal::ScopedWriterUnlock unlock(context.root_->mutex_);
+    internal::ScopedUnlock unlock(context.root_->mutex_);
     result = spec.CreateResource({&context, container_ptr});
     if (result.ok()) {
       auto& resource = **result;
@@ -259,7 +259,7 @@ Result<ResourceImplStrongPtr> CreateResource(ContextImpl& context,
         // yet been cleared.  Therefore, it is safe to access
         // `resource.weak_creator_` without locking `resource.mutex_`.  However,
         // for consistency we acquire it anyway.
-        absl::MutexLock lock(&resource.mutex_);
+        absl::MutexLock lock(resource.mutex_);
         assert(resource.weak_creator_ == nullptr);
         resource.weak_creator_ = &context;
       }
@@ -290,18 +290,18 @@ Result<ResourceImplStrongPtr> GetOrCreateResourceStrongPtr(
     ResourceContainer container;
     container.spec_.reset(&spec);
     if (trigger) {
-      absl::MutexLock lock(&context.root_->mutex_);
+      absl::MutexLock lock(context.root_->mutex_);
       assert(!trigger->creation_blocked_on_);
       trigger->creation_blocked_on_ = &container;
     }
     auto result = spec.CreateResource({&context, &container});
     if (trigger) {
-      absl::MutexLock lock(&context.root_->mutex_);
+      absl::MutexLock lock(context.root_->mutex_);
       trigger->creation_blocked_on_ = nullptr;
     }
     return result;
   }
-  absl::MutexLock lock(&context.root_->mutex_);
+  absl::MutexLock lock(context.root_->mutex_);
   assert(context.spec_);
 #ifndef NDEBUG
   {

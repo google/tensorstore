@@ -141,7 +141,6 @@ tensorstore_cc_library(
         ":staged_mutations",
         ":storage_generation",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:mutex",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
@@ -271,6 +270,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
     ],
 )

@@ -98,7 +98,6 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/driver.h"
@@ -807,7 +806,7 @@ Future<ReadResult> TransactionalReadImpl(
   }
   MultiPhaseMutation* multi_phase_mutation = node.get();
   auto& mutex = multi_phase_mutation->mutex();
-  UniqueWriterLock<absl::Mutex> lock(mutex);
+  std::unique_lock<absl::Mutex> lock(mutex);
   return multi_phase_mutation->ReadImpl(std::move(node), driver, std::move(key),
                                         std::move(options),
                                         [&lock] { lock.unlock(); });

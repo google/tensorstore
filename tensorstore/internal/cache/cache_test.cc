@@ -19,6 +19,7 @@
 #include <atomic>
 #include <deque>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -34,7 +35,6 @@
 
 namespace {
 
-using ::tensorstore::UniqueWriterLock;
 using ::tensorstore::internal::Cache;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::CachePtr;
@@ -84,14 +84,14 @@ class TestCache : public Cache {
     size_t size = 1;
 
     void ChangeSize(size_t new_size) {
-      UniqueWriterLock<Cache::Entry> lock(*this);
+      std::lock_guard<Cache::Entry> lock(*this);
       size = new_size;
       NotifySizeChanged();
     }
 
     ~Entry() override {
       if (log_) {
-        absl::MutexLock lock(&log_->mutex);
+        absl::MutexLock lock(log_->mutex);
         log_->entry_destroy_log.emplace_back(cache_identifier_,
                                              std::string(this->key()));
       }

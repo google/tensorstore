@@ -22,6 +22,7 @@
 #include <cassert>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <optional>
 #include <string>
@@ -41,7 +42,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -2090,7 +2090,7 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
       execution::set_value(receiver, kvstore::ReadResult{});
       return;
     }
-    UniqueWriterLock lock(mutex_);
+    std::unique_lock lock(mutex_);
     if (!StorageGeneration::IsConditional(read_result_.stamp.generation) ||
         (fail_transaction_on_mismatch_ &&
          !this->transaction()->commit_started())) {
@@ -2131,7 +2131,7 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
       OptionalByteRangeRequest byte_range_;
       void set_value(ReadResult read_result) {
         {
-          UniqueWriterLock lock(source_.mutex_);
+          std::unique_lock lock(source_.mutex_);
           auto base_generation = source_.GetBaseGeneration();
           // Check if the new read generation matches the condition specified in
           // the read request.

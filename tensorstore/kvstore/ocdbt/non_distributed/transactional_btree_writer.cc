@@ -84,6 +84,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -412,7 +413,7 @@ struct CopySubtreeListReceiver {
   void set_value(std::string_view key_prefix,
                  span<const LeafNodeEntry> entries) {
     if (entries.empty()) return;
-    UniqueWriterLock lock{writer->mutex_};
+    absl::MutexLock lock(writer->mutex_);
     for (auto& entry : entries) {
       auto key = tensorstore::StrCat(
           add_prefix,

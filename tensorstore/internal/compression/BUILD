@@ -122,6 +122,7 @@ tensorstore_cc_test(
     srcs = ["neuroglancer_compressed_segmentation_test.cc"],
     deps = [
         ":neuroglancer_compressed_segmentation",
+        "//tensorstore/util:endian",
         "@abseil-cpp//absl/random",
         "@googletest//:gtest_main",
     ],
