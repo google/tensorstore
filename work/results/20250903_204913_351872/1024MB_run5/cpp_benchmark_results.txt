@@ -1,0 +1,91 @@
+TensorStore C++ Benchmark Results - Run 5/5
+============================================
+Configuration:
+  Total size: 1024MB
+  Data type: int32
+  Driver: n5
+  Compression: none
+  Strategy: sequential (sequential/random)
+  Storage type: memory (file/memory)
+  Cache clearing: Always enabled
+  Process ID: 352820
+  Output directory: /home/rifatxia/Desktop/TensorstoreWork/tensorstore/work/results/20250903_204913_351872
+  Tensor dimensions: [1048576, 1024]
+
+Block sizes tested: 16KB, 64KB, 256KB, 1MB, 4MB, 16MB, 64MB, 256MB, 1024MB
+
+Running WRITE benchmarks...
+Block size: 16KB
+Block dimensions: [4, 1024]
+Write time: 1374ms
+-----------------------------
+Block size: 64KB
+Block dimensions: [16, 1024]
+Write time: 1769ms
+-----------------------------
+Block size: 256KB
+Block dimensions: [64, 1024]
+Write time: 1608ms
+-----------------------------
+Block size: 1MB
+Block dimensions: [256, 1024]
+Write time: 1558ms
+-----------------------------
+Block size: 4MB
+Block dimensions: [1024, 1024]
+Write time: 1515ms
+-----------------------------
+Block size: 16MB
+Block dimensions: [4096, 1024]
+Write time: 1571ms
+-----------------------------
+Block size: 64MB
+Block dimensions: [16384, 1024]
+Write time: 1543ms
+-----------------------------
+Block size: 256MB
+Block dimensions: [65536, 1024]
+Write time: 1628ms
+-----------------------------
+Block size: 1024MB
+Block dimensions: [262144, 1024]
+Write time: 1552ms
+-----------------------------
+
+Running READ benchmarks...
+Block size: 16KB
+Block dimensions: [4, 1024]
+Read time: 1510ms
+-----------------------------
+Block size: 64KB
+Block dimensions: [16, 1024]
+Read time: 1523ms
+-----------------------------
+Block size: 256KB
+Block dimensions: [64, 1024]
+Read time: 1613ms
+-----------------------------
+Block size: 1MB
+Block dimensions: [256, 1024]
+Read time: 1482ms
+-----------------------------
+Block size: 4MB
+Block dimensions: [1024, 1024]
+Read time: 1490ms
+-----------------------------
+Block size: 16MB
+Block dimensions: [4096, 1024]
+Read time: 1531ms
+-----------------------------
+Block size: 64MB
+Block dimensions: [16384, 1024]
+Read time: 1721ms
+-----------------------------
+Block size: 256MB
+Block dimensions: [65536, 1024]
+Read time: 1935ms
+-----------------------------
+Block size: 1024MB
+Block dimensions: [262144, 1024]
+Read time: 2864ms
+-----------------------------
