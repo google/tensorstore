@@ -355,6 +355,7 @@ tensorstore_cc_library(
         ":result",
         ":span",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:lldb_scripting",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/internal/meta:attributes",
