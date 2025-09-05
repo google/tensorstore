@@ -48,7 +48,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
-TENSORSTORE_LLDB_AUTO_SCRIPT("multi_vector_lldb.py")
+TENSORSTORE_LLDB_AUTO_SCRIPT("multi_vector.py")
 
 namespace tensorstore {
 
