@@ -1,6 +1,7 @@
 # Description:
 #   The libyuv package provides implementation yuv image conversion, rotation
 #   and scaling.
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
