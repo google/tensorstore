@@ -68,7 +68,7 @@ _SRCS = glob([
     ":windows_arm64": glob(["source/arch/arm/windows/*.c"]),
     ":macos_arm64": glob(["source/arch/arm/darwin/*.c"]),
     ":linux_arm64": glob(["source/arch/arm/auxv/*.c"]),
-    "//conditions:default": glob([]),
+    "//conditions:default": [],
 }) + select({
     ":x86_64_mingw_gcc": glob(["source/arch/intel/asm/*.c"]),
     ":x86_64_msvc": glob(["source/arch/intel/msvc/*.c"]),

@@ -33,9 +33,13 @@ load(
 
 _PYPA_BUILD_FILE_TEMPLATE = """
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
   name = "{target}",
-  srcs = glob(["**/*.py"]),
+  srcs = glob(["**/*.py"], allow_empty = True),
   data = glob(["**/*"], exclude=["**/*.py", "**/* *", "BUILD.bazel", "WORKSPACE"]),
   imports = ["."],
   deps = {deps},
@@ -53,7 +57,7 @@ SCRIPT_SUFFIX = ".py"
     deps = [":{target}"],
     visibility = ["//visibility:public"],
   )
-  for bin in glob([SCRIPT_PREFIX + "*" + SCRIPT_SUFFIX])
+  for bin in glob([SCRIPT_PREFIX + "*" + SCRIPT_SUFFIX], allow_empty = True)
 ]
 """
 
