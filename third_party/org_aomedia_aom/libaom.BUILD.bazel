@@ -194,11 +194,8 @@ AV1_SRC_PATTERNS = {
         "av1/encoder/x86/*_sse4.c",
         "av1/common/x86/*_sse4.c",
         "av1/encoder/x86/*_sse42.c",
-        "av1/common/x86/*_sse42.c",
     ],
     "avx": [
-        "av1/encoder/x86/*_avx.c",
-        "av1/common/x86/*_avx.c",
         "third_party/SVT-AV1/*.h",
     ],
     "avx2": [
