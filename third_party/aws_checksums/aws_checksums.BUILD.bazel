@@ -1,7 +1,8 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
 # Description:
 #   AWS CheckSums
-
-load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 package(default_visibility = ["//visibility:private"])
 
