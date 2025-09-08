@@ -28,6 +28,8 @@
 
 #include <limits>
 #include <ostream>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -37,6 +39,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
