@@ -1809,7 +1809,7 @@ struct ListOperationState
           return;
         }
       }
-      execution::set_value(state->shared_receiver->receiver, std::move(entry));
+      state->YieldValue(std::move(entry));
     }
   };
 
@@ -1850,10 +1850,8 @@ struct ListOperationState
       std::string_view key;
       key = modified_keys[i]->key_;
       key.remove_prefix(std::min(key.size(), strip_prefix_length));
-      execution::set_value(
-          shared_receiver->receiver,
-          kvstore::ListEntry{std::string(key),
-                             std::max(info, static_cast<int64_t>(-1))});
+      YieldValue(kvstore::ListEntry{std::string(key),
+                                    std::max(info, static_cast<int64_t>(-1))});
     }
   }
 

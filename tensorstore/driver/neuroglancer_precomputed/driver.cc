@@ -86,6 +86,7 @@
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
@@ -760,9 +761,10 @@ class RegularlyShardedDataCache : public ShardedDataCache {
       shard_shape_in_elements[dim] =
           scale.chunk_sizes[0][dim] * hierarchy_.shard_shape_in_chunks[dim];
     }
-    using State = internal::ChunkOperationState<ChunkType>;
+    using State =
+        internal::FlowSenderOperationState<ChunkType, IndexTransform<>>;
     using ForwardingReceiver =
-        internal::ForwardingChunkOperationReceiver<State>;
+        internal::ForwardingChunkOperationReceiver<ChunkType, State>;
     auto state = internal::MakeIntrusivePtr<State>(std::move(receiver));
 
     auto status = [&]() -> absl::Status {

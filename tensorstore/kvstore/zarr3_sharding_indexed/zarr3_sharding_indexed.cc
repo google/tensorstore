@@ -284,18 +284,16 @@ struct ListOperationState
     auto [start_index, end_index] = InternalKeyRangeToEntryRange(
         options_.range.inclusive_min, options_.range.exclusive_max,
         shard_index_params.num_entries);
-    auto& receiver = shared_receiver->receiver;
     for (EntryId i = start_index; i < end_index; ++i) {
       auto index_entry = (*shard_index)[i];
       if (index_entry.IsMissing()) continue;
       auto key = internal_keys_ ? EntryIdToInternalKey(i)
                                 : EntryIdToKey(i, grid_shape);
       key.erase(0, options_.strip_prefix_length);
-      execution::set_value(receiver,
-                           ListEntry{
-                               std::move(key),
-                               ListEntry::checked_size(index_entry.length),
-                           });
+      YieldValue(ListEntry{
+          std::move(key),
+          ListEntry::checked_size(index_entry.length),
+      });
     }
   }
 };

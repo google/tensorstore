@@ -15,36 +15,35 @@
 #ifndef TENSORSTORE_INTERNAL_CHUNK_RECEIVER_UTILS_H_
 #define TENSORSTORE_INTERNAL_CHUNK_RECEIVER_UTILS_H_
 
+#include <utility>
+
 #include "absl/status/status.h"
-#include "tensorstore/driver/chunk.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal {
 
-template <typename ChunkT>
-struct ChunkOperationState
-    : public FlowSenderOperationState<ChunkT, IndexTransform<>> {
-  using ChunkType = ChunkT;
-  using Base = FlowSenderOperationState<ChunkT, IndexTransform<>>;
-
-  using Base::Base;
-};
-
 // Forwarding receiver which satisfies `ReadChunkReceiver` or
 // `WriteChunkReceiver`.  The starting/stopping/error/done parts of the protocol
 // are handled by the future, so this only forwards set_error and set_value
 // calls.
-template <typename StateType>
+template <typename ChunkType, typename StateType>
 struct ForwardingChunkOperationReceiver {
-  using ChunkType = typename StateType::ChunkType;
   IntrusivePtr<StateType> state;
   IndexTransform<> cell_transform;
   FutureCallbackRegistration cancel_registration;
+
+  // StateType must be a FlowSenderOperationState or a subclass of that.
+  static_assert(
+      std::is_same_v<FlowSenderOperationState<ChunkType, IndexTransform<>>,
+                     StateType> ||
+      std::is_base_of_v<FlowSenderOperationState<ChunkType, IndexTransform<>>,
+                        StateType>);
 
   void set_starting(AnyCancelReceiver cancel) {
     cancel_registration =

@@ -69,6 +69,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution:any_receiver",
+        "//tensorstore/util/execution:flow_sender_operation_state",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",

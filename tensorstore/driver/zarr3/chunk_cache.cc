@@ -60,6 +60,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -261,8 +262,9 @@ void ShardedReadOrWrite(
   const auto& grid = self.grid();
   const auto& component_spec = grid.components[0];
 
-  using State = internal::ChunkOperationState<ChunkType>;
-  using ForwardingReceiver = internal::ForwardingChunkOperationReceiver<State>;
+  using State = internal::FlowSenderOperationState<ChunkType, IndexTransform<>>;
+  using ForwardingReceiver =
+      internal::ForwardingChunkOperationReceiver<ChunkType, State>;
   span<const Index> chunk_shape = grid.chunk_shape;
   span<const DimensionIndex> chunked_to_cell_dimensions =
       component_spec.chunked_to_cell_dimensions;

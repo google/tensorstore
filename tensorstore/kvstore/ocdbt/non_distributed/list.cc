@@ -220,8 +220,7 @@ struct ListOperation
     // Note: It is safe to access `all_entries.front()` and `all_entries.back()`
     // because B+tree nodes are guaranteed to have at least one entry.
     if (entries.empty()) return;
-    execution::set_value(op->shared_receiver->receiver, subtree_key_prefix,
-                         entries);
+    op->YieldValue(subtree_key_prefix, entries);
   }
 };
 

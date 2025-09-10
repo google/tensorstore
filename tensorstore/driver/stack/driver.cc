@@ -66,6 +66,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate_over_index_range.h"
@@ -789,16 +790,18 @@ struct OpenLayerOp {
 // Asynchronous state for StackDriver::{Read,Write} that maintains reference
 // counts while the read/write operation is in progress.
 template <typename ChunkType>
-struct ReadOrWriteState : public internal::ChunkOperationState<ChunkType> {
+struct ReadOrWriteState
+    : public internal::FlowSenderOperationState<ChunkType, IndexTransform<>> {
   static constexpr ReadWriteMode kMode = std::is_same_v<ChunkType, ReadChunk>
                                              ? ReadWriteMode::read
                                              : ReadWriteMode::write;
   using RequestType = std::conditional_t<std::is_same_v<ChunkType, ReadChunk>,
                                          internal::Driver::ReadRequest,
                                          internal::Driver::WriteRequest>;
-  using Base = internal::ChunkOperationState<ChunkType>;
+  using Base = internal::FlowSenderOperationState<ChunkType, IndexTransform<>>;
   using State = ReadOrWriteState<ChunkType>;
-  using ForwardingReceiver = internal::ForwardingChunkOperationReceiver<State>;
+  using ForwardingReceiver =
+      internal::ForwardingChunkOperationReceiver<ChunkType, State>;
 
   using Base::Base;
 
