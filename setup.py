@@ -240,6 +240,12 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
           else:
             build_flags.append('--copt=-O3')
 
+        version_stamp = self.distribution.get_version()
+        if version_stamp:
+          build_flags.append(
+              '--//tensorstore/internal/version=%s' % version_stamp
+          )
+
         build_command = (
             [sys.executable, '-u', bazelisk]
             + startup_options

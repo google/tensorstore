@@ -18,7 +18,7 @@
 from typing import Dict, List, Tuple
 
 from .starlark.bazel_target import parse_absolute_target
-from .starlark.common_providers import BuildSettingProvider
+from .starlark.common_providers import BuildSettingInfo
 from .starlark.common_providers import ConditionProvider
 from .starlark.module_platform_common import ConstraintSettingInfo
 from .starlark.module_platform_common import ConstraintValueInfo
@@ -121,12 +121,12 @@ def add_platform_constraints(workspace: Workspace) -> None:
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/cpp:compiler"),
-      TargetInfo(BuildSettingProvider(bazel_compiler)),
+      TargetInfo(BuildSettingInfo(bazel_compiler)),
   )
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@rules_cc//cc/private/toolchain:compiler"),
-      TargetInfo(BuildSettingProvider(bazel_compiler)),
+      TargetInfo(BuildSettingInfo(bazel_compiler)),
   )
   
   
@@ -148,7 +148,7 @@ def add_platform_constraints(workspace: Workspace) -> None:
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/python:python_version"),
-      TargetInfo(BuildSettingProvider("PY3")),
+      TargetInfo(BuildSettingInfo("PY3")),
   )
 
   config_settings: Dict[str, bool] = {}

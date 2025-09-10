@@ -26,6 +26,7 @@
 #include "absl/strings/cord.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/source_location.h"
+#include "tensorstore/internal/version/version.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -69,8 +70,8 @@ void CurlSlistCleanup::operator()(curl_slist* s) { curl_slist_free_all(s); }
 
 /// Returns the default CurlUserAgent.
 std::string GetCurlUserAgentSuffix() {
-  static std::string agent =
-      tensorstore::StrCat("tensorstore/0.1 ", curl_version());
+  static std::string agent = tensorstore::StrCat(
+      "tensorstore/", TENSORSTORE_VERSION, " ", curl_version());
   return agent;
 }
 

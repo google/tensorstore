@@ -28,7 +28,7 @@ from .evaluation import EvaluationState
 from .provider_util import ProviderCollection
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import TargetId
-from .starlark.common_providers import BuildSettingProvider
+from .starlark.common_providers import BuildSettingInfo
 from .starlark.common_providers import ConditionProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
@@ -137,8 +137,8 @@ def _platform_impl(
       if c_info.get(ConditionProvider) is not None:
         if not c_info[ConditionProvider].value:
           return False
-      elif c_info.get(BuildSettingProvider) is not None:
-        if not c_info[BuildSettingProvider].value:
+      elif c_info.get(BuildSettingInfo) is not None:
+        if not c_info[BuildSettingInfo].value:
           return False
       elif c_info.get(ConstraintValueInfo) is not None:
         cv = c_info[ConstraintValueInfo]

@@ -27,7 +27,7 @@ PathLike = TypeVar(
 )
 
 
-class BuildSettingProvider(Provider):
+class BuildSettingInfo(Provider):
   """Build setting value (i.e. flag value) corresponding to a Bazel target."""
 
   __slots__ = ("value",)
