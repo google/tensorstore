@@ -26,7 +26,7 @@ from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
 from .starlark.bazel_target import TargetId
-from .starlark.common_providers import BuildSettingProvider
+from .starlark.common_providers import BuildSettingInfo
 from .starlark.common_providers import ConditionProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
@@ -67,7 +67,7 @@ def _alias_impl(
 
   # Special case any target info with conditions or build settings.
   if target_info.get(ConditionProvider) or target_info.get(
-      BuildSettingProvider
+      BuildSettingInfo
   ):
     _context.add_analyzed_target(_target, target_info)
     return

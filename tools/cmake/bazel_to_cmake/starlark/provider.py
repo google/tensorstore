@@ -43,7 +43,10 @@ class TargetInfo:
     self._providers = providers
 
   def __getitem__(self, provider_type: Type[P]) -> P:
-    return cast(P, self._providers[provider_type])
+    p = self._providers.get(provider_type)
+    if not p:
+      raise KeyError(f'Provider {provider_type} not found in {self._providers}')
+    return cast(P, p)
 
   def get(self, provider_type: Type[P]) -> Optional[P]:
     return cast(Optional[P], self._providers.get(provider_type))

@@ -93,7 +93,7 @@ from .provider_util import ProviderCollection
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
-from .starlark.common_providers import BuildSettingProvider
+from .starlark.common_providers import BuildSettingInfo
 from .starlark.common_providers import ConditionProvider
 from .starlark.common_providers import FilesProvider
 from .starlark.exec import compile_and_exec
@@ -403,8 +403,8 @@ class EvaluationState:
     target_info = self.get_target_info(target_id)
     if target_info.get(ConditionProvider) is not None:
       return target_info[ConditionProvider].value
-    if target_info.get(BuildSettingProvider) is not None:
-      return target_info[BuildSettingProvider].value
+    if target_info.get(BuildSettingInfo) is not None:
+      return target_info[BuildSettingInfo].value
 
     print(f"Using {target_id.as_label()} as false condition.")
     return False

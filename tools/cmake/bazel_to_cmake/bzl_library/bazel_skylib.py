@@ -28,7 +28,7 @@ from ..cmake_provider import default_providers
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..starlark.bazel_target import TargetId
-from ..starlark.common_providers import BuildSettingProvider
+from ..starlark.common_providers import BuildSettingInfo
 from ..starlark.common_providers import ConditionProvider
 from ..starlark.common_providers import FilesProvider
 from ..starlark.invocation_context import InvocationContext
@@ -344,20 +344,9 @@ def _write_file_impl(
 @register_bzl_library("@bazel_skylib//rules:common_settings.bzl")
 class BazelSkylibCommonSettingsLibrary(ScopeCommon):
 
-  BuildSettingInfo = provider(
-      doc="A singleton provider that contains the raw value of a build setting",
-      fields={
-          "value": (
-              "The value of the build setting in the current configuration. "
-              "This value may come from the command line or an upstream "
-              "transition, or else it will be the build setting's default."
-          ),
-      },
-  )
-
   @property
   def bazel_BuildSettingInfo(self):
-    return self.BuildSettingInfo
+    return BuildSettingInfo
 
   def bazel_bool_flag(
       self,
@@ -409,7 +398,7 @@ def _bool_flag_impl(
   _context.access(CMakeBuilder).addtext(
       f"""option({cmake_name} "" {"ON" if default_value else "OFF"})\n"""
   )
-  _context.add_analyzed_target(_target, TargetInfo(BuildSettingProvider(value)))
+  _context.add_analyzed_target(_target, TargetInfo(BuildSettingInfo(value)))
 
 
 def _string_flag_impl(
@@ -433,4 +422,4 @@ def _string_flag_impl(
   _context.access(CMakeBuilder).addtext(
       f"""option({cmake_name} "" {quote_string(value)})\n"""
   )
-  _context.add_analyzed_target(_target, TargetInfo(BuildSettingProvider(value)))
+  _context.add_analyzed_target(_target, TargetInfo(BuildSettingInfo(value)))
