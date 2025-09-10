@@ -37,16 +37,20 @@ namespace internal_grid_partition {
 /// grid dimensions. The grid cell with index vector `v` corresponds to the
 /// hyperrectangle with inclusive lower bound `v * grid_cell_shape` and
 /// exclusive upper bound `(v + 1) * grid_cell_shape`.
-struct RegularGridRef {
-  tensorstore::span<const Index> grid_cell_shape;
+class RegularGridRef {
+ public:
+  RegularGridRef() = default;
 
-  DimensionIndex rank() const { return grid_cell_shape.size(); }
+  explicit RegularGridRef(tensorstore::span<const Index> grid_cell_shape)
+      : grid_cell_shape_(grid_cell_shape) {}
+
+  DimensionIndex rank() const { return grid_cell_shape_.size(); }
 
   IndexInterval GetCellOutputInterval(DimensionIndex dim,
                                       Index cell_index) const {
     assert(dim >= 0 && dim < rank());
-    return IndexInterval::UncheckedSized(cell_index * grid_cell_shape[dim],
-                                         grid_cell_shape[dim]);
+    return IndexInterval::UncheckedSized(cell_index * grid_cell_shape_[dim],
+                                         grid_cell_shape_[dim]);
   }
 
   /// Converts output indices to grid indices of a regular grid.
@@ -56,12 +60,15 @@ struct RegularGridRef {
   Index operator()(DimensionIndex dim, Index output_index,
                    IndexInterval* cell_bounds) const {
     assert(dim >= 0 && dim < rank());
-    Index cell_index = FloorOfRatio(output_index, grid_cell_shape[dim]);
+    Index cell_index = FloorOfRatio(output_index, grid_cell_shape_[dim]);
     if (cell_bounds) {
       *cell_bounds = GetCellOutputInterval(dim, cell_index);
     }
     return cell_index;
   }
+
+ private:
+  tensorstore::span<const Index> grid_cell_shape_;
 };
 
 }  // namespace internal_grid_partition

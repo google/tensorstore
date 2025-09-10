@@ -236,6 +236,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util/execution:any_receiver",
+        "//tensorstore/util/execution:flow_sender_operation_state",
         "@abseil-cpp//absl/container:inlined_vector",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",

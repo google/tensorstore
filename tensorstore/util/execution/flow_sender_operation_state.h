@@ -51,7 +51,7 @@ struct FlowSenderOperationState
     auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
     this->promise = std::move(promise);
     execution::set_starting(
-        this->shared_receiver->receiver, [promise = this->promise] {
+        shared_receiver->receiver, [promise = this->promise] {
           SetDeferredResult(promise, absl::CancelledError(""));
         });
     future.Force();
@@ -70,6 +70,10 @@ struct FlowSenderOperationState
 
   void SetError(absl::Status status) {
     SetDeferredResult(promise, std::move(status));
+  }
+
+  void YieldValue(T... v) {
+    execution::set_value(shared_receiver->receiver, std::forward<T>(v)...);
   }
 
   bool cancelled() const { return !promise.result_needed(); }

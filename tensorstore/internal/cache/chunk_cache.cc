@@ -31,7 +31,6 @@
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/chunk.h"
-#include "tensorstore/driver/chunk_receiver_utils.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
@@ -46,7 +45,6 @@
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/kvstore/generation.h"
@@ -54,6 +52,7 @@
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -413,74 +412,110 @@ struct WriteChunkImpl {
   }
 };
 
+// Shared state used while `Read` is in progress.
+//
+// Note: The `ReadOperationState::request_` member may contain a reference
+// to a batch, and holding the batch will keep the read operation from
+// completing until the batch is no longer referenced.
+class ReadOperationState : public AtomicReferenceCount<ReadOperationState> {
+ public:
+  using ReadCompletionState =
+      internal::FlowSenderOperationState<ReadChunk, IndexTransform<>>;
+  using BaseReceiver = ReadCompletionState::BaseReceiver;
+
+  explicit ReadOperationState(BaseReceiver&& receiver, ChunkCache& self,
+                              ChunkCache::ReadRequest&& request)
+      : completion_(MakeIntrusivePtr<ReadCompletionState>(std::move(receiver))),
+        self_(self),
+        request_(std::move(request)),
+        regular_grid_(self_.grid().chunk_shape),
+        iterator_(self_.grid()
+                      .components[request_.component_index]
+                      .chunked_to_cell_dimensions,
+                  regular_grid_, request_.transform) {}
+
+  absl::Status InitiateRead() {
+    num_reads.Increment();
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto cell_to_source,
+        ComposeTransforms(request_.transform, iterator_.cell_transform()));
+    auto entry =
+        GetEntryForGridCell(self_, iterator_.output_grid_cell_indices());
+    // Arrange to call `set_value` on the receiver with a `ReadChunk`
+    // corresponding to this grid cell once the read request completes
+    // successfully.
+    ReadChunk chunk;
+    chunk.transform = std::move(cell_to_source);
+    Future<const void> read_future;
+    const auto get_cache_read_request = [&] {
+      AsyncCache::AsyncCacheReadRequest cache_request;
+      cache_request.staleness_bound = request_.staleness_bound;
+      cache_request.batch = request_.batch;
+      return cache_request;
+    };
+    if (request_.transaction) {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto node, GetTransactionNode(*entry, request_.transaction));
+      read_future = node->IsUnconditional()
+                        ? MakeReadyFuture()
+                        : node->Read(get_cache_read_request());
+      chunk.impl =
+          ReadChunkTransactionImpl{request_.component_index, std::move(node),
+                                   request_.fill_missing_data_reads};
+    } else {
+      read_future = entry->Read(get_cache_read_request());
+      chunk.impl = ReadChunkImpl{request_.component_index, std::move(entry),
+                                 request_.fill_missing_data_reads};
+    }
+    LinkValue(
+        [completion = completion_, chunk = std::move(chunk),
+         cell_transform = IndexTransform<>(iterator_.cell_transform())](
+            Promise<void> promise, ReadyFuture<const void> future) mutable {
+          completion->YieldValue(std::move(chunk), std::move(cell_transform));
+        },
+        completion_->promise, std::move(read_future));
+    return absl::OkStatus();
+  }
+
+  absl::Status IteratorLoop() {
+    TENSORSTORE_RETURN_IF_ERROR(iterator_.Init());
+
+    while (!iterator_.AtEnd()) {
+      if (cancelled()) {
+        return absl::CancelledError("");
+      }
+      TENSORSTORE_RETURN_IF_ERROR(InitiateRead());
+      iterator_.Advance();
+    }
+    return absl::OkStatus();
+  }
+
+  bool cancelled() const { return completion_->cancelled(); }
+
+  void SetError(absl::Status status) {
+    completion_->SetError(std::move(status));
+  }
+
+ private:
+  IntrusivePtr<ReadCompletionState> completion_;
+  ChunkCache& self_;
+  ChunkCache::ReadRequest request_;
+  internal_grid_partition::RegularGridRef regular_grid_;
+  internal_grid_partition::PartitionIndexTransformIterator iterator_;
+};
+
 }  // namespace
 
 void ChunkCache::Read(ReadRequest request, ReadChunkReceiver receiver) {
+  [[maybe_unused]] const auto& grid = this->grid();
   assert(request.component_index >= 0 &&
-         request.component_index < grid().components.size());
-  const auto& component_spec = grid().components[request.component_index];
-  // Shared state used while `Read` is in progress.
-  using ReadOperationState = ChunkOperationState<ReadChunk>;
+         request.component_index < grid.components.size());
+  assert(grid.components[request.component_index]
+             .chunked_to_cell_dimensions.size() == grid.chunk_shape.size());
 
-  assert(component_spec.chunked_to_cell_dimensions.size() ==
-         grid().chunk_shape.size());
-  auto state = MakeIntrusivePtr<ReadOperationState>(std::move(receiver));
-  internal_grid_partition::RegularGridRef regular_grid{grid().chunk_shape};
-
-  auto status = [&]() -> absl::Status {
-    internal_grid_partition::PartitionIndexTransformIterator iterator(
-        component_spec.chunked_to_cell_dimensions, regular_grid,
-        request.transform);
-    TENSORSTORE_RETURN_IF_ERROR(iterator.Init());
-
-    while (!iterator.AtEnd()) {
-      if (state->cancelled()) {
-        return absl::CancelledError("");
-      }
-      num_reads.Increment();
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto cell_to_source,
-          ComposeTransforms(request.transform, iterator.cell_transform()));
-      auto entry =
-          GetEntryForGridCell(*this, iterator.output_grid_cell_indices());
-      // Arrange to call `set_value` on the receiver with a `ReadChunk`
-      // corresponding to this grid cell once the read request completes
-      // successfully.
-      ReadChunk chunk;
-      chunk.transform = std::move(cell_to_source);
-      Future<const void> read_future;
-      const auto get_cache_read_request = [&] {
-        AsyncCache::AsyncCacheReadRequest cache_request;
-        cache_request.staleness_bound = request.staleness_bound;
-        cache_request.batch = request.batch;
-        return cache_request;
-      };
-      if (request.transaction) {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto node, GetTransactionNode(*entry, request.transaction));
-        read_future = node->IsUnconditional()
-                          ? MakeReadyFuture()
-                          : node->Read(get_cache_read_request());
-        chunk.impl =
-            ReadChunkTransactionImpl{request.component_index, std::move(node),
-                                     request.fill_missing_data_reads};
-      } else {
-        read_future = entry->Read(get_cache_read_request());
-        chunk.impl = ReadChunkImpl{request.component_index, std::move(entry),
-                                   request.fill_missing_data_reads};
-      }
-      LinkValue(
-          [state, chunk = std::move(chunk),
-           cell_transform = IndexTransform<>(iterator.cell_transform())](
-              Promise<void> promise, ReadyFuture<const void> future) mutable {
-            execution::set_value(state->shared_receiver->receiver,
-                                 std::move(chunk), std::move(cell_transform));
-          },
-          state->promise, std::move(read_future));
-      iterator.Advance();
-    }
-    return absl::OkStatus();
-  }();
+  auto state = MakeIntrusivePtr<ReadOperationState>(std::move(receiver), *this,
+                                                    std::move(request));
+  auto status = state->IteratorLoop();
   if (!status.ok()) {
     state->SetError(std::move(status));
   }
