@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.9badc98c4f78aac06.min.css?v=60124955" />
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.31201e28cfd5a9132.min.css?v=f98f8a73" />
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -1369,7 +1369,7 @@ opened without a transaction, use <a class="reference internal" href="tensorstor
 <p>Neither <a class="reference internal" href="#p-read_function" title="tensorstore.virtual_chunked.read_function (Python parameter) — Callback that handles chunk read requests."><code class="xref py py-param docutils literal notranslate"><span class="pre">read_function</span></code></a> nor <a class="reference internal" href="#p-write_function" title="tensorstore.virtual_chunked.write_function (Python parameter) — Callback that handles chunk write requests."><code class="xref py py-param docutils literal notranslate"><span class="pre">write_function</span></code></a> should
 block synchronously while waiting for another TensorStore operation; blocking
 on another operation that uses the same
-<a class="reference internal" href="../../kvstore/tsgrpc/index.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a> resource may result in deadlock.
+<a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a> resource may result in deadlock.
 Instead, it is better to specify a <a class="reference external" href="https://docs.python.org/3/reference/compound_stmts.html#async-def" title="(in Python v3.11)"><span class="xref std std-ref">coroutine function</span></a>
 for <a class="reference internal" href="#p-read_function" title="tensorstore.virtual_chunked.read_function (Python parameter) — Callback that handles chunk read requests."><code class="xref py py-param docutils literal notranslate"><span class="pre">read_function</span></code></a> and <a class="reference internal" href="#p-write_function" title="tensorstore.virtual_chunked.write_function (Python parameter) — Callback that handles chunk write requests."><code class="xref py py-param docutils literal notranslate"><span class="pre">write_function</span></code></a> and use
 <a class="reference external" href="https://docs.python.org/3/reference/expressions.html#await" title="(in Python v3.11)"><span class="xref std std-ref">await</span></a> to wait for the result of other TensorStore
