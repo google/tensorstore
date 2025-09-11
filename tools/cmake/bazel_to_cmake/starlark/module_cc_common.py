@@ -161,7 +161,6 @@ class BazelModuleCcCommon:
       thinlto_input_bitcode_file=None,
       thinlto_output_object_file=None,
       use_pic=False,
-      add_legacy_cxx_options=False,
       variables_extension=None,
   ):
     pass
