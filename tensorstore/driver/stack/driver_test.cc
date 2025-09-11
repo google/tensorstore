@@ -27,6 +27,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -37,9 +38,10 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
-#include "tensorstore/progress.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/spec.h"
 #include "tensorstore/stack.h"
+#include "tensorstore/staleness_bound.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
@@ -1406,6 +1408,34 @@ TEST(ConcatTest, DimensionLabelMismatch) {
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
           "Layer 1: Mismatch in dimension 1: Dimension labels do not match"));
+}
+
+TEST(StackDriverTest, ConcatBatchRead) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {
+              {"driver", "zarr3"},
+              {"kvstore", {{"driver", "memory"}}},
+              {"metadata",
+               {
+                   {"shape", {256, 1024}},
+                   {"data_type", "uint16"},
+                   {"chunk_grid",
+                    {
+                        {"name", "regular"},
+                        {"configuration", {{"chunk_shape", {64, 1024}}}},
+                    }},
+               }},
+          },
+          context, tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto concat_store,
+                                   tensorstore::Concat({store}, 0));
+
+  auto future = tensorstore::Read(concat_store, tensorstore::Batch::New());
+  TENSORSTORE_EXPECT_OK(future);
 }
 
 }  // namespace
