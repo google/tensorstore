@@ -557,16 +557,16 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
 }
 
 void StrongPtrTraitsCache::decrement_impl(CacheImpl* cache) noexcept {
+  // Note: `pool_` must be accessed here because `cache` may have been
+  // concurrently destroyed after calling `DecrementCacheReferenceCount` unless
+  // `should_delete==true`.
+  CachePoolImpl* pool = cache->pool_;
   auto decrement_result =
       DecrementCacheReferenceCount(cache, CacheImpl::kStrongReferenceIncrement);
-  CachePoolImpl* pool = nullptr;
-  if (decrement_result.should_release_cache_pool_weak_reference()) {
-    pool = cache->pool_;
-  }
   if (decrement_result.should_delete()) {
-    DestroyCache(cache->pool_, cache);
+    DestroyCache(pool, cache);
   }
-  if (pool) {
+  if (decrement_result.should_release_cache_pool_weak_reference() && pool) {
     ReleaseWeakReference(pool);
   }
 }
