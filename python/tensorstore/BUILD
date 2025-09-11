@@ -1246,7 +1246,8 @@ tensorstore_pytest_test(
 )
 
 tensorstore_pytest_test(
-    name = "tests/custom_dtypes_test",
+    name = "custom_dtypes_test",
+    size = "small",
     srcs = ["tests/custom_dtypes_test.py"],
     deps = [
         ":conftest",
@@ -1257,7 +1258,8 @@ tensorstore_pytest_test(
 )
 
 tensorstore_pytest_test(
-    name = "tests/fork_test",
+    name = "fork_test",
+    size = "small",
     srcs = ["tests/fork_test.py"],
     deps = [
         ":conftest",
