@@ -1113,7 +1113,9 @@ TEST(CacheTest, WeakRefOwnedByEntry) {
     auto entry_b = GetCacheEntry(cache1, "b");
     entry_a->weak_ref = entry_b->AcquireWeakReference();
   }
-  { auto entry_c = GetCacheEntry(cache2, "c"); }
+  {
+    auto entry_c = GetCacheEntry(cache2, "c");
+  }
 
   EXPECT_THAT(log->entry_destroy_log, ElementsAre());
   pool = {};
@@ -1125,6 +1127,31 @@ TEST(CacheTest, WeakRefOwnedByEntry) {
   EXPECT_THAT(log->entry_destroy_log,
               UnorderedElementsAre(Pair("cache1", "a"), Pair("cache1", "b"),
                                    Pair("cache2", "c")));
+}
+
+TEST(CacheTest, ConcurrentReleaseStrongCachePoolEvict) {
+  CachePool::StrongPtr pool;
+  CachePtr<TestCache> cache1, cache2;
+  TestConcurrent(
+      kDefaultIterations,
+      /*initialize=*/
+      [&] {
+        CachePool::Limits limits;
+        limits.total_bytes_limit = 1;
+        pool = CachePool::Make(limits);
+        cache1 = GetTestCache(pool.get(), "x");
+        cache2 = GetTestCache(pool.get(), "y");
+        GetCacheEntry(cache1, "a");
+      },
+      /*finalize=*/
+      [&] {},
+      // Concurrent operations:
+      [&] { pool = {}; },    // release strong reference to pool
+      [&] { cache1 = {}; },  // release strong reference to cache1
+      [&] {
+        GetCacheEntry(cache2, "b");
+      }  // create new cache entry in cache2, evicting only entry in cache1
+  );
 }
 
 }  // namespace
