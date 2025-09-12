@@ -1418,7 +1418,7 @@ make write operations faster.</p>
 <dt class="field-odd" id="optional-members-json-Context.file_io_locking">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-Context.file_io_locking" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.file_io_locking.mode">
-<span class="sig-name descname"><span class="pre">mode</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;os&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;none&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;lockfile&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;os&quot;</span></code><a class="headerlink" href="#json-Context.file_io_locking.mode" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">mode</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;os&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;lockfile&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;none&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;os&quot;</span></code><a class="headerlink" href="#json-Context.file_io_locking.mode" title="Link to this definition">¶</a></dt>
 <dd><span><p>Selects the locking mode.</p>
   </span><p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;os&quot;</span></code>, os locking such as <code class="docutils literal notranslate"><span class="pre">flock</span></code> is used.  Stale lock files with
 the suffix <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;.__lock&quot;</span></code> may remain if a failure occurs while a write is in progress, but
@@ -1433,6 +1433,11 @@ may be lost. Partial writes will not be observed; unconditional writes are still
 If a failure occurs while a write is in progress, stale temporary files with the suffix
 <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;.__lock&quot;</span></code> may remain. These files will not impact subsequent operations but will need
 to be cleaned up manually to reclaim space.</p>
+<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code>, no locking is used. This mode avoids writing to a temporary
+file and a subsequent rename, which may improve efficiency on some filesystems such as
+gcsfuse. Writes are not atomic, and concurrent writes or reads to the same key may result
+in data corruption or a corrupted result. When used in conjunction with
+<code class="code highlight json docutils literal highlight-json"><span class="nt">&quot;file_io_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memmap&quot;</span></code>, access to the memory-mapped file may result in a crash.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
