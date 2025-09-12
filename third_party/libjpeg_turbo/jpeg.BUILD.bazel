@@ -368,7 +368,7 @@ cc_library(
         "config/jconfig.h",
         "config/jversion.h",
     ],
-    includes = ["config"],
+    strip_include_prefix = "config",
 )
 
 expand_template(
