@@ -219,6 +219,13 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
                                              OpenFlags flags) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
 
+  if (static_cast<int>(OpenFlags::Truncate & flags) &&
+      !static_cast<int>(
+          flags & (OpenFlags::OpenReadWrite | OpenFlags::OpenWriteOnly))) {
+    return absl::InvalidArgumentError(
+        "Truncate flag must be combined with a write flag");
+  }
+
   int actual_flags = static_cast<int>(flags);
 #if !defined(O_DIRECT)
   actual_flags = actual_flags & ~(static_cast<int>(OpenFlags::Direct));
@@ -342,7 +349,8 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
   } else if (n >= 0) {
     return n;
   }
-  auto status = StatusFromOsError(errno, "Failed to write ", count, " to file");
+  auto status = StatusFromOsError(errno, "Failed to write ", count,
+                                  " bytes to file ", fd);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -369,8 +377,8 @@ Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
   } else if (n >= 0) {
     return n;
   }
-  auto status =
-      StatusFromOsError(errno, "Failed to write ", value.size(), " to file");
+  auto status = StatusFromOsError(errno, "Failed to write ", value.size(),
+                                  "butes to file ", fd);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 

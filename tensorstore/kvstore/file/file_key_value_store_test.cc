@@ -140,6 +140,14 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         },
         params);
     register_with_spec(
+        "NoRename",
+        [](std::string path) -> ::nlohmann::json {
+          return {{"driver", "file"},
+                  {"path", path},
+                  {"file_io_locking", {{"mode", "non_atomic"}}}};
+        },
+        params);
+    register_with_spec(
         "NoSync",
         [](std::string path) -> ::nlohmann::json {
           return {{"driver", "file"}, {"path", path}, {"file_io_sync", false}};

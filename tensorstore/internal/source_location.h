@@ -18,6 +18,7 @@
 #include <cstdint>  // IWYU pragma: keep
 
 #include "absl/base/config.h"
+#include "absl/strings/str_format.h"
 
 namespace tensorstore {
 
@@ -77,6 +78,11 @@ class SourceLocation {
 
   const char* file_name() const { return file_name_; }
   constexpr std::uint_least32_t line() const { return line_; }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const SourceLocation& loc) {
+    absl::Format(&sink, "%s:%d", loc.file_name(), loc.line());
+  }
 
  private:
   constexpr SourceLocation(std::uint_least32_t line, const char* file_name)

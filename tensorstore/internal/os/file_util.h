@@ -89,6 +89,7 @@ enum class OpenFlags : int {
   OpenReadWrite = O_RDWR,
   Create = O_CREAT,
   Append = O_APPEND,
+  Truncate = O_TRUNC,
   Exclusive = O_EXCL,
 #if defined(O_DIRECT)
   Direct = O_DIRECT,

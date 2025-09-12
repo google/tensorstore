@@ -171,6 +171,7 @@ using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::kLockSuffix;
 using ::tensorstore::internal_os::MemmapFileReadOnly;
 using ::tensorstore::internal_os::OpenFlags;
+using ::tensorstore::internal_os::TruncateAndOverwrite;
 using ::tensorstore::internal_os::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
@@ -611,9 +612,25 @@ struct WriteTask {
     r.time = absl::Now();
     TENSORSTORE_ASSIGN_OR_RETURN(auto dir_fd, OpenParentDirectory(full_path));
 
+    const bool is_non_atomic_mode =
+        file_io_locking.mode == FileIoLockingResource::LockingMode::non_atomic;
+    if (is_non_atomic_mode &&
+        !StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
+      StorageGeneration generation;
+      TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
+                                   OpenValueFile(full_path, &generation));
+      if (generation != options.generation_conditions.if_equal) {
+        r.generation = StorageGeneration::Unknown();
+        return r;
+      }
+    }
+
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto lock_helper, [&]() -> Result<internal_os::FileLock> {
           switch (file_io_locking.mode) {
+            case FileIoLockingResource::LockingMode::non_atomic: {
+              return TruncateAndOverwrite(full_path);
+            }
             case FileIoLockingResource::LockingMode::none: {
               // This will generate a unique "lock" file without waiting or
               // attempting to cleanup.
@@ -636,8 +653,8 @@ struct WriteTask {
 
     absl::Status status = [&]() {
       // Check condition.
-      if (!StorageGeneration::IsUnknown(
-              options.generation_conditions.if_equal)) {
+      if (!is_non_atomic_mode && !StorageGeneration::IsUnknown(
+                                     options.generation_conditions.if_equal)) {
         StorageGeneration generation;
         TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
                                      OpenValueFile(full_path, &generation));
@@ -646,14 +663,18 @@ struct WriteTask {
           return absl::OkStatus();
         }
       }
+
       TENSORSTORE_RETURN_IF_ERROR(WriteWithSync(
           lock_helper.fd(), lock_helper.lock_path(), value, sync));
       // Stat and Rename
       FileInfo info;
       TENSORSTORE_RETURN_IF_ERROR(
           internal_os::GetFileInfo(lock_helper.fd(), &info));
-      TENSORSTORE_RETURN_IF_ERROR(internal_os::RenameOpenFile(
-          lock_helper.fd(), lock_helper.lock_path(), full_path));
+
+      if (lock_helper.lock_path() != full_path) {
+        TENSORSTORE_RETURN_IF_ERROR(internal_os::RenameOpenFile(
+            lock_helper.fd(), lock_helper.lock_path(), full_path));
+      }
 
       delete_lock_file = false;
       r.generation = GetFileGeneration(info);

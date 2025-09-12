@@ -138,8 +138,9 @@ definitions:
         type: string
         enum:
         - "os"
-        - "none"
         - "lockfile"
+        - "none"
+        - "non_atomic"
         default: "os"
         title: Selects the locking mode.
         description: |
@@ -158,6 +159,12 @@ definitions:
           If a failure occurs while a write is in progress, stale temporary files with the suffix
           ``".__lock"`` may remain. These files will not impact subsequent operations but will need
           to be cleaned up manually to reclaim space.
+
+          When set to ``"non_atomic"``, no locking is used. This mode avoids writing to a temporary
+          file and a subsequent rename, which may improve efficiency on some filesystems such as
+          gcsfuse. Writes are not atomic, and concurrent writes or reads to the same key may result
+          in data corruption or a corrupted result. When used in conjunction with
+          ``"file_io_mode": "memmap"``, access to the memory-mapped file may result in a crash.
       acquire_timeout:
         type: duration
         default: 60s
