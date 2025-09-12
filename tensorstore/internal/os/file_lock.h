@@ -21,6 +21,7 @@
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/util/result.h"
 
@@ -46,6 +47,10 @@ Result<FileLock> AcquireFileLock(std::string lock_path);
 /// will cause the write to fail and will need to be cleaned up manually.
 Result<FileLock> AcquireExclusiveFile(std::string lock_path,
                                       absl::Duration timeout);
+
+/// Opens a file for overwrite.  Does not actually acquire a lock of any kind.
+Result<FileLock> TruncateAndOverwrite(std::string lock_path);
+
 /// FileLock wraps a lock file.
 /// Caller must call `Delete()` or `Close()` before FileLock is destroyed.
 class FileLock {
@@ -84,6 +89,7 @@ class FileLock {
  private:
   friend Result<FileLock> AcquireFileLock(std::string);
   friend Result<FileLock> AcquireExclusiveFile(std::string, absl::Duration);
+  friend Result<FileLock> TruncateAndOverwrite(std::string);
 
   inline void Unlock(FileDescriptor fd) {
     if (unlock_fn_) {

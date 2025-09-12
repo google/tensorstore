@@ -1431,7 +1431,10 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "source_location",
     hdrs = ["source_location.h"],
-    deps = ["@abseil-cpp//absl/base:config"],
+    deps = [
+        "@abseil-cpp//absl/base:config",
+        "@abseil-cpp//absl/strings:str_format",
+    ],
 )
 
 tensorstore_cc_test(

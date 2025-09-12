@@ -163,6 +163,35 @@ TEST(FileUtilTest, ExclusiveFile) {
   }
 }
 
+TEST(FileUtilTest, TruncateFile) {
+  ScopedTemporaryDirectory tempdir;
+  std::string foo_txt = absl::StrCat(tempdir.path(), "/foo.txt");
+
+  // Requires write flag.
+  EXPECT_THAT(OpenFileWrapper(foo_txt, OpenFlags::Create | OpenFlags::Truncate),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  // Create
+  {
+    auto f = OpenFileWrapper(foo_txt, OpenFlags::Create | OpenFlags::Truncate |
+                                          OpenFlags::OpenWriteOnly);
+
+    EXPECT_THAT(f, IsOk());
+    EXPECT_THAT(WriteCordToFile(f->get(), absl::Cord("foo")), IsOkAndHolds(3));
+  }
+
+  // Create again
+  {
+    auto f = OpenFileWrapper(foo_txt,
+                             OpenFlags::Truncate | OpenFlags::OpenReadWrite);
+    EXPECT_THAT(f, IsOk());
+
+    char buf[16];
+    EXPECT_THAT(ReadFromFile(f->get(), tensorstore::span(buf, 16)),
+                IsOkAndHolds(0));
+  }
+}
+
 TEST(FileUtilTest, LockFile) {
   ScopedTemporaryDirectory tempdir;
   std::string foo_txt = absl::StrCat(tempdir.path(), "/foo.txt",
