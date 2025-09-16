@@ -1248,7 +1248,10 @@ to be included explicitly.</p>
 <span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;},</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">    &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;,</span>
+<span class="go">  },</span>
 <span class="go">  &#39;metadata&#39;: {</span>
 <span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
 <span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
@@ -1274,7 +1277,10 @@ to be included explicitly.</p>
 <span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;},</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">    &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;,</span>
+<span class="go">  },</span>
 <span class="go">  &#39;metadata&#39;: {</span>
 <span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
 <span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
@@ -1292,9 +1298,21 @@ to be included explicitly.</p>
 <p>Explicitly constructing a <a class="reference internal" href="../../python/api/tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spec</span></code></a> demonstrates the
 explicit syntax for using the <code class="docutils literal notranslate"><span class="pre">auto</span></code> driver:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset|auto&quot;</span><span class="p">)</span>
-<span class="go">Spec({&#39;driver&#39;: &#39;auto&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset&#39;}})</span>
+<span class="go">Spec({</span>
+<span class="go">  &#39;driver&#39;: &#39;auto&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">    &#39;path&#39;: &#39;/tmp/dataset&#39;,</span>
+<span class="go">  },</span>
+<span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset&quot;</span><span class="p">)</span>
-<span class="go">Spec({&#39;driver&#39;: &#39;auto&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset&#39;}})</span>
+<span class="go">Spec({</span>
+<span class="go">  &#39;driver&#39;: &#39;auto&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">    &#39;path&#39;: &#39;/tmp/dataset&#39;,</span>
+<span class="go">  },</span>
+<span class="go">})</span>
 </code></pre></div>
 </div>
 <h3 id="chaining-tensorstore-adapters">Chaining TensorStore adapters<a class="headerlink" href="#chaining-tensorstore-adapters" title="Link to this heading">¶</a></h3>
@@ -1304,7 +1322,10 @@ used in conjunction with format auto-detection:</p>
 <span class="go">Spec({</span>
 <span class="go">  &#39;base&#39;: {</span>
 <span class="go">    &#39;driver&#39;: &#39;auto&#39;,</span>
-<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr&#39;},</span>
+<span class="go">    &#39;kvstore&#39;: {</span>
+<span class="go">      &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">      &#39;path&#39;: &#39;/tmp/dataset.zarr&#39;,</span>
+<span class="go">    },</span>
 <span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
@@ -1313,7 +1334,10 @@ used in conjunction with format auto-detection:</p>
 <span class="go">Spec({</span>
 <span class="go">  &#39;base&#39;: {</span>
 <span class="go">    &#39;driver&#39;: &#39;auto&#39;,</span>
-<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr&#39;},</span>
+<span class="go">    &#39;kvstore&#39;: {</span>
+<span class="go">      &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">      &#39;path&#39;: &#39;/tmp/dataset.zarr&#39;,</span>
+<span class="go">    },</span>
 <span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
@@ -1323,7 +1347,10 @@ used in conjunction with format auto-detection:</p>
 <span class="go">  &#39;base&#39;: {</span>
 <span class="go">    &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">    &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;},</span>
+<span class="go">    &#39;kvstore&#39;: {</span>
+<span class="go">      &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">      &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;,</span>
+<span class="go">    },</span>
 <span class="go">    &#39;metadata&#39;: {</span>
 <span class="go">      &#39;chunk_grid&#39;: {</span>
 <span class="go">        &#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]},</span>
@@ -1375,7 +1402,10 @@ from the path to the OCDBT database.</p>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
 <span class="go">  &#39;kvstore&#39;: {</span>
-<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.ocdbt/&#39;},</span>
+<span class="go">    &#39;base&#39;: {</span>
+<span class="go">      &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">      &#39;path&#39;: &#39;/tmp/dataset.ocdbt/&#39;,</span>
+<span class="go">    },</span>
 <span class="go">    &#39;config&#39;: {</span>
 <span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
 <span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>
@@ -1412,7 +1442,10 @@ from the path to the OCDBT database.</p>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
 <span class="go">  &#39;kvstore&#39;: {</span>
-<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.ocdbt/&#39;},</span>
+<span class="go">    &#39;base&#39;: {</span>
+<span class="go">      &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">      &#39;path&#39;: &#39;/tmp/dataset.ocdbt/&#39;,</span>
+<span class="go">    },</span>
 <span class="go">    &#39;config&#39;: {</span>
 <span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
 <span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>
@@ -1457,7 +1490,10 @@ of the OCDBT database:</p>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
 <span class="go">  &#39;kvstore&#39;: {</span>
-<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset2.ocdbt/&#39;},</span>
+<span class="go">    &#39;base&#39;: {</span>
+<span class="go">      &#39;driver&#39;: &#39;file&#39;,</span>
+<span class="go">      &#39;path&#39;: &#39;/tmp/dataset2.ocdbt/&#39;,</span>
+<span class="go">    },</span>
 <span class="go">    &#39;config&#39;: {</span>
 <span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
 <span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>

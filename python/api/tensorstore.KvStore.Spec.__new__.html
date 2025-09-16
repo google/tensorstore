@@ -1229,9 +1229,9 @@
 </code></pre></div>
 </div>
 <p>Example of constructing from a <a class="reference internal" href="../../kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">URL</span></code></a>:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s1">&#39;file:///tmp/data/&#39;</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s1">&#39;file:///path/to/data/&#39;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span>
-<span class="go">KvStore.Spec({&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/data/&#39;})</span>
+<span class="go">KvStore.Spec({&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/path/to/data/&#39;})</span>
 </code></pre></div>
 </div>
 </dd></dl>
