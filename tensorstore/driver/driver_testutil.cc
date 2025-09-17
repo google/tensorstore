@@ -181,7 +181,7 @@ void TestTensorStoreDriverSpecRoundtrip(
     EXPECT_THAT(tensorstore::Open(options.minimal_spec, context,
                                   tensorstore::OpenMode::open)
                     .result(),
-                MatchesStatus(absl::StatusCode::kNotFound));
+                StatusIs(absl::StatusCode::kNotFound));
   }
 
   SharedArray<const void> value_to_create;
@@ -215,7 +215,7 @@ void TestTensorStoreDriverSpecRoundtrip(
                 ::testing::Optional(MatchesJson(options.minimal_spec)));
 
     if (options.url.empty()) {
-      EXPECT_THAT(full_spec_obj.ToUrl(), ::testing::Not(tensorstore::IsOk()));
+      EXPECT_THAT(full_spec_obj.ToUrl(), ::testing::Not(IsOk()));
     } else {
       EXPECT_THAT(full_spec_obj.ToUrl(), ::testing::Optional(options.url));
     }
@@ -289,7 +289,7 @@ void TestTensorStoreDriverSpecRoundtrip(
       EXPECT_THAT(tensorstore::Open(options.minimal_spec, context,
                                     tensorstore::OpenMode::open)
                       .result(),
-                  MatchesStatus(absl::StatusCode::kNotFound));
+                  StatusIs(absl::StatusCode::kNotFound));
     }
     TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
   }
@@ -426,7 +426,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
     EXPECT_THAT(tensorstore::Open(options.create_spec, context, transaction,
                                   tensorstore::OpenMode::create)
                     .result(),
-                MatchesStatus(absl::StatusCode::kAlreadyExists));
+                StatusIs(absl::StatusCode::kAlreadyExists));
   }
 
   ASSERT_EQ(options.expected_domain, store.domain());
@@ -500,7 +500,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
       EXPECT_THAT(tensorstore::Open(options.create_spec, context,
                                     tensorstore::OpenMode::open)
                       .result(),
-                  MatchesStatus(absl::StatusCode::kNotFound));
+                  StatusIs(absl::StatusCode::kNotFound));
     }
     ASSERT_FALSE(transaction.commit_started());
     EXPECT_THAT(store | no_transaction,
@@ -931,7 +931,7 @@ void TestMetadataOnlyResize(const TestTensorStoreDriverResizeOptions& options,
                                           ? ResizeMode::shrink_only
                                           : ResizeMode::expand_only)
                       .result(),
-                  MatchesStatus(absl::StatusCode::kFailedPrecondition));
+                  StatusIs(absl::StatusCode::kFailedPrecondition));
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto resized_store,
           tensorstore::Resize(

@@ -87,6 +87,7 @@ using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::Result;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
@@ -1013,22 +1014,19 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
 TEST_F(UnderlyingKeyValueStoreTest, ReadInvalidKey) {
   auto future = store->Read("abc", {});
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteInvalidKey) {
   auto future = store->Write("abc", absl::Cord("x"));
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, DeleteInvalidKey) {
   auto future = store->Delete("abc");
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {

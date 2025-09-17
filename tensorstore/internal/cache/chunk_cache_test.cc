@@ -110,6 +110,7 @@ using ::tensorstore::Result;
 using ::tensorstore::SharedArray;
 using ::tensorstore::span;
 using ::tensorstore::StalenessBound;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TensorStore;
 using ::tensorstore::Transaction;
@@ -1252,8 +1253,7 @@ TEST_F(ChunkCacheTest, WriteToMaskedArrayError) {
                 .MoveToBack()
           // Select single index of dimension 0.
           | tensorstore::Dims(0).IndexSlice(2));
-  EXPECT_THAT(write_future.result(),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(write_future.result(), StatusIs(absl::StatusCode::kOutOfRange));
 
   // Verify read of same chunk after failed write returns fill value.
   auto read_future = tensorstore::Read(

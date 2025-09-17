@@ -41,6 +41,7 @@ using ::tensorstore::endian;
 using ::tensorstore::Index;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr::ChooseBaseDType;
 using ::tensorstore::internal_zarr::ParseBaseDType;
 using ::tensorstore::internal_zarr::ParseDType;
@@ -122,45 +123,44 @@ TEST(ParseBaseDType, Success) {
 }
 
 TEST(ParseBaseDType, Failure) {
-  EXPECT_THAT(ParseBaseDType(""),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Unsupported zarr dtype: \"\""));
+  EXPECT_THAT(ParseBaseDType(""), StatusIs(absl::StatusCode::kInvalidArgument,
+                                           "Unsupported zarr dtype: \"\""));
   EXPECT_THAT(ParseBaseDType("|f4"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|f8"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|c8"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|c16"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|b2"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|i2"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<i9"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<u9"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<S"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|S999999999999999999999999999"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|S9223372036854775808"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|Sa"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|S "),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<f5"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<c5"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<m8"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<M8"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<X5"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {

@@ -35,6 +35,7 @@ using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
+using ::tensorstore::StatusIs;
 
 class StorageStatisticsTest : public ::testing::Test {
  protected:
@@ -268,7 +269,7 @@ TEST_F(StorageStatisticsTest, Sharded) {
                   store | tensorstore::Dims(0).HalfOpenInterval(8, 15),
                   ArrayStorageStatistics::query_not_stored)
                   .result(),
-              MatchesStatus(absl::StatusCode::kUnimplemented));
+              StatusIs(absl::StatusCode::kUnimplemented));
 }
 
 }  // namespace

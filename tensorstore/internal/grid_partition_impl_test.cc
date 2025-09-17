@@ -95,6 +95,7 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::IrregularGrid;
 using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
 using ::tensorstore::internal_grid_partition::
@@ -472,7 +473,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, StridedDimensionOverflow) {
   auto status = PrePartitionIndexTransformOverGrid(
       transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
       partitioned);
-  EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(PrePartitionIndexTransformOverGridTest, SingleIndexArrayDimension) {

@@ -30,6 +30,7 @@ namespace {
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
@@ -37,6 +38,7 @@ using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
 using ::tensorstore::internal_zarr3::TestCodecRoundTrip;
 using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
+using ::testing::HasSubstr;
 
 TEST(BytesTest, SpecRoundTrip) {
   CodecSpecRoundTripTestParams p;
@@ -51,8 +53,8 @@ TEST(BytesTest, DuplicateArrayToBytes) {
           {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
           {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
       }),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected bytes -> bytes codec, but received: .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected bytes -> bytes codec, but received: ")));
 }
 
 TEST(BytesTest, RoundTrip) {

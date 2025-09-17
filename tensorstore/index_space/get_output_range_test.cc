@@ -14,12 +14,18 @@
 
 /// Tests for GetOutputRange.
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -33,7 +39,7 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::IndexTransformView;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_index_space::TransformAccess;
 
 TEST(GetOutputRangeTest, Constant) {
@@ -248,7 +254,7 @@ TEST(GetOutputRangeTest, InvalidConstantOffset) {
                          .Finalize()
                          .value(),
                      output_range);
-  EXPECT_THAT(result, MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(result, StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(GetOutputRangeTest, InvalidSingleInputDimension) {
@@ -261,7 +267,7 @@ TEST(GetOutputRangeTest, InvalidSingleInputDimension) {
                                    .Finalize()
                                    .value(),
                                output_range);
-  EXPECT_THAT(result, MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(result, StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(GetOutputRangeTest, InvalidIndexRange) {
@@ -279,7 +285,7 @@ TEST(GetOutputRangeTest, InvalidIndexRange) {
           .Finalize()
           .value(),
       output_range);
-  EXPECT_THAT(result, MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(result, StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

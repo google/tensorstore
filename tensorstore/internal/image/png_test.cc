@@ -29,6 +29,8 @@
 
 namespace {
 
+using ::tensorstore::IsOk;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::PngReader;
 using ::tensorstore::internal_image::PngWriter;
@@ -53,7 +55,7 @@ TEST(PngTest, Decode) {
                                       sizeof(data));
 
   PngReader decoder;
-  ASSERT_THAT(decoder.Initialize(&string_reader), ::tensorstore::IsOk());
+  ASSERT_THAT(decoder.Initialize(&string_reader), IsOk());
 
   // See: http://www.libtiff.org/man/index.html
   const auto info = decoder.GetImageInfo();
@@ -62,7 +64,7 @@ TEST(PngTest, Decode) {
   EXPECT_EQ(3, info.num_components);
 
   uint8_t pixel[3] = {};
-  ASSERT_THAT(decoder.Decode(pixel), ::tensorstore::IsOk());
+  ASSERT_THAT(decoder.Decode(pixel), IsOk());
   EXPECT_THAT(pixel, ::testing::ElementsAre(0x5f, 0x5f, 0x5f));
 }
 
@@ -73,17 +75,16 @@ TEST(PngTest, EncodeDecode) {
   {
     PngWriter encoder;
     riegeli::CordWriter cord_writer(&encoded);
-    ASSERT_THAT(encoder.Initialize(&cord_writer), ::tensorstore::IsOk());
-    ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 1}, pixels),
-                ::tensorstore::IsOk());
+    ASSERT_THAT(encoder.Initialize(&cord_writer), IsOk());
+    ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 1}, pixels), IsOk());
 
-    ASSERT_THAT(encoder.Done(), ::tensorstore::IsOk());
+    ASSERT_THAT(encoder.Done(), IsOk());
   }
 
   {
     PngReader decoder;
     riegeli::CordReader cord_reader(&encoded);
-    ASSERT_THAT(decoder.Initialize(&cord_reader), ::tensorstore::IsOk());
+    ASSERT_THAT(decoder.Initialize(&cord_reader), IsOk());
 
     const auto& info = decoder.GetImageInfo();
     EXPECT_EQ(1, info.width);
@@ -94,7 +95,7 @@ TEST(PngTest, EncodeDecode) {
     ASSERT_THAT(
         decoder.Decode(tensorstore::span(
             reinterpret_cast<unsigned char*>(&new_pixels), sizeof(new_pixels))),
-        tensorstore::IsOk());
+        IsOk());
 
     EXPECT_THAT(new_pixels, ::testing::ElementsAre(0));
   }
@@ -113,7 +114,7 @@ TEST(PngTest, CorruptData) {
 
   PngReader decoder;
   EXPECT_THAT(decoder.Initialize(&string_reader),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

@@ -14,13 +14,17 @@
 
 /// Tests for the DimExpression::Translate* operations.
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -37,8 +41,8 @@ using ::tensorstore::kInfSize;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::kMinFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_index_space::EquivalentIndices;
 using ::tensorstore::internal_index_space::TestDimExpression;
 
@@ -531,7 +535,7 @@ TEST(TranslateToTest, IndexDomainOverflow) {
       auto translated_domain,
       IndexDomainBuilder(1).origin({-5}).shape({10}).Finalize());
   EXPECT_THAT(transform | AllDims().TranslateTo({-5}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   // Tests that integer overflow does not occur, because output dimensions are
   // ignored.
   EXPECT_THAT(domain | AllDims().TranslateTo({-5}),

@@ -644,7 +644,9 @@ tensorstore_cc_test(
         ":status",
         ":status_testutil",
         ":str_cat",
+        "//tensorstore/internal:source_location",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
     ],
 )

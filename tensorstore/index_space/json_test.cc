@@ -14,14 +14,28 @@
 
 #include "tensorstore/index_space/json.h"
 
+#include <type_traits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/testing/json_gtest.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -39,6 +53,7 @@ using ::tensorstore::kInfSize;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::ParseJson;
 
 IndexTransform<> MakeExampleTransform() {
@@ -496,7 +511,7 @@ TEST(ParseIndexTransformTest, InvalidInterval) {
     "input_exclusive_max": [5, 10]
 }
 )")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ParseIndexTransformTest, UnexpectedTopLevelMember) {
@@ -791,11 +806,11 @@ TEST(IndexBinderTest, Basic) {
       tensorstore::internal_json_binding::IndexBinder);
   tensorstore::TestJsonBinderFromJson<Index>(
       {
-          {"abc", MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {"abc", StatusIs(absl::StatusCode::kInvalidArgument)},
           {-kInfIndex, ::testing::Optional(MatchesJson(-kInfIndex))},
           {+kInfIndex, ::testing::Optional(MatchesJson(+kInfIndex))},
-          {-kInfIndex - 1, MatchesStatus(absl::StatusCode::kInvalidArgument)},
-          {kInfIndex + 1, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {-kInfIndex - 1, StatusIs(absl::StatusCode::kInvalidArgument)},
+          {kInfIndex + 1, StatusIs(absl::StatusCode::kInvalidArgument)},
       },
       tensorstore::internal_json_binding::IndexBinder);
 }
@@ -810,9 +825,9 @@ TEST(IndexIntervalBinderTest, Basic) {
       {IndexInterval::UncheckedClosed(20, +kInfIndex), {20, "+inf"}},
   });
   tensorstore::TestJsonBinderFromJson<IndexInterval>({
-      {"abc", MatchesStatus(absl::StatusCode::kInvalidArgument)},
-      {{-kInfIndex - 1, 10}, MatchesStatus(absl::StatusCode::kInvalidArgument)},
-      {{10, 5}, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+      {"abc", StatusIs(absl::StatusCode::kInvalidArgument)},
+      {{-kInfIndex - 1, 10}, StatusIs(absl::StatusCode::kInvalidArgument)},
+      {{10, 5}, StatusIs(absl::StatusCode::kInvalidArgument)},
   });
 }
 

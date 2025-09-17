@@ -14,10 +14,17 @@
 
 #include "tensorstore/index_space/dimension_identifier.h"
 
+#include <limits>
+#include <optional>
+#include <string>
+#include <string_view>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -31,6 +38,7 @@ using ::tensorstore::MatchesStatus;
 using ::tensorstore::NormalizeDimensionIdentifier;
 using ::tensorstore::NormalizeDimensionIndex;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 
 TEST(DimensionIdentifierTest, ConstructDefault) {
@@ -91,16 +99,16 @@ TEST(NormalizeDimensionIndexTest, ValidNegative) {
 
 TEST(NormalizeDimensionIndexTest, InvalidNegative) {
   EXPECT_THAT(NormalizeDimensionIndex(-6, 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(NormalizeDimensionIndex(-7, 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(NormalizeDimensionIndexTest, InvalidNonNegative) {
   EXPECT_THAT(NormalizeDimensionIndex(5, 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(NormalizeDimensionIndex(6, 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(NormalizeDimensionLabelTest, ValidLabel) {
@@ -111,13 +119,13 @@ TEST(NormalizeDimensionLabelTest, ValidLabel) {
 TEST(NormalizeDimensionLabelTest, MissingLabel) {
   EXPECT_THAT(NormalizeDimensionLabel(
                   "w", span<const std::string>({"a", "b", "x", "y"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(NormalizeDimensionLabelTest, EmptyLabel) {
   EXPECT_THAT(NormalizeDimensionLabel(
                   "", span<const std::string>({"a", "b", "x", "y"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(NormalizeDimensionIdentifierTest, ValidLabel) {
@@ -146,11 +154,11 @@ TEST(NormalizeDimensionIdentifierTest, ValidNegativeIndex) {
 TEST(NormalizeDimensionIdentifierTest, InvalidIndex) {
   EXPECT_THAT(NormalizeDimensionIdentifier(
                   4, span<const std::string>({"a", "b", "x", "y"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(NormalizeDimensionIdentifier(
                   -5, span<const std::string>({"a", "b", "x", "y"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(DimRangeSpecTest, Comparison) {

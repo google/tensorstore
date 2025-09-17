@@ -86,6 +86,7 @@ namespace {
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
 using ::tensorstore::kvstore::ReadResult;
 
@@ -814,7 +815,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = expected_value.size() + 1;
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                testing::AnyOf(MatchesStatus(absl::StatusCode::kOutOfRange)));
+                testing::AnyOf(StatusIs(absl::StatusCode::kOutOfRange)));
   }
 
   ABSL_LOG(INFO) << kSep
@@ -830,7 +831,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
     options.byte_range.inclusive_min = 1;
     options.byte_range.exclusive_max = expected_value.size() + 1;
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesStatus(absl::StatusCode::kOutOfRange));
+                StatusIs(absl::StatusCode::kOutOfRange));
   }
 
   // --------------------------------------------------------------------
@@ -1335,7 +1336,7 @@ void TestKeyValueStoreSpecRoundtrip(
                 IsOkAndHolds(MatchesJson(options.full_spec)));
 
     if (options.url.empty()) {
-      EXPECT_THAT(spec.ToUrl(), ::testing::Not(tensorstore::IsOk()));
+      EXPECT_THAT(spec.ToUrl(), ::testing::Not(IsOk()));
     } else {
       EXPECT_THAT(spec.ToUrl(), ::testing::Optional(options.url));
     }

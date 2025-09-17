@@ -24,6 +24,7 @@
 namespace {
 
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
 using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
@@ -198,10 +199,10 @@ TEST(ShardingSpecTest, Parse) {
                        {"data_encoding", "gzip"}};
     j.erase(k);
     EXPECT_THAT(ShardingSpec::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
     j[k] = nullptr;
     EXPECT_THAT(ShardingSpec::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Tests that `@type` must be "neuroglancer_uint64_sharded_v1".
@@ -274,7 +275,7 @@ TEST(ShardingSpecTest, Parse) {
                                 {"preshift_bits", i},
                                 {"minishard_bits", 2},
                                 {"shard_bits", 3}}),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Tests that `minishard_bits` is limited to `[0, 32]`.
@@ -302,7 +303,7 @@ TEST(ShardingSpecTest, Parse) {
                                 {"preshift_bits", 1},
                                 {"minishard_bits", i},
                                 {"shard_bits", 0}}),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Tests that `shard_bits` is limited to `[0, 64-minishard_bits]`.
@@ -330,11 +331,11 @@ TEST(ShardingSpecTest, Parse) {
                                 {"preshift_bits", 1},
                                 {"minishard_bits", 7},
                                 {"shard_bits", i}}),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   EXPECT_THAT(ShardingSpec::FromJson("invalid"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MinishardIndexEntryTest, Comparison) {

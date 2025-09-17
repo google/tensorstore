@@ -39,9 +39,12 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
+using ::tensorstore::IsOk;
 using ::tensorstore::internal::FindFirst;
 using ::tensorstore::internal::StartsWith;
 using ::tensorstore::internal_zip::kCentralHeaderLiteral;
+using ::tensorstore::internal_zip::kEOCD64Literal;
+using ::tensorstore::internal_zip::kEOCD64LocatorLiteral;
 using ::tensorstore::internal_zip::kEOCDLiteral;
 using ::tensorstore::internal_zip::kLocalHeaderLiteral;
 using ::tensorstore::internal_zip::ReadCentralDirectoryEntry;
@@ -53,12 +56,6 @@ using ::tensorstore::internal_zip::ZipCompression;
 using ::tensorstore::internal_zip::ZipEntry;
 using ::tensorstore::internal_zip::ZipEOCD;
 using ::tensorstore::internal_zip::ZipEOCD64Locator;
-
-using ::tensorstore::internal_zip::kCentralHeaderLiteral;
-using ::tensorstore::internal_zip::kEOCD64Literal;
-using ::tensorstore::internal_zip::kEOCD64LocatorLiteral;
-using ::tensorstore::internal_zip::kEOCDLiteral;
-using ::tensorstore::internal_zip::kLocalHeaderLiteral;
 
 ABSL_FLAG(std::string, tensorstore_test_data, "",
           "Path to internal/compression/testdata/data.zip");
@@ -168,7 +165,7 @@ TEST(ZipDetailsTest, DecodeEOCD) {
   EXPECT_TRUE(FindFirst(string_reader, StringViewOf(kEOCDLiteral)));  // EOCD
 
   ZipEOCD eocd;
-  ASSERT_THAT(ReadEOCD(string_reader, eocd), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadEOCD(string_reader, eocd), IsOk());
   EXPECT_EQ(eocd.num_entries, 0);
   EXPECT_EQ(eocd.cd_size, 0);
   EXPECT_EQ(eocd.cd_offset, 0);
@@ -180,7 +177,7 @@ TEST(ZipDetailsTest, ReadEOCDZip64) {
   EXPECT_TRUE(FindFirst(string_reader, StringViewOf(kEOCDLiteral)));  // EOCD
 
   ZipEOCD eocd;
-  ASSERT_THAT(ReadEOCD(string_reader, eocd), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadEOCD(string_reader, eocd), IsOk());
   EXPECT_EQ(eocd.num_entries, 1);
   EXPECT_EQ(eocd.cd_size, 47);
   EXPECT_EQ(eocd.cd_offset, 53);
@@ -192,8 +189,7 @@ TEST(ZipDetailsTest, ReadEOCD6LocatorZip64) {
   EXPECT_TRUE(FindFirst(string_reader, StringViewOf(kEOCD64LocatorLiteral)));
 
   ZipEOCD64Locator eocd64_locator;
-  ASSERT_THAT(ReadEOCD64Locator(string_reader, eocd64_locator),
-              ::tensorstore::IsOk());
+  ASSERT_THAT(ReadEOCD64Locator(string_reader, eocd64_locator), IsOk());
   EXPECT_EQ(eocd64_locator.disk_number_with_cd, 0);
   EXPECT_EQ(eocd64_locator.cd_offset, 100);
 }
@@ -205,7 +201,7 @@ TEST(ZipDetailsTest, ReadEOCD64Zip64) {
   EXPECT_EQ(100, string_reader.pos());
 
   ZipEOCD eocd64;
-  ASSERT_THAT(ReadEOCD64(string_reader, eocd64), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadEOCD64(string_reader, eocd64), IsOk());
   EXPECT_EQ(eocd64.num_entries, 1);
   EXPECT_EQ(eocd64.cd_size, 47);
   EXPECT_EQ(eocd64.cd_offset, 53);
@@ -219,7 +215,7 @@ TEST(ZipDetailsTest, TryReadFullEOCDZip64) {
 
   ZipEOCD eocd64;
   ASSERT_THAT(TryReadFullEOCD(string_reader, eocd64, 0),
-              ::testing::VariantWith<absl::Status>(::tensorstore::IsOk()));
+              ::testing::VariantWith<absl::Status>(IsOk()));
   EXPECT_EQ(eocd64.num_entries, 1);
   EXPECT_EQ(eocd64.cd_size, 47);
   EXPECT_EQ(eocd64.cd_offset, 53);
@@ -232,8 +228,7 @@ TEST(ZipDetailsTest, ReadCentralHeaderZip64) {
   EXPECT_EQ(53, string_reader.pos());
 
   ZipEntry central_header;
-  ASSERT_THAT(ReadCentralDirectoryEntry(string_reader, central_header),
-              ::tensorstore::IsOk());
+  ASSERT_THAT(ReadCentralDirectoryEntry(string_reader, central_header), IsOk());
 
   EXPECT_EQ(central_header.version_madeby, 798);
   EXPECT_EQ(central_header.flags, 0);
@@ -256,8 +251,7 @@ TEST(ZipDetailsTest, ReadLocalHeaderZip64) {
   EXPECT_TRUE(FindFirst(string_reader, StringViewOf(kLocalHeaderLiteral)));
 
   ZipEntry local_header;
-  ASSERT_THAT(ReadLocalEntry(string_reader, local_header),
-              ::tensorstore::IsOk());
+  ASSERT_THAT(ReadLocalEntry(string_reader, local_header), IsOk());
 
   EXPECT_EQ(local_header.version_madeby, 0);
   EXPECT_EQ(local_header.flags, 0);
@@ -280,7 +274,7 @@ TEST(ZipDetailsTest, Decode) {
   EXPECT_TRUE(FindFirst(string_reader, StringViewOf(kEOCDLiteral)));  // EOCD
 
   ZipEOCD eocd;
-  ASSERT_THAT(ReadEOCD(string_reader, eocd), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadEOCD(string_reader, eocd), IsOk());
   EXPECT_EQ(eocd.num_entries, 3);
   EXPECT_EQ(eocd.cd_size, 202);
   EXPECT_EQ(eocd.cd_offset, 188);
@@ -291,8 +285,7 @@ TEST(ZipDetailsTest, Decode) {
     EXPECT_TRUE(StartsWith(string_reader, StringViewOf(kCentralHeaderLiteral)))
         << i;
     ZipEntry header;
-    ASSERT_THAT(ReadCentralDirectoryEntry(string_reader, header),
-                ::tensorstore::IsOk());
+    ASSERT_THAT(ReadCentralDirectoryEntry(string_reader, header), IsOk());
     central_headers.push_back(std::move(header));
   }
 
@@ -301,8 +294,7 @@ TEST(ZipDetailsTest, Decode) {
     ZipEntry local_header;
     string_reader.Seek(header.local_header_offset);
     EXPECT_TRUE(StartsWith(string_reader, StringViewOf(kLocalHeaderLiteral)));
-    ASSERT_THAT(ReadLocalEntry(string_reader, local_header),
-                ::tensorstore::IsOk());
+    ASSERT_THAT(ReadLocalEntry(string_reader, local_header), IsOk());
     local_headers.push_back(std::move(local_header));
     absl::Cord data;
     string_reader.Read(local_headers.back().compressed_size, data);
@@ -365,15 +357,14 @@ TEST(ZipDetailsTest, ReadDirectory) {
   riegeli::StringReader string_reader(reinterpret_cast<const char*>(kZipTest2),
                                       sizeof(kZipTest2));
   ZipDirectory dir;
-  EXPECT_THAT(ReadDirectory(string_reader, dir), ::tensorstore::IsOk());
+  EXPECT_THAT(ReadDirectory(string_reader, dir), IsOk());
 
   std::vector<ZipEntry> local_headers;
   for (const auto& header : dir.entries) {
     ZipEntry local_header;
     string_reader.Seek(header.local_header_offset);
     EXPECT_TRUE(StartsWith(string_reader, StringViewOf(kLocalHeaderLiteral)));
-    EXPECT_THAT(ReadLocalEntry(string_reader, local_header),
-                ::tensorstore::IsOk());
+    EXPECT_THAT(ReadLocalEntry(string_reader, local_header), IsOk());
     local_headers.push_back(std::move(local_header));
   }
 
@@ -392,7 +383,7 @@ TEST(ZipDetailsTest, ReadDirectory) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto reader,
                                    GetReader(&string_reader, local_headers[0]));
   std::string data;
-  EXPECT_THAT(riegeli::ReadAll(*reader, data), ::tensorstore::IsOk());
+  EXPECT_THAT(riegeli::ReadAll(*reader, data), IsOk());
   EXPECT_EQ(data, "test\n");
   EXPECT_EQ(data.size(), local_headers[0].uncompressed_size);
 }
@@ -422,21 +413,20 @@ TEST(ZipDetailsTest, Xz) {
   riegeli::StringReader string_reader(reinterpret_cast<const char*>(kXZ),
                                       sizeof(kXZ));
   ZipDirectory dir;
-  ASSERT_THAT(ReadDirectory(string_reader, dir), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadDirectory(string_reader, dir), IsOk());
   EXPECT_THAT(dir.entries.size(), ::testing::Gt(0));
 
   ZipEntry local_header;
   string_reader.Seek(dir.entries[0].local_header_offset);
   EXPECT_TRUE(StartsWith(string_reader, StringViewOf(kLocalHeaderLiteral)));
-  ASSERT_THAT(ReadLocalEntry(string_reader, local_header),
-              ::tensorstore::IsOk());
+  ASSERT_THAT(ReadLocalEntry(string_reader, local_header), IsOk());
 
   EXPECT_EQ(local_header.compression_method, ZipCompression::kXZ);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto reader,
                                    GetReader(&string_reader, local_header));
   std::string data;
-  EXPECT_THAT(riegeli::ReadAll(*reader, data), ::tensorstore::IsOk());
+  EXPECT_THAT(riegeli::ReadAll(*reader, data), IsOk());
   EXPECT_EQ(data,
             "aaaaaaaaaaaaaa\r\nbbbbbbbbbbbbbb\r\naaaaaaaaaaaaaa\r\ncccccccccccc"
             "cc\r\n");
@@ -463,21 +453,20 @@ TEST(ZipDetailsTest, Zstd) {
 
   riegeli::StringReader string_reader(StringViewOf(kZStd));
   ZipDirectory dir;
-  ASSERT_THAT(ReadDirectory(string_reader, dir), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadDirectory(string_reader, dir), IsOk());
   EXPECT_THAT(dir.entries.size(), ::testing::Gt(0));
 
   ZipEntry local_header;
   string_reader.Seek(dir.entries[0].local_header_offset);
   EXPECT_TRUE(StartsWith(string_reader, StringViewOf(kLocalHeaderLiteral)));
-  ASSERT_THAT(ReadLocalEntry(string_reader, local_header),
-              ::tensorstore::IsOk());
+  ASSERT_THAT(ReadLocalEntry(string_reader, local_header), IsOk());
 
   EXPECT_EQ(local_header.compression_method, ZipCompression::kZStd);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto reader,
                                    GetReader(&string_reader, local_header));
   std::string data;
-  EXPECT_THAT(riegeli::ReadAll(*reader, data), ::tensorstore::IsOk());
+  EXPECT_THAT(riegeli::ReadAll(*reader, data), IsOk());
   EXPECT_EQ(data,
             "aaaaaaaaaaaaaa\r\nbbbbbbbbbbbbbb\r\naaaaaaaaaaaaaa\r\ncccccccccccc"
             "cc\r\n");
@@ -505,21 +494,20 @@ TEST(ZipDetailsTest, Bzip2) {
 
   riegeli::StringReader string_reader(StringViewOf(kBzip2));
   ZipDirectory dir;
-  ASSERT_THAT(ReadDirectory(string_reader, dir), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadDirectory(string_reader, dir), IsOk());
   EXPECT_THAT(dir.entries.size(), ::testing::Gt(0));
 
   ZipEntry local_header;
   string_reader.Seek(dir.entries[0].local_header_offset);
   EXPECT_TRUE(StartsWith(string_reader, StringViewOf(kLocalHeaderLiteral)));
-  ASSERT_THAT(ReadLocalEntry(string_reader, local_header),
-              ::tensorstore::IsOk());
+  ASSERT_THAT(ReadLocalEntry(string_reader, local_header), IsOk());
 
   EXPECT_EQ(local_header.compression_method, ZipCompression::kBzip2);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto reader,
                                    GetReader(&string_reader, local_header));
   std::string data;
-  EXPECT_THAT(riegeli::ReadAll(*reader, data), ::tensorstore::IsOk());
+  EXPECT_THAT(riegeli::ReadAll(*reader, data), IsOk());
   EXPECT_EQ(data,
             "aaaaaaaaaaaaaa\nbbbbbbbbbbbbbb\naaaaaaaaaaaaaa\ncccccccccccccc\n");
   EXPECT_EQ(data.size(), local_header.uncompressed_size);
@@ -543,21 +531,20 @@ TEST(ZipDetailsTest, Deflate) {
 
   riegeli::StringReader string_reader(StringViewOf(kDeflate));
   ZipDirectory dir;
-  ASSERT_THAT(ReadDirectory(string_reader, dir), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadDirectory(string_reader, dir), IsOk());
   EXPECT_THAT(dir.entries.size(), ::testing::Gt(0));
 
   ZipEntry local_header;
   string_reader.Seek(dir.entries[0].local_header_offset);
   EXPECT_TRUE(StartsWith(string_reader, StringViewOf(kLocalHeaderLiteral)));
-  ASSERT_THAT(ReadLocalEntry(string_reader, local_header),
-              ::tensorstore::IsOk());
+  ASSERT_THAT(ReadLocalEntry(string_reader, local_header), IsOk());
 
   EXPECT_EQ(local_header.compression_method, ZipCompression::kDeflate);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto reader,
                                    GetReader(&string_reader, local_header));
   std::string data;
-  EXPECT_THAT(riegeli::ReadAll(*reader, data), ::tensorstore::IsOk());
+  EXPECT_THAT(riegeli::ReadAll(*reader, data), IsOk());
   EXPECT_EQ(data, "firstpartsecondpart");
   EXPECT_EQ(data.size(), local_header.uncompressed_size);
 }
@@ -706,7 +693,7 @@ TEST(TestdataTest, LocalHeaderEntry) {
   EXPECT_TRUE(StartsWith(reader, StringViewOf(kLocalHeaderLiteral)));
   EXPECT_THAT(reader.pos(), 0);
   /// Reads a ZipFileHeader from the current stream position.
-  ASSERT_THAT(ReadLocalEntry(reader, header), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadLocalEntry(reader, header), IsOk());
 
   EXPECT_THAT(header.version_madeby, 0);
   EXPECT_THAT(header.flags, 0x2);
@@ -736,7 +723,7 @@ TEST(TestdataTest, CentralHeaderEntry) {
   ZipEntry header{};
 
   /// Reads a ZipFileHeader from the current stream position.
-  ASSERT_THAT(ReadCentralDirectoryEntry(reader, header), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadCentralDirectoryEntry(reader, header), IsOk());
 
   EXPECT_THAT(header.flags, 0x2);
   EXPECT_THAT(header.compression_method, ZipCompression::kDeflate);
@@ -767,7 +754,7 @@ TEST(TestdataTest, EOCD) {
   EXPECT_THAT(reader.pos(), 0x4DFE4);
 
   ::tensorstore::internal_zip::ZipEOCD eocd{};
-  ASSERT_THAT(ReadEOCD(reader, eocd), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadEOCD(reader, eocd), IsOk());
 
   EXPECT_THAT(eocd.num_entries, 3);
   EXPECT_THAT(eocd.cd_size, 0x000000F1);
@@ -783,14 +770,14 @@ TEST(TestdataTest, FileData) {
   ZipEntry header;
 
   /// Reads a ZipFileHeader from the current stream position.
-  ASSERT_THAT(ReadLocalEntry(reader, header), ::tensorstore::IsOk());
+  ASSERT_THAT(ReadLocalEntry(reader, header), IsOk());
 
   EXPECT_THAT(reader.pos(), 0x0044);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto entry_reader, tensorstore::internal_zip::GetReader(&reader, header));
 
   std::string data;
-  EXPECT_THAT(riegeli::ReadAll(*entry_reader, data), ::tensorstore::IsOk());
+  EXPECT_THAT(riegeli::ReadAll(*entry_reader, data), IsOk());
   EXPECT_EQ(data.size(), header.uncompressed_size);
 }
 

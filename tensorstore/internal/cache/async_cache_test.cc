@@ -41,7 +41,10 @@
 namespace {
 
 using ::tensorstore::Future;
+using ::tensorstore::IsOk;
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::no_transaction;
+using ::tensorstore::StatusIs;
 using ::tensorstore::Transaction;
 using ::tensorstore::internal::AsyncCache;
 using ::tensorstore::internal::CachePool;
@@ -908,9 +911,8 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
   // Test implicit transaction error.
   {
     OpenTransactionPtr transaction;
-    EXPECT_THAT(
-        GetTransactionNode(*entry, transaction).status(),
-        tensorstore::MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
+    EXPECT_THAT(GetTransactionNode(*entry, transaction).status(),
+                MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
   }
 
   // Test explicit transaction error.
@@ -919,9 +921,8 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
         auto transaction,
         tensorstore::internal::AcquireOpenTransactionPtrOrError(
             Transaction(tensorstore::isolated)));
-    EXPECT_THAT(
-        GetTransactionNode(*entry, transaction).status(),
-        tensorstore::MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
+    EXPECT_THAT(GetTransactionNode(*entry, transaction).status(),
+                MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
   }
 }
 

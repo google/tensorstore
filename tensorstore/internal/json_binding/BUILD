@@ -143,7 +143,6 @@ tensorstore_cc_test(
         "//tensorstore:data_type",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal/testing:json_gtest",
-        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",

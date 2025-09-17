@@ -131,16 +131,16 @@ TEST(S3KeyValueStoreTest, InvalidSpec) {
                   {{"driver", "s3"}, {"bucket", "my-bucket"}, {"extra", "key"}},
                   context)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with missing `"bucket"` key.
   EXPECT_THAT(kvstore::Open({{"driver", "s3"}}, context).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"bucket"` key.
   EXPECT_THAT(
       kvstore::Open({{"driver", "s3"}, {"bucket", "a"}}, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Mock-based tests for s3.
@@ -240,7 +240,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
                                     "\"900150983cd24fb0d6963f7d28e17f73\"")));
 
   EXPECT_THAT(kvstore::Read(store, "sha_mismatch").result(),
-              MatchesStatus(absl::StatusCode::kDataLoss));
+              StatusIs(absl::StatusCode::kDataLoss));
 
   EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz")).result(),
               MatchesTimestampedStorageGeneration(StorageGeneration::FromString(

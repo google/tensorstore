@@ -52,6 +52,7 @@ ABSL_FLAG(std::string, tensorstore_test_data_dir, ".",
 
 namespace {
 
+using ::tensorstore::IsOk;
 using ::tensorstore::internal_image::AvifReader;
 using ::tensorstore::internal_image::BmpReader;
 using ::tensorstore::internal_image::ImageInfo;
@@ -134,8 +135,7 @@ TEST_P(ReaderTest, ReadImage) {
   ASSERT_FALSE(file_data.empty());
 
   riegeli::CordReader cord_reader(&file_data);
-  ASSERT_THAT(reader->Initialize(&cord_reader), ::tensorstore::IsOk())
-      << filename;
+  ASSERT_THAT(reader->Initialize(&cord_reader), IsOk()) << filename;
 
   auto expected_info = GetParam().info;
   auto info = reader->GetImageInfo();
@@ -148,7 +148,7 @@ TEST_P(ReaderTest, ReadImage) {
   EXPECT_EQ(image_bytes, ImageRequiredBytes(expected_info));
   std::unique_ptr<unsigned char[]> image(new unsigned char[image_bytes]());
   EXPECT_THAT(reader->Decode(tensorstore::span(image.get(), image_bytes)),
-              ::tensorstore::IsOk());
+              IsOk());
   EXPECT_TRUE(cord_reader.Close()) << cord_reader.status();
 
   /// Validate values.

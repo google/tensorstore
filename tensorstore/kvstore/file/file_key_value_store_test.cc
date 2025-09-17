@@ -68,11 +68,13 @@ namespace {
 
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::CompletionNotifyingReceiver;
+using ::tensorstore::IsOk;
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -189,42 +191,22 @@ TEST(FileKeyValueStoreTest, InvalidKey) {
 
   EXPECT_THAT(kvstore::Read(store, "this_is_a_long_key").result(),
               MatchesKvsReadResultNotFound());
-  EXPECT_THAT(
-      kvstore::Read(store, "").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, std::string("\0", 1)).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Write(store, "", {}).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, "/").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, ".").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, "..").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, "a/./b").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, "a/../b").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, "a/").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, "a.__lock").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, "a/b.__lock/c").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      kvstore::Read(store, "///").result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
+
+  auto is_invalid_key =
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Invalid key: "));
+  EXPECT_THAT(kvstore::Read(store, std::string("\0", 1)).result(),
+              is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Write(store, "", {}).result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "/").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, ".").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "..").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "a/./b").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "a/../b").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "a/").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "a.__lock").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "a/b.__lock/c").result(), is_invalid_key);
+  EXPECT_THAT(kvstore::Read(store, "///").result(), is_invalid_key);
 }
 
 TEST(FileKeyValueStoreTest, LockFiles) {
@@ -304,8 +286,8 @@ TEST(FileKeyValueStoreTest, NestedDirectories) {
       kvstore::Write(store, "a/ba/ccc/foo", absl::Cord("xyz")));
   EXPECT_THAT(
       kvstore::Write(store, "a/ba/ccc", absl::Cord("xyz")).result(),
-      ::testing::AnyOf(MatchesStatus(absl::StatusCode::kPermissionDenied),
-                       MatchesStatus(absl::StatusCode::kFailedPrecondition)));
+      ::testing::AnyOf(StatusIs(absl::StatusCode::kPermissionDenied),
+                       StatusIs(absl::StatusCode::kFailedPrecondition)));
 }
 
 TEST(FileKeyValueStoreTest, ConcurrentWrites) {
@@ -366,14 +348,14 @@ TEST(FileKeyValueStoreTest, Permissions) {
 
   // Writing an existing key should fail.
   EXPECT_THAT(kvstore::Write(store, "foo", absl::Cord("abc")).result(),
-              MatchesStatus(absl::StatusCode::kPermissionDenied));
+              StatusIs(absl::StatusCode::kPermissionDenied));
 
   // Value should not have changed.
   EXPECT_EQ("xyz", kvstore::Read(store, "foo").value().value);
 
   // Writing a new key should fail.
   EXPECT_THAT(kvstore::Write(store, "bar", absl::Cord("abc")).result(),
-              MatchesStatus(absl::StatusCode::kPermissionDenied));
+              StatusIs(absl::StatusCode::kPermissionDenied));
 
   // Value should not exist.
   EXPECT_THAT(kvstore::Read(store, "bar").result(),
@@ -381,7 +363,7 @@ TEST(FileKeyValueStoreTest, Permissions) {
 
   // Delete should fail.
   EXPECT_THAT(kvstore::Delete(store, "foo").result(),
-              MatchesStatus(absl::StatusCode::kPermissionDenied));
+              StatusIs(absl::StatusCode::kPermissionDenied));
 
   // Remove read permission on file.
   ASSERT_EQ(0, ::chmod((root + "/foo").c_str(), 0))
@@ -389,7 +371,7 @@ TEST(FileKeyValueStoreTest, Permissions) {
 
   // Read should fail.
   EXPECT_THAT(kvstore::Read(store, "foo").result(),
-              MatchesStatus(absl::StatusCode::kPermissionDenied));
+              StatusIs(absl::StatusCode::kPermissionDenied));
 }
 #endif
 
@@ -462,12 +444,12 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
       kvstore::Open({{"driver", "file"}, {"path", root}, {"extra", "key"}},
                     context)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"path"` key.
   EXPECT_THAT(
       kvstore::Open({{"driver", "file"}, {"path", 5}}, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"path"`
   EXPECT_THAT(kvstore::Open({{"driver", "file"}, {"path", "/a/../b/"}}, context)
@@ -478,9 +460,9 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
 
 TEST(FileKeyValueStoreTest, UrlRoundtrip) {
   // Creates a spec with a / path:
-  EXPECT_THAT(kvstore::Spec::FromUrl("file:///"), tensorstore::IsOk());
+  EXPECT_THAT(kvstore::Spec::FromUrl("file:///"), IsOk());
   // Creates a spec with an empty path:
-  EXPECT_THAT(kvstore::Spec::FromUrl("file://"), tensorstore::IsOk());
+  EXPECT_THAT(kvstore::Spec::FromUrl("file://"), IsOk());
 
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip({{"driver", "file"}},
                                                        "file://");
@@ -591,7 +573,7 @@ TEST(FileKeyValueStoreTest, DirectoryInPath) {
   // `absl::StatusCode::kNotFound`. Instead it is generically translated to
   // `absl::StatusCode::kPermissionDenied`.
   EXPECT_THAT(kvstore::Read(store, "a").result(),
-              MatchesStatus(absl::StatusCode::kPermissionDenied));
+              StatusIs(absl::StatusCode::kPermissionDenied));
 #endif
   EXPECT_THAT(kvstore::Read(store, "a/b/c").result(),
               MatchesKvsReadResultNotFound());

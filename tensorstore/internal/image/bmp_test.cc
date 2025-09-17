@@ -13,21 +13,21 @@
 // limitations under the License.
 
 #include <stddef.h>
-
-#include <cmath>
-#include <vector>
+#include <stdint.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/string_reader.h"
 #include "tensorstore/internal/image/bmp_reader.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::IsOk;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_image::BmpReader;
 
 TEST(BmpTest, Decode) {
@@ -51,7 +51,7 @@ TEST(BmpTest, Decode) {
                                       sizeof(data));
 
   BmpReader decoder;
-  ASSERT_THAT(decoder.Initialize(&string_reader), ::tensorstore::IsOk());
+  ASSERT_THAT(decoder.Initialize(&string_reader), IsOk());
 
   const auto info = decoder.GetImageInfo();
   EXPECT_EQ(1, info.width);
@@ -61,7 +61,7 @@ TEST(BmpTest, Decode) {
   uint32_t pixel = 0;
   ASSERT_THAT(decoder.Decode(tensorstore::span<unsigned char>(
                   reinterpret_cast<unsigned char*>(&pixel), sizeof(pixel))),
-              tensorstore::IsOk());
+              IsOk());
 
   EXPECT_EQ(0x6d4283, pixel) << absl::StrFormat(" %x", pixel);
 }
@@ -77,7 +77,7 @@ TEST(BmpTest, CorruptData) {
 
   BmpReader decoder;
   EXPECT_THAT(decoder.Initialize(&string_reader),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

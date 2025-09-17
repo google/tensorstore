@@ -29,6 +29,7 @@ namespace {
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
@@ -145,9 +146,9 @@ TEST(TransposeTest, Merge) {
                              /*strict=*/false),
               ::testing::Optional(MatchesJson(perm_F)));
   EXPECT_THAT(TestCodecMerge(perm_012, perm_210, /*strict=*/false),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
   EXPECT_THAT(TestCodecMerge(perm_C, perm_F, /*strict=*/false),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 }  // namespace

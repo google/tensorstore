@@ -50,6 +50,7 @@ using ::tensorstore::kInfIndex;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::ParseIndexDomainFromProto;
 using ::tensorstore::ParseIndexTransformFromProto;
+using ::tensorstore::StatusIs;
 
 template <typename Proto>
 Proto ParseProtoOrDie(const std::string& asciipb) {
@@ -415,7 +416,7 @@ TEST(IndexTransformProtoTest, BadOutputRank) {
   )pb");
 
   EXPECT_THAT(ParseIndexTransformFromProto(proto),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexTransformProtoTest, RankMismatch) {
@@ -445,7 +446,7 @@ TEST(IndexTransformProtoTest, InvalidShape) {
   )pb");
 
   EXPECT_THAT(ParseIndexTransformFromProto(proto),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Tests that omitting the `"output"` member when `output_rank` is specified
@@ -578,14 +579,14 @@ TEST(IndexDomainProtoTest, Errors) {
                     origin: [ 1, 2, 3 ]
                     implicit_lower_bound: [ 1 ]
                   )pb")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(ParseIndexDomainFromProto(
                   ParseProtoOrDie<::tensorstore::proto::IndexDomain>(R"pb(
                     shape: [ 1, 2, 3 ]
                     implicit_upper_bound: [ 1 ]
                   )pb")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

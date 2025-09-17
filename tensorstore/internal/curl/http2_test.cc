@@ -34,6 +34,7 @@
 #include "tensorstore/internal/http/test_httpserver.h"
 #include "tensorstore/util/status_testutil.h"
 
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal_http::CurlTransport;
 using ::tensorstore::internal_http::DefaultCurlHandleFactory;
@@ -130,8 +131,7 @@ TEST(HttpserverTest, WithProxy) {
     response.Wait();
 
     // TestHttpServer is not a proxy; should return a curl error.
-    EXPECT_THAT(response.status(),
-                tensorstore::MatchesStatus(absl::StatusCode::kUnavailable));
+    EXPECT_THAT(response.status(), StatusIs(absl::StatusCode::kUnavailable));
   }
 
   GetHttpServer().MaybeLogStdoutPipe();

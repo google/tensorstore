@@ -59,8 +59,9 @@ tensorstore_cc_test(
     deps = [
         ":alignment",
         ":index_transform",
-        "//tensorstore/util:status",
+        "//tensorstore:index",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )
@@ -72,8 +73,11 @@ tensorstore_cc_test(
     deps = [
         ":index_transform",
         "//tensorstore:array",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )
@@ -219,10 +223,12 @@ tensorstore_cc_test(
     srcs = ["dimension_identifier_test.cc"],
     deps = [
         ":dimension_identifier",
+        ":dimension_index_buffer",
         "//tensorstore:index",
-        "//tensorstore/util:status",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )
@@ -287,8 +293,11 @@ tensorstore_cc_test(
     deps = [
         ":index_transform",
         "//tensorstore:array",
-        "//tensorstore/util:status",
+        "//tensorstore:box",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )
@@ -619,13 +628,23 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":index_transform",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:json_serialization_options",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore:rank",
+        "//tensorstore/internal/json",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -985,8 +1004,10 @@ tensorstore_cc_test(
         ":dim_expression",
         ":dim_expression_testutil",
         ":index_transform",
-        "//tensorstore/util:status",
+        "//tensorstore:index",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )

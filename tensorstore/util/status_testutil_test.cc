@@ -14,6 +14,8 @@
 
 #include "tensorstore/util/status_testutil.h"
 
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
@@ -23,7 +25,11 @@
 namespace {
 
 using ::tensorstore::Future;
+using ::tensorstore::IsOk;
+using ::tensorstore::IsOkAndHolds;
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 
 // Returns the reason why x matches, or doesn't match, m.
 template <typename MatcherType, typename Value>
@@ -34,21 +40,17 @@ std::string Explain(const MatcherType& m, const Value& x) {
 }
 
 TEST(StatusTestutilTest, IsOk) {
-  EXPECT_THAT([]() -> Future<void> { return absl::OkStatus(); }(),
-              ::tensorstore::IsOk());
-  EXPECT_THAT([]() -> Result<void> { return absl::OkStatus(); }(),
-              ::tensorstore::IsOk());
+  EXPECT_THAT([]() -> Future<void> { return absl::OkStatus(); }(), IsOk());
+  EXPECT_THAT([]() -> Result<void> { return absl::OkStatus(); }(), IsOk());
 
-  EXPECT_THAT(absl::OkStatus(), ::tensorstore::IsOk());
-  EXPECT_THAT(Result<int>{1}, ::tensorstore::IsOk());
-  EXPECT_THAT(Future<int>{2}, ::tensorstore::IsOk());
-  EXPECT_THAT(absl::InternalError(""), ::testing::Not(::tensorstore::IsOk()));
+  EXPECT_THAT(absl::OkStatus(), IsOk());
+  EXPECT_THAT(Result<int>{1}, IsOk());
+  EXPECT_THAT(Future<int>{2}, IsOk());
+  EXPECT_THAT(absl::InternalError(""), ::testing::Not(IsOk()));
 
   // IsOk() doesn't explain; EXPECT logs the value.
-  EXPECT_THAT(Explain(::tensorstore::IsOk(), absl::InternalError("")),
-              testing::IsEmpty());
-  EXPECT_THAT(Explain(::tensorstore::IsOk(), absl::OkStatus()),
-              testing::IsEmpty());
+  EXPECT_THAT(Explain(IsOk(), absl::InternalError("")), testing::IsEmpty());
+  EXPECT_THAT(Explain(IsOk(), absl::OkStatus()), testing::IsEmpty());
 
   // Our macros
   TENSORSTORE_EXPECT_OK(absl::OkStatus());
@@ -80,101 +82,89 @@ TEST(StatusTestutilTest, Optional) {
 }
 
 TEST(StatusTestutilTest, IsOkAndHolds) {
-  EXPECT_THAT(Result<int>{1}, ::tensorstore::IsOkAndHolds(1));
-  EXPECT_THAT(Future<int>{2}, ::tensorstore::IsOkAndHolds(2));
-  EXPECT_THAT(Result<int>{1}, ::tensorstore::IsOkAndHolds(::testing::_));
+  EXPECT_THAT(Result<int>{1}, IsOkAndHolds(1));
+  EXPECT_THAT(Future<int>{2}, IsOkAndHolds(2));
+  EXPECT_THAT(Result<int>{1}, IsOkAndHolds(::testing::_));
 
   // Negations
-  EXPECT_THAT(Result<int>{2}, ::tensorstore::IsOkAndHolds(::testing::Not(1)));
+  EXPECT_THAT(Result<int>{2}, IsOkAndHolds(::testing::Not(1)));
   EXPECT_THAT(Result<int>{absl::InternalError("")},
-              ::testing::Not(::tensorstore::IsOkAndHolds(1)));
+              ::testing::Not(IsOkAndHolds(1)));
 
   int result;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(result, []() -> Result<int> { return 2; }());
   EXPECT_EQ(2, result);
 
-  EXPECT_THAT(Explain(::tensorstore::IsOkAndHolds(1),
-                      Result<int>(absl::InternalError(""))),
+  EXPECT_THAT(Explain(IsOkAndHolds(1), Result<int>(absl::InternalError(""))),
               testing::HasSubstr("whose status code is INTERNAL"));
 
-  EXPECT_THAT(Explain(::tensorstore::IsOkAndHolds(1), Result<int>(2)),
+  EXPECT_THAT(Explain(IsOkAndHolds(1), Result<int>(2)),
               testing::HasSubstr("whose value 2 doesn't match"));
 
   // Consider adding a death test:
   // EXPECT_THAT(Result<int>(absl::InternalError("")),
-  //             ::tensorstore::IsOkAndHolds(1));
+  //             IsOkAndHolds(1));
 }
 
 TEST(StatusTestutilTest, StatusIs) {
   EXPECT_THAT(Result<void>{absl::InternalError("")},
-              ::tensorstore::StatusIs(absl::StatusCode::kInternal));
+              StatusIs(absl::StatusCode::kInternal));
   EXPECT_THAT(Future<void>{absl::InternalError("")},
-              ::tensorstore::StatusIs(absl::StatusCode::kInternal));
-  EXPECT_THAT(absl::InternalError(""),
-              ::tensorstore::StatusIs(absl::StatusCode::kInternal));
+              StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(absl::InternalError(""), StatusIs(absl::StatusCode::kInternal));
 
-  EXPECT_THAT(
-      absl::OkStatus(),
-      ::testing::Not(::tensorstore::StatusIs(absl::StatusCode::kInternal)));
-  EXPECT_THAT(absl::OkStatus(), ::tensorstore::StatusIs(absl::StatusCode::kOk));
+  EXPECT_THAT(absl::OkStatus(),
+              ::testing::Not(StatusIs(absl::StatusCode::kInternal)));
+  EXPECT_THAT(absl::OkStatus(), StatusIs(absl::StatusCode::kOk));
 
-  EXPECT_THAT(Explain(::tensorstore::StatusIs(absl::StatusCode::kOk),
-                      absl::InternalError("")),
+  EXPECT_THAT(Explain(StatusIs(absl::StatusCode::kOk), absl::InternalError("")),
               testing::HasSubstr("whose status code INTERNAL doesn't match"));
 
   // Consider adding a death test:
   // EXPECT_THAT(Result<int>(absl::InternalError("")),
-  //             ::tensorstore::StatusIs(absl::StatusCode::kInternal,
+  //             StatusIs(absl::StatusCode::kInternal,
   //                                     ::testing::HasSubstr("foo")));
 }
 
 TEST(StatusTestutilTest, StatusIs_WithMessage) {
-  EXPECT_THAT(
-      Result<void>{absl::InternalError("strongbad")},
-      ::tensorstore::StatusIs(::testing::_, ::testing::HasSubstr("bad")));
-  EXPECT_THAT(
-      Future<void>{absl::InternalError("strongbad")},
-      ::tensorstore::StatusIs(::testing::_, ::testing::HasSubstr("bad")));
+  EXPECT_THAT(Result<void>{absl::InternalError("strongbad")},
+              StatusIs(::testing::_, ::testing::HasSubstr("bad")));
+  EXPECT_THAT(Future<void>{absl::InternalError("strongbad")},
+              StatusIs(::testing::_, ::testing::HasSubstr("bad")));
 
+  EXPECT_THAT(absl::InternalError("strongbad"),
+              StatusIs(::testing::_, ::testing::HasSubstr("bad")));
   EXPECT_THAT(
       absl::InternalError("strongbad"),
-      ::tensorstore::StatusIs(::testing::_, ::testing::HasSubstr("bad")));
-  EXPECT_THAT(absl::InternalError("strongbad"),
-              ::tensorstore::StatusIs(
-                  ::testing::_, ::testing::Not(::testing::HasSubstr("good"))));
+      StatusIs(::testing::_, ::testing::Not(::testing::HasSubstr("good"))));
 
-  EXPECT_THAT(
-      absl::Status{absl::InternalError("strongbad")},
-      ::tensorstore::StatusIs(::testing::Not(absl::StatusCode::kAborted),
-                              ::testing::Not(::testing::HasSubstr("good"))));
+  EXPECT_THAT(absl::Status{absl::InternalError("strongbad")},
+              StatusIs(::testing::Not(absl::StatusCode::kAborted),
+                       ::testing::Not(::testing::HasSubstr("good"))));
 }
 
 TEST(StatusTestutilTest, MatchesStatus) {
   EXPECT_THAT(Result<void>{absl::InternalError("")},
-              ::tensorstore::MatchesStatus(absl::StatusCode::kInternal));
+              StatusIs(absl::StatusCode::kInternal));
   EXPECT_THAT(Future<void>{absl::InternalError("")},
-              ::tensorstore::MatchesStatus(absl::StatusCode::kInternal));
+              StatusIs(absl::StatusCode::kInternal));
 
-  EXPECT_THAT(absl::InternalError(""),
-              ::tensorstore::MatchesStatus(absl::StatusCode::kInternal));
-  EXPECT_THAT(absl::OkStatus(),
-              ::tensorstore::MatchesStatus(absl::StatusCode::kOk));
+  EXPECT_THAT(absl::InternalError(""), StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(absl::OkStatus(), StatusIs(absl::StatusCode::kOk));
 }
 
 TEST(StatusTestutilTest, MatchesStatus_Pattern) {
   EXPECT_THAT(Result<void>{absl::InternalError("a")},
-              ::tensorstore::MatchesStatus(absl::StatusCode::kInternal, "a"));
+              MatchesStatus(absl::StatusCode::kInternal, "a"));
   EXPECT_THAT(Future<void>{absl::InternalError("a")},
-              ::tensorstore::MatchesStatus(absl::StatusCode::kInternal, "a"));
+              MatchesStatus(absl::StatusCode::kInternal, "a"));
 
   EXPECT_THAT(absl::InternalError("a"),
-              ::tensorstore::MatchesStatus(absl::StatusCode::kInternal, "a"));
+              MatchesStatus(absl::StatusCode::kInternal, "a"));
   EXPECT_THAT(absl::InternalError("a"),
-              ::testing::Not(::tensorstore::MatchesStatus(
-                  absl::StatusCode::kInternal, "b")));
+              ::testing::Not(MatchesStatus(absl::StatusCode::kInternal, "b")));
   EXPECT_THAT(absl::InternalError("a"),
-              ::testing::Not(::tensorstore::MatchesStatus(
-                  absl::StatusCode::kCancelled, "a")));
+              ::testing::Not(MatchesStatus(absl::StatusCode::kCancelled, "a")));
 }
 
 }  // namespace

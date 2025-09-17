@@ -25,6 +25,7 @@
 
 using ::tensorstore::Context;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
 
 namespace {
@@ -91,7 +92,7 @@ TEST(AwsCredentialsResourceTest, InvalidSpecs) {
                   {"type", "bad_type"},
                   {"profile", "xyz"},
               }),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

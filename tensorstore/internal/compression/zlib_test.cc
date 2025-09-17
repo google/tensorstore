@@ -29,6 +29,7 @@
 namespace {
 
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 
 namespace zlib = tensorstore::zlib;
 
@@ -123,7 +124,7 @@ TEST_P(ZlibCompressorTest, DecodeCorruptData) {
     corrupted[0] = 0;
     EXPECT_THAT(zlib::Decode(absl::Cord(corrupted), &decode_result,
                              options.use_gzip_header),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Test corrupting the trailer.
@@ -135,7 +136,7 @@ TEST_P(ZlibCompressorTest, DecodeCorruptData) {
     corrupted.resize(corrupted.size() - 1);
     EXPECT_THAT(zlib::Decode(absl::Cord(corrupted), &decode_result,
                              options.use_gzip_header),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 

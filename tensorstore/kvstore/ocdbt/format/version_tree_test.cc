@@ -24,6 +24,7 @@
 
 namespace {
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::CommitTimeUpperBound;
 using ::tensorstore::internal_ocdbt::FormatCommitTimeForUrl;
@@ -60,13 +61,13 @@ TEST(VersionSpecUrl, CommitTimeRoundtrip) {
 
 TEST(VersionSpecUrl, Errors) {
   EXPECT_THAT(ParseVersionSpecFromUrl("a"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseVersionSpecFromUrl("v"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseVersionSpecFromUrl("v0"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseVersionSpecFromUrl("1970-01-01T00:00:00"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 void TestCommitTimeUrlRoundtrip(CommitTime t,
@@ -86,7 +87,7 @@ TEST(CommitTimeUrl, Roundtrip) {
 
 TEST(CommitTimeUrl, Errors) {
   EXPECT_THAT(ParseVersionSpecFromUrl("1970-01-01T00:00:00"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

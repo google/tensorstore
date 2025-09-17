@@ -42,6 +42,7 @@ using ::tensorstore::Context;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -142,7 +143,7 @@ TEST(MemoryKeyValueStoreTest, InvalidSpec) {
   // Test with extra key.
   EXPECT_THAT(
       kvstore::Open({{"driver", "memory"}, {"extra", "key"}}, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MemoryKeyValueStoreTest, BoundSpec) {

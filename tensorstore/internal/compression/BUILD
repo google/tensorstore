@@ -151,6 +151,7 @@ tensorstore_cc_test(
     deps = [
         ":xz_compressor",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:cord_test_helpers",
         "@googletest//:gtest_main",

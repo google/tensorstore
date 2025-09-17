@@ -40,6 +40,8 @@
 
 using ::tensorstore::Context;
 using ::tensorstore::InlineExecutor;
+using ::tensorstore::IsOk;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal_zip_kvstore::Directory;
@@ -72,7 +74,7 @@ TEST(ZipDirectoryKvsTest, Basic) {
   ASSERT_THAT(
       tensorstore::kvstore::Write(memory, "data.zip", GetTestZipFileData())
           .result(),
-      ::tensorstore::IsOk());
+      IsOk());
 
   auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
     return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
@@ -80,7 +82,7 @@ TEST(ZipDirectoryKvsTest, Basic) {
 
   auto entry = GetCacheEntry(cache, "data.zip");
   auto status = entry->Read({absl::InfinitePast()}).status();
-  ASSERT_THAT(status, ::tensorstore::IsOk());
+  ASSERT_THAT(status, IsOk());
 
   ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
   auto* dir = lock.data();
@@ -108,7 +110,7 @@ TEST(ZipDirectoryKvsTest, MissingEntry) {
 
   auto entry = GetCacheEntry(cache, "data.zip");
   auto status = entry->Read({absl::InfinitePast()}).status();
-  EXPECT_THAT(status, ::tensorstore::StatusIs(absl::StatusCode::kNotFound));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kNotFound));
 }
 
 // clang-format off
@@ -175,7 +177,7 @@ TEST(ZipDirectoryKvsTest, MinimalZip) {
                                        sizeof(kZipTest2)),
                       [](auto) {}))
                   .result(),
-              ::tensorstore::IsOk());
+              IsOk());
 
   auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
     return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
@@ -183,7 +185,7 @@ TEST(ZipDirectoryKvsTest, MinimalZip) {
 
   auto entry = GetCacheEntry(cache, "data.zip");
   auto status = entry->Read({absl::InfinitePast()}).status();
-  ASSERT_THAT(status, ::tensorstore::IsOk());
+  ASSERT_THAT(status, IsOk());
 
   ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
   auto* dir = lock.data();

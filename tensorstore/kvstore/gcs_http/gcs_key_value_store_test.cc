@@ -76,6 +76,7 @@ using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesListEntry;
@@ -207,22 +208,22 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
       kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
   EXPECT_THAT(kvstore::Read(store, ".").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Read(store, "..").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Read(store, ".well-known/acme-challenge").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Read(store, "foo\nbar").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Read(store, "foo\rbar").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   {
     kvstore::ReadOptions options;
     options.generation_conditions.if_not_equal =
         StorageGeneration::FromString("abc123");
     EXPECT_THAT(kvstore::Read(store, "abc", options).result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 
@@ -289,7 +290,7 @@ TEST(GcsKeyValueStoreTest, Retry) {
       if (fail) {
         bucket.TriggerErrors(max_retries + 1);
         EXPECT_THAT(kvstore::Read(store, "x").result(),
-                    MatchesStatus(absl::StatusCode::kAborted));
+                    StatusIs(absl::StatusCode::kAborted));
       } else {
         bucket.TriggerErrors(max_retries - 2);
         TENSORSTORE_EXPECT_OK(kvstore::Read(store, "x").result());
@@ -442,16 +443,16 @@ TEST(GcsKeyValueStoreTest, InvalidSpec) {
           {{"driver", kDriver}, {"bucket", "my-bucket"}, {"extra", "key"}},
           context)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with missing `"bucket"` key.
   EXPECT_THAT(kvstore::Open({{"driver", kDriver}}, context).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"bucket"` key.
   EXPECT_THAT(
       kvstore::Open({{"driver", kDriver}, {"bucket", 5}}, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"path"`
   EXPECT_THAT(
@@ -502,12 +503,11 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
                 bucket2_status_matcher);
   };
 
-  TestWrite(Context::Default(),
-            MatchesStatus(absl::StatusCode::kInvalidArgument));
+  TestWrite(Context::Default(), StatusIs(absl::StatusCode::kInvalidArgument));
   TestWrite(Context(Context::Spec::FromJson(
                         {{"gcs_user_project", {{"project_id", "badproject"}}}})
                         .value()),
-            MatchesStatus(absl::StatusCode::kInvalidArgument));
+            StatusIs(absl::StatusCode::kInvalidArgument));
   TestWrite(Context(Context::Spec::FromJson(
                         {{"gcs_user_project", {{"project_id", "myproject"}}}})
                         .value()),
@@ -755,9 +755,9 @@ TEST(GcsKeyValueStoreTest, UrlRoundtrip) {
 
 TEST(GcsKeyValueStoreTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Spec::FromUrl("gs:///"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket:xyz"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,

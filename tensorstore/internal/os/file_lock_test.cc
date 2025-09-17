@@ -40,6 +40,7 @@
 using ::tensorstore::IsOk;
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_os::AcquireExclusiveFile;
 using ::tensorstore::internal_os::AcquireFileLock;
 using ::tensorstore::internal_os::FileDescriptorTraits;
@@ -103,7 +104,7 @@ TEST(AcquireExclusiveFileTest, FileExistsNotAcquired) {
 
   // The lock is stale, so it should be deleted.
   auto lock = AcquireExclusiveFile(lock_path, absl::Milliseconds(100));
-  EXPECT_THAT(lock, MatchesStatus(absl::StatusCode::kDeadlineExceeded));
+  EXPECT_THAT(lock, StatusIs(absl::StatusCode::kDeadlineExceeded));
 }
 
 TEST(TruncateAndOverwrite, Basic) {

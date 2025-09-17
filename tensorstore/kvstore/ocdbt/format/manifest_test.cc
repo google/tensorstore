@@ -28,6 +28,7 @@ namespace {
 
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::DecodeManifest;
 using ::tensorstore::internal_ocdbt::Manifest;
@@ -42,7 +43,7 @@ TEST(CommitTimeTest, Simple) {
   EXPECT_THAT(RoundTripCommitTime(absl::FromUnixNanos(0)),
               ::testing::Optional(absl::FromUnixNanos(0)));
   EXPECT_THAT(RoundTripCommitTime(absl::FromUnixNanos(-1)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(RoundTripCommitTime(
                   absl::FromUnixNanos(std::numeric_limits<int64_t>::max())),
               ::testing::Optional(
@@ -50,7 +51,7 @@ TEST(CommitTimeTest, Simple) {
   EXPECT_THAT(RoundTripCommitTime(
                   absl::FromUnixNanos(std::numeric_limits<int64_t>::max()) +
                   absl::Nanoseconds(1)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 void TestManifestRoundTrip(const Manifest& manifest) {

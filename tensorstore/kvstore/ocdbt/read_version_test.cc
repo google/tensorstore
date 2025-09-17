@@ -45,6 +45,7 @@ namespace {
 namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::UniqueNow;
@@ -216,7 +217,7 @@ void TestVersioning(::nlohmann::json config_json, size_t num_writes) {
 
   // Test that reading generation 0 fails.
   EXPECT_THAT(ReadVersion(io_handle, GenerationNumber(0)).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test that reading a too-new generation number fails.
   {

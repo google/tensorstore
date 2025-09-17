@@ -49,6 +49,7 @@ namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
@@ -125,7 +126,7 @@ TEST(JsonDriverTest, Basic) {
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
         MakeScalarArray<::nlohmann::json>({{"c", 50}}), store | transaction));
     EXPECT_THAT(tensorstore::Read(store_a | transaction).result(),
-                MatchesStatus(absl::StatusCode::kNotFound));
+                StatusIs(absl::StatusCode::kNotFound));
     // Actual contents of kvstore has not yet changed since transaction has not
     // been committed.
     EXPECT_THAT(

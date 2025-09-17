@@ -37,6 +37,8 @@
 
 namespace {
 
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetEnvironmentMap;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SpawnSubprocess;
@@ -71,7 +73,7 @@ TEST(SubprocessTest, Kill) {
   TENSORSTORE_ASSERT_OK(child.status());
 
   EXPECT_THAT(child->Join(/*block=*/false),
-              tensorstore::MatchesStatus(absl::StatusCode::kUnavailable));
+              StatusIs(absl::StatusCode::kUnavailable));
 
   child->Kill().IgnoreError();
 

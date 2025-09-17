@@ -72,6 +72,7 @@ using ::tensorstore::kImplicit;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ParseJsonMatches;
@@ -139,6 +140,7 @@ TEST(MatchesRawChunkTest, Basic) {
       0, 4, 0, 5,  // int16be data
       0, 0, 0, 0,  // int16be data
   };
+  // clang-format off
   EXPECT_THAT(absl::Cord(chunk), MatchesRawChunk(  //
                                      {3, 2},       //
                                      {
@@ -156,6 +158,7 @@ TEST(MatchesRawChunkTest, Basic) {
                                          0, 4, 0, 5,  // int16be data
                                          0, 0, 0, 0,  // int16be data
                                      })));
+  // clang-format on
 }
 
 TEST(N5DriverTest, Create) {
@@ -212,7 +215,7 @@ TEST(N5DriverTest, Create) {
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {10, 7}, {1, 1}))
                     .result(),
-                MatchesStatus(absl::StatusCode::kOutOfRange));
+                StatusIs(absl::StatusCode::kOutOfRange));
 
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
@@ -226,7 +229,7 @@ TEST(N5DriverTest, Create) {
             store |
                 tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3}))
             .commit_future.result(),
-        MatchesStatus(absl::StatusCode::kOutOfRange));
+        StatusIs(absl::StatusCode::kOutOfRange));
 
     // Re-read and validate result.  This verifies that the read/write
     // encoding/decoding paths round trip.
@@ -254,6 +257,7 @@ TEST(N5DriverTest, Create) {
                    {"blockSize", {3, 2}},
                    {"extra", "attribute"},
                }))),
+          // clang-format off
           Pair("prefix/2/4",  // chunk starting at: 6, 8
                MatchesRawChunk({3, 2},
                                {
@@ -278,6 +282,7 @@ TEST(N5DriverTest, Create) {
                                    0, 6, 0, 0, 0, 0,  // int16be data
                                    0, 0, 0, 0, 0, 0,  // int16be data
                                })),
+          // clang-format on
       }));
 
   // Check that attempting to create the store again fails.
@@ -285,7 +290,7 @@ TEST(N5DriverTest, Create) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kAlreadyExists));
+      StatusIs(absl::StatusCode::kAlreadyExists));
 
   // Check that create or open succeeds.
   TENSORSTORE_EXPECT_OK(tensorstore::Open(

@@ -63,6 +63,7 @@ using ::tensorstore::Result;
 using ::tensorstore::Shared;
 using ::tensorstore::StaticDataTypeCast;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::TransformedArray;
 
 using ::tensorstore::dtypes::float32_t;
@@ -403,7 +404,7 @@ TEST(TransformedArrayTest, MaterializeError) {
                                               MakeArray<Index>({3, 4})))
           .value()
           .Materialize(),
-      MatchesStatus(absl::StatusCode::kOutOfRange));
+      StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(TransformedArrayTest, MakeCopy) {
@@ -411,7 +412,7 @@ TEST(TransformedArrayTest, MakeCopy) {
                                    tensorstore::Dims(0).IndexArraySlice(
                                        MakeArray<Index>({3, 4})))
                            .value()),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 /// Tests that move constructing a TransformedArray view from a TransformedArray
@@ -644,7 +645,7 @@ TEST(TryConvertToArrayTest, Basic) {
                   tensorstore::Dims(0).OuterIndexArraySlice(
                       tensorstore::MakeArray<Index>({0, 1, 1})) |
                   tensorstore::TryConvertToArray(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(TryConvertToArrayTest, Random) {

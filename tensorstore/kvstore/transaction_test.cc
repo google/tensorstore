@@ -45,6 +45,7 @@ using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
@@ -592,7 +593,7 @@ TEST(KvStoreTest, ListInvalid) {
   KvStore store(mock_driver, "", txn);
 
   EXPECT_THAT(kvstore::ListFuture(store).result(),
-              MatchesStatus(absl::StatusCode::kUnimplemented));
+              StatusIs(absl::StatusCode::kUnimplemented));
 }
 
 }  // namespace

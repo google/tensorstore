@@ -27,6 +27,7 @@ namespace {
 
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_json_driver::JsonChangeMap;
 using ::testing::ElementsAre;
 using ::testing::Optional;
@@ -86,7 +87,7 @@ TEST(JsonChangeMapTest, AddChangeInvalid) {
   JsonChangeMap changes;
   TENSORSTORE_EXPECT_OK(changes.AddChange("/a", 42));
   EXPECT_THAT(changes.AddChange("/a/b", 43),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(JsonChangeMapTest, ApplyEmptyChangeMap) {
@@ -107,7 +108,7 @@ TEST(JsonChangeMapTest, ApplyInvalidContainingChangeMap) {
   JsonChangeMap changes;
   TENSORSTORE_EXPECT_OK(changes.AddChange("/a", {{"b", {{"c", 42}}}}));
   EXPECT_THAT(changes.Apply(false, "/a/b/c"),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(JsonChangeMapTest, ApplyChangeMapPriorNonContaining) {
@@ -135,27 +136,27 @@ TEST(JsonChangeMapTest, ApplyInvalidChangeMap1) {
   JsonChangeMap changes;
   TENSORSTORE_EXPECT_OK(changes.AddChange("/e", 42));
   EXPECT_THAT(changes.Apply(42),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(JsonChangeMapTest, ApplyInvalidChangeMap2) {
   JsonChangeMap changes;
   TENSORSTORE_EXPECT_OK(changes.AddChange("/4", 42));
   EXPECT_THAT(changes.Apply({1, 2, 3}),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(JsonChangeMapTest, ApplyRequestInvalidJsonPointer) {
   JsonChangeMap changes;
   TENSORSTORE_EXPECT_OK(changes.AddChange("/a/b", 42));
   EXPECT_THAT(changes.Apply(false, "/a"),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(JsonChangeMapTest, ApplyRequestInvalidJsonPointerNoChanges) {
   JsonChangeMap changes;
   EXPECT_THAT(changes.Apply(false, "/a"),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(JsonChangeMapTest, ApplyRequestNewMember) {
@@ -169,7 +170,7 @@ TEST(JsonChangeMapTest, ApplyIncompatibleChangeExactRequest) {
   JsonChangeMap changes;
   TENSORSTORE_EXPECT_OK(changes.AddChange("/a", 42));
   EXPECT_THAT(changes.Apply(false, "/a"),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(JsonChangeMapTest, AddIncompatibleChanges) {

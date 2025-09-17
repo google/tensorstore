@@ -48,6 +48,7 @@ namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 
@@ -189,7 +190,7 @@ TEST_F(ZipKeyValueStoreTest, InvalidSpec) {
   // Test with extra key.
   EXPECT_THAT(
       kvstore::Open({{"driver", "zip"}, {"extra", "key"}}, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(ZipKeyValueStoreTest, SpecRoundtrip) {
