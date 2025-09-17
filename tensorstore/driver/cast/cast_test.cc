@@ -60,6 +60,7 @@ using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::ReadWriteMode;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::zero_origin;
 using ::tensorstore::dtypes::string_t;
 using ::tensorstore::internal::CastDataTypeConversions;
@@ -249,14 +250,14 @@ TEST(GetCastDataTypeConversions, Basic) {
     EXPECT_THAT(
         GetCastDataTypeConversions(dtype_v<int32_t>, dtype_v<std::string>,
                                    read_write, required_mode),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto required_mode : {write, dynamic}) {
     EXPECT_THAT(
         GetCastDataTypeConversions(dtype_v<int32_t>, dtype_v<std::string>,
                                    write, required_mode),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto existing_mode : {write, read_write}) {
@@ -275,14 +276,14 @@ TEST(GetCastDataTypeConversions, Basic) {
     EXPECT_THAT(
         GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<int32_t>, read,
                                    required_mode),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto required_mode : {read, read_write}) {
     EXPECT_THAT(
         GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<int32_t>,
                                    read_write, required_mode),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto existing_mode : {read, write, read_write}) {
@@ -291,7 +292,7 @@ TEST(GetCastDataTypeConversions, Basic) {
       EXPECT_THAT(GetCastDataTypeConversions(
                       dtype_v<std::byte>, dtype_v<std::string>, existing_mode,
                       required_mode & existing_mode),
-                  MatchesStatus(absl::StatusCode::kInvalidArgument));
+                  StatusIs(absl::StatusCode::kInvalidArgument));
     }
   }
 }

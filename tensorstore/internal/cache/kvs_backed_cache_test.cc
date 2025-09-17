@@ -48,6 +48,7 @@ namespace {
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
@@ -684,7 +685,7 @@ TEST_F(MockStoreTest, MultiPhaseValidateError) {
   }
   ASSERT_TRUE(transaction.future().ready());
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kAborted));
+              StatusIs(absl::StatusCode::kAborted));
 }
 
 TEST_F(MockStoreTest, MultiPhaseValidateErrorAfterReadValue) {
@@ -734,7 +735,7 @@ TEST_F(MockStoreTest, MultiPhaseValidateErrorAfterReadValue) {
   }
   ASSERT_TRUE(transaction.future().ready());
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kAborted));
+              StatusIs(absl::StatusCode::kAborted));
 }
 
 TEST_F(MockStoreTest, UnboundedDeleteRangeAfterWrite) {

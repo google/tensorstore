@@ -55,6 +55,7 @@ namespace {
 namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
@@ -214,7 +215,7 @@ TEST_F(DistributedTest, TwoCooperatorsManifestDeleted) {
       auto store2, kvstore::Open(kvs_spec, Context(context_spec)).result());
   TENSORSTORE_ASSERT_OK(kvstore::Write(store1, "testa", absl::Cord("a")));
   EXPECT_THAT(kvstore::Write(store2, "testb", absl::Cord("b")).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 // Tests that if a batch of writes leaves a node unmodified, it is not
@@ -236,7 +237,7 @@ TEST_F(DistributedTest, ManifestDeleted) {
       auto base_store, kvstore::Open(base_kvs_store_spec, context).result());
   TENSORSTORE_ASSERT_OK(kvstore::Delete(base_store, "manifest.ocdbt"));
   EXPECT_THAT(kvstore::Write(store, "testb", absl::Cord("b")).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 }  // namespace

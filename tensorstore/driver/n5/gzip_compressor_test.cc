@@ -32,7 +32,7 @@ namespace {
 
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_n5::Compressor;
 using ::tensorstore::internal_n5::DecodeChunk;
 using ::tensorstore::internal_n5::N5Metadata;
@@ -57,21 +57,21 @@ TEST(GzipCompressionTest, Parse) {
 
   // Invalid level option type
   EXPECT_THAT(Compressor::FromJson({{"type", "gzip"}, {"level", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid level option value
   EXPECT_THAT(Compressor::FromJson({{"type", "gzip"}, {"level", -2}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(Compressor::FromJson({{"type", "gzip"}, {"level", 10}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid useZlib option
   EXPECT_THAT(Compressor::FromJson({{"type", "gzip"}, {"useZlib", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid extra option
   EXPECT_THAT(Compressor::FromJson({{"type", "gzip"}, {"extra", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Gzip chunk example from the specification:

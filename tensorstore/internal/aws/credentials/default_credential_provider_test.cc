@@ -32,7 +32,7 @@
 namespace {
 
 using ::tensorstore::IsOk;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
@@ -43,6 +43,7 @@ using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_aws::MakeAnonymous;
 using ::tensorstore::internal_aws::MakeDefault;
 using ::tensorstore::internal_aws::MakeDefaultWithAnonymous;
+using ::testing::HasSubstr;
 
 static constexpr char kAccessKeyId[] = "ASIA1234567890";
 static constexpr char kSecretKey[] = "1234567890abcdef";
@@ -113,7 +114,7 @@ TEST_F(DefaultCredentialProviderTest, DefaultWithoutFallback) {
   AwsCredentialsProvider provider = MakeDefault({});
   auto credentials_future = GetAwsCredentials(provider.get());
   ASSERT_THAT(credentials_future,
-              MatchesStatus(absl::StatusCode::kInternal, ".*aws-c-.*"));
+              StatusIs(absl::StatusCode::kInternal, HasSubstr("aws-c-")));
 }
 
 TEST_F(DefaultCredentialProviderTest, DefaultWithFallback) {

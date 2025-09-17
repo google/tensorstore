@@ -45,6 +45,7 @@ using ::tensorstore::kImplicit;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::TransactionMode;
 using ::tensorstore::internal_kvs_backed_chunk_driver::ResizeParameters;
 using ::tensorstore::internal_zarr::DimensionSeparator;
@@ -175,7 +176,7 @@ TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsFailure) {
                   /*transform=*/
                   tensorstore::IdentityTransform(span<const Index>({200, 100})),
                   /*options=*/options),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 // Tests that multiple fields are supported, and that a non-empty `field_shape`
@@ -318,7 +319,7 @@ TEST(GetResizeParametersTest, Basic) {
                           /*field=*/"", transform,
                           span<const Index>({kImplicit, kImplicit}),
                           span<const Index>({kImplicit, kImplicit}), {}),
-      MatchesStatus(absl::StatusCode::kAborted));
+      StatusIs(absl::StatusCode::kAborted));
 
   EXPECT_THAT(
       GetResizeParameters(metadata,
@@ -333,7 +334,7 @@ TEST(GetResizeParametersTest, Basic) {
                               .value(),
                           span<const Index>({2, kImplicit}),
                           span<const Index>({kImplicit, kImplicit}), {}),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition));
+      StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(GetResizeParametersTest, MultipleFields) {

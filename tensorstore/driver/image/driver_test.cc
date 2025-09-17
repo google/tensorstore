@@ -51,6 +51,7 @@ using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 
 struct P {
@@ -245,7 +246,7 @@ TEST_P(ImageDriverReadTest, OpenTransformTooLarge) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));
 
   EXPECT_THAT(tensorstore::Open(spec, context).result(),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST_P(ImageDriverReadTest, OpenTransformSmall) {
@@ -326,7 +327,7 @@ TEST_P(ImageDriverReadTest, MissingPath_Open) {
   auto context = tensorstore::Context::Default();
   auto spec = GetSpec();
   EXPECT_THAT(tensorstore::Open(spec).result(),
-              MatchesStatus(absl::StatusCode::kNotFound));
+              StatusIs(absl::StatusCode::kNotFound));
 }
 
 TEST(ImageDriverErrors, NoKvStore) {

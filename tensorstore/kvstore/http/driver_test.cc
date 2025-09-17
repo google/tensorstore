@@ -50,6 +50,7 @@ using ::tensorstore::Batch;
 using ::tensorstore::Future;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -351,7 +352,7 @@ TEST_F(HttpKeyValueStoreTest, RetryMax) {
                 ElementsAre(Pair("cache-control", "no-cache")));
     request.set_result(HttpResponse{503, absl::Cord()});
   }
-  EXPECT_THAT(read_future.result(), MatchesStatus(absl::StatusCode::kAborted));
+  EXPECT_THAT(read_future.result(), StatusIs(absl::StatusCode::kAborted));
 }
 
 TEST_F(HttpKeyValueStoreTest, Date) {
@@ -480,17 +481,17 @@ TEST(UrlTest, InvalidUri) {
 TEST(SpecTest, InvalidScheme) {
   EXPECT_THAT(
       kvstore::Open({{"driver", "http"}, {"base_url", "file:///abc"}}).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 TEST(SpecTest, MissingScheme) {
   EXPECT_THAT(kvstore::Open({{"driver", "http"}, {"base_url", "abc"}}).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 TEST(SpecTest, InvalidFragment) {
   EXPECT_THAT(kvstore::Open({{"driver", "http"},
                              {"base_url", "https://example.com#fragment"}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(SpecTest, InvalidHeader) {
@@ -498,7 +499,7 @@ TEST(SpecTest, InvalidHeader) {
                              {"base_url", "https://example.com"},
                              {"headers", {"a"}}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(SpecTest, SpecRoundtrip) {

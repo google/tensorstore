@@ -14,7 +14,6 @@
 
 #include "tensorstore/internal/masked_array.h"
 
-#include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -58,6 +57,7 @@ using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::offset_origin;
 using ::tensorstore::SharedArray;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::TransformedArray;
 using ::tensorstore::internal::ElementCopyFunction;
@@ -470,7 +470,7 @@ TEST(WriteToMaskedArrayTest, RankOneInvalidTransform) {
   EXPECT_THAT(
       tester.Write((tester.transform() | Dims(0).SizedInterval(2, 3)).value(),
                    MakeOffsetArray({1}, {1, 2, 3})),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_EQ(0, tester.num_masked_elements());
   EXPECT_TRUE(tester.mask_region().is_empty());
   EXPECT_FALSE(tester.mask_array().valid());

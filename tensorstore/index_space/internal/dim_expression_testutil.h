@@ -286,14 +286,13 @@ void TestDimExpressionError(const OriginalTransform& original_transform,
 
   // Check out-of-place implementation.
   auto result = expression(original_transform);
-  EXPECT_THAT(result, tensorstore::MatchesStatus(error_code, message_pattern));
+  EXPECT_THAT(result, MatchesStatus(error_code, message_pattern));
 
   EXPECT_EQ(original_copy, original_transform);
 
   // Check in-place implementation.
   auto inplace_result = expression(std::move(original_copy));
-  EXPECT_THAT(inplace_result,
-              tensorstore::MatchesStatus(error_code, message_pattern));
+  EXPECT_THAT(inplace_result, MatchesStatus(error_code, message_pattern));
 }
 
 template <typename OriginalTransform, typename Expression,

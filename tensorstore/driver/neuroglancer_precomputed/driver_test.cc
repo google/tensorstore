@@ -83,6 +83,7 @@ using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::StrCat;
 using ::tensorstore::TimestampedStorageGeneration;
@@ -189,7 +190,7 @@ TEST(DriverTest, Create) {
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
                                            {11, 7, 3, 0}, {1, 1, 1, 1})))
                     .result(),
-                MatchesStatus(absl::StatusCode::kOutOfRange));
+                StatusIs(absl::StatusCode::kOutOfRange));
 
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
@@ -211,7 +212,7 @@ TEST(DriverTest, Create) {
                         tensorstore::Dims("z", "channel").IndexSlice({3, 0}),
                         tensorstore::AllDims().SizedInterval({10, 8}, {2, 3})))
             .commit_future.result(),
-        MatchesStatus(absl::StatusCode::kOutOfRange));
+        StatusIs(absl::StatusCode::kOutOfRange));
 
     // Re-read and validate result.
     EXPECT_EQ(tensorstore::MakeArray<uint16_t>(
@@ -350,7 +351,7 @@ TEST(DriverTest, Create) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
-        MatchesStatus(absl::StatusCode::kAlreadyExists));
+        StatusIs(absl::StatusCode::kAlreadyExists));
   }
 
   // Check that create or open succeeds.

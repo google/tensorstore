@@ -14,9 +14,16 @@
 
 #include "tensorstore/index_interval.h"
 
+#include <limits>
+#include <string>
+#include <type_traits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/hash/hash_testing.h"
+#include "absl/status/status.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status.h"
@@ -53,6 +60,7 @@ using ::tensorstore::OptionallyImplicitIndexInterval;
 using ::tensorstore::ShiftInterval;
 using ::tensorstore::ShiftIntervalBackward;
 using ::tensorstore::ShiftIntervalTo;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::view;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
@@ -118,7 +126,7 @@ TEST(IndexIntervalTest, ValidHalfOpen) {
 TEST(IndexIntervalTest, Sized) {
   EXPECT_EQ(IndexInterval::UncheckedSized(0, 5), IndexInterval::Sized(0, 5));
   EXPECT_THAT(IndexInterval::Sized(0, -1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexIntervalTest, UncheckedSized) {
@@ -154,7 +162,7 @@ TEST(IndexIntervalTest, UncheckedClosed) {
 TEST(IndexIntervalTest, Closed) {
   EXPECT_EQ(IndexInterval::UncheckedClosed(2, 4), IndexInterval::Closed(2, 4));
   EXPECT_THAT(IndexInterval::Closed(2, 0),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexIntervalTest, UncheckedHalfOpen) {
@@ -166,7 +174,7 @@ TEST(IndexIntervalTest, HalfOpen) {
   EXPECT_EQ(IndexInterval::UncheckedHalfOpen(2, 4),
             IndexInterval::HalfOpen(2, 4));
   EXPECT_THAT(IndexInterval::HalfOpen(2, 0),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexIntervalTest, ContainsIndex) {
@@ -1081,7 +1089,7 @@ TEST(ComputeStridedSliceMapTest, TranslationError) {
                   /*start=*/2,
                   /*stop_or_size=*/8,
                   /*stride=*/1, &new_domain, &output_offset),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ComputeStridedSliceMapTest, SliceError) {
@@ -1095,7 +1103,7 @@ TEST(ComputeStridedSliceMapTest, SliceError) {
                   /*start=*/2,
                   /*stop_or_size=*/8,
                   /*stride=*/1, &new_domain, &output_offset),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(GetAffineTransformDomainTest, Divisor1) {
@@ -1145,14 +1153,14 @@ TEST(GetAffineTransformDomainTest, DivisorInvalid) {
   EXPECT_THAT(GetAffineTransformDomain(
                   IndexInterval::UncheckedClosed(1, 10),
                   /*offset=*/0, /*divisor=*/std::numeric_limits<Index>::min()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(GetAffineTransformDomainTest, OffsetInvalid) {
   EXPECT_THAT(GetAffineTransformDomain(
                   IndexInterval::UncheckedClosed(1, 10),
                   /*offset=*/std::numeric_limits<Index>::min(), /*divisor=*/-1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 void TestGetAffineTransformRangeRoundTrip(IndexInterval domain, Index offset,
@@ -1233,15 +1241,15 @@ TEST(GetAffineTransformRangeTest, ZeroMultiplier) {
 TEST(GetAffineTransformRangeTest, ErrorCases) {
   EXPECT_THAT(GetAffineTransformRange(IndexInterval::UncheckedClosed(3, 10),
                                       kInfIndex, 1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(GetAffineTransformRange(IndexInterval::UncheckedClosed(3, 10), 5,
                                       kInfIndex),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(GetAffineTransformRange(
                   IndexInterval::UncheckedClosed(-1, 1),
                   std::numeric_limits<Index>::max() - kInfIndex + 1, kInfIndex),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(GetAffineTransformInverseDomainTest, Examples) {
@@ -1312,7 +1320,7 @@ TEST(GetAffineTransformRangeTest, OptionallyImplicitErrorCases) {
   EXPECT_THAT(GetAffineTransformRange(
                   OIII{IndexInterval::UncheckedClosed(3, 10), true, false},
                   kInfIndex, 1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Errors from regular GetAffineTransformDomain simply pass through.
@@ -1321,7 +1329,7 @@ TEST(GetAffineTransformDomainTest, OptionallyImplicitErrorCases) {
   EXPECT_THAT(GetAffineTransformDomain(
                   OIII{IndexInterval::UncheckedClosed(1, 10), true, false},
                   /*offset=*/std::numeric_limits<Index>::min(), /*divisor=*/-1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexIntervalRefTest, Basic) {

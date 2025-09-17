@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/json_binding/data_type.h"
 
+#include <stdint.h>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
@@ -23,12 +25,12 @@
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 
 namespace jb = tensorstore::internal_json_binding;
 
@@ -62,7 +64,7 @@ TEST(DataTypeJsonBinderTest, FromJson) {
   EXPECT_THAT(jb::FromJson<DataType>(
                   ::nlohmann::json(::nlohmann::json::value_t::discarded),
                   tensorstore::internal_json_binding::DataTypeJsonBinder),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

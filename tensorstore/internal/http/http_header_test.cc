@@ -28,6 +28,7 @@
 namespace {
 
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::ParseAndSetHeaders;
 using ::tensorstore::internal_http::TryParseContentRangeHeader;
@@ -47,11 +48,11 @@ TEST(ValidateHttpHeaderTest, Valid) {
 
 TEST(ValidateHttpHeaderTest, Invalid) {
   EXPECT_THAT(ValidateHttpHeader("a"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ValidateHttpHeader("a: \n"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ValidateHttpHeader(": b\n"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(SetHeaderTest, Basic) {

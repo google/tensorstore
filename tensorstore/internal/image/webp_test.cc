@@ -31,6 +31,8 @@
 
 namespace {
 
+using ::tensorstore::IsOk;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::WebPReader;
 using ::tensorstore::internal_image::WebPReaderOptions;
@@ -49,13 +51,13 @@ TEST(WebPTest, Decode) {
   WebPReader decoder;
   riegeli::StringReader string_reader(reinterpret_cast<const char*>(data),
                                       sizeof(data));
-  ASSERT_THAT(decoder.Initialize(&string_reader), ::tensorstore::IsOk());
+  ASSERT_THAT(decoder.Initialize(&string_reader), IsOk());
 
   const auto info = decoder.GetImageInfo();
   EXPECT_EQ((ImageInfo{1, 1, 3}), info);
 
   uint8_t pixel[3] = {};
-  ASSERT_THAT(decoder.Decode(pixel), tensorstore::IsOk());
+  ASSERT_THAT(decoder.Decode(pixel), IsOk());
 
   EXPECT_EQ(0x40, pixel[0]);
   EXPECT_EQ(0x50, pixel[1]);
@@ -74,11 +76,10 @@ TEST(WebPTest, EncodeDecode) {
   {
     WebPWriter encoder;
     riegeli::CordWriter cord_writer(&encoded);
-    ASSERT_THAT(encoder.Initialize(&cord_writer), ::tensorstore::IsOk());
+    ASSERT_THAT(encoder.Initialize(&cord_writer), IsOk());
 
-    ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 3}, pixels),
-                ::tensorstore::IsOk());
-    ASSERT_THAT(encoder.Done(), ::tensorstore::IsOk());
+    ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 3}, pixels), IsOk());
+    ASSERT_THAT(encoder.Done(), IsOk());
   }
 
   EXPECT_THAT(encoded.Flatten(),
@@ -87,13 +88,13 @@ TEST(WebPTest, EncodeDecode) {
   {
     WebPReader decoder;
     riegeli::CordReader cord_reader(&encoded);
-    ASSERT_THAT(decoder.Initialize(&cord_reader), ::tensorstore::IsOk());
+    ASSERT_THAT(decoder.Initialize(&cord_reader), IsOk());
 
     const auto& info = decoder.GetImageInfo();
     EXPECT_EQ((ImageInfo{1, 1, 3}), info);
 
     uint8_t new_pixels[3] = {};
-    ASSERT_THAT(decoder.Decode(new_pixels), tensorstore::IsOk());
+    ASSERT_THAT(decoder.Decode(new_pixels), IsOk());
   }
 }
 
@@ -108,7 +109,7 @@ TEST(WebPTest, CorruptData) {
 
   WebPReader decoder;
   EXPECT_THAT(decoder.Initialize(&string_reader),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

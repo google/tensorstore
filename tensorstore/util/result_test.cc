@@ -39,6 +39,7 @@ using ::tensorstore::FlatMapResultType;
 using ::tensorstore::FlatResult;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::UnwrapQualifiedResultType;
 using ::tensorstore::UnwrapResultType;
 
@@ -1174,7 +1175,7 @@ TEST(ResultTest, MoveConstructVoid) {
   Result<int> r;
   Result<void> s(std::move(r));
   ASSERT_FALSE(s.has_value());
-  EXPECT_THAT(s.status(), MatchesStatus(absl::StatusCode::kUnknown));
+  EXPECT_THAT(s.status(), StatusIs(absl::StatusCode::kUnknown));
 }
 
 TEST(ResultTest, AssignmentConstructVoidOk) {

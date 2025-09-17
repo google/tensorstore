@@ -51,6 +51,7 @@ using ::tensorstore::kDataTypes;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::internal::ParseJson;
 using ::tensorstore::internal_neuroglancer_precomputed::EncodeCompressedZIndex;
@@ -316,12 +317,12 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   // Test number in place of string data type.
   EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata(3, ScaleMetadata::Encoding::raw)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test invalid data type name.
   EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata("invalid", ScaleMetadata::Encoding::raw)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test invalid encoding JSON type.
   EXPECT_THAT(MultiscaleMetadata::FromJson(GetMetadata("uint8", 123456)),
@@ -352,7 +353,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     EXPECT_THAT(MultiscaleMetadata::FromJson(
                     GetMetadata(dtype.name(), ScaleMetadata::Encoding::raw)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // --- jpeg ---
@@ -401,7 +402,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   for (int num_channels : {2, 4, 5}) {
     EXPECT_THAT(MultiscaleMetadata::FromJson(GetMetadata(
                     "uint8", ScaleMetadata::Encoding::jpeg, num_channels)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Test invalid data types for `jpeg` encoding.
@@ -414,7 +415,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     EXPECT_THAT(MultiscaleMetadata::FromJson(
                     GetMetadata(dtype.name(), ScaleMetadata::Encoding::jpeg)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // --- png ---
@@ -478,7 +479,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   for (int num_channels : {0, 5}) {
     EXPECT_THAT(MultiscaleMetadata::FromJson(GetMetadata(
                     "uint8", ScaleMetadata::Encoding::png, num_channels)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Test invalid data types for `png` encoding.
@@ -490,7 +491,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     EXPECT_THAT(MultiscaleMetadata::FromJson(
                     GetMetadata(dtype.name(), ScaleMetadata::Encoding::png)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // --- compressed_segmentation ---
@@ -518,13 +519,13 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     EXPECT_THAT(
         MultiscaleMetadata::FromJson(GetMetadata(
             dtype.name(), ScaleMetadata::Encoding::compressed_segmentation)),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 
 TEST(MetadataTest, ParseInvalid) {
   EXPECT_THAT(MultiscaleMetadata::FromJson(3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   ::nlohmann::json metadata_json{{"@type", "neuroglancer_multiscale_volume"},
                                  {"num_channels", 1},
@@ -1336,7 +1337,7 @@ TEST(CreateScaleTest, InvalidMultiscaleConstraints) {
     EXPECT_THAT(CreateScale(/*existing_metadata=*/nullptr,
                             OpenConstraints::FromJson(j).value(),
                             /*schema=*/{}),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 

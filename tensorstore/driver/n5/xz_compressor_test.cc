@@ -27,15 +27,13 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/testing/json_gtest.h"
-#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
-using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_n5::Compressor;
 using ::tensorstore::internal_n5::DecodeChunk;
 using ::tensorstore::internal_n5::N5Metadata;
@@ -50,17 +48,17 @@ TEST(XzCompressionTest, Parse) {
 
   // Invalid preset option type
   EXPECT_THAT(Compressor::FromJson({{"type", "xz"}, {"preset", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid preset option value
   EXPECT_THAT(Compressor::FromJson({{"type", "xz"}, {"preset", -1}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(Compressor::FromJson({{"type", "xz"}, {"preset", 10}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid extra option
   EXPECT_THAT(Compressor::FromJson({{"type", "xz"}, {"extra", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Xz chunk example from the specification:

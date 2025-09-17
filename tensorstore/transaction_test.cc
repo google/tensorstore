@@ -14,8 +14,15 @@
 
 #include "tensorstore/transaction.h"
 
+#include <stdint.h>
+
+#include <string>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -23,6 +30,7 @@ namespace {
 
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::no_transaction;
+using ::tensorstore::StatusIs;
 using ::tensorstore::Transaction;
 using ::tensorstore::TransactionMode;
 using ::tensorstore::internal::AcquireOpenTransactionPtrOrError;
@@ -77,8 +85,7 @@ TEST(TransactionTest, AbortEmptyTransaction) {
   EXPECT_FALSE(future.ready());
   txn.Abort();
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              tensorstore::MatchesStatus(absl::StatusCode::kCancelled));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kCancelled));
 }
 
 TEST(TransactionTest, OpenPtrDefersCommit) {
@@ -174,8 +181,7 @@ TEST(TransactionTest, SingleNodeAbort) {
   EXPECT_FALSE(future.ready());
   node->AbortDone();
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              tensorstore::MatchesStatus(absl::StatusCode::kCancelled));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kCancelled));
 }
 
 TEST(TransactionTest, SingleNodeCommit) {
@@ -290,9 +296,8 @@ TEST(TransactionTest, TwoTerminalNodesAtomicError) {
     TENSORSTORE_EXPECT_OK(node2->Register());
     TENSORSTORE_EXPECT_OK(node1->MarkAsTerminal());
     EXPECT_THAT(node2->MarkAsTerminal(),
-                tensorstore::MatchesStatus(
-                    absl::StatusCode::kInvalidArgument,
-                    "Cannot 1 and 2 as single atomic transaction"));
+                MatchesStatus(absl::StatusCode::kInvalidArgument,
+                              "Cannot 1 and 2 as single atomic transaction"));
   }
   txn.CommitAsync().IgnoreFuture();
   EXPECT_THAT(log, ::testing::ElementsAre("abort:1", "abort:2"));
@@ -301,9 +306,8 @@ TEST(TransactionTest, TwoTerminalNodesAtomicError) {
   node2->AbortDone();
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
-              tensorstore::MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Cannot 1 and 2 as single atomic transaction"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot 1 and 2 as single atomic transaction"));
 }
 
 TEST(TransactionTest, OneTerminalNodeOneNonTerminalNodeAtomicSuccess) {
@@ -523,8 +527,7 @@ TEST(TransactionTest, DeferredAbort) {
   EXPECT_THAT(log, ::testing::ElementsAre("abort:1"));
   node->AbortDone();
   ASSERT_TRUE(txn.future().ready());
-  EXPECT_THAT(txn.future().result(),
-              tensorstore::MatchesStatus(absl::StatusCode::kCancelled));
+  EXPECT_THAT(txn.future().result(), StatusIs(absl::StatusCode::kCancelled));
 }
 
 TEST(TransactionTest, MultiPhaseNode) {

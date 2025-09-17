@@ -41,6 +41,8 @@ ABSL_FLAG(std::string, tensorstore_test_data_dir, ".",
 
 namespace {
 
+using ::tensorstore::IsOk;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::TiffReader;
 using ::tensorstore::internal_image::TiffWriter;
@@ -70,7 +72,7 @@ TEST_F(TiffTest, Decode) {
   TiffReader decoder;
   riegeli::StringReader string_reader(reinterpret_cast<const char*>(data),
                                       sizeof(data));
-  ASSERT_THAT(decoder.Initialize(&string_reader), ::tensorstore::IsOk());
+  ASSERT_THAT(decoder.Initialize(&string_reader), IsOk());
 
   // EXPECT_EQ(1, decoder.GetFrameCount());
 
@@ -81,7 +83,7 @@ TEST_F(TiffTest, Decode) {
   EXPECT_EQ(1, info.num_components);
 
   uint8_t pixel[1] = {};
-  ASSERT_THAT(decoder.Decode(pixel), ::tensorstore::IsOk());
+  ASSERT_THAT(decoder.Decode(pixel), IsOk());
   EXPECT_THAT(pixel, ::testing::ElementsAre(0));
 }
 
@@ -126,11 +128,10 @@ TEST_F(TiffTest, EncodeDecode) {
     riegeli::CordWriter riegeli_writer(&encoded);
     TiffWriter encoder;
     ASSERT_THAT(encoder.Initialize(&riegeli_writer, TiffWriterOptions{}),
-                ::tensorstore::IsOk());
-    ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 1}, pixels),
-                ::tensorstore::IsOk());
+                IsOk());
+    ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 1}, pixels), IsOk());
 
-    ASSERT_THAT(encoder.Done(), ::tensorstore::IsOk());
+    ASSERT_THAT(encoder.Done(), IsOk());
   }
 
   EXPECT_THAT(
@@ -144,7 +145,7 @@ TEST_F(TiffTest, EncodeDecode) {
   {
     TiffReader decoder;
     riegeli::CordReader cord_reader(&encoded);
-    ASSERT_THAT(decoder.Initialize(&cord_reader), ::tensorstore::IsOk());
+    ASSERT_THAT(decoder.Initialize(&cord_reader), IsOk());
 
     // See: http://www.libtiff.org/man/index.html
     const auto& info = decoder.GetImageInfo();
@@ -156,7 +157,7 @@ TEST_F(TiffTest, EncodeDecode) {
     ASSERT_THAT(
         decoder.Decode(tensorstore::span(
             reinterpret_cast<unsigned char*>(&new_pixels), sizeof(new_pixels))),
-        tensorstore::IsOk());
+        IsOk());
 
     EXPECT_THAT(new_pixels, ::testing::ElementsAre(0));
   }
@@ -175,7 +176,7 @@ TEST_F(TiffTest, ReadMultiPage) {
 
   TiffReader decoder;
 
-  ASSERT_THAT(decoder.Initialize(&cord_reader), ::tensorstore::IsOk());
+  ASSERT_THAT(decoder.Initialize(&cord_reader), IsOk());
   EXPECT_EQ(3, decoder.GetFrameCount());
 
   const ImageInfo expected_info{172, 306, 3};
@@ -183,7 +184,7 @@ TEST_F(TiffTest, ReadMultiPage) {
   std::unique_ptr<unsigned char[]> image(new unsigned char[image_bytes]());
 
   for (int i = 0; i < decoder.GetFrameCount(); i++) {
-    ASSERT_THAT(decoder.SeekFrame(i), ::tensorstore::IsOk());
+    ASSERT_THAT(decoder.SeekFrame(i), IsOk());
     auto info = decoder.GetImageInfo();
     EXPECT_EQ(info.width, expected_info.width);
     EXPECT_EQ(info.height, expected_info.height);
@@ -191,7 +192,7 @@ TEST_F(TiffTest, ReadMultiPage) {
     EXPECT_EQ(info.dtype, expected_info.dtype);
 
     EXPECT_THAT(decoder.Decode(tensorstore::span(image.get(), image_bytes)),
-                ::tensorstore::IsOk());
+                IsOk());
   }
 }
 
@@ -205,7 +206,7 @@ TEST_F(TiffTest, CorruptData) {
 
   TiffReader decoder;
   EXPECT_THAT(decoder.Initialize(&string_reader),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

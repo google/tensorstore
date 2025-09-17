@@ -47,6 +47,7 @@ using ::tensorstore::kInfIndex;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_index_space::TransformAccess;
 
 TEST(ValidateIndexArrayBoundsTest, Basic) {
@@ -60,7 +61,7 @@ TEST(ValidateIndexArrayBoundsTest, Basic) {
   // +/-kInfIndex are not valid even if the bounds include them.
   EXPECT_THAT(
       ValidateIndexArrayBounds(IndexInterval(), MakeArray<Index>({kInfIndex})),
-      MatchesStatus(absl::StatusCode::kOutOfRange));
+      StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(InitializeSingleArrayIterationStateTest, Basic) {

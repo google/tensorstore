@@ -89,6 +89,7 @@ using ::tensorstore::kImplicit;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::dtypes::complex64_t;
 using ::tensorstore::internal::DecodedMatches;
@@ -241,7 +242,7 @@ TEST(ZarrDriverTest, Create) {
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {100, 7}, {1, 1}))
                     .result(),
-                MatchesStatus(absl::StatusCode::kOutOfRange));
+                StatusIs(absl::StatusCode::kOutOfRange));
 
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
@@ -254,7 +255,7 @@ TEST(ZarrDriverTest, Create) {
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {100, 8}, {2, 3}))
                     .result(),
-                MatchesStatus(absl::StatusCode::kOutOfRange));
+                StatusIs(absl::StatusCode::kOutOfRange));
 
     // Re-read and validate result.
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
@@ -985,12 +986,18 @@ TEST(ZarrDriverTest, CreateBfloat16) {
           Pair("prefix/1.1",  //
                ::testing::MatcherCast<absl::Cord>(
                    ::testing::Matcher<std::string>(ElementsAreArray({
-                       0x80, 0x3f,  //
-                       0x00, 0x40,  //
-                       0x40, 0x40,  //
-                       0x80, 0x40,  //
-                       0xa0, 0x40,  //
-                       0xc0, 0x40,  //
+                       0x80,
+                       0x3f,  //
+                       0x00,
+                       0x40,  //
+                       0x40,
+                       0x40,  //
+                       0x80,
+                       0x40,  //
+                       0xa0,
+                       0x40,  //
+                       0xc0,
+                       0x40,  //
                    })))),
       }));
 }
@@ -1932,6 +1939,7 @@ enum class RecheckOption {
   kExplicitEpochBound,
 };
 
+[[maybe_unused]]
 std::ostream& operator<<(std::ostream& os, RecheckOption recheck_option) {
   switch (recheck_option) {
     case RecheckOption::kExplicitBeforeModifyBound:
@@ -3394,11 +3402,11 @@ TEST(DriverTest, AssumeCachedMetadata) {
   // Resizing fails due to missing metadata.
   EXPECT_THAT(tensorstore::Resize(store, {{kImplicit, kImplicit}}, {{100, 200}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 
   // ResolveBounds fails due to negative cache entry.
   EXPECT_THAT(tensorstore::ResolveBounds(store).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 
   {
     auto new_json_spec = json_spec;
@@ -3462,7 +3470,7 @@ TEST(DriverTest, AssumeCachedMetadataMismatch) {
   }
 
   EXPECT_THAT(tensorstore::ResolveBounds(store).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 TEST(DriverTest, UrlSchemeRoundtrip) {

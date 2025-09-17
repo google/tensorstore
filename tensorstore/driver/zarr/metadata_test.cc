@@ -47,6 +47,7 @@ using ::tensorstore::dtype_v;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::dtypes::bfloat16_t;
 using ::tensorstore::dtypes::float16_t;
 using ::tensorstore::dtypes::int2_t;
@@ -73,8 +74,8 @@ TEST(OrderJsonBinderTest, Success) {
 TEST(ParseOrderTest, Failure) {
   tensorstore::TestJsonBinderFromJson<ContiguousLayoutOrder>(
       {
-          {"x", MatchesStatus(absl::StatusCode::kInvalidArgument)},
-          {3, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {"x", StatusIs(absl::StatusCode::kInvalidArgument)},
+          {3, StatusIs(absl::StatusCode::kInvalidArgument)},
       },
       OrderJsonBinder);
 }
@@ -186,7 +187,7 @@ TEST(ParseFillValueTest, ComplexFailure) {
                     "Array has length 1 but should have length 2"));
   EXPECT_THAT(ParseFillValue(::nlohmann::json::array_t{3, 4, 5},
                              ParseDType("<c8").value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseFillValue({"x", "y"}, ParseDType("<c16").value()),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error parsing value at position 0: "
@@ -795,8 +796,8 @@ TEST(DimensionSeparatorTest, JsonBinderTest) {
 TEST(DimensionSeparatorTest, JsonBinderTestInvalid) {
   tensorstore::TestJsonBinderFromJson<DimensionSeparator>(
       {
-          {"x", MatchesStatus(absl::StatusCode::kInvalidArgument)},
-          {3, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {"x", StatusIs(absl::StatusCode::kInvalidArgument)},
+          {3, StatusIs(absl::StatusCode::kInvalidArgument)},
       },
       DimensionSeparatorJsonBinder);
 }

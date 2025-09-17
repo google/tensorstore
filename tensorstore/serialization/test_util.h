@@ -62,8 +62,7 @@ void TestSerializationRoundTripCorrupt(const T& value,
   encoded.resize(encoded.size() - 1);
   T decoded;
   auto decode_status = DecodeBatch(encoded, decoded, serializer);
-  EXPECT_THAT(decode_status,
-              tensorstore::MatchesStatus(absl::StatusCode::kDataLoss));
+  EXPECT_THAT(decode_status, StatusIs(absl::StatusCode::kDataLoss));
 }
 
 }  // namespace serialization

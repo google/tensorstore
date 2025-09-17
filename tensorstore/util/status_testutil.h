@@ -292,13 +292,6 @@ internal_status::StatusIsMatcher StatusIs(CodeMatcher code_matcher) {
 }
 
 // Returns a matcher that matches a Status/Result/Future whose code
-// is code_matcher.
-inline internal_status::StatusIsMatcher MatchesStatus(
-    absl::StatusCode status_code) {
-  return internal_status::StatusIsMatcher(status_code, ::testing::_);
-}
-
-// Returns a matcher that matches a Status/Result/Future whose code
 // is code_matcher, and whose message matches the provided regex pattern.
 internal_status::StatusIsMatcher MatchesStatus(
     absl::StatusCode status_code, const std::string& message_pattern);

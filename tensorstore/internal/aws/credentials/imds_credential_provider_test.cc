@@ -30,7 +30,7 @@
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::IsOk;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_aws::AwsCredentialsProvider;
@@ -41,6 +41,7 @@ using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_aws::MakeImds;
 using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
+using ::testing::HasSubstr;
 
 namespace {
 
@@ -115,7 +116,7 @@ TEST_F(ImdsCredentialsProviderTest, NoIamRolesInSecurityCredentials) {
   AwsCredentialsProvider provider = MakeImds();
   auto credentials_future = GetAwsCredentials(provider.get());
   EXPECT_THAT(credentials_future,
-              MatchesStatus(absl::StatusCode::kInternal, ".*aws-c-auth.*"));
+              StatusIs(absl::StatusCode::kInternal, HasSubstr("aws-c-auth")));
 }
 
 TEST_F(ImdsCredentialsProviderTest, UnsuccessfulJsonResponse) {
@@ -139,7 +140,8 @@ TEST_F(ImdsCredentialsProviderTest, UnsuccessfulJsonResponse) {
   AwsCredentialsProvider provider = MakeImds();
   auto credentials_future = GetAwsCredentials(provider.get());
   ASSERT_THAT(credentials_future,
-              MatchesStatus(absl::StatusCode::kInternal, ".*aws-c-auth.*"));
+              StatusIs(absl::StatusCode::kInternal, HasSubstr("aws-c-auth")));
+
   // NOTE: The error message is not propagated to the status yet.
 }
 

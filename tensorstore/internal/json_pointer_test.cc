@@ -27,6 +27,7 @@ namespace {
 
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::json_pointer::Compare;
 using ::tensorstore::json_pointer::CompareResult;
 using ::tensorstore::json_pointer::Dereference;
@@ -202,7 +203,7 @@ TEST(DereferenceTest, NonConstAccess) {
   {
     ::nlohmann::json doc(::nlohmann::json::value_t::discarded);
     EXPECT_THAT(Dereference(doc, "", kMustExist),
-                MatchesStatus(absl::StatusCode::kNotFound));
+                StatusIs(absl::StatusCode::kNotFound));
     EXPECT_THAT(doc, MatchesJson(::nlohmann::json::value_t::discarded));
   }
 

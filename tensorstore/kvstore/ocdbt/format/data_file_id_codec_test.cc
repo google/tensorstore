@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
@@ -32,6 +33,7 @@ namespace {
 
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::BasePath;
 using ::tensorstore::internal_ocdbt::DataFileId;
 using ::tensorstore::internal_ocdbt::DataFileTable;
@@ -145,7 +147,7 @@ TEST(DataFileBuilderTest, Truncated) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded, Encode(table));
   ASSERT_EQ(1, encoded.size());
   EXPECT_THAT(Decode(encoded.Subcord(0, 0)),
-              MatchesStatus(absl::StatusCode::kDataLoss));
+              StatusIs(absl::StatusCode::kDataLoss));
 }
 
 TEST(DataFileBuilderTest, BasePathTooLongWithPrefix) {

@@ -33,6 +33,7 @@ using ::tensorstore::dynamic_extent;
 using ::tensorstore::Index;
 using ::tensorstore::IsIndexVectorOrScalar;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_index_space::CheckIndexVectorSize;
 using ::tensorstore::internal_index_space::IndexVectorOrScalarView;
 
@@ -86,7 +87,7 @@ TEST(IndexVectorOrScalarTest, Vector) {
   EXPECT_EQ(3, v[2]);
   EXPECT_TRUE(CheckIndexVectorSize(v, 3).ok());
   EXPECT_THAT(CheckIndexVectorSize(v, 5),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

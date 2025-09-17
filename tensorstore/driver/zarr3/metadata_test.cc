@@ -177,7 +177,7 @@ TEST(MetadataTest, ParseMissingMember) {
     auto json = GetBasicMetadata();
     json.erase(member);
     EXPECT_THAT(ZarrMetadata::FromJson(json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 

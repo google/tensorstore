@@ -49,6 +49,7 @@
 
 namespace {
 
+using ::tensorstore::IsOk;
 using ::tensorstore::internal_image::AvifReader;
 using ::tensorstore::internal_image::AvifReaderOptions;
 using ::tensorstore::internal_image::AvifWriter;
@@ -213,23 +214,23 @@ TEST_P(WriterTest, RoundTrip) {
     riegeli::CordWriter riegeli_writer(&encoded);
 
     // Despite options being passed in, initialize with defaults.
-    ASSERT_THAT(InitializeWithOptions(&riegeli_writer), ::tensorstore::IsOk());
-    ASSERT_THAT(writer->Encode(source_info, source), ::tensorstore::IsOk());
-    ASSERT_THAT(writer->Done(), ::tensorstore::IsOk());
+    ASSERT_THAT(InitializeWithOptions(&riegeli_writer), IsOk());
+    ASSERT_THAT(writer->Encode(source_info, source), IsOk());
+    ASSERT_THAT(writer->Done(), IsOk());
   }
 
   ImageInfo decoded_info;
   std::vector<unsigned char> decoded(source.size());
   {
     riegeli::CordReader cord_reader(&encoded);
-    ASSERT_THAT(reader->Initialize(&cord_reader), ::tensorstore::IsOk());
+    ASSERT_THAT(reader->Initialize(&cord_reader), IsOk());
 
     decoded_info = reader->GetImageInfo();
     EXPECT_EQ(decoded_info.width, source_info.width);
     EXPECT_EQ(decoded_info.height, source_info.height);
     EXPECT_EQ(decoded_info.num_components, source_info.num_components);
 
-    EXPECT_THAT(DecodeWithOptions(decoded), ::tensorstore::IsOk());
+    EXPECT_THAT(DecodeWithOptions(decoded), IsOk());
   }
 
   double rmse = ComputeRMSE(decoded.data(), source.data(), source.size());

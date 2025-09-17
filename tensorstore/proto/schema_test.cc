@@ -31,6 +31,7 @@ using ::protobuf_matchers::EqualsProto;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::ParseSchemaFromProto;
 using ::tensorstore::Schema;
+using ::tensorstore::StatusIs;
 
 template <typename Proto>
 Proto ParseProtoOrDie(const std::string& asciipb) {
@@ -154,19 +155,19 @@ TEST(SchemaProtoTest, Errors) {
       ParseSchemaFromProto(ParseProtoOrDie<::tensorstore::proto::Schema>(R"pb(
         rank: -2
       )pb")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(
       ParseSchemaFromProto(ParseProtoOrDie<::tensorstore::proto::Schema>(R"pb(
         dtype: "foo"
       )pb")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(
       ParseSchemaFromProto(ParseProtoOrDie<::tensorstore::proto::Schema>(R"pb(
         codec: "12345"
       )pb")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

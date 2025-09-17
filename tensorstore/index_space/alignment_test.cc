@@ -14,23 +14,27 @@
 
 #include "tensorstore/index_space/alignment.h"
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
-using ::tensorstore::IndexDomain;
 using ::tensorstore::IndexDomainBuilder;
 using ::tensorstore::IndexTransform;
 using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 
 using Dao = tensorstore::DomainAlignmentOptions;
 
@@ -423,7 +427,7 @@ TEST(AlignDomainToTest, MismatchedLabeled) {
                     .Finalize()
                     .value();
   EXPECT_THAT(AlignDomainTo(source, target),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(AlignDimensionsToTest, MismatchedSizeLabeled) {

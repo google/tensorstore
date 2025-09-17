@@ -102,6 +102,7 @@ using ::tensorstore::SharedSubArray;
 using ::tensorstore::StaticCast;
 using ::tensorstore::StaticDataTypeCast;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::SubArray;
@@ -1825,10 +1826,10 @@ TEST(ValidateShapeBroadcastTest, Examples) {
                              tensorstore::span<const Index>({4, 5})));
   EXPECT_THAT(ValidateShapeBroadcast(tensorstore::span<const Index>({2, 5}),
                                      tensorstore::span<const Index>({4, 5})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ValidateShapeBroadcast(tensorstore::span<const Index>({2, 5}),
                                      tensorstore::span<const Index>({5, 5})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ValidateShapeBroadcastTest, Basic) {
