@@ -28,4 +28,8 @@ def repo():
         strip_prefix = "rules_nasm-0.4.0",
         urls = mirror_url("https://github.com/morganwl/rules_nasm/archive/0.4.0.tar.gz"),
         sha256 = "96d967505151b3e2b4d59adcd655c06a16d78b630a4074e643810e7a01a6d420",
+        patches = [
+            Label("//third_party:rules_nasm/patches/use_default_shell_env.diff"),
+        ],
+        patch_args = ["-p1"],
     )
