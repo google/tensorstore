@@ -159,6 +159,17 @@ TEST(ParseGenericUriTest, FileScheme1) {
   EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
+TEST(ParseGenericUriTest, FileSchemeWindows) {
+  auto parsed = ParseGenericUri("file:///C:/Users/me/temp");
+  EXPECT_EQ("file", parsed.scheme);
+  EXPECT_EQ("", parsed.authority);
+  EXPECT_EQ("/C:/Users/me/temp", parsed.authority_and_path);
+  EXPECT_EQ("/C:/Users/me/temp", parsed.path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
+}
+
 TEST(ParseGenericUriTest, FooScheme) {
   auto parsed = ParseGenericUri("foo:/abc/def");
   EXPECT_EQ("foo", parsed.scheme);

@@ -87,21 +87,24 @@ def execute_doctests(*, filename: str, **kwargs) -> tuple[str, str]:
       d = max(4, MIN_TMP_WIDTH - len(p))
       subdir = '/tmp' + 'x' * d
       p = p + subdir[:d]
+    p = p + '/'
 
     if len(p) > (MIN_TMP_WIDTH + 5) or kwargs.get('verbose', False):
       print(f'"/tmp/" replacement: "{p}"')
 
-    forward_pattern = re.compile(r"(['\"]|//)/tmp/")
-    forward_replacement = r'\1' + p + '/'
-
-    backward_pattern = re.compile(r"(['\"]|//)" + re.escape(p) + r'/')
-    backward_replacement = r'\1/tmp/'
+    # On windows the posix path may start with a drive letter rather than a
+    # slash, so uris need to be handled separately.
+    p_without_prefix = p.removeprefix('/')
 
     def do_forward_replacements(txt: str) -> str:
-      return forward_pattern.sub(forward_replacement, txt)
+      txt = re.sub(r'([\'"])/tmp/', rf'\1{p}', txt)
+      return re.sub(r'file:///tmp/', f'file:///{p_without_prefix}', txt)
 
     def do_backward_replacements(txt: str) -> str:
-      return backward_pattern.sub(backward_replacement, txt)
+      txt = re.sub(rf'([\'"]){re.escape(p)}', r'\1/tmp/', txt)
+      return re.sub(
+          rf'file:///{re.escape(p_without_prefix)}', r'file:///tmp/', txt
+      )
 
     orig_cwd = os.getcwd()
     # Change to a temporary directory to ensure that relative paths used in
