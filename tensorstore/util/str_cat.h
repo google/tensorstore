@@ -45,11 +45,10 @@ constexpr bool Requires(F) {
   return std::is_invocable_v<F, T...>;
 }
 
-/// Converts arbitrary input values to a type supported by `absl::StrCat`.
 template <typename T>
 auto ToAlphaNumOrString(const T& x);
 
-/// Converts the argument to a string representation using `operator<<`.
+// Converts the argument to a string representation using `operator<<`.
 template <typename T>
 std::string StringifyUsingOstream(const T& x) {
   std::ostringstream ostr;
@@ -57,7 +56,7 @@ std::string StringifyUsingOstream(const T& x) {
   return ostr.str();
 }
 
-/// Converts std::tuple<...> values to strings.
+// Converts std::tuple<...> values to strings.
 template <typename... T>
 std::string StringifyTuple(const std::tuple<T...>& x) {
   return std::apply(
@@ -72,14 +71,14 @@ std::string StringifyTuple(const std::tuple<T...>& x) {
       x);
 }
 
-/// Converts std::pair<...> values to strings.
+// Converts std::pair<...> values to strings.
 template <typename A, typename B>
 std::string StringifyPair(const std::pair<A, B>& x) {
   return absl::StrCat("{", ToAlphaNumOrString(x.first), ", ",
                       ToAlphaNumOrString(x.second), "}");
 }
 
-/// Converts container<T> values to strings.
+// Converts container<T> values to strings.
 template <typename Iterator>
 std::string StringifyContainer(Iterator begin, Iterator end) {
   /// NOTE: Consider a PrintableContainer wrapper type.
@@ -94,7 +93,7 @@ std::string StringifyContainer(Iterator begin, Iterator end) {
   return result;
 }
 
-/// Converts arbitrary input values to a type supported by `absl::StrCat`.
+// Converts arbitrary input values to a type supported by `absl::StrCat`.
 template <typename T>
 auto ToAlphaNumOrString(const T& x) {
   if constexpr (std::is_same_v<T, std::nullptr_t>) {

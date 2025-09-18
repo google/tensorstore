@@ -14,16 +14,26 @@
 
 #include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
+#include <cassert>
+#include <cstring>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_check.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "riegeli/varint/varint_reading.h"
 #include "riegeli/varint/varint_writing.h"
 #include "tensorstore/internal/ref_counted_string.h"
+#include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 
 namespace tensorstore {

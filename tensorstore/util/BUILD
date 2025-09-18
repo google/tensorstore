@@ -523,6 +523,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "result",
+    srcs = ["result_impl.cc"],
     hdrs = [
         "result.h",
         "result_impl.h",
@@ -534,8 +535,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/preprocessor:cat",
         "//tensorstore/internal/preprocessor:expand",
         "@abseil-cpp//absl/base:core_headers",
-        "@abseil-cpp//absl/log:absl_check",
-        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/base:nullability",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
     ],

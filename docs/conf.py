@@ -362,6 +362,11 @@ external_cpp_references = {
         'object_type': 'class',
         'desc': 'C++ class',
     },
+    'absl::Status::ok': {
+        'url': 'https://abseil.io/docs/cpp/guides/status#checking-errors',
+        'object_type': 'function',
+        'desc': 'C++ class',
+    },
     'absl::StatusOr': {
         'url': (
             'https://abseil.io/docs/cpp/guides/status#returning-a-status-or-a-value'
@@ -425,6 +430,11 @@ external_cpp_references = {
         ),
         'object_type': 'class',
         'desc': 'C++ class',
+    },
+    'std::move': {
+        'url': 'https://en.cppreference.com/w/cpp/utility/move.html',
+        'object_type': 'function',
+        'desc': 'C++ function',
     },
 }
 
