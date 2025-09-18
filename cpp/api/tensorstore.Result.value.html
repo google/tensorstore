@@ -825,7 +825,7 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.Result.IgnoreResult.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::IgnoreResult (C++ function) — Ignores the result. This method signals intent to ignore the result to suppress compiler warnings from [[nodiscard]]." class="md-ellipsis">Ignore<wbr>Result</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::IgnoreResult (C++ function) — Ignores the result. This method does nothing except potentially suppress complaints from any tools that are checking that errors are not dropped on the floor." class="md-ellipsis">Ignore<wbr>Result</span>
       </a>
     </li>
   
@@ -840,7 +840,22 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.Result.ok.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::ok (C++ function) — Returns true if this represents a success state, false for a failure state." class="md-ellipsis">ok</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::ok (C++ function) — Returns whether or not this tensorstore::Result&lt;T&gt; holds a T value." class="md-ellipsis">ok</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.status.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::status (C++ function) — Returns a reference to the contained absl::Status. If the Result&lt;T&gt; contains a value, then this function returns absl::OkStatus()." class="md-ellipsis">status</span>
       </a>
     </li>
   
@@ -862,12 +877,12 @@
       <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Checked value accessor." class="md-ellipsis">value</span>
+          <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Returns a reference to the held value if this-&gt;ok(). Otherwise terminates the process." class="md-ellipsis">value</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="#" class="md-nav__link md-nav__link--active">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Checked value accessor." class="md-ellipsis">value</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Returns a reference to the held value if this-&gt;ok(). Otherwise terminates the process." class="md-ellipsis">value</span>
       </a>
       
         
@@ -882,7 +897,7 @@
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Checked value accessor." class="md-ellipsis">value</span>
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Returns a reference to the held value if this-&gt;ok(). Otherwise terminates the process." class="md-ellipsis">value</span>
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
@@ -909,8 +924,8 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Result.status.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::status (C++ function) — Returns the error status." class="md-ellipsis">status</span>
+      <a href="tensorstore.Result.operator-dereference.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator* (C++ function) — Returns a reference to the current value." class="md-ellipsis">operator*</span>
       </a>
     </li>
   
@@ -925,7 +940,7 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.Result.operator-arrow.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator-&gt; (C++ function) — Returns a pointer to the contained value." class="md-ellipsis">operator-<wbr>&gt;</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator-&gt; (C++ function) — Returns a pointer to the current value." class="md-ellipsis">operator-<wbr>&gt;</span>
       </a>
     </li>
   
@@ -939,8 +954,8 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Result.operator-dereference.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator* (C++ function) — Returns a reference to the contained value." class="md-ellipsis">operator*</span>
+      <a href="tensorstore.Result.value_or.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value_or (C++ function) — Returns the current value if this-&gt;ok() == true. Otherwise constructs a value using the provided default_value." class="md-ellipsis">value_<wbr>or</span>
       </a>
     </li>
   
@@ -956,21 +971,6 @@
     <li class="md-nav__item">
       <a href="tensorstore.Result.operator-bitwise_or.html" class="md-nav__link">
         <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator| (C++ function) — &#34;Pipeline&#34; operator for Result." class="md-ellipsis">operator|</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.Result.value_or.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value_or (C++ function) — Returns the contained value, or default_value if *this is in an error state." class="md-ellipsis">value_<wbr>or</span>
       </a>
     </li>
   
@@ -1402,7 +1402,7 @@
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Checked value accessor." class="md-ellipsis">value</span>
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Returns a reference to the held value if this-&gt;ok(). Otherwise terminates the process." class="md-ellipsis">value</span>
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
@@ -1433,18 +1433,36 @@
 <code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/util/result.h&quot;</span></code></div>
 </dt>
 <dt class="sig sig-object highlight cpp">
-<span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&amp;&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">&amp;</span><span class="w">&nbsp;</span><span class="k">noexcept</span><span class="p">;</span></dt>
+<span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&amp;<br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">&amp;</span><span class="w">&nbsp;</span><span class="p">[[</span>clang&nbsp;::lifetimebound<span class="p">]]</span><span class="p">;</span></dt>
 <dt class="sig sig-object highlight cpp">
-<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&amp;&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="p">&amp;</span><span class="w">&nbsp;</span><span class="k">noexcept</span><span class="p">;</span></dt>
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&amp;&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="p">&amp;</span><span class="w">&nbsp;</span><span class="p">[[</span>clang&nbsp;::lifetimebound<span class="p">]]</span><span class="p">;</span></dt>
 <dt class="sig sig-object highlight cpp">
-<span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">&amp;&amp;</span><span class="w">&nbsp;</span><span class="k">noexcept</span><span class="p">;</span></dt>
+<span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&amp;</span><span class="p">&amp;<br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">&amp;&amp;</span><span class="w">&nbsp;</span><span class="p">[[</span>clang&nbsp;::lifetimebound<span class="p">]]</span><span class="p">;</span></dt>
 <dt class="sig sig-object highlight cpp">
-<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="p">&amp;&amp;</span><span class="w">&nbsp;</span><span class="k">noexcept</span><span class="p">;</span></dt>
-<dd><p>Checked value accessor.</p>
-<p>Terminates the process if <code class="cpp-expr sig sig-inline cpp highlight"><span class="o">*</span><span class="k">this</span></code> represents a failure state.</p>
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="p">&amp;&amp;</span><span class="w">&nbsp;</span><span class="p">[[</span>clang&nbsp;::lifetimebound<span class="p">]]</span><span class="p">;</span></dt>
+<dd><p>Returns a reference to the held value if <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">this</span><span class="o">-&gt;</span><span class="n">ok</span><span class="p">(</span><span class="p">)</span></code>. Otherwise
+terminates the process.</p>
+<p>If the state of the result has already been checked using <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">this</span><span class="o">-&gt;</span><span class="n">ok</span><span class="p">(</span><span class="p">)</span></code>,
+consider using <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">operator</span><a class="reference internal" href="tensorstore.Result.operator-dereference.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result&#64;F&#64;operator*#1&amp;" title="tensorstore::Result::operator* (C++ function) — Returns a reference to the current value."><span class="sig-name descname">*</span></a><span class="p">(</span><span class="p">)</span></code> or <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">operator</span><a class="reference internal" href="tensorstore.Result.operator-arrow.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result&#64;F&#64;operator-&gt;#1" title="tensorstore::Result::operator-&gt; (C++ function) — Returns a pointer to the current value."><span class="sig-name descname">-&gt;</span></a><span class="p">(</span><span class="p">)</span></code> to access the value.</p>
+<p>Note: for value types that are cheap to copy, prefer simple code:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">T</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
+</code></pre></div>
+</div>
+<p>Otherwise, if the value type is expensive to copy, but can be left
+in the Result, simply assign to a reference:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">T</span><span class="o">&amp;</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">value</span><span class="p">();</span><span class="w">  </span><span class="c1">// or `const T&amp;`</span>
+</code></pre></div>
+</div>
+<p>Otherwise, if the value type supports an efficient move, it can be
+used as follows:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">T</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">result</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
+</code></pre></div>
+</div>
+<p>The <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">std</span><span class="p">::</span><a class="reference external" href="https://en.cppreference.com/w/cpp/utility/move.html" title="C++ function"><span class="n">move</span></a></code> on result instead of on the whole expression enables
+warnings about possible uses of the result object after the move.</p>
 <dl class="field-list simple">
 <dt class="field-odd" id="pre">Pre<span class="colon">:</span><a class="headerlink" href="#pre" title="Permalink to this headline">¶</a></dt>
-<dd class="field-odd"><p><code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Result.ok.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result&#64;F&#64;has_value#1" title="tensorstore::Result::has_value (C++ function) — Returns true if this represents a success state, false for a failure state."><span class="n">has_value</span></a><span class="p">(</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="k">true</span></code></p>
+<dd class="field-odd"><p><code class="cpp-expr sig sig-inline cpp highlight"><span class="k">this</span><span class="o">-&gt;</span><span class="n">ok</span><span class="p">(</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="k">true</span></code>, otherwise the process will be terminated.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1475,7 +1493,7 @@
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="tensorstore.Result.ok.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore::Result&lt;T&gt;::ok" rel="prev">
+        <a href="tensorstore.Result.status.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore::Result&lt;T&gt;::status" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -1484,20 +1502,20 @@
               <span class="md-footer__direction">
                 Previous
               </span>
-              tensorstore::Result&lt;T&gt;::ok
+              tensorstore::Result&lt;T&gt;::status
             </div>
           </div>
         </a>
       
       
         
-        <a href="tensorstore.Result.status.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::Result&lt;T&gt;::status" rel="next">
+        <a href="tensorstore.Result.operator-dereference.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::Result&lt;T&gt;::operator*" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              tensorstore::Result&lt;T&gt;::status
+              tensorstore::Result&lt;T&gt;::operator*
             </div>
           </div>
           <div class="md-footer__button md-icon">

@@ -865,7 +865,7 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.Result.IgnoreResult.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::IgnoreResult (C++ function) — Ignores the result. This method signals intent to ignore the result to suppress compiler warnings from [[nodiscard]]." class="md-ellipsis">Ignore<wbr>Result</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::IgnoreResult (C++ function) — Ignores the result. This method does nothing except potentially suppress complaints from any tools that are checking that errors are not dropped on the floor." class="md-ellipsis">Ignore<wbr>Result</span>
       </a>
     </li>
   
@@ -880,22 +880,7 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.Result.ok.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::ok (C++ function) — Returns true if this represents a success state, false for a failure state." class="md-ellipsis">ok</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.Result.value.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Checked value accessor." class="md-ellipsis">value</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::ok (C++ function) — Returns whether or not this tensorstore::Result&lt;T&gt; holds a T value." class="md-ellipsis">ok</span>
       </a>
     </li>
   
@@ -910,7 +895,7 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.Result.status.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::status (C++ function) — Returns the error status." class="md-ellipsis">status</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::status (C++ function) — Returns a reference to the contained absl::Status. If the Result&lt;T&gt; contains a value, then this function returns absl::OkStatus()." class="md-ellipsis">status</span>
       </a>
     </li>
   
@@ -924,8 +909,8 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Result.operator-arrow.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator-&gt; (C++ function) — Returns a pointer to the contained value." class="md-ellipsis">operator-<wbr>&gt;</span>
+      <a href="tensorstore.Result.value.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value (C++ function) — Returns a reference to the held value if this-&gt;ok(). Otherwise terminates the process." class="md-ellipsis">value</span>
       </a>
     </li>
   
@@ -940,7 +925,37 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.Result.operator-dereference.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator* (C++ function) — Returns a reference to the contained value." class="md-ellipsis">operator*</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator* (C++ function) — Returns a reference to the current value." class="md-ellipsis">operator*</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.operator-arrow.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator-&gt; (C++ function) — Returns a pointer to the current value." class="md-ellipsis">operator-<wbr>&gt;</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.value_or.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value_or (C++ function) — Returns the current value if this-&gt;ok() == true. Otherwise constructs a value using the provided default_value." class="md-ellipsis">value_<wbr>or</span>
       </a>
     </li>
   
@@ -956,21 +971,6 @@
     <li class="md-nav__item">
       <a href="tensorstore.Result.operator-bitwise_or.html" class="md-nav__link">
         <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator| (C++ function) — &#34;Pipeline&#34; operator for Result." class="md-ellipsis">operator|</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.Result.value_or.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::value_or (C++ function) — Returns the contained value, or default_value if *this is in an error state." class="md-ellipsis">value_<wbr>or</span>
       </a>
     </li>
   
