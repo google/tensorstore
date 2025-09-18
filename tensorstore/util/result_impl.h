@@ -127,7 +127,9 @@ struct ResultStorage {
   template <typename... Args>
   explicit ResultStorage(status_t, Args&&... args) noexcept
       : status_(std::forward<Args>(args)...) {
-    EnsureNotOk();
+    if (ABSL_PREDICT_FALSE(ok())) {
+      internal_result::HandleInvalidResultCtor(&status_);
+    }
   }
 
   ResultStorage& operator=(const ResultStorage& rhs) {
@@ -176,7 +178,9 @@ struct ResultStorage {
   void assign_status(U&& value) noexcept {
     Clear();
     status_ = static_cast<absl::Status>(std::forward<U>(value));
-    EnsureNotOk();
+    if (ABSL_PREDICT_FALSE(ok())) {
+      internal_result::HandleInvalidResultCtor(&status_);
+    }
   }
 
   template <typename U>
@@ -200,10 +204,6 @@ struct ResultStorage {
 
   void EnsureOk() const {
     if (ABSL_PREDICT_FALSE(!ok())) internal_result::CrashOnResultNotOk(status_);
-  }
-  void EnsureNotOk() {
-    if (ABSL_PREDICT_FALSE(ok()))
-      internal_result::HandleInvalidResultCtor(&status_);
   }
 
   template <typename U>

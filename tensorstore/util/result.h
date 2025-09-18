@@ -290,7 +290,7 @@ class Result : private internal_result::ResultStorage<T>,
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
   Result& operator=(const Result<U>& rhs) {
-    this->assign(rhs);
+    this->Assign(rhs);
     return *this;
   }
   template <
@@ -302,7 +302,7 @@ class Result : private internal_result::ResultStorage<T>,
            !internal_result::is_constructible_convertible_from<T, Result<U>  //
                                                                >)>* = nullptr>
   Result& operator=(Result<U>&& rhs) {
-    this->assign(std::move(rhs));
+    this->Assign(std::move(rhs));
     return *this;
   }
 
@@ -454,23 +454,19 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   /// \pre `this->ok() == true`, otherwise the process will be terminated.
   const T& value() const& ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    if (!this->ok()) internal_result::CrashOnResultNotOk(this->status_);
+    this->EnsureOk();
     return this->value_;
   }
   T& value() & ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    if (!this->ok()) internal_result::CrashOnResultNotOk(this->status_);
+    this->EnsureOk();
     return this->value_;
   }
   const T&& value() const&& ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    if (!this->ok()) {
-      internal_result::CrashOnResultNotOk(std::move(this->status_));
-    }
+    this->EnsureOk();
     return std::move(this->value_);
   }
   T&& value() && ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    if (!this->ok()) {
-      internal_result::CrashOnResultNotOk(std::move(this->status_));
-    }
+    this->EnsureOk();
     return std::move(this->value_);
   }
 
@@ -478,24 +474,23 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   /// Use `this->ok()` to verify that there is a current value within the
   /// `tensorstore::Result<T>`. Alternatively, see the `value()` member function
-  /// for a similar API that guarantees crashing or throwing an exception if
-  /// there is no current value.
+  /// for a similar API that guarantees crashing if there is no current value.
   ///
   /// \pre `this->ok() == true`, otherwise the behavior is undefined.
   const T& operator*() const& ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    this->EnsureOk();
+    this->AssertOk();
     return this->value_;
   }
   T& operator*() & ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    this->EnsureOk();
+    this->AssertOk();
     return this->value_;
   }
   const T&& operator*() const&& ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    this->EnsureOk();
+    this->AssertOk();
     return std::move(this->value_);
   }
   T&& operator*() && ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    this->EnsureOk();
+    this->AssertOk();
     return std::move(this->value_);
   }
 
@@ -628,7 +623,7 @@ class Result : private internal_result::ResultStorage<T>,
  private:
   // Implements assignment from a Result<U>.
   template <typename U>
-  inline void assign(const Result<U>& other) {
+  inline void Assign(const Result<U>& other) {
     if (other.ok()) {
       this->assign_value(other.value());
     } else {
@@ -636,12 +631,18 @@ class Result : private internal_result::ResultStorage<T>,
     }
   }
   template <typename U>
-  inline void assign(Result<U>&& other) {
+  inline void Assign(Result<U>&& other) {
     if (other.ok()) {
       this->assign_value(std::move(other).value());
     } else {
       this->assign_status(std::move(other).status());
     }
+  }
+
+  inline void AssertOk() const {
+#if !defined(NDEBUG)
+    this->EnsureOk();
+#endif
   }
 };
 
@@ -716,9 +717,7 @@ class Result<void> {
   }
 
   // Value
-  void value() const {
-    if (!ok()) internal_result::CrashOnResultNotOk(status_);
-  }
+  void value() const { this->EnsureOk(); }
 
   friend bool operator==(const Result& a, const Result& b) {
     return a.status_ == b.status_;
@@ -727,6 +726,10 @@ class Result<void> {
   friend bool operator!=(const Result& a, const Result& b) { return !(a == b); }
 
  private:
+  void EnsureOk() const {
+    if (ABSL_PREDICT_FALSE(!ok())) internal_result::CrashOnResultNotOk(status_);
+  }
+
   absl::Status status_;
 };
 
