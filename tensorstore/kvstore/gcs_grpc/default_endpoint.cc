@@ -42,7 +42,7 @@ bool UseDirectPathGcsEndpointByDefaultImpl() {
   if (auto disable_direct_path =
           internal::GetFlagOrEnvValue(FLAGS_tensorstore_disable_direct_path,
                                       "GOOGLE_CLOUD_DISABLE_DIRECT_PATH");
-      disable_direct_path.has_value() && disable_direct_path) {
+      disable_direct_path.has_value() && *disable_direct_path) {
     return false;
   }
 
