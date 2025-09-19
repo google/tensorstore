@@ -1004,6 +1004,8 @@ Future<kvstore::DriverPtr> GcsGrpcKeyValueStoreSpec::DoOpen() const {
   std::string endpoint = data_.endpoint;
   if (endpoint.empty()) {
     endpoint = internal_gcs_grpc::GetDefaultGcsGrpcEndpoint();
+    ABSL_LOG_IF_FIRST_N(INFO, gcs_grpc_logging, 1)
+        << "Using gcs_grpc default endpoint: " << endpoint;
   }
 
   TENSORSTORE_ASSIGN_OR_RETURN(
