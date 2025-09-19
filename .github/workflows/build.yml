@@ -29,16 +29,7 @@ jobs:
         with:
           # Need full history to determine version number.
           fetch-depth: 0
-      - if: ${{ !startsWith(matrix.os, 'arm-ubuntu-') }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      # actions/setup-python does not support Linux arm64, but deadsnakes/action
-      # is a drop-in replacement that does.
-      #
-      # https://github.com/actions/setup-python/issues/678
-      - if: ${{ startsWith(matrix.os, 'arm-ubuntu-') }}
-        uses: deadsnakes/action@6c8b9b82fe0b4344f4b98f2775fcc395df45e494 # v3.1.0
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: "Configure bazel remote cache write credentials"
