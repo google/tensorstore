@@ -86,17 +86,19 @@ struct CommonMetrics : public CommonReadMetrics,
   // no additional members
 };
 
-#define TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, NAME, DESC, ...) \
-  internal_metrics::Counter<int64_t>::New(                         \
-      "/tensorstore/kvstore/" #KVSTORE "/" #NAME,                  \
-      internal_metrics::MetricMetadata(#KVSTORE " " DESC, ##__VA_ARGS__))
+#define TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, NAME, DESC, ...)       \
+  ::tensorstore::internal_metrics::Counter<int64_t>::New(                \
+      "/tensorstore/kvstore/" #KVSTORE "/" #NAME,                        \
+      ::tensorstore::internal_metrics::MetricMetadata(#KVSTORE " " DESC, \
+                                                      ##__VA_ARGS__))
 
-#define TENSORSTORE_KVSTORE_LATENCY_IMPL(KVSTORE, NAME, METRIC_FN)     \
-  internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New( \
-      "/tensorstore/kvstore/" #KVSTORE "/" #NAME,                      \
-      internal_metrics::MetricMetadata(                                \
-          #KVSTORE " kvstore::" #METRIC_FN " latency (ms)",            \
-          internal_metrics::Units::kMilliseconds))
+#define TENSORSTORE_KVSTORE_LATENCY_IMPL(KVSTORE, NAME, METRIC_FN)       \
+  ::tensorstore::internal_metrics::                                      \
+      Histogram< ::tensorstore::internal_metrics::DefaultBucketer>::New( \
+          "/tensorstore/kvstore/" #KVSTORE "/" #NAME,                    \
+          ::tensorstore::internal_metrics::MetricMetadata(               \
+              #KVSTORE " kvstore::" #METRIC_FN " latency (ms)",          \
+              ::tensorstore::internal_metrics::Units::kMilliseconds))
 
 #define TENSORSTORE_KVSTORE_COMMON_READ_METRICS(KVSTORE)              \
   []() -> ::tensorstore::internal_kvstore::CommonReadMetrics {        \
@@ -114,22 +116,22 @@ struct CommonMetrics : public CommonReadMetrics,
                                              "kvstore::DeleteRange calls")}; \
   }()
 
-#define TENSORSTORE_KVSTORE_DETAILED_READ_METRICS(KVSTORE)                  \
-  []() -> ::tensorstore::internal_kvstore::DetailedReadMetrics {            \
-    return {                                                                \
-        TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, batch_read,               \
-                                         "kvstore::Read after batching"),   \
-        TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, bytes_read, "bytes read", \
-                                         internal_metrics::Units::kBytes),  \
-        TENSORSTORE_KVSTORE_LATENCY_IMPL(KVSTORE, read_latency_ms, Read)};  \
+#define TENSORSTORE_KVSTORE_DETAILED_READ_METRICS(KVSTORE)                     \
+  []() -> ::tensorstore::internal_kvstore::DetailedReadMetrics {               \
+    return {TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, batch_read,              \
+                                             "kvstore::Read after batching"),  \
+            TENSORSTORE_KVSTORE_COUNTER_IMPL(                                  \
+                KVSTORE, bytes_read, "bytes read",                             \
+                tensorstore::internal_metrics::Units::kBytes),                 \
+            TENSORSTORE_KVSTORE_LATENCY_IMPL(KVSTORE, read_latency_ms, Read)}; \
   }()
 
 #define TENSORSTORE_KVSTORE_DETAILED_WRITE_METRICS(KVSTORE)                  \
   []() -> ::tensorstore::internal_kvstore::DetailedWriteMetrics {            \
     return {                                                                 \
-        TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, bytes_written,             \
-                                         "bytes written",                    \
-                                         internal_metrics::Units::kBytes),   \
+        TENSORSTORE_KVSTORE_COUNTER_IMPL(                                    \
+            KVSTORE, bytes_written, "bytes written",                         \
+            tensorstore::internal_metrics::Units::kBytes),                   \
         TENSORSTORE_KVSTORE_LATENCY_IMPL(KVSTORE, write_latency_ms, Write)}; \
   }()
 
