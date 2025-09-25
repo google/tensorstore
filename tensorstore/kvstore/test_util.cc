@@ -85,10 +85,10 @@ namespace {
 
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
 using ::tensorstore::kvstore::ReadResult;
+using ::testing::HasSubstr;
 
 static const char kSep[] = "----------------------------------------------\n";
 
@@ -300,8 +300,8 @@ void TestKeyValueStoreTransactionalWriteOps(const KvStore& store,
             expected_value,
             ::testing::Not(::testing::Eq(stamp_within_txn.generation))));
   } else {
-    EXPECT_THAT(txn.Commit(), MatchesStatus(absl::StatusCode::kAborted,
-                                            "Generation mismatch"));
+    EXPECT_THAT(txn.Commit(), StatusIs(absl::StatusCode::kAborted,
+                                       HasSubstr("Generation mismatch")));
     EXPECT_THAT(kvstore::Read(store, key).result(),
                 MatchesKvsReadResultNotFound());
   }

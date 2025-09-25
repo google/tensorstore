@@ -29,8 +29,9 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr::Compressor;
+using ::testing::HasSubstr;
 
 std::vector<::nlohmann::json> GetTestCompressorSpecs() {
   return {
@@ -182,35 +183,36 @@ TEST(BloscCompressorTest, CheckBlocksize) {
 
 TEST(BloscCompressorTest, InvalidParameters) {
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"cname", "foo"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"cname\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"cname\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"cname", 5}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"cname\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"cname\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"clevel", "foo"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"clevel\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"clevel\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"clevel", -1}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"clevel\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"clevel\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"clevel", 10}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"clevel\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"clevel\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"shuffle", "foo"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"shuffle\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"shuffle\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"shuffle", -2}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"shuffle\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"shuffle\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"shuffle", 3}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"shuffle\": .*"));
-  EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"blocksize", "foo"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"blocksize\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"shuffle\": ")));
+  EXPECT_THAT(
+      Compressor::FromJson({{"id", "blosc"}, {"blocksize", "foo"}}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"blocksize\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", "blosc"}, {"foo", "foo"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Object includes extra members: \"foo\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Object includes extra members: \"foo\"")));
 }
 
 TEST(BloscCompressorTest, ToJson) {

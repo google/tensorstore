@@ -34,7 +34,6 @@ namespace {
 
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_n5::Compressor;

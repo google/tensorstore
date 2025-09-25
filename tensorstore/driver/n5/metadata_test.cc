@@ -39,10 +39,11 @@ using ::tensorstore::CodecSpec;
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_n5::DecodeChunk;
 using ::tensorstore::internal_n5::N5Metadata;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(MetadataTest, ParseValid) {
   ::nlohmann::json attributes{
@@ -174,26 +175,27 @@ TEST(MetadataTest, ParseInvalidBlockSize) {
 }
 
 TEST(MetadataTest, ParseInvalidAxes) {
-  EXPECT_THAT(N5Metadata::FromJson({
-                  {"dimensions", {10, 11, 12}},
-                  {"axes", {"a", "b", "c", "d"}},
-                  {"blockSize", {1, 2, 3}},
-                  {"dataType", "uint16"},
-                  {"compression", {{"type", "raw"}}},
-              }),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  ".* \"axes\": Array has length 4 but should have length 3"));
-
   EXPECT_THAT(
       N5Metadata::FromJson({
           {"dimensions", {10, 11, 12}},
-          {"axes", {"a", "a", ""}},
+          {"axes", {"a", "b", "c", "d"}},
           {"blockSize", {1, 2, 3}},
           {"dataType", "uint16"},
           {"compression", {{"type", "raw"}}},
       }),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".* \"a\" not unique"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("\"axes\": Array has length 4 but should have length 3")));
+
+  EXPECT_THAT(N5Metadata::FromJson({
+                  {"dimensions", {10, 11, 12}},
+                  {"axes", {"a", "a", ""}},
+                  {"blockSize", {1, 2, 3}},
+                  {"dataType", "uint16"},
+                  {"compression", {{"type", "raw"}}},
+              }),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(" \"a\" not unique")));
 }
 
 TEST(MetadataTest, DataTypes) {
@@ -329,9 +331,9 @@ TEST(N5CodecSpecTest, Merge) {
   EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
   EXPECT_THAT(CodecSpec::Merge(codec2, codec3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge codec spec .* with .*: "
-                            "\"compression\" does not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Cannot merge codec spec .* with .*: "
+                                    "\"compression\" does not match")));
 }
 
 TEST(N5CodecSpecTest, RoundTrip) {

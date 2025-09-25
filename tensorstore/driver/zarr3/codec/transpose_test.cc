@@ -28,7 +28,6 @@ namespace {
 
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
@@ -39,6 +38,8 @@ using ::tensorstore::internal_zarr3::TestCodecRoundTrip;
 using ::tensorstore::internal_zarr3::TestCodecSpecResolve;
 using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(TransposeTest, Basic) {
   CodecSpecRoundTripTestParams p;
@@ -83,8 +84,8 @@ TEST(TransposeTest, InvalidPermutation) {
   EXPECT_THAT(
       ZarrCodecChainSpec::FromJson(
           {{{"name", "transpose"}, {"configuration", {{"order", {2, 1, 2}}}}}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*is not a valid permutation.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("is not a valid permutation")));
 }
 
 TEST(TransposeTest, RoundTrip) {
@@ -101,9 +102,10 @@ TEST(TransposeTest, RankMismatch) {
       TestCodecSpecResolve(
           {{{"name", "transpose"}, {"configuration", {{"order", {2, 1, 0}}}}}},
           p),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error resolving codec spec .* is not a valid dimension "
-                    "permutation for a rank 2 array"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex("Error resolving codec spec .* is not a valid dimension "
+                       "permutation for a rank 2 array")));
 }
 
 TEST(TransposeTest, AttributeMismatch) {
@@ -115,7 +117,7 @@ TEST(TransposeTest, AttributeMismatch) {
           {{{"name", "transpose"},
             {"configuration", {{"order", {0, 1}}, {"extra", 1}}}}},
           p),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".* \"extra\""));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"extra\"")));
 }
 
 TEST(TransposeTest, Merge) {

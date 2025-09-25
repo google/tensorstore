@@ -87,7 +87,6 @@ using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::kImplicit;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
@@ -102,6 +101,8 @@ using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::tensorstore::internal::TestTensorStoreSpecRoundtripNormalize;
 using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 using ::testing::ElementsAreArray;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -125,16 +126,15 @@ std::string Bytes(std::vector<unsigned char> values) {
 }
 
 TEST(OpenTest, DeleteExistingWithoutCreate) {
-  EXPECT_THAT(
-      tensorstore::Open(
-          GetJsonSpec(),
-          tensorstore::OpenMode::delete_existing | tensorstore::OpenMode::open,
-          tensorstore::ReadWriteMode::read_write)
-          .result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Error opening \"zarr\" driver: "
-          "Cannot specify an open mode of `delete_existing` without `create`"));
+  EXPECT_THAT(tensorstore::Open(GetJsonSpec(),
+                                tensorstore::OpenMode::delete_existing |
+                                    tensorstore::OpenMode::open,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error opening \"zarr\" driver: "
+                                 "Cannot specify an open mode of "
+                                 "`delete_existing` without `create`")));
 }
 
 TEST(OpenTest, DeleteExistingWithOpen) {
@@ -145,10 +145,11 @@ TEST(OpenTest, DeleteExistingWithOpen) {
                             tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Error opening \"zarr\" driver: "
-          "Cannot specify an open mode of `delete_existing` with `open`"));
+          HasSubstr(
+              "Error opening \"zarr\" driver: "
+              "Cannot specify an open mode of `delete_existing` with `open`")));
 }
 
 TEST(OpenTest, CreateWithoutWrite) {
@@ -156,30 +157,32 @@ TEST(OpenTest, CreateWithoutWrite) {
       tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error opening \"zarr\" driver: "
-                    "Cannot specify an open mode of `create` without `write`"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(
+                   "Error opening \"zarr\" driver: "
+                   "Cannot specify an open mode of `create` without `write`")));
 }
 
 TEST(OpenTest, AssumeExistingWithoutOpen) {
-  EXPECT_THAT(tensorstore::Open(GetJsonSpec(),
-                                tensorstore::OpenMode::create |
-                                    tensorstore::OpenMode::assume_metadata,
-                                tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error opening \"zarr\" driver: "
-                            "Cannot specify an open mode of `assume_metadata` "
-                            "without `open`"));
+  EXPECT_THAT(
+      tensorstore::Open(GetJsonSpec(),
+                        tensorstore::OpenMode::create |
+                            tensorstore::OpenMode::assume_metadata,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error opening \"zarr\" driver: "
+                         "Cannot specify an open mode of `assume_metadata` "
+                         "without `open`")));
 }
 
 TEST(ZarrDriverTest, OpenNonExisting) {
   EXPECT_THAT(tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open,
                                 tensorstore::ReadWriteMode::read_write)
                   .result(),
-              MatchesStatus(absl::StatusCode::kNotFound,
-                            "Error opening \"zarr\" driver: "
-                            "Metadata at \"prefix/\\.zarray\" does not exist"));
+              StatusIs(absl::StatusCode::kNotFound,
+                       HasSubstr("Error opening \"zarr\" driver: Metadata at "
+                                 "\"prefix/.zarray\" does not exist")));
 }
 
 TEST(ZarrDriverTest, OpenOrCreate) {
@@ -197,7 +200,7 @@ TEST(ZarrDriverTest, OpenInvalidRank) {
           spec, tensorstore::OpenMode::open | tensorstore::OpenMode::create,
           tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*Rank.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Rank")));
 }
 
 TEST(ZarrDriverTest, Create) {
@@ -302,9 +305,9 @@ TEST(ZarrDriverTest, Create) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kAlreadyExists,
-                    "Error opening \"zarr\" driver: "
-                    "Error writing \"prefix/\\.zarray\""));
+      StatusIs(absl::StatusCode::kAlreadyExists,
+               HasSubstr("Error opening \"zarr\" driver: "
+                         "Error writing \"prefix/.zarray\"")));
 
   // Check that create or open succeeds.
   TENSORSTORE_EXPECT_OK(tensorstore::Open(
@@ -423,9 +426,9 @@ TEST(ZarrDriverTest, CreateWithMetadataKey) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kAlreadyExists,
-                    "Error opening \"zarr\" driver: "
-                    "Error writing \"prefix/zarray\""));
+      StatusIs(absl::StatusCode::kAlreadyExists,
+               HasSubstr("Error opening \"zarr\" driver: "
+                         "Error writing \"prefix/zarray\"")));
 
   // Check that create or open succeeds.
   TENSORSTORE_EXPECT_OK(tensorstore::Open(
@@ -531,10 +534,10 @@ TEST_F(MockKeyValueStoreTest, CreateMetadataError) {
   mock_key_value_store->write_requests.pop().promise.SetResult(
       absl::UnknownError("create error"));
   EXPECT_THAT(store_future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown,
-                            "Error opening \"zarr\" driver: "
-                            "Error writing \"prefix/\\.zarray\": "
-                            "create error"));
+              StatusIs(absl::StatusCode::kUnknown,
+                       HasSubstr("Error opening \"zarr\" driver: "
+                                 "Error writing \"prefix/.zarray\": "
+                                 "create error")));
 }
 
 // Tests concurrently creating a zarr array with `create=true` and `open=false`,
@@ -571,12 +574,12 @@ TEST_F(MockKeyValueStoreTest,
   mock_key_value_store->write_requests.pop()(memory_store);
   mock_key_value_store->read_requests.pop()(memory_store);
   // Exactly one of the create requests succeeds.
-  EXPECT_THAT(
-      std::vector({store_future1.status(), store_future2.status()}),
-      ::testing::UnorderedElementsAre(
-          absl::OkStatus(), MatchesStatus(absl::StatusCode::kAlreadyExists,
-                                          "Error opening \"zarr\" driver: "
-                                          "Error writing \"prefix/.zarray\"")));
+  EXPECT_THAT(std::vector({store_future1.status(), store_future2.status()}),
+              ::testing::UnorderedElementsAre(
+                  absl::OkStatus(),
+                  StatusIs(absl::StatusCode::kAlreadyExists,
+                           HasSubstr("Error opening \"zarr\" driver: "
+                                     "Error writing \"prefix/.zarray\""))));
 }
 
 // Tests concurrently creating a zarr array with `create=true` and `open=false`,
@@ -604,12 +607,12 @@ TEST(ZarrDriverTest, CreateMetadataConcurrentErrorSharedCachePool) {
   store_future1.Force();
   store_future2.Force();
   // Exactly one of the create requests succeeds.
-  EXPECT_THAT(
-      std::vector({store_future1.status(), store_future2.status()}),
-      ::testing::UnorderedElementsAre(
-          absl::OkStatus(), MatchesStatus(absl::StatusCode::kAlreadyExists,
-                                          "Error opening \"zarr\" driver: "
-                                          "Error writing \"prefix/.zarray\"")));
+  EXPECT_THAT(std::vector({store_future1.status(), store_future2.status()}),
+              ::testing::UnorderedElementsAre(
+                  absl::OkStatus(),
+                  StatusIs(absl::StatusCode::kAlreadyExists,
+                           HasSubstr("Error opening \"zarr\" driver: "
+                                     "Error writing \"prefix/.zarray\""))));
 }
 
 // Tests concurrently creating a zarr array with `create=true` and `open=true`,
@@ -701,9 +704,9 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionWriteError) {
   mock_key_value_store->write_requests.pop().promise.SetResult(
       absl::UnknownError("write error"));
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kUnknown,
-                            "Error writing \"prefix/.zarray\": "
-                            "write error"));
+              StatusIs(absl::StatusCode::kUnknown,
+                       HasSubstr("Error writing \"prefix/.zarray\": "
+                                 "write error")));
 }
 
 TEST_F(MockKeyValueStoreTest, CreateWithTransactionAlreadyExists) {
@@ -744,8 +747,8 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionAlreadyExists) {
   mock_key_value_store->read_requests.pop()(memory_store);
 
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kAlreadyExists,
-                            "Error writing \"prefix/.zarray\""));
+              StatusIs(absl::StatusCode::kAlreadyExists,
+                       HasSubstr("Error writing \"prefix/.zarray\"")));
 }
 
 void TestCreateWriteRead(Context context, ::nlohmann::json json_spec) {
@@ -1491,41 +1494,43 @@ TEST(ZarrDriverTest, InvalidResize) {
              tensorstore::span<const Index>({kImplicit, kImplicit}),
              tensorstore::span<const Index>({kImplicit, 2}))
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would also affect output dimension 0 "
-                    "over the interval \\[10, 100\\) but `resize_tied_bounds` "
-                    "was not specified"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Resize operation would also affect output dimension 0 "
+                    "over the interval [10, 100) but `resize_tied_bounds` "
+                    "was not specified")));
 
   EXPECT_THAT(
       Resize(store | tensorstore::Dims(0).HalfOpenInterval(5, 100),
              tensorstore::span<const Index>({kImplicit, kImplicit}),
              tensorstore::span<const Index>({kImplicit, 2}))
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would also affect output dimension 0 "
-                    "over the interval \\[0, 5\\) but `resize_tied_bounds` "
-                    "was not specified"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Resize operation would also affect output dimension 0 "
+                    "over the interval [0, 5) but `resize_tied_bounds` "
+                    "was not specified")));
 
   EXPECT_THAT(
       Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
              tensorstore::span<const Index>({kImplicit, 10}),
              tensorstore::expand_only)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Error writing \"prefix/\\.zarray\": "
-          "Resize operation would shrink output dimension 1 from "
-          "\\[0, 100\\) to \\[0, 10\\) but `expand_only` was specified"));
+          HasSubstr("Error writing \"prefix/.zarray\": "
+                    "Resize operation would shrink output dimension 1 from "
+                    "[0, 100) to [0, 10) but `expand_only` was specified")));
 
   EXPECT_THAT(
       Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
              tensorstore::span<const Index>({kImplicit, 200}),
              tensorstore::shrink_only)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Resize operation would expand output dimension 1 from "
-          "\\[0, 100\\) to \\[0, 200\\) but `shrink_only` was specified"));
+          HasSubstr("Resize operation would expand output dimension 1 from "
+                    "[0, 100) to [0, 200) but `shrink_only` was specified")));
 }
 
 TEST(ZarrDriverTest, InvalidResizeConcurrentModification) {
@@ -1553,9 +1558,10 @@ TEST(ZarrDriverTest, InvalidResizeConcurrentModification) {
              tensorstore::span<const Index>({kImplicit, kImplicit}),
              tensorstore::span<const Index>({kImplicit, 50}))
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would also affect output dimension 0 "
-                    "over the out-of-bounds interval \\[50, 100\\)"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Resize operation would also affect output dimension 0 "
+                    "over the out-of-bounds interval [50, 100)")));
 }
 
 TEST(ZarrDriverTest, InvalidResizeLowerBound) {
@@ -1573,14 +1579,15 @@ TEST(ZarrDriverTest, InvalidResizeLowerBound) {
                                     tensorstore::ReadWriteMode::read_write)
                       .result());
 
-  EXPECT_THAT(Resize(store | tensorstore::Dims(0).UnsafeMarkBoundsImplicit(),
-                     tensorstore::span<const Index>({10, kImplicit}),
-                     tensorstore::span<const Index>({kImplicit, kImplicit}))
-                  .result(),
-              MatchesStatus(
-                  absl::StatusCode::kFailedPrecondition,
-                  "Cannot change inclusive lower bound of output dimension 0, "
-                  "which is fixed at 0, to 10"));
+  EXPECT_THAT(
+      Resize(store | tensorstore::Dims(0).UnsafeMarkBoundsImplicit(),
+             tensorstore::span<const Index>({10, kImplicit}),
+             tensorstore::span<const Index>({kImplicit, kImplicit}))
+          .result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr(
+                   "Cannot change inclusive lower bound of output dimension 0, "
+                   "which is fixed at 0, to 10")));
 }
 
 TEST(ZarrDriverTest, InvalidResizeDueToOtherFields) {
@@ -1601,9 +1608,9 @@ TEST(ZarrDriverTest, InvalidResizeDueToOtherFields) {
       Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
              tensorstore::span<const Index>({kImplicit, 2}))
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would affect other fields but "
-                    "`resize_tied_bounds` was not specified"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Resize operation would affect other fields but "
+                         "`resize_tied_bounds` was not specified")));
 }
 
 TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
@@ -1627,10 +1634,10 @@ TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
           tensorstore::span<const Index>({kImplicit, kImplicit, kImplicit, 0}),
           tensorstore::span<const Index>({kImplicit, kImplicit, kImplicit, 2}))
           .result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          "Cannot change exclusive upper bound of output dimension 3, "
-          "which is fixed at 3, to 2"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr(
+                   "Cannot change exclusive upper bound of output dimension 3, "
+                   "which is fixed at 3, to 2")));
 
   EXPECT_THAT(
       Resize(
@@ -1639,10 +1646,11 @@ TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
               {kImplicit, kImplicit, kImplicit, kImplicit}),
           tensorstore::span<const Index>({kImplicit, 2, kImplicit, kImplicit}))
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would also affect output dimension 3 "
-                    "over the interval \\[2, 3\\) but `resize_tied_bounds` was "
-                    "not specified"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Resize operation would also affect output dimension 3 "
+                    "over the interval [2, 3) but `resize_tied_bounds` was "
+                    "not specified")));
 }
 
 TEST(ZarrDriverTest, InvalidResizeIncompatibleMetadata) {
@@ -1673,10 +1681,10 @@ TEST(ZarrDriverTest, InvalidResizeIncompatibleMetadata) {
              tensorstore::span<const Index>({5, 5}),
              tensorstore::resize_metadata_only)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error writing \"prefix/\\.zarray\": "
-                    "Updated zarr metadata .* is incompatible with "
-                    "existing metadata .*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               MatchesRegex(".*Error writing \"prefix/.zarray\": "
+                            "Updated zarr metadata .* is incompatible with "
+                            "existing metadata .*")));
 }
 
 TEST(ZarrDriverTest, InvalidResizeConstraintsViolated) {
@@ -1708,12 +1716,13 @@ TEST(ZarrDriverTest, InvalidResizeConstraintsViolated) {
              tensorstore::span<const Index>({kImplicit, 5}),
              tensorstore::resize_metadata_only)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Error writing \"prefix/\\.zarray\": "
-          "Resize operation would also affect output dimension 0 over the "
-          "interval \\[100, 150\\) but `resize_tied_bounds` was not "
-          "specified"));
+          HasSubstr(
+              "Error writing \"prefix/.zarray\": "
+              "Resize operation would also affect output dimension 0 over the "
+              "interval [100, 150) but `resize_tied_bounds` was not "
+              "specified")));
 }
 
 TEST(ZarrDriverTest, ResolveBoundsDeletedMetadata) {
@@ -1736,9 +1745,10 @@ TEST(ZarrDriverTest, ResolveBoundsDeletedMetadata) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto kvs, kvstore::Open(storage_spec, context).result());
   TENSORSTORE_ASSERT_OK(kvstore::Delete(kvs, "prefix/.zarray"));
-  EXPECT_THAT(ResolveBounds(store).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Metadata at \"prefix/.zarray\" does not exist"));
+  EXPECT_THAT(
+      ResolveBounds(store).result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Metadata at \"prefix/.zarray\" does not exist")));
 }
 
 TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
@@ -1765,19 +1775,20 @@ TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
              tensorstore::span<const Index>({5, 5}),
              tensorstore::resize_metadata_only)
           .result(),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "Error writing \"prefix/\\.zarray\": "
-                    "Metadata was deleted"));
+      StatusIs(absl::StatusCode::kNotFound,
+               HasSubstr("Error writing \"prefix/.zarray\": "
+                         "Metadata was deleted")));
 }
 
 TEST(ZarrDriverTest, InvalidSpecExtraMember) {
   auto spec = GetJsonSpec();
   spec["extra_member"] = 5;
-  EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
-                                tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Object includes extra members: \"extra_member\""));
+  EXPECT_THAT(
+      tensorstore::Open(spec, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Object includes extra members: \"extra_member\"")));
 }
 
 TEST(ZarrDriverTest, InvalidSpecMissingKvstore) {
@@ -1786,9 +1797,9 @@ TEST(ZarrDriverTest, InvalidSpecMissingKvstore) {
   EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
                                 tensorstore::ReadWriteMode::read_write)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error opening \"zarr\" driver: "
-                            "\"kvstore\" must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error opening \"zarr\" driver: "
+                                 "\"kvstore\" must be specified")));
 }
 
 TEST(ZarrDriverTest, InvalidSpecMemberType) {
@@ -1796,14 +1807,13 @@ TEST(ZarrDriverTest, InvalidSpecMemberType) {
        {"kvstore", "path", "field", "key_encoding", "metadata"}) {
     auto spec = GetJsonSpec();
     spec[member_name] = 5;
-    EXPECT_THAT(
-        tensorstore::Open(spec, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      StrCat("Error parsing object member \"", member_name,
-                             "\": "
-                             "Expected .*, but received: 5")));
+    EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
+                                  tensorstore::ReadWriteMode::read_write)
+                    .result(),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         MatchesRegex(tensorstore::StrCat(
+                             "Error parsing object member \"", member_name,
+                             "\": Expected .*, but received: 5"))));
   }
 }
 
@@ -1814,8 +1824,8 @@ TEST(ZarrDriverTest, InvalidSpecKeyEncoding) {
       tensorstore::Open(spec, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing object member \"key_encoding\": .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"key_encoding\": ")));
 }
 
 TEST(ZarrDriverTest, InvalidSpecMissingDomain) {
@@ -1825,10 +1835,10 @@ TEST(ZarrDriverTest, InvalidSpecMissingDomain) {
       tensorstore::Open(spec, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: "
-                    "Cannot create using specified \"metadata\" and schema: "
-                    "domain must be specified"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot create using specified \"metadata\" and schema: "
+                    "domain must be specified")));
 }
 
 TEST(ZarrDriverTest, OpenInvalidMetadata) {
@@ -1848,12 +1858,13 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
   TENSORSTORE_EXPECT_OK(
       kvstore::Write(kvs, "prefix/.zarray", absl::Cord("invalid")));
 
-  EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
-                                tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error opening \"zarr\" driver: "
-                            "Error reading \"prefix/.zarray\": Invalid JSON"));
+  EXPECT_THAT(
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Error opening \"zarr\" driver: "
+                         "Error reading \"prefix/.zarray\": Invalid JSON")));
 
   {
     auto invalid_json = zarr_metadata_json;
@@ -1867,11 +1878,10 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      "Error opening \"zarr\" driver: "
-                      "Error reading \"prefix/.zarray\": "
-                      "Error parsing object member \"zarr_format\": "
-                      ".*"));
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Error opening \"zarr\" driver: "
+                           "Error reading \"prefix/.zarray\": "
+                           "Error parsing object member \"zarr_format\": ")));
   }
 }
 
@@ -1911,10 +1921,11 @@ TEST(ZarrDriverTest, ResolveBoundsIncompatibleMetadata) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
-  EXPECT_THAT(ResolveBounds(store).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Updated zarr metadata .* is incompatible with "
-                            "existing metadata .*"));
+  EXPECT_THAT(
+      ResolveBounds(store).result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               MatchesRegex(".*Updated zarr metadata .* is incompatible with "
+                            "existing metadata.*")));
 }
 
 /// Policies used by `TestDataCaching` and `TestMetadataCaching`.
@@ -2470,10 +2481,10 @@ TEST(DriverTest, DimensionSeparatorMismatch) {
   };
   EXPECT_THAT(
       tensorstore::Open(json_spec, tensorstore::OpenMode::create).result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Error parsing object member \"key_encoding\": "
-          "value \\(\"/\"\\) does not match value in metadata \\(\"\\.\"\\)"));
+          HasSubstr("Error parsing object member \"key_encoding\": "
+                    "value (\"/\") does not match value in metadata (\".\")")));
 }
 
 TEST(DriverTest, ChunkLayout) {
@@ -2704,9 +2715,10 @@ TEST(DriverTest, FillMissingDataReads) {
         EXPECT_THAT(read_result,
                     ::testing::Optional(tensorstore::MakeArray<int16_t>({42})));
       } else {
-        EXPECT_THAT(read_result,
-                    MatchesStatus(absl::StatusCode::kNotFound,
-                                  "chunk \\{0\\} stored at \"0\" is missing"));
+        EXPECT_THAT(
+            read_result,
+            StatusIs(absl::StatusCode::kNotFound,
+                     HasSubstr("chunk {0} stored at \"0\" is missing")));
       }
     }
     TENSORSTORE_ASSERT_OK(
@@ -2778,8 +2790,8 @@ TEST(DriverTest, InvalidCodec) {
                   },
                   tensorstore::OpenMode::create)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Cannot merge codec spec .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot merge codec spec")));
 }
 
 TEST(DriverCreateWithSchemaTest, Dtypes) {
@@ -2909,8 +2921,8 @@ TEST(DriverTest, RankMismatch) {
                   {{"driver", "zarr"}, {"kvstore", {{"driver", "memory"}}}},
                   context, tensorstore::RankConstraint{2})
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*: Rank is 1, but schema specifies rank of 2"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Rank is 1, but schema specifies rank of 2")));
 }
 
 TEST(DriverTest, DtypeMismatch) {
@@ -2926,7 +2938,7 @@ TEST(DriverTest, DtypeMismatch) {
           {{"driver", "zarr"}, {"kvstore", {{"driver", "memory"}}}}, context,
           dtype_v<int32_t>)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*dtype.*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("dtype")));
 }
 
 TEST(DriverSpecSchemaTest, Basic) {
@@ -3026,9 +3038,10 @@ void TestReadWriteWithDimensionSeparator(std::string dimension_separator) {
   // Read array with wrong dimension_separator.
   EXPECT_THAT(
       perform_read({{"dimension_separator", other_dimension_separator}}),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*: Expected \"dimension_separator\" of \"[./]\" but "
-                    "received: \"[./]\""));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          MatchesRegex(".*: Expected \"dimension_separator\" of \"[./]\" but "
+                       "received: \"[./]\".*")));
 
   // Remove dimension_separator field from metadata.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -3066,8 +3079,8 @@ TEST(DriverTest, DimensionUnitsError) {
           tensorstore::OpenMode::create, dtype_v<uint8_t>, Schema::Shape({1}),
           Schema::DimensionUnits({"nm"}))
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: Dimension units not supported by zarr driver"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Dimension units not supported by zarr driver")));
 }
 
 // Tests that the deprecated "path" member outside of the "kvstore" is
@@ -3147,10 +3160,11 @@ TEST(DriverTest, DeprecatedPath) {
 TEST(DriverTest, InvalidSpecPathButNoKvstore) {
   EXPECT_THAT(
       tensorstore::Spec::FromJson({{"driver", "zarr"}, {"path", "a/b"}}),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Error parsing object member \"path\": "
-          "\"path\" must be specified in conjunction with \"kvstore\""));
+          HasSubstr(
+              "Error parsing object member \"path\": "
+              "\"path\" must be specified in conjunction with \"kvstore\"")));
 }
 
 TEST(DriverTest, AssumeMetadataSpecRoundtrip) {
@@ -3270,8 +3284,8 @@ TEST(DriverTest, AssumeMetadata) {
   // Resizing fails.
   EXPECT_THAT(tensorstore::Resize(store, {{kImplicit, kImplicit}}, {{100, 200}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Resize not supported .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Resize not supported")));
 
   // ResolveBounds still succeeds (negative cache entry ignored).
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(store,

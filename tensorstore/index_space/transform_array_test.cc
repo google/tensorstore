@@ -14,11 +14,19 @@
 
 #include "tensorstore/index_space/internal/transform_array.h"
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -32,7 +40,8 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::IndexTransformView;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeOffsetArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(TransformArrayTest, OneDimensionalIdentity) {
   auto original_array = tensorstore::MakeArray<int>({1, 2, 3, 4});
@@ -178,8 +187,8 @@ TEST(TransformArrayTest, IndexArrayBoundsOverflow) {
                       .Finalize()
                       .value())
                   .status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Integer overflow propagating range.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Integer overflow propagating range")));
 }
 
 TEST(TransformArrayTest, OneDArrayOneDIndexArrayWithOrigin) {
@@ -265,8 +274,8 @@ TEST(TransformArrayTest, ArrayIndexOutOfBounds) {
               .Finalize()
               .value())
           .status(),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    ".*Index 2 is outside valid range \\[0, 2\\).*"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Index 2 is outside valid range [0, 2)")));
 
   EXPECT_THAT(
       tensorstore::TransformArray(
@@ -279,8 +288,8 @@ TEST(TransformArrayTest, ArrayIndexOutOfBounds) {
               .Finalize()
               .value())
           .status(),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    ".*Index -1 is outside valid range \\[0, 2\\).*"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Index -1 is outside valid range [0, 2)")));
 }
 
 TEST(TransformArrayTest, TwoDArrayOneDIndexArrayStridedWithOrigin) {

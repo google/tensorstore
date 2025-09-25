@@ -54,7 +54,6 @@ namespace {
 
 namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;

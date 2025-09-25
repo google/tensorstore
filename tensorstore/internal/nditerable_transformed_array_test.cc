@@ -52,11 +52,11 @@ using ::tensorstore::Index;
 using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kImplicit;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::Shared;
 using ::tensorstore::SharedArray;
 using ::tensorstore::skip_repeated_elements;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::TransformedArray;
 using ::tensorstore::internal::Arena;
@@ -68,6 +68,7 @@ using ::tensorstore::internal::NDIterable;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::FieldsAre;
+using ::testing::HasSubstr;
 using ::testing::Pair;
 
 using IterationTrace = std::vector<void*>;
@@ -600,9 +601,10 @@ TEST(NDIterableTransformedArrayTest, OutOfBoundsConstant) {
                        .value();
   EXPECT_THAT(
       GetTransformedArrayNDIterable(a, transform, &arena),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Checking bounds of constant output index map for "
-                    "dimension 0: Index 8 is outside valid range \\[0, 5\\)"));
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          HasSubstr("Checking bounds of constant output index map for "
+                    "dimension 0: Index 8 is outside valid range [0, 5)")));
 }
 
 TEST(NDIterableTransformedArrayTest, NullTransform) {
@@ -645,9 +647,9 @@ TEST(NDIterableTransformedArrayTest, OutOfBoundsSingleInputDimension) {
                        .Finalize()
                        .value();
   EXPECT_THAT(GetTransformedArrayNDIterable(a, transform, &arena),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Output dimension 0 range of \\[2, 7\\) is not "
-                            "contained within array domain of \\[0, 5\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Output dimension 0 range of [2, 7) is not "
+                                 "contained within array domain of [0, 5)")));
 }
 
 TEST_P(MaybeDirectTest, OutOfBoundsIndexArray) {
@@ -659,8 +661,8 @@ TEST_P(MaybeDirectTest, OutOfBoundsIndexArray) {
           .Finalize()
           .value();
   EXPECT_THAT(GetMaybeDirectTransformedArrayNDIterable(a, transform),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".*Index 42 is outside valid range \\[-2, 3\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Index 42 is outside valid range [-2, 3)")));
 }
 
 TEST_P(MaybeDirectTest, OutOfBoundsSingletonIndexArray) {
@@ -673,8 +675,8 @@ TEST_P(MaybeDirectTest, OutOfBoundsSingletonIndexArray) {
                        .Finalize()
                        .value();
   EXPECT_THAT(GetMaybeDirectTransformedArrayNDIterable(a, transform),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".*Index 42 is outside valid range \\[-2, 3\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Index 42 is outside valid range [-2, 3)")));
 }
 
 // Test the case of an array with no index array input dimensions (simply

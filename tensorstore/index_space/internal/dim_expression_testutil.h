@@ -15,15 +15,20 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_DIM_EXPRESSION_TESTUTIL_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_DIM_EXPRESSION_TESTUTIL_H_
 
-#include <string>
 #include <system_error>  // NOLINT
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace tensorstore {
@@ -277,32 +282,31 @@ void TestDimExpression(
 /// \param error_code The expected error code.
 /// \param message_pattern Regular expression specifying the expected error
 ///     message.
-template <typename OriginalTransform, typename Expression>
+template <typename OriginalTransform, typename Expression, typename Matcher>
 void TestDimExpressionError(const OriginalTransform& original_transform,
                             const Expression& expression,
-                            absl::StatusCode error_code,
-                            const std::string& message_pattern) {
+                            absl::StatusCode error_code, Matcher&& matcher) {
   auto original_copy = MakeNewTransformCopy(original_transform);
 
   // Check out-of-place implementation.
   auto result = expression(original_transform);
-  EXPECT_THAT(result, MatchesStatus(error_code, message_pattern));
 
+  EXPECT_THAT(result, StatusIs(error_code, matcher));
   EXPECT_EQ(original_copy, original_transform);
 
   // Check in-place implementation.
   auto inplace_result = expression(std::move(original_copy));
-  EXPECT_THAT(inplace_result, MatchesStatus(error_code, message_pattern));
+  EXPECT_THAT(inplace_result, StatusIs(error_code, matcher));
 }
 
 template <typename OriginalTransform, typename Expression,
-          typename ExpectedDomain>
+          typename ExpectedDomain, typename Matcher>
 void TestDimExpressionErrorTransformOnly(
     const OriginalTransform& original_transform, const Expression& expression,
-    absl::StatusCode error_code, const std::string& message_pattern,
+    absl::StatusCode error_code, Matcher&& matcher,
     const ExpectedDomain& expected_domain) {
   TestDimExpressionError(original_transform, expression, error_code,
-                         message_pattern);
+                         std::forward<Matcher>(matcher));
 
   // Check out-of-place implementation.
   auto original_copy = MakeNewTransformCopy(original_transform);

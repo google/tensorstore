@@ -37,11 +37,11 @@ namespace {
 using ::tensorstore::ChainResult;
 using ::tensorstore::FlatMapResultType;
 using ::tensorstore::FlatResult;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::UnwrapQualifiedResultType;
 using ::tensorstore::UnwrapResultType;
+using ::testing::HasSubstr;
 
 static_assert(std::is_convertible_v<Result<int>, Result<float>>);
 static_assert(!std::is_convertible_v<Result<int>, Result<std::string>>);
@@ -998,9 +998,10 @@ TEST(ResultTest, AssignOrReturn) {
     EXPECT_EQ(3, x);
     return absl::UnknownError("No error");
   };
-  EXPECT_THAT(Helper(3), MatchesStatus(absl::StatusCode::kUnknown, "No error"));
+  EXPECT_THAT(Helper(3),
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("No error")));
   EXPECT_THAT(Helper(absl::UnknownError("Got error")),
-              MatchesStatus(absl::StatusCode::kUnknown, "Got error"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Got error")));
 }
 
 TEST(ResultTest, AssignOrReturnAnnotate) {
@@ -1011,10 +1012,11 @@ TEST(ResultTest, AssignOrReturnAnnotate) {
     EXPECT_EQ(3, x);
     return absl::UnknownError("No error");
   };
-  EXPECT_THAT(Helper(3), MatchesStatus(absl::StatusCode::kUnknown, "No error"));
+  EXPECT_THAT(Helper(3),
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("No error")));
   EXPECT_THAT(
       Helper(absl::UnknownError("Got error")),
-      MatchesStatus(absl::StatusCode::kUnknown, "Annotated: Got error"));
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("Annotated: Got error")));
 }
 
 /// FIXME: Is FlatMapResultType pulling it's weight?
@@ -1084,17 +1086,17 @@ TEST(MapResultTest, Basic) {
   EXPECT_THAT(tensorstore::MapResult(std::plus<int>(),
                                      Result<int>(absl::UnknownError("A")),
                                      Result<int>(absl::UnknownError("B"))),
-              MatchesStatus(absl::StatusCode::kUnknown, "A"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("A")));
 
   EXPECT_THAT(tensorstore::MapResult(std::plus<int>(), 1,
                                      Result<int>(absl::UnknownError("B"))),
-              MatchesStatus(absl::StatusCode::kUnknown, "B"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("B")));
 
   EXPECT_THAT(
       tensorstore::MapResult(
           [](int a, int b) { return Result<int>(absl::UnknownError("C")); }, 1,
           2),
-      MatchesStatus(absl::StatusCode::kUnknown, "C"));
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("C")));
 }
 
 TEST(PipelineOperator, Basic) {
@@ -1116,14 +1118,15 @@ TEST(PipelineOperator, Basic) {
 TEST(ResultOfStatusTest, Value) {
   Result<absl::Status> r(std::in_place, absl::InvalidArgumentError("abc"));
   ASSERT_TRUE(r.has_value());
-  EXPECT_THAT(*r, MatchesStatus(absl::StatusCode::kInvalidArgument, "abc"));
+  EXPECT_THAT(*r,
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("abc")));
 }
 
 TEST(ResultOfStatusTest, Error) {
   Result<absl::Status> r(absl::InvalidArgumentError("abc"));
   ASSERT_FALSE(r.has_value());
   EXPECT_THAT(r.status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "abc"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("abc")));
 }
 
 TEST(ResultOfResultTest, ValueValue) {
@@ -1142,7 +1145,7 @@ TEST(ResultOfResultTest, Error) {
   Result<Result<int>> r(absl::InvalidArgumentError("abc"));
   ASSERT_FALSE(r.has_value());
   EXPECT_THAT(r.status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "abc"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("abc")));
 }
 
 TEST(ResultTest, DefaultConstruct) {
@@ -1168,7 +1171,7 @@ TEST(ResultTest, ConstructVoid) {
   Result<void> s(r);
   ASSERT_FALSE(s.has_value());
   EXPECT_THAT(s.status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "abc"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("abc")));
 }
 
 TEST(ResultTest, MoveConstructVoid) {
@@ -1205,7 +1208,7 @@ TEST(ResultTest, AssignmentVoid) {
   s = r;
   ASSERT_FALSE(s.has_value());
   EXPECT_THAT(s.status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "abc"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("abc")));
 }
 
 TEST(ResultTest, MoveAssignmentVoidOk) {
@@ -1223,7 +1226,7 @@ TEST(ResultTest, MoveAssignmentVoid) {
   s = std::move(r);
   ASSERT_FALSE(s.has_value());
   EXPECT_THAT(s.status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "abc"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("abc")));
 }
 
 struct NotEqualityComparable {};

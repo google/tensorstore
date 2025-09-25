@@ -47,7 +47,6 @@ namespace {
 
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::KeyRange;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
@@ -57,6 +56,7 @@ using ::tensorstore::internal::KvsBackedTestCache;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal::OpenTransactionPtr;
+using ::testing::HasSubstr;
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   using ::tensorstore::internal::KvsBackedCacheBasicTransactionalTestOptions;
@@ -121,8 +121,8 @@ TEST_F(MockStoreTest, ReadError) {
   auto read_req = mock_store->read_requests.pop();
   read_req.promise.SetResult(absl::FailedPreconditionError("read error"));
   EXPECT_THAT(read_future.result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error reading \"a\": read error"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Error reading \"a\": read error")));
 }
 
 TEST_F(MockStoreTest, WriteError) {
@@ -139,8 +139,8 @@ TEST_F(MockStoreTest, WriteError) {
   auto write_req = mock_store->write_requests.pop();
   write_req.promise.SetResult(absl::FailedPreconditionError("write error"));
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error writing \"a\": write error"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Error writing \"a\": write error")));
 }
 
 TEST_F(MockStoreTest, ReadErrorDuringWriteback) {
@@ -157,8 +157,8 @@ TEST_F(MockStoreTest, ReadErrorDuringWriteback) {
   auto read_req = mock_store->read_requests.pop();
   read_req.promise.SetResult(absl::FailedPreconditionError("read error"));
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error reading \"a\": read error"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Error reading \"a\": read error")));
 }
 
 TEST_F(MockStoreTest, ReadErrorDueToValidateDuringWriteback) {
@@ -181,8 +181,8 @@ TEST_F(MockStoreTest, ReadErrorDueToValidateDuringWriteback) {
   auto read_req = mock_store->read_requests.pop();
   read_req.promise.SetResult(absl::FailedPreconditionError("read error"));
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error reading \"a\": read error"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Error reading \"a\": read error")));
 }
 
 TEST_F(MockStoreTest, WriteDuringRead) {
@@ -413,8 +413,8 @@ TEST_F(MockStoreTest, DeleteRangeError) {
   }
   ASSERT_TRUE(transaction.future().ready());
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "delete range error"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("delete range error")));
 }
 
 TEST_F(MockStoreTest, DeleteRangeAtomicError) {
@@ -423,11 +423,12 @@ TEST_F(MockStoreTest, DeleteRangeAtomicError) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto open_transaction,
         tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
-    EXPECT_THAT(mock_store->TransactionalDeleteRange(open_transaction,
-                                                     KeyRange{"a", "c"}),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Cannot delete range starting at \"a\" as single "
-                              "atomic transaction"));
+    EXPECT_THAT(
+        mock_store->TransactionalDeleteRange(open_transaction,
+                                             KeyRange{"a", "c"}),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Cannot delete range starting at \"a\" as single "
+                           "atomic transaction")));
   }
 }
 
@@ -597,8 +598,8 @@ TEST_F(MockStoreTest, DeleteRangeAfterValidateError) {
   EXPECT_TRUE(mock_store->delete_range_requests.empty());
   ASSERT_TRUE(transaction.future().ready());
   EXPECT_THAT(transaction.future().result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error writing \"b\": validate error"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Error writing \"b\": validate error")));
 }
 
 TEST_F(MockStoreTest, DeleteRangeAfterValidateAndModify) {
@@ -874,11 +875,12 @@ TEST_F(MockStoreTest, MultipleKeyValueStoreAtomicError) {
         tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
     TENSORSTORE_ASSERT_OK(
         GetCacheEntry(cache, "x")->Modify(open_transaction, false, "abc"));
-    EXPECT_THAT(GetCacheEntry(GetCache("", mock_store2), "y")
-                    ->Modify(open_transaction, false, "abc"),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Cannot read/write \"x\" and read/write \"y\" as "
-                              "single atomic transaction"));
+    EXPECT_THAT(
+        GetCacheEntry(GetCache("", mock_store2), "y")
+            ->Modify(open_transaction, false, "abc"),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Cannot read/write \"x\" and read/write \"y\" as "
+                           "single atomic transaction")));
   }
 }
 

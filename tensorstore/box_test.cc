@@ -20,7 +20,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
-#include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/rank.h"
@@ -42,14 +41,15 @@ using ::tensorstore::IndexInterval;
 using ::tensorstore::IsStaticCastConstructible;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::MutableBoxView;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::SubBoxView;
 using ::tensorstore::unchecked;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
+using ::testing::HasSubstr;
 
 static_assert(std::is_convertible_v<BoxView<3>, BoxView<>>);
 static_assert(!std::is_constructible_v<BoxView<3>, BoxView<>>);
@@ -450,8 +450,9 @@ TEST(BoxViewTest, StaticRankCast) {
   auto box2 = StaticRankCast<3, unchecked>(box);
   EXPECT_THAT(
       StaticRankCast<2>(box),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast box with rank of 3 to box with rank of 2"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast box with rank of 3 to box with rank of 2")));
   static_assert(std::is_same_v<decltype(box2), BoxView<3>>);
   EXPECT_THAT(box2.shape(), ElementsAreArray(shape));
   EXPECT_THAT(box2.origin(), ElementsAreArray(origin));

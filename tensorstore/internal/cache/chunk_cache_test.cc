@@ -103,7 +103,6 @@ using ::tensorstore::Index;
 using ::tensorstore::IndexTransform;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeCopy;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::no_transaction;
 using ::tensorstore::ReadProgressFunction;
 using ::tensorstore::Result;
@@ -131,6 +130,7 @@ using ::tensorstore::internal::PinnedCacheEntry;
 using ::tensorstore::internal::ReadWritePtr;
 using ::tensorstore::internal::SimpleElementwiseFunction;
 using ::testing::ElementsAre;
+using ::testing::MatchesRegex;
 
 /// Decodes component arrays encoded as native-endian C order.
 Result<std::shared_ptr<const ChunkCache::ReadData>> DecodeRaw(
@@ -708,8 +708,8 @@ TEST_F(ChunkCacheTest, ReadRequestErrorBasic) {
       r.promise.SetResult(absl::UnknownError("Test read error"));
     }
     EXPECT_THAT(read_future.result(),
-                MatchesStatus(absl::StatusCode::kUnknown,
-                              "Error reading .*: Test read error"));
+                StatusIs(absl::StatusCode::kUnknown,
+                         MatchesRegex("Error reading .*: Test read error")));
   }
 
   // Test that the error is not cached.
@@ -723,8 +723,8 @@ TEST_F(ChunkCacheTest, ReadRequestErrorBasic) {
       r.promise.SetResult(absl::UnknownError("Test read error 2"));
     }
     EXPECT_THAT(read_future.result(),
-                MatchesStatus(absl::StatusCode::kUnknown,
-                              "Error reading .*: Test read error 2"));
+                StatusIs(absl::StatusCode::kUnknown,
+                         MatchesRegex("Error reading .*: Test read error 2")));
   }
 
   // Test that the request is repeated if we require a later timestamp.
@@ -1476,8 +1476,8 @@ TEST_F(ChunkCacheTest, WritebackError) {
   }
 
   EXPECT_THAT(write_future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown,
-                            "Error writing .*: Writeback error"));
+              StatusIs(absl::StatusCode::kUnknown,
+                       MatchesRegex("Error writing .*: Writeback error")));
 }
 
 class ChunkCacheTransactionalTest : public ChunkCacheTest,

@@ -41,11 +41,12 @@ namespace {
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::DimensionUnitsToString;
 using ::tensorstore::DimensionUnitsVector;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::MergeDimensionUnits;
+using ::tensorstore::StatusIs;
 using ::tensorstore::TransformInputDimensionUnits;
 using ::tensorstore::TransformOutputDimensionUnits;
 using ::tensorstore::Unit;
+using ::testing::HasSubstr;
 
 TEST(DimensionUnitsToStringTest, Basic) {
   EXPECT_EQ("[null, \"4 nm\"]", DimensionUnitsToString(DimensionUnitsVector{
@@ -79,9 +80,9 @@ TEST(MergeDimensionUnitsTest, BothSpecifiedDistinct) {
   DimensionUnitsVector new_units{Unit("8nm"), Unit("5nm")};
   EXPECT_THAT(
       MergeDimensionUnits(existing_units, new_units),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot merge dimension units \\[\"8 nm\", \"5 nm\"\\] "
-                    "and \\[null, \"4 nm\"\\]"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot merge dimension units [\"8 nm\", \"5 nm\"] "
+                         "and [null, \"4 nm\"]")));
   // Verify that `existing_units` remains unmodified.
   EXPECT_THAT(existing_units,
               ::testing::ElementsAre(std::nullopt, Unit("4nm")));
@@ -156,9 +157,9 @@ TEST(TransformInputDimensionUnitsTest, NoCorrespondingOutputDimension) {
       tensorstore::IndexTransformBuilder(1, 0).Finalize());
   DimensionUnitsVector input_units{"4nm"};
   EXPECT_THAT(TransformInputDimensionUnits(transform, input_units),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "No output dimension corresponds to "
-                            "input dimension 0 with unit 4 nm"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("No output dimension corresponds to "
+                                 "input dimension 0 with unit 4 nm")));
 }
 
 TEST(TransformOutputDimensionUnitsTest, NonUnique) {

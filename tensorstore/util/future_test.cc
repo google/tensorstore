@@ -42,6 +42,7 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
+
 using ::tensorstore::AnyFuture;
 using ::tensorstore::Future;
 using ::tensorstore::FutureCallbackRegistration;
@@ -49,13 +50,14 @@ using ::tensorstore::InlineExecutor;
 using ::tensorstore::IsFutureConvertible;
 using ::tensorstore::MakeReadyFuture;
 using ::tensorstore::MakeResult;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Promise;
 using ::tensorstore::PromiseFuturePair;
 using ::tensorstore::ReadyFuture;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_future::FutureAccess;
 using ::tensorstore::internal_testing::TestConcurrent;
+using ::testing::HasSubstr;
 
 static_assert(IsFutureConvertible<int, const int>);
 static_assert(!IsFutureConvertible<const int, int>);
@@ -141,14 +143,16 @@ TEST(FutureTest, ConstructFromValueConst) {
 /// to a ready `Future<T>` in an error state.
 TEST(FutureTest, FlattenResultError) {
   Future<int> x = MakeResult<Future<int>>(absl::UnknownError("Error"));
-  EXPECT_THAT(x.result(), MatchesStatus(absl::StatusCode::kUnknown, "Error"));
+  EXPECT_THAT(x.result(),
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Error")));
 }
 
 /// Tests that a `Result<Future<T>>` in an error state is implicitly flattened
 /// to a ready `Future<const T>` in an error state.
 TEST(FutureTest, FlattenResultErrorConst) {
   Future<const int> x = MakeResult<Future<int>>(absl::UnknownError("Error"));
-  EXPECT_THAT(x.result(), MatchesStatus(absl::StatusCode::kUnknown, "Error"));
+  EXPECT_THAT(x.result(),
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Error")));
 }
 
 /// Tests that a `Result<Future<T>>` in an success state is implicitly flattened
@@ -1001,8 +1005,9 @@ TEST(LinkValueTest, MultipleSuccessError) {
   // ready.
   b_pair.promise.SetResult(absl::InvalidArgumentError("Test error"));
   ASSERT_TRUE(c_pair.future.ready());
-  EXPECT_THAT(c_pair.future.result().status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Test error"));
+  EXPECT_THAT(
+      c_pair.future.result().status(),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Test error")));
 }
 
 TEST(LinkValueTest, MultipleErrorSuccess) {
@@ -1017,8 +1022,9 @@ TEST(LinkValueTest, MultipleErrorSuccess) {
   b_pair.promise.SetResult(absl::InvalidArgumentError("Test error"));
   // The link is cancelled because `b_pair.future` became ready with an error.
   ASSERT_TRUE(c_pair.future.ready());
-  EXPECT_THAT(c_pair.future.result().status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Test error"));
+  EXPECT_THAT(
+      c_pair.future.result().status(),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Test error")));
 }
 
 TEST(LinkErrorTest, ImmediateSuccess) {
@@ -1445,7 +1451,7 @@ TEST(PromiseFuturePairTest, LinkImmediateFailure) {
           MakeReadyFuture<int>(absl::UnknownError("Fail")))
           .future;
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Fail"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Fail")));
 }
 
 TEST(PromiseFuturePairTest, LinkDeferredSuccess) {
@@ -1471,7 +1477,7 @@ TEST(PromiseFuturePairTest, LinkDeferredFailure) {
   EXPECT_FALSE(future.ready());
   pair.promise.SetResult(absl::UnknownError("Fail"));
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Fail"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Fail")));
 }
 
 TEST(PromiseFuturePairTest, LinkResultInit) {
@@ -1500,7 +1506,7 @@ TEST(PromiseFuturePairTest, LinkValueImmediateFailure) {
                     MakeReadyFuture<int>(absl::UnknownError("Fail")))
                     .future;
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Fail"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Fail")));
 }
 
 TEST(PromiseFuturePairTest, LinkValueDeferredSuccess) {
@@ -1524,7 +1530,7 @@ TEST(PromiseFuturePairTest, LinkValueDeferredFailure) {
   EXPECT_FALSE(future.ready());
   pair.promise.SetResult(absl::UnknownError("Fail"));
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Fail"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Fail")));
 }
 
 TEST(PromiseFuturePairTest, LinkValueResultInit) {
@@ -1549,7 +1555,7 @@ TEST(PromiseFuturePairTest, LinkErrorImmediateFailure) {
                     MakeReadyFuture<int>(absl::UnknownError("Fail")))
                     .future;
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Fail"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Fail")));
 }
 
 TEST(PromiseFuturePairTest, LinkErrorDeferredSuccess) {
@@ -1568,7 +1574,7 @@ TEST(PromiseFuturePairTest, LinkErrorDeferredFailure) {
   EXPECT_FALSE(pair.future.ready());
   pair.promise.SetResult(absl::UnknownError("Fail"));
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Fail"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Fail")));
 }
 
 // Tests that the callback passed to `Link` is destroyed after it is called.
@@ -1737,7 +1743,7 @@ TEST(MapFutureValueTest, ValueToError) {
       },
       a);
   EXPECT_THAT(b.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Got value: 3"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Got value: 3")));
 }
 
 TEST(MapFutureValueTest, ReturnFuture) {
@@ -1780,8 +1786,8 @@ TEST(MapFutureErrorTest, ErrorMappedToError) {
       pair.future);
   EXPECT_FALSE(mapped.ready());
   pair.promise.SetResult(absl::UnknownError("message"));
-  EXPECT_THAT(mapped.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Mapped: message"));
+  EXPECT_THAT(mapped.result(), StatusIs(absl::StatusCode::kUnknown,
+                                        HasSubstr("Mapped: message")));
 }
 
 TEST(MakeReadyFutureTest, Basic) {

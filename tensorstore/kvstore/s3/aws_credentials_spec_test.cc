@@ -31,7 +31,8 @@ namespace {
 namespace jb = ::tensorstore::internal_json_binding;
 using ::tensorstore::IsOk;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 struct Params {
   Spec spec;
@@ -137,8 +138,8 @@ TEST(SpecTest, Error) {
   EXPECT_THAT(
       Spec::PartialBinder{}(std::true_type{}, tensorstore::IncludeDefaults(),
                             &spec, &json),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Failed to parse AWS credentials spec.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Failed to parse AWS credentials spec")));
 }
 
 }  // namespace

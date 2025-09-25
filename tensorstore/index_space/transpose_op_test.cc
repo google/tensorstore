@@ -16,10 +16,12 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
-#include "tensorstore/util/status.h"
 
 namespace {
 
@@ -146,7 +148,8 @@ TEST(TransposeTest, ErrorHandling) {
           .Finalize()
           .value(),
       Dims(1).Transpose(), absl::StatusCode::kInvalidArgument,
-      "Number of dimensions \\(1\\) must equal input_rank \\(2\\)\\.");
+      testing::HasSubstr(
+          "Number of dimensions (1) must equal input_rank (2)."));
 }
 
 TEST(TransposeTest, Labeled) {

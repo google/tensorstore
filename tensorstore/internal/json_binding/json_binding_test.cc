@@ -43,10 +43,11 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 using ::nlohmann::json;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::ParseJson;
 using ::tensorstore::internal_json::JsonParseArray;
 using ::tensorstore::internal_json::JsonValidateArrayLength;
+using ::testing::HasSubstr;
 
 TEST(JsonTest, SimpleParse) {
   const char kArray[] = R"({ "foo": "bar" })";
@@ -90,8 +91,8 @@ TEST(JsonParseArrayTest, NotArray) {
           [&](const ::nlohmann::json& j, ptrdiff_t i) {
             return absl::OkStatus();
           }),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected array, but received: 3"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected array, but received: 3")));
 }
 
 TEST(JsonValidateArrayLength, Success) {
@@ -99,9 +100,10 @@ TEST(JsonValidateArrayLength, Success) {
 }
 
 TEST(JsonValidateArrayLength, Failure) {
-  EXPECT_THAT(JsonValidateArrayLength(3, 4),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Array has length 3 but should have length 4"));
+  EXPECT_THAT(
+      JsonValidateArrayLength(3, 4),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Array has length 3 but should have length 4")));
 }
 
 TEST(JsonParseArrayTest, SizeCallbackError) {
@@ -112,19 +114,20 @@ TEST(JsonParseArrayTest, SizeCallbackError) {
           [&](const ::nlohmann::json& j, ptrdiff_t i) {
             return absl::OkStatus();
           }),
-      MatchesStatus(absl::StatusCode::kUnknown, "size_callback"));
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("size_callback")));
 }
 
 TEST(JsonParseArrayTest, ElementCallbackError) {
-  EXPECT_THAT(JsonParseArray(
-                  ::nlohmann::json{1, 2, 3},
-                  [&](ptrdiff_t s) { return absl::OkStatus(); },
-                  [&](const ::nlohmann::json& j, ptrdiff_t i) {
-                    if (i == 0) return absl::OkStatus();
-                    return absl::UnknownError("element");
-                  }),
-              MatchesStatus(absl::StatusCode::kUnknown,
-                            "Error parsing value at position 1: element"));
+  EXPECT_THAT(
+      JsonParseArray(
+          ::nlohmann::json{1, 2, 3},
+          [&](ptrdiff_t s) { return absl::OkStatus(); },
+          [&](const ::nlohmann::json& j, ptrdiff_t i) {
+            if (i == 0) return absl::OkStatus();
+            return absl::UnknownError("element");
+          }),
+      StatusIs(absl::StatusCode::kUnknown,
+               HasSubstr("Error parsing value at position 1: element")));
 }
 
 TEST(JsonBindingTest, Example) {
@@ -259,8 +262,9 @@ TEST(JsonBindingTest, NonEmptyStringBinder) {
 
   tensorstore::TestJsonBinderFromJson<std::string>(
       {
-          {"", MatchesStatus(absl::StatusCode::kInvalidArgument,
-                             "Validation of string failed, received: \"\"")},
+          {"",
+           StatusIs(absl::StatusCode::kInvalidArgument,
+                    HasSubstr("Validation of string failed, received: \"\""))},
       },
       jb::NonEmptyStringBinder);
 }
@@ -337,8 +341,8 @@ TEST(JsonBindingTest, Constant) {
   EXPECT_THAT(jb::FromJson<std::string>(::nlohmann::json(3), binder),
               ::testing::Optional(std::string{}));
   EXPECT_THAT(jb::FromJson<std::string>(::nlohmann::json(4), binder),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected 3, but received: 4"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected 3, but received: 4")));
 }
 
 TEST(JsonBindingTest, ObjectMember) {
@@ -411,8 +415,8 @@ TEST(JsonBindingTest, Null) {
       {nullptr, nullptr},
   });
   tensorstore::TestJsonBinderFromJson<std::nullptr_t>({
-      {42, MatchesStatus(absl::StatusCode::kInvalidArgument,
-                         "Expected null, but received: 42")},
+      {42, StatusIs(absl::StatusCode::kInvalidArgument,
+                    HasSubstr("Expected null, but received: 42"))},
   });
 }
 

@@ -28,7 +28,6 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::no_transaction;
 using ::tensorstore::StatusIs;
 using ::tensorstore::Transaction;
@@ -37,6 +36,7 @@ using ::tensorstore::internal::AcquireOpenTransactionPtrOrError;
 using ::tensorstore::internal::OpenTransactionNodePtr;
 using ::tensorstore::internal::TransactionState;
 using ::tensorstore::internal::WeakTransactionNodePtr;
+using ::testing::HasSubstr;
 
 TEST(TransactionTest, NoTransaction) {
   EXPECT_EQ(TransactionMode::no_transaction_mode, no_transaction);
@@ -295,9 +295,10 @@ TEST(TransactionTest, TwoTerminalNodesAtomicError) {
     TENSORSTORE_EXPECT_OK(node1->Register());
     TENSORSTORE_EXPECT_OK(node2->Register());
     TENSORSTORE_EXPECT_OK(node1->MarkAsTerminal());
-    EXPECT_THAT(node2->MarkAsTerminal(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Cannot 1 and 2 as single atomic transaction"));
+    EXPECT_THAT(
+        node2->MarkAsTerminal(),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Cannot 1 and 2 as single atomic transaction")));
   }
   txn.CommitAsync().IgnoreFuture();
   EXPECT_THAT(log, ::testing::ElementsAre("abort:1", "abort:2"));
@@ -305,9 +306,10 @@ TEST(TransactionTest, TwoTerminalNodesAtomicError) {
   node1->AbortDone();
   node2->AbortDone();
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot 1 and 2 as single atomic transaction"));
+  EXPECT_THAT(
+      future.result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot 1 and 2 as single atomic transaction")));
 }
 
 TEST(TransactionTest, OneTerminalNodeOneNonTerminalNodeAtomicSuccess) {
@@ -491,7 +493,7 @@ TEST(TransactionTest, TwoPhasesAbort) {
   node4->AbortDone();
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "failed"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("failed")));
 }
 
 TEST(TransactionTest, AutomaticAbort) {
@@ -744,7 +746,7 @@ TEST(TransactionTest, ReleaseTransactionReferenceDuringAbort) {
   EXPECT_THAT(log, ::testing::ElementsAre("prepare:1", "commit:1", "abort:2"));
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "failed"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("failed")));
 }
 
 // Tests that releasing all of the `Future` references after requesting a

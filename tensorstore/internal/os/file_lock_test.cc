@@ -39,7 +39,6 @@
 
 using ::tensorstore::IsOk;
 using ::tensorstore::IsOkAndHolds;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_os::AcquireExclusiveFile;
 using ::tensorstore::internal_os::AcquireFileLock;

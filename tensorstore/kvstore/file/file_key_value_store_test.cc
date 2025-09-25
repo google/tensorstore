@@ -73,7 +73,6 @@ using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
@@ -454,8 +453,8 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
   // Test with invalid `"path"`
   EXPECT_THAT(kvstore::Open({{"driver", "file"}, {"path", "/a/../b/"}}, context)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid file path.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid file path")));
 }
 
 TEST(FileKeyValueStoreTest, UrlRoundtrip) {
@@ -501,18 +500,18 @@ TEST(FileKeyValueStoreTest, UrlRoundtrip) {
 
 TEST(FileKeyValueStoreTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc?query"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Query string not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Query string not supported")));
   EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc#fragment"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Fragment identifier not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Fragment identifier not supported")));
   EXPECT_THAT(kvstore::Spec::FromUrl("file://authority/path/to/resource"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*file uris do not support authority.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("file uris do not support authority")));
 
   EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc/../b/"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid file path.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid file path")));
 }
 
 TEST(FileKeyValueStoreTest, RelativePath) {
@@ -522,8 +521,8 @@ TEST(FileKeyValueStoreTest, RelativePath) {
   TENSORSTORE_EXPECT_OK(kvstore::Write(store, "abc", {}).result());
 
   EXPECT_THAT(store.ToUrl(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*file: URIs do not support relative paths.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("file: URIs do not support relative paths")));
 }
 
 TEST(FileKeyValueStoreTest, BatchRead) {

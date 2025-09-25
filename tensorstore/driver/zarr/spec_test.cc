@@ -42,68 +42,70 @@ using ::tensorstore::ChunkLayout;
 using ::tensorstore::CodecSpec;
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr::GetFieldIndex;
 using ::tensorstore::internal_zarr::ParseDType;
 using ::tensorstore::internal_zarr::ParseSelectedField;
 using ::tensorstore::internal_zarr::SelectedField;
 using ::tensorstore::internal_zarr::ZarrMetadata;
 using ::tensorstore::internal_zarr::ZarrPartialMetadata;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(ParsePartialMetadataTest, InvalidZarrFormat) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
       {{{"zarr_format", "2"}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"zarr_format\": .*")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"zarr_format\": "))},
   });
 }
 
 TEST(ParsePartialMetadataTest, InvalidChunks) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
       {{{"chunks", "2"}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"chunks\": .*")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"chunks\": "))},
   });
 }
 
 TEST(ParsePartialMetadataTest, InvalidShape) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
       {{{"shape", "2"}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"shape\": .*")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"shape\": "))},
   });
 }
 
 TEST(ParsePartialMetadataTest, InvalidCompressor) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
       {{{"compressor", "2"}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"compressor\": .*")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"compressor\": "))},
   });
 }
 
 TEST(ParsePartialMetadataTest, InvalidOrder) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
       {{{"order", "2"}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"order\": .*")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"order\": "))},
   });
 }
 
 TEST(ParsePartialMetadataTest, InvalidDType) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
       {{{"dtype", "2"}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"dtype\": .*")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"dtype\": "))},
   });
 }
 
 TEST(ParsePartialMetadataTest, InvalidFilters) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
       {{{"filters", "x"}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"filters\": .*")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"filters\": "))},
   });
 }
 
@@ -167,8 +169,9 @@ TEST(ParseSelectedFieldTest, Null) {
 TEST(ParseSelectedFieldTest, InvalidString) {
   EXPECT_THAT(
       ParseSelectedField(""),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected null or non-empty string, but received: \"\""));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected null or non-empty string, but received: \"\"")));
 }
 
 TEST(ParseSelectedFieldTest, String) {
@@ -178,8 +181,9 @@ TEST(ParseSelectedFieldTest, String) {
 TEST(ParseSelectedFieldTest, InvalidType) {
   EXPECT_THAT(
       ParseSelectedField(true),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected null or non-empty string, but received: true"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected null or non-empty string, but received: true")));
 }
 
 TEST(GetFieldIndexTest, Null) {
@@ -189,17 +193,18 @@ TEST(GetFieldIndexTest, Null) {
           ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
               .value(),
           SelectedField()),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Must specify a \"field\" that is one of: \\[\"x\",\"y\"\\]"));
+          HasSubstr("Must specify a \"field\" that is one of: [\"x\",\"y\"]")));
 }
 
 TEST(GetFieldIndexTest, String) {
   EXPECT_THAT(
       GetFieldIndex(ParseDType("<i4").value(), "x"),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Requested field \"x\" but dtype does not have named fields"));
+          HasSubstr(
+              "Requested field \"x\" but dtype does not have named fields")));
   EXPECT_EQ(0u, GetFieldIndex(ParseDType(::nlohmann::json::array_t{
                                              {"x", "<i4"}, {"y", "<u2"}})
                                   .value(),
@@ -214,8 +219,9 @@ TEST(GetFieldIndexTest, String) {
           ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
               .value(),
           "z"),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Requested field \"z\" is not one of: \\[\"x\",\"y\"\\]"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Requested field \"z\" is not one of: [\"x\",\"y\"]")));
 }
 
 TEST(EncodeSelectedFieldTest, NonEmpty) {
@@ -274,8 +280,8 @@ TEST(GetNewMetadataTest, NoShape) {
       GetNewMetadataFromOptions(
           {{"chunks", {2, 3}}, {"dtype", "<i4"}, {"compressor", nullptr}},
           /*selected_field=*/{}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "domain must be specified"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("domain must be specified")));
 }
 
 TEST(GetNewMetadataTest, AutomaticChunks) {
@@ -301,8 +307,8 @@ TEST(GetNewMetadataTest, NoDtype) {
       GetNewMetadataFromOptions(
           {{"shape", {2, 3}}, {"chunks", {2, 3}}, {"compressor", nullptr}},
           /*selected_field=*/{}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "\"dtype\" must be specified"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"dtype\" must be specified")));
 }
 
 TEST(GetNewMetadataTest, NoCompressor) {
@@ -337,10 +343,10 @@ TEST(GetNewMetadataTest, IntegerOverflow) {
            {"dtype", "<i4"},
            {"compressor", nullptr}},
           /*selected_field=*/{}),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Product of chunk dimensions "
-          "\\{4611686018427387903, 4611686018427387903\\} is too large"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(
+                   "Product of chunk dimensions "
+                   "{4611686018427387903, 4611686018427387903} is too large")));
 }
 
 TEST(GetNewMetadataTest, SchemaDomainDtype) {
@@ -522,8 +528,8 @@ TEST(GetNewMetadataTest, SchemaDtypeInnerOrderInvalid) {
           ::nlohmann::json::object_t(),
           /*selected_field=*/{}, Schema::Shape({100, 200, 300}),
           ChunkLayout::InnerOrder({2, 0, 1}), dtype_v<int32_t>),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Invalid \"inner_order\" constraint: \\{2, 0, 1\\}"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid \"inner_order\" constraint: {2, 0, 1}")));
 }
 
 TEST(GetNewMetadataTest, SchemaDtypeInnerOrderInvalidSoft) {
@@ -551,10 +557,10 @@ TEST(GetNewMetadataTest, SchemaStructuredDtypeInvalidFillValue) {
           {{"dtype", ::nlohmann::json::array_t{{"x", "<u4"}, {"y", "<i4"}}}},
           /*selected_field=*/"x", Schema::Shape({100, 200}),
           Schema::FillValue(tensorstore::MakeScalarArray<uint32_t>(42))),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Invalid fill_value: Cannot specify fill_value through schema for "
-          "structured zarr data type \\[.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid fill_value: Cannot specify fill_value "
+                         "through schema for "
+                         "structured zarr data type [")));
 }
 
 TEST(GetNewMetadataTest, SchemaFillValueMismatch) {
@@ -563,8 +569,8 @@ TEST(GetNewMetadataTest, SchemaFillValueMismatch) {
           {{"dtype", "<u4"}, {"fill_value", 42}},
           /*selected_field=*/{}, Schema::Shape({100, 200}),
           Schema::FillValue(tensorstore::MakeScalarArray<uint32_t>(43))),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Invalid fill_value: .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid fill_value: ")));
 }
 
 TEST(GetNewMetadataTest, SchemaFillValueMismatchNull) {
@@ -573,8 +579,8 @@ TEST(GetNewMetadataTest, SchemaFillValueMismatchNull) {
           {{"dtype", "<u4"}, {"fill_value", nullptr}},
           /*selected_field=*/{}, Schema::Shape({100, 200}),
           Schema::FillValue(tensorstore::MakeScalarArray<uint32_t>(42))),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Invalid fill_value: .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid fill_value: ")));
 }
 
 TEST(GetNewMetadataTest, SchemaFillValueRedundant) {
@@ -605,22 +611,21 @@ TEST(GetNewMetadataTest, SchemaCodecChunkShape) {
                   ::nlohmann::json::object_t{},
                   /*selected_field=*/{}, Schema::Shape({100, 200}),
                   dtype_v<uint32_t>, ChunkLayout::CodecChunkShape({5, 6})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "codec_chunk_shape not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("codec_chunk_shape not supported")));
 }
 
 TEST(GetNewMetadataTest, CodecMismatch) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec,
       CodecSpec::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
-  EXPECT_THAT(
-      GetNewMetadataFromOptions({{"compressor", {{"id", "blosc"}}}},
-                                /*selected_field=*/{},
-                                Schema::Shape({100, 200}), dtype_v<int32_t>,
-                                codec),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Cannot merge codec spec .* with .*: \"compressor\" does not match"));
+  EXPECT_THAT(GetNewMetadataFromOptions({{"compressor", {{"id", "blosc"}}}},
+                                        /*selected_field=*/{},
+                                        Schema::Shape({100, 200}),
+                                        dtype_v<int32_t>, codec),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*Cannot merge codec spec .* with .*: "
+                                    "\"compressor\" does not match.*")));
 }
 
 TEST(GetNewMetadataTest, SelectedFieldDtypeNotSpecified) {
@@ -628,9 +633,9 @@ TEST(GetNewMetadataTest, SelectedFieldDtypeNotSpecified) {
       GetNewMetadataFromOptions(::nlohmann::json::object_t(),
                                 /*selected_field=*/"x",
                                 Schema::Shape({100, 200}), dtype_v<int32_t>),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "\"dtype\" must be specified in \"metadata\" if "
-                    "\"field\" is specified"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"dtype\" must be specified in \"metadata\" if "
+                         "\"field\" is specified")));
 }
 
 TEST(GetNewMetadataTest, SelectedFieldInvalid) {
@@ -638,8 +643,9 @@ TEST(GetNewMetadataTest, SelectedFieldInvalid) {
       GetNewMetadataFromOptions({{"dtype", {{"x", "<u4", {2}}, {"y", "<i4"}}}},
                                 /*selected_field=*/"z",
                                 Schema::Shape({100, 200})),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Requested field \"z\" is not one of: \\[\"x\",\"y\"\\]"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Requested field \"z\" is not one of: [\"x\",\"y\"]")));
 }
 
 TEST(GetNewMetadataTest, InvalidDtype) {
@@ -647,38 +653,37 @@ TEST(GetNewMetadataTest, InvalidDtype) {
                                         /*selected_field=*/{},
                                         dtype_v<tensorstore::dtypes::json_t>,
                                         Schema::Shape({100, 200})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Data type not supported: json"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Data type not supported: json")));
 }
 
 TEST(GetNewMetadataTest, InvalidDomain) {
-  EXPECT_THAT(
-      GetNewMetadataFromOptions(::nlohmann::json::object_t(),
-                                /*selected_field=*/{}, dtype_v<int32_t>,
-                                tensorstore::IndexDomainBuilder(2)
-                                    .origin({1, 2})
-                                    .shape({100, 200})
-                                    .Finalize()
-                                    .value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid domain: .*"));
+  EXPECT_THAT(GetNewMetadataFromOptions(::nlohmann::json::object_t(),
+                                        /*selected_field=*/{}, dtype_v<int32_t>,
+                                        tensorstore::IndexDomainBuilder(2)
+                                            .origin({1, 2})
+                                            .shape({100, 200})
+                                            .Finalize()
+                                            .value()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid domain: ")));
 }
 
 TEST(GetNewMetadataTest, DomainIncompatibleWithFieldShape) {
-  EXPECT_THAT(
-      GetNewMetadataFromOptions({{"dtype", {{"x", "<u4", {2, 3}}}}},
-                                /*selected_field=*/"x",
-                                Schema::Shape({100, 200, 2, 4})),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid domain: .*"));
+  EXPECT_THAT(GetNewMetadataFromOptions({{"dtype", {{"x", "<u4", {2, 3}}}}},
+                                        /*selected_field=*/"x",
+                                        Schema::Shape({100, 200, 2, 4})),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid domain: ")));
 }
 
 TEST(GetNewMetadataTest, DomainIncompatibleWithMetadataRank) {
-  EXPECT_THAT(
-      GetNewMetadataFromOptions({{"chunks", {100, 100}}},
-                                /*selected_field=*/{}, dtype_v<int32_t>,
-                                Schema::Shape({100, 200, 300})),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Rank specified by schema \\(3\\) is not compatible with metadata"));
+  EXPECT_THAT(GetNewMetadataFromOptions({{"chunks", {100, 100}}},
+                                        /*selected_field=*/{}, dtype_v<int32_t>,
+                                        Schema::Shape({100, 200, 300})),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank specified by schema (3) is not "
+                                 "compatible with metadata")));
 }
 
 TEST(ValidateMetadataTest, Success) {
@@ -707,9 +712,9 @@ TEST(ValidateMetadataTest, ShapeMismatch) {
                                    ZarrPartialMetadata::FromJson(spec));
   EXPECT_THAT(
       ValidateMetadata(metadata, partial_metadata),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Expected \"shape\" of \\[7,8\\] but received: \\[100,100\\]"));
+          HasSubstr("Expected \"shape\" of [7,8] but received: [100,100]")));
 }
 
 TEST(ValidateMetadataTest, ChunksMismatch) {
@@ -719,10 +724,10 @@ TEST(ValidateMetadataTest, ChunksMismatch) {
   spec["chunks"] = {1, 1};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
                                    ZarrPartialMetadata::FromJson(spec));
-  EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
-              MatchesStatus(
-                  absl::StatusCode::kFailedPrecondition,
-                  "Expected \"chunks\" of \\[1,1\\] but received: \\[3,2\\]"));
+  EXPECT_THAT(
+      ValidateMetadata(metadata, partial_metadata),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Expected \"chunks\" of [1,1] but received: [3,2]")));
 }
 
 TEST(ValidateMetadataTest, OrderMismatch) {
@@ -732,9 +737,10 @@ TEST(ValidateMetadataTest, OrderMismatch) {
   spec["order"] = "F";
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
                                    ZarrPartialMetadata::FromJson(spec));
-  EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Expected \"order\" of \"F\" but received: \"C\""));
+  EXPECT_THAT(
+      ValidateMetadata(metadata, partial_metadata),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Expected \"order\" of \"F\" but received: \"C\"")));
 }
 
 TEST(ValidateMetadataTest, CompressorMismatch) {
@@ -744,11 +750,12 @@ TEST(ValidateMetadataTest, CompressorMismatch) {
   spec["compressor"] = nullptr;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
                                    ZarrPartialMetadata::FromJson(spec));
-  EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Expected \"compressor\" of null but received: "
-                            "\\{\"blocksize\":0,\"clevel\":5,\"cname\":\"lz4\","
-                            "\"id\":\"blosc\",\"shuffle\":-1\\}"));
+  EXPECT_THAT(
+      ValidateMetadata(metadata, partial_metadata),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Expected \"compressor\" of null but received: "
+                         "{\"blocksize\":0,\"clevel\":5,\"cname\":\"lz4\","
+                         "\"id\":\"blosc\",\"shuffle\":-1}")));
 }
 
 TEST(ValidateMetadataTest, DTypeMismatch) {
@@ -760,8 +767,9 @@ TEST(ValidateMetadataTest, DTypeMismatch) {
                                    ZarrPartialMetadata::FromJson(spec));
   EXPECT_THAT(
       ValidateMetadata(metadata, partial_metadata),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Expected \"dtype\" of \">i4\" but received: \"<i2\""));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Expected \"dtype\" of \">i4\" but received: \"<i2\"")));
 }
 
 TEST(ValidateMetadataTest, FillValueMismatch) {
@@ -771,9 +779,10 @@ TEST(ValidateMetadataTest, FillValueMismatch) {
   spec["fill_value"] = 1;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
                                    ZarrPartialMetadata::FromJson(spec));
-  EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Expected \"fill_value\" of 1 but received: null"));
+  EXPECT_THAT(
+      ValidateMetadata(metadata, partial_metadata),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Expected \"fill_value\" of 1 but received: null")));
 }
 
 TEST(ZarrCodecSpecTest, Merge) {
@@ -803,11 +812,10 @@ TEST(ZarrCodecSpecTest, Merge) {
   EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
   EXPECT_THAT(CodecSpec::Merge(codec2, codec3), ::testing::Optional(codec5));
-  EXPECT_THAT(
-      CodecSpec::Merge(codec3, codec4),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Cannot merge codec spec .* with .*: \"compressor\" does not match"));
+  EXPECT_THAT(CodecSpec::Merge(codec3, codec4),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*Cannot merge codec spec .* with .*: "
+                                    "\"compressor\" does not match.*")));
 }
 
 TEST(ZarrCodecSpecTest, RoundTrip) {

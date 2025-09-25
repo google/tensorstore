@@ -41,6 +41,7 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
+
 using ::tensorstore::Box;
 using ::tensorstore::CodecSpec;
 using ::tensorstore::DataType;
@@ -49,7 +50,6 @@ using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::kDataTypes;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
@@ -76,6 +76,8 @@ using ::tensorstore::internal_neuroglancer_precomputed::ValidateDataType;
 using ::tensorstore::internal_neuroglancer_precomputed::
     ValidateMetadataCompatibility;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 using Encoding = ScaleMetadata::Encoding;
 
@@ -211,27 +213,26 @@ TEST(MetadataTest, ParseSharded) {
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["chunk_sizes"] = {{64, 64, 64}, {64, 65, 66}};
-    EXPECT_THAT(
-        MultiscaleMetadata::FromJson(invalid_json),
-        MatchesStatus(
-            absl::StatusCode::kInvalidArgument,
-            ".*: Sharded format does not support more than one chunk size"));
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(": Sharded format does not support more "
+                                   "than one chunk size")));
   }
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["chunk_sizes"] = {{0, 3, 4}};
-    EXPECT_THAT(
-        MultiscaleMetadata::FromJson(invalid_json),
-        MatchesStatus(
-            absl::StatusCode::kInvalidArgument,
-            ".*: Expected integer in the range \\[1, .*\\], but received: 0"));
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         MatchesRegex(".*Expected integer in the range \\[1, "
+                                      ".*\\], but received: 0")));
   }
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["chunk_sizes"] = ::nlohmann::json::array_t{};
-    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*: At least one chunk size must be specified"));
+    EXPECT_THAT(
+        MultiscaleMetadata::FromJson(invalid_json),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr(": At least one chunk size must be specified")));
   }
 
   {
@@ -239,32 +240,33 @@ TEST(MetadataTest, ParseSharded) {
     invalid_json["scales"][0]["encoding"] = "raw";
     EXPECT_THAT(
         MultiscaleMetadata::FromJson(invalid_json),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      ".*: Error parsing object member "
+        StatusIs(
+            absl::StatusCode::kInvalidArgument,
+            HasSubstr(": Error parsing object member "
                       "\"compressed_segmentation_block_size\": "
-                      "Only valid for \"compressed_segmentation\" encoding"));
+                      "Only valid for \"compressed_segmentation\" encoding")));
   }
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0].erase("compressed_segmentation_block_size");
     EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"compressed_segmentation_block_size\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"compressed_segmentation_block_size\"")));
   }
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["compressed_segmentation_block_size"] = {0, 2, 3};
     EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"compressed_segmentation_block_size\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"compressed_segmentation_block_size\"")));
   }
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["compressed_segmentation_block_size"] =  //
         {0, 2, 3, 4};
     EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"compressed_segmentation_block_size\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"compressed_segmentation_block_size\"")));
   }
 }
 
@@ -325,14 +327,15 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test invalid encoding JSON type.
-  EXPECT_THAT(MultiscaleMetadata::FromJson(GetMetadata("uint8", 123456)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*123456.*"));
+  EXPECT_THAT(
+      MultiscaleMetadata::FromJson(GetMetadata("uint8", 123456)),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("123456")));
 
   // Test invalid encoding name.
   EXPECT_THAT(
       MultiscaleMetadata::FromJson(GetMetadata("uint8", "invalid_encoding")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*\"invalid_encoding\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"invalid_encoding\"")));
 
   // Test valid data types for `raw` encoding.
   for (auto data_type_id :
@@ -364,7 +367,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
         ScaleMetadata::Encoding::compressed_segmentation}) {
     EXPECT_THAT(
         MultiscaleMetadata::FromJson(GetMetadata("uint8", e, 1, 75)),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"jpeg\".*"));
+        StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"jpeg\"")));
   }
 
   // Test valid data types and number of channels for `jpeg` encoding.
@@ -384,10 +387,10 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   // Test invalid jpeg_quality values.
   EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata("uint8", ScaleMetadata::Encoding::jpeg, 1, -5)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*-5.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("-5")));
   EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata("uint8", ScaleMetadata::Encoding::jpeg, 1, 101)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*101.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("101")));
 
   // Test that jpeg_quality is valid for `jpeg` encoding.
   for (int quality : {0, 50, 100}) {
@@ -427,7 +430,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     EXPECT_THAT(
         MultiscaleMetadata::FromJson(GetMetadata(
             "uint8", e, 1, ::nlohmann::json::value_t::discarded, 6)),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"png\".*"));
+        StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"png\"")));
   }
 
   // Test valid data types and number of channels for `png` encoding.
@@ -459,11 +462,11 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata("uint8", ScaleMetadata::Encoding::png, 1,
                               ::nlohmann::json::value_t::discarded, -1)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*-1.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("-1")));
   EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata("uint8", ScaleMetadata::Encoding::png, 1,
                               ::nlohmann::json::value_t::discarded, 10)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*10.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("10")));
 
   // Test that png_level is valid for `png` encoding.
   for (int png_level : {0, 6, 9}) {
@@ -545,25 +548,24 @@ TEST(MetadataTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json[k] = nullptr;
     EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")));
+                StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(k)));
   }
   // Tests that missing any of the following members triggers an error.
   for (const char* k : {"num_channels", "type", "scales", "data_type"}) {
     auto invalid_json = metadata_json;
     invalid_json.erase(k);
     EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")));
+                StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(k)));
   }
   // Tests that setting any of the following members to "invalid_string"
   // triggers an error.
   for (const char* k : {"@type", "num_channels", "scales", "data_type"}) {
     auto invalid_json = metadata_json;
     invalid_json[k] = "invalid_string";
-    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*invalid_string.*")));
+    EXPECT_THAT(
+        MultiscaleMetadata::FromJson(invalid_json),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 ::testing::AllOf(HasSubstr(k), HasSubstr("invalid_string"))));
   }
   // Tests that setting any of the following scale members to null triggers an
   // error.
@@ -572,9 +574,7 @@ TEST(MetadataTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0][k] = nullptr;
     EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")))
-        << k;
+                StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(k)));
   }
   // Tests that setting any of the following to an array of length 2 triggers an
   // error.
@@ -582,8 +582,7 @@ TEST(MetadataTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0][k] = {2, 3};
     EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")));
+                StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(k)));
   }
 
   // Tests that a negative size trigger an error.
@@ -592,7 +591,7 @@ TEST(MetadataTest, ParseInvalid) {
     invalid_json["scales"][0]["size"] = {-1, 2, 7};
     EXPECT_THAT(
         MultiscaleMetadata::FromJson(invalid_json),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"size\".*"));
+        StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"size\"")));
   }
 
   // Tests that invalid bounds trigger an error.
@@ -601,8 +600,8 @@ TEST(MetadataTest, ParseInvalid) {
     invalid_json["scales"][0]["voxel_offset"] =  //
         {tensorstore::kMaxFiniteIndex, 2, 7};
     EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"voxel_offset\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"voxel_offset\"")));
   }
 }
 
@@ -631,13 +630,12 @@ TEST(MultiscaleMetadataConstraintsTest, ParseInvalid) {
         {"data_type", "uint8"}, {"num_channels", 3}, {"type", "image"}};
     j[k] = nullptr;
     EXPECT_THAT(MultiscaleMetadataConstraints::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")));
+                StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(k)));
   }
   EXPECT_THAT(
       MultiscaleMetadataConstraints::FromJson(
           {{"extra", "member"}, {"data_type", "uint8"}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"extra\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"extra\"")));
 }
 
 TEST(ScaleMetadataConstraintsTest, ParseEmptyObject) {
@@ -737,14 +735,15 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
   EXPECT_THAT(OpenConstraints::FromJson(
                   {{"scale_metadata", metadata_json_cseg},
                    {"multiscale_metadata", {{"data_type", "uint8"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*uint8.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("uint8")));
 
   // Tests that an incompatible number of channels triggers an error.
   {
-    EXPECT_THAT(OpenConstraints::FromJson(
-                    {{"scale_metadata", metadata_json_jpeg},
-                     {"multiscale_metadata", {{"num_channels", 12345}}}}),
-                MatchesStatus(absl::StatusCode::kInvalidArgument, ".*12345.*"));
+    EXPECT_THAT(
+        OpenConstraints::FromJson(
+            {{"scale_metadata", metadata_json_jpeg},
+             {"multiscale_metadata", {{"num_channels", 12345}}}}),
+        StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("12345")));
   }
 
   // Tests that `compressed_segmentation_block_size` must not be specified with
@@ -753,12 +752,12 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
     auto j = metadata_json_cseg;
     j["encoding"] = "raw";
     EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"compressed_segmentation_block_size\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"compressed_segmentation_block_size\"")));
     j.erase("encoding");
     EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"compressed_segmentation_block_size\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"compressed_segmentation_block_size\"")));
   }
 
   // Tests that `jpeg_quality` must not be specified with an encoding of `raw`
@@ -768,12 +767,12 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
     j["encoding"] = "raw";
     j["jpeg_quality"] = 70;
     EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"jpeg_quality\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"jpeg_quality\"")));
     j.erase("encoding");
     EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"jpeg_quality\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"jpeg_quality\"")));
   }
 
   // Tests that setting any of the following members to null triggers an error.
@@ -783,21 +782,20 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
     auto j = metadata_json_cseg;
     j[k] = nullptr;
     EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")));
+                StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(k)));
   }
   // Tests that an extra member triggers an error.
   EXPECT_THAT(
       ScaleMetadataConstraints::FromJson({{"extra", "member"}, {"key", "k"}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"extra\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"extra\"")));
 
   // Tests that `voxel_offset` must not be specified without `size`.
   {
     auto j = metadata_json_jpeg;
     j.erase("size");
     EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"voxel_offset\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"voxel_offset\"")));
   }
 
   // Tests that invalid bounds trigger an error.
@@ -805,17 +803,17 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
     auto j = metadata_json_jpeg;
     j["voxel_offset"] = {2, tensorstore::kMaxFiniteIndex, 3};
     EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"voxel_offset\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"voxel_offset\"")));
   }
 
   // Tests that an invalid sharding spec triggers an error.
   {
     auto j = metadata_json_jpeg;
     j["sharding"] = "invalid";
-    EXPECT_THAT(
-        ScaleMetadataConstraints::FromJson(j),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"sharding\".*"));
+    EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"sharding\"")));
   }
 
   // Tests that specifying `"sharding"` with a chunk size such that the
@@ -826,10 +824,13 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
     j["chunk_size"] = {1, 1, 1};
     EXPECT_THAT(
         ScaleMetadataConstraints::FromJson(j),
-        MatchesStatus(
+        StatusIs(
             absl::StatusCode::kInvalidArgument,
-            "\"size\" of .* with \"chunk_size\" of .* is not compatible with "
-            "sharded format because the chunk keys would exceed 64 bits"));
+            MatchesRegex(
+                ".*\"size\" of .* with \"chunk_size\" of .* is not compatible "
+                "with "
+                "sharded format because the chunk keys would exceed 64 "
+                "bits.*")));
 
     // Verify that error does not occur when `"sharding"` is not specified.
     j["sharding"] = nullptr;
@@ -854,9 +855,9 @@ TEST(OpenConstraintsTest, ParseEmptyObjectDataTypeConstraint) {
 TEST(OpenConstraintsTest, ParseEmptyObjectInvalidDataTypeConstraint) {
   EXPECT_THAT(
       OpenConstraints::FromJson(::nlohmann::json::object_t{}, dtype_v<bool>),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "bool data type is not one of the supported data types: .*"));
+          HasSubstr("bool data type is not one of the supported data types:")));
 }
 
 TEST(OpenConstraintsTest, ParseValid) {
@@ -883,8 +884,9 @@ TEST(OpenConstraintsTest, ParseDataTypeConstraintMismatch) {
       OpenConstraints::FromJson(
           {{"multiscale_metadata", {{"data_type", "uint8"}}}},
           dtype_v<uint16_t>),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: Expected data type of uint16 but received: uint8"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr(": Expected data type of uint16 but received: uint8")));
 }
 
 TEST(OpenConstraintsTest, ParseInvalid) {
@@ -898,8 +900,8 @@ TEST(OpenConstraintsTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json["scale_index"] = -1;
     EXPECT_THAT(OpenConstraints::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"scale_index\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"scale_index\"")));
   }
 
   // Tests that an invalid `scale_metadata` results in an error.
@@ -907,8 +909,8 @@ TEST(OpenConstraintsTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json["scale_metadata"] = 3;
     EXPECT_THAT(OpenConstraints::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"scale_metadata\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"scale_metadata\"")));
   }
 
   // Tests that an invalid `multiscale_metadata` results in an error.
@@ -916,8 +918,8 @@ TEST(OpenConstraintsTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json["multiscale_metadata"] = 3;
     EXPECT_THAT(OpenConstraints::FromJson(invalid_json),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*\"multiscale_metadata\".*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("\"multiscale_metadata\"")));
   }
 
   // Tests that a `scale_metadata` incompatible with the `multiscale_metadata`
@@ -927,7 +929,7 @@ TEST(OpenConstraintsTest, ParseInvalid) {
     invalid_json["multiscale_metadata"]["num_channels"] = 2;
     EXPECT_THAT(
         OpenConstraints::FromJson(invalid_json),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"jpeg\".*"));
+        StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"jpeg\"")));
   }
 }
 
@@ -1017,8 +1019,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     auto b = a;
     b.dtype = dtype_v<int16_t>;
     EXPECT_THAT(Validate(a, b, 0, {{64, 65, 66}}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*\"data_type\".*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("\"data_type\"")));
   }
 
   {
@@ -1026,8 +1028,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     auto b = a;
     b.num_channels = 3;
     EXPECT_THAT(Validate(a, b, 0, {{64, 65, 66}}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*\"num_channels\".*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("\"num_channels\"")));
   }
 
   {
@@ -1050,7 +1052,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     b.scales[0].box.shape()[0] = 42;
     EXPECT_THAT(
         Validate(a, b, 0, {{64, 65, 66}}),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"size\".*"));
+        StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"size\"")));
   }
 
   {
@@ -1058,8 +1060,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     auto b = a;
     b.scales[0].box.origin()[0] = 42;
     EXPECT_THAT(Validate(a, b, 0, {{64, 65, 66}}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*\"voxel_offset\".*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("\"voxel_offset\"")));
   }
 
   {
@@ -1067,8 +1069,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     auto b = a;
     b.scales[1].encoding = ScaleMetadata::Encoding::jpeg;
     EXPECT_THAT(Validate(a, b, 1, {{8, 9, 10}}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*\"encoding\".*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("\"encoding\"")));
   }
 
   {
@@ -1078,8 +1080,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     b.scales[1].chunk_sizes = {{{6, 7, 8}}, {{8, 9, 10}}};
     // Do not test `GetMetadataCompatibilityKey` in this case.
     EXPECT_THAT(ValidateMetadataCompatibility(a, b, 1, {{11, 12, 13}}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*\\[11,12,13\\].*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("[11,12,13]")));
     TENSORSTORE_EXPECT_OK(Validate(a, b, 1, {{8, 9, 10}}));
   }
 
@@ -1089,7 +1091,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     b.scales[0].key = "new_key";
     EXPECT_THAT(
         Validate(a, b, 0, {{64, 65, 66}}),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"key\".*"));
+        StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"key\"")));
   }
 
   {
@@ -1098,8 +1100,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     b.scales.resize(1);
     // Do not test `GetMetadataCompatibilityKey` in this case.
     EXPECT_THAT(ValidateMetadataCompatibility(a, b, 1, {{8, 9, 10}}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".* missing scale 1"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr(" missing scale 1")));
   }
 
   {
@@ -1107,8 +1109,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     auto b = a;
     b.scales[0].sharding = NoShardingSpec{};
     EXPECT_THAT(Validate(a, b, 0, {{64, 65, 66}}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*\"sharding\".*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("\"sharding\"")));
   }
 
   {
@@ -1116,8 +1118,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     auto b = a;
     b.scales[0].compressed_segmentation_block_size[0] = 42;
     EXPECT_THAT(Validate(a, b, 0, {{64, 65, 66}}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*\"compressed_segmentation_block_size\".*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("\"compressed_segmentation_block_size\"")));
   }
 }
 
@@ -1300,8 +1302,8 @@ TEST(CreateScaleTest, InvalidScaleConstraints) {
         CreateScale(/*existing_metadata=*/nullptr,
                     OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      ".*Cannot create scale 1 in new multiscale volume"));
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Cannot create scale 1 in new multiscale volume")));
   }
 }
 
@@ -1492,8 +1494,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
     EXPECT_THAT(
         CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      StrCat(".*\"", k, "\".*")));
+        StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr(k)));
   }
 
   // Tests that a mismatch between the `encoding` specified in `constraints` and
@@ -1506,7 +1507,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
     EXPECT_THAT(
         CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"jpeg\".*"));
+        StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"jpeg\"")));
   }
 }
 
@@ -1559,8 +1560,8 @@ TEST(CreateScaleTest, ExistingScale) {
   EXPECT_THAT(CreateScale(&existing_metadata,
                           OpenConstraints::FromJson(constraints_json).value(),
                           /*schema=*/{}),
-              MatchesStatus(absl::StatusCode::kAlreadyExists,
-                            "Scale with key \"8_8_8\" already exists"));
+              StatusIs(absl::StatusCode::kAlreadyExists,
+                       HasSubstr("Scale with key \"8_8_8\" already exists")));
 
   {
     auto j = constraints_json;
@@ -1568,9 +1569,9 @@ TEST(CreateScaleTest, ExistingScale) {
     EXPECT_THAT(
         CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      "Scale index to create \\(3\\) must equal the "
-                      "existing number of scales \\(2\\)"));
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Scale index to create (3) must equal the "
+                           "existing number of scales (2)")));
   }
 
   for (int scale_index = 0; scale_index < 2; ++scale_index) {
@@ -1579,8 +1580,9 @@ TEST(CreateScaleTest, ExistingScale) {
     EXPECT_THAT(
         CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
-        MatchesStatus(absl::StatusCode::kAlreadyExists,
-                      StrCat("Scale index ", scale_index, " already exists")));
+        StatusIs(
+            absl::StatusCode::kAlreadyExists,
+            HasSubstr(StrCat("Scale index ", scale_index, " already exists"))));
   }
 
   {
@@ -1589,9 +1591,9 @@ TEST(CreateScaleTest, ExistingScale) {
     EXPECT_THAT(
         CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
-        MatchesStatus(
-            absl::StatusCode::kAlreadyExists,
-            "Scale with resolution \\[5\\.0,6\\.0,7\\.0\\] already exists"));
+        StatusIs(absl::StatusCode::kAlreadyExists,
+                 HasSubstr("Scale with resolution [5.0,6.0,7.0] "
+                           "already exists")));
   }
 }
 
@@ -1647,11 +1649,12 @@ TEST_F(OpenScaleTest, Success) {
                       /*schema=*/{}));
 
   // Open with invalid `scale_index`
-  EXPECT_THAT(OpenScale(metadata,
-                        OpenConstraints::FromJson({{"scale_index", 2}}).value(),
-                        /*schema=*/{}),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Scale 2 does not exist, number of scales is 2"));
+  EXPECT_THAT(
+      OpenScale(metadata,
+                OpenConstraints::FromJson({{"scale_index", 2}}).value(),
+                /*schema=*/{}),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Scale 2 does not exist, number of scales is 2")));
 
   // Open by `key` only
   EXPECT_EQ(0u, OpenScale(metadata,
@@ -1688,13 +1691,14 @@ TEST_F(OpenScaleTest, Success) {
 }
 
 TEST_F(OpenScaleTest, InvalidKey) {
-  EXPECT_THAT(OpenScale(metadata,
-                        OpenConstraints::FromJson(
-                            {{"scale_metadata", {{"key", "invalidkey"}}}})
-                            .value(),
-                        /*schema=*/{}),
-              MatchesStatus(absl::StatusCode::kNotFound,
-                            "No scale found matching key=\"invalidkey\""));
+  EXPECT_THAT(
+      OpenScale(metadata,
+                OpenConstraints::FromJson(
+                    {{"scale_metadata", {{"key", "invalidkey"}}}})
+                    .value(),
+                /*schema=*/{}),
+      StatusIs(absl::StatusCode::kNotFound,
+               HasSubstr("No scale found matching key=\"invalidkey\"")));
 }
 
 TEST_F(OpenScaleTest, InvalidResolution) {
@@ -1704,10 +1708,10 @@ TEST_F(OpenScaleTest, InvalidResolution) {
                     {{"scale_metadata", {{"resolution", {41, 42, 43}}}}})
                     .value(),
                 /*schema=*/{}),
-      MatchesStatus(
-          absl::StatusCode::kNotFound,
-          "No scale found matching "
-          "dimension_units=\\[\"41 nm\", \"42 nm\", \"43 nm\", null\\]"));
+      StatusIs(absl::StatusCode::kNotFound,
+               HasSubstr(
+                   "No scale found matching "
+                   "dimension_units=[\"41 nm\", \"42 nm\", \"43 nm\", null]")));
 }
 
 TEST_F(OpenScaleTest, InvalidKeyAndResolutionCombination) {
@@ -1718,10 +1722,11 @@ TEST_F(OpenScaleTest, InvalidKeyAndResolutionCombination) {
                       {{"key", "16_16_16"}, {"resolution", {5, 6, 7}}}}})
                     .value(),
                 /*schema=*/{}),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "No scale found matching "
-                    "dimension_units=\\[\"5 nm\", \"6 nm\", \"7 nm\", null\\], "
-                    "key=\"16_16_16\""));
+      StatusIs(
+          absl::StatusCode::kNotFound,
+          HasSubstr("No scale found matching "
+                    "dimension_units=[\"5 nm\", \"6 nm\", \"7 nm\", null], "
+                    "key=\"16_16_16\"")));
 }
 
 TEST_F(OpenScaleTest, InvalidNumChannels) {
@@ -1731,8 +1736,8 @@ TEST_F(OpenScaleTest, InvalidNumChannels) {
                              {"multiscale_metadata", {{"num_channels", 7}}}})
                             .value(),
                         /*schema=*/{}),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"num_channels\".*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"num_channels\"")));
 }
 
 TEST_F(OpenScaleTest, InvalidScaleSize) {
@@ -1743,7 +1748,7 @@ TEST_F(OpenScaleTest, InvalidScaleSize) {
               {{"scale_index", 0}, {"scale_metadata", {{"size", {1, 2, 3}}}}})
               .value(),
           /*schema=*/{}),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"size\".*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"size\"")));
 }
 
 TEST_F(OpenScaleTest, MetadataMismatch) {
@@ -1798,8 +1803,7 @@ TEST_F(OpenScaleTest, MetadataMismatch) {
     }
     EXPECT_THAT(OpenScale(metadata, OpenConstraints::FromJson(j).value(),
                           /*schema=*/{}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              StrCat(".*\"", k, "\".*")));
+                StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr(k)));
   }
 }
 
@@ -1824,10 +1828,10 @@ TEST(ValidateDataTypeTest, Basic) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     EXPECT_THAT(
         ValidateDataType(dtype),
-        MatchesStatus(
-            absl::StatusCode::kInvalidArgument,
-            StrCat(dtype.name(),
-                   " data type is not one of the supported data types: .*")));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr(StrCat(
+                     dtype.name(),
+                     " data type is not one of the supported data types:"))));
   }
 }
 
@@ -2083,18 +2087,20 @@ TEST(NeuroglancerPrecomputedCodecSpecTest, Merge) {
   EXPECT_THAT(CodecSpec::Merge(codec3, codec4), ::testing::Optional(codec4));
   EXPECT_THAT(CodecSpec::Merge(codec2, codec5), ::testing::Optional(codec7));
   EXPECT_THAT(CodecSpec::Merge(codec2, codec6), ::testing::Optional(codec8));
-  EXPECT_THAT(CodecSpec::Merge(codec2, codec3),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Cannot merge codec spec .* with .*: \"encoding\" mismatch"));
+  EXPECT_THAT(
+      CodecSpec::Merge(codec2, codec3),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex(
+              ".*Cannot merge codec spec .* with .*: \"encoding\" mismatch")));
   EXPECT_THAT(CodecSpec::Merge(codec4, codec4a),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge codec spec .* with .*: "
-                            "\"jpeg_quality\" mismatch"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*Cannot merge codec spec .* with .*: "
+                                    "\"jpeg_quality\" mismatch")));
   EXPECT_THAT(CodecSpec::Merge(codec5, codec6),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge codec spec .* with .*: "
-                            "\"shard_data_encoding\" mismatch"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*Cannot merge codec spec .* with .*: "
+                                    "\"shard_data_encoding\" mismatch")));
 }
 
 TEST(NeuroglancerPrecomputedCodecSpecTest, RoundTrip) {

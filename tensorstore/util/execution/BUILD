@@ -232,6 +232,7 @@ tensorstore_cc_test(
     deps = [
         ":execution",
         ":future_collecting_receiver",
+        ":sender",
         ":sender_testutil",
         ":sender_util",
         "//tensorstore/util:span",

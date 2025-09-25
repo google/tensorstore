@@ -16,10 +16,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 
 namespace {
 
@@ -89,8 +92,8 @@ TEST(LabelTest, ErrorHandling) {
       IdentityTransform(1),
       Dims(span<const DimensionIndex>({0})).Label("x", "y"),
       absl::StatusCode::kInvalidArgument,
-      "Number of dimensions \\(1\\) does not match number of "
-      "labels \\(2\\)\\.");
+      testing::HasSubstr("Number of dimensions (1) does not match number of "
+                         "labels (2)."));
 }
 
 }  // namespace

@@ -26,10 +26,11 @@ namespace {
 
 using ::tensorstore::CodecSpec;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
 using ::tensorstore::internal_zarr3::TestCodecMerge;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
+using ::testing::HasSubstr;
 
 TEST(CodecMergeTest, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -60,20 +61,20 @@ TEST(CodecMergeTest, Basic) {
                    {"codecs",
                     {{{"name", "gzip"}, {"configuration", {{"level", 5}}}}}}}));
   EXPECT_THAT(a.MergeFrom(b),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*: Incompatible \"level\": 6 vs 5"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Incompatible \"level\": 6 vs 5")));
 }
 
 TEST(CodecChainSpecTest, MissingArrayToBytes) {
   EXPECT_THAT(ZarrCodecChainSpec::FromJson(::nlohmann::json::array_t()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "array -> bytes codec must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("array -> bytes codec must be specified")));
 }
 
 TEST(CodecChainSpecTest, MergeCodecNameMismatch) {
-  EXPECT_THAT(
-      TestCodecMerge({"gzip"}, {"crc32c"}, /*strict=*/true),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, "Cannot merge .*"));
+  EXPECT_THAT(TestCodecMerge({"gzip"}, {"crc32c"}, /*strict=*/true),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Cannot merge")));
 }
 
 TEST(CodecChainSpecTest, MergeArrayToBytes) {
@@ -97,8 +98,8 @@ TEST(CodecChainSpecTest, ExtraTranspose) {
               ::testing::Optional(MatchesJson(a)));
   EXPECT_THAT(
       TestCodecMerge(a, b, /*strict=*/true),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*: Mismatch in number of array -> array codecs.*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr(": Mismatch in number of array -> array codecs")));
 }
 
 TEST(CodecChainSpecTest, ExtraSharding) {
@@ -132,11 +133,11 @@ TEST(CodecChainSpecTest, ExtraSharding) {
               ::testing::Optional(MatchesJson(a)));
   EXPECT_THAT(
       TestCodecMerge(a, b, /*strict=*/true),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*: Mismatch in number of array -> array codecs.*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr(": Mismatch in number of array -> array codecs")));
   EXPECT_THAT(TestCodecMerge(a, c, /*strict=*/true),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Cannot merge zarr codec constraints .*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Cannot merge zarr codec constraints")));
 }
 
 }  // namespace

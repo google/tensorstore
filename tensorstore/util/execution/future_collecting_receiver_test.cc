@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/span.h"
@@ -28,7 +29,8 @@
 namespace {
 
 using ::tensorstore::CollectFlowSenderIntoFuture;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(CollectingSenderTest, Success) {
   std::vector<int> input{1, 2, 3, 4};
@@ -45,7 +47,7 @@ TEST(CollectingSenderTest, Error) {
           tensorstore::FlowSingleSender<tensorstore::ErrorSender<absl::Status>>{
               absl::UnknownError("abc")})
           .result(),
-      MatchesStatus(absl::StatusCode::kUnknown, "abc"));
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("abc")));
 }
 
 }  // namespace

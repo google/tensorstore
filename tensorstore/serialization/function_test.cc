@@ -23,11 +23,12 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::serialization::BindFront;
 using ::tensorstore::serialization::NonSerializable;
 using ::tensorstore::serialization::SerializableFunction;
 using ::tensorstore::serialization::SerializationRoundTrip;
+using ::testing::HasSubstr;
 
 TEST(SerializationTest, Function) {
   SerializableFunction<int()> func([] { return 3; });
@@ -52,8 +53,8 @@ TEST(SerializationTest, NonSerializable) {
 
   EXPECT_EQ(5, func());
   EXPECT_THAT(SerializationRoundTrip(func),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Serialization not supported.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Serialization not supported")));
 }
 
 struct FunctionWithId1 {

@@ -18,10 +18,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -35,11 +38,12 @@ using ::tensorstore::IndexTransformView;
 using ::tensorstore::kImplicit;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::internal::GetLValue;
 using ::tensorstore::internal_index_space::ValidateInputDimensionResize;
+using ::testing::HasSubstr;
 
 TEST(ValidateInputDimensionResizeTest, ValidArguments) {
   using OIII = ::tensorstore::OptionallyImplicitIndexInterval;
@@ -93,58 +97,62 @@ TEST(ValidateInputDimensionResizeTest, ValidArguments) {
 
 TEST(ValidateInputDimensionResizeTest, InvalidArguments) {
   using OIII = tensorstore::OptionallyImplicitIndexInterval;
-  EXPECT_THAT(ValidateInputDimensionResize(  //
-                  OIII{},
-                  /*requested_inclusive_min=*/-kInfIndex - 1,
-                  /*requested_exclusive_max=*/kImplicit),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            StrCat("Invalid requested inclusive min value ",
-                                   -kInfIndex - 1)));
+  EXPECT_THAT(
+      ValidateInputDimensionResize(  //
+          OIII{},
+          /*requested_inclusive_min=*/-kInfIndex - 1,
+          /*requested_exclusive_max=*/kImplicit),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(StrCat("Invalid requested inclusive min value ",
+                                -kInfIndex - 1))));
 
-  EXPECT_THAT(ValidateInputDimensionResize(  //
-                  OIII{},
-                  /*requested_inclusive_min=*/kInfIndex,
-                  /*requested_exclusive_max=*/kImplicit),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  StrCat("Invalid requested inclusive min value ", kInfIndex)));
+  EXPECT_THAT(
+      ValidateInputDimensionResize(  //
+          OIII{},
+          /*requested_inclusive_min=*/kInfIndex,
+          /*requested_exclusive_max=*/kImplicit),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(StrCat("Invalid requested inclusive min value ",
+                                kInfIndex))));
 
-  EXPECT_THAT(ValidateInputDimensionResize(  //
-                  OIII{},
-                  /*requested_inclusive_min=*/kImplicit,
-                  /*requested_exclusive_max=*/-kInfIndex + 1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            StrCat("Invalid requested exclusive max value ",
-                                   -kInfIndex + 1)));
+  EXPECT_THAT(
+      ValidateInputDimensionResize(  //
+          OIII{},
+          /*requested_inclusive_min=*/kImplicit,
+          /*requested_exclusive_max=*/-kInfIndex + 1),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(StrCat("Invalid requested exclusive max value ",
+                                -kInfIndex + 1))));
 
-  EXPECT_THAT(ValidateInputDimensionResize(  //
-                  OIII{},
-                  /*requested_inclusive_min=*/kImplicit,
-                  /*requested_exclusive_max=*/0x7ffffffffffffffe /*=2^63-1*/),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            StrCat("Invalid requested exclusive max value ",
-                                   0x7ffffffffffffffe)));
+  EXPECT_THAT(
+      ValidateInputDimensionResize(  //
+          OIII{},
+          /*requested_inclusive_min=*/kImplicit,
+          /*requested_exclusive_max=*/0x7ffffffffffffffe /*=2^63-1*/),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(StrCat("Invalid requested exclusive max value ",
+                                0x7ffffffffffffffe))));
 
   EXPECT_THAT(ValidateInputDimensionResize(  //
                   OIII{},
                   /*requested_inclusive_min=*/0,
                   /*requested_exclusive_max=*/-1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid requested bounds \\[0, -1\\)"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid requested bounds [0, -1)")));
 
   EXPECT_THAT(ValidateInputDimensionResize(  //
                   OIII{IndexInterval::UncheckedClosed(1, 10), false, true},
                   /*requested_inclusive_min=*/0,
                   /*requested_exclusive_max=*/10),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot change explicit lower bound"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot change explicit lower bound")));
 
   EXPECT_THAT(ValidateInputDimensionResize(  //
                   OIII{IndexInterval::UncheckedClosed(1, 10), true, false},
                   /*requested_inclusive_min=*/0,
                   /*requested_exclusive_max=*/10),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot change explicit upper bound"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot change explicit upper bound")));
 }
 
 TEST(PropagateInputDomainResizeToOutputTest, ResizedSingleInputDimension) {
@@ -361,9 +369,9 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
             /*new_output_inclusive_min=*/GetLValue(std::array<Index, 1>()),
             /*new_output_exclusive_max=*/GetLValue(std::array<Index, 1>()),
             &is_noop),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Invalid resize request for input dimension 0: "
-                      "Invalid requested bounds \\[0, -1\\)"));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Invalid resize request for input dimension 0: "
+                           "Invalid requested bounds [0, -1)")));
 
     EXPECT_THAT(
         tensorstore::PropagateInputDomainResizeToOutput(
@@ -382,10 +390,10 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
             /*new_output_inclusive_min=*/GetLValue(std::array<Index, 2>()),
             /*new_output_exclusive_max=*/GetLValue(std::array<Index, 2>()),
             &is_noop),
-        MatchesStatus(
-            absl::StatusCode::kInvalidArgument,
-            StrCat("Output dimension 1 has constant map with invalid offset ",
-                   kInfIndex)));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr(StrCat(
+                     "Output dimension 1 has constant map with invalid offset ",
+                     kInfIndex))));
 
     EXPECT_THAT(
         tensorstore::PropagateInputDomainResizeToOutput(
@@ -403,9 +411,9 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
             /*new_output_inclusive_min=*/GetLValue(std::array<Index, 1>()),
             /*new_output_exclusive_max=*/GetLValue(std::array<Index, 1>()),
             &is_noop),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      StrCat("Output dimension 0 depends on resized input "
-                             "dimension 0 with non-unit stride of 2")));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr(StrCat("Output dimension 0 depends on resized input "
+                                  "dimension 0 with non-unit stride of 2"))));
 
     EXPECT_THAT(
         tensorstore::PropagateInputDomainResizeToOutput(
@@ -423,10 +431,9 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
             /*new_output_inclusive_min=*/GetLValue(std::array<Index, 1>()),
             /*new_output_exclusive_max=*/GetLValue(std::array<Index, 1>()),
             &is_noop),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      StrCat("Error propagating bounds for output dimension 0 "
-                             "from requested bounds for input dimension 0: "
-                             ".*")));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Error propagating bounds for output dimension 0 "
+                           "from requested bounds for input dimension 0: ")));
   };
   for (bool can_resize_tied_bounds : {false, true}) {
     test_resize(can_resize_tied_bounds);
@@ -453,9 +460,9 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
           /*new_output_inclusive_min=*/GetLValue(std::array<Index, 2>()),
           /*new_output_exclusive_max=*/GetLValue(std::array<Index, 2>()),
           &is_noop),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    StrCat("Output dimension 1 has index array map but "
-                           "`resize_tied_bounds` was not specified")));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Output dimension 1 has index array map but "
+                         "`resize_tied_bounds` was not specified")));
 
   EXPECT_THAT(
       tensorstore::PropagateInputDomainResizeToOutput(
@@ -474,9 +481,9 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
           /*new_output_inclusive_min=*/GetLValue(std::array<Index, 2>()),
           /*new_output_exclusive_max=*/GetLValue(std::array<Index, 2>()),
           &is_noop),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    StrCat("Input dimension 0 corresponds to a diagonal but "
-                           "`resize_tied_bounds` was not specified")));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Input dimension 0 corresponds to a diagonal but "
+                         "`resize_tied_bounds` was not specified")));
 
   EXPECT_THAT(
       tensorstore::PropagateInputDomainResizeToOutput(
@@ -495,10 +502,11 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
           /*new_output_inclusive_min=*/GetLValue(std::array<Index, 2>()),
           /*new_output_exclusive_max=*/GetLValue(std::array<Index, 2>()),
           &is_noop),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    StrCat("Output dimension 0 depends on input dimension 1 "
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr(StrCat("Output dimension 0 depends on input dimension 1 "
                            "with non-unit stride of 2 but `resize_tied_bounds` "
-                           "was not specified")));
+                           "was not specified"))));
 
   EXPECT_THAT(
       tensorstore::PropagateInputDomainResizeToOutput(
@@ -521,9 +529,9 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
           /*new_output_inclusive_min=*/GetLValue(std::array<Index, 2>()),
           /*new_output_exclusive_max=*/GetLValue(std::array<Index, 2>()),
           &is_noop),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    StrCat("Error propagating bounds for output dimension 0 "
-                           "from existing bounds for input dimension 1: .*")));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error propagating bounds for output dimension 0 "
+                         "from existing bounds for input dimension 1")));
 
   EXPECT_THAT(
       tensorstore::PropagateInputDomainResizeToOutput(
@@ -546,9 +554,9 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
           /*new_output_inclusive_min=*/GetLValue(std::array<Index, 2>()),
           /*new_output_exclusive_max=*/GetLValue(std::array<Index, 2>()),
           &is_noop),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    StrCat("Output dimension 0 has index array map but "
-                           "`resize_tied_bounds` was not specified")));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Output dimension 0 has index array map but "
+                         "`resize_tied_bounds` was not specified")));
 }
 
 }  // namespace

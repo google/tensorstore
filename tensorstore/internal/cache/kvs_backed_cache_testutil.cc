@@ -64,6 +64,7 @@ namespace tensorstore {
 namespace internal {
 
 using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
+using ::testing::HasSubstr;
 
 void KvsBackedTestCache::Entry::DoDecode(std::optional<absl::Cord> value,
                                          DecodeReceiver receiver) {
@@ -416,11 +417,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
           AsyncCache::ReadLock<absl::Cord>(*entry).stamp();
       TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("Z")));
       EXPECT_THAT(entry->Read({absl::Now()}).result(),
-                  MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                                tensorstore::StrCat(
-                                    ".*Error reading ",
-                                    RE2::QuoteMeta(kvstore->DescribeKey(a_key)),
-                                    ": existing value contains Z")));
+                  StatusIs(absl::StatusCode::kFailedPrecondition,
+                           HasSubstr(tensorstore::StrCat(
+                               "Error reading ", kvstore->DescribeKey(a_key),
+                               ": existing value contains Z"))));
       // Read state is not modified.
       EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                   Pointee(absl::Cord("ghi")));
@@ -451,13 +451,11 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                   transaction));
           TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, false, "def"));
         }
-        EXPECT_THAT(
-            transaction.CommitAsync().result(),
-            MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                          ::tensorstore::StrCat(
-                              ".*Error reading ",
-                              RE2::QuoteMeta(kvstore->DescribeKey(a_key)),
-                              ": existing value contains Z")));
+        EXPECT_THAT(transaction.CommitAsync().result(),
+                    StatusIs(absl::StatusCode::kFailedPrecondition,
+                             HasSubstr(::tensorstore::StrCat(
+                                 "Error reading ", kvstore->DescribeKey(a_key),
+                                 ": existing value contains Z"))));
         EXPECT_THAT(kvstore->Read(a_key).result(),
                     MatchesKvsReadResult(absl::Cord("Z")));
       });
@@ -544,11 +542,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
       }
       // kvstack does not report the initial write key, only the remapped key.
       EXPECT_THAT(transaction.CommitAsync().result(),
-                  MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                tensorstore::StrCat(
-                                    ".*Error writing ",
-                                    RE2::QuoteMeta(kvstore->DescribeKey(a_key)),
-                                    ": new value contains Z")));
+                  StatusIs(absl::StatusCode::kInvalidArgument,
+                           HasSubstr(tensorstore::StrCat(
+                               "Error writing ", kvstore->DescribeKey(a_key),
+                               ": new value contains Z"))));
     }
     EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                 Pointee(absl::Cord("abc")));
@@ -579,23 +576,19 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
               entry_a->Modify(open_transaction, false, "abc"));
           EXPECT_THAT(
               GetTransactionNode(*entry_b, open_transaction),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            tensorstore::StrCat(
-                                ".*Cannot read/write ",
-                                RE2::QuoteMeta(kvstore->DescribeKey(a_key)),
-                                " and read/write ",
-                                RE2::QuoteMeta(kvstore->DescribeKey(b_key)),
-                                " as single atomic transaction")));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(tensorstore::StrCat(
+                           "Cannot read/write ", kvstore->DescribeKey(a_key),
+                           " and read/write ", kvstore->DescribeKey(b_key),
+                           " as single atomic transaction"))));
         }
         EXPECT_THAT(
             transaction.future().result(),
-            MatchesStatus(
-                absl::StatusCode::kInvalidArgument,
-                tensorstore::StrCat(".*Cannot read/write ",
-                                    RE2::QuoteMeta(kvstore->DescribeKey(a_key)),
-                                    " and read/write ",
-                                    RE2::QuoteMeta(kvstore->DescribeKey(b_key)),
-                                    " as single atomic transaction")));
+            StatusIs(absl::StatusCode::kInvalidArgument,
+                     HasSubstr(tensorstore::StrCat(
+                         "Cannot read/write ", kvstore->DescribeKey(a_key),
+                         " and read/write ", kvstore->DescribeKey(b_key),
+                         " as single atomic transaction"))));
       }
     });
   }

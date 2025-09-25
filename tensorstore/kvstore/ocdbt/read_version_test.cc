@@ -43,7 +43,6 @@
 namespace {
 
 namespace kvstore = ::tensorstore::kvstore;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::MatchesKvsReadResult;

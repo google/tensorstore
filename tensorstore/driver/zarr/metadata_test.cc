@@ -46,7 +46,6 @@ using ::tensorstore::ContiguousLayoutOrder;
 using ::tensorstore::dtype_v;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeScalarArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::dtypes::bfloat16_t;
 using ::tensorstore::dtypes::float16_t;
@@ -61,6 +60,7 @@ using ::tensorstore::internal_zarr::ParseFillValue;
 using ::tensorstore::internal_zarr::ZarrMetadata;
 using ::tensorstore::internal_zarr3::GetDefaultNaN;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 
 TEST(OrderJsonBinderTest, Success) {
   tensorstore::TestJsonBinderRoundTrip<ContiguousLayoutOrder>(
@@ -172,26 +172,26 @@ TEST(ParseFillValueTest, ComplexSuccess) {
 
 TEST(ParseFillValueTest, FloatingPointFailure) {
   EXPECT_THAT(ParseFillValue("x", ParseDType("<f4").value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid floating-point value: \"x\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid floating-point value: \"x\"")));
 }
 
 TEST(ParseFillValueTest, ComplexFailure) {
   EXPECT_THAT(
       ParseFillValue(3, ParseDType("<c8").value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected 8 base64-encoded bytes, but received: 3"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected 8 base64-encoded bytes, but received: 3")));
   EXPECT_THAT(
       ParseFillValue(::nlohmann::json::array_t{3}, ParseDType("<c8").value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Array has length 1 but should have length 2"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Array has length 1 but should have length 2")));
   EXPECT_THAT(ParseFillValue(::nlohmann::json::array_t{3, 4, 5},
                              ParseDType("<c8").value()),
               StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseFillValue({"x", "y"}, ParseDType("<c16").value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing value at position 0: "
-                            "Invalid floating-point value: \"x\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing value at position 0: "
+                                 "Invalid floating-point value: \"x\"")));
 }
 
 TEST(ParseFillValueTest, BoolSuccess) {
@@ -201,8 +201,8 @@ TEST(ParseFillValueTest, BoolSuccess) {
 
 TEST(ParseFillValueTest, BoolFailure) {
   EXPECT_THAT(ParseFillValue("x", ParseDType("|b1").value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected boolean, but received: \"x\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected boolean, but received: \"x\"")));
 }
 
 TEST(ParseFillValueTest, IntegerSuccess) {
@@ -244,41 +244,43 @@ TEST(ParseFillValueTest, IntegerSuccess) {
 
 TEST(ParseFillValueTest, IntegerFailure) {
   EXPECT_THAT(ParseFillValue(500, ParseDType("|i1").value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected integer in the range \\[-128, 127\\], "
-                            "but received: 500"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected integer in the range [-128, 127], "
+                                 "but received: 500")));
   EXPECT_THAT(ParseFillValue(500, ParseDType("|u1").value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected integer in the range \\[0, 255\\], "
-                            "but received: 500"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected integer in the range [0, 255], "
+                                 "but received: 500")));
   EXPECT_THAT(
       ParseFillValue(45000, ParseDType("<i2").value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected integer in the range \\[-32768, 32767\\], "
-                    "but received: 45000"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected integer in the range [-32768, 32767], "
+                         "but received: 45000")));
   EXPECT_THAT(ParseFillValue(90000, ParseDType("<u2").value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected integer in the range \\[0, 65535\\], "
-                            "but received: 90000"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected integer in the range [0, 65535], "
+                                 "but received: 90000")));
   EXPECT_THAT(
       ParseFillValue("x", ParseDType("<i4").value()),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Expected integer in the range \\[-2147483648, 2147483647\\], "
-          "but received: \"x\""));
+          HasSubstr("Expected integer in the range [-2147483648, 2147483647], "
+                    "but received: \"x\"")));
   EXPECT_THAT(
       ParseFillValue("x", ParseDType("<u4").value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected integer in the range \\[0, 4294967295\\], "
-                    "but received: \"x\""));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected integer in the range [0, 4294967295], "
+                         "but received: \"x\"")));
   EXPECT_THAT(
       ParseFillValue("x", ParseDType("<i8").value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected 64-bit signed integer, but received: \"x\""));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected 64-bit signed integer, but received: \"x\"")));
   EXPECT_THAT(
       ParseFillValue("x", ParseDType("<u8").value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected 64-bit unsigned integer, but received: \"x\""));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected 64-bit unsigned integer, but received: \"x\"")));
 }
 
 TEST(ParseFillValueTest, Base64Success) {
@@ -301,20 +303,21 @@ TEST(ParseFillValueTest, Base64Success) {
 }
 
 TEST(ParseFillValueTest, Base64Failure) {
-  EXPECT_THAT(
-      ParseFillValue("YWJjZGVmZ2hp",  // Base64 encoding of "abcdefghi"
-                     ParseDType("|S10").value()),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Expected 10 base64-encoded bytes, but received: \"YWJjZGVmZ2hp\""));
+  EXPECT_THAT(ParseFillValue("YWJjZGVmZ2hp",  // Base64 encoding of "abcdefghi"
+                             ParseDType("|S10").value()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected 10 base64-encoded bytes, but "
+                                 "received: \"YWJjZGVmZ2hp\"")));
   EXPECT_THAT(
       ParseFillValue("x", ParseDType("|S10").value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected 10 base64-encoded bytes, but received: \"x\""));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected 10 base64-encoded bytes, but received: \"x\"")));
   EXPECT_THAT(
       ParseFillValue(10, ParseDType("|S10").value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected 10 base64-encoded bytes, but received: 10"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected 10 base64-encoded bytes, but received: 10")));
 }
 
 // Many of the following test cases are derived from:
@@ -739,8 +742,7 @@ TEST(ParseMetadataTest, InvalidChunks) {
         {"order", "F"},
         {"shape", {10}},
         {"zarr_format", 2}},
-
-       MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"chunks\".*")},
+       StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"chunks\""))},
   });
 }
 
@@ -754,8 +756,8 @@ TEST(ParseMetadataTest, InvalidRank) {
         {"order", "F"},
         {"shape", ::nlohmann::json::array_t(33, 10)},
         {"zarr_format", 2}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     ".*: Rank 33 is outside valid range \\[0, 32\\]")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Rank 33 is outside valid range [0, 32]"))},
   });
 }
 
@@ -769,8 +771,8 @@ TEST(ParseMetadataTest, InvalidFilters) {
         {"order", "F"},
         {"shape", ::nlohmann::json::array_t(5, 10)},
         {"zarr_format", 2}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     ".*: Expected null or array, but received: 5")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Expected null or array, but received: 5"))},
       {{{"chunks", ::nlohmann::json::array_t(5, 1)},
         {"compressor", nullptr},
         {"dtype", "|i1"},
@@ -779,8 +781,8 @@ TEST(ParseMetadataTest, InvalidFilters) {
         {"order", "F"},
         {"shape", ::nlohmann::json::array_t(5, 10)},
         {"zarr_format", 2}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     ".*: Expected null or array, but received: .*")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Expected null or array, but received:"))},
   });
 }
 

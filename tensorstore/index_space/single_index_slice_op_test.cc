@@ -14,13 +14,18 @@
 
 /// Tests for the DimExpression::IndexSlice(index_vector) operation.
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 
 namespace {
 
@@ -304,33 +309,35 @@ TEST(SingleIndexSliceTest, EmptyDomain) {
 }
 
 TEST(ErrorHandlingTest, DimensionSelectionRankMismatch) {
-  TestDimExpressionError(IndexTransformBuilder<1, 1>().Finalize().value(),
-                         AllDims().IndexSlice(span<const Index>({1, 2})),
-                         absl::StatusCode::kInvalidArgument,
-                         "Number of dimensions .* does not match number of "
-                         "indices .*");
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 1>().Finalize().value(),
+      AllDims().IndexSlice(span<const Index>({1, 2})),
+      absl::StatusCode::kInvalidArgument,
+      testing::MatchesRegex(
+          ".*Number of dimensions .* does not match number of "
+          "indices.*"));
 }
 
 TEST(ErrorHandlingTest, OutOfBounds) {
-  TestDimExpressionError(IndexTransformBuilder<1, 1>()
-                             .input_origin({-10})
-                             .input_shape({15})
-                             .Finalize()
-                             .value(),
-                         AllDims().IndexSlice({5}),
-                         absl::StatusCode::kOutOfRange,
-                         "Slice mismatch: .* is outside valid domain .*");
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 1>()
+          .input_origin({-10})
+          .input_shape({15})
+          .Finalize()
+          .value(),
+      AllDims().IndexSlice({5}), absl::StatusCode::kOutOfRange,
+      testing::MatchesRegex(".*Slice mismatch: .* is outside valid domain.*"));
 }
 
 TEST(ErrorHandlingTest, OutOfBoundsInfinity) {
-  TestDimExpressionError(IndexTransformBuilder<1, 1>()
-                             .input_origin({-kInfIndex})
-                             .input_shape({15})
-                             .Finalize()
-                             .value(),
-                         AllDims().IndexSlice({-kInfIndex}),
-                         absl::StatusCode::kOutOfRange,
-                         "Slice mismatch: .* is outside valid domain .*");
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 1>()
+          .input_origin({-kInfIndex})
+          .input_shape({15})
+          .Finalize()
+          .value(),
+      AllDims().IndexSlice({-kInfIndex}), absl::StatusCode::kOutOfRange,
+      testing::MatchesRegex(".*Slice mismatch: .* is outside valid domain.*"));
 }
 
 TEST(ErrorHandlingTest, SingleInputDimensionMapIntegerOverflow) {
@@ -343,7 +350,8 @@ TEST(ErrorHandlingTest, SingleInputDimensionMapIntegerOverflow) {
           .Finalize()
           .value(),
       AllDims().IndexSlice({1}), absl::StatusCode::kInvalidArgument,
-      "Integer overflow computing offset for output dimension.*",
+      testing::HasSubstr(
+          "Integer overflow computing offset for output dimension"),
       IndexDomainBuilder<0>().Finalize().value());
 }
 
@@ -357,7 +365,8 @@ TEST(ErrorHandlingTest, IndexArrayMapIntegerOverflow) {
           .Finalize()
           .value(),
       AllDims().IndexSlice({1}), absl::StatusCode::kInvalidArgument,
-      "Integer overflow computing offset for output dimension.*",
+      testing::HasSubstr(
+          "Integer overflow computing offset for output dimension"),
       IndexDomainBuilder<0>().Finalize().value());
 }
 
@@ -371,7 +380,7 @@ TEST(ErrorHandlingTest, IndexArrayMapOutOfBounds) {
           .Finalize()
           .value(),
       AllDims().IndexSlice({1}), absl::StatusCode::kOutOfRange,
-      "Index .* is outside valid range .*",
+      testing::MatchesRegex(".*Index .* is outside valid range.*"),
       IndexDomainBuilder<0>().Finalize().value());
 }
 

@@ -390,8 +390,8 @@ tensorstore_cc_test(
         "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )

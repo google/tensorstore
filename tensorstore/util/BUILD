@@ -720,6 +720,7 @@ tensorstore_cc_test(
         ":utf8_string",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )

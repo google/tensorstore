@@ -34,11 +34,11 @@
 namespace {
 
 using ::tensorstore::IsOk;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::JpegReader;
 using ::tensorstore::internal_image::JpegWriter;
+using ::testing::HasSubstr;
 
 TEST(JpegTest, Decode) {
   // Started the same as the png image, but very much the worse for wear after
@@ -192,8 +192,8 @@ TEST(JpegTest, LJT_01_003) {
 
   std::vector<unsigned char> raw(ImageRequiredBytes(info));
   ASSERT_THAT(decoder.Decode(raw),
-              MatchesStatus(absl::StatusCode::kDataLoss,
-                            "Inconsistent progression .*"));
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Inconsistent progression ")));
 }
 
 TEST(JpegTest, EncodeDecode) {

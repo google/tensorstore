@@ -16,7 +16,6 @@
 #include <stdint.h>
 
 #include <optional>
-#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -56,10 +55,12 @@ using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesArray;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::OpenMode;
 using ::tensorstore::ReadWriteMode;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 ::nlohmann::json GetRank1Length4ArrayDriver(int inclusive_min,
                                             int exclusive_max = -1) {
@@ -251,9 +252,10 @@ TEST(StackDriverTest, ReadSparse) {
                                    tensorstore::Open(json_spec).result());
 
   // Cannot read everything
-  EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(store).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cell with origin=.1. missing layer mapping.*"));
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(store).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cell with origin={1} missing layer mapping")));
 
   // Can read the backed data.
   {
@@ -338,12 +340,13 @@ TEST(StackDriverTest, WriteSparse) {
       tensorstore::Open(json_spec, OpenMode::open_or_create).result());
 
   // Cannot write everything
-  EXPECT_THAT(tensorstore::Write(tensorstore::MakeOffsetArray(
-                                     {-3}, {9, 8, 7, 6, 5, 4, 3, 2, 1}),
-                                 store)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cell with origin=.1. missing layer mapping.*"));
+  EXPECT_THAT(
+      tensorstore::Write(
+          tensorstore::MakeOffsetArray({-3}, {9, 8, 7, 6, 5, 4, 3, 2, 1}),
+          store)
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cell with origin={1} missing layer mapping")));
 
   // Can write the backed data.
   TENSORSTORE_ASSERT_OK(
@@ -365,16 +368,16 @@ TEST(StackDriverTest, ReadWriteNonExistingLayers) {
 
   // Sublayers are opened on read; they do not exist.
   EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(store).result(),
-              MatchesStatus(absl::StatusCode::kNotFound,
-                            ".*Error opening \"n5\" driver: .*"));
+              StatusIs(absl::StatusCode::kNotFound,
+                       HasSubstr("Error opening \"n5\" driver: ")));
 
   // Sublayers are opened on write; they do not exist.
   EXPECT_THAT(tensorstore::Write(tensorstore::MakeOffsetArray(
                                      {-3}, {9, 8, 7, 6, 5, 4, 3, 2, 1}),
                                  store)
                   .result(),
-              MatchesStatus(absl::StatusCode::kNotFound,
-                            ".*Error opening \"n5\" driver: .*"));
+              StatusIs(absl::StatusCode::kNotFound,
+                       HasSubstr("Error opening \"n5\" driver: ")));
 }
 
 TEST(StackDriverTest, Schema_MismatchedDtype) {
@@ -390,17 +393,17 @@ TEST(StackDriverTest, Schema_MismatchedDtype) {
        }},
   };
 
-  EXPECT_THAT(
-      tensorstore::Open(json_spec).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*dtype .int32. does not match existing value .int64.*"));
+  EXPECT_THAT(tensorstore::Open(json_spec).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Specified dtype (int32) does not match "
+                                 "existing value (int64)")));
 
   json_spec.erase("schema");
 
-  EXPECT_THAT(
-      tensorstore::Open(json_spec).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*dtype .int32. does not match existing value .int64.*"));
+  EXPECT_THAT(tensorstore::Open(json_spec).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Specified dtype (int32) does not match "
+                                 "existing value (int64)")));
 }
 
 TEST(StackDriverTest, Schema_MismatchedRank) {
@@ -421,15 +424,17 @@ TEST(StackDriverTest, Schema_MismatchedRank) {
 
   EXPECT_THAT(
       tensorstore::Open(json_spec).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Layer 0: Rank of 2 does not match existing rank of 1"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Layer 0: Rank of 2 does not match existing rank of 1")));
 
   json_spec.erase("schema");
 
   EXPECT_THAT(
       tensorstore::Open(json_spec).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Layer 1: Rank of 1 does not match existing rank of 2"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Layer 1: Rank of 1 does not match existing rank of 2")));
 }
 
 TEST(StackDriverTest, Schema_HasCodec) {
@@ -448,9 +453,10 @@ TEST(StackDriverTest, Schema_HasCodec) {
        }},
   };
 
-  EXPECT_THAT(tensorstore::Open(json_spec).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "codec option not supported by \"stack\" driver"));
+  EXPECT_THAT(
+      tensorstore::Open(json_spec).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("codec option not supported by \"stack\" driver")));
 }
 
 TEST(StackDriverTest, Schema_HasChunkLayout) {
@@ -471,8 +477,9 @@ TEST(StackDriverTest, Schema_HasChunkLayout) {
 
   EXPECT_THAT(
       tensorstore::Open(json_spec).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "chunk layout option not supported by \"stack\" driver"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("chunk layout option not supported by \"stack\" driver")));
 }
 
 TEST(StackDriverTest, Schema_HasFillValue) {
@@ -493,8 +500,9 @@ TEST(StackDriverTest, Schema_HasFillValue) {
 
   EXPECT_THAT(
       tensorstore::Open(json_spec).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "fill value option not supported by \"stack\" driver"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("fill value option not supported by \"stack\" driver")));
 }
 
 TEST(StackDriverTest, HasKvstore) {
@@ -514,8 +522,8 @@ TEST(StackDriverTest, HasKvstore) {
 
   EXPECT_THAT(
       tensorstore::Open(json_spec, kvstore_spec).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "kvstore option not supported by \"stack\" driver"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("kvstore option not supported by \"stack\" driver")));
 }
 
 TEST(StackDriverTest, Schema_DimensionUnitsInSchema) {
@@ -623,8 +631,9 @@ TEST(StackDriverTest, SchemaDomain_MismatchedShape) {
 
   EXPECT_THAT(
       tensorstore::Open(json_spec).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Layer 0: Rank of 1 does not match existing rank of 2"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Layer 0: Rank of 1 does not match existing rank of 2")));
 }
 
 TEST(StackDriverTest, InvalidLayerMappingBug) {
@@ -863,8 +872,8 @@ TEST(StackDriverTest, DomainUnspecified) {
        }},
   };
   EXPECT_THAT(tensorstore::Spec::FromJson(json_spec),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Layer 0: Domain must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 0: Domain must be specified")));
 }
 
 TEST(StackDriverTest, RankMismatch) {
@@ -887,8 +896,9 @@ TEST(StackDriverTest, RankMismatch) {
   };
   EXPECT_THAT(
       tensorstore::Spec::FromJson(json_spec),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Layer 1: Rank of 2 does not match existing rank of 1"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Layer 1: Rank of 2 does not match existing rank of 1")));
 }
 
 // Checks that Context is bound properly to unopened (`Spec`) layers.
@@ -987,19 +997,19 @@ TEST(OverlayTest, Transaction) {
 
   EXPECT_THAT(
       tensorstore::Overlay({(base | txn1).value(), base_spec_shifted}, context),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Layer 1: Transaction mismatch"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Layer 1: Transaction mismatch")));
 
   EXPECT_THAT(
       tensorstore::Overlay({(base | txn1).value(), base_spec_shifted}, context),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Layer 1: Transaction mismatch"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Layer 1: Transaction mismatch")));
 
   EXPECT_THAT(tensorstore::Overlay(
                   {(base | txn1).value(), (base_shifted | txn1).value()},
                   context, txn2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transaction mismatch"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Transaction mismatch")));
 }
 
 TEST(OverlayTest, NoLayers) {
@@ -1098,8 +1108,8 @@ TEST(OverlayTest, ReadWriteMode) {
           {tensorstore::ModeCast(base, ReadWriteMode::read).value(),
            tensorstore::ModeCast(base_shifted, ReadWriteMode::read).value()},
           context, ReadWriteMode::write),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Write mode not supported"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Write mode not supported")));
 }
 
 TEST(OverlayTest, DomainUnspecified) {
@@ -1109,8 +1119,8 @@ TEST(OverlayTest, DomainUnspecified) {
                                    {"kvstore", "memory://"},
                                    {"schema", {{"dtype", "int32"}}}}));
   EXPECT_THAT(tensorstore::Overlay({base_spec}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Layer 0: Domain must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 0: Domain must be specified")));
 }
 
 TEST(OverlayTest, DomainRankMismatch) {
@@ -1126,10 +1136,11 @@ TEST(OverlayTest, DomainRankMismatch) {
           {{"driver", "zarr3"},
            {"kvstore", "memory://"},
            {"schema", {{"dtype", "int32"}, {"domain", {{"shape", {2}}}}}}}));
-  EXPECT_THAT(tensorstore::Overlay({base_spec1, base_spec2}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Layer 1: Layer domain .* of rank 1 does not match "
-                            "layer 0 rank of 2"));
+  EXPECT_THAT(
+      tensorstore::Overlay({base_spec1, base_spec2}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("Layer 1: Layer domain .* of rank 1 does not match "
+                            "layer 0 rank of 2")));
 }
 
 TEST(OverlayTest, Spec) {
@@ -1203,10 +1214,10 @@ TEST(OverlayTest, OpenMode) {
                                              OpenMode::open_or_create));
   EXPECT_THAT(
       tensorstore::Overlay({base, base_shifted}, context, OpenMode::create),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Layer 0: Open mode of create is not compatible with already-open "
-          "layer"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Layer 0: Open mode of create is not compatible with "
+                         "already-open "
+                         "layer")));
 }
 
 TEST(OverlayTest, RecheckCached) {
@@ -1223,16 +1234,18 @@ TEST(OverlayTest, RecheckCached) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_shifted,
                                    base | tensorstore::Dims(0).TranslateBy(5));
   TENSORSTORE_ASSERT_OK(tensorstore::Overlay({base, base_shifted}, context));
-  EXPECT_THAT(tensorstore::Overlay({base, base_shifted}, context,
-                                   tensorstore::RecheckCachedData{false}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Layer 0: Cannot specify cache rechecking options "
-                            "with already-open layer"));
-  EXPECT_THAT(tensorstore::Overlay({base, base_shifted}, context,
-                                   tensorstore::RecheckCachedMetadata{false}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Layer 0: Cannot specify cache rechecking options "
-                            "with already-open layer"));
+  EXPECT_THAT(
+      tensorstore::Overlay({base, base_shifted}, context,
+                           tensorstore::RecheckCachedData{false}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Layer 0: Cannot specify cache rechecking options "
+                         "with already-open layer")));
+  EXPECT_THAT(
+      tensorstore::Overlay({base, base_shifted}, context,
+                           tensorstore::RecheckCachedMetadata{false}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Layer 0: Cannot specify cache rechecking options "
+                         "with already-open layer")));
 }
 
 TEST(OverlayTest, MissingDtype) {
@@ -1242,8 +1255,8 @@ TEST(OverlayTest, MissingDtype) {
                            {"kvstore", "memory://"},
                            {"schema", {{"domain", {{"shape", {5}}}}}}}));
   EXPECT_THAT(tensorstore::Overlay({base_spec}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "dtype must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("dtype must be specified")));
 }
 
 TEST(OverlayTest, DtypeMismatch) {
@@ -1263,9 +1276,9 @@ TEST(OverlayTest, DtypeMismatch) {
       auto base_spec2_shifted,
       base_spec2 | tensorstore::Dims(0).TranslateBy(5));
   EXPECT_THAT(tensorstore::Overlay({base_spec1, base_spec2_shifted}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Layer 1: Layer dtype of int64 does not match "
-                            "existing dtype of int32"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 1: Layer dtype of int64 does not match "
+                                 "existing dtype of int32")));
 }
 
 TEST(StackTest, Basic) {
@@ -1291,9 +1304,10 @@ TEST(StackTest, Basic) {
 }
 
 TEST(StackTest, NoLayers) {
-  EXPECT_THAT(tensorstore::Stack({}, 0),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "At least one layer must be specified for stack"));
+  EXPECT_THAT(
+      tensorstore::Stack({}, 0),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("At least one layer must be specified for stack")));
 }
 
 TEST(StackTest, MaxRank) {
@@ -1306,8 +1320,8 @@ TEST(StackTest, MaxRank) {
             {{"dtype", "int32"},
              {"domain", {{"shape", ::nlohmann::json::array_t(32, 1)}}}}}}));
   EXPECT_THAT(tensorstore::Stack({base_spec, base_spec}, 0),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "stack would exceed maximum rank of 32"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("stack would exceed maximum rank of 32")));
 }
 
 TEST(ConcatTest, Basic) {
@@ -1368,14 +1382,15 @@ TEST(ConcatTest, DimensionLabel) {
   }
 
   EXPECT_THAT(tensorstore::Concat({base_spec, base}, "z", context),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Label \"z\" does not match one of .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Label \"z\" does not match one of ")));
 }
 
 TEST(ConcatTest, NoLayers) {
-  EXPECT_THAT(tensorstore::Concat({}, 0),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "At least one layer must be specified for concat"));
+  EXPECT_THAT(
+      tensorstore::Concat({}, 0),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("At least one layer must be specified for concat")));
 }
 
 // When the concat_dimension is specified as a label, the dimension labels have
@@ -1403,11 +1418,10 @@ TEST(ConcatTest, DimensionLabelMismatch) {
                                           {"shape", {1, 5}},
                                           {"labels", {"x", "z"}},
                                       }}}}}));
-  EXPECT_THAT(
-      tensorstore::Concat({base_spec1, base_spec2}, "x"),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Layer 1: Mismatch in dimension 1: Dimension labels do not match"));
+  EXPECT_THAT(tensorstore::Concat({base_spec1, base_spec2}, "x"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 1: Mismatch in dimension 1: Dimension "
+                                 "labels do not match")));
 }
 
 TEST(StackDriverTest, ConcatBatchRead) {

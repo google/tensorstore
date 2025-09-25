@@ -37,7 +37,8 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::InverseTransform;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(InverseTransformTest, Null) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inv,
@@ -235,39 +236,42 @@ TEST(InverseTransformTest, ErrorNonSingletonUnmappedInputDimension) {
                            .output_identity_transform()
                            .Finalize()
                            .value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Transform is not invertible due to non-singleton "
-                    "input dimension 2 with domain \\(-inf\\*, \\+inf\\*\\) "
-                    "that is not mapped by an output dimension"));
-  EXPECT_THAT(InverseTransform(IndexTransformBuilder(1, 0)
-                                   .input_origin({0})
-                                   .input_shape({2})
-                                   .Finalize()
-                                   .value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transform is not invertible due to non-singleton "
-                            "input dimension 0 with domain \\[0, 2\\) "
-                            "that is not mapped by an output dimension"));
-  EXPECT_THAT(InverseTransform(IndexTransformBuilder(1, 0)
-                                   .input_origin({0})
-                                   .input_shape({1})
-                                   .implicit_lower_bounds({1})
-                                   .Finalize()
-                                   .value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transform is not invertible due to non-singleton "
-                            "input dimension 0 with domain \\[0\\*, 1\\) "
-                            "that is not mapped by an output dimension"));
-  EXPECT_THAT(InverseTransform(IndexTransformBuilder(1, 0)
-                                   .input_origin({0})
-                                   .input_shape({1})
-                                   .implicit_upper_bounds({1})
-                                   .Finalize()
-                                   .value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transform is not invertible due to non-singleton "
-                            "input dimension 0 with domain \\[0, 1\\*\\) "
-                            "that is not mapped by an output dimension"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Transform is not invertible due to non-singleton "
+                         "input dimension 2 with domain (-inf*, +inf*) "
+                         "that is not mapped by an output dimension")));
+  EXPECT_THAT(
+      InverseTransform(IndexTransformBuilder(1, 0)
+                           .input_origin({0})
+                           .input_shape({2})
+                           .Finalize()
+                           .value()),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Transform is not invertible due to non-singleton "
+                         "input dimension 0 with domain [0, 2) "
+                         "that is not mapped by an output dimension")));
+  EXPECT_THAT(
+      InverseTransform(IndexTransformBuilder(1, 0)
+                           .input_origin({0})
+                           .input_shape({1})
+                           .implicit_lower_bounds({1})
+                           .Finalize()
+                           .value()),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Transform is not invertible due to non-singleton "
+                         "input dimension 0 with domain [0*, 1) "
+                         "that is not mapped by an output dimension")));
+  EXPECT_THAT(
+      InverseTransform(IndexTransformBuilder(1, 0)
+                           .input_origin({0})
+                           .input_shape({1})
+                           .implicit_upper_bounds({1})
+                           .Finalize()
+                           .value()),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Transform is not invertible due to non-singleton "
+                         "input dimension 0 with domain [0, 1*) "
+                         "that is not mapped by an output dimension")));
 }
 
 TEST(InverseTransformTest, ConstantMap) {
@@ -300,43 +304,46 @@ TEST(InverseTransformTest, IndexArrayMap) {
                       .output_index_array(0, 0, 1, MakeArray<Index>({0, 1}))
                       .Finalize()
                       .value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transform is not invertible due to "
-                            "index array map for output dimension 0"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Transform is not invertible due to "
+                                 "index array map for output dimension 0")));
 }
 
 TEST(InverseTransformTest, NonUnitStride) {
-  EXPECT_THAT(InverseTransform(IndexTransformBuilder<>(1, 1)
-                                   .output_single_input_dimension(0, 0, 2, 0)
-                                   .Finalize()
-                                   .value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transform is not invertible due to stride of 2 "
-                            "for output dimension 0"));
+  EXPECT_THAT(
+      InverseTransform(IndexTransformBuilder<>(1, 1)
+                           .output_single_input_dimension(0, 0, 2, 0)
+                           .Finalize()
+                           .value()),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Transform is not invertible due to stride of 2 "
+                         "for output dimension 0")));
 }
 
 TEST(InverseTransformTest, Diagonal) {
-  EXPECT_THAT(InverseTransform(IndexTransformBuilder<>(2, 2)
-                                   .output_single_input_dimension(0, 0)
-                                   .output_single_input_dimension(1, 0)
-                                   .Finalize()
-                                   .value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transform is not invertible because input "
-                            "dimension 0 maps to output dimensions 0 and 1"));
+  EXPECT_THAT(
+      InverseTransform(IndexTransformBuilder<>(2, 2)
+                           .output_single_input_dimension(0, 0)
+                           .output_single_input_dimension(1, 0)
+                           .Finalize()
+                           .value()),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Transform is not invertible because input "
+                         "dimension 0 maps to output dimensions 0 and 1")));
 }
 
 TEST(InverseTransformTest, DomainOverflow) {
-  EXPECT_THAT(InverseTransform(
-                  IndexTransformBuilder<>(1, 1)
-                      .input_origin({10})
-                      .input_shape({5})
-                      .output_single_input_dimension(0, kMaxFiniteIndex, 1, 0)
-                      .Finalize()
-                      .value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error inverting map from input dimension 0 -> "
-                            "output dimension 0: Integer overflow .*"));
+  EXPECT_THAT(
+      InverseTransform(
+          IndexTransformBuilder<>(1, 1)
+              .input_origin({10})
+              .input_shape({5})
+              .output_single_input_dimension(0, kMaxFiniteIndex, 1, 0)
+              .Finalize()
+              .value()),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error inverting map from input dimension 0 -> "
+                         "output dimension 0: Integer overflow")));
 }
 
 TEST(InverseTransformTest, OffsetOverflow) {
@@ -346,9 +353,10 @@ TEST(InverseTransformTest, OffsetOverflow) {
                                0, std::numeric_limits<Index>::min(), 1, 0)
                            .Finalize()
                            .value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Integer overflow occurred while inverting map from input "
-                    "dimension 0 -> output dimension 0"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Integer overflow occurred while inverting map from input "
+                    "dimension 0 -> output dimension 0")));
 }
 
 TEST(InverseTransformTest, RandomFromOutputSpace) {

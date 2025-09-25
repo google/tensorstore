@@ -35,6 +35,7 @@
 #include "tensorstore/driver/read.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/global_initializer.h"
@@ -62,9 +63,9 @@ using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::ReadWriteMode;
 using ::tensorstore::Spec;
+using ::tensorstore::StatusIs;
 using ::tensorstore::TensorStore;
 using ::tensorstore::internal::CollectReadChunks;
 using ::tensorstore::internal::MakeArrayBackedReadChunk;
@@ -72,6 +73,7 @@ using ::tensorstore::internal::MockDriver;
 using ::tensorstore::internal::ReadAsIndividualChunks;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::testing::HasSubstr;
 using ::testing::Optional;
 using ::testing::Pair;
 
@@ -266,7 +268,7 @@ TEST(DownsampleTest, JsonSpecErrorMissingBase) {
                             {"downsample_method", "mean"},
                         })
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"base\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"base\"")));
 }
 
 TEST(DownsampleTest, JsonSpecErrorMissingDownsampleFactors) {
@@ -281,8 +283,8 @@ TEST(DownsampleTest, JsonSpecErrorMissingDownsampleFactors) {
                                     {"downsample_method", "mean"},
                                 })
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*\"downsample_factors\".*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"downsample_factors\"")));
 }
 
 TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsInvalidRank) {
@@ -291,15 +293,18 @@ TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsInvalidRank) {
       {"dtype", "float32"},
       {"array", {1, 2, 3, 4}},
   };
-  EXPECT_THAT(tensorstore::Open({
-                                    {"driver", "downsample"},
-                                    {"base", base_spec},
-                                    {"downsample_method", "mean"},
-                                    {"downsample_factors", {2, 3}},
-                                })
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*\"downsample_factors\": .*rank.*"));
+  EXPECT_THAT(
+      tensorstore::Open({
+                            {"driver", "downsample"},
+                            {"base", base_spec},
+                            {"downsample_method", "mean"},
+                            {"downsample_factors", {2, 3}},
+                        })
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               ::testing::AllOf(
+                   HasSubstr("\"downsample_factors\""),
+                   HasSubstr("Rank specified by rank (2) does not match"))));
 }
 
 TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsZero) {
@@ -316,8 +321,10 @@ TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsZero) {
                             {"downsample_factors", {0}},
                         })
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*\"downsample_factors\":.*Expected .*, but received: 0"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               ::testing::AllOf(HasSubstr("\"downsample_factors\""),
+                                HasSubstr("Error parsing value at position 0"),
+                                HasSubstr("Expected integer in the range"))));
 }
 
 TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsNegative) {
@@ -333,9 +340,9 @@ TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsNegative) {
                                     {"downsample_factors", {-2}},
                                 })
                   .result(),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  ".*\"downsample_factors\":.*Expected .*, but received: -2"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::AllOf(HasSubstr("\"downsample_factors\""),
+                                        HasSubstr("received: -2"))));
 }
 
 TEST(DownsampleTest, JsonSpecErrorMissingDownsampleMethod) {
@@ -350,8 +357,8 @@ TEST(DownsampleTest, JsonSpecErrorMissingDownsampleMethod) {
                                     {"downsample_factors", {2}},
                                 })
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*\"downsample_method\".*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"downsample_method\"")));
 }
 
 TEST(DownsampleTest, JsonSpecErrorInvalidDownsampleMethod) {
@@ -367,8 +374,9 @@ TEST(DownsampleTest, JsonSpecErrorInvalidDownsampleMethod) {
                                     {"downsample_method", 42},
                                 })
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*\"downsample_method\".*42.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::AllOf(HasSubstr("\"downsample_method\""),
+                                        HasSubstr("received: 42"))));
 }
 
 TEST(DownsampleTest, ErrorOpenWriteOnly) {
@@ -388,8 +396,8 @@ TEST(DownsampleTest, ErrorOpenWriteOnly) {
                     },
                     mode)
                     .result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*: only reading is supported"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("only reading is supported")));
   }
 }
 
@@ -398,16 +406,17 @@ TEST(DownsampleTest, AdapterErrorNegativeDownsampleFactor) {
       auto store, tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
   EXPECT_THAT(
       tensorstore::Downsample(store, {-2}, DownsampleMethod::kMean),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Downsample factors \\{-2\\} are not all positive"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Downsample factors {-2} are not all positive")));
 }
 
 TEST(DownsampleTest, AdapterErrorZeroDownsampleFactor) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
-  EXPECT_THAT(tensorstore::Downsample(store, {0}, DownsampleMethod::kMean),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Downsample factors \\{0\\} are not all positive"));
+  EXPECT_THAT(
+      tensorstore::Downsample(store, {0}, DownsampleMethod::kMean),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Downsample factors {0} are not all positive")));
 }
 
 TEST(DownsampleTest, AdapterErrorDownsampleFactorsRankMismatch) {
@@ -416,9 +425,9 @@ TEST(DownsampleTest, AdapterErrorDownsampleFactorsRankMismatch) {
       tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
   EXPECT_THAT(
       tensorstore::Downsample(store, {2, 2}, DownsampleMethod::kMean),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Number of downsample factors \\(2\\) does not match "
-                    "TensorStore rank \\(1\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Number of downsample factors (2) does not match "
+                         "TensorStore rank (1)")));
 }
 
 TEST(DownsampleTest, AdapterErrorDataType) {
@@ -428,9 +437,9 @@ TEST(DownsampleTest, AdapterErrorDataType) {
   TENSORSTORE_EXPECT_OK(
       tensorstore::Downsample(store, {2}, DownsampleMethod::kStride));
   EXPECT_THAT(tensorstore::Downsample(store, {2}, DownsampleMethod::kMean),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Downsample method \"mean\" does not support "
-                            "data type \"string\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Downsample method \"mean\" does not support "
+                                 "data type \"string\"")));
 }
 
 TEST(DownsampleTest, AdapterErrorWriteOnly) {
@@ -440,8 +449,8 @@ TEST(DownsampleTest, AdapterErrorWriteOnly) {
   store = tensorstore::ModeCast<ReadWriteMode::write, tensorstore::unchecked>(
       std::move(store));
   EXPECT_THAT(tensorstore::Downsample(store, {2}, DownsampleMethod::kMean),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot downsample write-only TensorStore"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot downsample write-only TensorStore")));
 }
 
 // Tests that a read error from the base TensorStore is handled correctly.
@@ -461,7 +470,7 @@ TEST(DownsampleTest, ReadError) {
         absl::UnknownError("read error"));
   }
   EXPECT_THAT(read_future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "read error"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("read error")));
 }
 
 TEST(DownsampleTest, CancelRead) {
@@ -533,7 +542,7 @@ TEST(DownsampleTest, EmptyChunk) {
         absl::UnknownError("read error"));
   }
   EXPECT_THAT(read_future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "read error"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("read error")));
 }
 
 // Tests reading part of a `ReadChunk` returned by the downsample driver using
@@ -617,11 +626,10 @@ TEST(DownsampleTest, ConvertError) {
                         })
           .result());
   auto dest = tensorstore::MakeArray<uint8_t>({0, 0});
-  EXPECT_THAT(
-      tensorstore::Read(downsampled_store, dest).result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Expected integer in the range \\[0, 255\\], but received: \"abc\""));
+  EXPECT_THAT(tensorstore::Read(downsampled_store, dest).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected integer in the range [0, 255], but "
+                                 "received: \"abc\"")));
   EXPECT_EQ(dest, MakeArray<uint8_t>({0, 0}));
 }
 

@@ -32,12 +32,13 @@ using ::tensorstore::dtype_v;
 using ::tensorstore::ElementPointer;
 using ::tensorstore::ElementTagTraits;
 using ::tensorstore::IsElementTag;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::PointerElementTag;
 using ::tensorstore::Result;
 using ::tensorstore::Shared;
 using ::tensorstore::SharedElementPointer;
 using ::tensorstore::StaticDataTypeCast;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 static_assert(IsElementTag<int>);
 static_assert(IsElementTag<void>);
@@ -301,16 +302,18 @@ TEST(ElementPointerTest, DynamicType) {
 
 TEST(ElementPointerTest, StaticDataTypeCast) {
   float value;
-  EXPECT_THAT(StaticDataTypeCast<int32_t>(ElementPointer<void>(&value)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot cast pointer with data type of float32 to "
-                            "pointer with data type of int32"));
+  EXPECT_THAT(
+      StaticDataTypeCast<int32_t>(ElementPointer<void>(&value)),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot cast pointer with data type of float32 to "
+                         "pointer with data type of int32")));
 
-  EXPECT_THAT(StaticDataTypeCast<int32_t>(
-                  SharedElementPointer<void>(std::make_shared<float>())),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot cast pointer with data type of float32 to "
-                            "pointer with data type of int32"));
+  EXPECT_THAT(
+      StaticDataTypeCast<int32_t>(
+          SharedElementPointer<void>(std::make_shared<float>())),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot cast pointer with data type of float32 to "
+                         "pointer with data type of int32")));
 }
 
 TEST(SharedElementPointerTest, StaticType) {

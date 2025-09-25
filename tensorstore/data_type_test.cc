@@ -47,13 +47,14 @@ using ::tensorstore::EqualityComparisonKind;
 using ::tensorstore::Index;
 using ::tensorstore::IsElementType;
 using ::tensorstore::IsTrivial;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StaticDataTypeCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::unchecked;
 using ::tensorstore::internal::IterationBufferKind;
 using ::tensorstore::internal::IterationBufferPointer;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+using ::testing::HasSubstr;
 
 #define X(T, ...)                                           \
   using ::tensorstore::dtypes::T;                           \
@@ -532,8 +533,9 @@ TEST(DataTypeCastTest, Basic) {
               ::testing::Optional(dtype_v<int>));
   EXPECT_THAT(
       StaticDataTypeCast<int32_t>(DataType(dtype_v<float>)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast data type of float32 to data type of int32"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast data type of float32 to data type of int32")));
 }
 
 static_assert(DataTypeIdOf<int> == DataTypeIdOf<int32_t>);
@@ -565,8 +567,8 @@ TEST(SerializationTest, Valid) {
 
 TEST(SerializationTest, Invalid) {
   EXPECT_THAT(SerializationRoundTrip(DataType(dtype_v<X>)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot serialize custom data type: .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot serialize custom data type:")));
 }
 
 static_assert(IsTrivial<bool>);

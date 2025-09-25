@@ -44,11 +44,12 @@ namespace {
 using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Shared;
 using ::tensorstore::SharedArray;
+using ::tensorstore::StatusIs;
 using ::tensorstore::TransformedArray;
 using ::tensorstore::internal::GetDataTypeConverter;
+using ::testing::HasSubstr;
 using ::testing::Pair;
 
 using ::tensorstore::dtypes::json_t;
@@ -113,7 +114,7 @@ TEST_P(NDIterableDataTypeConversionTest, Int32ToString) {
 TEST_P(NDIterableDataTypeConversionTest, JsonToString) {
   EXPECT_THAT(
       Convert(MakeArray<json_t>({"hello", "world", 3}), dtype_v<string_t>),
-      Pair(MatchesStatus(absl::StatusCode::kInvalidArgument,
-                         "Expected string, but received: 3"),
+      Pair(StatusIs(absl::StatusCode::kInvalidArgument,
+                    HasSubstr("Expected string, but received: 3")),
            MakeArray<string_t>({"hello", "world", ""})));
 }

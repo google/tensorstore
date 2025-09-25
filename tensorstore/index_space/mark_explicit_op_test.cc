@@ -17,6 +17,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -216,8 +217,9 @@ TEST(UnsafeMarkBoundsImplicitTest, IndexArrayInvalid) {
           .value(),
       Dims(1).UnsafeMarkBoundsImplicit(/*lower=*/false, /*upper=*/true),
       absl::StatusCode::kInvalidArgument,
-      "Cannot mark input dimension 1 as having implicit bounds because it "
-      "indexes the index array map for output dimension 0",
+      testing::HasSubstr(
+          "Cannot mark input dimension 1 as having implicit bounds because it "
+          "indexes the index array map for output dimension 0"),
       /*expected_domain=*/
       IndexDomainBuilder(2)
           .shape({2, 3})

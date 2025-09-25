@@ -61,17 +61,19 @@ using ::tensorstore::DimensionIndex;
 using ::tensorstore::DimensionUnitsVector;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::OpenMode;
 using ::tensorstore::ReadProgress;
 using ::tensorstore::ReadProgressFunction;
 using ::tensorstore::ReadWriteMode;
 using ::tensorstore::SharedArray;
+using ::tensorstore::StatusIs;
 using ::tensorstore::TensorStore;
 using ::tensorstore::WriteProgress;
 using ::tensorstore::WriteProgressFunction;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 constexpr const char kMismatchRE[] = ".* mismatch with target dimension .*";
 constexpr const char kOutsideValidRangeRE[] = ".* is outside valid range .*";
@@ -174,8 +176,8 @@ TEST(FromArrayTest, ReadDomainMismatch) {
            ReadProgressFunction{[&read_progress](ReadProgress progress) {
              read_progress.push_back(progress);
            }});
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kInvalidArgument,
+                                        MatchesRegex(kMismatchRE)));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
 
@@ -194,8 +196,8 @@ TEST(FromArrayTest, ReadCopyTransformError) {
       }});
   // Error occurs due to the invalid index of 1 in the index array, which is
   // validated when copying from the ReadChunk to the target array.
-  EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kOutOfRange,
-                                             kOutsideValidRangeRE));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kOutOfRange,
+                                        MatchesRegex(kOutsideValidRangeRE)));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
 
@@ -244,10 +246,12 @@ TEST(FromArrayTest, WriteDomainMismatch) {
       WriteProgressFunction{[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
-  EXPECT_THAT(write_result.copy_future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_THAT(write_result.commit_future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
+  EXPECT_THAT(
+      write_result.copy_future.result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, MatchesRegex(kMismatchRE)));
+  EXPECT_THAT(
+      write_result.commit_future.result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, MatchesRegex(kMismatchRE)));
   EXPECT_THAT(write_progress, ::testing::ElementsAre());
 }
 
@@ -303,8 +307,9 @@ TEST(FromArrayTest, CopyDomainMismatch) {
       store_a, store_b, CopyProgressFunction{[&progress](CopyProgress p) {
         progress.push_back(p);
       }});
-  EXPECT_THAT(write_result.copy_future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
+  EXPECT_THAT(
+      write_result.copy_future.result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, MatchesRegex(kMismatchRE)));
   EXPECT_EQ(write_result.copy_future.status(),
             write_result.commit_future.status());
   EXPECT_THAT(progress, ::testing::ElementsAre());
@@ -323,11 +328,10 @@ TEST(FromArrayTest, ReadInvalidDataTypeConversion) {
       tensorstore::MakeArray<int32_t>({1, 2, 3});
   tensorstore::SharedArray<void> dest =
       tensorstore::AllocateArray<int16_t>({3});
-  EXPECT_THAT(
-      tensorstore::Read(tensorstore::FromArray(source), dest).result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Explicit data type conversion required to convert int32 -> int16"));
+  EXPECT_THAT(tensorstore::Read(tensorstore::FromArray(source), dest).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Explicit data type conversion required to "
+                                 "convert int32 -> int16")));
 }
 
 TEST(FromArrayTest, WriteDataTypeConversion) {
@@ -343,12 +347,11 @@ TEST(FromArrayTest, WriteInvalidDataTypeConversion) {
       tensorstore::MakeArray<int32_t>({1, 2, 3});
   tensorstore::SharedArray<void> dest =
       tensorstore::AllocateArray<int16_t>({3});
-  EXPECT_THAT(
-      tensorstore::Write(source, tensorstore::FromArray(dest))
-          .commit_future.result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Explicit data type conversion required to convert int32 -> int16"));
+  EXPECT_THAT(tensorstore::Write(source, tensorstore::FromArray(dest))
+                  .commit_future.result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Explicit data type conversion required to "
+                                 "convert int32 -> int16")));
 }
 
 TEST(FromArrayTest, CopyDataTypeConversion) {
@@ -364,13 +367,12 @@ TEST(FromArrayTest, CopyInvalidDataTypeConversion) {
       tensorstore::MakeArray<int32_t>({1, 2, 3});
   tensorstore::SharedArray<void> dest =
       tensorstore::AllocateArray<int16_t>({3});
-  EXPECT_THAT(
-      tensorstore::Copy(tensorstore::FromArray(source),
-                        tensorstore::FromArray(dest))
-          .commit_future.result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Explicit data type conversion required to convert int32 -> int16"));
+  EXPECT_THAT(tensorstore::Copy(tensorstore::FromArray(source),
+                                tensorstore::FromArray(dest))
+                  .commit_future.result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Explicit data type conversion required to "
+                                 "convert int32 -> int16")));
 }
 
 TEST(FromArrayTest, ChunkLayoutCOrder) {
@@ -485,14 +487,15 @@ TEST(OpenTest, RoundtripDimensionUnits) {
 }
 
 TEST(OpenTest, InvalidConversion) {
-  EXPECT_THAT(tensorstore::Open({
-                                    {"driver", "array"},
-                                    {"array", {"a"}},
-                                    {"dtype", "int32"},
-                                })
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Expected integer .*, but received: \"a\""));
+  EXPECT_THAT(
+      tensorstore::Open({
+                            {"driver", "array"},
+                            {"array", {"a"}},
+                            {"dtype", "int32"},
+                        })
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex(".*: Expected integer .*, but received: \"a\"")));
 }
 
 // Tests that ArrayBackend::spec handles complicated index transforms properly.
@@ -541,10 +544,10 @@ TEST(FromArrayTest, Rank0) {
 }
 
 TEST(FromArrayTest, InvalidArray) {
-  EXPECT_THAT(
-      tensorstore::FromArray(
-          SharedArray<float, 0>(std::shared_ptr<float>(nullptr))),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Array is not valid"));
+  EXPECT_THAT(tensorstore::FromArray(
+                  SharedArray<float, 0>(std::shared_ptr<float>(nullptr))),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Array is not valid")));
 }
 
 TEST(OpenTest, MissingArray) {
@@ -555,10 +558,10 @@ TEST(OpenTest, MissingArray) {
                             {"transform", {{"input_rank", 0}}},
                         })
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing object member \"array\": Error parsing "
-                    "array element at position [{][}]: Expected 64-bit "
-                    "floating-point number, but member is missing"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"array\": Error parsing "
+                         "array element at position {}: Expected 64-bit "
+                         "floating-point number, but member is missing")));
 }
 
 TEST(OpenTest, MissingDataType) {
@@ -567,26 +570,26 @@ TEST(OpenTest, MissingDataType) {
                                     {"array", {{1, 2, 3}, {4, 5, 6}}},
                                 })
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "dtype must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("dtype must be specified")));
 }
 
 TEST(OpenTest, InvalidTransformRank) {
-  EXPECT_THAT(tensorstore::Open({
-                                    {"driver", "array"},
-                                    {"array", {{1, 2, 3}, {4, 5, 6}}},
-                                    {"dtype", "int32"},
-                                    {"transform",
-                                     {
-                                         {"input_inclusive_min", {1, 3, 0}},
-                                         {"input_exclusive_max", {3, 6, 3}},
-                                     }},
-                                })
-                  .result(),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Error parsing object member \"array\": "
-                  "Array rank \\(2\\)\\ does not match expected rank \\(3\\)"));
+  EXPECT_THAT(
+      tensorstore::Open({
+                            {"driver", "array"},
+                            {"array", {{1, 2, 3}, {4, 5, 6}}},
+                            {"dtype", "int32"},
+                            {"transform",
+                             {
+                                 {"input_inclusive_min", {1, 3, 0}},
+                                 {"input_exclusive_max", {3, 6, 3}},
+                             }},
+                        })
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"array\": "
+                         "Array rank (2) does not match expected rank (3)")));
 }
 
 TEST(OpenTest, InvalidRank) {
@@ -598,22 +601,23 @@ TEST(OpenTest, InvalidRank) {
                             {"rank", 3},
                         })
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing object member \"array\": "
-                    "Array rank \\(2\\) does not match expected rank \\(3\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"array\": "
+                         "Array rank (2) does not match expected rank (3)")));
 }
 
 TEST(OpenTest, InvalidRank0) {
-  EXPECT_THAT(tensorstore::Open({
-                                    {"driver", "array"},
-                                    {"dtype", "float32"},
-                                    {"array", ::nlohmann::json::array_t{}},
-                                    {"transform", {{"input_rank", 0}}},
-                                })
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"array\": Array rank "
-                            ".1. does not match expected rank .0."));
+  EXPECT_THAT(
+      tensorstore::Open({
+                            {"driver", "array"},
+                            {"dtype", "float32"},
+                            {"array", ::nlohmann::json::array_t{}},
+                            {"transform", {{"input_rank", 0}}},
+                        })
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"array\": Array rank "
+                         "(1) does not match expected rank (0)")));
 }
 
 // Tests that copying from an array driver to itself does not lead to deadlock.

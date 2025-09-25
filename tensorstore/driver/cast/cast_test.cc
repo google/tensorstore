@@ -57,7 +57,6 @@ using ::tensorstore::DimensionIndex;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::ReadWriteMode;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
@@ -69,6 +68,7 @@ using ::tensorstore::internal::GetCastMode;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
+using ::testing::HasSubstr;
 
 #ifndef _MSC_VER
 // This test if an expression is constexpr does not work on MSVC in optimized
@@ -366,10 +366,9 @@ TEST(CastTest, OpenInputConversionError) {
             {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}},
           tensorstore::ReadWriteMode::read)
           .result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Error opening \"cast\" driver: "
-          "Read access requires unsupported int32 -> byte conversion"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Error opening \"cast\" driver: "
+               "Read access requires unsupported int32 -> byte conversion"));
 }
 
 TEST(CastTest, OpenOutputConversionError) {
@@ -381,10 +380,9 @@ TEST(CastTest, OpenOutputConversionError) {
             {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}},
           tensorstore::ReadWriteMode::write)
           .result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Error opening \"cast\" driver: "
-          "Write access requires unsupported byte -> int32 conversion"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Error opening \"cast\" driver: "
+               "Write access requires unsupported byte -> int32 conversion"));
 }
 
 TEST(CastTest, OpenAnyConversionError) {
@@ -395,9 +393,9 @@ TEST(CastTest, OpenAnyConversionError) {
            {"base",
             {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}})
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error opening \"cast\" driver: "
-                    "Cannot convert int32 <-> byte"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error opening \"cast\" driver: "
+                         "Cannot convert int32 <-> byte")));
 }
 
 TEST(CastTest, OpenMissingDataType) {
@@ -407,8 +405,8 @@ TEST(CastTest, OpenMissingDataType) {
            {"base",
             {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}})
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: dtype must be specified"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("dtype must be specified")));
 }
 
 TEST(CastTest, ComposeTransforms) {
@@ -460,10 +458,10 @@ TEST(CastTest, ComposeTransformsError) {
                                    {"rank", 1},
                                    {"dtype", "int32"}}}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"base\": "
-                            "Error parsing object member \"rank\": "
-                            "Expected 2, but received: 1"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"base\": "
+                                 "Error parsing object member \"rank\": "
+                                 "Expected 2, but received: 1")));
 }
 
 TEST(CastTest, SpecRankPropagation) {

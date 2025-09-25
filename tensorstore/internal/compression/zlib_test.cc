@@ -28,7 +28,6 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 
 namespace zlib = tensorstore::zlib;

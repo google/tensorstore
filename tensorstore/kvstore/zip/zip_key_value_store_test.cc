@@ -47,10 +47,10 @@ namespace {
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::KvStore;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::testing::HasSubstr;
 
 // "key" = "abcdefghijklmnop"
 static constexpr unsigned char kReadOpZip[] = {
@@ -242,10 +242,11 @@ TEST_F(ZipKeyValueStoreTest, NormalizeUrl) {
 }
 
 TEST(UrlTest, NoRootKvStore) {
-  EXPECT_THAT(kvstore::Spec::FromJson("zip:abc"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*\"zip\" is a kvstore adapter URL scheme: "
-                            "unsupported URL scheme \"zip\" in \"zip:abc\""));
+  EXPECT_THAT(
+      kvstore::Spec::FromJson("zip:abc"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"zip\" is a kvstore adapter URL scheme: "
+                         "unsupported URL scheme \"zip\" in \"zip:abc\"")));
 }
 
 }  // namespace

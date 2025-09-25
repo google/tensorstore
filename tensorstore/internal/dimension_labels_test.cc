@@ -24,8 +24,10 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::ValidateDimensionLabelsAreUnique;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(ValidateDimensionLabelsAreUniqueTest, Basic) {
   TENSORSTORE_EXPECT_OK(ValidateDimensionLabelsAreUnique(
@@ -38,12 +40,12 @@ TEST(ValidateDimensionLabelsAreUniqueTest, Basic) {
       ValidateDimensionLabelsAreUnique(std::vector<std::string>{}));
   EXPECT_THAT(ValidateDimensionLabelsAreUnique(
                   std::vector<std::string>{"a", "b", "c", "a"}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Dimension label.* \"a\" not unique"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Dimension label.* \"a\" not unique")));
   EXPECT_THAT(ValidateDimensionLabelsAreUnique(
                   std::vector<std::string>{"a", "b", "c", "b"}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Dimension label.* \"b\" not unique"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Dimension label.* \"b\" not unique")));
 }
 
 }  // namespace

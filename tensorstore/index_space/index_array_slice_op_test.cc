@@ -16,12 +16,21 @@
 /// DimExpression::IndexVectorArraySlice(index_vector_array), and
 /// DimExpression::OuterIndexArraySlice(index_array...) operations.
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 
 namespace {
 
@@ -415,8 +424,8 @@ TEST(IndexArraySliceTest, ErrorHandling) {
       Dims(span<const DimensionIndex>({0}))
           .IndexArraySlice(MakeArray<Index>({1, 2}), MakeArray<Index>({3, 4})),
       absl::StatusCode::kInvalidArgument,
-      "Number of selected dimensions \\(1\\) does not equal number of index "
-      "arrays \\(2\\)");
+      testing::HasSubstr("Number of selected dimensions (1) does not equal "
+                         "number of index arrays (2)"));
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 0>().Finalize().value(),
@@ -429,17 +438,17 @@ TEST(IndexArraySliceTest, ErrorHandling) {
       Dims(0, 1).IndexArraySlice(MakeArray<Index>({1, 2}),
                                  MakeArray<Index>({3, 4, 5})),
       absl::StatusCode::kInvalidArgument,
-      "Index arrays with shapes \\{2\\}, \\{3\\} cannot be broadcast "
-      "to a common shape");
+      testing::HasSubstr("Index arrays with shapes {2}, {3} cannot be "
+                         "broadcast to a common shape"));
 }
 
 TEST(IndexArraySliceTest, InvalidRank) {
   auto index_array = tensorstore::AllocateArray<Index>(
       std::vector<Index>(32, 1), tensorstore::c_order, tensorstore::value_init);
-  TestDimExpressionError(tensorstore::IdentityTransform(2),
-                         Dims(0).IndexArraySlice(index_array),
-                         absl::StatusCode::kInvalidArgument,
-                         "Rank 33 is outside valid range \\[0, 32\\]");
+  TestDimExpressionError(
+      tensorstore::IdentityTransform(2), Dims(0).IndexArraySlice(index_array),
+      absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Rank 33 is outside valid range [0, 32]"));
 }
 
 TEST(IndexVectorArraySliceTest, OneDOutputOneDArray) {
@@ -596,14 +605,14 @@ TEST(IndexVectorArraySliceTest, ErrorHandling) {
       IndexTransformBuilder<2, 0>().Finalize().value(),
       Dims(0).IndexVectorArraySlice(MakeArray<Index>({1, 2}), 0),
       absl::StatusCode::kInvalidArgument,
-      "Number of selected dimensions \\(1\\) does not equal index vector "
-      "length \\(2\\)");
+      "Number of selected dimensions (1) does not equal index vector "
+      "length (2)");
 
   TestDimExpressionError(
       IndexTransformBuilder<2, 0>().Finalize().value(),
       Dims(0).IndexVectorArraySlice(MakeArray<Index>({1, 2}), 1),
       absl::StatusCode::kInvalidArgument,
-      "Dimension index 1 is outside valid range \\[-1, 1\\)");
+      "Dimension index 1 is outside valid range [-1, 1)");
 }
 
 TEST(IndexVectorArraySliceTest, InvalidRank) {
@@ -618,7 +627,7 @@ TEST(IndexVectorArraySliceTest, InvalidRank) {
                                             tensorstore::default_init),
           -1),
       absl::StatusCode::kInvalidArgument,
-      "Rank 33 is outside valid range \\[0, 32\\]");
+      "Rank 33 is outside valid range [0, 32]");
 }
 
 TEST(OuterIndexArraySliceTest, Integration) {
@@ -726,8 +735,9 @@ TEST(OuterIndexArraySliceTest, ErrorHandling) {
           .OuterIndexArraySlice(MakeArray<Index>({1, 2}),
                                 MakeArray<Index>({3, 4})),
       absl::StatusCode::kInvalidArgument,
-      "Number of selected dimensions \\(1\\) does not equal number of index "
-      "arrays \\(2\\)");
+      testing::HasSubstr(
+          "Number of selected dimensions (1) does not equal number of index "
+          "arrays (2)"));
 }
 
 TEST(OuterIndexArraySliceTest, InvalidRank) {
@@ -737,7 +747,7 @@ TEST(OuterIndexArraySliceTest, InvalidRank) {
       tensorstore::IdentityTransform(2),
       Dims(0, 1).OuterIndexArraySlice(index_array, index_array),
       absl::StatusCode::kInvalidArgument,
-      "Rank 34 is outside valid range \\[0, 32\\]");
+      testing::HasSubstr("Rank 34 is outside valid range [0, 32]"));
 }
 
 }  // namespace

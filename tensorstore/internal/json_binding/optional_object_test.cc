@@ -26,7 +26,8 @@ namespace jb = tensorstore::internal_json_binding;
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(JsonBindingTest, RoundTrip) {
   tensorstore::TestJsonBinderRoundTrip<::nlohmann::json::object_t>(
@@ -40,8 +41,9 @@ TEST(JsonBindingTest, RoundTrip) {
 TEST(JsonBindingTest, Invalid) {
   tensorstore::TestJsonBinderFromJson<::nlohmann::json::object_t>(
       {
-          {"abc", MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                "Expected object, but received: \"abc\"")},
+          {"abc",
+           StatusIs(absl::StatusCode::kInvalidArgument,
+                    HasSubstr("Expected object, but received: \"abc\""))},
       },
       jb::OptionalObject(jb::DefaultBinder<>));
 }

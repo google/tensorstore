@@ -22,8 +22,9 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_n5::Compressor;
+using ::testing::HasSubstr;
 
 absl::Cord GetInput() {
   return absl::Cord(
@@ -93,17 +94,17 @@ TEST(ZstdCompressorTest, Level22) {
 // Tests that an invalid parameter gives an error.
 TEST(ZstdCompressorTest, InvalidParameter) {
   EXPECT_THAT(Compressor::FromJson({{"type", "zstd"}, {"level", "6"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"level\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"level\": ")));
   EXPECT_THAT(Compressor::FromJson({{"type", "zstd"}, {"level", -131073}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"level\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"level\": ")));
   EXPECT_THAT(Compressor::FromJson({{"type", "zstd"}, {"level", 23}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"level\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"level\": ")));
   EXPECT_THAT(Compressor::FromJson({{"type", "zstd"}, {"foo", 10}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Object includes extra members: \"foo\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Object includes extra members: \"foo\"")));
 }
 
 TEST(ZstdCompressorTest, ToJson) {

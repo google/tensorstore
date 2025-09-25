@@ -32,10 +32,12 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
+namespace {
+
 using ::tensorstore::Future;
 using ::tensorstore::IsOkAndHolds;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_kvstore::GetAdapterSpecFromUrl;
 using ::tensorstore::internal_kvstore::GetRootSpecFromUrl;
 using ::tensorstore::kvstore::DriverPtr;
@@ -43,8 +45,8 @@ using ::tensorstore::kvstore::DriverSpec;
 using ::tensorstore::kvstore::DriverSpecPtr;
 using ::tensorstore::kvstore::Spec;
 using ::testing::_;
-
-namespace {
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 struct TestSpec : public DriverSpec {
  public:
@@ -102,20 +104,21 @@ const tensorstore::internal_kvstore::UrlSchemeRegistration
 
 TEST(UrlRegistryTest, RootHandlerErrors) {
   EXPECT_THAT(GetRootSpecFromUrl(""),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*URL must be non-empty.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("URL must be non-empty")));
 
   EXPECT_THAT(GetRootSpecFromUrl("no_colon"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*URL scheme must be specified.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("URL scheme must be specified")));
 
   EXPECT_THAT(GetRootSpecFromUrl("unregistered_scheme://foo"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*unsupported URL scheme.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("unsupported URL scheme")));
 
-  EXPECT_THAT(GetRootSpecFromUrl("root_handler://root_error"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid kvstore URL component.*roothandler.*"));
+  EXPECT_THAT(
+      GetRootSpecFromUrl("root_handler://root_error"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("Invalid kvstore URL component.*roothandler")));
 }
 
 TEST(UrlRegistryTest, RootHandlerOk) {
@@ -124,22 +127,22 @@ TEST(UrlRegistryTest, RootHandlerOk) {
 
 TEST(UrlRegistryTest, AdapterHandlerErrors) {
   EXPECT_THAT(GetAdapterSpecFromUrl("", Spec()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*URL must be non-empty.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("URL must be non-empty")));
 
   EXPECT_THAT(GetAdapterSpecFromUrl("unregistered_scheme", Spec()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*unsupported URL scheme.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("unsupported URL scheme")));
   EXPECT_THAT(GetAdapterSpecFromUrl("adapter_handler:", Spec()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid kvstore URL component.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid kvstore URL component")));
 
   EXPECT_THAT(
       GetAdapterSpecFromUrl(
           "adapter_handler:adapter_error",
           Spec(tensorstore::internal::MakeIntrusivePtr<TestSpec>())),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*Invalid kvstore URL component.*adapterhandler.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("Invalid kvstore URL component.*adapterhandler")));
 }
 
 TEST(UrlRegistryTest, AdapterHandlerOk) {
@@ -158,27 +161,29 @@ TEST(UrlRegistryTest, AdapterHandlerOk) {
 }
 
 TEST(UrlRegistryTest, SpecFromUrlErrors) {
-  EXPECT_THAT(Spec::FromUrl(""),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*URL must be non-empty.*"));
+  EXPECT_THAT(Spec::FromUrl(""), StatusIs(absl::StatusCode::kInvalidArgument,
+                                          HasSubstr("URL must be non-empty")));
 
   EXPECT_THAT(Spec::FromUrl("root_handler"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*URL scheme must be specified.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("URL scheme must be specified")));
 
-  EXPECT_THAT(Spec::FromUrl("root_handler://root_error"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid kvstore URL component.*roothandler.*"));
+  EXPECT_THAT(
+      Spec::FromUrl("root_handler://root_error"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               testing::AllOf(HasSubstr("Invalid kvstore URL component"),
+                              HasSubstr("roothandler"))));
 
   EXPECT_THAT(Spec::FromUrl("root_handler:||"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*URL must be non-empty.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("URL must be non-empty")));
 
   EXPECT_THAT(
       Spec::FromUrl(
           "root_handler:|adapter_handler|adapter_handler:adapter_error"),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*Invalid kvstore URL component.*adapterhandler.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               testing::AllOf(HasSubstr("Invalid kvstore URL component"),
+                              HasSubstr("adapterhandler"))));
 }
 
 TEST(UrlRegistryTest, SpecFromUrlOk) {

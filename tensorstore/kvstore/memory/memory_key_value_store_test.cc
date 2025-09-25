@@ -41,12 +41,12 @@ namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::serialization::SerializationRoundTrip;
+using ::testing::HasSubstr;
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   {
@@ -288,14 +288,14 @@ TEST(MemoryKeyValueStoreTest, UrlRoundtrip) {
 
 TEST(MemoryKeyValueStoreTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("memory://abc?query"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Query string not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Query string not supported")));
   EXPECT_THAT(kvstore::Spec::FromUrl("memory://abc#fragment"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Fragment identifier not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Fragment identifier not supported")));
   EXPECT_THAT(kvstore::Spec::FromUrl("memory:abc~xyz"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Scheme \"memory://\" not present in url"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Scheme \"memory://\" not present in url")));
 }
 
 }  // namespace

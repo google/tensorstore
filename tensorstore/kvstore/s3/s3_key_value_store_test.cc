@@ -39,7 +39,6 @@
 namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;

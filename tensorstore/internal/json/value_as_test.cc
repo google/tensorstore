@@ -32,10 +32,11 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_json::JsonRequireInteger;
 using ::tensorstore::internal_json::JsonRequireValueAs;
 using ::tensorstore::internal_json::JsonValueAs;
+using ::testing::HasSubstr;
 
 template <typename T, bool kStrict = true>
 std::optional<T> JsonMemberT(const ::nlohmann::json::object_t& j,
@@ -477,34 +478,38 @@ TEST(JsonRequireValueAs, Success) {
 TEST(JsonRequireValueAs, Failure) {
   {
     bool v;
-    EXPECT_THAT(JsonRequireValueAs(::nlohmann::json("true"), &v, true),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Expected boolean, but received: \"true\""));
+    EXPECT_THAT(
+        JsonRequireValueAs(::nlohmann::json("true"), &v, true),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Expected boolean, but received: \"true\"")));
   }
 
   EXPECT_THAT(JsonRequireValueAs<bool>(::nlohmann::json("true"), nullptr, true),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected boolean, but received: \"true\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected boolean, but received: \"true\"")));
 
-  EXPECT_THAT(JsonRequireValueAs<bool>(::nlohmann::json(true), nullptr,
-                                       [](bool) { return false; }),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Validation of boolean failed, received: true"));
+  EXPECT_THAT(
+      JsonRequireValueAs<bool>(::nlohmann::json(true), nullptr,
+                               [](bool) { return false; }),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Validation of boolean failed, received: true")));
 
   EXPECT_THAT(
       JsonRequireValueAs<int64_t>(::nlohmann::json("true"), nullptr, true),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected 64-bit signed integer, but received: \"true\""));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected 64-bit signed integer, but received: \"true\"")));
 
   EXPECT_THAT(
       JsonRequireValueAs<uint64_t>(::nlohmann::json(3.5), nullptr, true),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected 64-bit unsigned integer, but received: 3.5"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected 64-bit unsigned integer, but received: 3.5")));
 
   EXPECT_THAT(
       JsonRequireValueAs<std::string>(::nlohmann::json(true), nullptr, true),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected string, but received: true"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected string, but received: true")));
 }
 
 TEST(JsonRequireIntegerTest, Success) {
@@ -555,31 +560,30 @@ TEST(JsonRequireIntegerTest, Success) {
 TEST(JsonRequireIntegerTest, Failure) {
   {
     int32_t result_int32 = 42;
-    EXPECT_THAT(
-        JsonRequireInteger(::nlohmann::json(-2), &result_int32, /*strict=*/true,
-                           -7, -3),
-        MatchesStatus(
-            absl::StatusCode::kInvalidArgument,
-            "Expected integer in the range \\[-7, -3\\], but received: -2"));
+    EXPECT_THAT(JsonRequireInteger(::nlohmann::json(-2), &result_int32,
+                                   /*strict=*/true, -7, -3),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Expected integer in the range [-7, "
+                                   "-3], but received: -2")));
     EXPECT_EQ(42, result_int32);
   }
   {
     int32_t result_int32 = 42;
-    EXPECT_THAT(JsonRequireInteger(::nlohmann::json(true), &result_int32,
-                                   /*strict=*/true, -7, -3),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Expected integer in the range \\[-7, -3\\], but "
-                              "received: true"));
+    EXPECT_THAT(
+        JsonRequireInteger(::nlohmann::json(true), &result_int32,
+                           /*strict=*/true, -7, -3),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Expected integer in the range [-7, -3], but "
+                           "received: true")));
     EXPECT_EQ(42, result_int32);
   }
   {
     uint32_t result_uint32 = 42;
-    EXPECT_THAT(
-        JsonRequireInteger(::nlohmann::json(11), &result_uint32,
-                           /*strict=*/true, 5, 10),
-        MatchesStatus(
-            absl::StatusCode::kInvalidArgument,
-            "Expected integer in the range \\[5, 10\\], but received: 11"));
+    EXPECT_THAT(JsonRequireInteger(::nlohmann::json(11), &result_uint32,
+                                   /*strict=*/true, 5, 10),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Expected integer in the range [5, 10], "
+                                   "but received: 11")));
     EXPECT_EQ(42u, result_uint32);
   }
 }

@@ -14,9 +14,19 @@
 
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <limits>
+#include <string>
+#include <tuple>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "absl/time/time.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
@@ -26,12 +36,13 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::DecodeManifest;
 using ::tensorstore::internal_ocdbt::Manifest;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 Result<absl::Time> RoundTripCommitTime(absl::Time time) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto commit_time,
@@ -104,9 +115,9 @@ TEST(ManifestTest, CorruptMagic) {
   corrupt.RemovePrefix(4);
   corrupt.Prepend("abcd");
   EXPECT_THAT(DecodeManifest(corrupt),
-              MatchesStatus(
-                  absl::StatusCode::kDataLoss,
-                  ".*: Expected to start with hex bytes .* but received: .*"));
+              StatusIs(absl::StatusCode::kDataLoss,
+                       MatchesRegex(".*Expected to start with hex bytes "
+                                    "[0-9a-fA-Fx]+ but received:.*")));
 }
 
 TEST(ManifestTest, CorruptLength) {
@@ -114,9 +125,8 @@ TEST(ManifestTest, CorruptLength) {
                                    EncodeManifest(GetSimpleManifest()));
   auto corrupt = encoded;
   corrupt.Append("x");
-  EXPECT_THAT(
-      DecodeManifest(corrupt),
-      MatchesStatus(absl::StatusCode::kDataLoss, ".*: Length in header .*"));
+  EXPECT_THAT(DecodeManifest(corrupt), StatusIs(absl::StatusCode::kDataLoss,
+                                                HasSubstr("Length in header")));
 }
 
 TEST(ManifestTest, InvalidVersion) {
@@ -127,8 +137,8 @@ TEST(ManifestTest, InvalidVersion) {
   corrupt.Append(encoded.Subcord(13, -1));
   EXPECT_THAT(
       DecodeManifest(corrupt),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    ".*: Maximum supported version is 0 but received: 1.*"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               HasSubstr("Maximum supported version is 0 but received: 1")));
 }
 
 TEST(ManifestTest, CorruptChecksum) {
@@ -141,8 +151,8 @@ TEST(ManifestTest, CorruptChecksum) {
   corrupt.RemoveSuffix(1);
   corrupt.Append(std::string(1, final_char));
   EXPECT_THAT(DecodeManifest(corrupt),
-              MatchesStatus(absl::StatusCode::kDataLoss,
-                            ".*: CRC-32C checksum verification failed.*"));
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("CRC-32C checksum verification failed")));
 }
 
 TEST(ManifestTest, RoundTripMultipleVersions) {
