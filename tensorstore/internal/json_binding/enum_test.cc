@@ -28,11 +28,11 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/status_testutil.h"
 
-using ::tensorstore::MatchesStatus;
-
+namespace {
 namespace jb = tensorstore::internal_json_binding;
 
-namespace {
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(JsonBindingTest, Enum) {
   enum class TestEnum { a, b };
@@ -49,8 +49,9 @@ TEST(JsonBindingTest, Enum) {
   tensorstore::TestJsonBinderFromJson<TestEnum>(
       {
           {"c",
-           MatchesStatus(absl::StatusCode::kInvalidArgument,
-                         "Expected one of \"a\", \"b\", but received: \"c\"")},
+           StatusIs(
+               absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected one of \"a\", \"b\", but received: \"c\""))},
       },
       binder);
 }
@@ -77,10 +78,11 @@ TEST(JsonBindingTest, MapValue) {
           {"a", ::testing::Eq(TestMap::a)},
           {"b", ::testing::Eq(TestMap::b)},
           {"c",
-           MatchesStatus(absl::StatusCode::kInvalidArgument, ".*missing.*")},
+           StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("missing"))},
           {1, ::testing::Eq(TestMap::a)},
           {2, ::testing::Eq(TestMap::b)},
-          {3, MatchesStatus(absl::StatusCode::kInvalidArgument, ".*missing.*")},
+          {3,
+           StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("missing"))},
       },
       binder);
 }

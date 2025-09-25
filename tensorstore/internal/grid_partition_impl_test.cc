@@ -94,7 +94,6 @@ using ::tensorstore::IndexInterval;
 using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::IrregularGrid;
 using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
@@ -102,6 +101,7 @@ using ::tensorstore::internal_grid_partition::
     PrePartitionIndexTransformOverGrid;
 using ::tensorstore::internal_grid_partition::RegularGridRef;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 
 TEST(RegularGridTest, Basic) {
   std::vector<Index> grid_cell_shape{1, 2, 3};
@@ -432,8 +432,8 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, UnboundedDomain) {
       transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
       partitioned);
   EXPECT_THAT(status,
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Input dimension 0 has unbounded domain .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Input dimension 0 has unbounded domain")));
 }
 
 // Tests that an out-of-bounds index in an index array leads to an error.
@@ -452,8 +452,8 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, IndexArrayOutOfBounds) {
       transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
       partitioned);
   EXPECT_THAT(status,
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 2 is outside valid range \\[3, 11\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Index 2 is outside valid range [3, 11)")));
 }
 
 // Tests that integer overflow due to a `single_input_dimension` mapping leads

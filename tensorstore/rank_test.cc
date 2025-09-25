@@ -25,10 +25,11 @@ namespace {
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::dynamic_rank;
 using ::tensorstore::InlineRankLimit;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::RankConstraint;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::unchecked;
+using ::testing::HasSubstr;
 
 // Static rank conversion tests
 static_assert(RankConstraint::Implies(3, 3));
@@ -112,8 +113,8 @@ TEST(RankCastTest, Basic) {
   static_assert(std::is_same_v<decltype(b), DimensionIndex>);
 
   EXPECT_THAT((StaticRankCast<3>(DimensionIndex(2))),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot cast rank of 2 to rank of 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot cast rank of 2 to rank of 3")));
   EXPECT_THAT((StaticRankCast<3>(DimensionIndex(3))),
               ::testing::Optional(tensorstore::StaticRank<3>()));
   EXPECT_THAT((StaticRankCast<3>(DimensionIndex(dynamic_rank))),

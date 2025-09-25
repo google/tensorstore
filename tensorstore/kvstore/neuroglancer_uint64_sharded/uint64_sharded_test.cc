@@ -23,10 +23,10 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
 using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
+using ::testing::HasSubstr;
 
 TEST(ShardingSpecTest, Comparison) {
   ShardingSpec a{
@@ -214,8 +214,8 @@ TEST(ShardingSpecTest, Parse) {
                               {"shard_bits", 3},
                               {"minishard_index_encoding", "raw"},
                               {"data_encoding", "gzip"}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*\"neuroglancer_uint64_sharded_v2\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"neuroglancer_uint64_sharded_v2\"")));
 
   // Tests that an invalid `hash` leads to an error.
   EXPECT_THAT(
@@ -226,8 +226,8 @@ TEST(ShardingSpecTest, Parse) {
                               {"shard_bits", 3},
                               {"minishard_index_encoding", "raw"},
                               {"data_encoding", "gzip"}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*\"invalid_hash\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"invalid_hash\"")));
 
   // Tests that an invalid `data_encoding` leads to an error.
   EXPECT_THAT(
@@ -238,7 +238,7 @@ TEST(ShardingSpecTest, Parse) {
                               {"shard_bits", 3},
                               {"minishard_index_encoding", "raw"},
                               {"data_encoding", 1234}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*1234.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("1234")));
   EXPECT_THAT(
       ShardingSpec::FromJson({{"@type", "neuroglancer_uint64_sharded_v1"},
                               {"hash", "identity"},
@@ -247,8 +247,8 @@ TEST(ShardingSpecTest, Parse) {
                               {"shard_bits", 3},
                               {"minishard_index_encoding", "raw"},
                               {"data_encoding", "invalid_encoding"}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*\"invalid_encoding\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"invalid_encoding\"")));
 
   // Tests that `preshift_bits` is limited to `[0, 64]`.
   for (int i : {0, 1, 63, 64}) {

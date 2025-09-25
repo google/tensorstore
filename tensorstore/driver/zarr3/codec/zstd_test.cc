@@ -20,13 +20,14 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
 using ::tensorstore::internal_zarr3::TestCodecRoundTrip;
 using ::tensorstore::internal_zarr3::TestCodecSpecResolve;
 using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
+using ::testing::HasSubstr;
 
 TEST(ZstdTest, EndianInferred) {
   CodecSpecRoundTripTestParams p;
@@ -77,7 +78,7 @@ TEST(ZstdTest, LevelRequiredInMetadata) {
               {{"name", "zstd"}},
           },
           p.resolve_params, /*constraints=*/false),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"level\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"level\"")));
 }
 
 TEST(ZstdTest, DefaultLevel) {

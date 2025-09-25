@@ -164,6 +164,7 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore:open",
         "//tensorstore:open_mode",
+        "//tensorstore:rank",
         "//tensorstore:read_write_options",
         "//tensorstore:schema",
         "//tensorstore:spec",
@@ -177,6 +178,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_matchers",
@@ -284,6 +286,7 @@ tensorstore_cc_test(
         "//tensorstore:codec_spec",
         "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore:schema",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:gtest",
@@ -296,6 +299,7 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/base",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 

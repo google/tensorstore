@@ -41,10 +41,11 @@ using ::nlohmann::json;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Spec;
+using ::tensorstore::StatusIs;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+using ::testing::HasSubstr;
 
 TEST(SpecTest, Invalid) {
   Spec spec;
@@ -168,11 +169,10 @@ TEST(SpecTest, ApplyIndexTransform) {
                                        {"driver", "zarr"},
                                        {"kvstore", {{"driver", "memory"}}},
                                    }));
-  EXPECT_THAT(
-      spec_without_transform | tensorstore::Dims(1).SizedInterval(1, 2),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Cannot perform indexing operations on Spec with unspecified rank"));
+  EXPECT_THAT(spec_without_transform | tensorstore::Dims(1).SizedInterval(1, 2),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot perform indexing operations on Spec "
+                                 "with unspecified rank")));
 }
 
 TEST(SpecTest, ApplyBox) {
@@ -389,19 +389,18 @@ TEST(SpecTest, SetContextAndKvstore) {
 }
 
 TEST(SpecTest, FromUrlErrors) {
-  EXPECT_THAT(Spec::FromUrl(""),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*URL must be non-empty.*"));
+  EXPECT_THAT(Spec::FromUrl(""), StatusIs(absl::StatusCode::kInvalidArgument,
+                                          HasSubstr("URL must be non-empty")));
 
   EXPECT_THAT(Spec::FromUrl("memory://|"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*unsupported URL scheme.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("unsupported URL scheme")));
 }
 
 TEST(SpecTest, FromUrl) {
   EXPECT_THAT(Spec::FromUrl("file:///C:/tmp/|zarr"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*unsupported URL scheme: .zarr.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("unsupported URL scheme: \"zarr\"")));
   // This relies on zarr2 being linked in.  If it is not linked in, then the
   // driver will not be found and the call will fail.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
@@ -423,8 +422,8 @@ TEST(SpecTest, FromUrl) {
 
 TEST(SpecTest, FromJsonString) {
   EXPECT_THAT(Spec::FromJson("file:///C:/tmp/|zarr"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*unsupported URL scheme: .zarr.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("unsupported URL scheme: \"zarr\"")));
   // This relies on zarr2 being linked in.  If it is not linked in, then the
   // driver will not be found and the call will fail.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,

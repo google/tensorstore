@@ -26,10 +26,10 @@
 namespace {
 
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_json_driver::JsonChangeMap;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 using ::testing::Optional;
 using ::testing::Pair;
 
@@ -176,10 +176,11 @@ TEST(JsonChangeMapTest, ApplyIncompatibleChangeExactRequest) {
 TEST(JsonChangeMapTest, AddIncompatibleChanges) {
   JsonChangeMap changes;
   TENSORSTORE_EXPECT_OK(changes.AddChange("", 42));
-  EXPECT_THAT(changes.AddChange("/a", 50),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "JSON Pointer reference \"/a\" cannot be applied "
-                            "to number value: 42"));
+  EXPECT_THAT(
+      changes.AddChange("/a", 50),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("JSON Pointer reference \"/a\" cannot be applied "
+                         "to number value: 42")));
 }
 
 TEST(JsonChangeMapTest, CanApplyUnconditionally) {

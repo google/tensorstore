@@ -27,6 +27,7 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample_array.h"
@@ -56,8 +57,8 @@ using ::tensorstore::IndexInterval;
 using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_downsample::CanDownsampleIndexTransform;
 using ::tensorstore::internal_downsample::DownsampleArray;
 using ::tensorstore::internal_downsample::DownsampleBounds;
@@ -65,6 +66,8 @@ using ::tensorstore::internal_downsample::DownsampleInterval;
 using ::tensorstore::internal_downsample::DownsampleTransformedArray;
 using ::tensorstore::internal_downsample::PropagatedIndexTransformDownsampling;
 using ::tensorstore::internal_downsample::PropagateIndexTransformDownsampling;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 using ::testing::Optional;
 
 TEST(PropagateIndexTransformDownsamplingTest, Rank0) {
@@ -88,8 +91,8 @@ TEST(PropagateIndexTransformDownsamplingTest, InvalidRank) {
       tensorstore::IdentityTransform(32) | Dims(0).Stride(2));
   EXPECT_THAT(PropagateIndexTransformDownsampling(
                   downsampled_transform, Box(32), std::vector<Index>(32, 2)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Rank 33 is outside valid range \\[0, 32\\]"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank 33 is outside valid range [0, 32]")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest, Rank1Constant) {
@@ -223,7 +226,7 @@ TEST(PropagateIndexTransformDownsamplingTest, ErrorRank1ConstantOverflow) {
               .Finalize()
               .value(),
           BoxView<1>({0}, {kInfIndex}), span<const Index>({1000})),
-      MatchesStatus(absl::StatusCode::kOutOfRange, ".*Integer overflow.*"));
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Integer overflow")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest, ErrorRank1ConstantOutOfBounds) {
@@ -246,14 +249,16 @@ TEST(PropagateIndexTransformDownsamplingTest, ErrorRank1ConstantOutOfBounds) {
       PropagateIndexTransformDownsampling(
           IndexTransformBuilder(0, 1).output_constant(0, 5).Finalize().value(),
           BoxView<1>({0}, {15}), span<const Index>({3})),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    ".*Propagated bounds interval .* does not contain .*"));
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          MatchesRegex(".*Propagated bounds interval .* does not contain .*")));
   EXPECT_THAT(
       PropagateIndexTransformDownsampling(
           IndexTransformBuilder(0, 1).output_constant(0, 0).Finalize().value(),
           BoxView<1>({3}, {15}), span<const Index>({3})),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    ".*Propagated bounds interval .* does not contain .*"));
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          MatchesRegex(".*Propagated bounds interval .* does not contain .*")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
@@ -265,8 +270,8 @@ TEST(PropagateIndexTransformDownsamplingTest,
                       .Finalize()
                       .value(),
                   BoxView<1>({0}, {kInfIndex}), span<const Index>({1000})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Input domain .* is not finite"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*Input domain .* is not finite")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
@@ -281,7 +286,7 @@ TEST(PropagateIndexTransformDownsamplingTest,
               .Finalize()
               .value(),
           BoxView<1>({0}, {kInfIndex}), span<const Index>({1000})),
-      MatchesStatus(absl::StatusCode::kOutOfRange, ".*Integer overflow.*"));
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Integer overflow")));
   EXPECT_THAT(
       PropagateIndexTransformDownsampling(
           IndexTransformBuilder(1, 1)
@@ -292,7 +297,7 @@ TEST(PropagateIndexTransformDownsamplingTest,
               .Finalize()
               .value(),
           BoxView<1>({0}, {kInfIndex}), span<const Index>({1000})),
-      MatchesStatus(absl::StatusCode::kOutOfRange, ".*Integer overflow.*"));
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Integer overflow")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
@@ -305,8 +310,8 @@ TEST(PropagateIndexTransformDownsamplingTest,
                       .value(),
                   BoxView<1>({0}, {1000}),
                   span<const Index>({std::numeric_limits<Index>::max()})),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".*Downsample factor is out of range"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Downsample factor is out of range")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
@@ -319,7 +324,7 @@ TEST(PropagateIndexTransformDownsamplingTest,
               .Finalize()
               .value(),
           BoxView<1>({0}, {1000}), span<const Index>({kInfIndex})),
-      MatchesStatus(absl::StatusCode::kOutOfRange, ".*Integer overflow.*"));
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Integer overflow")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
@@ -333,21 +338,22 @@ TEST(PropagateIndexTransformDownsamplingTest,
               .Finalize()
               .value(),
           BoxView<1>({0}, {1000}), span<const Index>({0xfffffffffffff})),
-      MatchesStatus(absl::StatusCode::kOutOfRange, ".*Integer overflow.*"));
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Integer overflow")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
      ErrorSingleInputDimStridedOutOfRange) {
-  EXPECT_THAT(PropagateIndexTransformDownsampling(
-                  IndexTransformBuilder(1, 1)
-                      .input_shape({100})
-                      .output_single_input_dimension(0, 0, 2, 0)
-                      .Finalize()
-                      .value(),
-                  BoxView<1>({0}, {199}), span<const Index>({2})),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".*Output bounds interval .* does not contain "
-                            "output range interval .*"));
+  EXPECT_THAT(
+      PropagateIndexTransformDownsampling(
+          IndexTransformBuilder(1, 1)
+              .input_shape({100})
+              .output_single_input_dimension(0, 0, 2, 0)
+              .Finalize()
+              .value(),
+          BoxView<1>({0}, {199}), span<const Index>({2})),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               MatchesRegex(".*Output bounds interval .* does not contain "
+                            "output range interval .*")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
@@ -360,8 +366,8 @@ TEST(PropagateIndexTransformDownsamplingTest,
                       .value(),
                   BoxView<1>({0}, {100}),
                   span<const Index>({std::numeric_limits<Index>::max()})),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".*Downsample factor is out of range"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Downsample factor is out of range")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
@@ -374,7 +380,7 @@ TEST(PropagateIndexTransformDownsamplingTest,
               .Finalize()
               .value(),
           BoxView<1>({0}, {100}), span<const Index>({kInfIndex})),
-      MatchesStatus(absl::StatusCode::kOutOfRange, ".*Integer overflow.*"));
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Integer overflow")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest,
@@ -387,7 +393,7 @@ TEST(PropagateIndexTransformDownsamplingTest,
               .Finalize()
               .value(),
           BoxView<1>({0}, {100}), span<const Index>({kInfIndex})),
-      MatchesStatus(absl::StatusCode::kOutOfRange, ".*Integer overflow.*"));
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Integer overflow")));
 }
 
 TEST(PropagateIndexTransformDownsamplingTest, ErrorIndexArrayOutOfRange) {
@@ -399,10 +405,11 @@ TEST(PropagateIndexTransformDownsamplingTest, ErrorIndexArrayOutOfRange) {
               .Finalize()
               .value(),
           BoxView<1>({0}, {9}), span<const Index>({2})),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kOutOfRange,
-          "Propagating downsampling factor 2 through output dimension 0: "
-          "Index 5 is outside valid range \\[0, 5\\)"));
+          HasSubstr(
+              "Propagating downsampling factor 2 through output dimension 0: "
+              "Index 5 is outside valid range [0, 5)")));
 }
 
 TEST(CanDownsampleIndexTransformTest, Rank0) {

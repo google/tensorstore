@@ -23,7 +23,6 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::CommitTimeUpperBound;

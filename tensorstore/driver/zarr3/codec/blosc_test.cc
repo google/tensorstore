@@ -27,7 +27,7 @@ namespace {
 
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
@@ -35,6 +35,8 @@ using ::tensorstore::internal_zarr3::TestCodecMerge;
 using ::tensorstore::internal_zarr3::TestCodecRoundTrip;
 using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(BloscTest, Precise) {
   CodecSpecRoundTripTestParams p;
@@ -112,7 +114,7 @@ TEST(BloscTest, MergeCnameMismatch) {
                             {"cname", "zstd"},
                         }}}},
                      /*strict=*/true),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"cname\".*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"cname\"")));
 }
 
 TEST(BloscTest, MergeClevelMismatch) {
@@ -128,39 +130,39 @@ TEST(BloscTest, MergeClevelMismatch) {
                             {"clevel", 6},
                         }}}},
                      /*strict=*/true),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"clevel\".*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"clevel\"")));
 }
 
 TEST(BloscTest, MergeShuffleMismatch) {
-  EXPECT_THAT(
-      TestCodecMerge({{{"name", "blosc"},
-                       {"configuration",
-                        {
-                            {"shuffle", "noshuffle"},
-                        }}}},
-                     {{{"name", "blosc"},
-                       {"configuration",
-                        {
-                            {"shuffle", "shuffle"},
-                        }}}},
-                     /*strict=*/true),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"shuffle\".*"));
+  EXPECT_THAT(TestCodecMerge({{{"name", "blosc"},
+                               {"configuration",
+                                {
+                                    {"shuffle", "noshuffle"},
+                                }}}},
+                             {{{"name", "blosc"},
+                               {"configuration",
+                                {
+                                    {"shuffle", "shuffle"},
+                                }}}},
+                             /*strict=*/true),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"shuffle\"")));
 }
 
 TEST(BloscTest, MergeTypesizeMismatch) {
-  EXPECT_THAT(
-      TestCodecMerge({{{"name", "blosc"},
-                       {"configuration",
-                        {
-                            {"typesize", 2},
-                        }}}},
-                     {{{"name", "blosc"},
-                       {"configuration",
-                        {
-                            {"typesize", 4},
-                        }}}},
-                     /*strict=*/true),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"typesize\".*"));
+  EXPECT_THAT(TestCodecMerge({{{"name", "blosc"},
+                               {"configuration",
+                                {
+                                    {"typesize", 2},
+                                }}}},
+                             {{{"name", "blosc"},
+                               {"configuration",
+                                {
+                                    {"typesize", 4},
+                                }}}},
+                             /*strict=*/true),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"typesize\"")));
 }
 
 TEST(BloscTest, MergeBlocksizeMismatch) {
@@ -175,8 +177,8 @@ TEST(BloscTest, MergeBlocksizeMismatch) {
                                     {"blocksize", 2000},
                                 }}}},
                              /*strict=*/true),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"blocksize\".*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"blocksize\"")));
 }
 
 TEST(BloscTest, MergeSuccess) {
@@ -208,18 +210,21 @@ TEST(BloscTest, MergeSuccess) {
 }
 
 TEST(BloscTest, InvalidCname) {
-  EXPECT_THAT(ZarrCodecChainSpec::FromJson({{{"name", "blosc"},
-                                             {"configuration",
-                                              {
-                                                  {"cname", "abc"},
-                                                  {"shuffle", "bitshuffle"},
-                                                  {"blocksize", 1000},
-                                                  {"clevel", 5},
-                                                  {"typesize", 2},
-                                                  {"blocksize", 2000},
-                                              }}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*\"cname\".*\"abc\".*"));
+  EXPECT_THAT(
+      ZarrCodecChainSpec::FromJson({{{"name", "blosc"},
+                                     {"configuration",
+                                      {
+                                          {"cname", "abc"},
+                                          {"shuffle", "bitshuffle"},
+                                          {"blocksize", 1000},
+                                          {"clevel", 5},
+                                          {"typesize", 2},
+                                          {"blocksize", 2000},
+                                      }}}}),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex(
+              ".*Error parsing object member \"cname\".* received: \"abc\"")));
 }
 
 }  // namespace

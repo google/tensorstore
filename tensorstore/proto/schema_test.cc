@@ -28,7 +28,6 @@
 namespace {
 
 using ::protobuf_matchers::EqualsProto;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::ParseSchemaFromProto;
 using ::tensorstore::Schema;
 using ::tensorstore::StatusIs;

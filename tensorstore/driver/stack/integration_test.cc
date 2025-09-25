@@ -47,9 +47,9 @@ using ::tensorstore::Context;
 using ::tensorstore::CopyProgressFunction;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::ReadProgressFunction;
 using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 // hexdump -e \"\"\ 16/1\ \"\ 0x%02x,\"\ \"\\n\" image.png
 static constexpr unsigned char kPng[] = {
@@ -373,8 +373,8 @@ TEST(IntegrationTest, NeuroglancerPrecomputed) {
         },
     };
     EXPECT_THAT(tensorstore::Open(spec, context).result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*dtype must be specified.*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("dtype must be specified")));
   }
 
   // Missing transform results in an unbounded domain, which may be opened,

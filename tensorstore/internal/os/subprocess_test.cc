@@ -37,7 +37,6 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetEnvironmentMap;
 using ::tensorstore::internal::JoinPath;

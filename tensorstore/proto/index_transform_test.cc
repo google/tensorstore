@@ -47,10 +47,11 @@ using ::tensorstore::IndexTransform;
 using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::IndexTransformView;
 using ::tensorstore::kInfIndex;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::ParseIndexDomainFromProto;
 using ::tensorstore::ParseIndexTransformFromProto;
 using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 template <typename Proto>
 Proto ParseProtoOrDie(const std::string& asciipb) {
@@ -421,8 +422,8 @@ TEST(IndexTransformProtoTest, BadOutputRank) {
 
 TEST(IndexTransformProtoTest, RankMismatch) {
   EXPECT_THAT(ParseIndexTransformFromProto(MakeLabeledExampleProto(), 3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected rank to be 3, but is: 4"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected rank to be 3, but is: 4")));
 }
 
 TEST(IndexTransformProtoTest, MissingInputRank) {
@@ -431,10 +432,11 @@ TEST(IndexTransformProtoTest, MissingInputRank) {
     output { stride: 2 input_dimension: 1 }
   )pb");
 
-  EXPECT_THAT(ParseIndexTransformFromProto(proto),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Input dimension 0 specified for output dimension "
-                            "0 is outside valid range .*"));
+  EXPECT_THAT(
+      ParseIndexTransformFromProto(proto),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Input dimension 0 specified for output dimension "
+                         "0 is outside valid range")));
 }
 
 TEST(IndexTransformProtoTest, InvalidShape) {
@@ -470,8 +472,8 @@ TEST(IndexTransformProtoTest, MissingOutputs) {
 
   // Failure
   EXPECT_THAT(ParseIndexTransformFromProto(proto, dynamic_rank, 3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected output_rank to be 3, but is: 2"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected output_rank to be 3, but is: 2")));
 }
 
 TEST(IndexTransformProtoTest, DuplicateLabels) {
@@ -483,8 +485,8 @@ TEST(IndexTransformProtoTest, DuplicateLabels) {
   )pb");
 
   EXPECT_THAT(ParseIndexTransformFromProto(proto),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Dimension label.*not unique"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Dimension label.*not unique")));
 }
 
 auto DoEncode(IndexDomainView<> t) {
@@ -540,8 +542,8 @@ TEST(IndexDomainProtoTest, Errors) {
                   ParseProtoOrDie<::tensorstore::proto::IndexDomain>(R"pb(
                     rank: 33
                   )pb")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected rank .*: 33"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Expected rank .*: 33")));
 
   EXPECT_THAT(ParseIndexDomainFromProto(
                   ParseProtoOrDie<::tensorstore::proto::IndexDomain>(R"pb(
@@ -550,8 +552,8 @@ TEST(IndexDomainProtoTest, Errors) {
                       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
                     ]
                   )pb")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected rank .*: 34"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Expected rank .*: 34")));
 
   EXPECT_THAT(ParseIndexDomainFromProto(
                   ParseProtoOrDie<::tensorstore::proto::IndexDomain>(R"pb(
@@ -560,19 +562,19 @@ TEST(IndexDomainProtoTest, Errors) {
                       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
                     ]
                   )pb")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected rank .*: 34"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Expected rank .*: 34")));
 
-  EXPECT_THAT(ParseIndexDomainFromProto(
-                  ParseProtoOrDie<::tensorstore::proto::IndexDomain>(R"pb(
-                    labels: [
-                      "", "", "", "", "", "", "", "", "", "", "",
-                      "", "", "", "", "", "", "", "", "", "", "",
-                      "", "", "", "", "", "", "", "", "", "", ""
-                    ]
-                  )pb")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected rank .*: 33"));
+  EXPECT_THAT(
+      ParseIndexDomainFromProto(
+          ParseProtoOrDie<::tensorstore::proto::IndexDomain>(R"pb(
+            labels: [
+              "", "", "", "", "", "", "", "", "", "", "",
+              "", "", "", "", "", "", "", "", "", "", "",
+              "", "", "", "", "", "", "", "", "", "", ""
+            ]
+          )pb")),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Expected rank")));
 
   EXPECT_THAT(ParseIndexDomainFromProto(
                   ParseProtoOrDie<::tensorstore::proto::IndexDomain>(R"pb(

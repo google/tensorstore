@@ -25,45 +25,48 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(KeyValueStoreTest, OpenInvalidTensorStore) {
   auto context = tensorstore::Context::Default();
   EXPECT_THAT(
       kvstore::Open({{"driver", "json"}}, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing object member \"driver\": "
-                    "\"json\" is a TensorStore driver, not a KvStore driver"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing object member \"driver\": "
+                    "\"json\" is a TensorStore driver, not a KvStore driver")));
 }
 
 TEST(KeyValueStoreTest, OpenInvalid) {
   auto context = tensorstore::Context::Default();
-  EXPECT_THAT(kvstore::Open({{"driver", "invalid"}}, context).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"driver\": "
-                            "\"invalid\" is not a registered KvStore driver"));
+  EXPECT_THAT(
+      kvstore::Open({{"driver", "invalid"}}, context).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"driver\": "
+                         "\"invalid\" is not a registered KvStore driver")));
 }
 
 TEST(KeyValueStoreTest, OpenInconsistentTransactions) {
   auto txn1 = tensorstore::Transaction(tensorstore::isolated);
   auto txn2 = tensorstore::Transaction(tensorstore::isolated);
   EXPECT_THAT(kvstore::Open({{"driver", "memory"}}, txn1, txn2).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Inconsistent transactions specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Inconsistent transactions specified")));
 }
 
 TEST(KeyValueStoreTest, EmptyUrl) {
   EXPECT_THAT(kvstore::Spec::FromJson(""),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "URL must be non-empty"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("URL must be non-empty")));
 }
 
 TEST(KeyValueStoreTest, TensorStoreUrl) {
   EXPECT_THAT(
       kvstore::Spec::FromJson("json:"),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*\"json\" is a kvstore-based TensorStore URL scheme: "
-                    "unsupported URL scheme \"json\" in \"json:\""));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"json\" is a kvstore-based TensorStore URL scheme: "
+                         "unsupported URL scheme \"json\" in \"json:\"")));
 }
 
 }  // namespace

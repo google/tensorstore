@@ -62,8 +62,8 @@ namespace jb = tensorstore::internal_json_binding;
 using ::tensorstore::Context;
 using ::tensorstore::IncludeDefaults;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::AllContextResources;
 using ::tensorstore::internal::ContextResourceCreationContext;
 using ::tensorstore::internal::ContextResourceRegistration;
@@ -71,6 +71,7 @@ using ::tensorstore::internal::ContextResourceTraits;
 using ::tensorstore::internal::ContextSpecBuilder;
 using ::tensorstore::internal_testing::TestConcurrent;
 using ::tensorstore::serialization::SerializationRoundTrip;
+using ::testing::HasSubstr;
 
 struct IntResource : public ContextResourceTraits<IntResource> {
   struct Spec {
@@ -180,19 +181,19 @@ const ContextResourceRegistration<OptionalResource>
     optional_resource_registration;
 
 TEST(IntResourceTest, InvalidDirectSpec) {
-  EXPECT_THAT(Context::Resource<IntResource>::FromJson(nullptr),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected non-null value, but received: null"));
+  EXPECT_THAT(
+      Context::Resource<IntResource>::FromJson(nullptr),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected non-null value, but received: null")));
 
   EXPECT_THAT(Context::Resource<IntResource>::FromJson(3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected object, but received: 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected object, but received: 3")));
 
-  EXPECT_THAT(
-      Context::Resource<IntResource>::FromJson("foo"),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Invalid spec or reference to \"int_resource\" resource: \"foo\".*"));
+  EXPECT_THAT(Context::Resource<IntResource>::FromJson("foo"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid spec or reference to "
+                                 "\"int_resource\" resource: \"foo\"")));
 }
 
 TEST(IntResourceTest, Default) {
@@ -271,8 +272,8 @@ TEST(IntResourceTest, UndefinedIndirectReference) {
       auto resource_spec,
       Context::Resource<IntResource>::FromJson("int_resource#x"));
   EXPECT_THAT(context.GetResource(resource_spec),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Resource not defined: \"int_resource#x\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Resource not defined: \"int_resource#x\"")));
 }
 
 TEST(IntResourceTest, SimpleReference) {
@@ -297,9 +298,9 @@ TEST(IntResourceTest, ReferenceCycle1) {
       auto resource_spec,
       Context::Resource<IntResource>::FromJson("int_resource"));
   EXPECT_THAT(context.GetResource(resource_spec),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Context resource reference cycle: "
-                            "\"int_resource\":\"int_resource\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Context resource reference cycle: "
+                                 "\"int_resource\":\"int_resource\"")));
 }
 
 TEST(IntResourceTest, ReferenceCycle2) {
@@ -313,10 +314,10 @@ TEST(IntResourceTest, ReferenceCycle2) {
       auto resource_spec,
       Context::Resource<IntResource>::FromJson("int_resource#a"));
   EXPECT_THAT(context.GetResource(resource_spec),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Context resource reference cycle: "
-                            "\"int_resource#b\":\"int_resource#a\" -> "
-                            "\"int_resource#a\":\"int_resource#b\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Context resource reference cycle: "
+                                 "\"int_resource#b\":\"int_resource#a\" -> "
+                                 "\"int_resource#a\":\"int_resource#b\"")));
 }
 
 TEST(IntResourceTest, Inherit) {
@@ -378,11 +379,12 @@ TEST(IntResourceTest, Inherit) {
 }
 
 TEST(IntResourceTest, Unknown) {
-  EXPECT_THAT(Context::Spec::FromJson({
-                  {"foo", {{"value", 7}}},
-              }),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid context resource identifier: \"foo\""));
+  EXPECT_THAT(
+      Context::Spec::FromJson({
+          {"foo", {{"value", 7}}},
+      }),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid context resource identifier: \"foo\"")));
 }
 
 TEST(IntConfigResourceTest, ContextSpec) {
@@ -759,17 +761,17 @@ TEST(NestedResourceTest, Basic) {
 
   EXPECT_THAT(
       context.GetResource<NestedResource>("nested_resource#d"),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Context resource reference cycle: "
-                    "\"nested_resource#d\" -> "
-                    "\"nested_resource#d\":"
-                    "\\{\"parent\":\"nested_resource#e\",\"value\":10\\} -> "
-                    "\"nested_resource#e\" -> "
-                    "\"nested_resource#e\":"
-                    "\\{\"parent\":\"nested_resource#d\",\"value\":15\\}"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Context resource reference cycle: "
+                         "\"nested_resource#d\" -> "
+                         "\"nested_resource#d\":"
+                         "{\"parent\":\"nested_resource#e\",\"value\":10} -> "
+                         "\"nested_resource#e\" -> "
+                         "\"nested_resource#e\":"
+                         "{\"parent\":\"nested_resource#d\",\"value\":15}")));
   EXPECT_THAT(context.GetResource<NestedResource>("nested_resource#e"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Context resource reference cycle: .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Context resource reference cycle:")));
 }
 
 // Tests unbinding a collection of context resources, where some are bound and
@@ -970,13 +972,13 @@ TEST(ContextTest, AllContextResources) {
   auto all_binder = jb::Object(jb::DefaultBinder<>);
   EXPECT_THAT(jb::FromJson<AllContextResources>(
                   {{"int_resource#a", {{"value", 5}}}}, all_binder),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Context resource identifier must not contain "
-                            "\"#\": \"int_resource#a\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Context resource identifier must not contain "
+                                 "\"#\": \"int_resource#a\"")));
   EXPECT_THAT(
       jb::FromJson<AllContextResources>({{"foo", {{"value", 5}}}}, all_binder),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Invalid context resource identifier: \"foo\""));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid context resource identifier: \"foo\"")));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto all_resources, jb::FromJson<AllContextResources>(
                               {{"int_resource", {{"value", 5}}}}, all_binder));

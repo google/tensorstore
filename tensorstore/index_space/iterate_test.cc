@@ -45,10 +45,10 @@ using ::tensorstore::IndexInterval;
 using ::tensorstore::IterationConstraints;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_index_space::TransformAccess;
+using ::testing::HasSubstr;
 
 TEST(ValidateIndexArrayBoundsTest, Basic) {
   EXPECT_EQ(absl::OkStatus(),
@@ -56,8 +56,8 @@ TEST(ValidateIndexArrayBoundsTest, Basic) {
                                      MakeArray<Index>({5, 6, 7, 8})));
   EXPECT_THAT(ValidateIndexArrayBounds(IndexInterval::UncheckedClosed(5, 8),
                                        MakeArray<Index>({5, 6, 7, 8, 9})),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 9 is outside valid range \\[5, 9\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Index 9 is outside valid range [5, 9)")));
   // +/-kInfIndex are not valid even if the bounds include them.
   EXPECT_THAT(
       ValidateIndexArrayBounds(IndexInterval(), MakeArray<Index>({kInfIndex})),
@@ -230,16 +230,17 @@ TEST(IterateOverTransformedArraysTest, StridedOnly) {
 }
 
 TEST(IterateOverTransformedArraysTest, ErrorHandling) {
-  EXPECT_THAT(IterateOverTransformedArrays(
-                  [&](const float* source_ptr, float* dest_ptr) {},
-                  /*constraints=*/{},
-                  tensorstore::ArrayView<const float>(
-                      tensorstore::MakeScalarArray<float>(1)),
-                  MakeArray<float>({1}))
-                  .status(),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Transformed array input ranks \\{0, 1\\} do not all match"));
+  EXPECT_THAT(
+      IterateOverTransformedArrays(
+          [&](const float* source_ptr, float* dest_ptr) {},
+          /*constraints=*/{},
+          tensorstore::ArrayView<const float>(
+              tensorstore::MakeScalarArray<float>(1)),
+          MakeArray<float>({1}))
+          .status(),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Transformed array input ranks {0, 1} do not all match")));
 }
 
 TEST(IterateOverTransformedArrayTest, EarlyStoppingWithoutStatus) {
@@ -275,7 +276,7 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithStatus) {
                   },
                   /*constraints=*/{}, array_a, array_b),
               ::testing::Optional(false));
-  EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kUnknown, "7 8"));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kUnknown, HasSubstr("7 8")));
   EXPECT_EQ(MakeArray<float>({5, 6, 7, 9}), array_a);
   EXPECT_EQ(MakeArray<float>({0, 0, 8, 9}), array_b);
 }

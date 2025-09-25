@@ -27,11 +27,12 @@
 #include "tensorstore/util/rational.h"
 #include "tensorstore/util/status_testutil.h"
 
-using ::tensorstore::Index;
-using ::tensorstore::MatchesStatus;
-using ::tensorstore::Rational;
-
 namespace {
+
+using ::tensorstore::Index;
+using ::tensorstore::Rational;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(JsonBindingTest, Simple) {
   tensorstore::TestJsonBinderRoundTrip<Rational<Index>>({
@@ -49,27 +50,27 @@ TEST(JsonBindingTest, Simple) {
       {{2, 3}, "2/3"},
   });
   tensorstore::TestJsonBinderFromJson<Rational<Index>>({
-      {"abc",
-       MatchesStatus(
-           absl::StatusCode::kInvalidArgument,
-           "Expected number or rational number `a/b`, but received: \"abc\"")},
-      {"12a",
-       MatchesStatus(
-           absl::StatusCode::kInvalidArgument,
-           "Expected number or rational number `a/b`, but received: \"12a\"")},
+      {"abc", StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected number or rational number `a/b`, "
+                                 "but received: \"abc\""))},
+      {"12a", StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected number or rational number `a/b`, "
+                                 "but received: \"12a\""))},
       {"12/a",
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Expected rational number `a/b`, but received: \"12/a\"")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr(
+                    "Expected rational number `a/b`, but received: \"12/a\""))},
       {{1},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Array has length 1 but should have length 2")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Array has length 1 but should have length 2"))},
       {{1, "a"},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing value at position 1: "
-                     "Expected 64-bit signed integer, but received: \"a\"")},
+       StatusIs(
+           absl::StatusCode::kInvalidArgument,
+           HasSubstr("Error parsing value at position 1: "
+                     "Expected 64-bit signed integer, but received: \"a\""))},
       {{1, 2, 3},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Array has length 3 but should have length 2")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Array has length 3 but should have length 2"))},
   });
 }
 }  // namespace

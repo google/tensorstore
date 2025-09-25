@@ -42,7 +42,6 @@ namespace {
 
 using ::tensorstore::Future;
 using ::tensorstore::IsOk;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::no_transaction;
 using ::tensorstore::StatusIs;
 using ::tensorstore::Transaction;
@@ -55,6 +54,7 @@ using ::tensorstore::internal::TransactionState;
 using ::tensorstore::internal::UniqueNow;
 using ::tensorstore::internal::WeakTransactionNodePtr;
 using ::tensorstore::internal_testing::TestConcurrent;
+using ::testing::HasSubstr;
 
 constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
@@ -912,7 +912,7 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
   {
     OpenTransactionPtr transaction;
     EXPECT_THAT(GetTransactionNode(*entry, transaction).status(),
-                MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
+                StatusIs(absl::StatusCode::kUnknown, HasSubstr("initialize")));
   }
 
   // Test explicit transaction error.
@@ -922,7 +922,7 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
         tensorstore::internal::AcquireOpenTransactionPtrOrError(
             Transaction(tensorstore::isolated)));
     EXPECT_THAT(GetTransactionNode(*entry, transaction).status(),
-                MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
+                StatusIs(absl::StatusCode::kUnknown, HasSubstr("initialize")));
   }
 }
 

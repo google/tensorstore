@@ -12,13 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <optional>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
@@ -38,14 +46,15 @@ TEST(DimsTest, ErrorHandling) {
       IndexTransformBuilder<2, 0>().Finalize().value(),
       Dims(span<const DimensionIndex>({0, 0, 1})).IndexSlice(0),
       absl::StatusCode::kInvalidArgument,
-      "Number of dimensions .* exceeds input rank .*");
-  TestDimExpressionError(IndexTransformBuilder<2, 0>().Finalize().value(),
-                         Dims(2).Label("b"), absl::StatusCode::kInvalidArgument,
-                         "Dimension index 2 is outside valid range .*");
-  TestDimExpressionError(IndexTransformBuilder<2, 0>().Finalize().value(),
-                         Dims(1, 1).Label("b", "c"),
-                         absl::StatusCode::kInvalidArgument,
-                         "Input dimensions \\{1\\} specified more than once.*");
+      testing::MatchesRegex(".*Number of dimensions .* exceeds input rank.*"));
+  TestDimExpressionError(
+      IndexTransformBuilder<2, 0>().Finalize().value(), Dims(2).Label("b"),
+      absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("imension index 2 is outside valid range"));
+  TestDimExpressionError(
+      IndexTransformBuilder<2, 0>().Finalize().value(),
+      Dims(1, 1).Label("b", "c"), absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Input dimensions {1} specified more than once"));
 }
 
 TEST(DimsTest, SelectUsingLabels) {
@@ -69,12 +78,12 @@ TEST(DimsTest, SelectUsingLabels) {
   TestDimExpressionError(
       IndexTransformBuilder<2, 0>().input_labels({"x", "y"}).Finalize().value(),
       Dims("a").Label("z"), absl::StatusCode::kInvalidArgument,
-      "Label \"a\" does not match one of \\{\"x\", \"y\"\\}");
+      testing::HasSubstr("Label \"a\" does not match one of {\"x\", \"y\"}"));
 
   TestDimExpressionError(
       IndexTransformBuilder<2, 0>().input_labels({"", ""}).Finalize().value(),
       Dims("").Label("z"), absl::StatusCode::kInvalidArgument,
-      "Dimension cannot be specified by empty label");
+      testing::HasSubstr("Dimension cannot be specified by empty label"));
 
   TestDimExpression(
       /*original_transform=*/IndexTransformBuilder<2, 0>()
@@ -168,7 +177,7 @@ TEST(DynamicDimsTest, InvalidNewLabel) {
           .value(),
       Dims(DimRangeSpec{1, 4, 2}, "x").AddNew(),
       absl::StatusCode::kInvalidArgument,
-      "New dimensions cannot be specified by label");
+      testing::HasSubstr("New dimensions cannot be specified by label"));
 }
 
 TEST(DynamicDimsTest, InvalidDimRangeSpecNewUnbounded) {
@@ -179,7 +188,8 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewUnbounded) {
           .value(),
       Dims(DimRangeSpec{std::nullopt, std::nullopt, 1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
-      "`:` is not a valid specification for new dimensions");
+      testing::HasSubstr(
+          "`:` is not a valid specification for new dimensions"));
 }
 
 TEST(DynamicDimsTest, InvalidDimRangeSpecNewMissingStop) {
@@ -190,7 +200,8 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewMissingStop) {
           .value(),
       Dims(DimRangeSpec{5, std::nullopt, 1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
-      "`5:` is not a valid specification for new dimensions");
+      testing::HasSubstr(
+          "`5:` is not a valid specification for new dimensions"));
 }
 
 TEST(DynamicDimsTest, InvalidDimRangeSpecNewNegativeStop) {
@@ -201,7 +212,8 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewNegativeStop) {
           .value(),
       Dims(DimRangeSpec{std::nullopt, -3, 1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
-      "`:-3` is not a valid specification for new dimensions");
+      testing::HasSubstr(
+          "`:-3` is not a valid specification for new dimensions"));
 }
 
 TEST(DynamicDimsTest, InvalidDimRangeSpecNewNegativeStartNegativeStep) {
@@ -223,7 +235,8 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewMissingStart) {
           .value(),
       Dims(DimRangeSpec{std::nullopt, 5, -1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
-      "`:5:-1` is not a valid specification for new dimensions");
+      testing::HasSubstr(
+          "`:5:-1` is not a valid specification for new dimensions"));
 }
 
 TEST(DynamicDimsTest, InvalidDimRangeSpecNewInvalidInterval) {
@@ -233,7 +246,8 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewInvalidInterval) {
           .Finalize()
           .value(),
       Dims(DimRangeSpec{6, 5, 1}).AddNew(), absl::StatusCode::kInvalidArgument,
-      "`6:5` is not a valid specification for new dimensions");
+      testing::HasSubstr(
+          "`6:5` is not a valid specification for new dimensions"));
 }
 
 TEST(DynamicDimsTest, InvalidDimRangeSpecNewInvalidMixedSigns) {
@@ -243,7 +257,8 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewInvalidMixedSigns) {
           .Finalize()
           .value(),
       Dims(DimRangeSpec{-1, 4, 1}).AddNew(), absl::StatusCode::kInvalidArgument,
-      "`-1:4` is not a valid specification for new dimensions");
+      testing::HasSubstr(
+          "`-1:4` is not a valid specification for new dimensions"));
 }
 
 TEST(DynamicDimsTest, InvalidDimRangeSpecNewZeroStep) {
@@ -253,7 +268,7 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewZeroStep) {
           .Finalize()
           .value(),
       Dims(DimRangeSpec{1, 4, 0}).AddNew(), absl::StatusCode::kInvalidArgument,
-      "step must not be 0");
+      testing::HasSubstr("step must not be 0"));
 }
 
 TEST(DynamicDimsTest, InvalidDimRangeSpecNewInvalidIntervalNegativeStep) {
@@ -263,7 +278,8 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewInvalidIntervalNegativeStep) {
           .Finalize()
           .value(),
       Dims(DimRangeSpec{5, 6, -1}).AddNew(), absl::StatusCode::kInvalidArgument,
-      "`5:6:-1` is not a valid specification for new dimensions");
+      testing::HasSubstr(
+          "`5:6:-1` is not a valid specification for new dimensions"));
 }
 
 TEST(DimsTest, DimRangeSpecNegativeStep) {

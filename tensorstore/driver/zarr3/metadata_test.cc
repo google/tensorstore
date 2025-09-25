@@ -19,6 +19,7 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -27,6 +28,7 @@
 #include <gtest/gtest.h>
 #include "absl/base/casts.h"
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/chunk_layout.h"
@@ -37,6 +39,7 @@
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/meta/integer_types.h"
 #include "tensorstore/internal/testing/json_gtest.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -52,7 +55,6 @@ using ::tensorstore::CodecSpec;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::Schema;
 using ::tensorstore::SharedArray;
@@ -68,6 +70,8 @@ using ::tensorstore::internal::uint_t;
 using ::tensorstore::internal_zarr3::FillValueJsonBinder;
 using ::tensorstore::internal_zarr3::ZarrMetadata;
 using ::tensorstore::internal_zarr3::ZarrMetadataConstraints;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 ::nlohmann::json GetBasicMetadata() {
   return {
@@ -184,8 +188,9 @@ TEST(MetadataTest, ParseMissingMember) {
 TEST(MetadataConstraintsTest, FillValueWithoutDataType) {
   EXPECT_THAT(
       ZarrMetadataConstraints::FromJson({{"fill_value", 0}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: must be specified in conjunction with \"data_type\""));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("must be specified in conjunction with \"data_type\"")));
 }
 
 TEST(MetadataConstraintsTest, DimensionUnitsInConstraints) {
@@ -490,9 +495,9 @@ TEST(MetadataTest, InvalidDataType) {
   json["data_type"] = "char";
   EXPECT_THAT(
       ZarrMetadata::FromJson(json),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          ".*: char data type is not one of the supported data types: .*"));
+          HasSubstr("char data type is not one of the supported data types:")));
 }
 
 template <typename T>
@@ -519,8 +524,9 @@ void TestFillValueInvalid(
     std::vector<std::pair<::nlohmann::json, std::string>> cases) {
   auto binder = FillValueJsonBinder{dtype_v<T>};
   for (const auto& [json, matcher] : cases) {
-    EXPECT_THAT(jb::FromJson<SharedArray<const void>>(json, binder).status(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument, matcher))
+    EXPECT_THAT(
+        jb::FromJson<SharedArray<const void>>(json, binder).status(),
+        StatusIs(absl::StatusCode::kInvalidArgument, MatchesRegex(matcher)))
         << "json=" << json;
   }
 }
@@ -531,8 +537,8 @@ TEST(FillValueTest, Bool) {
       {false, false},
   });
   TestFillValueInvalid<bool>({
-      {0, "Expected boolean, but received: 0"},
-      {"true", "Expected boolean, but received: \"true\""},
+      {0, ".*Expected boolean, but received: 0"},
+      {"true", ".*Expected boolean, but received: \"true\""},
   });
 }
 
@@ -542,9 +548,9 @@ TEST(FillValueTest, Int8) {
       {-128, -128},
   });
   TestFillValueInvalid<int8_t>({
-      {128, "Expected integer in the range .*, but received: 128"},
-      {"0", "Expected integer in the range .*, but received: \"0\""},
-      {false, "Expected integer in the range .*, but received: false"},
+      {128, ".*Expected integer in the range .*, but received: 128"},
+      {"0", ".*Expected integer in the range .*, but received: \"0\""},
+      {false, ".*Expected integer in the range .*, but received: false"},
   });
 }
 
@@ -571,13 +577,13 @@ void TestFloatFillValue(uint_t<sizeof(T) * 8> default_nan_bits,
       /*skip_to_json=*/true);
   TestFillValueInvalid<T>({
       {"0",
-       "Expected \"Infinity\", \"-Infinity\", \"NaN\", or hex string, but "
+       ".*Expected \"Infinity\", \"-Infinity\", \"NaN\", or hex string, but "
        "received: \"0\""},
-      {false, "Expected .*, but received: false"},
-      {"0x", "Expected .*, but received: \"0x\""},
-      {"0xg", "Expected .*, but received: \"0xg\""},
+      {false, ".*Expected .*, but received: false"},
+      {"0x", ".*Expected .*, but received: \"0x\""},
+      {"0xg", ".*Expected .*, but received: \"0xg\""},
       {"0x" + std::string(sizeof(T) * 2 + 1, '0'),
-       "Expected .*, but received: \"0x.*\""},
+       ".*Expected .*, but received: \"0x.*\""},
   });
 
   if constexpr (!std::is_void_v<Complex>) {
@@ -588,8 +594,8 @@ void TestFloatFillValue(uint_t<sizeof(T) * 8> default_nan_bits,
         {Complex{1.0, -1.0}, {1, -1}},
     });
     TestFillValueInvalid<Complex>({
-        {0, "Expected array, but received: 0"},
-        {{0, 1, 2}, "Array has length 3 but should have length 2"},
+        {0, ".*Expected array, but received: 0"},
+        {{0, 1, 2}, ".*Array has length 3 but should have length 2"},
     });
   }
 }

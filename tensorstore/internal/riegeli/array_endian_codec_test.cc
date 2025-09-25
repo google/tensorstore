@@ -33,22 +33,23 @@
 
 namespace {
 
-using tensorstore::AllocateArray;
-using tensorstore::c_order;
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::DataType;
-using tensorstore::dtype_v;
-using tensorstore::endian;
-using tensorstore::fortran_order;
-using tensorstore::Index;
-using tensorstore::IsContiguousLayout;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::SharedArray;
-using tensorstore::span;
-using tensorstore::internal::DecodeArrayEndian;
-using tensorstore::internal::EncodeArrayEndian;
-using tensorstore::internal::FlatCordBuilder;
+using ::tensorstore::AllocateArray;
+using ::tensorstore::c_order;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::DataType;
+using ::tensorstore::dtype_v;
+using ::tensorstore::endian;
+using ::tensorstore::fortran_order;
+using ::tensorstore::Index;
+using ::tensorstore::IsContiguousLayout;
+using ::tensorstore::Result;
+using ::tensorstore::SharedArray;
+using ::tensorstore::span;
+using ::tensorstore::StatusIs;
+using ::tensorstore::internal::DecodeArrayEndian;
+using ::tensorstore::internal::EncodeArrayEndian;
+using ::tensorstore::internal::FlatCordBuilder;
+using ::testing::HasSubstr;
 
 Result<absl::Cord> EncodeArrayAsCord(SharedArray<const void> array,
                                      endian endianness,
@@ -194,8 +195,8 @@ TEST(DecodeArrayEndianTest, InvalidBool) {  //
   std::string encoded{0, 1, 2, 1};
   EXPECT_THAT(DecodeArrayFromCord(dtype_v<bool>, {{2, 2}}, absl::Cord(encoded),
                                   endian::native, c_order),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid bool value: 2; at byte 2"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid bool value: 2; at byte 2")));
 }
 
 TEST(DecodeArrayEndianTest, InvalidBoolNoCopy) {  //
@@ -206,8 +207,8 @@ TEST(DecodeArrayEndianTest, InvalidBoolNoCopy) {  //
   EXPECT_THAT(
       DecodeArrayFromCord(dtype_v<bool>, {{1000, 2000}},
                           std::move(builder).Build(), endian::native, c_order),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Invalid bool value: 2"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid bool value: 2")));
 }
 
 TEST(EncodeArrayEndianTest, RoundTripNoCopyFOrder) {
@@ -249,10 +250,10 @@ TEST(DecodeArrayEndianTest, LengthTooShort) {
       0, 1, 2, 3, 4,
   };
   riegeli::StringReader reader{encoded};
-  EXPECT_THAT(
-      DecodeArrayEndian(reader, orig_array.dtype(), orig_array.shape(),
-                        endian::native, c_order),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Not enough data.*"));
+  EXPECT_THAT(DecodeArrayEndian(reader, orig_array.dtype(), orig_array.shape(),
+                                endian::native, c_order),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Not enough data")));
 }
 
 TEST(DecodeArrayEndianTest, LengthTooLong) {
@@ -263,8 +264,8 @@ TEST(DecodeArrayEndianTest, LengthTooLong) {
   riegeli::StringReader reader{encoded};
   EXPECT_THAT(DecodeArrayEndian(reader, orig_array.dtype(), orig_array.shape(),
                                 endian::native, c_order),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "End of data expected.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("End of data expected")));
 }
 
 TEST(EncodeArrayEndianTest, Zlib) {

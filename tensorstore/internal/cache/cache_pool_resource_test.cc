@@ -27,7 +27,6 @@
 namespace {
 
 using ::tensorstore::Context;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::CachePoolResource;
 
 TEST(CachePoolResourceTest, Default) {

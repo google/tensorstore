@@ -31,7 +31,6 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::BasePath;
@@ -42,6 +41,7 @@ using ::tensorstore::internal_ocdbt::FinalizeReader;
 using ::tensorstore::internal_ocdbt::FinalizeWriter;
 using ::tensorstore::internal_ocdbt::kMaxPathLength;
 using ::tensorstore::internal_ocdbt::ReadDataFileTable;
+using ::testing::HasSubstr;
 
 Result<absl::Cord> Encode(const DataFileTable& table) {
   DataFileTableBuilder builder;
@@ -159,7 +159,7 @@ TEST(DataFileBuilderTest, BasePathTooLongWithPrefix) {
   ASSERT_EQ(table.files, decoded.files);
 
   EXPECT_THAT(Decode(encoded, "z"),
-              MatchesStatus(absl::StatusCode::kDataLoss, "path_length.*"));
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("path_length")));
 }
 
 TEST(DataFileBuilderTest, SuffixLengthTooLong) {
@@ -170,8 +170,9 @@ TEST(DataFileBuilderTest, SuffixLengthTooLong) {
   // path_suffix_length[0]
   ASSERT_TRUE(riegeli::WriteVarint64(kMaxPathLength + 1, writer));
   ASSERT_TRUE(writer.Close());
-  EXPECT_THAT(Decode(encoded), MatchesStatus(absl::StatusCode::kDataLoss,
-                                             "Invalid 16-bit varint value.*"));
+  EXPECT_THAT(Decode(encoded),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Invalid 16-bit varint value")));
 }
 
 TEST(DataFileBuilderTest, BasePathLengthTooLong) {
@@ -184,8 +185,9 @@ TEST(DataFileBuilderTest, BasePathLengthTooLong) {
   // base_path_length[0]
   ASSERT_TRUE(riegeli::WriteVarint64(65536, writer));
   ASSERT_TRUE(writer.Close());
-  EXPECT_THAT(Decode(encoded), MatchesStatus(absl::StatusCode::kDataLoss,
-                                             "Invalid 16-bit varint value.*"));
+  EXPECT_THAT(Decode(encoded),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Invalid 16-bit varint value")));
 }
 
 TEST(DataFileBuilderTest, PrefixLengthTooLong) {
@@ -196,8 +198,9 @@ TEST(DataFileBuilderTest, PrefixLengthTooLong) {
   // prefix_length[0]
   ASSERT_TRUE(riegeli::WriteVarint64(kMaxPathLength + 1, writer));
   ASSERT_TRUE(writer.Close());
-  EXPECT_THAT(Decode(encoded), MatchesStatus(absl::StatusCode::kDataLoss,
-                                             "Invalid 16-bit varint value.*"));
+  EXPECT_THAT(Decode(encoded),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Invalid 16-bit varint value")));
 }
 
 TEST(DataFileBuilderTest, BasePathLongerThanPath) {
@@ -210,8 +213,8 @@ TEST(DataFileBuilderTest, BasePathLongerThanPath) {
   // base_path_length[0]
   ASSERT_TRUE(riegeli::WriteVarint64(6, writer));
   ASSERT_TRUE(writer.Close());
-  EXPECT_THAT(Decode(encoded),
-              MatchesStatus(absl::StatusCode::kDataLoss, "base_path_length.*"));
+  EXPECT_THAT(Decode(encoded), StatusIs(absl::StatusCode::kDataLoss,
+                                        HasSubstr("base_path_length")));
 }
 
 TEST(DataFileBuilderTest, PrefixLengthLongerThanPrevBasePath) {
@@ -233,8 +236,8 @@ TEST(DataFileBuilderTest, PrefixLengthLongerThanPrevBasePath) {
   // base_path_length[0]
   ASSERT_TRUE(riegeli::WriteVarint64(1, writer));
   ASSERT_TRUE(writer.Close());
-  EXPECT_THAT(Decode(encoded), MatchesStatus(absl::StatusCode::kDataLoss,
-                                             "path_prefix_length.*"));
+  EXPECT_THAT(Decode(encoded), StatusIs(absl::StatusCode::kDataLoss,
+                                        HasSubstr("path_prefix_length")));
 }
 
 }  // namespace

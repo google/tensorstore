@@ -29,10 +29,11 @@
 namespace {
 
 using ::nlohmann::json;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::ParseJson;
 using ::tensorstore::internal_json::JsonParseArray;
 using ::tensorstore::internal_json::JsonValidateArrayLength;
+using ::testing::HasSubstr;
 
 TEST(JsonTest, SimpleParse) {
   const char kArray[] = R"({ "foo": "bar" })";
@@ -76,8 +77,8 @@ TEST(JsonParseArrayTest, NotArray) {
           [&](const ::nlohmann::json& j, ptrdiff_t i) {
             return absl::OkStatus();
           }),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected array, but received: 3"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected array, but received: 3")));
 }
 
 TEST(JsonValidateArrayLength, Success) {
@@ -85,9 +86,10 @@ TEST(JsonValidateArrayLength, Success) {
 }
 
 TEST(JsonValidateArrayLength, Failure) {
-  EXPECT_THAT(JsonValidateArrayLength(3, 4),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Array has length 3 but should have length 4"));
+  EXPECT_THAT(
+      JsonValidateArrayLength(3, 4),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Array has length 3 but should have length 4")));
 }
 
 TEST(JsonParseArrayTest, SizeCallbackError) {
@@ -98,19 +100,20 @@ TEST(JsonParseArrayTest, SizeCallbackError) {
           [&](const ::nlohmann::json& j, ptrdiff_t i) {
             return absl::OkStatus();
           }),
-      MatchesStatus(absl::StatusCode::kUnknown, "size_callback"));
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("size_callback")));
 }
 
 TEST(JsonParseArrayTest, ElementCallbackError) {
-  EXPECT_THAT(JsonParseArray(
-                  ::nlohmann::json{1, 2, 3},
-                  [&](ptrdiff_t s) { return absl::OkStatus(); },
-                  [&](const ::nlohmann::json& j, ptrdiff_t i) {
-                    if (i == 0) return absl::OkStatus();
-                    return absl::UnknownError("element");
-                  }),
-              MatchesStatus(absl::StatusCode::kUnknown,
-                            "Error parsing value at position 1: element"));
+  EXPECT_THAT(
+      JsonParseArray(
+          ::nlohmann::json{1, 2, 3},
+          [&](ptrdiff_t s) { return absl::OkStatus(); },
+          [&](const ::nlohmann::json& j, ptrdiff_t i) {
+            if (i == 0) return absl::OkStatus();
+            return absl::UnknownError("element");
+          }),
+      StatusIs(absl::StatusCode::kUnknown,
+               HasSubstr("Error parsing value at position 1: element")));
 }
 
 }  // namespace

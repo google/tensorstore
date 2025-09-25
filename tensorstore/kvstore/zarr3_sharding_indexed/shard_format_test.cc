@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/zarr3_sharding_indexed/shard_format.h"
 
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -33,8 +34,8 @@
 namespace {
 
 using ::tensorstore::Index;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
 using ::tensorstore::zarr3_sharding_indexed::DecodeShard;
@@ -42,6 +43,8 @@ using ::tensorstore::zarr3_sharding_indexed::EncodeShard;
 using ::tensorstore::zarr3_sharding_indexed::ShardEntries;
 using ::tensorstore::zarr3_sharding_indexed::ShardIndexLocation;
 using ::tensorstore::zarr3_sharding_indexed::ShardIndexParameters;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 Result<ShardIndexParameters> GetParams(
     ShardIndexLocation index_location, std::vector<Index> grid_shape,
@@ -67,15 +70,16 @@ TEST(InitializeTest, InvalidIndexCodecs) {
       GetParams(ShardIndexLocation::kEnd, {2, 3},
                 {GetDefaultBytesCodecJson(),
                  {{"name", "gzip"}, {"configuration", {{"level", 5}}}}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: only fixed-size encodings are supported"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("only fixed-size encodings are supported")));
 }
 
 TEST(InitializeTest, InvalidGridShape) {
   EXPECT_THAT(
       GetParams(ShardIndexLocation::kEnd, {1024 * 1024 * 1024 + 1}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "grid shape of .* has more than 1073741824 entries"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex("grid shape of .* has more than 1073741824 entries")));
 }
 
 TEST(EncodeShardTest, RoundTrip) {
@@ -114,10 +118,11 @@ TEST(DecodeShardTest, TooShort) {
   absl::Cord encoded(std::string{1, 2, 3});
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p,
                                    GetParams(ShardIndexLocation::kEnd, {2}));
-  EXPECT_THAT(DecodeShard(encoded, p),
-              MatchesStatus(absl::StatusCode::kDataLoss,
-                            "Existing shard has size of 3 bytes, but expected "
-                            "at least .* bytes"));
+  EXPECT_THAT(
+      DecodeShard(encoded, p),
+      StatusIs(absl::StatusCode::kDataLoss,
+               MatchesRegex("Existing shard has size of 3 bytes, but expected "
+                            "at least .* bytes")));
 }
 
 TEST(DecodeShardTest, ByteRangeOutOfRange) {
@@ -131,8 +136,9 @@ TEST(DecodeShardTest, ByteRangeOutOfRange) {
                           {"configuration", {{"endian", "little"}}}}}));
   EXPECT_THAT(
       DecodeShard(encoded, p),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Shard index entry 0 with byte range .* is invalid .*"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               MatchesRegex(
+                   "Shard index entry 0 with byte range .* is invalid .*")));
 }
 
 TEST(DecodeShardTest, ByteRangeInvalid) {
@@ -147,8 +153,8 @@ TEST(DecodeShardTest, ByteRangeInvalid) {
                         {{{"name", "bytes"},
                           {"configuration", {{"endian", "little"}}}}}));
   EXPECT_THAT(DecodeShard(encoded, p),
-              MatchesStatus(absl::StatusCode::kDataLoss,
-                            "Invalid shard index entry 0 with .*"));
+              StatusIs(absl::StatusCode::kDataLoss,
+                       MatchesRegex("Invalid shard index entry 0 with .*")));
 }
 
 }  // namespace

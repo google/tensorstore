@@ -51,10 +51,11 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::ParseJson;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 IndexTransform<> MakeExampleTransform() {
   return tensorstore::IndexTransformBuilder<4, 3>()
@@ -376,17 +377,17 @@ TEST(ParseIndexTransformTest, IdentityTransformInputRank) {
 TEST(ParseIndexTransformTest, StaticInputRankMismatch) {
   EXPECT_THAT(
       (tensorstore::ParseIndexTransform<3, 3>(MakeLabeledExampleJson())),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "  //
-                    "Expected input_rank to be 3, but is: 4"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing index transform from JSON: "  //
+                         "Expected input_rank to be 3, but is: 4")));
 }
 
 TEST(ParseIndexTransformTest, StaticOutputRankMismatch) {
   EXPECT_THAT(
       (tensorstore::ParseIndexTransform<4, 2>(MakeLabeledExampleJson())),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "  //
-                    "Expected output rank to be 2, but is: 3"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing index transform from JSON: "  //
+                         "Expected output rank to be 2, but is: 3")));
 }
 
 TEST(ParseIndexTransformTest, MissingInputRank) {
@@ -400,37 +401,40 @@ TEST(ParseIndexTransformTest, MissingInputRank) {
     ]
 }
 )")),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Error parsing index transform from JSON: "  //
-          "At least one of \"input_rank\", \"input_inclusive_min\", "
-          "\"input_shape\", \"input_inclusive_max\", \"input_exclusive_max\", "
-          "\"input_labels\" members must be specified"));
+          HasSubstr("Error parsing index transform from JSON: "  //
+                    "At least one of \"input_rank\", \"input_inclusive_min\", "
+                    "\"input_shape\", \"input_inclusive_max\", "
+                    "\"input_exclusive_max\", "
+                    "\"input_labels\" members must be specified")));
 }
 
 TEST(ParseIndexTransformTest, InvalidInputRank) {
-  EXPECT_THAT(tensorstore::ParseIndexTransform(ParseJson(R"(
+  EXPECT_THAT(
+      tensorstore::ParseIndexTransform(ParseJson(R"(
 {
     "input_rank": -3
 }
 )")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing index transform from JSON: "  //
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("Error parsing index transform from JSON: "  //
                             "Error parsing object member \"input_rank\": "
-                            "Expected integer .*, but received: -3"));
+                            "Expected integer .*, but received: -3")));
 }
 
 TEST(ParseIndexTransformTest, InvalidShape) {
-  EXPECT_THAT(tensorstore::ParseIndexTransform(ParseJson(R"(
+  EXPECT_THAT(
+      tensorstore::ParseIndexTransform(ParseJson(R"(
 {
     "input_inclusive_min": [1, 2],
     "input_shape": [1, 2, 3]
 }
 )")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing index transform from JSON: "  //
-                            "Error parsing object member \"input_shape\": "
-                            "Array has length 3 but should have length 2"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing index transform from JSON: "  //
+                         "Error parsing object member \"input_shape\": "
+                         "Array has length 3 but should have length 2")));
 }
 
 TEST(ParseIndexTransformTest, ExclusiveMaxAndInclusiveMax) {
@@ -442,10 +446,11 @@ TEST(ParseIndexTransformTest, ExclusiveMaxAndInclusiveMax) {
     "input_inclusive_max": [5, 10]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "  //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "  //
                     "At most one of \"input_shape\", \"input_inclusive_max\", "
-                    "\"input_exclusive_max\" members is allowed"));
+                    "\"input_exclusive_max\" members is allowed")));
 }
 
 TEST(ParseIndexTransformTest, ExclusiveMaxAndShape) {
@@ -457,10 +462,11 @@ TEST(ParseIndexTransformTest, ExclusiveMaxAndShape) {
     "input_shape": [5, 10]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "  //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "  //
                     "At most one of \"input_shape\", \"input_inclusive_max\", "
-                    "\"input_exclusive_max\" members is allowed"));
+                    "\"input_exclusive_max\" members is allowed")));
 }
 
 TEST(ParseIndexTransformTest, InclusiveMaxAndShape) {
@@ -472,10 +478,11 @@ TEST(ParseIndexTransformTest, InclusiveMaxAndShape) {
     "input_shape": [5, 10]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "  //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "  //
                     "At most one of \"input_shape\", \"input_inclusive_max\", "
-                    "\"input_exclusive_max\" members is allowed"));
+                    "\"input_exclusive_max\" members is allowed")));
 }
 
 // Tests that omitting the `"output"` member when `output_rank` is specified
@@ -499,9 +506,9 @@ TEST(ParseIndexTransformTest, MissingOutputs) {
 
   // Test failure case.
   EXPECT_THAT((tensorstore::ParseIndexTransform<dynamic_rank, 3>(json)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing index transform from JSON: "  //
-                            "Missing \"output\" member"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing index transform from JSON: "  //
+                                 "Missing \"output\" member")));
 }
 
 TEST(ParseIndexTransformTest, InvalidInterval) {
@@ -522,9 +529,9 @@ TEST(ParseIndexTransformTest, UnexpectedTopLevelMember) {
     "extra": "value"
 }
 )"))),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing index transform from JSON: "
-                            "Object includes extra members: \"extra\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing index transform from JSON: "
+                                 "Object includes extra members: \"extra\"")));
 }
 
 TEST(ParseIndexTransformTest, UnexpectedOutputMember) {
@@ -537,26 +544,27 @@ TEST(ParseIndexTransformTest, UnexpectedOutputMember) {
     ]
 }
 )"))),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing index transform from JSON: "
-                            "Error parsing object member \"output\": "
-                            "Error parsing value at position 0: "
-                            "Object includes extra members: \"extra\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing index transform from JSON: "
+                                 "Error parsing object member \"output\": "
+                                 "Error parsing value at position 0: "
+                                 "Object includes extra members: \"extra\"")));
 }
 
 TEST(ParseIndexTransformTest, InvalidLabel) {
-  EXPECT_THAT(tensorstore::ParseIndexTransform(ParseJson(R"(
+  EXPECT_THAT(
+      tensorstore::ParseIndexTransform(ParseJson(R"(
 {
     "input_inclusive_min": [1, 2],
     "input_exclusive_max": [5, 10],
     "input_labels": [1, 2]
 }
 )")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing index transform from JSON: "       //
-                            "Error parsing object member \"input_labels\": "  //
-                            "Error parsing value at position 0: "             //
-                            "Expected string, but received: 1"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing index transform from JSON: "       //
+                         "Error parsing object member \"input_labels\": "  //
+                         "Error parsing value at position 0: "             //
+                         "Expected string, but received: 1")));
 }
 
 TEST(ParseIndexTransformTest, InvalidBound) {
@@ -567,12 +575,13 @@ TEST(ParseIndexTransformTest, InvalidBound) {
     "input_exclusive_max": [5, 10]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "              //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "              //
                     "Error parsing object member \"input_inclusive_min\": "  //
                     "Error parsing value at position 1: "                    //
                     "Expected 64-bit signed integer or \"-inf\", "
-                    "but received: \"a\""));
+                    "but received: \"a\"")));
 }
 
 TEST(ParseIndexTransformTest, InvalidBoundPositiveInfinity) {
@@ -583,12 +592,13 @@ TEST(ParseIndexTransformTest, InvalidBoundPositiveInfinity) {
     "input_exclusive_max": [5, 10]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "              //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "              //
                     "Error parsing object member \"input_inclusive_min\": "  //
                     "Error parsing value at position 1: "                    //
                     "Expected 64-bit signed integer or \"-inf\", "
-                    "but received: \"\\+inf\""));
+                    "but received: \"+inf\"")));
 }
 
 TEST(ParseIndexTransformTest, InvalidBoundNegativeInfinity) {
@@ -599,12 +609,13 @@ TEST(ParseIndexTransformTest, InvalidBoundNegativeInfinity) {
     "input_exclusive_max": [5, "-inf"]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "              //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "              //
                     "Error parsing object member \"input_exclusive_max\": "  //
                     "Error parsing value at position 1: "                    //
-                    "Expected 64-bit signed integer or \"\\+inf\", "
-                    "but received: \"-inf\""));
+                    "Expected 64-bit signed integer or \"+inf\", "
+                    "but received: \"-inf\"")));
 }
 
 TEST(ParseIndexTransformTest, InvalidOutputOffset) {
@@ -618,12 +629,13 @@ TEST(ParseIndexTransformTest, InvalidOutputOffset) {
     ]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "  //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "  //
                     "Error parsing object member \"output\": "   //
                     "Error parsing value at position 0: "        //
                     "Error parsing object member \"offset\": "   //
-                    "Expected 64-bit signed integer, but received: \"a\""));
+                    "Expected 64-bit signed integer, but received: \"a\"")));
 }
 
 TEST(ParseIndexTransformTest, InvalidOutputStride) {
@@ -637,12 +649,13 @@ TEST(ParseIndexTransformTest, InvalidOutputStride) {
     ]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "  //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "  //
                     "Error parsing object member \"output\": "   //
                     "Error parsing value at position 0: "        //
                     "Error parsing object member \"stride\": "   //
-                    "Expected 64-bit signed integer, but received: \"a\""));
+                    "Expected 64-bit signed integer, but received: \"a\"")));
 }
 
 TEST(ParseIndexTransformTest, UnexpectedStride) {
@@ -656,13 +669,14 @@ TEST(ParseIndexTransformTest, UnexpectedStride) {
     ]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "  //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "  //
                     "Error parsing object member \"output\": "   //
                     "Error parsing value at position 0: "        //
                     "Error parsing object member \"stride\": "   //
                     "Either \"input_dimension\" or \"index_array\" must be "
-                    "specified in conjunction with \"stride\""));
+                    "specified in conjunction with \"stride\"")));
 }
 
 TEST(ParseIndexTransformTest, InvalidOutputInput) {
@@ -676,12 +690,13 @@ TEST(ParseIndexTransformTest, InvalidOutputInput) {
     ]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "          //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "          //
                     "Error parsing object member \"output\": "           //
                     "Error parsing value at position 0: "                //
                     "Error parsing object member \"input_dimension\": "  //
-                    "Expected 64-bit signed integer, but received: \"a\""));
+                    "Expected 64-bit signed integer, but received: \"a\"")));
 }
 
 TEST(ParseIndexTransformTest, InvalidOutputArray) {
@@ -695,13 +710,14 @@ TEST(ParseIndexTransformTest, InvalidOutputArray) {
     ]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "         //
-                    "Error parsing object member \"output\": "          //
-                    "Error parsing value at position 0: "               //
-                    "Error parsing object member \"index_array\": "     //
-                    "Error parsing array element at position \\{\\}: "  //
-                    ".* received: \"a\""));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex("Error parsing index transform from JSON: "         //
+                       "Error parsing object member \"output\": "          //
+                       "Error parsing value at position 0: "               //
+                       "Error parsing object member \"index_array\": "     //
+                       "Error parsing array element at position \\{\\}: "  //
+                       ".* received: \"a\"")));
 }
 
 TEST(ParseIndexTransformTest, InvalidOutputInputAndArray) {
@@ -715,24 +731,26 @@ TEST(ParseIndexTransformTest, InvalidOutputInputAndArray) {
     ]
 }
 )")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing index transform from JSON: "             //
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing index transform from JSON: "             //
                     "Error parsing object member \"output\": "              //
                     "Error parsing value at position 0: "                   //
                     "At most one of \"input_dimension\", \"index_array\" "  //
-                    "members is allowed"));
+                    "members is allowed")));
 }
 
 TEST(ParseIndexTransformTest, DuplicateLabels) {
-  EXPECT_THAT(tensorstore::ParseIndexTransform(ParseJson(R"(
+  EXPECT_THAT(
+      tensorstore::ParseIndexTransform(ParseJson(R"(
 {
     "input_labels": ["x", "x"]
 }
 )")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing index transform from JSON: "       //
-                            "Error parsing object member \"input_labels\": "  //
-                            "Dimension label.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing index transform from JSON: "       //
+                         "Error parsing object member \"input_labels\": "  //
+                         "Dimension label")));
 }
 
 TEST(IndexDomainJsonBinderTest, Simple) {
@@ -755,40 +773,41 @@ TEST(IndexDomainJsonBinderTest, Simple) {
       {{
            {"rank", 33},
        },
-       MatchesStatus(
+       StatusIs(
            absl::StatusCode::kInvalidArgument,
-           "Error parsing index domain from JSON: "
-           "Error parsing object member \"rank\": "
-           "Expected integer in the range \\[0, 32\\], but received: 33")},
+           HasSubstr(
+               "Error parsing index domain from JSON: "
+               "Error parsing object member \"rank\": "
+               "Expected integer in the range [0, 32], but received: 33"))},
       {{
            {"shape", {1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
                       1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
                       1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
                       1, 1, 1}},
        },
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing index domain from JSON: "
-                     "Error parsing object member \"shape\": "
-                     "Rank 33 is outside valid range \\[0, 32\\]")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing index domain from JSON: "
+                          "Error parsing object member \"shape\": "
+                          "Rank 33 is outside valid range [0, 32]"))},
       {{
            {"labels", {"", "", "", "", "", "", "", "", "", "",  //
                        "", "", "", "", "", "", "", "", "", "",  //
                        "", "", "", "", "", "", "", "", "", "",  //
                        "", "", ""}},
        },
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing index domain from JSON: "
-                     "Error parsing object member \"labels\": "
-                     "Rank 33 is outside valid range \\[0, 32\\]")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing index domain from JSON: "
+                          "Error parsing object member \"labels\": "
+                          "Rank 33 is outside valid range [0, 32]"))},
       {{
            {"inclusive_min", {"-inf", 7, {"-inf"}, {8}}},
            {"exclusive_max", {"+inf", 10, {"+inf"}, {17}}},
            {"labels", {"x", "y", "z", "t"}},
            {"output", "abc"},
        },
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing index domain from JSON: "
-                     "Object includes extra members: \"output\"")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing index domain from JSON: "
+                          "Object includes extra members: \"output\""))},
   });
 }
 
@@ -866,8 +885,8 @@ TEST(ConstrainedRankJsonBinderTest, FromJsonRankConstraint) {
       {
           {30, ::testing::Optional(30)},
           {::nlohmann::json::value_t::discarded, ::testing::Optional(30)},
-          {5, MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected 30, but received: 5")},
+          {5, StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected 30, but received: 5"))},
       },
       tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
       tensorstore::RankConstraint{30});
@@ -879,8 +898,8 @@ TEST(ConstrainedRankJsonBinderTest, ToJsonRankConstraintIncludeDefaults) {
           {30, ::testing::Optional(MatchesJson(30))},
           {dynamic_rank, ::testing::Optional(MatchesJson(
                              ::nlohmann::json::value_t::discarded))},
-          {5, MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected 30, but received: 5")},
+          {5, StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected 30, but received: 5"))},
       },
       tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
       tensorstore::JsonSerializationOptions{
@@ -894,8 +913,8 @@ TEST(ConstrainedRankJsonBinderTest, ToJsonRankConstraintExcludeDefaults) {
                    MatchesJson(::nlohmann::json::value_t::discarded))},
           {dynamic_rank, ::testing::Optional(MatchesJson(
                              ::nlohmann::json::value_t::discarded))},
-          {5, MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected 30, but received: 5")},
+          {5, StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected 30, but received: 5"))},
       },
       tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
       tensorstore::JsonSerializationOptions{tensorstore::IncludeDefaults{false},

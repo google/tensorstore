@@ -87,7 +87,9 @@ tensorstore_cc_test(
         ":format",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
     ],
 )

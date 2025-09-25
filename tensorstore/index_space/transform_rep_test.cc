@@ -22,9 +22,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -51,11 +51,9 @@ using ::tensorstore::Index;
 using ::tensorstore::IndexInterval;
 using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kInfIndex;
-using ::tensorstore::kInfSize;
 using ::tensorstore::kMaxFiniteIndex;
-using ::tensorstore::kMinFiniteIndex;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::OutputIndexMethod;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_index_space::CopyTransformRep;
 using ::tensorstore::internal_index_space::MoveTransformRep;
 using ::tensorstore::internal_index_space::MutableRep;
@@ -66,6 +64,7 @@ using ::tensorstore::internal_index_space::TransformAccess;
 using ::tensorstore::internal_index_space::TransformRep;
 using ::tensorstore::internal_index_space::ValidateAndIntersectBounds;
 using ::tensorstore::internal_testing::TestConcurrent;
+using ::testing::HasSubstr;
 
 TEST(OutputIndexMapTest, Basic) {
   OutputIndexMap map;
@@ -151,8 +150,8 @@ TEST(ReplaceZeroRankIndexArrayIndexMapTest, OutOfBounds) {
   EXPECT_THAT(ReplaceZeroRankIndexArrayIndexMap(
                   10, IndexInterval::UncheckedClosed(11, 15), &output_offset,
                   &output_stride),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 10 is outside valid range \\[11, 16\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Index 10 is outside valid range [11, 16)")));
 }
 
 TEST(ReplaceZeroRankIndexArrayIndexMapTest, OverflowOffset) {
@@ -161,9 +160,9 @@ TEST(ReplaceZeroRankIndexArrayIndexMapTest, OverflowOffset) {
       ReplaceZeroRankIndexArrayIndexMap(10,
                                         IndexInterval::UncheckedClosed(5, 15),
                                         &output_offset, &output_stride),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          ".*Integer overflow computing offset for output dimension.*"));
+          HasSubstr("Integer overflow computing offset for output dimension")));
 }
 
 TEST(ReplaceZeroRankIndexArrayIndexMapTest, OverflowStride) {
@@ -171,9 +170,9 @@ TEST(ReplaceZeroRankIndexArrayIndexMapTest, OverflowStride) {
   EXPECT_THAT(
       ReplaceZeroRankIndexArrayIndexMap(kMaxFiniteIndex, IndexInterval(),
                                         &output_offset, &output_stride),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          ".*Integer overflow computing offset for output dimension.*"));
+          HasSubstr("Integer overflow computing offset for output dimension")));
 }
 
 TEST(Allocate, Basic) {
@@ -469,10 +468,11 @@ TEST(ValidateAndIntersectBoundsTest, Failure) {
       });
   EXPECT_THAT(
       status,
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kOutOfRange,
-          ".*Propagated bounds are incompatible with existing bounds in "
-          "dimension 1 bounds .* vs. propagated bounds.*"));
+          HasSubstr(
+              "Propagated bounds are incompatible with existing bounds in "
+              "dimension 1 bounds [4, 7) vs. propagated bounds, [5, +inf)")));
 }
 
 }  // namespace

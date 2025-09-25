@@ -28,11 +28,12 @@
 namespace {
 
 using ::tensorstore::IsOk;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::MaybeAnnotateStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::InvokeForStatus;
 using ::tensorstore::internal::MaybeAnnotateStatusImpl;
 using ::tensorstore::internal::MaybeConvertStatusTo;
+using ::testing::HasSubstr;
 
 TEST(StatusTest, StrCat) {
   const absl::Status s = absl::UnknownError("Message");
@@ -45,19 +46,20 @@ TEST(StatusTest, MaybeAnnotateStatusImpl) {
   EXPECT_THAT(MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), {},
                                       absl::StatusCode::kInternal,
                                       tensorstore::SourceLocation::current()),
-              MatchesStatus(absl::StatusCode::kInternal, "Boo"));
+              StatusIs(absl::StatusCode::kInternal, HasSubstr("Boo")));
 
   // Just change the message.
   EXPECT_THAT(
       MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated", {},
                               tensorstore::SourceLocation::current()),
-      MatchesStatus(absl::StatusCode::kUnknown, "Annotated: Boo"));
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("Annotated: Boo")));
 
   // Change both code and message
-  EXPECT_THAT(MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated",
-                                      absl::StatusCode::kInternal,
-                                      tensorstore::SourceLocation::current()),
-              MatchesStatus(absl::StatusCode::kInternal, "Annotated: Boo"));
+  EXPECT_THAT(
+      MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated",
+                              absl::StatusCode::kInternal,
+                              tensorstore::SourceLocation::current()),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("Annotated: Boo")));
 }
 
 TEST(StatusTest, MaybeAnnotateStatus) {
@@ -72,8 +74,8 @@ TEST(StatusTest, MaybeAnnotateStatus) {
   auto status = MaybeAnnotateStatus(bar_status, "Annotated");
   EXPECT_TRUE(status.GetPayload("a").has_value());
 
-  EXPECT_THAT(status,
-              MatchesStatus(absl::StatusCode::kUnknown, "Annotated: Bar"));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kUnknown,
+                               HasSubstr("Annotated: Bar")));
   EXPECT_THAT(tensorstore::StrCat(status), testing::HasSubstr("a='b'"));
 }
 
@@ -83,7 +85,7 @@ TEST(StatusTest, MaybeConvertStatusTo) {
                                  absl::StatusCode::kDeadlineExceeded));
   EXPECT_THAT(MaybeConvertStatusTo(absl::UnknownError("Boo"),
                                    absl::StatusCode::kInternal),
-              MatchesStatus(absl::StatusCode::kInternal, "Boo"));
+              StatusIs(absl::StatusCode::kInternal, HasSubstr("Boo")));
 }
 
 TEST(StatusTest, InvokeForStatus) {
@@ -101,7 +103,7 @@ TEST(StatusTest, InvokeForStatus) {
   EXPECT_EQ(3, count);
 
   EXPECT_THAT(InvokeForStatus(b, 4, absl::UnknownError("A")),
-              MatchesStatus(absl::StatusCode::kUnknown, "A"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("A")));
 
   EXPECT_EQ(7, count);
 
@@ -117,10 +119,10 @@ TEST(StatusTest, ReturnIfError) {
   };
 
   EXPECT_THAT(Helper(absl::Status()),
-              MatchesStatus(absl::StatusCode::kUnknown, "No error"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("No error")));
 
   EXPECT_THAT(Helper(absl::UnknownError("Got error")),
-              MatchesStatus(absl::StatusCode::kUnknown, "Got error"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Got error")));
 }
 
 TEST(StatusTest, ReturnIfErrorAnnotate) {
@@ -129,10 +131,10 @@ TEST(StatusTest, ReturnIfErrorAnnotate) {
     return absl::UnknownError("No error");
   };
   EXPECT_THAT(Helper(absl::Status()),
-              MatchesStatus(absl::StatusCode::kUnknown, "No error"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("No error")));
   EXPECT_THAT(
       Helper(absl::UnknownError("Got error")),
-      MatchesStatus(absl::StatusCode::kUnknown, "Annotated: Got error"));
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("Annotated: Got error")));
 }
 
 }  // namespace

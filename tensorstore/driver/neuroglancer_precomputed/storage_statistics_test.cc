@@ -33,7 +33,6 @@ using ::tensorstore::ChunkLayout;
 using ::tensorstore::Context;
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
 using ::tensorstore::StatusIs;
 

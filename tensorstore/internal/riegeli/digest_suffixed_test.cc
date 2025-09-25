@@ -12,8 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
 #include "riegeli/bytes/write.h"
@@ -27,11 +31,12 @@
 namespace {
 
 using ::riegeli::Crc32cDigester;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::DigestSuffixedReader;
 using ::tensorstore::internal::DigestSuffixedWriter;
 using ::tensorstore::internal::LittleEndianDigestVerifier;
 using ::tensorstore::internal::LittleEndianDigestWriter;
+using ::testing::HasSubstr;
 
 TEST(DigestSuffixedWriterTest, Basic) {
   std::string s;
@@ -93,9 +98,9 @@ TEST(DigestSuffixedReaderTest, InvalidDigest) {
           DigestSuffixedReader<Crc32cDigester, LittleEndianDigestVerifier>{
               &reader},
           content),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Digest mismatch, stored digest is 0x00000000 "
-                    "but computed digest is 0x9a71bb4c"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               HasSubstr("Digest mismatch, stored digest is 0x00000000 "
+                         "but computed digest is 0x9a71bb4c")));
   EXPECT_EQ("hello", content);
   ASSERT_TRUE(reader.Close());
 }
@@ -113,8 +118,8 @@ TEST(DigestSuffixedReaderTest, TooShort) {
           DigestSuffixedReader<Crc32cDigester, LittleEndianDigestVerifier>{
               &reader},
           content),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Input size of 3 is less than digest size of 4"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               HasSubstr("Input size of 3 is less than digest size of 4")));
   EXPECT_EQ("", content);
   ASSERT_TRUE(reader.Close());
 }
@@ -184,7 +189,7 @@ TEST(DigestSuffixedReaderTest, ExplicitSizeTooShort) {
           DigestSuffixedReader<Crc32cDigester, LittleEndianDigestVerifier>{
               &reader, 4},
           content),
-      MatchesStatus(absl::StatusCode::kDataLoss, "Digest mismatch.*"));
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("Digest mismatch")));
   EXPECT_EQ("hell", content);
   ASSERT_TRUE(reader.Close());
 }
@@ -209,7 +214,8 @@ TEST(DigestSuffixedReaderTest, ExplicitSizeTooLong) {
           DigestSuffixedReader<Crc32cDigester, LittleEndianDigestVerifier>{
               &reader, 6},
           content),
-      MatchesStatus(absl::StatusCode::kDataLoss, "Unexpected end of input.*"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               HasSubstr("Unexpected end of input")));
   EXPECT_EQ("hello\x4c", content);
   ASSERT_TRUE(reader.Close());
 }
@@ -226,9 +232,9 @@ TEST(DigestSuffixedReaderTest, UnsizedMismatch) {
           DigestSuffixedReader<Crc32cDigester, LittleEndianDigestVerifier>{
               &reader},
           content),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Digest mismatch, stored digest is 0x00000000 "
-                    "but computed digest is 0x9a71bb4c"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               HasSubstr("Digest mismatch, stored digest is 0x00000000 "
+                         "but computed digest is 0x9a71bb4c")));
   EXPECT_EQ("hello", content);
   ASSERT_TRUE(reader.Close());
 }
@@ -249,8 +255,8 @@ TEST(DigestSuffixedReaderTest, UnsizedTooShort) {
           DigestSuffixedReader<Crc32cDigester, LittleEndianDigestVerifier>{
               &reader},
           content),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Input size of 3 is less than digest size of 4"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               HasSubstr("Input size of 3 is less than digest size of 4")));
   EXPECT_EQ("", content);
   ASSERT_TRUE(reader.Close());
 }

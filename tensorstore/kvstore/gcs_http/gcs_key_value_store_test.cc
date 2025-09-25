@@ -74,7 +74,6 @@ using ::tensorstore::Future;
 using ::tensorstore::GCSMockStorageBucket;
 using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
@@ -89,6 +88,7 @@ using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_oauth2::GoogleAuthTestScope;
+using ::testing::HasSubstr;
 
 static constexpr char kDriver[] = "gcs";
 
@@ -460,8 +460,8 @@ TEST(GcsKeyValueStoreTest, InvalidSpec) {
           {{"driver", kDriver}, {"bucket", "my-bucket"}, {"path", "a\tb"}},
           context)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*Invalid GCS path.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid GCS path")));
 }
 
 TEST(GcsKeyValueStoreTest, RequestorPays) {
@@ -760,17 +760,17 @@ TEST(GcsKeyValueStoreTest, InvalidUri) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket:xyz"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Invalid GCS bucket name: \"bucket:xyz\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid GCS bucket name: \"bucket:xyz\"")));
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket?query"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Query string not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Query string not supported")));
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket#fragment"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Fragment identifier not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Fragment identifier not supported")));
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket/a%0Ab"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid GCS path.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid GCS path")));
 }
 
 TEST(GcsKeyValueStoreTest, BatchRead) {

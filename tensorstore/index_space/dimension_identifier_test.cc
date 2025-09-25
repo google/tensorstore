@@ -29,17 +29,18 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
+
 using ::tensorstore::DimensionIdentifier;
 using ::tensorstore::DimensionIndexBuffer;
 using ::tensorstore::DimRangeSpec;
 using ::tensorstore::DynamicDimSpec;
 using ::tensorstore::Index;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::NormalizeDimensionIdentifier;
 using ::tensorstore::NormalizeDimensionIndex;
 using ::tensorstore::span;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
+using ::testing::HasSubstr;
 
 TEST(DimensionIdentifierTest, ConstructDefault) {
   DimensionIdentifier d;
@@ -289,32 +290,33 @@ TEST(NormalizeDimRangeSpecTest, ValidMaxStop) {
 
 TEST(NormalizeDimRangeSpecTest, InvalidStep0) {
   DimensionIndexBuffer buffer;
-  EXPECT_THAT(
-      NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, std::nullopt, 0}, 5,
-                            &buffer),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "step must not be 0"));
+  EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, std::nullopt, 0},
+                                    5, &buffer),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("step must not be 0")));
 }
 
 TEST(NormalizeDimRangeSpecTest, InvalidIntervalStep1) {
   DimensionIndexBuffer buffer;
   EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{3, 1, 1}, 5, &buffer),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "3:1 is not a valid range"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("3:1 is not a valid range")));
 }
 
 TEST(NormalizeDimRangeSpecTest, InvalidIntervalStepNeg1) {
   DimensionIndexBuffer buffer;
   EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{1, 3, -1}, 5, &buffer),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "1:3:-1 is not a valid range"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("1:3:-1 is not a valid range")));
 }
 
 TEST(NormalizeDimRangeSpecTest, InvalidIndex) {
   DimensionIndexBuffer buffer;
-  EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{1, 8, 1}, 5, &buffer),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Dimension exclusive stop index 8 is outside valid "
-                            "range \\[-6, 5\\]"));
+  EXPECT_THAT(
+      NormalizeDimRangeSpec(DimRangeSpec{1, 8, 1}, 5, &buffer),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Dimension exclusive stop index 8 is outside valid "
+                         "range [-6, 5]")));
 }
 
 }  // namespace

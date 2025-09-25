@@ -29,7 +29,6 @@ namespace {
 
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
@@ -97,9 +96,9 @@ TEST(BytesTest, MissingEndianEndianInvariantDataType) {
   EXPECT_THAT(
       TestCodecSpecResolve(::nlohmann::json::array_t{{{"name", "bytes"}}}, p,
                            /*constraints=*/false),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: \"bytes\" codec requires that \"endian\" option is "
-                    "specified for data type uint16"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"bytes\" codec requires that \"endian\" option is "
+                         "specified for data type uint16")));
 }
 
 }  // namespace

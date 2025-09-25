@@ -14,13 +14,24 @@
 
 #include "tensorstore/index_space/index_transform_builder.h"
 
+#include <array>
+#include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
@@ -36,10 +47,10 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::OutputIndexMethod;
 using ::tensorstore::span;
-using ::tensorstore::internal_index_space::TransformAccess;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(IndexTransformTest, BuilderValid) {
   auto index_array = MakeArray<Index>({{{1, 0, 2, 2}}});
@@ -288,15 +299,16 @@ TEST(IndexTransformBuilderTest, InputOriginOutOfRange) {
       IndexTransformBuilder<>(2, 1)
           .input_origin({-kInfIndex - 1, -kInfIndex})
           .Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".* do not specify a valid half-open index interval"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("do not specify a valid half-open index interval")));
 }
 
 TEST(IndexTransformBuilderTest, InputShapeOutOfRange) {
   EXPECT_THAT(
       IndexTransformBuilder<>(2, 1).input_shape({1, -1}).Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "\\(0, -1\\) do not specify a valid sized index interval"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("(0, -1) do not specify a valid sized index interval")));
 }
 
 TEST(IndexTransformBuilderTest, InvalidInputDimensionNegative) {
@@ -304,9 +316,9 @@ TEST(IndexTransformBuilderTest, InvalidInputDimensionNegative) {
       IndexTransformBuilder<>(2, 1)
           .output_single_input_dimension(0, 0, 1, -1)
           .Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Input dimension -1 specified for output dimension 0 "
-                    "is outside valid range \\[0, 2\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Input dimension -1 specified for output dimension 0 "
+                         "is outside valid range [0, 2)")));
 }
 
 TEST(IndexTransformBuilderTest, InvalidInputDimensionPositive) {
@@ -314,18 +326,18 @@ TEST(IndexTransformBuilderTest, InvalidInputDimensionPositive) {
       IndexTransformBuilder<>(2, 1)
           .output_single_input_dimension(0, 2)
           .Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Input dimension 2 specified for output dimension 0 "
-                    "is outside valid range \\[0, 2\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Input dimension 2 specified for output dimension 0 "
+                         "is outside valid range [0, 2)")));
 }
 
 TEST(IndexTransformBuilderTest, InvalidIndexArrayRank) {
   EXPECT_THAT(IndexTransformBuilder<>(2, 1)
                   .output_index_array(0, 0, 1, MakeArray<Index>({1}))
                   .Finalize(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Index array for output dimension 0 "
-                            "has rank 1 but must have rank 2"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Index array for output dimension 0 "
+                                 "has rank 1 but must have rank 2")));
 }
 
 TEST(IndexTransformBuilderTest, InvalidIndexArrayShape) {
@@ -335,9 +347,9 @@ TEST(IndexTransformBuilderTest, InvalidIndexArrayShape) {
           .output_index_array(0, 0, 1,
                               MakeArray<Index>({{1, 2}, {3, 4}, {5, 6}}))
           .Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Index array for output dimension 0 has shape \\{3, 2\\} "
-                    "which does not match input_shape \\{2, 2\\}"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Index array for output dimension 0 has shape {3, 2} "
+                         "which does not match input_shape {2, 2}")));
 }
 
 TEST(IndexTransformBuilderTest, InvalidIndexArrayImplicitLowerBound) {
@@ -348,9 +360,9 @@ TEST(IndexTransformBuilderTest, InvalidIndexArrayImplicitLowerBound) {
           .output_index_array(0, 0, 1,
                               MakeArray<Index>({{1, 2}, {3, 4}, {5, 6}}))
           .Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Index array for output dimension 0 "
-                    "depends on input dimension 0 with implicit bounds"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Index array for output dimension 0 "
+                         "depends on input dimension 0 with implicit bounds")));
 }
 
 TEST(IndexTransformBuilderTest, InvalidIndexArrayImplicitUpperBound) {
@@ -361,9 +373,9 @@ TEST(IndexTransformBuilderTest, InvalidIndexArrayImplicitUpperBound) {
           .output_index_array(0, 0, 1,
                               MakeArray<Index>({{1, 2}, {3, 4}, {5, 6}}))
           .Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Index array for output dimension 0 "
-                    "depends on input dimension 0 with implicit bounds"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Index array for output dimension 0 "
+                         "depends on input dimension 0 with implicit bounds")));
 }
 
 TEST(IndexTransformBuilderTest, InvalidIndexArrayIndexRange) {
@@ -373,8 +385,9 @@ TEST(IndexTransformBuilderTest, InvalidIndexArrayIndexRange) {
           .output_index_array(0, 0, 1, MakeArray<Index>({{1, 2}, {3, 4}}),
                               IndexInterval::Sized(3, -1))
           .Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "\\(3, -1\\) do not specify a valid sized index interval"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("(3, -1) do not specify a valid sized index interval")));
 }
 
 TEST(IndexTransformBuilderTest, InvalidIndexArrayWithUnboundedDomain) {
@@ -384,9 +397,9 @@ TEST(IndexTransformBuilderTest, InvalidIndexArrayWithUnboundedDomain) {
           .input_shape({2})
           .output_index_array(0, 0, 1, MakeArray<Index>({1, 2}))
           .Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Index array for output dimension 0 "
-                    "depends on input dimension 0 with infinite bounds"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Index array for output dimension 0 "
+                         "depends on input dimension 0 with infinite bounds")));
 }
 
 TEST(IndexTransformBuilderDeathTest, InvalidArguments) {
@@ -568,8 +581,8 @@ TEST(InitializeTransformRepForBuilder, Basic) {
 TEST(IndexTransformBuilder, NonUniqueLabels) {
   EXPECT_THAT(
       IndexTransformBuilder<>(3, 0).input_labels({"a", "", "a"}).Finalize(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Dimension label\\(s\\) \"a\" not unique"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Dimension label(s) \"a\" not unique")));
 }
 
 TEST(IndexTransformBuilderTest, IndexArrayWithEmptyExplicitDomain) {

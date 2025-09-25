@@ -45,15 +45,18 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
@@ -74,9 +77,9 @@ using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::JsonSubValuesMatch;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::Schema;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::internal::GetMap;
@@ -88,6 +91,8 @@ using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::tensorstore::internal::TestTensorStoreSpecRoundtripNormalize;
 using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 ::nlohmann::json GetJsonSpec() {
   return {
@@ -114,9 +119,9 @@ TEST(ZarrDriverTest, OpenNonExisting) {
       tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "Error opening \"zarr3\" driver: "
-                    "Metadata at \"prefix/zarr\\.json\" does not exist"));
+      StatusIs(absl::StatusCode::kNotFound,
+               HasSubstr("Error opening \"zarr3\" driver: "
+                         "Metadata at \"prefix/zarr.json\" does not exist")));
 }
 
 TEST(ZarrDriverTest, OpenTransactional) {
@@ -187,23 +192,26 @@ TEST(ZarrDriverTest, OpenWithOpenKvStore) {
 
   EXPECT_THAT(tensorstore::Open({{"driver", "zarr3"}}, dtype_v<uint8_t>,
                                 tensorstore::Schema::Shape({1}), kvs, kvs,
-                                tensorstore::OpenMode::create),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "KvStore already specified"));
+                                tensorstore::OpenMode::create)
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("KvStore already specified")));
   EXPECT_THAT(tensorstore::Open({{"driver", "zarr3"}}, dtype_v<uint8_t>,
                                 tensorstore::Schema::Shape({1}), kvs,
                                 tensorstore::Transaction(tensorstore::isolated),
                                 tensorstore::Transaction(tensorstore::isolated),
-                                tensorstore::OpenMode::create),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Inconsistent transactions specified"));
+                                tensorstore::OpenMode::create)
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Inconsistent transactions specified")));
   EXPECT_THAT(tensorstore::Open({{"driver", "zarr3"}}, dtype_v<uint8_t>,
                                 tensorstore::Schema::Shape({1}), kvs,
                                 tensorstore::Transaction(tensorstore::isolated),
                                 tensorstore::Transaction(tensorstore::isolated),
-                                tensorstore::OpenMode::create),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Inconsistent transactions specified"));
+                                tensorstore::OpenMode::create)
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Inconsistent transactions specified")));
   EXPECT_THAT(
       tensorstore::kvstore::Read(kvs, "zarr.json").result(),
       MatchesKvsReadResult(::testing::Matcher<absl::Cord>(::testing::_)));
@@ -1244,7 +1252,7 @@ TEST(ZarrDriverTest, OpenCorruptMetadata) {
   EXPECT_THAT(
       tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open, context)
           .result(),
-      MatchesStatus(absl::StatusCode::kDataLoss, ".*: Invalid JSON"));
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("Invalid JSON")));
 }
 
 TEST(ZarrDriverTest, IncompatibleMetadata) {
@@ -1264,8 +1272,8 @@ TEST(ZarrDriverTest, IncompatibleMetadata) {
                         tensorstore::RecheckCachedMetadata{true}, context)
           .result());
   EXPECT_THAT(tensorstore::ResolveBounds(store1).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Updated zarr metadata .*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Updated zarr metadata")));
 }
 
 TEST(ZarrDriverTest, DeleteExisting) {
@@ -1278,7 +1286,7 @@ TEST(ZarrDriverTest, DeleteExisting) {
   EXPECT_THAT(
       tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open, context)
           .result(),
-      MatchesStatus(absl::StatusCode::kDataLoss, ".*: Invalid JSON"));
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("Invalid JSON")));
 }
 
 TEST(ZarrDriverTest, ShardingBatchRead) {
@@ -1616,8 +1624,8 @@ TEST(DriverTest, FillMissingDataReads) {
       } else {
         EXPECT_THAT(
             read_result,
-            MatchesStatus(absl::StatusCode::kNotFound,
-                          "chunk \\{0\\} stored at \"c/0\" is missing"));
+            StatusIs(absl::StatusCode::kNotFound,
+                     HasSubstr("chunk {0} stored at \"c/0\" is missing")));
       }
     }
     TENSORSTORE_ASSERT_OK(
@@ -1651,8 +1659,9 @@ TEST(DriverTest, FillMissingDataReadsSharding) {
         EXPECT_THAT(read_result, ::testing::Optional(
                                      tensorstore::MakeArray<int16_t>({0, 0})));
       } else {
-        EXPECT_THAT(read_result, MatchesStatus(absl::StatusCode::kNotFound,
-                                               "chunk .* is missing"));
+        EXPECT_THAT(read_result,
+                    StatusIs(absl::StatusCode::kNotFound,
+                             MatchesRegex(".*chunk .* is missing.*")));
       }
     }
     TENSORSTORE_ASSERT_OK(

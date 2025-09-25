@@ -16,7 +16,11 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
 
@@ -204,10 +208,10 @@ TEST(AddNewTest, EmptyDimensionSelection) {
 }
 
 TEST(AddNewTest, InvalidRank) {
-  TestDimExpressionError(tensorstore::IdentityTransform(31),
-                         Dims(0, 1).AddNew(),
-                         absl::StatusCode::kInvalidArgument,
-                         ".*Rank 33 is outside valid range \\[0, 32\\]");
+  TestDimExpressionError(
+      tensorstore::IdentityTransform(31), Dims(0, 1).AddNew(),
+      absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Rank 33 is outside valid range [0, 32]"));
 }
 
 }  // namespace

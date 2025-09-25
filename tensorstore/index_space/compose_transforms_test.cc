@@ -37,8 +37,8 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::IndexTransformView;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(ComposeTransformsTest, EmptyDomain) {
   auto b_to_c = IndexTransformBuilder<3, 2>()
@@ -175,8 +175,8 @@ TEST(ComposeTransformsTest, ConstantOutOfDomain) {
                     .Finalize()
                     .value();
   EXPECT_THAT(ComposeTransforms(b_to_c, a_to_b).status(),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".*Index 2 is outside valid range \\[3, 10\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Index 2 is outside valid range [3, 10)")));
 }
 
 TEST(ComposeTransformsTest, ConstantOverflow) {
@@ -280,9 +280,10 @@ TEST(ComposeTransformsTest, IndexArrayBoundsOverflow) {
 TEST(ComposeTransformsTest, RankMismatch) {
   EXPECT_THAT(
       ComposeTransforms(IdentityTransform(2), IdentityTransform(3)).status(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Rank 2 -> 2 transform cannot be composed with rank 3 -> 3 "
-                    "transform\\."));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Rank 2 -> 2 transform cannot be composed with rank 3 -> 3 "
+                    "transform.")));
 }
 
 /// Tests that IndexTransform::operator() can be used to compose transforms.

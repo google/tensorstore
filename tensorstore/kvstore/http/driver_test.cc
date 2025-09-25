@@ -48,7 +48,6 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Batch;
 using ::tensorstore::Future;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
@@ -62,6 +61,8 @@ using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
@@ -428,8 +429,8 @@ TEST_F(HttpKeyValueStoreTest, InvalidDate) {
   request.set_result(
       HttpResponse{200, absl::Cord("value"), HeaderMap{{"date", "xyz"}}});
   EXPECT_THAT(read_future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid \"date\" response header: \"xyz\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid \"date\" response header: \"xyz\"")));
 }
 
 TEST_F(HttpKeyValueStoreTest, ExtraHeaders) {
@@ -474,8 +475,8 @@ TEST(UrlTest, UrlRoundtrip) {
 
 TEST(UrlTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("http://example.com#fragment"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Fragment identifier not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Fragment identifier not supported")));
 }
 
 TEST(SpecTest, InvalidScheme) {
@@ -541,9 +542,10 @@ TEST(SpecTest, NormalizeSpecInvalidAbsolutePath) {
                      {"base_url", "https://example.com/my/path?query=value"},
                      {"path", "/abc"}})
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot specify absolute path \"/abc\" in conjunction with "
-                    "base URL \".*\" that includes a path component"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex(
+                   "Cannot specify absolute path \"/abc\" in conjunction with "
+                   "base URL \".*\" that includes a path component")));
 }
 
 }  // namespace

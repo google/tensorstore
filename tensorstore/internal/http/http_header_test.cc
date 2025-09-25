@@ -27,7 +27,6 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::ParseAndSetHeaders;

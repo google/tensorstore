@@ -27,14 +27,14 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/status_testutil.h"
 
-using ::tensorstore::DataType;
-using ::tensorstore::dtype_v;
-using ::tensorstore::MatchesStatus;
-using ::tensorstore::StatusIs;
-
+namespace {
 namespace jb = tensorstore::internal_json_binding;
 
-namespace {
+using ::tensorstore::DataType;
+using ::tensorstore::dtype_v;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
+
 struct X {};
 
 TEST(DataTypeJsonBinderTest, ToJson) {
@@ -43,8 +43,8 @@ TEST(DataTypeJsonBinderTest, ToJson) {
   EXPECT_THAT(jb::ToJson(DataType(dtype_v<bool>)),
               ::testing::Optional(::nlohmann::json("bool")));
   EXPECT_THAT(jb::ToJson(DataType(dtype_v<X>)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Data type has no canonical identifier"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Data type has no canonical identifier")));
   EXPECT_THAT(jb::ToJson(DataType{}),
               ::testing::Optional(tensorstore::MatchesJson(
                   ::nlohmann::json(::nlohmann::json::value_t::discarded))));
@@ -56,8 +56,8 @@ TEST(DataTypeJsonBinderTest, FromJson) {
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("bool")),
               ::testing::Optional(dtype_v<bool>));
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("invalid")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Unsupported data type: \"invalid\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unsupported data type: \"invalid\"")));
   EXPECT_THAT(jb::FromJson<DataType>(
                   ::nlohmann::json(::nlohmann::json::value_t::discarded)),
               ::testing::Optional(DataType{}));

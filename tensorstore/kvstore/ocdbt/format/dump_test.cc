@@ -34,8 +34,9 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
+
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::BtreeNode;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::DataFileId;
@@ -44,6 +45,7 @@ using ::tensorstore::internal_ocdbt::IndirectDataKind;
 using ::tensorstore::internal_ocdbt::IndirectDataReference;
 using ::tensorstore::internal_ocdbt::LabeledIndirectDataReference;
 using ::tensorstore::internal_ocdbt::Manifest;
+using ::testing::HasSubstr;
 
 TEST(LabeledIndirectDataReferenceTest, ParseBtreeNode) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -98,25 +100,25 @@ TEST(LabeledIndirectDataReferenceTest, MaxOffsetAndLength) {
 
 TEST(LabeledIndirectDataReferenceTest, OffsetTooLarge) {
   // 9223372036854775808 = 2^63
-  EXPECT_THAT(
-      LabeledIndirectDataReference::Parse(
-          "btreenode:abc:def%20:9223372036854775808:0"),
-      MatchesStatus(absl::StatusCode::kDataLoss, "Invalid offset/length .*"));
+  EXPECT_THAT(LabeledIndirectDataReference::Parse(
+                  "btreenode:abc:def%20:9223372036854775808:0"),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Invalid offset/length")));
 }
 
 TEST(LabeledIndirectDataReferenceTest, InvalidKind) {
   // 9223372036854775808 = 2^63
   EXPECT_THAT(LabeledIndirectDataReference::Parse("abc:abc:def:0:10"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid indirect data kind: abc"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid indirect data kind: abc")));
 }
 
 TEST(LabeledIndirectDataReferenceTest, LengthTooLarge) {
   // 9223372036854775807 = 2^63-1
-  EXPECT_THAT(
-      LabeledIndirectDataReference::Parse(
-          "btreenode:abc:def%20:9223372036854775807:1"),
-      MatchesStatus(absl::StatusCode::kDataLoss, "Invalid offset/length .*"));
+  EXPECT_THAT(LabeledIndirectDataReference::Parse(
+                  "btreenode:abc:def%20:9223372036854775807:1"),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Invalid offset/length")));
 }
 
 TEST(DumpTest, Manifest) {
