@@ -182,21 +182,30 @@ _REPO_MACRO_BODY = """    maybe(
 """
 
 
-def _write_repo_macro(pkg: Requirement, f: TextIO):
+def _write_repo_macro(pkg_list: list[Requirement], f: TextIO):
   """Writes an individual  repo_pypa_... for a given repository."""
 
-  package_name = _get_target_name(pkg.name)
-  repo_name = _get_repo_name(pkg.name)
+  name = pkg_list[0].name
+  package_name = _get_target_name(name)
+  repo_name = _get_repo_name(name)
 
   f.write(f"def repo_{repo_name}():\n")
 
-  for c in pkg.deps:
+  deps = set()
+  for p in pkg_list:
+    deps.update(p.deps)
+  for c in deps:
     f.write(f"    repo_{_get_repo_name(c)}()\n")
 
-  req_terms = [f"{pkg.name}=={pkg.version}"]
-  if pkg.markers is not None:
-    req_terms.append(f"; {pkg.markers}")
-  req_terms.extend(pkg.hashes.split())
+  req_terms = []
+  for pkg in pkg_list:
+    if req_terms:
+      req_terms.append("")
+    if pkg.markers is not None:
+      req_terms.append(f"{name}=={pkg.version}; {pkg.markers}")
+    else:
+      req_terms.append(f"{name}=={pkg.version}")
+    req_terms.extend(pkg.hashes.split())
 
   req_terms_formatted = (
       "[\n" + ",".join(json.dumps(term) for term in req_terms) + "]"
@@ -211,10 +220,10 @@ def _write_repo_macro(pkg: Requirement, f: TextIO):
       )
   )
 
-  if pkg.deps:
+  if deps:
     f.write(
         "deps=[\n"
-        + ",".join(json.dumps(_get_full_target_name(dep)) for dep in pkg.deps)
+        + ",".join(json.dumps(_get_full_target_name(dep)) for dep in deps)
         + "],"
     )
 
@@ -236,18 +245,19 @@ def repo():
 
 def write_workspace(all_reqs: str, workspace: str, tools_workspace: str):
   """Writes the workspace.bzl file."""
-  parsed_reqs = parse_requirements(all_reqs)
-  parsed_reqs.sort(key=lambda req: req.name)
+  name_to_req = {}
+  for req in parse_requirements(all_reqs):
+    name_to_req.setdefault(req.name, []).append(req)
 
   with open(workspace, "w") as f:
     f.write(_WORKSPACE_OPEN % (tools_workspace,))
-    for pkg in parsed_reqs:
-      dep_repo_name = _get_repo_name(pkg.name)
+    for key in sorted(name_to_req.keys()):
+      dep_repo_name = _get_repo_name(key)
       f.write(f"    repo_{dep_repo_name}()\n")
 
-    for pkg in parsed_reqs:
+    for key in sorted(name_to_req.keys()):
       f.write("\n")
-      _write_repo_macro(pkg, f)
+      _write_repo_macro(name_to_req[key], f)
 
   subprocess.run(["buildifier", workspace], check=True)
 
