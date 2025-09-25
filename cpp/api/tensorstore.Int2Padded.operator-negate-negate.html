@@ -1,5 +1,6 @@
 
 
+
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -7,6 +8,13 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+      
+      
+      
+        <link rel="prev" href="tensorstore.Int2Padded.operator-modulus_assign.html">
+      
+      
+        <link rel="next" href="tensorstore.Int2Padded.operator-unary_plus-unary.html">
       
       
       <link rel="icon" href="../../_static/logo.svg">
@@ -19,11 +27,13 @@
     
       
         
-        
       
       
 
+
     
+    
+      
     
     
       
@@ -32,8 +42,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.31201e28cfd5a9132.min.css?v=f98f8a73" />
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.acf80fe7f4d9ef9e2.min.css?v=9e56d0d2" />
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -53,9 +63,6 @@
     <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue">
   
     
-    
-      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
-    
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" for="__drawer"></label>
@@ -69,13 +76,16 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../../index.html" title="TensorStore" class="md-header__button md-logo" aria-label="TensorStore" data-md-component="logo">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
     </a>
     <label class="md-header__button md-icon" for="__drawer">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
       <div class="md-header__ellipsis">
@@ -94,32 +104,40 @@
       </div>
     </div>
     
-      <form class="md-header__option" data-md-component="palette">
-        
-          
-          
-          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
-          
-            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1Z"/></svg>
-            </label>
-          
-        
-          
-          
-          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
-          
-            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5Z"/></svg>
-            </label>
-          
-        
-      </form>
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
     
       <label class="md-header__button md-icon" for="__search">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
       </label>
       <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
@@ -127,24 +145,27 @@
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </nav>
       
     </form>
     <div class="md-search__output">
-      <div class="md-search__scrollwrap" data-md-scrollfix>
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
         <div class="md-search-result" data-md-component="search-result">
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -156,7 +177,7 @@
         <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
   </div>
   <div class="md-source__repository">
     tensorstore
@@ -188,6 +209,7 @@
                     
 
 
+
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="../../index.html" title="TensorStore" class="md-nav__button md-logo" aria-label="TensorStore" data-md-component="logo">
@@ -200,7 +222,7 @@
       <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
   </div>
   <div class="md-source__repository">
     tensorstore
@@ -212,80 +234,122 @@
     
       
       
-      
-
+  
   
   
   
     
+    
       
+        
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
-      
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
-      
-      
-      
-        <label class="md-nav__link" for="__nav_1">
-          <span class="md-ellipsis">Python API</span>
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" aria-label="Python API" data-md-level="1">
-        <label class="md-nav__title" for="__nav_1">
-          <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">Python API</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
+        
+        
           
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    <span>Python API</span>
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            <span>Python API</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../python/tutorial.html" class="md-nav__link">
-        <span class="md-ellipsis">Tutorial</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Tutorial</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../python/indexing.html" class="md-nav__link">
-        <span class="md-ellipsis">Indexing</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Indexing</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../python/api/index.html" class="md-nav__link">
-        <span class="md-ellipsis">API reference</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>API reference</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
+              
             
-          
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      
     </li>
   
   
@@ -293,1105 +357,1820 @@
     
       
       
-      
-
   
   
     
   
   
+  
+    
     
       
+        
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
-      
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
-      
-      
-      
-        <label class="md-nav__link" for="__nav_2">
-          <span class="md-ellipsis">C++ API</span>
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
-          <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">C++ API</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
           
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    <span>C++ API</span>
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            <span>C++ API</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
+                
   
   
     
   
   
+  
+    
+    
+      
+    
     
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
-      
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1" type="checkbox" id="__nav_2_1" checked>
-      
-      
-      
         
-        <div class="md-nav__link md-nav__link--index ">
-          <a href="index.html"><span class="md-ellipsis">API reference</span></a>
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" checked>
+        
           
-            <label for="__nav_2_1">
-              <span class="md-nav__icon md-icon"></span>
-            </label>
-          
-        </div>
-      
-      <nav class="md-nav" aria-label="API reference" data-md-level="2">
-        <label class="md-nav__title" for="__nav_2_1">
-          <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">API reference</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
+          <div class="md-nav__link md-nav__container">
+            <a href="index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    <span>API reference</span>
+    
+  </span>
+  
+
+            </a>
             
               
+              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            <span>API reference</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="index.html#core" class="md-nav__link">
-        <span class="md-ellipsis">Core</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Core</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="index.html#indexing" class="md-nav__link">
-        <span class="md-ellipsis">Indexing</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Indexing</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
   
   
     
   
   
+  
+    
+    
+      
+    
     
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
-      
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_3" type="checkbox" id="__nav_2_1_3" checked>
-      
-      
-      
         
-        <div class="md-nav__link md-nav__link--index ">
-          <a href="index.html#data-types"><span class="md-ellipsis">Data types</span></a>
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_3" checked>
+        
           
-            <label for="__nav_2_1_3">
-              <span class="md-nav__icon md-icon"></span>
-            </label>
-          
-        </div>
-      
-      <nav class="md-nav" aria-label="Data types" data-md-level="3">
-        <label class="md-nav__title" for="__nav_2_1_3">
-          <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">Data types</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
+          <div class="md-nav__link md-nav__container">
+            <a href="index.html#data-types" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    <span>Data types</span>
+    
+  </span>
+  
+
+            </a>
             
               
+              <label class="md-nav__link " for="__nav_2_1_3" id="__nav_2_1_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1_3">
+            <span class="md-nav__icon md-icon"></span>
+            <span>Data types</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.BFloat16.html" class="md-nav__link">
-        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::BFloat16 (C++ class) — Storage-only bfloat16 type." class="md-ellipsis">BFloat16</span>
+        
+  
+  
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::BFloat16 (C++ class) — Storage-only bfloat16 type."><span>BFloat16</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Float8e3m4.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::Float8e3m4 (C++ type) — Storage-only 8-bit floating-point data types." class="md-ellipsis">Float8e3m4</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Float8e3m4 (C++ type) — Storage-only 8-bit floating-point data types."><span>Float8e3m4</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
   
   
     
   
   
+  
+    
+    
+      
+    
     
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
-      
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_3_3" type="checkbox" id="__nav_2_1_3_3" checked>
-      
-      
-      
         
-        <div class="md-nav__link md-nav__link--index ">
-          <a href="tensorstore.Int2Padded.html"><span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Int2Padded (C++ class) — Int2 type padded to int8." class="md-ellipsis">Int2Padded</span></a>
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_3_3" checked>
+        
           
-            <label for="__nav_2_1_3_3">
-              <span class="md-nav__icon md-icon"></span>
-            </label>
-          
-        </div>
-      
-      <nav class="md-nav" aria-label="Int2Padded" data-md-level="4">
-        <label class="md-nav__title" for="__nav_2_1_3_3">
-          <span class="md-nav__icon md-icon"></span>
-          <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Int2Padded (C++ class) — Int2 type padded to int8." class="md-ellipsis">Int2Padded</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
+          <div class="md-nav__link md-nav__container">
+            <a href="tensorstore.Int2Padded.html" class="md-nav__link ">
+              
+  
+  
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded (C++ class) — Int2 type padded to int8."><span>Int2Padded</span></span>
+    
+  </span>
+  
+
+            </a>
             
               
+              <label class="md-nav__link " for="__nav_2_1_3_3" id="__nav_2_1_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_2_1_3_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            <span title="tensorstore::Int2Padded (C++ class) — Int2 type padded to int8."><span>Int2Padded</span></span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.html#constructors" class="md-nav__link">
-        <span class="md-ellipsis">Constructors</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Constructors</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.html#conversion-operators" class="md-nav__link">
-        <span class="md-ellipsis">Conversion operators</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Conversion operators</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.html#assignment-operators" class="md-nav__link">
-        <span class="md-ellipsis">Assignment operators</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Assignment operators</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
   
   
     
   
   
+  
+    
+    
+      
+    
     
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
-      
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_3_3_4" type="checkbox" id="__nav_2_1_3_3_4" checked>
-      
-      
-      
         
-        <div class="md-nav__link md-nav__link--index ">
-          <a href="tensorstore.Int2Padded.html#arithmetic-operators"><span class="md-ellipsis">Arithmetic operators</span></a>
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_3_3_4" checked>
+        
           
-            <label for="__nav_2_1_3_3_4">
-              <span class="md-nav__icon md-icon"></span>
-            </label>
-          
-        </div>
-      
-      <nav class="md-nav" aria-label="Arithmetic operators" data-md-level="5">
-        <label class="md-nav__title" for="__nav_2_1_3_3_4">
-          <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">Arithmetic operators</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
+          <div class="md-nav__link md-nav__container">
+            <a href="tensorstore.Int2Padded.html#arithmetic-operators" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    <span>Arithmetic operators</span>
+    
+  </span>
+  
+
+            </a>
             
               
+              <label class="md-nav__link " for="__nav_2_1_3_3_4" id="__nav_2_1_3_3_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_2_1_3_3_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1_3_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            <span>Arithmetic operators</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-plus-binary.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator+ (C++ function) — Addition operator." class="md-ellipsis">operator+ <wbr>[binary]</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator+ (C++ function) — Addition operator."><span>operator+ <wbr>[binary]</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-plus_assign.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator+= (C++ function) — Addition assignment operator." class="md-ellipsis">operator+=</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator+= (C++ function) — Addition assignment operator."><span>operator+=</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-minus-binary.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator- (C++ function) — Subtraction operator." class="md-ellipsis">operator-<wbr> <wbr>[binary]</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator- (C++ function) — Subtraction operator."><span>operator-<wbr> <wbr>[binary]</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-minus_assign.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator-= (C++ function) — Subtraction assignment operator." class="md-ellipsis">operator-<wbr>=</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator-= (C++ function) — Subtraction assignment operator."><span>operator-<wbr>=</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-multiplies.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator* (C++ function) — Multiplication operator." class="md-ellipsis">operator*</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator* (C++ function) — Multiplication operator."><span>operator*</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-multiplies_assign.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator*= (C++ function) — Multiplication assignment operator." class="md-ellipsis">operator*=</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator*= (C++ function) — Multiplication assignment operator."><span>operator*=</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-divides.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator/ (C++ function) — Division operator." class="md-ellipsis">operator/</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator/ (C++ function) — Division operator."><span>operator/</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-divides_assign.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator/= (C++ function) — Division assignment operator." class="md-ellipsis">operator/=</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator/= (C++ function) — Division assignment operator."><span>operator/=</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-modulus.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator% (C++ function) — Modulo operator." class="md-ellipsis">operator%</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator% (C++ function) — Modulo operator."><span>operator%</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-modulus_assign.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator%= (C++ function) — Modulo assignment operator." class="md-ellipsis">operator%=</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator%= (C++ function) — Modulo assignment operator."><span>operator%=</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
   
   
     
   
     
+  
   
   
     <li class="md-nav__item md-nav__item--active">
       
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       <a href="#" class="md-nav__link md-nav__link--active">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator- (C++ function) — Unary negation." class="md-ellipsis">operator-<wbr> <wbr>[negate]</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator- (C++ function) — Unary negation."><span>operator-<wbr> <wbr>[negate]</span></span>
+    
+  </span>
+  
+
       </a>
       
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-unary_plus-unary.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator+ (C++ function) — Unary plus." class="md-ellipsis">operator+ <wbr>[unary]</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator+ (C++ function) — Unary plus."><span>operator+ <wbr>[unary]</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-pre_inc-pre.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator++ (C++ function) — Pre-increment." class="md-ellipsis">operator++ <wbr>[pre]</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator++ (C++ function) — Pre-increment."><span>operator++ <wbr>[pre]</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-pre_dec-pre.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator-- (C++ function) — Pre-decrement." class="md-ellipsis">operator--<wbr> <wbr>[pre]</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator-- (C++ function) — Pre-decrement."><span>operator--<wbr> <wbr>[pre]</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-post_inc-post.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator++ (C++ function) — Post-increment." class="md-ellipsis">operator++ <wbr>[post]</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator++ (C++ function) — Post-increment."><span>operator++ <wbr>[post]</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.operator-post_dec-post.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Int2Padded::operator-- (C++ function) — Post-decrement." class="md-ellipsis">operator--<wbr> <wbr>[post]</span>
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int2Padded::operator-- (C++ function) — Post-decrement."><span>operator--<wbr> <wbr>[post]</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
+              
             
-          
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      
     </li>
   
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.html#bitwise-operators" class="md-nav__link">
-        <span class="md-ellipsis">Bitwise operators</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Bitwise operators</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.html#basic-operations" class="md-nav__link">
-        <span class="md-ellipsis">Basic operations</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Basic operations</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int2Padded.html#power-functions" class="md-nav__link">
-        <span class="md-ellipsis">Power functions</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Power functions</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
+              
             
-          
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      
     </li>
   
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.Int4Padded.html" class="md-nav__link">
-        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Int4Padded (C++ class) — Int4 type padded to int8." class="md-ellipsis">Int4Padded</span>
+        
+  
+  
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Int4Padded (C++ class) — Int4 type padded to int8."><span>Int4Padded</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.bool_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::bool_t (C++ type) — Boolean value (always represented as 0 or 1)." class="md-ellipsis">bool_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::bool_t (C++ type) — Boolean value (always represented as 0 or 1)."><span>bool_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.char_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::char_t (C++ type) — Single ASCII/UTF-8 code unit.  Primarily intended to represent fixed-width ASCII fields." class="md-ellipsis">char_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::char_t (C++ type) — Single ASCII/UTF-8 code unit.  Primarily intended to represent fixed-width ASCII fields."><span>char_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.byte_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::byte_t (C++ type) — Opaque byte value.  Intended to represent opaque binary data." class="md-ellipsis">byte_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::byte_t (C++ type) — Opaque byte value.  Intended to represent opaque binary data."><span>byte_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.int2_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::int2_t (C++ type) — Signed and unsigned integer types." class="md-ellipsis">int2_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::int2_t (C++ type) — Signed and unsigned integer types."><span>int2_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.int4_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::int4_t (C++ type)" class="md-ellipsis">int4_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::int4_t (C++ type)"><span>int4_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.int8_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::int8_t (C++ type)" class="md-ellipsis">int8_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::int8_t (C++ type)"><span>int8_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.uint8_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::uint8_t (C++ type)" class="md-ellipsis">uint8_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::uint8_t (C++ type)"><span>uint8_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.int16_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::int16_t (C++ type)" class="md-ellipsis">int16_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::int16_t (C++ type)"><span>int16_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.uint16_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::uint16_t (C++ type)" class="md-ellipsis">uint16_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::uint16_t (C++ type)"><span>uint16_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.int32_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::int32_t (C++ type)" class="md-ellipsis">int32_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::int32_t (C++ type)"><span>int32_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.uint32_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::uint32_t (C++ type)" class="md-ellipsis">uint32_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::uint32_t (C++ type)"><span>uint32_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.int64_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::int64_t (C++ type)" class="md-ellipsis">int64_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::int64_t (C++ type)"><span>int64_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.uint64_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::uint64_t (C++ type)" class="md-ellipsis">uint64_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::uint64_t (C++ type)"><span>uint64_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float8_e3m4_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float8_e3m4_t (C++ type)" class="md-ellipsis">float8_<wbr>e3m4_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float8_e3m4_t (C++ type)"><span>float8_<wbr>e3m4_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float8_e4m3fn_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float8_e4m3fn_t (C++ type)" class="md-ellipsis">float8_<wbr>e4m3fn_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float8_e4m3fn_t (C++ type)"><span>float8_<wbr>e4m3fn_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float8_e4m3fnuz_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float8_e4m3fnuz_t (C++ type)" class="md-ellipsis">float8_<wbr>e4m3fnuz_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float8_e4m3fnuz_t (C++ type)"><span>float8_<wbr>e4m3fnuz_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float8_e4m3b11fnuz_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float8_e4m3b11fnuz_t (C++ type)" class="md-ellipsis">float8_<wbr>e4m3b11fnuz_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float8_e4m3b11fnuz_t (C++ type)"><span>float8_<wbr>e4m3b11fnuz_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float8_e5m2_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float8_e5m2_t (C++ type)" class="md-ellipsis">float8_<wbr>e5m2_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float8_e5m2_t (C++ type)"><span>float8_<wbr>e5m2_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float8_e5m2fnuz_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float8_e5m2fnuz_t (C++ type)" class="md-ellipsis">float8_<wbr>e5m2fnuz_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float8_e5m2fnuz_t (C++ type)"><span>float8_<wbr>e5m2fnuz_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.bfloat16_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::bfloat16_t (C++ type)" class="md-ellipsis">bfloat16_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::bfloat16_t (C++ type)"><span>bfloat16_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float16_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float16_t (C++ type) — IEEE 754 binary16 half-precision floating-point data type." class="md-ellipsis">float16_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float16_t (C++ type) — IEEE 754 binary16 half-precision floating-point data type."><span>float16_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float32_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float32_t (C++ type) — IEEE 754 binary32 single-precision floating-point data type." class="md-ellipsis">float32_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float32_t (C++ type) — IEEE 754 binary32 single-precision floating-point data type."><span>float32_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.float64_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::float64_t (C++ type) — IEEE 754 binary64 double-precision floating-point data type." class="md-ellipsis">float64_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::float64_t (C++ type) — IEEE 754 binary64 double-precision floating-point data type."><span>float64_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.complex64_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::complex64_t (C++ type) — Complex number based on float32_t." class="md-ellipsis">complex64_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::complex64_t (C++ type) — Complex number based on float32_t."><span>complex64_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.complex128_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::complex128_t (C++ type) — Complex number based on float64_t." class="md-ellipsis">complex128_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::complex128_t (C++ type) — Complex number based on float64_t."><span>complex128_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.string_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::string_t (C++ type) — Byte string." class="md-ellipsis">string_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::string_t (C++ type) — Byte string."><span>string_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.ustring_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::ustring_t (C++ type) — Unicode string, represented in memory as UTF-8." class="md-ellipsis">ustring_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::ustring_t (C++ type) — Unicode string, represented in memory as UTF-8."><span>ustring_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.dtypes.json_t.html" class="md-nav__link">
-        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::dtypes::json_t (C++ type) — JSON value." class="md-ellipsis">json_<wbr>t</span>
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::dtypes::json_t (C++ type) — JSON value."><span>json_<wbr>t</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="tensorstore.DataType.html" class="md-nav__link">
-        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::DataType (C++ class) — Run-time representation of a C++ type used as the element type for a multi-dimensional array." class="md-ellipsis">Data<wbr>Type</span>
+        
+  
+  
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::DataType (C++ class) — Run-time representation of a C++ type used as the element type for a multi-dimensional array."><span>Data<wbr>Type</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
+              
             
-          
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      
     </li>
   
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="index.html#array" class="md-nav__link">
-        <span class="md-ellipsis">Array</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Array</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="index.html#key-value-storage" class="md-nav__link">
-        <span class="md-ellipsis">Key-<wbr>value storage</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Key-<wbr>value storage</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="index.html#downsampling" class="md-nav__link">
-        <span class="md-ellipsis">Downsampling</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Downsampling</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="index.html#utilities" class="md-nav__link">
-        <span class="md-ellipsis">Utilities</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Utilities</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
+              
             
-          
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      
     </li>
   
   
 
+              
             
-          
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      
     </li>
   
   
@@ -1399,65 +2178,98 @@
     
       
       
-      
-
+  
   
   
   
     
+    
       
+        
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
-      
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
-      
-      
-      
-        <label class="md-nav__link" for="__nav_3">
-          <span class="md-ellipsis">Setup</span>
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
-          <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">Setup</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
+        
+        
           
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    <span>Setup</span>
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            <span>Setup</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../installation.html" class="md-nav__link">
-        <span class="md-ellipsis">Building and Installing</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Building and Installing</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../environment.html" class="md-nav__link">
-        <span class="md-ellipsis">Environment variables</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Environment variables</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
+              
             
-          
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      
     </li>
   
   
@@ -1465,125 +2277,194 @@
     
       
       
-      
-
+  
   
   
   
     
+    
       
+        
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
-      
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
-      
-      
-      
-        <label class="md-nav__link" for="__nav_4">
-          <span class="md-ellipsis">JSON</span>
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_4">
-          <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">JSON</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
+        
+        
           
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    <span>JSON</span>
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            <span>JSON</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../spec.html" class="md-nav__link">
-        <span class="md-ellipsis">JSON Spec</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>JSON Spec</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../index_space.html" class="md-nav__link">
-        <span class="md-ellipsis">Index space</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Index space</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../schema.html" class="md-nav__link">
-        <span class="md-ellipsis">Schema</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Schema</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../context.html" class="md-nav__link">
-        <span class="md-ellipsis">Context framework</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Context framework</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../driver/index.html" class="md-nav__link">
-        <span class="md-ellipsis">Drivers</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Drivers</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
-            
-          
+              
             
               
+                
+  
   
   
   
   
     <li class="md-nav__item">
       <a href="../../kvstore/index.html" class="md-nav__link">
-        <span class="md-ellipsis">Key-<wbr>Value Storage Layer</span>
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Key-<wbr>Value Storage Layer</span>
+    
+  </span>
+  
+
       </a>
     </li>
   
 
+              
             
-          
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      
     </li>
   
   
@@ -1615,6 +2496,8 @@
           
             <div class="md-content" data-md-component="content">
               <article class="md-content__inner md-typeset" role="main">
+                
+                
                   
 
 
@@ -1634,6 +2517,14 @@
 
 
 
+  
+  
+
+
+
+
+
+
                 
               </article>
             </div>
@@ -1641,50 +2532,15 @@
           
         </div>
         
-          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
-            Back to top
-          </a>
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
         
       </main>
       
         <footer class="md-footer">
-  
-    
-    <nav class="md-footer__inner md-grid" aria-label="Footer" >
-      
-        
-        <a href="tensorstore.Int2Padded.operator-modulus_assign.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore::Int2Padded::operator%=" rel="prev">
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
-          </div>
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Previous
-              </span>
-              tensorstore::Int2Padded::operator%=
-            </div>
-          </div>
-        </a>
-      
-      
-        
-        <a href="tensorstore.Int2Padded.operator-unary_plus-unary.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::Int2Padded::operator+[unary]" rel="next">
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              tensorstore::Int2Padded::operator+[unary]
-            </div>
-          </div>
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
-          </div>
-        </a>
-      
-    </nav>
   
   
   
@@ -1698,10 +2554,11 @@
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
       
-        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
+        <script src="../../_static/sphinx_immaterial_theme.32136f45f91ae6956.min.js?v=a7a9472a"></script>
     
   </body>
 </html>
