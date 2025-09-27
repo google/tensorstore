@@ -31,7 +31,7 @@ MultiBarrier::MultiBarrier(int num_threads)
 }
 
 MultiBarrier::~MultiBarrier() {
-  absl::MutexLock l(&lock_);
+  absl::MutexLock l(lock_);
   lock_.Await(absl::Condition(IsZero, &asleep_));
 }
 
@@ -39,7 +39,7 @@ bool MultiBarrier::Block() {
   // Arriving threads select one of the blocking variables based on the low-bit
   // of num_threads_.  Once that variable reaches 0, the low-bit is toggled
   // and the other variable becomes active.
-  absl::MutexLock l(&lock_);
+  absl::MutexLock l(lock_);
   int& num_to_block = blocking_[num_threads_ & 1];
   num_to_block--;
   assert(num_to_block >= 0);
