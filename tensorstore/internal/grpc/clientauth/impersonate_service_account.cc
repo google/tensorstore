@@ -93,7 +93,7 @@ GrpcImpersonateServiceAccount::ConfigureContext(
 
 std::shared_ptr<grpc::CallCredentials>
 GrpcImpersonateServiceAccount::UpdateCallCredentials(const std::string& token) {
-  absl::MutexLock lock(&mu_);
+  absl::MutexLock lock(mu_);
   if (access_token_ != token) {
     access_token_ = token;
     credentials_ = grpc::AccessTokenCredentials(token);
