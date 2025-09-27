@@ -169,7 +169,7 @@ void DeadlineTaskQueue::ScheduleAt(absl::Time target_time, ScheduleAtTask task,
                                                  stop_token);
 
   // Enqueue the task.
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(mutex_);
 
   auto tagged_queue_ptr = node->queue.exchange(TaggedQueuePointer(this));
   if (tagged_queue_ptr.tag()) {
@@ -219,7 +219,7 @@ void DeadlineTaskQueue::Run() {
     DeadlineTaskTree runnable;
     DeadlineTaskNode* run_immediately = nullptr;
     {
-      absl::MutexLock l(&mutex_);
+      absl::MutexLock l(mutex_);
       do {
         run_immediately = std::exchange(run_immediately_queue_, nullptr);
 
@@ -295,7 +295,7 @@ void DeadlineTaskStopCallback::operator()() const {
 
 void DeadlineTaskQueue::TryRemove(DeadlineTaskNode& node) {
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     // If deadline is met after the exchange operation above, the node will be
     // removed from the queue but not destroyed.
     if (node.deadline <= woken_up_) {
