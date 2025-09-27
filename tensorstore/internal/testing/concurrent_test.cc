@@ -43,9 +43,9 @@ TEST(TestConcurrent, EnsureContentionHappens) {
       /*initialize=*/[&] {},
       /*finalize=*/[&] {},  //
       [&](auto) {
-        if (lock.TryLock()) {
+        if (lock.try_lock()) {
           uncontended++;
-          lock.Unlock();
+          lock.unlock();
         }
       });
   int contended = (kIterations * kN) - uncontended;
