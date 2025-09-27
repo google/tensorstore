@@ -119,9 +119,14 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
 
 
 def _configure_macos_deployment_target():
+  # CPython 3.14 requires MACOSX_DEPLOYMENT_TARGET >= 10.15, otherwise
   # TensorStore requires MACOSX_DEPLOYMENT_TARGET >= 10.14 in
   # order to support sized/aligned operator new/delete.
-  min_macos_target = '10.14'
+  if sys.version_info > (3, 13):
+    min_macos_target = '10.15'
+  else:
+    min_macos_target = '10.14'
+
   key = 'MACOSX_DEPLOYMENT_TARGET'
   python_macos_target = str(sysconfig.get_config_var(key))
   macos_target = python_macos_target
