@@ -172,7 +172,7 @@ std::vector<Box<>> GetStoredChunks(tensorstore::TensorStore<> ts) {
     LinkValue(
         [b = box, &array_boxes, &mutex](auto promise,
                                         ReadyFuture<ArrayStorageStatistics> f) {
-          absl::MutexLock lock(&mutex);
+          absl::MutexLock lock(mutex);
           if (!f.value().not_stored) {
             array_boxes.push_back(std::move(b));
           }
@@ -248,7 +248,7 @@ absl::Status TsPrintStorageStatistics(Context context, tensorstore::Spec spec,
   for (const auto& box : boxes) {
     LinkValue(
         [&, b = box](auto promise, ReadyFuture<ArrayStorageStatistics> f) {
-          absl::MutexLock lock(&mutex);
+          absl::MutexLock lock(mutex);
           if (f.value().not_stored) {
             not_stored.push_back(std::move(b));
           } else if (f.value().fully_stored) {
