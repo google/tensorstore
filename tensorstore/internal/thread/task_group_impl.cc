@@ -151,7 +151,7 @@ int64_t TaskGroup::EstimateThreadsRequired() {
   }
 
   // Otherwise check the available tasks.
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   if (!queue_.empty()) {
     return std::min(n, queue_.size());
   }
@@ -168,7 +168,7 @@ void TaskGroup::DoWorkOnThread() {
   data->owner = this;
 
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     if (threads_in_use_.load(std::memory_order_relaxed) == thread_limit_) {
       return;
     }
@@ -205,7 +205,7 @@ void TaskGroup::DoWorkOnThread() {
   metrics.Update();
 
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     threads_in_use_.fetch_sub(1, std::memory_order_relaxed);
     if (data->slot != thread_queues_.size() - 1) {
       thread_queues_[data->slot] = thread_queues_.back();
@@ -233,7 +233,7 @@ std::unique_ptr<InFlightTask> TaskGroup::AcquireTask(PerThreadData* thread_data,
     return std::unique_ptr<InFlightTask>(t);
   }
 
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   while (true) {
     // Second, attempt to acquire a task from the global queue.
     if (!queue_.empty()) {
@@ -308,7 +308,7 @@ void TaskGroup::AddTask(std::unique_ptr<InFlightTask> task) {
   }
 
   if (state != 0) {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
 
     if (state == 1) {
       // The local queue is full; migrate up to 1/2 the tasks.
@@ -335,7 +335,7 @@ void TaskGroup::BulkAddTask(
     tensorstore::span<std::unique_ptr<InFlightTask>> tasks) {
   internal_os::AbortIfForkDetected();
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     for (auto& t : tasks) {
       queue_.push_back(std::move(t));
     }

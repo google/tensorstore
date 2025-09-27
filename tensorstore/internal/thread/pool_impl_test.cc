@@ -58,7 +58,7 @@ struct SingleTaskProvider : public TaskProvider {
   ~SingleTaskProvider() override = default;
 
   int64_t EstimateThreadsRequired() override {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     flags_ += 2;
     return task_ ? 1 : 0;
   }
@@ -74,7 +74,7 @@ struct SingleTaskProvider : public TaskProvider {
 
     // Acquire task
     {
-      absl::MutexLock lock(&mutex_);
+      absl::MutexLock lock(mutex_);
       flags_ |= 1;
       if (task_) {
         task = std::move(task_);
