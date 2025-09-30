@@ -131,7 +131,9 @@ def run(args, extra_args):
 
   env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
   # https://cibuildwheel.pypa.io/en/stable/options/#build-skip
-  env["CIBW_SKIP"] = "cp38-* cp39-* cp314-* *_i686 *-win32 *-musllinux*"
+  env["CIBW_SKIP"] = (
+      "cp38-* cp39-* cp314-* cp314t-* *_i686 *-win32 *-musllinux*"
+  )
   env["CIBW_TEST_COMMAND"] = (
       "python -m pytest {project}/python/tensorstore/tests -vv -s"
   )
@@ -242,9 +244,6 @@ def run(args, extra_args):
 
   elif platform != "linux" and sys.platform.startswith("darwin"):
     # macOS (and not building for linux via docker)
-    # NOTE: For python 3.14+, the default MACOSX_DEPLOYMENT_TARGET is 10.15.
-    cibw_environment["MACOSX_DEPLOYMENT_TARGET"] = "10.14"
-
     # Workaround for https://github.com/bazelbuild/bazel/issues/10472
     bazel_build_options.append("--sandbox_block_path=/usr/local/include")
   else:
