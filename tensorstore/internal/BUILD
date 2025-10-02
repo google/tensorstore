@@ -1367,6 +1367,7 @@ tensorstore_cc_library(
     srcs = ["path.cc"],
     hdrs = ["path.h"],
     deps = [
+        ":ascii_set",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -1377,6 +1378,7 @@ tensorstore_cc_test(
     srcs = ["path_test.cc"],
     deps = [
         ":path",
+        "//tensorstore/internal/testing:on_windows",
         "@googletest//:gtest_main",
     ],
 )
@@ -1613,6 +1615,10 @@ tensorstore_cc_library(
     hdrs = ["uri_utils.h"],
     deps = [
         ":ascii_set",
+        ":path",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
     ],
@@ -1624,6 +1630,9 @@ tensorstore_cc_test(
     deps = [
         ":ascii_set",
         ":uri_utils",
+        "//tensorstore/internal/testing:on_windows",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )

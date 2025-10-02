@@ -19,14 +19,20 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/testing/on_windows.h"
 
 namespace {
 
 using ::tensorstore::internal::EnsureDirectoryPath;
 using ::tensorstore::internal::EnsureNonDirectoryPath;
+using ::tensorstore::internal::IsAbsolutePath;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::LexicalNormalizePath;
 using ::tensorstore::internal::PathDirnameBasename;
+using ::tensorstore::internal::PathRootName;
+using ::tensorstore::internal_testing::OnWindows;
+using ::testing::IsEmpty;
+using ::testing::Pair;
 using ::testing::StrEq;
 
 TEST(PathTest, JoinPath) {
@@ -60,32 +66,33 @@ TEST(PathTest, JoinPath_MixedArgs) {
 }
 
 TEST(PathTest, PathDirnameBasename) {
-  EXPECT_EQ("/a/b", PathDirnameBasename("/a/b/bar").first);
-  EXPECT_EQ("bar", PathDirnameBasename("/a/b/bar").second);
+  EXPECT_THAT(PathDirnameBasename("/a/b/bar"), Pair("/a/b", "bar"));
+  EXPECT_THAT(PathDirnameBasename("/a/b/bar/"), Pair("/a/b/bar", ""));
+  EXPECT_THAT(PathDirnameBasename(""), Pair("", ""));
+  EXPECT_THAT(PathDirnameBasename("/"), Pair("/", ""));
+  EXPECT_THAT(PathDirnameBasename("a/b/bar"), Pair("a/b", "bar"));
+  EXPECT_THAT(PathDirnameBasename("bar"), Pair("", "bar"));
+  EXPECT_THAT(PathDirnameBasename("/bar"), Pair("/", "bar"));
+  EXPECT_THAT(PathDirnameBasename("//a/b///bar"), Pair("//a/b", "bar"));
+  EXPECT_THAT(PathDirnameBasename("///bar"), Pair("/", "bar"));
 
-  EXPECT_EQ("/a/b/bar", PathDirnameBasename("/a/b/bar/").first);
-  EXPECT_EQ("", PathDirnameBasename("/a/b/bar/").second);
+  // NOTE: Should return the drive-letter as the base name in these on
+  // windows.
+  EXPECT_THAT(PathDirnameBasename("C:"),
+              OnWindows(Pair("C:", ""), Pair("", "C:")));
+  EXPECT_THAT(PathDirnameBasename("C:bar"),
+              OnWindows(Pair("C:", "bar"), Pair("", "C:bar")));
+  EXPECT_THAT(PathDirnameBasename("C:/bar"),
+              OnWindows(Pair("C:/", "bar"), Pair("C:", "bar")));
 
-  EXPECT_EQ("", PathDirnameBasename("").first);
-  EXPECT_EQ("", PathDirnameBasename("").second);
+  // NOTE: Should return the server/share in these on windows.
+  EXPECT_THAT(PathDirnameBasename("//server/share"),
+              OnWindows(Pair("//server/", "share"), Pair("//server", "share")));
+  EXPECT_THAT(PathDirnameBasename("//server/"),
+              OnWindows(Pair("//server/", ""), Pair("//server", "")));
 
-  EXPECT_EQ("/", PathDirnameBasename("/").first);
-  EXPECT_EQ("", PathDirnameBasename("/").second);
-
-  EXPECT_EQ("a/b", PathDirnameBasename("a/b/bar").first);
-  EXPECT_EQ("bar", PathDirnameBasename("a/b/bar").second);
-
-  EXPECT_EQ("", PathDirnameBasename("bar").first);
-  EXPECT_EQ("bar", PathDirnameBasename("bar").second);
-
-  EXPECT_EQ("/", PathDirnameBasename("/bar").first);
-  EXPECT_EQ("bar", PathDirnameBasename("/bar").second);
-
-  EXPECT_EQ("//a/b", PathDirnameBasename("//a/b///bar").first);
-  EXPECT_EQ("bar", PathDirnameBasename("//a/b///bar").second);
-
-  EXPECT_EQ("/", PathDirnameBasename("///bar").first);
-  EXPECT_EQ("bar", PathDirnameBasename("///bar").second);
+  // Not actually a valid network share.
+  EXPECT_THAT(PathDirnameBasename("//server"), Pair("/", "server"));
 }
 
 TEST(EnsureDirectoryPathTest, EmptyString) {
@@ -142,6 +149,18 @@ TEST(EnsureNonDirectoryPathTest, NonEmptyWithSlashes) {
   EXPECT_EQ("abc", path);
 }
 
+TEST(PathTest, IsAbsolutePath) {
+  EXPECT_FALSE(IsAbsolutePath(""));
+  EXPECT_FALSE(IsAbsolutePath("a/b"));
+  EXPECT_FALSE(IsAbsolutePath("C:"));
+
+  EXPECT_TRUE(IsAbsolutePath("/"));
+  EXPECT_TRUE(IsAbsolutePath("/tmp/bar"));
+
+  EXPECT_TRUE(IsAbsolutePath("//server/share"));
+  EXPECT_THAT(IsAbsolutePath("C:\\"), OnWindows(true, false));
+}
+
 TEST(PathTest, LexicalNormalizePath) {
   EXPECT_THAT(LexicalNormalizePath("/"), StrEq("/"));
   EXPECT_THAT(LexicalNormalizePath("a/b/c"), StrEq("a/b/c"));
@@ -149,7 +168,7 @@ TEST(PathTest, LexicalNormalizePath) {
   EXPECT_THAT(LexicalNormalizePath("a/b/c/"), StrEq("a/b/c/"));
   EXPECT_THAT(LexicalNormalizePath("/a/b/c/"), StrEq("/a/b/c/"));
   EXPECT_THAT(LexicalNormalizePath("a\\b\\c/"), StrEq("a/b/c/"));
-  EXPECT_THAT(LexicalNormalizePath("C:\\a/b\\c\\"), StrEq("C:/a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("C:a/b\\c\\"), StrEq("C:a/b/c/"));
 
   // self .
   EXPECT_THAT(LexicalNormalizePath("a/b/./c"), StrEq("a/b/c"));
@@ -163,8 +182,58 @@ TEST(PathTest, LexicalNormalizePath) {
   EXPECT_THAT(LexicalNormalizePath("../a/b/c"), StrEq("../a/b/c"));
   EXPECT_THAT(LexicalNormalizePath("/../a/b/c"), StrEq("/a/b/c"));
 
-  // Remove duplicate slashes
-  EXPECT_THAT(LexicalNormalizePath("//a////b//c////"), StrEq("/a/b/c/"));
+  // Windows drive-letter paths.
+  EXPECT_THAT(LexicalNormalizePath("C:a/b/."), StrEq("C:a/b/"));
+  EXPECT_THAT(LexicalNormalizePath("C:/a/b/."), StrEq("C:/a/b/"));
+  EXPECT_THAT(LexicalNormalizePath("C:a/b/bb/../c/"), StrEq("C:a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("C:/a/b/bb/../c/"), StrEq("C:/a/b/c/"));
+
+  // Not valid networks shares.
+  EXPECT_THAT(LexicalNormalizePath("//path"), StrEq("/path"));
+  EXPECT_THAT(LexicalNormalizePath("///a////b//c////"), StrEq("/a/b/c/"));
+}
+
+TEST(PathTest, LexicalNormalizePath_Windows) {
+  // Identical on Windows and non-windows, even with path root.
+  EXPECT_THAT(LexicalNormalizePath("C:a/b\\c\\"), StrEq("C:a/b/c/"));
+
+  // Relative paths at the beginning behave differently under windows
+  // since there is a root-name available.
+  EXPECT_THAT(LexicalNormalizePath("C:\\a/b\\c\\"), StrEq("C:/a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("C:./a"), OnWindows("C:a", "C:./a"));
+  EXPECT_THAT(LexicalNormalizePath("C:/../a/b/c"),
+              StrEq(OnWindows("C:/a/b/c", "a/b/c")));
+
+  // Handle windows networks shares.
+  EXPECT_THAT(LexicalNormalizePath("\\\\share\\path\\sub"),
+              StrEq(OnWindows("\\\\share/path/sub", "/share/path/sub")));
+  EXPECT_THAT(LexicalNormalizePath("//share/path/sub"),
+              StrEq(OnWindows("//share/path/sub", "/share/path/sub")));
+
+  // Slashes may be normalized differently under windows since a network
+  // share may be detected.
+  EXPECT_THAT(LexicalNormalizePath("//a////b//c////"),
+              StrEq(OnWindows("//a/b/c/", "/a/b/c/")));
+}
+
+TEST(PathTest, PathRootName) {
+  EXPECT_THAT(PathRootName(""), IsEmpty());
+  EXPECT_THAT(PathRootName("/"), IsEmpty());
+  EXPECT_THAT(PathRootName("a/b/c"), IsEmpty());
+  EXPECT_THAT(PathRootName("/a/b/c"), IsEmpty());
+
+  // Never a valid network share.
+  EXPECT_THAT(PathRootName("///a/b/c"), IsEmpty());
+
+  // Absolute and relative paths return the drive-letter.
+  EXPECT_THAT(PathRootName("C:\\a/b\\c\\"), StrEq(OnWindows("C:", "")));
+  EXPECT_THAT(PathRootName("C:a/b\\c\\"), StrEq(OnWindows("C:", "")));
+
+  // Windows network shares return the share name.
+  EXPECT_THAT(PathRootName("\\\\share\\path\\sub"),
+              StrEq(OnWindows("\\\\share", "")));
+  EXPECT_THAT(PathRootName("//share//path//sub"),
+              StrEq(OnWindows("//share", "")));
 }
 
 }  // namespace

@@ -16,7 +16,9 @@
 
 #include <string_view>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/testing/on_windows.h"
 #include "tensorstore/kvstore/key_range.h"
 
 namespace {
@@ -24,32 +26,69 @@ namespace {
 using ::tensorstore::KeyRange;
 using ::tensorstore::internal_file_util::IsKeyValid;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
+using ::tensorstore::internal_testing::OnWindows;
 
-TEST(IsKeyValid, Basic) {
-  EXPECT_TRUE(IsKeyValid("tmp/root", ""));
-  EXPECT_TRUE(IsKeyValid("a", ""));
-  EXPECT_TRUE(IsKeyValid("a/b", ""));
-  EXPECT_TRUE(IsKeyValid("/tmp/root", ""));
-  EXPECT_TRUE(IsKeyValid("a\\b", ""));
-
+TEST(IsKeyValid, InvalidKeys) {
   EXPECT_FALSE(IsKeyValid("", ""));
-  EXPECT_FALSE(IsKeyValid("/", ""));
+
+  EXPECT_FALSE(IsKeyValid("\\", ""));
   EXPECT_FALSE(IsKeyValid("//", ""));
-  EXPECT_FALSE(IsKeyValid("//tmp/x", ""));
+  EXPECT_FALSE(IsKeyValid("\\\\", ""));
+  EXPECT_FALSE(IsKeyValid("///", ""));
+  EXPECT_FALSE(IsKeyValid("\\\\\\", ""));
+
+  // Paths with / suffixes
+  EXPECT_FALSE(IsKeyValid("tmp/root//", ""));
+  EXPECT_FALSE(IsKeyValid("tmp/root/", ""));
+  EXPECT_FALSE(IsKeyValid("tmp/root\\", ""));
+  EXPECT_FALSE(IsKeyValid("/tmp/root//", ""));
   EXPECT_FALSE(IsKeyValid("/tmp/root/", ""));
+  EXPECT_FALSE(IsKeyValid("/tmp/root\\", ""));
+
+  // Invalid components.
   EXPECT_FALSE(IsKeyValid("tmp//root", ""));
   EXPECT_FALSE(IsKeyValid("tmp/./root", ""));
   EXPECT_FALSE(IsKeyValid("tmp/../root", ""));
-  EXPECT_FALSE(IsKeyValid("tmp/root/", ""));
   EXPECT_FALSE(IsKeyValid("tmp/.lock/a", ".lock"));
   EXPECT_FALSE(IsKeyValid("tmp/foo.lock/a", ".lock"));
 
-  // Using Windows separators.
-  EXPECT_FALSE(IsKeyValid("\\", ""));
+  EXPECT_FALSE(IsKeyValid("/tmp//root", ""));
+  EXPECT_FALSE(IsKeyValid("/tmp/./root", ""));
+  EXPECT_FALSE(IsKeyValid("/tmp/../root", ""));
+  EXPECT_FALSE(IsKeyValid("/tmp/.lock/a", ".lock"));
+  EXPECT_FALSE(IsKeyValid("/tmp/foo.lock/a", ".lock"));
   EXPECT_FALSE(IsKeyValid("tmp\\..\\root", ""));
-  EXPECT_FALSE(IsKeyValid("tmp\\root\\", ""));
+}
 
-  EXPECT_FALSE(IsKeyValid(std::string_view("tmp/\0bar", 8), ""));
+TEST(IsKeyValid, ValidKeys) {
+  EXPECT_TRUE(IsKeyValid("tmp", ""));
+  EXPECT_TRUE(IsKeyValid("tmp/root", ""));
+  EXPECT_TRUE(IsKeyValid("tmp\\root", ""));
+
+  // Absolute paths.
+  EXPECT_TRUE(IsKeyValid("/tmp/root", ""));
+  EXPECT_TRUE(IsKeyValid("\\tmp\\root", ""));
+}
+
+TEST(IsKeyValid, WindowsKeys) {
+  // Valid on windows, but with different meanings.
+  // Drive-letter paths.
+  EXPECT_THAT(IsKeyValid("C:", ""), OnWindows(false, true));
+  EXPECT_TRUE(IsKeyValid("c:tmp", ""));
+  EXPECT_TRUE(IsKeyValid("C:\\tmp/root", ""));
+
+  // Invalid in both POSIX and Windows.
+  EXPECT_FALSE(IsKeyValid("C:/tmp/", ""));
+  EXPECT_FALSE(IsKeyValid("//share/path/", ""));
+  EXPECT_FALSE(IsKeyValid("\\\\share\\path\\", ""));
+
+  // Network share paths.
+  EXPECT_THAT(IsKeyValid("//share/path", ""), OnWindows(true, false));
+  EXPECT_THAT(IsKeyValid("\\\\share\\path", ""), OnWindows(true, false));
+}
+
+TEST(IsKeyValid, HasEmbeddedNull) {
+  EXPECT_FALSE(IsKeyValid(std::string_view("/tmp/\0bar", 9), ""));
 }
 
 TEST(LongestDirectoryPrefix, Basic) {

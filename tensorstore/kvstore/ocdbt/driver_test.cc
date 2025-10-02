@@ -76,7 +76,7 @@ using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
-using ::tensorstore::internal::OsPathToUriPath;
+using ::tensorstore::internal::OsPathToFileUri;
 using ::tensorstore::internal::UniqueNow;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::Config;
@@ -513,7 +513,7 @@ TEST(OcdbtTest, SpecRoundtripFile) {
       {"base", options.full_base_spec},
   };
   options.url =
-      absl::StrCat("file://", OsPathToUriPath(tempdir.path()), "/|ocdbt:");
+      absl::StrCat(OsPathToFileUri(tempdir.path()).value(), "/|ocdbt:");
   options.check_auto_detect = true;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }

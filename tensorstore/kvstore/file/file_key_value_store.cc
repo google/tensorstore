@@ -269,12 +269,7 @@ class FileKeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    std::string uri_path = internal::OsPathToUriPath(path);
-    if (uri_path.empty() || uri_path[0] == '/') {
-      return absl::StrCat(id, "://", uri_path);
-    }
-    return absl::InvalidArgumentError(absl::StrCat(
-        "file: URIs do not support relative paths: ", QuoteString(path)));
+    return internal::OsPathToFileUri(path);
   }
 };
 
@@ -911,14 +906,7 @@ Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
 
 Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchemaWithAuthorityDelimiter(
-      parsed, FileKeyValueStoreSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
-  if (!parsed.authority.empty() && parsed.authority != "localhost") {
-    // NOTE: Consider allowing network paths in windows?
-    return absl::InvalidArgumentError("file uris do not support authority");
-  }
-  std::string path = internal::UriPathToOsPath(parsed.path);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto path, internal::FileUriToOsPath(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
   driver_spec->data_.file_io_concurrency =
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
