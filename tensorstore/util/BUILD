@@ -345,6 +345,7 @@ tensorstore_cc_library(
     name = "future",
     srcs = [
         "future.cc",
+        "future_impl.cc",
     ],
     hdrs = [
         "future.h",
@@ -369,6 +370,8 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/hash",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:has_ostream_operator",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
     ],
@@ -391,6 +394,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/internal/testing:concurrent",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
         "@google_benchmark//:benchmark",
         "@googletest//:gtest_main",
@@ -538,6 +542,8 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/base:nullability",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:has_ostream_operator",
     ],
 )
 
