@@ -19,10 +19,12 @@
 
 #ifndef TENSORSTORE_CPP_DOC_GENERATION
 #define TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND ABSL_ATTRIBUTE_LIFETIME_BOUND
+#define TENSORSTORE_NODISCARD [[nodiscard]]
 #else
 // Expand to nothing to avoid cluttering the documentation and because the
 // Sphinx C++ parser chokes on it.
 #define TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND
+#define TENSORSTORE_NODISCARD
 #endif
 
 // When defining a conditionally-explicit constructor, this may be used on the

@@ -17,19 +17,24 @@
 #include "tensorstore/util/future.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <atomic>
 #include <chrono>  // NOLINT
 #include <functional>
 #include <memory>
+#include <ostream>
+#include <sstream>
 #include <thread>  // NOLINT
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include <benchmark/benchmark.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/metrics/registry.h"
@@ -48,6 +53,7 @@ using ::tensorstore::Future;
 using ::tensorstore::FutureCallbackRegistration;
 using ::tensorstore::InlineExecutor;
 using ::tensorstore::IsFutureConvertible;
+using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MakeReadyFuture;
 using ::tensorstore::MakeResult;
 using ::tensorstore::Promise;
@@ -57,7 +63,9 @@ using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_future::FutureAccess;
 using ::tensorstore::internal_testing::TestConcurrent;
+using ::testing::EndsWith;
 using ::testing::HasSubstr;
+using ::testing::StartsWith;
 
 static_assert(IsFutureConvertible<int, const int>);
 static_assert(!IsFutureConvertible<const int, int>);
@@ -97,6 +105,91 @@ static_assert(std::is_same_v<
               Result<Future<void>>,
               tensorstore::FlatResult<std::invoke_result_t<Future<void>()>>>);
 
+// Helper to deduce the return types of Future<T>::value(),
+// Future<T>::status(), and Future<T>::result().
+template <typename T>
+struct Deduce {
+  using value_t = decltype(std::declval<T>().value());
+  using status_t = decltype(std::declval<T>().status());
+  using result_t = decltype(std::declval<T>().result());
+};
+
+// Validate Future<int> return types.
+static_assert(std::is_same_v<Deduce<Future<int>&>::status_t,  //
+                             const absl::Status&>);
+
+static_assert(std::is_same_v<Deduce<const Future<int>&>::value_t, int&>);
+static_assert(std::is_same_v<Deduce<const Future<int>&&>::value_t, int&>);
+static_assert(std::is_same_v<Deduce<Future<int>&>::value_t, int&>);
+static_assert(std::is_same_v<Deduce<Future<int>&&>::value_t, int&>);
+
+static_assert(std::is_same_v<Deduce<const Future<int>&>::result_t,  //
+                             Result<int>&>);
+static_assert(std::is_same_v<Deduce<const Future<int>&&>::result_t,  //
+                             Result<int>&>);
+static_assert(std::is_same_v<Deduce<Future<int>&>::result_t,  //
+                             Result<int>&>);
+static_assert(std::is_same_v<Deduce<Future<int>&&>::result_t,  //
+                             Result<int>&>);
+
+// Validate Future<const int> return types.
+static_assert(std::is_same_v<Deduce<Future<const int>&>::status_t,  //
+                             const absl::Status&>);
+
+static_assert(std::is_same_v<Deduce<const Future<const int>&>::value_t,  //
+                             const int&>);
+static_assert(std::is_same_v<Deduce<const Future<const int>&&>::value_t,  //
+                             const int&>);
+static_assert(std::is_same_v<Deduce<Future<const int>&>::value_t,  //
+                             const int&>);
+static_assert(std::is_same_v<Deduce<Future<const int>&&>::value_t,  //
+                             const int&>);
+
+static_assert(std::is_same_v<Deduce<const Future<const int>&>::result_t,
+                             const Result<int>&>);
+static_assert(std::is_same_v<Deduce<const Future<const int>&&>::result_t,
+                             const Result<int>&>);
+static_assert(std::is_same_v<Deduce<Future<const int>&>::result_t,  //
+                             const Result<int>&>);
+static_assert(std::is_same_v<Deduce<Future<const int>&&>::result_t,  //
+                             const Result<int>&>);
+
+// Validate Future<void> return types.
+static_assert(std::is_same_v<Deduce<Future<void>&>::status_t,  //
+                             const absl::Status&>);
+
+static_assert(std::is_void_v<Deduce<const Future<void>&>::value_t>);
+static_assert(std::is_void_v<Deduce<const Future<void>&&>::value_t>);
+static_assert(std::is_void_v<Deduce<Future<void>&>::value_t>);
+static_assert(std::is_void_v<Deduce<Future<void>&&>::value_t>);
+
+static_assert(std::is_same_v<Deduce<const Future<void>&>::result_t,  //
+                             Result<void>&>);
+static_assert(std::is_same_v<Deduce<const Future<void>&&>::result_t,  //
+                             Result<void>&>);
+static_assert(std::is_same_v<Deduce<Future<void>&>::result_t,  //
+                             Result<void>&>);
+static_assert(std::is_same_v<Deduce<Future<void>&&>::result_t,  //
+                             Result<void>&>);
+
+// Validate Future<const void> return types.
+static_assert(std::is_same_v<Deduce<Future<const void>&>::status_t,  //
+                             const absl::Status&>);
+
+static_assert(std::is_void_v<Deduce<const Future<const void>&>::value_t>);
+static_assert(std::is_void_v<Deduce<const Future<const void>&&>::value_t>);
+static_assert(std::is_void_v<Deduce<Future<const void>&>::value_t>);
+static_assert(std::is_void_v<Deduce<Future<const void>&&>::value_t>);
+
+static_assert(std::is_same_v<Deduce<const Future<const void>&>::result_t,
+                             const Result<void>&>);
+static_assert(std::is_same_v<Deduce<const Future<const void>&&>::result_t,
+                             const Result<void>&>);
+static_assert(std::is_same_v<Deduce<Future<const void>&>::result_t,  //
+                             const Result<void>&>);
+static_assert(std::is_same_v<Deduce<Future<const void>&&>::result_t,  //
+                             const Result<void>&>);
+
 TEST(FutureTest, Valid) {
   EXPECT_TRUE(Future<int>().null());
   EXPECT_TRUE(Promise<int>().null());
@@ -124,19 +217,19 @@ TEST(FutureTest, MakeReadyFuture) {
 TEST(FutureTest, MakeInPlace) {
   auto pair = PromiseFuturePair<int>::Make(tensorstore::in_place, 4);
   pair.promise.reset();  // drop link.
-  EXPECT_EQ(4, pair.future.value());
+  EXPECT_THAT(pair.future.result(), IsOkAndHolds(4));
 }
 
 /// Tests that a ready future can be constructed implicitly.
 TEST(FutureTest, ConstructFromValue) {
   Future<int> x = 3;
-  EXPECT_EQ(3, x.value());
+  EXPECT_THAT(x.result(), IsOkAndHolds(3));
 }
 
 /// Tests that a ready `Future<const T>` can be constructed implicitly.
 TEST(FutureTest, ConstructFromValueConst) {
   Future<const int> x = 3;
-  EXPECT_EQ(3, x.value());
+  EXPECT_THAT(x.result(), IsOkAndHolds(3));
 }
 
 /// Tests that a `Result<Future<T>>` in an error state is implicitly flattened
@@ -896,6 +989,36 @@ TEST(FutureTest, NonMovableTypeSetReady) {
   pair.promise.raw_result().emplace(5);
   pair.promise.SetReady();
   EXPECT_EQ(5, pair.future.value().value);
+}
+
+struct PrintTestStruct {
+  [[maybe_unused]] friend std::ostream& operator<<(std::ostream& os,
+                                                   const PrintTestStruct&) {
+    return os << "ostream";
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const PrintTestStruct&) {
+    sink.Append("stringify");
+  }
+};
+
+TEST(FutureTest, OkPrinting) {
+  Future<PrintTestStruct> print_me = PrintTestStruct{};
+  std::stringstream stream;
+  stream << print_me;
+  EXPECT_EQ(stream.str(), "ostream");
+  EXPECT_EQ(absl::StrCat(print_me), "stringify");
+}
+
+TEST(FutureTest, ErrorPrinting) {
+  Future<PrintTestStruct> print_me = absl::UnknownError("error");
+  std::stringstream stream;
+  stream << print_me;
+  const auto error_matcher = AllOf(HasSubstr("UNKNOWN"), HasSubstr("error"),
+                                   StartsWith("("), EndsWith(")"));
+  EXPECT_THAT(stream.str(), error_matcher);
+  EXPECT_THAT(absl::StrCat(print_me), error_matcher);
 }
 
 TEST(HaveSameSharedStateTest, Invalid) {

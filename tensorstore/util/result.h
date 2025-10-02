@@ -16,13 +16,15 @@
 #define TENSORSTORE_RESULT_H_
 
 #include <initializer_list>
+#include <ostream>
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/has_absl_stringify.h"
+#include "absl/strings/has_ostream_operator.h"
 #include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/preprocessor/cat.h"
@@ -415,17 +417,17 @@ class Result : private internal_result::ResultStorage<T>,
   ///   } else {
   ///     // Handle error
   ///   }
-  ABSL_MUST_USE_RESULT bool ok() const noexcept { return this->status_.ok(); }
-  ABSL_MUST_USE_RESULT bool has_value() const noexcept { return ok(); }
-  ABSL_MUST_USE_RESULT explicit operator bool() const noexcept { return ok(); }
+  TENSORSTORE_NODISCARD bool ok() const noexcept { return this->status_.ok(); }
+  TENSORSTORE_NODISCARD bool has_value() const noexcept { return ok(); }
+  TENSORSTORE_NODISCARD explicit operator bool() const noexcept { return ok(); }
 
   /// Returns a reference to the contained `absl::Status`. If the `Result<T>`
   /// contains a value, then this function returns `absl::OkStatus()`.
-  ABSL_MUST_USE_RESULT const absl::Status& status() const& noexcept
+  TENSORSTORE_NODISCARD const absl::Status& status() const& noexcept
       TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return this->status_;
   }
-  absl::Status status() && noexcept {
+  TENSORSTORE_NODISCARD absl::Status status() && noexcept {
     return ok() ? absl::OkStatus() : std::move(this->status_);
   }
 
@@ -453,19 +455,19 @@ class Result : private internal_result::ResultStorage<T>,
   /// warnings about possible uses of the result object after the move.
   ///
   /// \pre `this->ok() == true`, otherwise the process will be terminated.
-  const T& value() const& ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const T& value() const& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->EnsureOk();
     return this->value_;
   }
-  T& value() & ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  T& value() & TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->EnsureOk();
     return this->value_;
   }
-  const T&& value() const&& ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const T&& value() const&& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->EnsureOk();
     return std::move(this->value_);
   }
-  T&& value() && ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  T&& value() && TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->EnsureOk();
     return std::move(this->value_);
   }
@@ -477,19 +479,19 @@ class Result : private internal_result::ResultStorage<T>,
   /// for a similar API that guarantees crashing if there is no current value.
   ///
   /// \pre `this->ok() == true`, otherwise the behavior is undefined.
-  const T& operator*() const& ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const T& operator*() const& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->AssertOk();
     return this->value_;
   }
-  T& operator*() & ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  T& operator*() & TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->AssertOk();
     return this->value_;
   }
-  const T&& operator*() const&& ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const T&& operator*() const&& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->AssertOk();
     return std::move(this->value_);
   }
-  T&& operator*() && ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  T&& operator*() && TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->AssertOk();
     return std::move(this->value_);
   }
@@ -497,10 +499,10 @@ class Result : private internal_result::ResultStorage<T>,
   /// Returns a pointer to the current value.
   ///
   /// \pre `this->ok() == true`, otherwise the behavior is undefined.
-  const T* operator->() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const T* operator->() const TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return std::addressof(**this);
   }
-  T* operator->() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  T* operator->() TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return std::addressof(**this);
   }
 
@@ -620,6 +622,41 @@ class Result : private internal_result::ResultStorage<T>,
     return !(a == b);
   }
 
+  /// Prints the `value` or the `status` in parentheses to `os`.  Do not rely on
+  /// the output format which may change without notice.
+  ///
+  /// \requires `T` supports `operator<<`.
+  template <
+      typename SfinaeU = T,
+      std::enable_if_t<absl::HasOstreamOperator<SfinaeU>::value>* = nullptr>
+  // NONITPICK: absl::HasOstreamOperator<T>
+  // NONITPICK: absl::HasOstreamOperator<T>::value
+  friend std::ostream& operator<<(std::ostream& os, const Result<T>& result) {
+    if (result.ok()) {
+      os << result.value();
+    } else {
+      os << "(" << result.status() << ")";
+    }
+    return os;
+  }
+
+  /// Prints the `value` or the `status` in parentheses to the `sink`, which
+  /// allows formatting using `absl::StrFormat`, etc.  Do not rely on the output
+  /// format which may change without notice.
+  ///
+  /// \requires  `T` has `AbslStringify`.
+  template <typename Sink, typename SfinaeU = T,
+            std::enable_if_t<absl::HasAbslStringify<SfinaeU>::value>* = nullptr>
+  // NONITPICK: absl::HasAbslStringify<T>
+  // NONITPICK: absl::HasAbslStringify<T>::value
+  friend void AbslStringify(Sink& sink, const Result<T>& result) {
+    if (result.ok()) {
+      absl::Format(&sink, "%v", result.value());
+    } else {
+      absl::Format(&sink, "(%v)", result.status());
+    }
+  }
+
  private:
   // Implements assignment from a Result<U>.
   template <typename U>
@@ -704,11 +741,11 @@ class Result<void> {
 
   void IgnoreResult() const noexcept { /*no-op*/ }
 
-  ABSL_MUST_USE_RESULT bool ok() const noexcept { return this->status_.ok(); }
-  ABSL_MUST_USE_RESULT bool has_value() const noexcept { return ok(); }
-  ABSL_MUST_USE_RESULT explicit operator bool() const noexcept { return ok(); }
+  [[nodiscard]] bool ok() const noexcept { return this->status_.ok(); }
+  [[nodiscard]] bool has_value() const noexcept { return ok(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
 
-  ABSL_MUST_USE_RESULT const absl::Status& status() const& noexcept
+  [[nodiscard]] const absl::Status& status() const& noexcept
       TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return this->status_;
   }
@@ -724,6 +761,15 @@ class Result<void> {
   }
 
   friend bool operator!=(const Result& a, const Result& b) { return !(a == b); }
+
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const Result<void>& result) {
+    return os << "(" << result.status() << ")";
+  }
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Result<void>& result) {
+    absl::Format(&sink, "(%v)", result.status());
+  }
 
  private:
   void EnsureOk() const {

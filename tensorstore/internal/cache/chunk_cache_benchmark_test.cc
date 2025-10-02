@@ -288,11 +288,11 @@ class CopyBenchmarkRunner {
     if (config.read) {
       DriverRead(cache->executor(), {driver, transform}, array,
                  DriverReadOptions{})
-          .result();
+          .Wait();
     } else {
       DriverWrite(cache->executor(), array,
                   /*target=*/{driver, transform}, DriverWriteOptions{})
-          .commit_future.result();
+          .commit_future.Wait();
     }
     transform =
         tensorstore::ComposeTransforms(offset_transform, transform).value();

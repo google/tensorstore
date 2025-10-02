@@ -18,6 +18,8 @@
 
 #include <functional>
 #include <memory>
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -41,7 +43,9 @@ using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::UnwrapQualifiedResultType;
 using ::tensorstore::UnwrapResultType;
+using ::testing::EndsWith;
 using ::testing::HasSubstr;
+using ::testing::StartsWith;
 
 static_assert(std::is_convertible_v<Result<int>, Result<float>>);
 static_assert(!std::is_convertible_v<Result<int>, Result<std::string>>);
@@ -619,6 +623,36 @@ TEST(ResultTest, ConvertAssignmentWithMove) {
     Result<int64_t> c(std::move(a));
     EXPECT_FALSE(c.has_value());
   }
+}
+
+struct PrintTestStruct {
+  [[maybe_unused]] friend std::ostream& operator<<(std::ostream& os,
+                                                   const PrintTestStruct&) {
+    return os << "ostream";
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const PrintTestStruct&) {
+    sink.Append("stringify");
+  }
+};
+
+TEST(ResultTest, OkPrinting) {
+  Result<PrintTestStruct> print_me = PrintTestStruct{};
+  std::stringstream stream;
+  stream << print_me;
+  EXPECT_EQ(stream.str(), "ostream");
+  EXPECT_EQ(absl::StrCat(print_me), "stringify");
+}
+
+TEST(ResultTest, ErrorPrinting) {
+  Result<PrintTestStruct> print_me = absl::UnknownError("error");
+  std::stringstream stream;
+  stream << print_me;
+  const auto error_matcher = AllOf(HasSubstr("UNKNOWN"), HasSubstr("error"),
+                                   StartsWith("("), EndsWith(")"));
+  EXPECT_THAT(stream.str(), error_matcher);
+  EXPECT_THAT(absl::StrCat(print_me), error_matcher);
 }
 
 TEST(UnwrapResult, Basic) {

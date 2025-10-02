@@ -35,7 +35,7 @@
 namespace {
 
 using ::tensorstore::Future;
-using ::tensorstore::IsOkAndHolds;
+using ::tensorstore::IsOk;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_kvstore::GetAdapterSpecFromUrl;
@@ -122,7 +122,7 @@ TEST(UrlRegistryTest, RootHandlerErrors) {
 }
 
 TEST(UrlRegistryTest, RootHandlerOk) {
-  EXPECT_THAT(GetRootSpecFromUrl("root_handler://bar"), IsOkAndHolds(_));
+  EXPECT_THAT(GetRootSpecFromUrl("root_handler://bar"), IsOk());
 }
 
 TEST(UrlRegistryTest, AdapterHandlerErrors) {
@@ -149,15 +149,15 @@ TEST(UrlRegistryTest, AdapterHandlerOk) {
   EXPECT_THAT(GetAdapterSpecFromUrl(
                   "adapter_handler",
                   Spec(tensorstore::internal::MakeIntrusivePtr<TestSpec>())),
-              IsOkAndHolds(_));
+              IsOk());
   EXPECT_THAT(GetAdapterSpecFromUrl(
                   "adapter_handler:",
                   Spec(tensorstore::internal::MakeIntrusivePtr<TestSpec>())),
-              IsOkAndHolds(_));
+              IsOk());
   EXPECT_THAT(GetAdapterSpecFromUrl(
                   "adapter_handler://stuff",
                   Spec(tensorstore::internal::MakeIntrusivePtr<TestSpec>())),
-              IsOkAndHolds(_));
+              IsOk());
 }
 
 TEST(UrlRegistryTest, SpecFromUrlErrors) {
@@ -187,8 +187,7 @@ TEST(UrlRegistryTest, SpecFromUrlErrors) {
 }
 
 TEST(UrlRegistryTest, SpecFromUrlOk) {
-  EXPECT_THAT(Spec::FromUrl("root_handler://foo|adapter_handler"),
-              IsOkAndHolds(_));
+  EXPECT_THAT(Spec::FromUrl("root_handler://foo|adapter_handler"), IsOk());
 }
 
 }  // namespace

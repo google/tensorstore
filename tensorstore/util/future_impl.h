@@ -131,6 +131,9 @@ template <typename T>
 using ReadyFutureType =
     typename ReadyFutureTypeImpl<absl::remove_cvref_t<T>>::type;
 
+[[noreturn]] void CrashOnNullFuture();
+[[noreturn]] void CrashOnFutureResultNotOk(const absl::Status& status);
+
 /// Returns a pointer to the Mutex guarding the callback lists for `ptr`.
 ///
 /// The mutex isn't stored as a member of FutureStateBase, because a
@@ -181,8 +184,13 @@ class FutureStateBase {
   FutureStateBase();
   virtual ~FutureStateBase();
 
-  virtual bool has_value() = 0;
-  virtual const absl::Status& status() const& noexcept = 0;
+  /// Returns the underlying `Result<T>::ok()`.  A `Result<T>` is initialized
+  /// with an error state, so this serves as a latch to indicate whether a
+  /// non-error value has been set.
+  virtual bool ok() const = 0;
+
+  /// Returns the underlying `Result<T>::status()`.
+  virtual const absl::Status& status() const = 0;
 
   /// Registers a ready callback.
   ///
@@ -490,8 +498,9 @@ class FutureState : public FutureStateBase {
 
   ~FutureState() override {}
 
-  bool has_value() final { return result.has_value(); };
-  const absl::Status& status() const& noexcept final { return result.status(); }
+  bool ok() const final { return result.ok(); };
+
+  const absl::Status& status() const final { return result.status(); }
 
   Result<T> result;
 };
@@ -948,7 +957,7 @@ struct FutureLinkPropagateFirstErrorPolicy {
   template <typename PromiseValue>
   static bool OnFutureReady(FutureStateBase* future_state,
                             FutureState<PromiseValue>* promise_state) {
-    if (future_state->has_value()) return true;
+    if (future_state->ok()) return true;
     // Hold reference to `promise_state` while calling `SetResult`.
     // Otherwise, calling `promise_state->SetResult` can trigger
     // `promise_state` being destroyed while `SetResult` is still
