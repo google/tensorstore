@@ -755,6 +755,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/internal/testing:json_gtest",
+        "//tensorstore/internal/testing:on_windows",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",

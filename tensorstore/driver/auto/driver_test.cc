@@ -55,7 +55,7 @@ auto MakeInitial(const Context &context) {
 
 template <typename... Args>
 std::string AsFileUri(std::string_view path, Args... args) {
-  return absl::StrCat("file://", tensorstore::internal::OsPathToUriPath(path),
+  return absl::StrCat(tensorstore::internal::OsPathToFileUri(path).value(),
                       std::forward<Args>(args)...);
 }
 

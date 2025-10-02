@@ -24,6 +24,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/internal/ascii_set.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal {
@@ -170,11 +171,11 @@ struct HostPort {
 /// Only minimal validation is performed.
 std::optional<HostPort> SplitHostPort(std::string_view host_port);
 
-/// Returns a uri-style path from an os-style path.
-std::string OsPathToUriPath(std::string_view path);
+/// Returns a file uri for an os-style path.
+Result<std::string> OsPathToFileUri(std::string_view path);
 
-/// Returns an os-style path from a uri-style path.
-std::string UriPathToOsPath(std::string_view path);
+/// Returns an os-style path for a file uri.
+Result<std::string> FileUriToOsPath(ParsedGenericUri parsed);
 
 }  // namespace internal
 }  // namespace tensorstore

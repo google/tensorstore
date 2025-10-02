@@ -21,11 +21,17 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/internal/ascii_set.h"
+#include "tensorstore/internal/testing/on_windows.h"
+#include "tensorstore/util/status_testutil.h"
 
+using ::tensorstore::IsOkAndHolds;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::AsciiSet;
+using ::tensorstore::internal::FileUriToOsPath;
 using ::tensorstore::internal::HostPort;
-using ::tensorstore::internal::OsPathToUriPath;
+using ::tensorstore::internal::OsPathToFileUri;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::PercentDecode;
 using ::tensorstore::internal::PercentEncodeKvStoreUriPath;
@@ -33,7 +39,7 @@ using ::tensorstore::internal::PercentEncodeReserved;
 using ::tensorstore::internal::PercentEncodeUriComponent;
 using ::tensorstore::internal::PercentEncodeUriPath;
 using ::tensorstore::internal::SplitHostPort;
-using ::tensorstore::internal::UriPathToOsPath;
+using ::tensorstore::internal_testing::OnWindows;
 
 namespace tensorstore::internal {
 
@@ -312,28 +318,55 @@ TEST(ParseHostPortTest, Basic) {
 }
 
 TEST(OsPathToUriPathTest, Basic) {
-  EXPECT_EQ(OsPathToUriPath(""), "");
-  EXPECT_EQ(OsPathToUriPath("foo"), "foo");    // NOTE: Not a valid URI path.
-  EXPECT_EQ(OsPathToUriPath("foo/"), "foo/");  // NOTE: Not a valid URI path.
-  EXPECT_EQ(OsPathToUriPath("/"), "/");
-  EXPECT_EQ(OsPathToUriPath("/foo"), "/foo");
-  EXPECT_EQ(OsPathToUriPath("/foo/"), "/foo/");
-  EXPECT_EQ(OsPathToUriPath("c:/tmp"), "/c:/tmp");
-  EXPECT_EQ(OsPathToUriPath("c:/tmp/"), "/c:/tmp/");
-#ifdef _WIN32
-  EXPECT_EQ(OsPathToUriPath("c:\\tmp\\foo"), "/c:/tmp/foo");
-#endif
+  EXPECT_THAT(OsPathToFileUri(""),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(OsPathToFileUri("foo"),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(OsPathToFileUri("foo/"),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(OsPathToFileUri("/"), IsOkAndHolds("file:///"));
+  EXPECT_THAT(OsPathToFileUri("/foo"), IsOkAndHolds("file:///foo"));
+  EXPECT_THAT(OsPathToFileUri("/foo/"), IsOkAndHolds("file:///foo/"));
+
+  EXPECT_THAT(OsPathToFileUri("c:/tmp"),
+              OnWindows(IsOkAndHolds("file:///c:/tmp"),
+                        StatusIs(absl::StatusCode::kInvalidArgument)));
+  EXPECT_THAT(OsPathToFileUri("c:/tmp/"),
+              OnWindows(IsOkAndHolds("file:///c:/tmp/"),
+                        StatusIs(absl::StatusCode::kInvalidArgument)));
+  EXPECT_THAT(OsPathToFileUri("c:\\tmp\\foo"),
+              OnWindows(IsOkAndHolds("file:///c:/tmp/foo"),
+                        StatusIs(absl::StatusCode::kInvalidArgument)));
+
+  EXPECT_THAT(OsPathToFileUri("//server/share/tmp"),
+              IsOkAndHolds(OnWindows("file://server/share/tmp",
+                                     "file:///server/share/tmp")));
+
+  EXPECT_THAT(OsPathToFileUri("\\\\server\\share\\tmp"),
+              OnWindows(IsOkAndHolds("file://server/share/tmp"),
+                        StatusIs(absl::StatusCode::kInvalidArgument)));
 }
 
 TEST(UriPathToOsPathTest, Basic) {
-  EXPECT_EQ(UriPathToOsPath(""), "");
-  EXPECT_EQ(UriPathToOsPath("foo"), "foo");    // NOTE: Not a valid URI path.
-  EXPECT_EQ(UriPathToOsPath("foo/"), "foo/");  // NOTE: Not a valid URI path.
-  EXPECT_EQ(UriPathToOsPath("/"), "/");
-  EXPECT_EQ(UriPathToOsPath("/foo"), "/foo");
-  EXPECT_EQ(UriPathToOsPath("/foo/"), "/foo/");
-  EXPECT_EQ(UriPathToOsPath("/c:/tmp"), "c:/tmp");
-  EXPECT_EQ(UriPathToOsPath("/c:/tmp/"), "c:/tmp/");
+  auto ToPath = [](std::string_view uri) {
+    return FileUriToOsPath(ParseGenericUri(uri));
+  };
+
+  EXPECT_THAT(ToPath(""), StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(ToPath("foo"), StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(ToPath("foo/"), StatusIs(absl::StatusCode::kInvalidArgument));
+
+  EXPECT_THAT(ToPath("file:///"), IsOkAndHolds("/"));
+  EXPECT_THAT(ToPath("file:///foo"), IsOkAndHolds("/foo"));
+  EXPECT_THAT(ToPath("file:///foo/"), IsOkAndHolds("/foo/"));
+  EXPECT_THAT(ToPath("file:///c:/tmp"),
+              IsOkAndHolds(OnWindows("c:/tmp", "/c:/tmp")));
+  EXPECT_THAT(ToPath("file:///c:/tmp/"),
+              IsOkAndHolds(OnWindows("c:/tmp/", "/c:/tmp/")));
+
+  EXPECT_THAT(ToPath("file://server/share/tmp"),
+              OnWindows(IsOkAndHolds("//server/share/tmp"),
+                        StatusIs(absl::StatusCode::kInvalidArgument)));
 }
 
 }  // namespace

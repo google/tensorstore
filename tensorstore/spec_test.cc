@@ -26,6 +26,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/testing/json_gtest.h"
+#include "tensorstore/internal/testing/on_windows.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/spec.h"
@@ -43,6 +44,7 @@ using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::Spec;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal_testing::OnWindows;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::HasSubstr;
@@ -412,7 +414,7 @@ TEST(SpecTest, FromUrl) {
                   {"kvstore",
                    {
                        {"driver", "file"},
-                       {"path", "C:/tmp/"},
+                       {"path", OnWindows("C:/tmp/", "/C:/tmp/")},
                    }},
               })));
 
@@ -435,7 +437,7 @@ TEST(SpecTest, FromJsonString) {
                   {"kvstore",
                    {
                        {"driver", "file"},
-                       {"path", "C:/tmp/"},
+                       {"path", OnWindows("C:/tmp/", "/C:/tmp/")},
                    }},
               })));
 

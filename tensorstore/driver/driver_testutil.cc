@@ -173,9 +173,13 @@ void TestTensorStoreDriverSpecRoundtrip(
     ReplaceStringInJson(options.full_base_spec, tempdir_key, tempdir->path());
 
     // For the URL, the tempdir path must begin with a leading slash.
+    // Generate the replacement url and strip off the "file://" prefix.
+    static constexpr size_t kFileUriPrefixLen =
+        std::string_view("file://").size();
+    auto file_uri = internal::OsPathToFileUri(tempdir->path());
+    TENSORSTORE_ASSERT_OK(file_uri.status());
     options.url = absl::StrReplaceAll(
-        options.url,
-        {{tempdir_key, internal::OsPathToUriPath(tempdir->path())}});
+        options.url, {{tempdir_key, file_uri->substr(kFileUriPrefixLen)}});
   }
   Transaction transaction(mode);
   auto context = Context::Default();

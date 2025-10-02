@@ -171,3 +171,10 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/strings",
     ],
 )
+
+tensorstore_cc_library(
+    name = "on_windows",
+    testonly = 1,
+    hdrs = ["on_windows.h"],
+    deps = ["@abseil-cpp//absl/base:core_headers"],
+)
