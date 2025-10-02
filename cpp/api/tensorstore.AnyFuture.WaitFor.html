@@ -1326,7 +1326,7 @@
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::status (C++ function) — Calls Force(), waits for the result to be ready, and returns OkStatus (when a value is present) or a copy of result.status()."><span>status</span></span>
+    <span title="tensorstore::AnyFuture::status (C++ function) — Calls Force(), waits for the result to be ready, and returns a const reference to the contained absl::Status. If the underlying Future contains a value, then this function returns absl::OkStatus()."><span>status</span></span>
     
   </span>
   
@@ -1975,7 +1975,7 @@
 <code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/util/future.h&quot;</span></code></div>
 </dt>
 <dt class="sig sig-object highlight cpp">
-<span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.AnyFuture.html#c:&#64;N&#64;tensorstore&#64;S&#64;AnyFuture" title="tensorstore::AnyFuture (C++ class) — Generic consumer interface to a one-time channel."><span class="n">AnyFuture</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">WaitFor</span></span><span class="p">(<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/time#time-durations" title="C++ class"><span class="n">Duration</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::AnyFuture::WaitFor::duration (C++ function parameter)"><span class="n sig-param">duration</span></a></span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="w">&nbsp;</span><span class="k">noexcept</span><span class="p">;</span></dt>
+<span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.AnyFuture.html#c:&#64;N&#64;tensorstore&#64;S&#64;AnyFuture" title="tensorstore::AnyFuture (C++ class) — Generic consumer interface to a one-time channel."><span class="n">AnyFuture</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">WaitFor</span></span><span class="p">(</span><span><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/time#time-durations" title="C++ class"><span class="n">Duration</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::AnyFuture::WaitFor::duration (C++ function parameter)"><span class="n sig-param">duration</span></a></span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
 <dd><p>Waits for up to the specified duration for the result to be ready.</p>
 <dl class="field-list simple">
 <dt class="field-odd" id="dchecks">Dchecks<span class="colon">:</span><a class="headerlink" href="#dchecks" title="Permalink to this headline">¶</a></dt>

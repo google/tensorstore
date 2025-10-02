@@ -1258,7 +1258,7 @@
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::status (C++ function) — Calls Force(), waits for the result to be ready, and returns OkStatus (when a value is present) or a copy of result.status()."><span>status</span></span>
+    <span title="tensorstore::AnyFuture::status (C++ function) — Calls Force(), waits for the result to be ready, and returns a const reference to the contained absl::Status. If the underlying Future contains a value, then this function returns absl::OkStatus()."><span>status</span></span>
     
   </span>
   

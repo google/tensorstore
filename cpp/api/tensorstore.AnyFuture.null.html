@@ -1266,7 +1266,7 @@
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::status (C++ function) — Calls Force(), waits for the result to be ready, and returns OkStatus (when a value is present) or a copy of result.status()."><span>status</span></span>
+    <span title="tensorstore::AnyFuture::status (C++ function) — Calls Force(), waits for the result to be ready, and returns a const reference to the contained absl::Status. If the underlying Future contains a value, then this function returns absl::OkStatus()."><span>status</span></span>
     
   </span>
   
@@ -1885,7 +1885,7 @@
 <code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/util/future.h&quot;</span></code></div>
 </dt>
 <dt class="sig sig-object highlight cpp">
-<span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.AnyFuture.html#c:&#64;N&#64;tensorstore&#64;S&#64;AnyFuture" title="tensorstore::AnyFuture (C++ class) — Generic consumer interface to a one-time channel."><span class="n">AnyFuture</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">null</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="w">&nbsp;</span><span class="k">noexcept</span><span class="p">;</span></dt>
+<span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.AnyFuture.html#c:&#64;N&#64;tensorstore&#64;S&#64;AnyFuture" title="tensorstore::AnyFuture (C++ class) — Generic consumer interface to a one-time channel."><span class="n">AnyFuture</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">null</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
 <dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if this <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Future.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future" title="tensorstore::Future (C++ class) — &quot;Consumer&quot; interface to a one-time channel."><span class="n">Future</span></a></code> has no shared state.</p>
 </dd></dl>
 

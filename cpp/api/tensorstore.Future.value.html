@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="tensorstore.Future.result.html">
+        <link rel="prev" href="tensorstore.Future.status.html">
       
       
-        <link rel="next" href="tensorstore.IsFuture.html">
+        <link rel="next" href="tensorstore.Future.operator-shift_left.html">
       
       
       <link rel="icon" href="../../_static/logo.svg">
@@ -1178,7 +1178,33 @@
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Future::result (C++ function) — Calls Force(), waits for the result to be ready, and returns a reference to the result."><span>result</span></span>
+    <span title="tensorstore::Future::result (C++ function) — Returns a reference to the contained Result&lt;T&gt;."><span>result</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Future.status.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Future::status (C++ function) — Returns a reference to the contained absl::Status."><span>status</span></span>
     
   </span>
   
@@ -1211,7 +1237,7 @@
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Future::value (C++ function) — Equivalent to result().value()."><span>value</span></span>
+    <span title="tensorstore::Future::value (C++ function) — Returns a reference to T, equivalent to result().value()."><span>value</span></span>
     
   </span>
   
@@ -1228,6 +1254,30 @@
       
     </li>
   
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Future.html#friend-functions" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Friend functions</span>
+    
+  </span>
+  
+
+      </a>
+    </li>
   
 
               
@@ -1876,7 +1926,7 @@
 </dt>
 <dt class="sig sig-object highlight cpp">
 <span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/types/add_reference" title="std::add_lvalue_reference_t (C++14 standard type alias)"><span class="n">add_lvalue_reference_t</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Future.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future-p-T" title="tensorstore::Future::T (C++ type template parameter) — Specifies the type of the value to be transmitted."><span class="n">T</span></a><span class="p">&gt;</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Future.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future" title="tensorstore::Future (C++ class) — &quot;Consumer&quot; interface to a one-time channel."><span class="n">Future</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Future.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future-p-T" title="tensorstore::Future::T (C++ type template parameter) — Specifies the type of the value to be transmitted."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
-<dd><p>Equivalent to <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Future.result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future&#64;F&#64;result#1" title="tensorstore::Future::result (C++ function) — Calls Force(), waits for the result to be ready, and returns a reference to the result."><span class="n">result</span></a><span class="p">(</span><span class="p">)</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="p">)</span></code>.</p>
+<dd><p>Returns a reference to <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Future.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future-p-T" title="tensorstore::Future::T (C++ type template parameter) — Specifies the type of the value to be transmitted."><span class="n">T</span></a></code>, equivalent to <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Future.result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future&#64;F&#64;result#1" title="tensorstore::Future::result (C++ function) — Returns a reference to the contained Result&lt;T&gt;."><span class="n">result</span></a><span class="p">(</span><span class="p">)</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="p">)</span></code>.</p>
 </dd></dl>
 
 

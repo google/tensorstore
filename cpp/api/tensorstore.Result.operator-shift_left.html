@@ -11,17 +11,17 @@
       
       
       
-        <link rel="prev" href="tensorstore.AnyFuture.null.html">
+        <link rel="prev" href="tensorstore.Result.operator-not_equal_to.html">
       
       
-        <link rel="next" href="tensorstore.AnyFuture.Wait.html">
+        <link rel="next" href="tensorstore.Result.AbslStringify.html">
       
       
       <link rel="icon" href="../../_static/logo.svg">
     
     
       
-        <title>tensorstore::AnyFuture::ready - TensorStore</title>
+        <title>tensorstore::Result<T>::operator<< - TensorStore</title>
       
     
     
@@ -69,7 +69,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#dchecks" class="md-skip">
+        <a href="#requires" class="md-skip">
           Skip to content
         </a>
       
@@ -102,7 +102,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              tensorstore::AnyFuture::ready
+              tensorstore::Result&lt;T&gt;::operator&lt;&lt;
             
           </span>
         </div>
@@ -801,12 +801,25 @@
                 
   
   
+    
   
   
   
-    <li class="md-nav__item">
-      <a href="index.html#error-handling" class="md-nav__link">
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7_7" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="index.html#error-handling" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -815,56 +828,19 @@
   </span>
   
 
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7_8" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="index.html#asynchronous-support" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    <span>Asynchronous support</span>
-    
-  </span>
-  
-
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_1_7_8" id="__nav_2_1_7_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_1_7_7" id="__nav_2_1_7_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_2_1_7_8_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2_1_7_8">
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_2_1_7_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1_7_7">
             <span class="md-nav__icon md-icon"></span>
-            <span>Asynchronous support</span>
+            <span>Error handling</span>
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -876,14 +852,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Executor.html" class="md-nav__link">
+      <a href="TENSORSTORE_RETURN_IF_ERROR.html" class="md-nav__link">
         
   
   
-    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+    <span aria-label="C macro" class="objinfo-icon objinfo-icon__alias" title="C macro">D</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Executor (C++ type) — Function object that is callable with nullary noexcept functions."><span>Executor</span></span>
+    <span title="TENSORSTORE_RETURN_IF_ERROR (C macro) — Causes the containing function to return the specified absl::Status value if it is an error status."><span>TENSORSTORE_<wbr>RETURN_<wbr>IF_<wbr>ERROR</span></span>
     
   </span>
   
@@ -902,14 +878,40 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Promise.html" class="md-nav__link">
+      <a href="TENSORSTORE_CHECK_OK.html" class="md-nav__link">
         
   
   
-    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+    <span aria-label="C macro" class="objinfo-icon objinfo-icon__alias" title="C macro">D</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Promise (C++ class) — &#34;Producer&#34; interface to a one-time channel."><span>Promise</span></span>
+    <span title="TENSORSTORE_CHECK_OK (C macro) — Logs an error and terminates the program if the specified absl::Status is an error status."><span>TENSORSTORE_<wbr>CHECK_<wbr>OK</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.MaybeAnnotateStatus.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::MaybeAnnotateStatus (C++ function) — If status is not absl::StatusCode::kOk, then annotate the status message."><span>Maybe<wbr>Annotate<wbr>Status</span></span>
     
   </span>
   
@@ -937,18 +939,18 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7_8_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7_7_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="tensorstore.AnyFuture.html" class="md-nav__link ">
+            <a href="tensorstore.Result.html" class="md-nav__link ">
               
   
   
     <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture (C++ class) — Generic consumer interface to a one-time channel."><span>Any<wbr>Future</span></span>
+    <span title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span>Result</span></span>
     
   </span>
   
@@ -956,16 +958,16 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_1_7_8_3" id="__nav_2_1_7_8_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_1_7_7_4" id="__nav_2_1_7_7_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_2_1_7_8_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2_1_7_8_3">
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_2_1_7_7_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1_7_7_4">
             <span class="md-nav__icon md-icon"></span>
-            <span title="tensorstore::AnyFuture (C++ class) — Generic consumer interface to a one-time channel."><span>Any<wbr>Future</span></span>
+            <span title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span>Result</span></span>
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -977,7 +979,31 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.html#constructors" class="md-nav__link">
+      <a href="tensorstore.Result.html#types" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Types</span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.html#constructors" class="md-nav__link">
         
   
   
@@ -997,6 +1023,30 @@
                 
   
   
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.html#methods" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Methods</span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1010,16 +1060,16 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7_8_3_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7_7_4_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="tensorstore.AnyFuture.html#methods" class="md-nav__link ">
+            <a href="tensorstore.Result.html#friend-functions" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
-    <span>Methods</span>
+    <span>Friend functions</span>
     
   </span>
   
@@ -1027,16 +1077,16 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_1_7_8_3_2" id="__nav_2_1_7_8_3_2_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_1_7_7_4_4" id="__nav_2_1_7_7_4_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="6" aria-labelledby="__nav_2_1_7_8_3_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2_1_7_8_3_2">
+        <nav class="md-nav" data-md-level="6" aria-labelledby="__nav_2_1_7_7_4_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1_7_7_4_4">
             <span class="md-nav__icon md-icon"></span>
-            <span>Methods</span>
+            <span>Friend functions</span>
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1048,14 +1098,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.IgnoreFuture.html" class="md-nav__link">
+      <a href="tensorstore.Result.operator-equal_to.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::IgnoreFuture (C++ function) — Ignores the future. This method signals intent to ignore the result to suppress compiler warnings from [[nodiscard]]."><span>Ignore<wbr>Future</span></span>
+    <span title="tensorstore::Result::operator== (C++ function) — Compares two results for equality."><span>operator==</span></span>
     
   </span>
   
@@ -1074,40 +1124,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.reset.html" class="md-nav__link">
+      <a href="tensorstore.Result.operator-not_equal_to.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::reset (C++ function) — Resets this Future to be null."><span>reset</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.null.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::null (C++ function) — Returns true if this Future has no shared state."><span>null</span></span>
+    <span title="tensorstore::Result::operator!= (C++ function) — Checks if two Result values are not equal."><span>operator!=</span></span>
     
   </span>
   
@@ -1140,7 +1164,7 @@
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::ready (C++ function) — Returns true if the result is ready."><span>ready</span></span>
+    <span title="tensorstore::Result::operator&lt;&lt; (C++ function) — Prints the value or the status in parentheses to os.  Do not rely on the output format which may change without notice."><span>operator&lt;&lt;</span></span>
     
   </span>
   
@@ -1155,7 +1179,7 @@
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::ready (C++ function) — Returns true if the result is ready."><span>ready</span></span>
+    <span title="tensorstore::Result::operator&lt;&lt; (C++ function) — Prints the value or the status in parentheses to os.  Do not rely on the output format which may change without notice."><span>operator&lt;&lt;</span></span>
     
   </span>
   
@@ -1174,15 +1198,15 @@
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::AnyFuture::ready (C++ function) — Returns true if the result is ready."><span>ready</span></span>
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator&lt;&lt; (C++ function) — Prints the value or the status in parentheses to os.  Do not rely on the output format which may change without notice."><span>operator&lt;&lt;</span></span>
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#dchecks" class="md-nav__link">
+  <a href="#requires" class="md-nav__link">
     
     <span class="md-ellipsis">
-      <span>Dchecks</span>
+      <span>Requires</span>
     </span>
   </a>
   
@@ -1205,144 +1229,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.Wait.html" class="md-nav__link">
+      <a href="tensorstore.Result.AbslStringify.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::Wait (C++ function) — Calls Force(), and waits until ready() == true."><span>Wait</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.WaitFor.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::WaitFor (C++ function) — Waits for up to the specified duration for the result to be ready."><span>Wait<wbr>For</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.WaitUntil.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::WaitUntil (C++ function) — Waits until the specified time for the result to be ready."><span>Wait<wbr>Until</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.Force.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::Force (C++ function) — Calls any Force callbacks registered on the associated Promise, if they have not already been called."><span>Force</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.status.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::status (C++ function) — Calls Force(), waits for the result to be ready, and returns a const reference to the contained absl::Status. If the underlying Future contains a value, then this function returns absl::OkStatus()."><span>status</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.UntypedExecuteWhenReady.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::AnyFuture::UntypedExecuteWhenReady (C++ function) — Executes callback with the signature void(AnyFuture) when this becomes ready."><span>Untyped<wbr>Execute<wbr>When<wbr>Ready</span></span>
+    <span title="tensorstore::Result::AbslStringify (C++ function) — Prints the value or the status in parentheses to the sink, which allows formatting using absl::StrFormat, etc.  Do not rely on the output format which may change without notice."><span>Absl<wbr>Stringify</span></span>
     
   </span>
   
@@ -1370,7 +1264,55 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.AnyFuture.html#related-functions" class="md-nav__link">
+      <a href="tensorstore.Result.html#related-macros" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Related Macros</span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.html#test-support" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Test support</span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.html#related-functions" class="md-nav__link">
         
   
   
@@ -1386,6 +1328,63 @@
 
               
             
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.html#related-constants" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Related Constants</span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Result.html#related-types" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Related Types</span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1403,81 +1402,18 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Future.html" class="md-nav__link">
+      <a href="index.html#asynchronous-support" class="md-nav__link">
         
   
   
-    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
-  
   <span class="md-ellipsis">
-    <span title="tensorstore::Future (C++ class) — &#34;Consumer&#34; interface to a one-time channel."><span>Future</span></span>
+    <span>Asynchronous support</span>
     
   </span>
   
 
       </a>
     </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.PromiseFuturePair.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::PromiseFuturePair (C++ class) — Pairs a Promise with a Future."><span>Promise<wbr>Future<wbr>Pair</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.WriteFutures.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::WriteFutures (C++ class) — Handle for consuming the result of an asynchronous write operation."><span>Write<wbr>Futures</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
   
 
               
@@ -1919,15 +1855,15 @@
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::AnyFuture::ready (C++ function) — Returns true if the result is ready."><span>ready</span></span>
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Result::operator&lt;&lt; (C++ function) — Prints the value or the status in parentheses to os.  Do not rely on the output format which may change without notice."><span>operator&lt;&lt;</span></span>
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#dchecks" class="md-nav__link">
+  <a href="#requires" class="md-nav__link">
     
     <span class="md-ellipsis">
-      <span>Dchecks</span>
+      <span>Requires</span>
     </span>
   </a>
   
@@ -1952,21 +1888,17 @@
 <dl class="cpp function objdesc">
 <dt class="sig sig-object highlight api-include-path cpp">
 <div class="docutils container">
-<code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/util/future.h&quot;</span></code></div>
+<code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/util/result.h&quot;</span></code></div>
 </dt>
 <dt class="sig sig-object highlight cpp">
-<span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.AnyFuture.html#c:&#64;N&#64;tensorstore&#64;S&#64;AnyFuture" title="tensorstore::AnyFuture (C++ class) — Generic consumer interface to a one-time channel."><span class="n">AnyFuture</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">ready</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
-<dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if the result is ready.</p>
+<span class="k">friend</span><span class="w">&nbsp;</span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/io/basic_ostream" title="std::ostream (C++ standard type alias)"><span class="n">ostream</span></a><span class="p">&amp;<br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="k">operator</span><span class="o">&lt;&lt;</span></span><span class="p">(</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/io/basic_ostream" title="std::ostream (C++ standard type alias)"><span class="n">ostream</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::Result::operator&lt;&lt;::os (C++ function parameter)"><span class="n sig-param">os</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;&amp;</span><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::Result::operator&lt;&lt;::result (C++ function parameter)"><span class="n sig-param">result</span></a></span><span class="p">)<br>&nbsp;&nbsp;</span><span><span class="k">requires</span><span class="w">&nbsp;</span><span class="n">absl</span><span class="p">::</span><span class="n">HasOstreamOperator</span><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a><span class="p">&gt;</span><span class="p">::</span><span class="n">value</span></span><span class="p">;</span></dt>
+<dd><p>Prints the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Result.value.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result&#64;F&#64;value#1&amp;" title="tensorstore::Result::value (C++ function) — Returns a reference to the held value if this-&gt;ok(). Otherwise terminates the process."><span class="n">value</span></a></code> or the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Result.status.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result&#64;F&#64;status#1&amp;" title="tensorstore::Result::status (C++ function) — Returns a reference to the contained absl::Status. If the Result&lt;T&gt; contains a value, then this function returns absl::OkStatus()."><span class="n">status</span></a></code> in parentheses to <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="tensorstore::Result::operator&lt;&lt;::os (C++ function parameter)"><span class="n">os</span></a></code>.  Do not rely on
+the output format which may change without notice.</p>
 <dl class="field-list simple">
-<dt class="field-odd" id="dchecks">Dchecks<span class="colon">:</span><a class="headerlink" href="#dchecks" title="Permalink to this headline">¶</a></dt>
-<dd class="field-odd"><p><code class="cpp-expr sig sig-inline cpp highlight"><span class="o">!</span><a class="reference internal" href="tensorstore.AnyFuture.null.html#c:&#64;N&#64;tensorstore&#64;S&#64;AnyFuture&#64;F&#64;null#1" title="tensorstore::AnyFuture::null (C++ function) — Returns true if this Future has no shared state."><span class="n">null</span></a><span class="p">(</span><span class="p">)</span></code></p>
+<dt class="field-odd" id="requires">Requires<span class="colon">:</span><a class="headerlink" href="#requires" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd"><p><code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result-p-T" title="tensorstore::Result::T (C++ type template parameter) — Contained value type, or void to indicate no contained value. Must not be a reference type or cv-qualified."><span class="n">T</span></a></code> supports <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">operator</span><a class="reference internal" href="#" title="tensorstore::Result::operator&lt;&lt; (C++ function) — Prints the value or the status in parentheses to os.  Do not rely on the output format which may change without notice."><span class="sig-name descname">&lt;&lt;</span></a></code>.</p>
 </dd>
 </dl>
-<div class="note admonition">
-<p class="admonition-title">Note</p>
-<p>Once this returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> for a given shared state, it will never return
-<code class="cpp-expr sig sig-inline cpp highlight"><span class="k">false</span></code>.</p>
-</div>
 </dd></dl>
 
 
