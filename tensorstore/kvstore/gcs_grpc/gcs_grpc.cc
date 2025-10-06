@@ -384,7 +384,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     if (!promise_.result_needed()) {
       return;
     }
-
+    state_.ResetWorkingState();
     auto context_future = driver_->AllocateContext();
     context_future.ExecuteWhenReady(
         [self = internal::IntrusivePtr<ReadTask>(this),
