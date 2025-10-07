@@ -44,7 +44,7 @@ absl::Status GetJsonUnregisteredError(std::string_view id) {
 }
 
 void JsonRegistryImpl::Register(std::unique_ptr<Entry> entry, bool alias) {
-  absl::WriterMutexLock lock(&mutex_);
+  absl::WriterMutexLock lock(mutex_);
   if (!alias) {
     auto [it, inserted] = entries_by_type_.insert(entry.get());
     if (!inserted) {
@@ -67,7 +67,7 @@ absl::Status JsonRegistryImpl::LoadKey(
       auto id, internal_json_binding::FromJson<std::string>(std::move(*j)));
   const Entry* entry = nullptr;
   {
-    absl::ReaderMutexLock lock(&mutex_);
+    absl::ReaderMutexLock lock(mutex_);
     if (auto it = entries_.find(id); it != entries_.end()) {
       entry = it->get();
     }
@@ -84,7 +84,7 @@ absl::Status JsonRegistryImpl::SaveKey(std::type_index type,
                                        ::nlohmann::json* j) const {
   const Entry* entry = nullptr;
   {
-    absl::ReaderMutexLock lock(&mutex_);
+    absl::ReaderMutexLock lock(mutex_);
     if (auto it = entries_by_type_.find(type); it != entries_by_type_.end()) {
       entry = *it;
     }
@@ -102,7 +102,7 @@ absl::Status JsonRegistryImpl::LoadRegisteredObject(
     ::nlohmann::json::object_t* j_obj) const {
   const Entry* entry = nullptr;
   {
-    absl::ReaderMutexLock lock(&mutex_);
+    absl::ReaderMutexLock lock(mutex_);
     if (auto it = entries_by_type_.find(type); it != entries_by_type_.end()) {
       entry = *it;
     }
@@ -118,7 +118,7 @@ absl::Status JsonRegistryImpl::SaveRegisteredObject(
     ::nlohmann::json::object_t* j_obj) const {
   const Entry* entry = nullptr;
   {
-    absl::ReaderMutexLock lock(&mutex_);
+    absl::ReaderMutexLock lock(mutex_);
     if (auto it = entries_by_type_.find(type); it != entries_by_type_.end()) {
       entry = *it;
     }
