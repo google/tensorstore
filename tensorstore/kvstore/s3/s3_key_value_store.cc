@@ -1337,7 +1337,7 @@ Future<const void> S3KeyValueStore::DeleteRange(KeyRange range) {
 
 // Resolves the region endpoint for the bucket.
 Future<const S3EndpointRegion> S3KeyValueStore::MaybeResolveRegion() {
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(mutex_);
   if (!resolve_ehr_.null() && resolve_ehr_.ready() &&
       !resolve_ehr_.status().ok()) {
     // Retry the resolve_ehr step indefinitely on failure.
