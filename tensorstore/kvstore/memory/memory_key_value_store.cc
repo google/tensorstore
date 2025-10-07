@@ -380,7 +380,7 @@ class MemoryDriver::TransactionNode
 
 Future<ReadResult> MemoryDriver::Read(Key key, ReadOptions options) {
   auto& data = this->data();
-  absl::ReaderMutexLock lock(&data.mutex);
+  absl::ReaderMutexLock lock(data.mutex);
   auto& values = data.values;
   auto it = values.find(key);
   if (it == values.end()) {
@@ -403,7 +403,7 @@ Future<TimestampedStorageGeneration> MemoryDriver::Write(
   using ValueWithGenerationNumber =
       StoredKeyValuePairs::ValueWithGenerationNumber;
   auto& data = this->data();
-  absl::WriterMutexLock lock(&data.mutex);
+  absl::WriterMutexLock lock(data.mutex);
   auto& values = data.values;
   auto it = values.find(key);
   if (it == values.end()) {
@@ -446,7 +446,7 @@ Future<TimestampedStorageGeneration> MemoryDriver::Write(
 
 Future<const void> MemoryDriver::DeleteRange(KeyRange range) {
   auto& data = this->data();
-  absl::WriterMutexLock lock(&data.mutex);
+  absl::WriterMutexLock lock(data.mutex);
   if (!range.empty()) {
     auto it_range = data.Find(range);
     data.values.erase(it_range.first, it_range.second);
@@ -464,7 +464,7 @@ void MemoryDriver::ListImpl(ListOptions options, ListReceiver receiver) {
   // Collect the keys.
   std::vector<ListEntry> entries;
   {
-    absl::ReaderMutexLock lock(&data.mutex);
+    absl::ReaderMutexLock lock(data.mutex);
     auto it_range = data.Find(options.range);
     for (auto it = it_range.first; it != it_range.second; ++it) {
       if (cancelled.load(std::memory_order_relaxed)) break;
