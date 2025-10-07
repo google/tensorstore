@@ -199,7 +199,7 @@ Result<ConfigStatePtr> ConfigState::Make(
 
 absl::Status ConfigState::ValidateNewConfig(const Config& config) {
   if (!config_set_.load(std::memory_order_acquire)) {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     TENSORSTORE_RETURN_IF_ERROR(ValidateConfig(config, constraints_));
     if (assume_config_) {
       ConfigConstraints assumed_constraints(assumed_config_);
@@ -233,7 +233,7 @@ const Config* ConfigState::GetAssumedOrExistingConfig() const {
 
 Result<Config> ConfigState::CreateNewConfig() {
   if (!config_set_.load(std::memory_order_acquire)) {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     Config config;
     TENSORSTORE_RETURN_IF_ERROR(
         CreateConfig(constraints_, supported_features_for_manifest_, config));
@@ -248,7 +248,7 @@ Result<Config> ConfigState::CreateNewConfig() {
 
 ConfigConstraints ConfigState::GetConstraints() const {
   if (!config_set_.load(std::memory_order_acquire)) {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     return constraints_;
   }
   return constraints_;
