@@ -63,7 +63,7 @@ ResourceImplBase::~ResourceImplBase() = default;
 ResourceSpecImplBase::~ResourceSpecImplBase() = default;
 
 ContextImplPtr GetCreator(ResourceImplBase& resource) {
-  absl::MutexLock lock(&resource.mutex_);
+  absl::MutexLock lock(resource.mutex_);
   auto* creator_ptr = resource.weak_creator_;
   if (!creator_ptr ||
       !internal::IncrementReferenceCountIfNonZero(*creator_ptr)) {
@@ -125,7 +125,7 @@ ContextImpl::~ContextImpl() {
     auto& result = resource_container->result_;
     if (!result.ok()) continue;
     auto& resource = **result;
-    absl::MutexLock lock(&resource.mutex_);
+    absl::MutexLock lock(resource.mutex_);
     // Only reset the `weak_creator_` if it points to `this`.  `resources_` can
     // contain resources that are actually references to resources in a parent
     // context, in which case we must not change `weak_creator_`.
@@ -342,7 +342,7 @@ class ResourceReference : public ResourceSpecImplBase {
     // Look up referent.
     std::string_view referent = referent_;
     auto* mutex = &creation_context.context_->root_->mutex_;
-    absl::MutexLock lock(mutex);
+    absl::MutexLock lock(*mutex);
     ContextImpl* c = creation_context.context_;
     if (referent.empty()) {
       // Refers to default value in parent.  Only valid within a context spec.
@@ -404,7 +404,7 @@ class ResourceReference : public ResourceSpecImplBase {
 void RegisterContextResourceProvider(
     std::unique_ptr<const ResourceProviderImplBase> provider) {
   auto& registry = GetRegistry();
-  absl::MutexLock lock(&registry.mutex_);
+  absl::MutexLock lock(registry.mutex_);
   auto id = provider->id_;
   if (!registry.providers_.insert(std::move(provider)).second) {
     ABSL_LOG(FATAL) << "Provider " << QuoteString(id) << " already registered";
@@ -413,7 +413,7 @@ void RegisterContextResourceProvider(
 
 const ResourceProviderImplBase* GetProvider(std::string_view id) {
   auto& registry = GetRegistry();
-  absl::ReaderMutexLock lock(&registry.mutex_);
+  absl::ReaderMutexLock lock(registry.mutex_);
   auto it = registry.providers_.find(id);
   if (it == registry.providers_.end()) return nullptr;
   return it->get();
@@ -873,7 +873,7 @@ void AllContextResources::UnbindContext(
   // bound.
   {
     auto& registry = internal_context::GetRegistry();
-    absl::ReaderMutexLock lock(&registry.mutex_);
+    absl::ReaderMutexLock lock(registry.mutex_);
     for (const auto& provider : registry.providers_) {
       internal_context::ResourceSpecImplPtr resource_spec_impl(
           new internal_context::ResourceReference(std::string(provider->id_)));
