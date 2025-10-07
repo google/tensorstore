@@ -33,7 +33,7 @@ AdmissionQueue::AdmissionQueue(size_t limit)
 }
 
 AdmissionQueue::~AdmissionQueue() {
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(mutex_);
   assert(head_.next_ == &head_);
 }
 
@@ -44,7 +44,7 @@ void AdmissionQueue::Admit(RateLimiterNode* node, RateLimiterNode::StartFn fn) {
   node->start_fn_ = fn;
 
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     if (in_flight_ + 1 > limit_) {
       internal::intrusive_linked_list::InsertBefore(RateLimiterNodeAccessor{},
                                                     &head_, node);
@@ -59,7 +59,7 @@ void AdmissionQueue::Admit(RateLimiterNode* node, RateLimiterNode::StartFn fn) {
 void AdmissionQueue::Finish(RateLimiterNode* node) {
   assert(node->next_ == nullptr);
 
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   in_flight_--;
 
   // Typically this loop will admit only a single node at a time.
@@ -73,9 +73,9 @@ void AdmissionQueue::Finish(RateLimiterNode* node) {
                                             next_node);
 
     // Next node gets a chance to run after clearing admission queue state.
-    mutex_.Unlock();
+    mutex_.unlock();
     RunStartFunction(next_node);
-    mutex_.Lock();
+    mutex_.lock();
   }
 }
 
