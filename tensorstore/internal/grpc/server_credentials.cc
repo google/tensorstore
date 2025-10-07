@@ -42,7 +42,7 @@ const internal::ContextResourceRegistration<GrpcServerCredentials>
 
 std::shared_ptr<internal_grpc::ServerAuthenticationStrategy>
 GrpcServerCredentials::Resource::GetAuthenticationStrategy() {
-  absl::MutexLock l(&credentials_mu);
+  absl::MutexLock l(credentials_mu);
   if (strategy_) return strategy_;
   return internal_grpc::CreateInsecureServerAuthenticationStrategy();
 }
@@ -62,7 +62,7 @@ bool GrpcServerCredentials::Use(
     tensorstore::Context context,
     std::shared_ptr<internal_grpc::ServerAuthenticationStrategy> credentials) {
   auto resource = context.GetResource<GrpcServerCredentials>().value();
-  absl::MutexLock l(&credentials_mu);
+  absl::MutexLock l(credentials_mu);
   bool result = (resource->strategy_ == nullptr);
   resource->strategy_ = std::move(credentials);
   return result;
