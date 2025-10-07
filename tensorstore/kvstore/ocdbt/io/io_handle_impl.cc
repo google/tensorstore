@@ -113,7 +113,7 @@ class IoHandleImpl : public IoHandle {
       return absl::OkStatus();
     }
 
-    absl::MutexLock lock(&manifest_mutex_);
+    absl::MutexLock lock(manifest_mutex_);
     // Only validate the new manifest if it is not the same as the existing
     // manifest.
     if (new_manifest_with_time.manifest !=
@@ -146,7 +146,7 @@ class IoHandleImpl : public IoHandle {
       return absl::OkStatus();
     }
 
-    absl::MutexLock lock(&manifest_mutex_);
+    absl::MutexLock lock(manifest_mutex_);
     if (new_manifest_with_time.manifest != cached_numbered_manifest_.manifest) {
       auto* new_manifest = new_manifest_with_time.manifest.get();
       if (new_manifest) {
