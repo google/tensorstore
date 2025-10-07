@@ -61,7 +61,7 @@ TokenBucketRateLimiter::TokenBucketRateLimiter(
 }
 
 TokenBucketRateLimiter::~TokenBucketRateLimiter() {
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(mutex_);
   mutex_.Await(absl::Condition(
       +[](TokenBucketRateLimiter* self) ABSL_EXCLUSIVE_LOCKS_REQUIRED(
            self->mutex_) { return !self->scheduled_; },
@@ -78,7 +78,7 @@ void TokenBucketRateLimiter::Admit(RateLimiterNode* node,
 
   // Admit to the queue.
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     internal::intrusive_linked_list::InsertBefore(RateLimiterNodeAccessor{},
                                                   &head_, node);
     PerformWorkLocked();
@@ -95,13 +95,13 @@ absl::Duration TokenBucketRateLimiter::GetSchedulerDelay() const {
 }
 
 void TokenBucketRateLimiter::PeriodicCallForTesting() {
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   assert(!allow_schedule_at_);
   PerformWorkLocked();
 }
 
 void TokenBucketRateLimiter::PerformWork() {
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   PerformWorkLocked();
 }
 
@@ -146,7 +146,7 @@ void TokenBucketRateLimiter::PerformWorkLocked() {
           << "ScheduleAt delay=" << delay;
       scheduled_ = true;
       internal::ScheduleAt(absl::Now() + delay, [this] {
-        absl::MutexLock lock(&mutex_);
+        absl::MutexLock lock(mutex_);
         scheduled_ = false;
         PerformWorkLocked();
       });
@@ -158,14 +158,14 @@ void TokenBucketRateLimiter::PerformWorkLocked() {
   }
 
   // Run all nodes without locks.
-  mutex_.Unlock();
+  mutex_.unlock();
   ABSL_LOG_IF(INFO, rate_limiter_logging.Level(1)) << "Starting " << count;
   for (int i = 0; i < count; ++i) {
     auto* n = accessor.GetNext(&local);
     internal::intrusive_linked_list::Remove(accessor, n);
     RunStartFunction(n);
   }
-  mutex_.Lock();
+  mutex_.lock();
 }
 
 }  // namespace internal
