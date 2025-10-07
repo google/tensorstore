@@ -94,7 +94,7 @@ void TransactionState::NoMoreCommitReferences() {
 
 TransactionState::OpenPtr TransactionState::AcquireImplicitOpenPtr() {
   assert(implicit_transaction_);
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   if (commit_state_ >= kCommitStarted) {
     return {};
   }
@@ -154,7 +154,7 @@ Result<TransactionState::OpenPtr> TransactionState::AcquireOpenPtrOrError() {
 }
 
 TransactionState::OpenPtr TransactionState::AcquireOpenPtr() {
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   assert(commit_reference_count_.load() != 0);
   if (commit_state_ == kAborted || commit_state_ == kCommitStarted) {
     return {};
@@ -164,7 +164,7 @@ TransactionState::OpenPtr TransactionState::AcquireOpenPtr() {
 
 void TransactionState::RequestCommit() {
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     if (commit_state_ != kOpen) return;
     if (open_reference_count_.load(std::memory_order_relaxed) != 0) {
       // A thread is not permitted to increase `open_reference_count_` from 0
@@ -380,7 +380,7 @@ void TransactionState::Barrier() {
   if (atomic()) {
     return;
   }
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   if (commit_state_ == kCommitStarted || commit_state_ == kAborted) {
     return;
   }
@@ -397,7 +397,7 @@ size_t TransactionState::phase() {
   if (atomic()) {
     return 0;
   }
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   assert(commit_state_ != kCommitStarted && commit_state_ != kAborted);
   return phase_;
 }
@@ -512,7 +512,7 @@ void TransactionState::NoMoreWeakReferences() { delete this; }
 void TransactionState::NoMoreOpenReferences() {
   bool abort;
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     if (open_reference_count_.load(std::memory_order_relaxed) != 0) {
       // Another open handle was created concurrently.
       return;
