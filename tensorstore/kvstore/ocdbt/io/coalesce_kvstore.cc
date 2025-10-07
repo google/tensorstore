@@ -212,7 +212,7 @@ Future<kvstore::ReadResult> CoalesceKvStoreDriver::Read(Key key,
                                                         ReadOptions options) {
   internal::IntrusivePtr<PendingRead> state_ptr;
   {
-    absl::MutexLock l(&mu_);
+    absl::MutexLock l(mu_);
     auto it = pending_.find(std::string_view(key));
     if (it != pending_.end()) {
       /// This key is already "reserved" by a PendingRead object, so enqueue
@@ -313,7 +313,7 @@ void CoalesceKvStoreDriver::StartNextRead(
     internal::IntrusivePtr<PendingRead> state_ptr) {
   std::vector<PendingRead::Op> pending;
   {
-    absl::MutexLock l(&mu_);
+    absl::MutexLock l(mu_);
     if (state_ptr->pending_ops.empty()) {
       // No buffered reads for this key; remove the "reservation" and exit.
       pending_.erase(state_ptr->key);
