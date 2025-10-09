@@ -13,7 +13,7 @@ Phase 2
 - then plot a graph to compare the performance (time take) for the pytorch's basic approach as well as the tensorstore's read and write to provide a comparison, you can use matplotlib
 
 ## Phase 3
-
+now go through the document for Phase 3, it's basically the same loading and saving model but it's for using the t5x approach. go through the whole document: https://t5x.readthedocs.io/en/latest/_modules/t5x/checkpoints.html#Checkpointer.all_dataset_checkpoint_steps as well as https://t5x.readthedocs.io/en/latest/api_reference/t5x.checkpoints.html to explore how they did it using tensorstore and then implement it for me, then draw the plots showing the comparison of all of the 3 approaches
 **Optimized T5X-TensorStore Implementation**
 
 This phase implements the third approach using optimized T5X-style TensorStore methods based on the actual [T5X source code](https://t5x.readthedocs.io/en/latest/_modules/t5x/checkpoints.html#Checkpointer.all_steps).
