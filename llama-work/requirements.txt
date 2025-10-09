@@ -3,3 +3,4 @@ transformers
 accelerate
 jupyter
 tensorstore
+matplotlib
