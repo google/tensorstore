@@ -111,6 +111,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore/memory",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
