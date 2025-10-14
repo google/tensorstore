@@ -42,7 +42,7 @@ Result<std::shared_ptr<AuthProvider>> GetSharedGoogleAuthProvider(
     std::shared_ptr<HttpTransport> transport) {
   static auto* g = new SharedAuthProvider();
 
-  absl::MutexLock l(&g->mu_);
+  absl::MutexLock l(g->mu_);
   // Return the cached auth provider if the transport is the same; otherwise
   // update the transport and create a new auth provider.
   if (std::shared_ptr<HttpTransport> cached_transport = g->transport_.lock()) {

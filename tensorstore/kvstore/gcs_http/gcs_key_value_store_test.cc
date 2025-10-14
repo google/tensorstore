@@ -574,7 +574,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
 class MyConcurrentMockTransport : public MyMockTransport {
  public:
   size_t reset() {
-    absl::MutexLock lock(&concurrent_request_mutex_);
+    absl::MutexLock lock(concurrent_request_mutex_);
     cur_concurrent_requests_ = 0;
     return std::exchange(max_concurrent_requests_, 0);
   }
@@ -594,7 +594,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
     }
 
     {
-      absl::MutexLock lock(&concurrent_request_mutex_);
+      absl::MutexLock lock(concurrent_request_mutex_);
       ++cur_concurrent_requests_;
       max_concurrent_requests_ =
           std::max(max_concurrent_requests_, cur_concurrent_requests_);
@@ -604,7 +604,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
     auto op = tensorstore::PromiseFuturePair<HttpResponse>::Make();
     ScheduleAt(absl::Now() + absl::Milliseconds(5),
                [this, r = request, o = std::move(options), response_handler] {
-                 absl::MutexLock lock(&concurrent_request_mutex_);
+                 absl::MutexLock lock(concurrent_request_mutex_);
                  --cur_concurrent_requests_;
                  MyMockTransport::IssueRequestWithHandler(r, std::move(o),
                                                           response_handler);
@@ -659,7 +659,7 @@ TEST(GcsKeyValueStoreTest, Concurrency) {
 class MyRateLimitedMockTransport : public MyMockTransport {
  public:
   std::tuple<absl::Time, absl::Time, size_t> reset() {
-    absl::MutexLock l(&request_timing_mutex_);
+    absl::MutexLock l(request_timing_mutex_);
     return {min_time_, max_time_, std::exchange(count_, 0)};
   }
 
@@ -676,7 +676,7 @@ class MyRateLimitedMockTransport : public MyMockTransport {
 
     // Measure the inter-request interval on non-auth requests.
     {
-      absl::MutexLock l(&request_timing_mutex_);
+      absl::MutexLock l(request_timing_mutex_);
       max_time_ = absl::Now();
       if (count_++ == 0) {
         min_time_ = max_time_;
