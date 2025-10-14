@@ -30,6 +30,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/array/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain.h"
@@ -38,6 +39,7 @@
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/stack.h"
 #include "tensorstore/staleness_bound.h"
@@ -59,6 +61,7 @@ using ::tensorstore::OpenMode;
 using ::tensorstore::ReadWriteMode;
 using ::tensorstore::span;
 using ::tensorstore::StatusIs;
+using ::tensorstore::serialization::SerializationRoundTrip;
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
 
@@ -1450,6 +1453,34 @@ TEST(StackDriverTest, ConcatBatchRead) {
 
   auto future = tensorstore::Read(concat_store, tensorstore::Batch::New());
   TENSORSTORE_EXPECT_OK(future);
+}
+
+TEST(StackDriverTest, SerializationRoundTrip) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(
+                                       {
+                                           {"driver", "zarr3"},
+                                           {"kvstore", {{"driver", "memory"}}},
+                                           {"metadata",
+                                            {
+                                                {"shape", {1}},
+                                                {"data_type", "uint16"},
+                                                {"fill_value", 43},
+                                            }},
+                                       },
+                                       tensorstore::OpenMode::create)
+                                       .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto arr, tensorstore::FromArray(tensorstore::MakeArray<uint16_t>({42})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto concat_store,
+                                   tensorstore::Concat({store, arr}, 0));
+  EXPECT_THAT(tensorstore::Read(concat_store).result(),
+              ::testing::Optional(MatchesArray<uint16_t>({43, 42})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto concat_store_rt,
+                                   SerializationRoundTrip(concat_store));
+  EXPECT_THAT(tensorstore::Read(concat_store_rt).result(),
+              ::testing::Optional(MatchesArray<uint16_t>({43, 42})));
 }
 
 }  // namespace

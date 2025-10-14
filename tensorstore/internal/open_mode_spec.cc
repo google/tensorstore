@@ -88,9 +88,16 @@ TENSORSTORE_DEFINE_JSON_BINDER(
 
 absl::Status OpenModeSpec::ApplyOptions(const SpecOptions& options) {
   if (options.open_mode != OpenMode{}) {
-    const OpenMode open_mode = options.open_mode;
-    open = (open_mode & OpenMode::open) == OpenMode::open;
-    create = (open_mode & OpenMode::create) == OpenMode::create;
+    OpenMode open_mode = options.open_mode;
+    if ((open_mode & (OpenMode::open | OpenMode::create)) != OpenMode{}) {
+      // The new `open_mode` specifies at least `open` or `create`:
+      // new mode entirely overrides existing mode.
+      open = (open_mode & OpenMode::open) == OpenMode::open;
+      create = (open_mode & OpenMode::create) == OpenMode::create;
+    } else {
+      // The new `open_mode` just adds to the existing open mode.
+      open_mode = open_mode | this->open_mode();
+    }
     delete_existing =
         (open_mode & OpenMode::delete_existing) == OpenMode::delete_existing;
     assume_metadata =
