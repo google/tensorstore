@@ -108,7 +108,7 @@ class TestCache : public Cache {
 
   ~TestCache() {
     if (log_) {
-      absl::MutexLock lock(&log_->mutex);
+      absl::MutexLock lock(log_->mutex);
       log_->cache_destroy_log.emplace_back(cache_identifier());
     }
   }
@@ -117,7 +117,7 @@ class TestCache : public Cache {
 
   Entry* DoAllocateEntry() override {
     if (log_) {
-      absl::MutexLock lock(&log_->mutex);
+      absl::MutexLock lock(log_->mutex);
       log_->entry_allocate_log.emplace_back(cache_identifier());
     }
     auto* entry = new Entry;
@@ -222,7 +222,7 @@ CachePtr<CacheType> GetTestCache(
     std::shared_ptr<TestCache::RequestLog> log = {}) {
   return GetCache<CacheType>(pool, cache_identifier, [&] {
     if (log) {
-      absl::MutexLock lock(&log->mutex);
+      absl::MutexLock lock(log->mutex);
       log->cache_allocate_log.emplace_back(cache_identifier);
     }
     return std::make_unique<CacheType>(log);
