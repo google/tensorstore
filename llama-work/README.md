@@ -16,7 +16,15 @@ Phase 2
 now go through the document for Phase 3, it's basically the same loading and saving model but it's for using the t5x approach. go through the whole document: https://t5x.readthedocs.io/en/latest/_modules/t5x/checkpoints.html#Checkpointer.all_dataset_checkpoint_steps as well as https://t5x.readthedocs.io/en/latest/api_reference/t5x.checkpoints.html to explore how they did it using tensorstore and then implement it for me, then draw the plots showing the comparison of all of the 3 approaches
 
 Phase 4
-
+- now let's move on, as discussed earlier we have seen various optimizations which t5x has, now I want you to make a streamlines process (function) which can be used to test these changes out
+- you should be calling the function for the following:
+  - adding 128 concurrency
+  - another one should be with larger chunk size how it optimizes for the t5x
+  - another one should be with gzip compression
+- so basically now you would have a total of 6 plots, just basic tensorstore and these things added on top and plots generated, so that we can compare and verify that the difference in performance is actually because of these changes
+- providing a streamlined workflow so I can change other parameters as well and test it out directly: changing parameters + plots generated accordingly 
+- make sure to run these atleast 3 times, with the same parameters along with the standard deviation, but providing an accurate result
+- add it to main.ipynb obviously, and work it out accordingly so that the plot comparisons are generated, you dont have to keep it separately, just give me instructions how to use those 
 
 **Optimized T5X-TensorStore Implementation**
 

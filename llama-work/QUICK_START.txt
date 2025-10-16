@@ -1,0 +1,158 @@
+================================================================================
+QUICK START GUIDE - main.ipynb
+================================================================================
+
+OPEN & RUN:
+-----------
+cd /home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work
+source llama-venv/bin/activate
+jupyter notebook main.ipynb
+
+Then: Cell → Run All (or Shift+Enter through cells)
+
+================================================================================
+WHAT'S IN THE NOTEBOOK
+================================================================================
+
+PHASE 1: PyTorch (Cells 1-8)
+  ├─ Load model
+  ├─ Save with torch.save()
+  ├─ Load with torch.load()
+  └─ Time: ~10 seconds
+
+PHASE 2: TensorStore (Cells 9-12)
+  ├─ Save with basic TensorStore
+  ├─ 64-element chunks, no compression
+  └─ Time: ~2-3 minutes
+
+PHASE 3: T5X-TensorStore (Cells 13-16)
+  ├─ Save with T5X optimizations
+  ├─ 64 MiB chunks, 128 concurrency, gzip
+  └─ Time: ~1-2 minutes
+
+PHASE 4: Isolated Testing (Cells 17-22) ★ NEW ★
+  ├─ Test each optimization independently
+  ├─ 6 tests × 3 runs = 18 executions
+  ├─ Statistical analysis (mean ± std)
+  └─ Time: ~15-20 minutes
+
+TOTAL TIME: ~20-25 minutes
+
+================================================================================
+PHASE 4 TESTS
+================================================================================
+
+1. baseline              → No optimizations (reference)
+2. concurrency_128       → Only high concurrency
+3. chunks_1mb            → Only large chunks (1MB)
+4. compression_gzip      → Only gzip compression
+5. concurrency_chunks    → Concurrency + chunks
+6. t5x_full              → All optimizations
+
+Each test runs 3 times for statistical accuracy.
+
+================================================================================
+OUTPUT FILES
+================================================================================
+
+Plots:
+  saved_models/3way_performance_comparison.png      (Phases 1-3)
+  saved_models/phase4_optimization_analysis.png     (Phase 4)
+
+Checkpoints:
+  saved_models/openllama_3b_pytorch.pth             (2.73 GB)
+  saved_models/openllama_3b_tensorstore/            (2.58 GB)
+  saved_models/openllama_3b_t5x_tensorstore/        (2.59 GB)
+  saved_models/phase4_*/                            (~10 GB)
+
+Total disk space: ~15-20 GB
+
+================================================================================
+MODIFY PHASE 4 PARAMETERS
+================================================================================
+
+In the notebook, find the test execution cell and change:
+
+# Example: Test with 64 concurrency instead of 128
+phase4_results.append(run_test_multiple_times(
+    model_state, "concurrency_64", 
+    chunk_size=64,
+    concurrency=64,      # ← Changed from 128
+    compression=None,
+    num_runs=3
+))
+
+# Example: Test with 5 runs instead of 3
+num_runs=5              # ← More accurate, but slower
+
+# Example: Test different chunk sizes
+chunk_size=16384        # 16KB
+chunk_size=65536        # 64KB
+chunk_size=262144       # 1MB (default)
+
+================================================================================
+QUICK OPTIONS
+================================================================================
+
+RUN ONLY PHASES 1-3 (Skip Phase 4):
+  → Run cells 1-16 only
+  → Time: ~5 minutes
+  → Get 3-way comparison
+
+RUN ONLY PHASE 4:
+  → Run cells 1-4 (setup)
+  → Run cells 17-22 (Phase 4)
+  → Time: ~15-20 minutes
+  → Get isolated optimization analysis
+
+RUN EVERYTHING:
+  → Cell → Run All
+  → Time: ~20-25 minutes
+  → Get complete analysis
+
+================================================================================
+EXPECTED RESULTS (Phase 4)
+================================================================================
+
+test                      save (s)           load (s)
+--------------------------------------------------------
+baseline                   ~134 ± 2          ~12 ± 0.5
+concurrency_128            ~98 ± 2           ~11 ± 0.5    (26% faster save)
+chunks_1mb                 ~68 ± 1           ~16 ± 0.5    (49% faster save)
+compression_gzip           ~146 ± 2          ~19 ± 0.5    (slower - overhead)
+concurrency_chunks         ~57 ± 1           ~17 ± 0.5    (58% faster save)
+t5x_full                   ~59 ± 2           ~19 ± 0.5    (56% faster save)
+
+KEY INSIGHT: Large chunks have the biggest impact on save performance!
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Out of Memory?
+  → Close other apps
+  → Reduce num_runs to 1
+  → Skip Phase 4
+
+CUDA Out of Memory?
+  → Model auto-offloads to CPU
+  → Should work on GTX 1650 (3.9GB)
+
+Phase 4 Too Slow?
+  → Reduce num_runs from 3 to 1
+  → Skip some tests (comment out)
+
+Inconsistent Results?
+  → Increase num_runs to 5
+  → Close background apps
+  → Run during low system activity
+
+================================================================================
+MORE INFO
+================================================================================
+
+Complete guide:     HOW_TO_USE.md
+Phase 4 details:    PHASE4_GUIDE.md
+Code comparison:    detailed_comparison.txt
+
+================================================================================

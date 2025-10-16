@@ -1,0 +1,70 @@
+{
+  "description": "configuration for phase 4 optimization testing - modify parameters here",
+  
+  "model": {
+    "name": "openlm-research/open_llama_3b",
+    "use_gpu": true
+  },
+  
+  "testing": {
+    "num_runs": 3,
+    "save_dir": "saved_models/phase4_tests/"
+  },
+  
+  "test_configurations": [
+    {
+      "name": "baseline",
+      "description": "basic tensorstore with no optimizations",
+      "chunk_size_elements": 64,
+      "concurrency_limit": 1,
+      "compression": null
+    },
+    {
+      "name": "concurrency_128",
+      "description": "high concurrency only",
+      "chunk_size_elements": 64,
+      "concurrency_limit": 128,
+      "compression": null
+    },
+    {
+      "name": "chunks_1mb",
+      "description": "large chunks only (1mb = 262144 float32 elements)",
+      "chunk_size_elements": 262144,
+      "concurrency_limit": 1,
+      "compression": null
+    },
+    {
+      "name": "compression_gzip",
+      "description": "gzip compression only",
+      "chunk_size_elements": 64,
+      "concurrency_limit": 1,
+      "compression": "gzip"
+    },
+    {
+      "name": "concurrency_chunks",
+      "description": "concurrency + large chunks (no compression)",
+      "chunk_size_elements": 262144,
+      "concurrency_limit": 128,
+      "compression": null
+    },
+    {
+      "name": "t5x_full",
+      "description": "all t5x optimizations combined",
+      "chunk_size_elements": 262144,
+      "concurrency_limit": 128,
+      "compression": "gzip"
+    }
+  ],
+  
+  "custom_tests": {
+    "enabled": false,
+    "configurations": [
+      {
+        "name": "custom_test_1",
+        "chunk_size_elements": 16384,
+        "concurrency_limit": 64,
+        "compression": null
+      }
+    ]
+  }
+}

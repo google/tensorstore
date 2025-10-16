@@ -1,0 +1,158 @@
+[NbConvertApp] Converting notebook main.ipynb to notebook
+Traceback (most recent call last):
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/jupyter_core/utils/__init__.py", line 154, in wrapped
+    asyncio.get_running_loop()
+RuntimeError: no running event loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/bin/jupyter-nbconvert", line 7, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/jupyter_core/application.py", line 284, in launch_instance
+    super().launch_instance(argv=argv, **kwargs)
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/traitlets/config/application.py", line 1075, in launch_instance
+    app.start()
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/nbconvertapp.py", line 420, in start
+    self.convert_notebooks()
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/nbconvertapp.py", line 597, in convert_notebooks
+    self.convert_single_notebook(notebook_filename)
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/nbconvertapp.py", line 563, in convert_single_notebook
+    output, resources = self.export_single_notebook(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/nbconvertapp.py", line 487, in export_single_notebook
+    output, resources = self.exporter.from_filename(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/exporters/exporter.py", line 201, in from_filename
+    return self.from_file(f, resources=resources, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/exporters/exporter.py", line 220, in from_file
+    return self.from_notebook_node(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/exporters/notebook.py", line 36, in from_notebook_node
+    nb_copy, resources = super().from_notebook_node(nb, resources, **kw)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/exporters/exporter.py", line 154, in from_notebook_node
+    nb_copy, resources = self._preprocess(nb_copy, resources)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/exporters/exporter.py", line 353, in _preprocess
+    nbc, resc = preprocessor(nbc, resc)
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/preprocessors/base.py", line 48, in __call__
+    return self.preprocess(nb, resources)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/preprocessors/execute.py", line 103, in preprocess
+    self.preprocess_cell(cell, resources, index)
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbconvert/preprocessors/execute.py", line 124, in preprocess_cell
+    cell = self.execute_cell(cell, index, store_history=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/jupyter_core/utils/__init__.py", line 158, in wrapped
+    return loop.run_until_complete(inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbclient/client.py", line 1062, in async_execute_cell
+    await self._check_raise_for_error(cell, cell_index, exec_reply)
+  File "/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/nbclient/client.py", line 918, in _check_raise_for_error
+    raise CellExecutionError.from_cell_and_msg(cell, exec_reply_content)
+nbclient.exceptions.CellExecutionError: An error occurred while executing the following cell:
+------------------
+# load openllama-3b model with pretrained weights
+model_name = "openlm-research/open_llama_3b"
+print(f"loading model: {model_name}")
+
+# load tokenizer
+tokenizer = LlamaTokenizer.from_pretrained(model_name)
+print("tokenizer loaded successfully")
+
+# load model with memory optimization
+model = LlamaForCausalLM.from_pretrained(
+    model_name,
+    dtype=torch.float16,  # use half precision for memory efficiency
+    device_map="auto" if torch.cuda.is_available() else None,
+    low_cpu_mem_usage=True
+)
+
+print(f"model loaded successfully")
+print(f"model parameters: {sum(p.numel() for p in model.parameters()) / 1e6:.1f}m")
+
+if torch.cuda.is_available():
+    print(f"cuda memory allocated: {torch.cuda.memory_allocated(0) / 1e9:.2f} gb")
+------------------
+
+----- stdout -----
+loading model: openlm-research/open_llama_3b
+----- stderr -----
+You are using the default legacy behaviour of the <class 'transformers.models.llama.tokenization_llama.LlamaTokenizer'>. This is expected, and simply means that the `legacy` (previous) behavior will be used so nothing changes for you. If you want to use the new behaviour, set `legacy=False`. This should only be set if you understand what it means, and thoroughly read the reason why this was added as explained in https://github.com/huggingface/transformers/pull/24565 - if you loaded a llama tokenizer from a GGUF file you can ignore this message
+----- stdout -----
+tokenizer loaded successfully
+----- stderr -----
+/home/rifatxia/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/accelerate/utils/modeling.py:1582: UserWarning: Current model requires 100 bytes of buffer for offloaded layers, which seems does not fit any GPU's remaining memory. If you are experiencing a OOM later, please consider using offload_buffers=True.
+  warnings.warn(
+------------------
+
+[31m---------------------------------------------------------------------------[39m
+[31mValueError[39m                                Traceback (most recent call last)
+[36mCell[39m[36m [39m[32mIn[4][39m[32m, line 10[39m
+[32m      7[39m [38;5;28mprint[39m([33m"[39m[33mtokenizer loaded successfully[39m[33m"[39m)
+[32m      9[39m [38;5;66;03m# load model with memory optimization[39;00m
+[32m---> [39m[32m10[39m model = [43mLlamaForCausalLM[49m[43m.[49m[43mfrom_pretrained[49m[43m([49m
+[32m     11[39m [43m    [49m[43mmodel_name[49m[43m,[49m
+[32m     12[39m [43m    [49m[43mdtype[49m[43m=[49m[43mtorch[49m[43m.[49m[43mfloat16[49m[43m,[49m[43m  [49m[38;5;66;43;03m# use half precision for memory efficiency[39;49;00m
+[32m     13[39m [43m    [49m[43mdevice_map[49m[43m=[49m[33;43m"[39;49m[33;43mauto[39;49m[33;43m"[39;49m[43m [49m[38;5;28;43;01mif[39;49;00m[43m [49m[43mtorch[49m[43m.[49m[43mcuda[49m[43m.[49m[43mis_available[49m[43m([49m[43m)[49m[43m [49m[38;5;28;43;01melse[39;49;00m[43m [49m[38;5;28;43;01mNone[39;49;00m[43m,[49m
+[32m     14[39m [43m    [49m[43mlow_cpu_mem_usage[49m[43m=[49m[38;5;28;43;01mTrue[39;49;00m
+[32m     15[39m [43m)[49m
+[32m     17[39m [38;5;28mprint[39m([33mf[39m[33m"[39m[33mmodel loaded successfully[39m[33m"[39m)
+[32m     18[39m [38;5;28mprint[39m([33mf[39m[33m"[39m[33mmodel parameters: [39m[38;5;132;01m{[39;00m[38;5;28msum[39m(p.numel()[38;5;250m [39m[38;5;28;01mfor[39;00m[38;5;250m [39mp[38;5;250m [39m[38;5;129;01min[39;00m[38;5;250m [39mmodel.parameters())[38;5;250m [39m/[38;5;250m [39m[32m1e6[39m[38;5;132;01m:[39;00m[33m.1f[39m[38;5;132;01m}[39;00m[33mm[39m[33m"[39m)
+
+[36mFile [39m[32m~/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/transformers/modeling_utils.py:277[39m, in [36mrestore_default_dtype.<locals>._wrapper[39m[34m(*args, **kwargs)[39m
+[32m    275[39m old_dtype = torch.get_default_dtype()
+[32m    276[39m [38;5;28;01mtry[39;00m:
+[32m--> [39m[32m277[39m     [38;5;28;01mreturn[39;00m [43mfunc[49m[43m([49m[43m*[49m[43margs[49m[43m,[49m[43m [49m[43m*[49m[43m*[49m[43mkwargs[49m[43m)[49m
+[32m    278[39m [38;5;28;01mfinally[39;00m:
+[32m    279[39m     torch.set_default_dtype(old_dtype)
+
+[36mFile [39m[32m~/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/transformers/modeling_utils.py:5051[39m, in [36mPreTrainedModel.from_pretrained[39m[34m(cls, pretrained_model_name_or_path, config, cache_dir, ignore_mismatched_sizes, force_download, local_files_only, token, revision, use_safetensors, weights_only, *model_args, **kwargs)[39m
+[32m   5041[39m     [38;5;28;01mif[39;00m dtype_orig [38;5;129;01mis[39;00m [38;5;129;01mnot[39;00m [38;5;28;01mNone[39;00m:
+[32m   5042[39m         torch.set_default_dtype(dtype_orig)
+[32m   5044[39m     (
+[32m   5045[39m         model,
+[32m   5046[39m         missing_keys,
+[32m   5047[39m         unexpected_keys,
+[32m   5048[39m         mismatched_keys,
+[32m   5049[39m         offload_index,
+[32m   5050[39m         error_msgs,
+[32m-> [39m[32m5051[39m     ) = [38;5;28;43mcls[39;49m[43m.[49m[43m_load_pretrained_model[49m[43m([49m
+[32m   5052[39m [43m        [49m[43mmodel[49m[43m,[49m
+[32m   5053[39m [43m        [49m[43mstate_dict[49m[43m,[49m
+[32m   5054[39m [43m        [49m[43mcheckpoint_files[49m[43m,[49m
+[32m   5055[39m [43m        [49m[43mpretrained_model_name_or_path[49m[43m,[49m
+[32m   5056[39m [43m        [49m[43mignore_mismatched_sizes[49m[43m=[49m[43mignore_mismatched_sizes[49m[43m,[49m
+[32m   5057[39m [43m        [49m[43msharded_metadata[49m[43m=[49m[43msharded_metadata[49m[43m,[49m
+[32m   5058[39m [43m        [49m[43mdevice_map[49m[43m=[49m[43mdevice_map[49m[43m,[49m
+[32m   5059[39m [43m        [49m[43mdisk_offload_folder[49m[43m=[49m[43moffload_folder[49m[43m,[49m
+[32m   5060[39m [43m        [49m[43mdtype[49m[43m=[49m[43mdtype[49m[43m,[49m
+[32m   5061[39m [43m        [49m[43mhf_quantizer[49m[43m=[49m[43mhf_quantizer[49m[43m,[49m
+[32m   5062[39m [43m        [49m[43mkeep_in_fp32_regex[49m[43m=[49m[43mkeep_in_fp32_regex[49m[43m,[49m
+[32m   5063[39m [43m        [49m[43mdevice_mesh[49m[43m=[49m[43mdevice_mesh[49m[43m,[49m
+[32m   5064[39m [43m        [49m[43mkey_mapping[49m[43m=[49m[43mkey_mapping[49m[43m,[49m
+[32m   5065[39m [43m        [49m[43mweights_only[49m[43m=[49m[43mweights_only[49m[43m,[49m
+[32m   5066[39m [43m    [49m[43m)[49m
+[32m   5067[39m [38;5;66;03m# make sure token embedding weights are still tied if needed[39;00m
+[32m   5068[39m model.tie_weights()
+
+[36mFile [39m[32m~/Desktop/TensorstoreWork/tensorstore/llama-work/llama-venv/lib/python3.12/site-packages/transformers/modeling_utils.py:5387[39m, in [36mPreTrainedModel._load_pretrained_model[39m[34m(cls, model, state_dict, checkpoint_files, pretrained_model_name_or_path, ignore_mismatched_sizes, sharded_metadata, device_map, disk_offload_folder, dtype, hf_quantizer, keep_in_fp32_regex, device_mesh, key_mapping, weights_only)[39m
+[32m   5385[39m is_offloaded_safetensors = checkpoint_files [38;5;129;01mis[39;00m [38;5;129;01mnot[39;00m [38;5;28;01mNone[39;00m [38;5;129;01mand[39;00m checkpoint_files[[32m0[39m].endswith([33m"[39m[33m.safetensors[39m[33m"[39m)
+[32m   5386[39m [38;5;28;01mif[39;00m disk_offload_folder [38;5;129;01mis[39;00m [38;5;28;01mNone[39;00m [38;5;129;01mand[39;00m [38;5;129;01mnot[39;00m is_offloaded_safetensors:
+[32m-> [39m[32m5387[39m     [38;5;28;01mraise[39;00m [38;5;167;01mValueError[39;00m(
+[32m   5388[39m         [33m"[39m[33mThe current `device_map` had weights offloaded to the disk. Please provide an `offload_folder`[39m[33m"[39m
+[32m   5389[39m         [33m"[39m[33m for them. Alternatively, make sure you have `safetensors` installed if the model you are using[39m[33m"[39m
+[32m   5390[39m         [33m"[39m[33m offers the weights in this format.[39m[33m"[39m
+[32m   5391[39m     )
+[32m   5392[39m [38;5;28;01mif[39;00m is_offloaded_safetensors:
+[32m   5393[39m     param_device_map = expand_device_map(device_map, checkpoint_keys)
+
+[31mValueError[39m: The current `device_map` had weights offloaded to the disk. Please provide an `offload_folder` for them. Alternatively, make sure you have `safetensors` installed if the model you are using offers the weights in this format.
+
