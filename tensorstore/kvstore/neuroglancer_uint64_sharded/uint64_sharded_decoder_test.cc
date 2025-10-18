@@ -14,8 +14,12 @@
 
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_decoder.h"
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_encoder.h"
@@ -25,12 +29,13 @@
 namespace {
 
 namespace zlib = tensorstore::zlib;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::neuroglancer_uint64_sharded::DecodeMinishardIndex;
 using ::tensorstore::neuroglancer_uint64_sharded::EncodeMinishardIndex;
 using ::tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
 using ::tensorstore::neuroglancer_uint64_sharded::ShardIndexEntry;
 using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
+using ::testing::HasSubstr;
 
 void TestEncodeMinishardRoundTrip(
     std::vector<MinishardIndexEntry> minishard_index) {
@@ -64,15 +69,15 @@ TEST(DecodeMinishardIndexTest, MultipleEntries) {
 TEST(DecodeMinishardIndexTest, InvalidGzip) {
   EXPECT_THAT(
       DecodeMinishardIndex(absl::Cord("abc"), ShardingSpec::DataEncoding::gzip),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error decoding zlib-compressed data"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error decoding zlib-compressed data")));
 }
 
 TEST(DecodeMinishardIndexTest, InvalidSizeRaw) {
   EXPECT_THAT(
       DecodeMinishardIndex(absl::Cord("abc"), ShardingSpec::DataEncoding::raw),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Invalid minishard index length: 3"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid minishard index length: 3")));
 }
 
 TEST(DecodeMinishardIndexTest, InvalidSizeGzip) {
@@ -80,18 +85,17 @@ TEST(DecodeMinishardIndexTest, InvalidSizeGzip) {
   zlib::Options options{/*.level=*/9, /*.use_gzip_header=*/true};
   zlib::Encode(absl::Cord("abc"), &temp, options);
   EXPECT_THAT(DecodeMinishardIndex(temp, ShardingSpec::DataEncoding::gzip),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid minishard index length: 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid minishard index length: 3")));
 }
 
 TEST(DecodeMinishardIndexTest, InvalidInterval) {
   std::vector<MinishardIndexEntry> minishard_index{{{3}, {1, 0}}};
   auto encoded = EncodeMinishardIndex(minishard_index);
-  EXPECT_THAT(
-      DecodeMinishardIndex(encoded, ShardingSpec::DataEncoding::raw),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Invalid byte range in minishard index for chunk 3: \\[1, 0\\)"));
+  EXPECT_THAT(DecodeMinishardIndex(encoded, ShardingSpec::DataEncoding::raw),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid byte range in minishard index for "
+                                 "chunk 3: [1, 0)")));
 }
 
 }  // namespace

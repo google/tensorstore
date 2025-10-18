@@ -81,8 +81,8 @@ using ::tensorstore::DimensionSet;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::StrCat;
 using ::tensorstore::TimestampedStorageGeneration;
@@ -97,6 +97,7 @@ using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::JpegWriter;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 using ::tensorstore::serialization::SerializationRoundTrip;
+using ::testing::HasSubstr;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -139,11 +140,12 @@ TEST(DriverTest, CreateSpecifiedInJson) {
 }
 
 TEST(DriverTest, OpenNonExisting) {
-  EXPECT_THAT(tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open,
-                                tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kNotFound,
-                            ".*Metadata at \"prefix/info\" does not exist"));
+  EXPECT_THAT(
+      tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kNotFound,
+               HasSubstr("Metadata at \"prefix/info\" does not exist")));
 }
 
 TEST(DriverTest, OpenOrCreate) {
@@ -189,7 +191,7 @@ TEST(DriverTest, Create) {
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
                                            {11, 7, 3, 0}, {1, 1, 1, 1})))
                     .result(),
-                MatchesStatus(absl::StatusCode::kOutOfRange));
+                StatusIs(absl::StatusCode::kOutOfRange));
 
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
@@ -211,7 +213,7 @@ TEST(DriverTest, Create) {
                         tensorstore::Dims("z", "channel").IndexSlice({3, 0}),
                         tensorstore::AllDims().SizedInterval({10, 8}, {2, 3})))
             .commit_future.result(),
-        MatchesStatus(absl::StatusCode::kOutOfRange));
+        StatusIs(absl::StatusCode::kOutOfRange));
 
     // Re-read and validate result.
     EXPECT_EQ(tensorstore::MakeArray<uint16_t>(
@@ -350,7 +352,7 @@ TEST(DriverTest, Create) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
-        MatchesStatus(absl::StatusCode::kAlreadyExists));
+        StatusIs(absl::StatusCode::kAlreadyExists));
   }
 
   // Check that create or open succeeds.
@@ -390,8 +392,8 @@ TEST(DriverTest, Create) {
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
                                            {9, 7, 7, 0}, {2, 4, 2, 3})))
                     .result(),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*Expected chunk length to be .*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("Expected chunk length to be ")));
   }
 
   // Check that delete_existing works.
@@ -514,9 +516,10 @@ TEST(DriverTest, UnsupportedDataTypeInSpec) {
           },
           tensorstore::OpenMode::create, tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          ".*string data type is not one of the supported data types: .*"));
+          HasSubstr(
+              "string data type is not one of the supported data types:")));
 }
 
 TEST(DriverTest, OptionMismatch) {
@@ -535,7 +538,7 @@ TEST(DriverTest, OptionMismatch) {
     EXPECT_THAT(
         tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
             .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank.*"));
+        StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("rank")));
   }
 }
 
@@ -554,9 +557,9 @@ TEST(DriverTest, DataTypeMismatchInSpec) {
   EXPECT_THAT(
       tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
           .result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          ".*: Expected \"data_type\" of \"uint32\" but received: \"uint16\""));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Expected \"data_type\" of \"uint32\" but received: "
+                         "\"uint16\"")));
 }
 
 TEST(DriverTest, DataTypeMismatchInStoredMetadata) {
@@ -573,19 +576,20 @@ TEST(DriverTest, DataTypeMismatchInStoredMetadata) {
                          {"kvstore", {{"driver", "memory"}}}},
                         context, dtype_v<uint32_t>, tensorstore::OpenMode::open)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*: data_type from metadata \\(uint8\\) does not match "
-                    "dtype in schema \\(uint32\\)"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("data_type from metadata (uint8) does not match "
+                         "dtype in schema (uint32)")));
 }
 
 TEST(DriverTest, InvalidSpecExtraMember) {
   auto spec = GetJsonSpec();
   spec["extra_member"] = 5;
-  EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
-                                tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Object includes extra members: \"extra_member\""));
+  EXPECT_THAT(
+      tensorstore::Open(spec, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Object includes extra members: \"extra_member\"")));
 }
 
 TEST(DriverTest, InvalidSpecMissingKvstore) {
@@ -595,9 +599,9 @@ TEST(DriverTest, InvalidSpecMissingKvstore) {
       tensorstore::Open(spec, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error opening \"neuroglancer_precomputed\" driver: "
-                    "\"kvstore\" must be specified"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error opening \"neuroglancer_precomputed\" driver: "
+                         "\"kvstore\" must be specified")));
 }
 
 TEST(DriverTest, InvalidSpecInvalidMemberType) {
@@ -609,10 +613,10 @@ TEST(DriverTest, InvalidSpecInvalidMemberType) {
         tensorstore::Open(spec, tensorstore::OpenMode::create,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      StrCat("Error parsing object member \"", member_name,
-                             "\": "
-                             "Expected .*, but received: null")));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 testing::AllOf(HasSubstr("Error parsing object member \""),
+                                HasSubstr(member_name),
+                                HasSubstr("received: null"))));
   }
 }
 
@@ -623,7 +627,7 @@ TEST(DriverTest, InvalidSpecMissingDomain) {
       tensorstore::Open(spec, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"size\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"size\"")));
 }
 
 TEST(DriverTest, CompressedSegmentationEncodingUint32) {
@@ -871,8 +875,8 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
                             .SizedInterval({0, 0, 0}, {3, 4, 3})
                             .Transpose()))
             .result(),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      ".*Corrupted Neuroglancer compressed segmentation.*"));
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Corrupted Neuroglancer compressed segmentation")));
   }
 }
 
@@ -988,13 +992,15 @@ TEST(DriverTest, Jpeg1Channel) {
     // Write invalid jpeg
     TENSORSTORE_EXPECT_OK(
         kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
-    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
-                    ChainResult(store, tensorstore::AllDims().SizedInterval(
-                                           0, array.shape())))
-                    .result(),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*Error reading \"prefix/1_1_1/0-3_0-4_0-2\":"
-                              ".*Not a JPEG file.*"));
+    EXPECT_THAT(
+        tensorstore::Read<tensorstore::zero_origin>(
+            ChainResult(store,
+                        tensorstore::AllDims().SizedInterval(0, array.shape())))
+            .result(),
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 ::testing::AllOf(
+                     HasSubstr("Error reading \"prefix/1_1_1/0-3_0-4_0-2\":"),
+                     HasSubstr("Not a JPEG file"))));
 
     // Write valid JPEG with the wrong number of channels.
     {
@@ -1013,13 +1019,14 @@ TEST(DriverTest, Jpeg1Channel) {
       TENSORSTORE_EXPECT_OK(
           kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
     }
-    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
-                    ChainResult(store, tensorstore::AllDims().SizedInterval(
-                                           0, array.shape())))
-                    .result(),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*Image dimensions .* are not compatible with "
-                              "expected chunk shape.*"));
+    EXPECT_THAT(
+        tensorstore::Read<tensorstore::zero_origin>(
+            ChainResult(store,
+                        tensorstore::AllDims().SizedInterval(0, array.shape())))
+            .result(),
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Image dimensions (3, 8, 3) are not compatible with "
+                           "expected chunk shape {1, 2, 4, 3}")));
 
     // Write valid JPEG with the wrong dimensions.
     {
@@ -1039,13 +1046,14 @@ TEST(DriverTest, Jpeg1Channel) {
       TENSORSTORE_EXPECT_OK(
           kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
     }
-    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
-                    ChainResult(store, tensorstore::AllDims().SizedInterval(
-                                           0, array.shape())))
-                    .result(),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*Image dimensions .* are not compatible with "
-                              "expected chunk shape.*"));
+    EXPECT_THAT(
+        tensorstore::Read<tensorstore::zero_origin>(
+            ChainResult(store,
+                        tensorstore::AllDims().SizedInterval(0, array.shape())))
+            .result(),
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Image dimensions (3, 5, 1) are not compatible with "
+                           "expected chunk shape")));
   }
 }
 
@@ -1226,20 +1234,22 @@ TEST(DriverTest, CorruptMetadataTest) {
       kvstore::Write(kvs, "prefix/info", absl::Cord("invalid")));
 
   auto json_spec = GetJsonSpec();
-  EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
-                                tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*: Error reading \"prefix/info\": Invalid JSON"));
+  EXPECT_THAT(
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Error reading \"prefix/info\": Invalid JSON")));
 
   // Write valid JSON that is invalid metadata.
   TENSORSTORE_EXPECT_OK(kvstore::Write(kvs, "prefix/info", absl::Cord("[1]")));
 
-  EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
-                                tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*: Error reading \"prefix/info\":.*"));
+  EXPECT_THAT(
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Error reading \"prefix/info\": Expected object")));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
@@ -2373,23 +2383,24 @@ TEST(DriverTest, InvalidCodec) {
                   },
                   tensorstore::OpenMode::create)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Cannot merge codec spec .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot merge codec spec")));
 }
 
 TEST(DriverTest, InvalidWriteChunkShape) {
-  EXPECT_THAT(tensorstore::Open(
-                  {
-                      {"driver", "neuroglancer_precomputed"},
-                      {"kvstore", {{"driver", "memory"}}},
-                  },
-                  tensorstore::OpenMode::create, dtype_v<uint32_t>,
-                  Schema::Shape({1000, 1000, 1000, 2}),
-                  ChunkLayout::ReadChunkShape({30, 40, 50, 0}),
-                  ChunkLayout::WriteChunkShape({30 * 4, 40 * 2, 50 * 4, 0}))
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Cannot satisfy write chunk shape constraint"));
+  EXPECT_THAT(
+      tensorstore::Open(
+          {
+              {"driver", "neuroglancer_precomputed"},
+              {"kvstore", {{"driver", "memory"}}},
+          },
+          tensorstore::OpenMode::create, dtype_v<uint32_t>,
+          Schema::Shape({1000, 1000, 1000, 2}),
+          ChunkLayout::ReadChunkShape({30, 40, 50, 0}),
+          ChunkLayout::WriteChunkShape({30 * 4, 40 * 2, 50 * 4, 0}))
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot satisfy write chunk shape constraint")));
 }
 
 TEST(DriverTest, NoDomain) {
@@ -2400,8 +2411,8 @@ TEST(DriverTest, NoDomain) {
                   },
                   tensorstore::OpenMode::create, dtype_v<uint32_t>)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: domain must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("domain must be specified")));
 }
 
 TEST(SpecSchemaTest, Domain) {
@@ -2671,9 +2682,9 @@ TEST(DriverTest, ChunkLayoutMismatch) {
                          {"kvstore", {{"driver", "memory"}}}},
                         context, ChunkLayout::ChunkShape({31, 40, 50, 1}))
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: chunk layout from metadata does not match chunk "
-                    "layout in schema: .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("chunk layout from metadata does not match chunk "
+                         "layout in schema")));
 }
 
 TEST(DriverTest, CodecMismatchEncoding) {
@@ -2695,9 +2706,9 @@ TEST(DriverTest, CodecMismatchEncoding) {
                              {"encoding", "jpeg"}}}}}},
                         context)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          ".*: codec from metadata does not match codec in schema: .*"));
+          HasSubstr("codec from metadata does not match codec in schema:")));
 }
 
 TEST(DriverTest, CodecChunkShapeInvalid) {
@@ -2718,8 +2729,8 @@ TEST(DriverTest, CodecChunkShapeInvalid) {
             {{"chunk_layout", {{"codec_chunk", {{"shape", {8, 8, 8, 1}}}}}}}}},
           context)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: codec_chunk_shape not supported by raw encoding"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("codec_chunk_shape not supported by raw encoding")));
 }
 
 TEST(DriverTest, CodecMismatchShardDataEncoding) {
@@ -2732,16 +2743,17 @@ TEST(DriverTest, CodecMismatchShardDataEncoding) {
                         context, Schema::Shape({100, 200, 300, 1}),
                         dtype_v<uint8_t>, tensorstore::OpenMode::create)
           .result());
-  EXPECT_THAT(tensorstore::Open({{"driver", "neuroglancer_precomputed"},
-                                 {"kvstore", {{"driver", "memory"}}},
-                                 {"schema",
-                                  {{"codec",
-                                    {{"driver", "neuroglancer_precomputed"},
-                                     {"shard_data_encoding", "raw"}}}}}},
-                                context)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: shard_data_encoding requires sharded format"));
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"schema",
+                          {{"codec",
+                            {{"driver", "neuroglancer_precomputed"},
+                             {"shard_data_encoding", "raw"}}}}}},
+                        context)
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("shard_data_encoding requires sharded format")));
 }
 
 TEST(DriverTest, FillValue) {
@@ -2759,9 +2771,10 @@ TEST(DriverTest, FillValue) {
                          {"schema", {{"fill_value", 42}}}},
                         context)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          ".*: fill_value not supported by neuroglancer_precomputed format"));
+          HasSubstr(
+              "fill_value not supported by neuroglancer_precomputed format")));
 }
 
 TEST(DriverTest, DimensionUnitsInvalidBaseUnit) {
@@ -2772,8 +2785,8 @@ TEST(DriverTest, DimensionUnitsInvalidBaseUnit) {
                   Schema::DimensionUnits({"4nm", "4nm", "um", std::nullopt}),
                   tensorstore::OpenMode::create)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".* requires a base unit of \"nm\" .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("requires a base unit of \"nm\"")));
 }
 
 TEST(DriverTest, DimensionUnitsInvalidChannelUnit) {
@@ -2784,9 +2797,10 @@ TEST(DriverTest, DimensionUnitsInvalidChannelUnit) {
                         Schema::DimensionUnits({"4nm", "4nm", "40nm", ""}),
                         tensorstore::OpenMode::create)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          ".* does not allow units to be specified for channel dimension"));
+          HasSubstr(
+              "does not allow units to be specified for channel dimension")));
 }
 
 TEST(DriverTest, DimensionUnitsInvalidResolution) {
@@ -2800,8 +2814,8 @@ TEST(DriverTest, DimensionUnitsInvalidResolution) {
                   Schema::DimensionUnits({"4nm", "4nm", "40nm", std::nullopt}),
                   tensorstore::OpenMode::create)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".* do not match \"resolution\" in metadata: .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("do not match \"resolution\" in metadata:")));
 }
 
 TEST(DriverTest, MultipleScales) {
@@ -3053,9 +3067,9 @@ TEST(DriverTest, FillMissingDataReads) {
             ::testing::Optional(tensorstore::MakeArray<int16_t>({{{{0}}}})));
       } else {
         EXPECT_THAT(read_result,
-                    MatchesStatus(absl::StatusCode::kNotFound,
-                                  "chunk \\{0, 0, 0\\} stored at "
-                                  "\"1_1_1/0-1_0-1_0-1\" is missing"));
+                    StatusIs(absl::StatusCode::kNotFound,
+                             HasSubstr("chunk {0, 0, 0} stored at "
+                                       "\"1_1_1/0-1_0-1_0-1\" is missing")));
       }
     }
     TENSORSTORE_ASSERT_OK(

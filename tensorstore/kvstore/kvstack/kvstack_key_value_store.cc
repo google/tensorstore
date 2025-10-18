@@ -476,12 +476,12 @@ struct KvStackListState final
   ~KvStackListState() { execution::set_stopping(receiver_); }
 
   void SetCancel(AnyCancelReceiver cancel) {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     cancel_ = std::move(cancel);
   }
 
   void DoCancel() {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     if (cancel_) (*cancel_)();
     cancel_ = std::nullopt;
     pos_ = ranges_.size();
@@ -524,7 +524,7 @@ struct KvStackListState final
   static void StartNextRange(internal::IntrusivePtr<KvStackListState> state) {
     size_t idx;
     {
-      absl::MutexLock lock(&state->mutex_);
+      absl::MutexLock lock(state->mutex_);
       state->cancel_ = std::nullopt;
       idx = state->pos_.fetch_add(1);
     }

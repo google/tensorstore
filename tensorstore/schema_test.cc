@@ -61,9 +61,11 @@ using ::tensorstore::Index;
 using ::tensorstore::IndexDomainBuilder;
 using ::tensorstore::kInfSize;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
+using ::tensorstore::StatusIs;
 using ::tensorstore::Unit;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(SchemaTest, JsonRoundTrip) {
   tensorstore::TestJsonBinderRoundTripJsonOnly<Schema>({
@@ -292,11 +294,12 @@ TEST(SchemaTest, RankMismatch) {
             }},
            {"chunk_layout", {{"inner_order", {0, 1, 2}}}},
        },
-       MatchesStatus(
+       StatusIs(
            absl::StatusCode::kInvalidArgument,
-           "Error parsing object member \"chunk_layout\": "
-           "Rank specified by chunk_layout \\(3\\) does not match existing "
-           "rank specified by schema \\(2\\)")},
+           HasSubstr(
+               "Error parsing object member \"chunk_layout\": "
+               "Rank specified by chunk_layout (3) does not match existing "
+               "rank specified by schema (2)"))},
   });
 }
 
@@ -310,19 +313,19 @@ TEST(SchemaTest, FillValueMismatch) {
             }},
            {"fill_value", {1, 2, 3}},
        },
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"fill_value\": "
-                     "fill_value is incompatible with domain: "
-                     "Cannot broadcast array of shape "
-                     "\\{3\\} to target shape \\{3, 4\\}")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"fill_value\": "
+                          "fill_value is incompatible with domain: "
+                          "Cannot broadcast array of shape "
+                          "{3} to target shape {3, 4}"))},
       {{
            {"rank", 1},
            {"fill_value", {{1, 2, 3}, {4, 5, 6}}},
        },
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Error parsing object member \"fill_value\": "
-                     "Invalid fill_value for rank 1: "
-                     "\\{\\{1, 2, 3\\}, \\{4, 5, 6\\}\\}")},
+       StatusIs(absl::StatusCode::kInvalidArgument,
+                HasSubstr("Error parsing object member \"fill_value\": "
+                          "Invalid fill_value for rank 1: "
+                          "{{1, 2, 3}, {4, 5, 6}}"))},
   });
 }
 
@@ -367,11 +370,12 @@ TEST(SchemaTest, ApplyIndexTransformUnknownRankNonScalarFillValue) {
                                                     {"dtype", "uint8"},
                                                     {"fill_value", {1, 2, 3}},
                                                 }));
-  EXPECT_THAT(schema | tensorstore::Dims(2, 1, 0).TranslateBy(5).Transpose(),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Cannot apply dimension expression to schema constraints of "
-                  "unknown rank with non-scalar fill_value"));
+  EXPECT_THAT(
+      schema | tensorstore::Dims(2, 1, 0).TranslateBy(5).Transpose(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(
+                   "Cannot apply dimension expression to schema constraints of "
+                   "unknown rank with non-scalar fill_value")));
 }
 
 TEST(SchemaTest, ApplyIndexTransformUnknownRankScalarFillValue) {
@@ -412,9 +416,9 @@ TEST(SchemaTest, ApplyIndexTransformRankMismatch) {
                        {"fill_value", 42},
                    }));
   EXPECT_THAT(schema | tensorstore::IdentityTransform(2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot transform schema of rank 3 by index "
-                            "transform of rank 2 -> 2"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot transform schema of rank 3 by index "
+                                 "transform of rank 2 -> 2")));
 }
 
 TEST(SchemaTest, ApplyIndexTransformDomainBoundsMismatch) {
@@ -424,10 +428,10 @@ TEST(SchemaTest, ApplyIndexTransformDomainBoundsMismatch) {
                                    }));
   EXPECT_THAT(
       schema | tensorstore::IdentityTransform({4, 5}),
-      MatchesStatus(
-          absl::StatusCode::kOutOfRange,
-          "Propagated bounds \\[0, 2\\), with size=2, for dimension 0 are "
-          "incompatible with existing bounds \\[0, 4\\), with size=4.*"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr(
+                   "Propagated bounds [0, 2), with size=2, for dimension 0 are "
+                   "incompatible with existing bounds [0, 4), with size=4")));
 }
 
 TEST(SchemaTest, ApplyIndexTransformUnknownRankNullTransform) {
@@ -481,10 +485,10 @@ TEST(SchemaTest, TransformInputSpaceSchemaDimensionUnitsError) {
       auto transform,
       tensorstore::IdentityTransform(1) | tensorstore::Dims(0).AddNew());
   EXPECT_THAT(schema.TransformInputSpaceSchema(transform),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error transforming dimension_units: "
-                            "No output dimension corresponds to input "
-                            "dimension 0 with unit 4 nm"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error transforming dimension_units: "
+                                 "No output dimension corresponds to input "
+                                 "dimension 0 with unit 4 nm")));
 }
 
 TEST(SchemaTest, DtypeSet) {
@@ -495,9 +499,9 @@ TEST(SchemaTest, DtypeSet) {
   TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<uint32_t>));
   EXPECT_EQ(dtype_v<uint32_t>, schema.dtype());
   EXPECT_THAT(schema.Set(dtype_v<int32_t>),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Specified dtype \\(int32\\) does not match "
-                            "existing value \\(uint32\\)"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Specified dtype (int32) does not match "
+                                 "existing value (uint32)")));
   EXPECT_EQ(dtype_v<uint32_t>, schema.dtype());
   TENSORSTORE_ASSERT_OK(schema.Override(dtype_v<int32_t>));
   EXPECT_EQ(dtype_v<int32_t>, schema.dtype());
@@ -514,9 +518,9 @@ TEST(SchemaTest, Rank) {
   EXPECT_EQ(3, schema.rank());
   TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::RankConstraint(3)));
   EXPECT_THAT(schema.Set(tensorstore::RankConstraint(2)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Rank specified by rank \\(2\\) does not match "
-                            "existing rank specified by schema \\(3\\)"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank specified by rank (2) does not match "
+                                 "existing rank specified by schema (3)")));
   EXPECT_EQ(3, schema.rank());
 }
 
@@ -549,10 +553,10 @@ TEST(SchemaTest, Domain) {
   TENSORSTORE_ASSERT_OK(schema.Set(domain3));
   EXPECT_EQ(expected_domain3, schema.domain());
   EXPECT_THAT(schema.Set(domain4),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge index domain .*: "
-                            "Mismatch in dimension 0: "
-                            "Upper bounds do not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Cannot merge index domain .*: "
+                                    "Mismatch in dimension 0: "
+                                    "Upper bounds do not match")));
   EXPECT_EQ(expected_domain3, schema.domain());
 }
 
@@ -566,9 +570,10 @@ TEST(SchemaTest, DomainAfterFillValue) {
       auto domain2, IndexDomainBuilder(3).shape({2, 3, 3}).Finalize());
   EXPECT_THAT(
       schema.Set(domain1),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "domain is incompatible with fill_value: Cannot broadcast "
-                    "array of shape \\{3\\} to target shape \\{2, 3, 4\\}"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("domain is incompatible with fill_value: Cannot broadcast "
+                    "array of shape {3} to target shape {2, 3, 4}")));
   EXPECT_FALSE(schema.domain().valid());
   TENSORSTORE_EXPECT_OK(schema.Set(domain2));
   EXPECT_EQ(domain2, schema.domain());
@@ -584,9 +589,10 @@ TEST(SchemaTest, OverrideDomainAfterFillValue) {
       auto domain2, IndexDomainBuilder(3).shape({2, 3, 3}).Finalize());
   EXPECT_THAT(
       schema.Override(domain1),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "domain is incompatible with fill_value: Cannot broadcast "
-                    "array of shape \\{3\\} to target shape \\{2, 3, 4\\}"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("domain is incompatible with fill_value: Cannot broadcast "
+                    "array of shape {3} to target shape {2, 3, 4}")));
   EXPECT_FALSE(schema.domain().valid());
   TENSORSTORE_EXPECT_OK(schema.Override(domain2));
   EXPECT_EQ(domain2, schema.domain());
@@ -600,13 +606,13 @@ TEST(SchemaTest, RankAfterFillValue) {
       Schema::FillValue(tensorstore::MakeArray({{1, 2, 3}, {4, 5, 6}}))));
   EXPECT_THAT(
       schema.Set(tensorstore::RankConstraint(1)),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Rank specified by rank \\(1\\) is incompatible with existing "
-          "fill_value of shape \\{2, 3\\}"));
+          HasSubstr("Rank specified by rank (1) is incompatible with existing "
+                    "fill_value of shape {2, 3}")));
   EXPECT_THAT(schema.Set(tensorstore::RankConstraint(33)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Rank 33 is outside valid range \\[0, 32\\]"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank 33 is outside valid range [0, 32]")));
   EXPECT_EQ(dynamic_rank, schema.rank());
   TENSORSTORE_EXPECT_OK(schema.Set(tensorstore::RankConstraint(3)));
   EXPECT_EQ(3, schema.rank());
@@ -622,9 +628,9 @@ TEST(SchemaTest, FillValue) {
   EXPECT_EQ(fill_value2_normalized, schema.fill_value());
   EXPECT_THAT(
       schema.Set(Schema::FillValue(fill_value1)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Specified fill_value \\(42\\) does not "
-                    "match existing value in schema \\(\\{1, 2, 3\\}\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Specified fill_value (42) does not "
+                         "match existing value in schema ({1, 2, 3})")));
   EXPECT_EQ(fill_value2_normalized, schema.fill_value());
   TENSORSTORE_ASSERT_OK(schema.Set(Schema::FillValue(fill_value2)));
   EXPECT_EQ(fill_value2_normalized, schema.fill_value());
@@ -659,8 +665,8 @@ TEST(SchemaTest, DimensionUnits) {
                                      std::optional<Unit>("5nm")));
   // If there is a conflict, no changes are made.
   EXPECT_THAT(schema.Set(Schema::DimensionUnits({std::nullopt, "6nm", "7nm"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge dimension units .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot merge dimension units ")));
   EXPECT_THAT(schema.dimension_units(),
               ::testing::ElementsAre(std::optional<Unit>("4nm"),
                                      std::optional<Unit>(std::nullopt),
@@ -691,8 +697,8 @@ TEST(SchemaTest, Codec) {
   TENSORSTORE_ASSERT_OK(schema.Set(codec2));
   EXPECT_EQ(codec3, schema.codec());
   EXPECT_THAT(schema.Set(codec4),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge codec spec .* with .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Cannot merge codec spec .* with .*")));
   EXPECT_EQ(codec3, schema.codec());
 }
 

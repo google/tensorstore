@@ -42,8 +42,8 @@ namespace {
 using ::tensorstore::InlineExecutor;
 using ::tensorstore::JsonSubValuesMatch;
 using ::tensorstore::KvStore;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::internal::MockKeyValueStore;
@@ -53,6 +53,7 @@ using ::tensorstore::internal_kvstore::AutoDetectFormat;
 using ::tensorstore::internal_kvstore::AutoDetectMatch;
 using ::tensorstore::internal_kvstore::AutoDetectRegistration;
 using ::tensorstore::kvstore::ReadResult;
+using ::testing::HasSubstr;
 
 class AutoDetectTest : public ::testing::Test {
  public:
@@ -163,14 +164,13 @@ TEST_F(AutoDetectTest, FilePrefixMatcherRegisteredReadError) {
                 [](MockKeyValueStore::ReadRequest req) {
                   req.promise.SetResult(absl::FailedPreconditionError("test"));
                 }),
-      ::testing::Pair(
-          MatchesStatus(
-              absl::StatusCode::kFailedPrecondition,
-              "Format auto-detection failed: Error reading \"test\": test"),
-          ::testing::ElementsAre(
-              JsonSubValuesMatch({{"/type", "read"},
-                                  {"/key", "test"},
-                                  {"/byte_range_exclusive_max", 1}}))));
+      ::testing::Pair(StatusIs(absl::StatusCode::kFailedPrecondition,
+                               HasSubstr("Format auto-detection failed: Error "
+                                         "reading \"test\": test")),
+                      ::testing::ElementsAre(JsonSubValuesMatch(
+                          {{"/type", "read"},
+                           {"/key", "test"},
+                           {"/byte_range_exclusive_max", 1}}))));
 }
 
 // Tests that "ReadResult::Missing" for suffix-only matcher leads to no matches.
@@ -237,14 +237,13 @@ TEST_F(AutoDetectTest, FileSuffixMatcherRegisteredReadError) {
                 [](MockKeyValueStore::ReadRequest req) {
                   req.promise.SetResult(absl::FailedPreconditionError("test"));
                 }),
-      ::testing::Pair(
-          MatchesStatus(
-              absl::StatusCode::kFailedPrecondition,
-              "Format auto-detection failed: Error reading \"test\": test"),
-          ::testing::ElementsAre(
-              JsonSubValuesMatch({{"/type", "read"},
-                                  {"/key", "test"},
-                                  {"/byte_range_inclusive_min", -1}}))));
+      ::testing::Pair(StatusIs(absl::StatusCode::kFailedPrecondition,
+                               HasSubstr("Format auto-detection failed: Error "
+                                         "reading \"test\": test")),
+                      ::testing::ElementsAre(JsonSubValuesMatch(
+                          {{"/type", "read"},
+                           {"/key", "test"},
+                           {"/byte_range_inclusive_min", -1}}))));
 }
 
 // Tests that longest prefix is requested when there are multiple prefix
@@ -527,13 +526,14 @@ TEST_F(AutoDetectTest, DirectoryMatcher) {
                     req.promise.SetResult(
                         absl::FailedPreconditionError("test"));
                   }),
-        ::testing::Pair(MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                                      "Format auto-detection failed: Error "
-                                      "reading \"test/filename\": test"),
-                        ::testing::ElementsAre(JsonSubValuesMatch(
-                            {{"/type", "read"},
-                             {"/key", "test/filename"},
-                             {"/byte_range_exclusive_max", 0}}))));
+        ::testing::Pair(
+            StatusIs(absl::StatusCode::kFailedPrecondition,
+                     HasSubstr("Format auto-detection failed: Error "
+                               "reading \"test/filename\": test")),
+            ::testing::ElementsAre(
+                JsonSubValuesMatch({{"/type", "read"},
+                                    {"/key", "test/filename"},
+                                    {"/byte_range_exclusive_max", 0}}))));
   }
 }
 
@@ -589,9 +589,9 @@ TEST_F(AutoDetectTest, MultipleDirectoryMatchers) {
                   }
                 }),
       ::testing::Pair(
-          MatchesStatus(
-              absl::StatusCode::kFailedPrecondition,
-              "Format auto-detection failed: Error reading \"test/a\": test"),
+          StatusIs(absl::StatusCode::kFailedPrecondition,
+                   HasSubstr("Format auto-detection failed: Error reading "
+                             "\"test/a\": test")),
           ::testing::UnorderedElementsAre(
               JsonSubValuesMatch({{"/type", "read"},
                                   {"/key", "test/a"},
@@ -674,9 +674,9 @@ TEST_F(AutoDetectTest, PrefixAndDirectoryMatchers) {
                   }
                 }),
       ::testing::Pair(
-          MatchesStatus(
-              absl::StatusCode::kFailedPrecondition,
-              "Format auto-detection failed: Error reading \"test\": test"),
+          StatusIs(absl::StatusCode::kFailedPrecondition,
+                   HasSubstr("Format auto-detection failed: Error reading "
+                             "\"test\": test")),
           ::testing::ElementsAre(
               JsonSubValuesMatch({{"/type", "read"},
                                   {"/key", "test"},
@@ -783,9 +783,9 @@ TEST_F(AutoDetectTest, SuffixAndDirectoryMatchers) {
                   }
                 }),
       ::testing::Pair(
-          MatchesStatus(
-              absl::StatusCode::kFailedPrecondition,
-              "Format auto-detection failed: Error reading \"test\": test"),
+          StatusIs(absl::StatusCode::kFailedPrecondition,
+                   HasSubstr("Format auto-detection failed: Error reading "
+                             "\"test\": test")),
           ::testing::ElementsAre(
               JsonSubValuesMatch({{"/type", "read"},
                                   {"/key", "test"},

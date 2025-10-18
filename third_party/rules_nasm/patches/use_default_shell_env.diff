@@ -1,0 +1,12 @@
+diff --git a/nasm/private/rules/library.bzl b/nasm/private/rules/library.bzl
+index d3dbd9b..13e7f56 100644
+--- a/nasm/private/rules/library.bzl
++++ b/nasm/private/rules/library.bzl
+@@ -82,6 +82,7 @@ def nasm_assemble(
+         inputs = inputs,
+         outputs = [out],
+         tools = nasm_toolchain.all_files,
++        use_default_shell_env = True,
+     )
+
+     return out

@@ -39,11 +39,12 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kMinFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::PropagateBounds;
 using ::tensorstore::PropagateBoundsToTransform;
 using ::tensorstore::PropagateExplicitBounds;
 using ::tensorstore::PropagateExplicitBoundsToTransform;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 // Tests that a default-constructed (invalid) IndexTransform is treated as an
 // identity transform.
@@ -115,14 +116,15 @@ TEST(PropagateBoundsTest, ConstantError) {
                        .Finalize()
                        .value();
   Box<0> a;
-  EXPECT_THAT(PropagateBounds(
-                  /*b_domain=*/Box({2, 1}, {2, 3}),
-                  /*b_implicit_lower_bounds=*/DimensionSet::FromBools({0, 1}),
-                  /*b_implicit_upper_bounds=*/DimensionSet::FromBools({0, 0}),
-                  transform, a),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Checking bounds of constant output index map for "
-                            "dimension 0: Index 1 is outside valid range .*"));
+  EXPECT_THAT(
+      PropagateBounds(
+          /*b_domain=*/Box({2, 1}, {2, 3}),
+          /*b_implicit_lower_bounds=*/DimensionSet::FromBools({0, 1}),
+          /*b_implicit_upper_bounds=*/DimensionSet::FromBools({0, 0}),
+          transform, a),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Checking bounds of constant output index map for "
+                         "dimension 0: Index 1 is outside valid range")));
 }
 
 TEST(PropagateBoundsTest, ConstantEmptyDomain) {
@@ -371,12 +373,12 @@ TEST(PropagateExplicitBoundsTest, OutOfBounds) {
   //     -9 <= input[1] <= 10
   //     -10 <= input[1] <= 14
   Box<2> a;
-  EXPECT_THAT(
-      PropagateExplicitBounds(b, transform, a),
-      MatchesStatus(
-          absl::StatusCode::kOutOfRange,
-          "Propagated bounds \\[-9, 11\\), with size=20, for dimension 1 are "
-          "incompatible with existing bounds \\[3, 13\\), with size=10.*"));
+  EXPECT_THAT(PropagateExplicitBounds(b, transform, a),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Propagated bounds [-9, 11), with "
+                                 "size=20, for dimension 1 are "
+                                 "incompatible with existing bounds [3, "
+                                 "13), with size=10")));
 }
 
 // Tests that bounds checking is not performed in the case of an empty domain.
@@ -405,11 +407,12 @@ TEST(PropagateExplicitBoundsTest, OutOfBoundsInfLower) {
                        .value();
   const Box<3> b({2, 3, 4}, {50, 60, 100});
   Box<2> a;
-  EXPECT_THAT(PropagateExplicitBounds(b, transform, a),
-              MatchesStatus(
-                  absl::StatusCode::kOutOfRange,
-                  "Propagated bounds \\[-9, 11\\), with size=20, for dimension "
-                  "1 are incompatible with existing bounds \\(-inf, 4\\).*"));
+  EXPECT_THAT(
+      PropagateExplicitBounds(b, transform, a),
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          HasSubstr("Propagated bounds [-9, 11), with size=20, for dimension "
+                    "1 are incompatible with existing bounds (-inf, 4)")));
 }
 
 TEST(PropagateExplicitBoundsTest, OutOfBoundsInfUpper) {
@@ -425,10 +428,10 @@ TEST(PropagateExplicitBoundsTest, OutOfBoundsInfUpper) {
   Box<2> a;
   EXPECT_THAT(
       PropagateExplicitBounds(b, transform, a),
-      MatchesStatus(
-          absl::StatusCode::kOutOfRange,
-          "Propagated bounds \\[-9, 11\\), with size=20, for dimension 1 are "
-          "incompatible with existing bounds \\[2, \\+inf\\).*"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Propagated bounds [-9, 11), with size=20, for "
+                         "dimension 1 are "
+                         "incompatible with existing bounds [2, +inf)")));
 }
 
 TEST(PropagateExplicitBoundsTest, Overflow) {
@@ -443,10 +446,11 @@ TEST(PropagateExplicitBoundsTest, Overflow) {
   // b is: [2,51] * [kMinFiniteIndex,68] * [4,103]
   const Box<3> b({2, kMinFiniteIndex, 4}, {50, -kMinFiniteIndex + 69, 100});
   Box<2> a;
-  EXPECT_THAT(PropagateExplicitBounds(b, transform, a),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Propagating bounds from dimension 1 to input "
-                            "dimension 1: Integer overflow propagating .*"));
+  EXPECT_THAT(
+      PropagateExplicitBounds(b, transform, a),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Propagating bounds from dimension 1 to input "
+                         "dimension 1: Integer overflow propagating ")));
 }
 
 TEST(PropagateExplicitBoundsTest, ZeroSize) {
@@ -673,12 +677,12 @@ TEST(PropagateExplicitBoundsToTransformTest, OutOfBounds) {
   // For output dimension 0, {x : 2 <= (x * 2 + 15) <= 51} = [-6, 18].
   // For output dimension 1, {x : 3 <= (x * 3 + 30) <= 62} = [-9, 10].
   // For output dimension 2, {x : 4 <= (x * 4 + 45) <= 103} = [-10, 14].
-  EXPECT_THAT(
-      PropagateExplicitBoundsToTransform(output_domain, t),
-      MatchesStatus(
-          absl::StatusCode::kOutOfRange,
-          "Propagated bounds \\[-9, 11\\), with size=20, for dimension 1 are "
-          "incompatible with existing bounds \\[3, 13\\), with size=10.*"));
+  EXPECT_THAT(PropagateExplicitBoundsToTransform(output_domain, t),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Propagated bounds [-9, 11), with "
+                                 "size=20, for dimension 1 are "
+                                 "incompatible with existing bounds [3, 13), "
+                                 "with size=10")));
 }
 
 TEST(PropagateExplicitBoundsToTransformTest, Overflow) {
@@ -693,10 +697,11 @@ TEST(PropagateExplicitBoundsToTransformTest, Overflow) {
   // output_domain is: [2,51] * [kMinFiniteIndex,68] * [4,103]
   const Box<3> output_domain({2, kMinFiniteIndex, 4},
                              {50, -kMinFiniteIndex + 69, 100});
-  EXPECT_THAT(PropagateExplicitBoundsToTransform(output_domain, t),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Propagating bounds from dimension 1 to input "
-                            "dimension 1: Integer overflow propagating .*"));
+  EXPECT_THAT(
+      PropagateExplicitBoundsToTransform(output_domain, t),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Propagating bounds from dimension 1 to input "
+                         "dimension 1: Integer overflow propagating ")));
 }
 
 }  // namespace

@@ -28,6 +28,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/util/quote_string.h"
@@ -68,7 +69,6 @@ void FileLock::Close() && {
 }
 
 Result<FileLock> AcquireFileLock(std::string lock_path) {
-  using private_t = FileLock::private_t;
   TENSORSTORE_ASSIGN_OR_RETURN(
       UniqueFileDescriptor fd,
       OpenFileWrapper(lock_path, OpenFlags::DefaultWrite));
@@ -100,7 +100,7 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
     TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(other_fd.get(), other_info));
     if (a.GetDeviceId() == b.GetDeviceId() && a.GetFileId() == b.GetFileId()) {
       // Lock was acquired successfully.
-      return FileLock(private_t(), std::move(lock_path), fd.release(),
+      return FileLock(FileLock::private_t(), std::move(lock_path), fd.release(),
                       std::move(unlock_fn));
     }
 
@@ -115,8 +115,6 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
 /* static */
 Result<FileLock> AcquireExclusiveFile(std::string lock_path,
                                       absl::Duration timeout) {
-  using private_t = FileLock::private_t;
-
   FileInfo info;
   auto start = absl::Now();
 
@@ -153,9 +151,8 @@ Result<FileLock> AcquireExclusiveFile(std::string lock_path,
         lock_path, OpenFlags::Create | OpenFlags::Exclusive |
                        OpenFlags::OpenReadWrite | OpenFlags::CloseOnExec);
     if (fd.ok()) {
-      TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(fd->get(), &info));
-      return FileLock(private_t{}, std::move(lock_path), fd->release(),
-                      std::nullopt);
+      return FileLock(FileLock::private_t{}, std::move(lock_path),
+                      fd->release(), std::nullopt);
     }
     if (!absl::IsAlreadyExists(fd.status())) {
       // Only loop if the file already exists.
@@ -170,6 +167,19 @@ Result<FileLock> AcquireExclusiveFile(std::string lock_path,
 
   return absl::DeadlineExceededError(
       absl::StrCat("Failed to open lock file: ", lock_path));
+}
+
+/* static */
+Result<FileLock> TruncateAndOverwrite(std::string lock_path) {
+  auto fd = OpenFileWrapper(lock_path, OpenFlags::Create | OpenFlags::Truncate |
+                                           OpenFlags::OpenReadWrite |
+                                           OpenFlags::CloseOnExec);
+  if (fd.ok()) {
+    return FileLock(FileLock::private_t{}, std::move(lock_path), fd->release(),
+                    std::nullopt);
+  }
+  assert(!fd.status().ok());
+  return std::move(fd).status();
 }
 
 }  // namespace internal_os

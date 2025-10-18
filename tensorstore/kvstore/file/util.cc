@@ -31,6 +31,7 @@
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/memory_region.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/util/division.h"
@@ -43,6 +44,21 @@ using ::tensorstore::internal_os::UniqueFileDescriptor;
 
 namespace tensorstore {
 namespace internal_file_util {
+namespace {
+
+bool IsValidPathComponent(std::string_view component,
+                          std::string_view lock_suffix) {
+  if (component.empty()) return false;
+  if (component == ".") return false;
+  if (component == "..") return false;
+  if (!lock_suffix.empty() && component.size() >= lock_suffix.size() &&
+      absl::EndsWith(component, lock_suffix)) {
+    return false;
+  }
+  return true;
+}
+
+}  // namespace
 
 /// A key is valid if its consists of one or more '/'-separated non-empty valid
 /// path components, where each valid path component does not contain '\0', and
@@ -54,19 +70,18 @@ bool IsKeyValid(std::string_view key, std::string_view lock_suffix) {
   if (key.back() == '/' || key.back() == '\\') {
     return false;
   }
+  // Skip the root name if present.
+  auto root_name = internal::PathRootName(key);
+  key.remove_prefix(root_name.size());
+  if (key.empty()) return false;
+
   // Remove leading / which leads to an empty path component.
   if (key.front() == '/' || key.front() == '\\') {
     key = key.substr(1);
   }
   for (std::string_view component :
        absl::StrSplit(key, absl::ByAnyChar("/\\"))) {
-    if (component.empty()) return false;
-    if (component == ".") return false;
-    if (component == "..") return false;
-    if (!lock_suffix.empty() && component.size() >= lock_suffix.size() &&
-        absl::EndsWith(component, lock_suffix)) {
-      return false;
-    }
+    if (!IsValidPathComponent(component, lock_suffix)) return false;
   }
   return true;
 }

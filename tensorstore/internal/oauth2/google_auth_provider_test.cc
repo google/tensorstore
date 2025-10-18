@@ -46,6 +46,7 @@
 
 namespace {
 
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
@@ -281,7 +282,7 @@ TEST_F(GoogleAuthProviderTest, GceWithoutServiceAccount) {
   mock_transport->set_has_service_account(false);
 
   EXPECT_THAT(GetGoogleAuthProvider(mock_transport),
-              tensorstore::MatchesStatus(absl::StatusCode::kNotFound));
+              StatusIs(absl::StatusCode::kNotFound));
 }
 
 // NOTE: ${HOME}/.cloud/config/application_default_credentials.json is not

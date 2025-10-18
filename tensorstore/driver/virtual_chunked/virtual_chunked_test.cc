@@ -55,15 +55,17 @@ using ::tensorstore::DimensionIndex;
 using ::tensorstore::dynamic_rank;
 using ::tensorstore::Future;
 using ::tensorstore::Index;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Promise;
 using ::tensorstore::Result;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::internal::ConcurrentQueue;
 using ::tensorstore::internal::UniqueNow;
 using ::tensorstore::serialization::SerializationRoundTrip;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 template <typename... Option>
 Result<tensorstore::TensorStore<Index, dynamic_rank,
@@ -515,13 +517,12 @@ TEST(VirtualChunkedTest, WriteOnlyError) {
 
   auto mock_view =
       MockView<int, 1>(write_requests, tensorstore::Schema::Shape({2}));
-  EXPECT_THAT(
-      tensorstore::Write(tensorstore::MakeScalarArray<int>(42),
-                         mock_view | tensorstore::Dims(0).IndexSlice(0))
-          .result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Write-only virtual chunked view requires chunk-aligned writes"));
+  EXPECT_THAT(tensorstore::Write(tensorstore::MakeScalarArray<int>(42),
+                                 mock_view | tensorstore::Dims(0).IndexSlice(0))
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Write-only virtual chunked view requires "
+                                 "chunk-aligned writes")));
 }
 
 TEST(VirtualChunkedTest, AtomicSingleChunk) {
@@ -558,9 +559,10 @@ TEST(VirtualChunkedTest, AtomicMultipleChunks) {
   EXPECT_THAT(
       tensorstore::Write(tensorstore::MakeScalarArray<int>(42), mock_view)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot write to virtual chunk .* and write to virtual "
-                    "chunk .* as single atomic transaction"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex("Cannot write to virtual chunk .* and write to virtual "
+                       "chunk .* as single atomic transaction")));
 }
 
 TEST(VirtualChunkedTest, NonAtomicSingleChunk) {

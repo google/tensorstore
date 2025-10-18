@@ -133,6 +133,7 @@ ABSL_CMAKE_MAPPING = {
     "//absl/base:config": "absl::config",
     "//absl/container:layout": "absl::layout",
     "//absl/strings:internal": "absl::strings_internal",
+    "//absl/strings:has_ostream_operator": "absl::has_ostream_operator",
     # Not available in abseil CMakeLists.txt
     "//absl/debugging:leak_check_disable": "",
     # Testonly targets

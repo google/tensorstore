@@ -16,14 +16,15 @@
 #define TENSORSTORE_RESULT_H_
 
 #include <initializer_list>
+#include <ostream>
 #include <type_traits>
 #include <utility>
 
 #include "absl/base/optimization.h"
-#include "absl/log/absl_check.h"
-#include "absl/log/absl_log.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/has_absl_stringify.h"
+#include "absl/strings/has_ostream_operator.h"
 #include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/preprocessor/cat.h"
@@ -145,6 +146,9 @@ class Result : private internal_result::ResultStorage<T>,
   static_assert(!std::is_const_v<T> && !std::is_volatile_v<T>,
                 "T must not be cv-qualified");
 
+  template <typename U>
+  friend class Result;
+
   using Base = internal_result::ResultStorage<T>;
   using Base::status_;
 
@@ -191,25 +195,19 @@ class Result : private internal_result::ResultStorage<T>,
   /// \pre `!status` unless `T` is `void`.
   /// \id status
   Result(const absl::Status& status)
-      : Base(internal_result::status_t{}, status) {
-    ABSL_CHECK(!status_.ok());
-  }
+      : Base(internal_result::status_t{}, status) {}
   Result(absl::Status&& status)
-      : Base(internal_result::status_t{}, std::move(status)) {
-    ABSL_CHECK(!status_.ok());
-  }
+      : Base(internal_result::status_t{}, std::move(status)) {}
 
   /// Assigns from a status object.
   ///
   /// \pre `!status` unless `T` is `void`.
   /// \id status
   Result& operator=(const absl::Status& status) {
-    ABSL_CHECK(!status.ok());
     this->assign_status(status);
     return *this;
   }
   Result& operator=(absl::Status&& status) {
-    ABSL_CHECK(!status.ok());
     this->assign_status(std::move(status));
     return *this;
   }
@@ -241,9 +239,8 @@ class Result : private internal_result::ResultStorage<T>,
                std::add_const_t<std::add_lvalue_reference_t<U>>, T> &&        //
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
-  Result(const Result<U>& rhs) {
-    construct_from(rhs);
-  }
+  Result(const Result<U>& rhs)
+      : Base(static_cast<const typename Result<U>::Base&>(rhs)) {}
   template <
       typename U,
       std::enable_if_t<
@@ -252,9 +249,8 @@ class Result : private internal_result::ResultStorage<T>,
            std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&        //
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
-  Result(Result<U>&& rhs) {
-    construct_from(std::move(rhs));
-  }
+  Result(Result<U>&& rhs)
+      : Base(static_cast<typename Result<U>::Base&&>(rhs)) {}
 
   // Explicit overload of above.
   template <
@@ -267,9 +263,8 @@ class Result : private internal_result::ResultStorage<T>,
                std::add_const_t<std::add_lvalue_reference_t<U>>, T> &&        //
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
-  explicit Result(const Result<U>& rhs) {
-    construct_from(rhs);
-  }
+  explicit Result(const Result<U>& rhs)
+      : Base(static_cast<const typename Result<U>::Base&>(rhs)) {}
 
   // Explicit overload of above.
   template <
@@ -280,9 +275,8 @@ class Result : private internal_result::ResultStorage<T>,
            !std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&       //
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
-  explicit Result(Result<U>&& rhs) {
-    construct_from(std::move(rhs));
-  }
+  explicit Result(Result<U>&& rhs)
+      : Base(static_cast<typename Result<U>::Base&&>(rhs)) {}
 
   /// Assigns from an existing result with a convertible value type.
   ///
@@ -298,7 +292,7 @@ class Result : private internal_result::ResultStorage<T>,
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
   Result& operator=(const Result<U>& rhs) {
-    this->assign_from(rhs);
+    this->Assign(rhs);
     return *this;
   }
   template <
@@ -310,7 +304,7 @@ class Result : private internal_result::ResultStorage<T>,
            !internal_result::is_constructible_convertible_from<T, Result<U>  //
                                                                >)>* = nullptr>
   Result& operator=(Result<U>&& rhs) {
-    this->assign_from(std::move(rhs));
+    this->Assign(std::move(rhs));
     return *this;
   }
 
@@ -367,7 +361,7 @@ class Result : private internal_result::ResultStorage<T>,
                               std::is_convertible_v<U&&, T>  //
                               )>* = nullptr>
   Result& operator=(U&& v) {
-    this->emplace_value(std::forward<U>(v));
+    this->assign_value(std::forward<U>(v));
     return *this;
   }
 
@@ -381,96 +375,155 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   template <typename... Args>
   T& emplace(Args&&... args) TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    static_assert(sizeof...(Args) == 0 || !std::is_void_v<T>);
-    this->emplace_value(std::forward<Args>(args)...);
+    if (ok()) {
+      this->Clear();
+      this->construct_value(std::forward<Args>(args)...);
+    } else {
+      this->construct_value(std::forward<Args>(args)...);
+      this->status_ = absl::OkStatus();
+    }
     return this->value_;
   }
   template <typename U, typename... Args>
   T& emplace(std::initializer_list<U> il,
              Args&&... args) TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    this->emplace_value(il, std::forward<Args>(args)...);
+    if (ok()) {
+      this->Clear();
+      this->construct_value(il, std::forward<Args>(args)...);
+    } else {
+      this->construct_value(il, std::forward<Args>(args)...);
+      this->status_ = absl::OkStatus();
+    }
     return this->value_;
   }
 
-  /// Ignores the result. This method signals intent to ignore the result to
-  /// suppress compiler warnings from ``[[nodiscard]]``.
-  void IgnoreResult() const {}
+  /// Ignores the result. This method does nothing except potentially suppress
+  /// complaints from any tools that are checking that errors are not dropped on
+  /// the floor.
+  void IgnoreResult() const noexcept { /*no-op*/ }
 
   /// Result observers.
 
-  /// Returns `true` if this represents a success state, `false` for a failure
-  /// state.
+  /// Returns whether or not this `tensorstore::Result<T>` holds a `T` value.
   ///
-  /// `value()` is valid only iff `has_value()` is `true`. `status()` is valid
-  /// iff `has_value()` is false.
-  bool ok() const { return status_.ok(); }
-  bool has_value() const { return status_.ok(); }
-  explicit operator bool() const noexcept { return status_.ok(); }
+  /// This member function is analogous to `absl::Status::ok()` and should be
+  /// used similarly to check the status of return values.
+  ///
+  /// Example::
+  ///
+  ///   Result<Foo> result = DoBigCalculationThatCouldFail();
+  ///   if (result.ok()) {
+  ///     // Handle result
+  ///   } else {
+  ///     // Handle error
+  ///   }
+  TENSORSTORE_NODISCARD bool ok() const noexcept { return this->status_.ok(); }
+  TENSORSTORE_NODISCARD bool has_value() const noexcept { return ok(); }
+  TENSORSTORE_NODISCARD explicit operator bool() const noexcept { return ok(); }
 
-  /// Checked value accessor.
-  ///
-  /// Terminates the process if `*this` represents a failure state.
-  ///
-  /// \pre `has_value() == true`
-  const T& value() const& noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    if (!has_value()) TENSORSTORE_CHECK_OK(status());
-    return this->value_;
+  /// Returns a reference to the contained `absl::Status`. If the `Result<T>`
+  /// contains a value, then this function returns `absl::OkStatus()`.
+  TENSORSTORE_NODISCARD const absl::Status& status() const& noexcept
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    return this->status_;
   }
-  T& value() & noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    if (!has_value()) TENSORSTORE_CHECK_OK(status());
-    return this->value_;
-  }
-  const T&& value() const&& noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    if (!has_value()) TENSORSTORE_CHECK_OK(status());
-    return std::move(this->value_);
-  }
-  T&& value() && noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    if (!has_value()) TENSORSTORE_CHECK_OK(status());
-    return std::move(this->value_);
+  TENSORSTORE_NODISCARD absl::Status status() && noexcept {
+    return ok() ? absl::OkStatus() : std::move(this->status_);
   }
 
-  /// Returns the error status.
-  const absl::Status& status() const& noexcept
-      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    return status_;
-  }
-  absl::Status status() && noexcept {
-    // Note: This relies on the fact that the moved-from `absl::Status` does not
-    // have a status code of `absl::StatusCode::kOk`.
-    return status_.ok() ? absl::OkStatus() : std::move(status_);
-  }
-
-  /// Returns a pointer to the contained value.
+  /// Returns a reference to the held value if `this->ok()`. Otherwise
+  /// terminates the process.
   ///
-  /// \pre has_value() == true
-  constexpr const T* operator->() const noexcept
-      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    assert_has_value();
-    return &this->value_;
+  /// If the state of the result has already been checked using `this->ok()`,
+  /// consider using `operator*()` or `operator->()` to access the value.
+  ///
+  /// Note: for value types that are cheap to copy, prefer simple code::
+  ///
+  ///   T value = result.value();
+  ///
+  /// Otherwise, if the value type is expensive to copy, but can be left
+  /// in the Result, simply assign to a reference::
+  ///
+  ///   T& value = result.value();  // or `const T&`
+  ///
+  /// Otherwise, if the value type supports an efficient move, it can be
+  /// used as follows::
+  ///
+  ///   T value = std::move(result).value();
+  ///
+  /// The `std::move` on result instead of on the whole expression enables
+  /// warnings about possible uses of the result object after the move.
+  ///
+  /// \pre `this->ok() == true`, otherwise the process will be terminated.
+  const T& value() const& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->EnsureOk();
+    return this->value_;
   }
-  constexpr T* operator->() noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    assert_has_value();
-    return &this->value_;
+  T& value() & TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->EnsureOk();
+    return this->value_;
+  }
+  const T&& value() const&& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->EnsureOk();
+    return std::move(this->value_);
+  }
+  T&& value() && TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->EnsureOk();
+    return std::move(this->value_);
   }
 
-  /// Returns a reference to the contained value.
-  constexpr const T& operator*() const& noexcept
-      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    assert_has_value();
+  /// Returns a reference to the current value.
+  ///
+  /// Use `this->ok()` to verify that there is a current value within the
+  /// `tensorstore::Result<T>`. Alternatively, see the `value()` member function
+  /// for a similar API that guarantees crashing if there is no current value.
+  ///
+  /// \pre `this->ok() == true`, otherwise the behavior is undefined.
+  const T& operator*() const& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->AssertOk();
     return this->value_;
   }
-  constexpr T& operator*() & noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    assert_has_value();
+  T& operator*() & TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->AssertOk();
     return this->value_;
   }
-  constexpr const T&& operator*() const&& noexcept
-      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    assert_has_value();
+  const T&& operator*() const&& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->AssertOk();
     return std::move(this->value_);
   }
-  constexpr T&& operator*() && noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    assert_has_value();
+  T&& operator*() && TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->AssertOk();
     return std::move(this->value_);
+  }
+
+  /// Returns a pointer to the current value.
+  ///
+  /// \pre `this->ok() == true`, otherwise the behavior is undefined.
+  const T* operator->() const TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    return std::addressof(**this);
+  }
+  T* operator->() TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    return std::addressof(**this);
+  }
+
+  /// Returns the current value if `this->ok() == true`. Otherwise constructs a
+  /// value using the provided `default_value`.
+  ///
+  /// Unlike `value`, this function returns by value, copying the current value
+  /// if necessary. If the value type supports an efficient move, it can be used
+  /// as follows::
+  ///
+  ///   T value = std::move(statusor).value_or(def);
+  ///
+  /// Unlike with `value`, calling `std::move()` on the result of `value_or`
+  /// will still trigger a copy.
+  template <typename U>
+  T value_or(U&& default_value) const& {
+    return this->ValueOrImpl(std::forward<U>(default_value));
+  }
+  template <typename U>
+  T value_or(U&& default_value) && {
+    return std::move(*this).ValueOrImpl(std::forward<U>(default_value));
   }
 
   /// "Pipeline" operator for `Result`.
@@ -487,27 +540,15 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   template <typename Func>
   inline FlatResult<std::invoke_result_t<Func&&, T&>>  //
-  operator|(Func && func) const& {
+  operator|(Func&& func) const& {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());
   }
   template <typename Func>
   inline FlatResult<std::invoke_result_t<Func&&, T&&>>  //
-  operator|(Func && func) && {
+  operator|(Func&& func) && {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());
-  }
-
-  /// Returns the contained value, or `default_value` if `*this` is in an error
-  /// state.
-  template <typename U>
-  constexpr T value_or(U&& default_value) const& {
-    return has_value() ? this->value_ : std::forward<U>(default_value);
-  }
-  template <typename U>
-  constexpr T value_or(U&& default_value) && {
-    return has_value() ? std::move(this->value_)
-                       : std::forward<U>(default_value);
   }
 
   /// FIXME: Result::and_then()
@@ -528,7 +569,7 @@ class Result : private internal_result::ResultStorage<T>,
                            // `std::is_void_v<T>` to ensure condition is
                            // dependent.
                            (std::is_same_v<T, U> && std::is_void_v<U>)),
-                          bool>
+                          bool>  //
   operator==(const Result<T>& a, const Result<U>& b) {
     if (a.has_value() != b.has_value()) {
       return false;
@@ -564,7 +605,7 @@ class Result : private internal_result::ResultStorage<T>,
                            // `std::is_void_v<T>` to ensure condition is
                            // dependent.
                            (std::is_same_v<T, U> && std::is_void_v<U>)),
-                          bool>
+                          bool>  //
   operator!=(const Result<T>& a, const Result<U>& b) {
     return !(a == b);
   }
@@ -581,34 +622,63 @@ class Result : private internal_result::ResultStorage<T>,
     return !(a == b);
   }
 
+  /// Prints the `value` or the `status` in parentheses to `os`.  Do not rely on
+  /// the output format which may change without notice.
+  ///
+  /// \requires `T` supports `operator<<`.
+  template <
+      typename SfinaeU = T,
+      std::enable_if_t<absl::HasOstreamOperator<SfinaeU>::value>* = nullptr>
+  // NONITPICK: absl::HasOstreamOperator<T>
+  // NONITPICK: absl::HasOstreamOperator<T>::value
+  friend std::ostream& operator<<(std::ostream& os, const Result<T>& result) {
+    if (result.ok()) {
+      os << result.value();
+    } else {
+      os << "(" << result.status() << ")";
+    }
+    return os;
+  }
+
+  /// Prints the `value` or the `status` in parentheses to the `sink`, which
+  /// allows formatting using `absl::StrFormat`, etc.  Do not rely on the output
+  /// format which may change without notice.
+  ///
+  /// \requires  `T` has `AbslStringify`.
+  template <typename Sink, typename SfinaeU = T,
+            std::enable_if_t<absl::HasAbslStringify<SfinaeU>::value>* = nullptr>
+  // NONITPICK: absl::HasAbslStringify<T>
+  // NONITPICK: absl::HasAbslStringify<T>::value
+  friend void AbslStringify(Sink& sink, const Result<T>& result) {
+    if (result.ok()) {
+      absl::Format(&sink, "%v", result.value());
+    } else {
+      absl::Format(&sink, "(%v)", result.status());
+    }
+  }
+
  private:
-  // Construct this from a Result<U>.
-  template <typename Other>
-  inline void construct_from(Other&& other) {
-    if (other.has_value()) {
-      this->construct_value(std::forward<Other>(other).value());
+  // Implements assignment from a Result<U>.
+  template <typename U>
+  inline void Assign(const Result<U>& other) {
+    if (other.ok()) {
+      this->assign_value(other.value());
     } else {
-      status_ = std::forward<Other>(other).status();
+      this->assign_status(other.status());
+    }
+  }
+  template <typename U>
+  inline void Assign(Result<U>&& other) {
+    if (other.ok()) {
+      this->assign_value(std::move(other).value());
+    } else {
+      this->assign_status(std::move(other).status());
     }
   }
 
-  // Assign to this from a Result<U>.
-  template <typename Other>
-  inline void assign_from(Other&& other) {
-    if (other.has_value()) {
-      this->emplace_value(std::forward<Other>(other).value());
-    } else {
-      this->assign_status(std::forward<Other>(other).status());
-    }
-  }
-
-  // Functionally equivalent to assert(has_value()), except that it dumps the
-  // internal status when the assert fails.
-  inline void assert_has_value() const {
+  inline void AssertOk() const {
 #if !defined(NDEBUG)
-    if (!has_value()) {
-      ABSL_LOG(FATAL) << "assert_has_value: " << this->status_;
-    }
+    this->EnsureOk();
 #endif
   }
 };
@@ -628,16 +698,16 @@ class Result<void> {
 
   explicit Result() : status_(absl::Status(absl::StatusCode::kUnknown, "")) {}
 
+  Result(const Result& src) = default;
+  Result(Result&& src) = default;
+
+  Result& operator=(const Result& src) = default;
+  Result& operator=(Result&& src) = default;
+
+  Result(std::in_place_t) : status_(absl::OkStatus()) {}
+
   Result(const absl::Status& status) : status_(status) {}
   Result(absl::Status&& status) : status_(std::move(status)) {}
-
-  template <typename T>
-  Result(const Result<T>& other) : status_(other.status()) {}
-
-  template <typename T>
-  Result(Result<T>&& other) : status_(std::move(other).status()) {}
-
-  Result(std::in_place_t) {}
 
   Result& operator=(const absl::Status& status) {
     status_ = status;
@@ -648,6 +718,12 @@ class Result<void> {
     status_ = std::move(status);
     return *this;
   }
+
+  template <typename T>
+  Result(const Result<T>& other) : status_(other.status()) {}
+
+  template <typename T>
+  Result(Result<T>&& other) : status_(std::move(other).status()) {}
 
   template <typename T>
   Result& operator=(const Result<T>& other) {
@@ -663,20 +739,22 @@ class Result<void> {
 
   void emplace() { status_ = absl::OkStatus(); }
 
-  void IgnoreResult() const {}
+  void IgnoreResult() const noexcept { /*no-op*/ }
 
-  bool ok() const { return status_.ok(); }
-  bool has_value() const { return status_.ok(); }
-  explicit operator bool() const noexcept { return status_.ok(); }
+  [[nodiscard]] bool ok() const noexcept { return this->status_.ok(); }
+  [[nodiscard]] bool has_value() const noexcept { return ok(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
 
-  void value() const { TENSORSTORE_CHECK_OK(status()); }
-
-  const absl::Status& status() const& noexcept
+  [[nodiscard]] const absl::Status& status() const& noexcept
       TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    return status_;
+    return this->status_;
+  }
+  absl::Status status() && noexcept {
+    return ok() ? absl::OkStatus() : std::move(this->status_);
   }
 
-  absl::Status&& status() && { return std::move(status_); }
+  // Value
+  void value() const { this->EnsureOk(); }
 
   friend bool operator==(const Result& a, const Result& b) {
     return a.status_ == b.status_;
@@ -684,13 +762,27 @@ class Result<void> {
 
   friend bool operator!=(const Result& a, const Result& b) { return !(a == b); }
 
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const Result<void>& result) {
+    return os << "(" << result.status() << ")";
+  }
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Result<void>& result) {
+    absl::Format(&sink, "(%v)", result.status());
+  }
+
  private:
+  void EnsureOk() const {
+    if (ABSL_PREDICT_FALSE(!ok())) internal_result::CrashOnResultNotOk(status_);
+  }
+
   absl::Status status_;
 };
 
 /// Returns a Result<T> with a (possibly-default) value.
 ///
-/// Example:
+/// Example::
+///
 ///    Result<void> r = MakeResult();
 ///    Result<int>  x = MakeResult<int>();
 ///    auto result = MakeResult(7);

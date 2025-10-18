@@ -48,8 +48,8 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Batch;
 using ::tensorstore::Future;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -61,6 +61,8 @@ using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
@@ -351,7 +353,7 @@ TEST_F(HttpKeyValueStoreTest, RetryMax) {
                 ElementsAre(Pair("cache-control", "no-cache")));
     request.set_result(HttpResponse{503, absl::Cord()});
   }
-  EXPECT_THAT(read_future.result(), MatchesStatus(absl::StatusCode::kAborted));
+  EXPECT_THAT(read_future.result(), StatusIs(absl::StatusCode::kAborted));
 }
 
 TEST_F(HttpKeyValueStoreTest, Date) {
@@ -427,8 +429,8 @@ TEST_F(HttpKeyValueStoreTest, InvalidDate) {
   request.set_result(
       HttpResponse{200, absl::Cord("value"), HeaderMap{{"date", "xyz"}}});
   EXPECT_THAT(read_future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid \"date\" response header: \"xyz\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid \"date\" response header: \"xyz\"")));
 }
 
 TEST_F(HttpKeyValueStoreTest, ExtraHeaders) {
@@ -473,24 +475,24 @@ TEST(UrlTest, UrlRoundtrip) {
 
 TEST(UrlTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("http://example.com#fragment"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Fragment identifier not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Fragment identifier not supported")));
 }
 
 TEST(SpecTest, InvalidScheme) {
   EXPECT_THAT(
       kvstore::Open({{"driver", "http"}, {"base_url", "file:///abc"}}).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 TEST(SpecTest, MissingScheme) {
   EXPECT_THAT(kvstore::Open({{"driver", "http"}, {"base_url", "abc"}}).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 TEST(SpecTest, InvalidFragment) {
   EXPECT_THAT(kvstore::Open({{"driver", "http"},
                              {"base_url", "https://example.com#fragment"}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(SpecTest, InvalidHeader) {
@@ -498,7 +500,7 @@ TEST(SpecTest, InvalidHeader) {
                              {"base_url", "https://example.com"},
                              {"headers", {"a"}}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(SpecTest, SpecRoundtrip) {
@@ -540,9 +542,10 @@ TEST(SpecTest, NormalizeSpecInvalidAbsolutePath) {
                      {"base_url", "https://example.com/my/path?query=value"},
                      {"path", "/abc"}})
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot specify absolute path \"/abc\" in conjunction with "
-                    "base URL \".*\" that includes a path component"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex(
+                   "Cannot specify absolute path \"/abc\" in conjunction with "
+                   "base URL \".*\" that includes a path component")));
 }
 
 }  // namespace

@@ -39,9 +39,11 @@ using ::tensorstore::CodecSpec;
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_n5::DecodeChunk;
 using ::tensorstore::internal_n5::N5Metadata;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(MetadataTest, ParseValid) {
   ::nlohmann::json attributes{
@@ -79,21 +81,21 @@ TEST(MetadataTest, ParseMissingDimensions) {
   EXPECT_THAT(N5Metadata::FromJson({{"blockSize", {1, 2, 3}},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseMissingBlockSize) {
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseMissingDataType) {
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
                                     {"blockSize", {1, 2, 3}},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidDataType) {
@@ -101,19 +103,19 @@ TEST(MetadataTest, ParseInvalidDataType) {
                                     {"blockSize", {1, 2, 3}},
                                     {"dataType", 10},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
                                     {"blockSize", {1, 2, 3}},
                                     {"dataType", "string"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseMissingCompression) {
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
                                     {"blockSize", {1, 2, 3}},
                                     {"dataType", "uint16"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidCompression) {
@@ -121,7 +123,7 @@ TEST(MetadataTest, ParseInvalidCompression) {
                                     {"blockSize", {1, 2, 3}},
                                     {"dataType", "uint16"},
                                     {"compression", 3}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidDimensions) {
@@ -131,22 +133,22 @@ TEST(MetadataTest, ParseInvalidDimensions) {
                             {"blockSize", ::nlohmann::json::array_t(33, 1)},
                             {"dataType", "uint16"},
                             {"compression", {{"type", "raw"}}}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", "x"},
                                     {"blockSize", {1, 2, 3}},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {"x"}},
                                     {"blockSize", {1, 2, 3}},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {-1, 10, 11}},
                                     {"blockSize", {1, 2, 3}},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidBlockSize) {
@@ -154,45 +156,46 @@ TEST(MetadataTest, ParseInvalidBlockSize) {
                                     {"blockSize", "x"},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
                                     {"blockSize", {"x"}},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
                                     {"blockSize", {1, 0, 3}},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
                                     {"blockSize", {1, 2, 0xFFFFFFFF}},
                                     {"dataType", "uint16"},
                                     {"compression", {{"type", "raw"}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidAxes) {
-  EXPECT_THAT(N5Metadata::FromJson({
-                  {"dimensions", {10, 11, 12}},
-                  {"axes", {"a", "b", "c", "d"}},
-                  {"blockSize", {1, 2, 3}},
-                  {"dataType", "uint16"},
-                  {"compression", {{"type", "raw"}}},
-              }),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  ".* \"axes\": Array has length 4 but should have length 3"));
-
   EXPECT_THAT(
       N5Metadata::FromJson({
           {"dimensions", {10, 11, 12}},
-          {"axes", {"a", "a", ""}},
+          {"axes", {"a", "b", "c", "d"}},
           {"blockSize", {1, 2, 3}},
           {"dataType", "uint16"},
           {"compression", {{"type", "raw"}}},
       }),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".* \"a\" not unique"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("\"axes\": Array has length 4 but should have length 3")));
+
+  EXPECT_THAT(N5Metadata::FromJson({
+                  {"dimensions", {10, 11, 12}},
+                  {"axes", {"a", "a", ""}},
+                  {"blockSize", {1, 2, 3}},
+                  {"dataType", "uint16"},
+                  {"compression", {{"type", "raw"}}},
+              }),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(" \"a\" not unique")));
 }
 
 TEST(MetadataTest, DataTypes) {
@@ -247,18 +250,18 @@ TEST(RawCompressionTest, Golden) {
   // Test with truncated array data.
   EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data.substr(
                                         0, encoded_data.size() - 1))),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with truncated header data
   EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data.substr(0, 6))),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid mode (varlength)
   {
     std::string encoded_data_invalid_mode = encoded_data;
     encoded_data_invalid_mode[1] = 0x01;
     EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_mode)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Test with invalid mode (unknown)
@@ -266,7 +269,7 @@ TEST(RawCompressionTest, Golden) {
     std::string encoded_data_invalid_mode = encoded_data;
     encoded_data_invalid_mode[1] = 0x02;
     EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_mode)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Test with invalid number of dimensions
@@ -274,7 +277,7 @@ TEST(RawCompressionTest, Golden) {
     std::string encoded_data_invalid_rank = encoded_data;
     encoded_data_invalid_rank[3] = 0x02;
     EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_rank)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Test with too large block shape
@@ -282,7 +285,7 @@ TEST(RawCompressionTest, Golden) {
     std::string encoded_data_invalid_shape = encoded_data;
     encoded_data_invalid_shape[7] = 0x02;
     EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_shape)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 
@@ -328,9 +331,9 @@ TEST(N5CodecSpecTest, Merge) {
   EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
   EXPECT_THAT(CodecSpec::Merge(codec2, codec3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge codec spec .* with .*: "
-                            "\"compression\" does not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Cannot merge codec spec .* with .*: "
+                                    "\"compression\" does not match")));
 }
 
 TEST(N5CodecSpecTest, RoundTrip) {

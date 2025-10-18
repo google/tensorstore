@@ -99,6 +99,7 @@ tensorstore_cc_library(
     hdrs = ["curl_wrappers.h"],
     deps = [
         "//tensorstore/internal:source_location",
+        "//tensorstore/internal/version:version_h",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base",

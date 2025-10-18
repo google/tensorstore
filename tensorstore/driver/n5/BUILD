@@ -375,7 +375,6 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/internal/testing:json_gtest",
-        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",

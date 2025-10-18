@@ -10,6 +10,10 @@ load("@bazel_features//:deps.bzl", "bazel_features_deps")
 
 bazel_features_deps()
 
+load("@rules_shell//shell:repositories.bzl", "rules_shell_toolchains")
+
+rules_shell_toolchains()
+
 # @rules_python configuration for local python runtime / toolchain.
 #
 # py_repositories() creates internal repositories for python, and use of rules_python

@@ -24,21 +24,28 @@
 
 #include <atomic>
 #include <cassert>
+#include <ostream>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/has_absl_stringify.h"
+#include "absl/strings/has_ostream_operator.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/lldb_scripting.h"
 #include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+
+TENSORSTORE_LLDB_AUTO_SCRIPT("future.py")
 
 namespace tensorstore {
 
@@ -415,10 +422,10 @@ class AnyFuture {
   /// Resets this Future to be null.
   ///
   /// \post `null()`.
-  void reset() noexcept { rep_.reset(); }
+  void reset() { rep_.reset(); }
 
   /// Returns `true` if this `Future` has no shared state.
-  bool null() const noexcept { return rep_ == nullptr; }
+  bool null() const { return rep_ == nullptr; }
 
   /// Returns `true` if the result is ready.
   ///
@@ -428,18 +435,22 @@ class AnyFuture {
   ///
   ///    Once this returns `true` for a given shared state, it will never return
   ///    `false`.
-  bool ready() const noexcept { return rep().ready(); }
+  bool ready() const { return rep().ready(); }
 
   /// Calls `Force()`, and waits until `ready() == true`.
   ///
   /// \dchecks `!null()`
-  void Wait() const noexcept { rep().Wait(); }
+  void Wait() const {
+    AssertNotNull();
+    rep().Wait();
+  }
 
   /// Waits for up to the specified duration for the result to be ready.
   ///
   /// \dchecks `!null()`
   /// \returns `ready()`.
-  bool WaitFor(absl::Duration duration) const noexcept {
+  bool WaitFor(absl::Duration duration) const {
+    AssertNotNull();
     return rep().WaitFor(duration);
   }
 
@@ -447,7 +458,8 @@ class AnyFuture {
   ///
   /// \dchecks `!null()`
   /// \returns `ready()`.
-  bool WaitUntil(absl::Time deadline) const noexcept {
+  bool WaitUntil(absl::Time deadline) const {
+    AssertNotNull();
     return rep().WaitUntil(deadline);
   }
 
@@ -457,14 +469,18 @@ class AnyFuture {
   /// Commonly, this will trigger deferred work to begin.
   ///
   /// \dchecks `!null()`
-  void Force() const noexcept { return rep().Force(); }
+  void Force() const {
+    AssertNotNull();
+    return rep().Force();
+  }
 
-  /// Calls `Force()`, waits for the result to be ready, and returns OkStatus
-  /// (when a value is present) or a copy of result.status().
+  /// Calls `Force()`, waits for the result to be ready, and returns a const
+  /// reference to the contained `absl::Status`. If the underlying `Future`
+  /// contains a value, then this function returns `absl::OkStatus()`.
   ///
   /// \dchecks `!null()`
-  const absl::Status& status() const& noexcept
-      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+  TENSORSTORE_NODISCARD const absl::Status& status()
+      const& TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     Wait();
     return rep().status();
   }
@@ -474,6 +490,7 @@ class AnyFuture {
   template <class Callback>
   FutureCallbackRegistration UntypedExecuteWhenReady(Callback&& callback) {
     static_assert(std::is_invocable_v<Callback, AnyFuture>);
+    AssertNotNull();
     if (!rep_->ready()) {
       using Impl =
           internal_future::ReadyCallback<AnyFuture,
@@ -494,8 +511,42 @@ class AnyFuture {
 
   constexpr internal_future::FutureStateBase& rep() const { return *rep_; }
 
+  void AssertNotNull() const noexcept {
+#if !defined(NDEBUG)
+    if (ABSL_PREDICT_FALSE(rep_ == nullptr))
+      internal_future::CrashOnNullFuture();
+#endif
+  }
+
   internal_future::FutureStatePointer rep_;
 };
+
+/// Returns `true` if both futures refer to the same shared state, or are both
+/// null.
+///
+/// \relates AnyFuture
+inline bool HaveSameSharedState(const AnyFuture& a, const AnyFuture& b) {
+  return internal_future::FutureAccess::rep_pointer(a).get() ==
+         internal_future::FutureAccess::rep_pointer(b).get();
+}
+
+template <typename T>
+inline bool HaveSameSharedState(const Promise<T>& a, const AnyFuture& b) {
+  return internal_future::FutureAccess::rep_pointer(a).get() ==
+         internal_future::FutureAccess::rep_pointer(b).get();
+}
+
+template <typename T>
+inline bool HaveSameSharedState(const AnyFuture& a, const Promise<T>& b) {
+  return internal_future::FutureAccess::rep_pointer(a).get() ==
+         internal_future::FutureAccess::rep_pointer(b).get();
+}
+
+template <typename T, typename U>
+inline bool HaveSameSharedState(const Promise<T>& a, const Promise<U>& b) {
+  return internal_future::FutureAccess::rep_pointer(a).get() ==
+         internal_future::FutureAccess::rep_pointer(b).get();
+}
 
 /// "Consumer" interface to a one-time channel.
 ///
@@ -807,30 +858,81 @@ class Future : public AnyFuture {
     return Future<T>(*this).ExecuteWhenReady(std::forward<Callback>(callback));
   }
 
+  /// Returns a reference to the contained `Result<T>`.
+  ///
   /// Calls `Force()`, waits for the result to be ready, and returns a reference
   /// to the result.
   ///
   /// \dchecks `!null()`
-  std::add_lvalue_reference_t<result_type> result() const
+  TENSORSTORE_NODISCARD result_type& result() const
       TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->Wait();
     return rep().result;
   }
 
-  /// Equivalent to `result().value()`.
+  /// Returns a reference to the contained `absl::Status`.
+  ///
+  /// Equivalent to `result().status()`. Calls `Force()`, waits for the result
+  /// to be ready, and returns a reference to the contained `absl::Status`. If
+  /// the `Future<T>` contains a value, then this function returns
+  /// `absl::OkStatus()`.
+  ///
+  /// \dchecks `!null()`
+  TENSORSTORE_NODISCARD const absl::Status& status() const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    return result().status();
+  }
+
+  /// Returns a reference to `T`, equivalent to `result().value()`.
   std::add_lvalue_reference_t<T> value() const
       TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return result().value();
   }
 
-  /// Equivalent to `result().status()`.
-  using AnyFuture::status;
+  /// Prints a string representation to `os`. Do not rely on the output format
+  /// which may change without notice.
+  ///
+  /// \requires `T` supports `operator<<`.
+  template <
+      typename SfinaeU = result_type,
+      std::enable_if_t<absl::HasOstreamOperator<SfinaeU>::value>* = nullptr>
+  // NONITPICK: absl::HasOstreamOperator<result_type>
+  // NONITPICK: absl::HasOstreamOperator<result_type>::value
+  friend std::ostream& operator<<(std::ostream& os, const Future<T>& future) {
+    if (future.null()) {
+      return os << "(null)";
+    } else if (!future.ready()) {
+      return os << "(not ready)";
+    } else {
+      return os << future.result();
+    }
+  }
+
+  /// Prints a string representation to the `sink`, which allows formatting
+  /// using `absl::StrFormat`, etc.  Do not rely on the output format which may
+  /// change without notice.
+  ///
+  /// \requires  `T` has `AbslStringify`.
+  template <typename Sink, typename SfinaeU = result_type,
+            std::enable_if_t<absl::HasAbslStringify<SfinaeU>::value>* = nullptr>
+  // NONITPICK: absl::HasAbslStringify<result_type>
+  // NONITPICK: absl::HasAbslStringify<result_type>::value
+  friend void AbslStringify(Sink& sink, const Future<T>& future) {
+    if (future.null()) {
+      absl::Format(&sink, "(null)");
+    } else if (!future.ready()) {
+      absl::Format(&sink, "(not ready)");
+    } else {
+      absl::Format(&sink, "%v", future.result());
+    }
+  }
 
  private:
   explicit Future(internal_future::FutureStatePointer rep)
       : AnyFuture(std::move(rep)) {}
 
   friend class internal_future::FutureAccess;
+
   constexpr SharedState& rep() const {
     return static_cast<SharedState&>(*rep_);
   }
@@ -840,33 +942,6 @@ template <typename T>
 Future(Result<T>&& result) -> Future<T>;
 template <typename T>
 Future(const Result<T>& result) -> Future<T>;
-
-/// Returns `true` if both futures refer to the same shared state, or are both
-/// null.
-///
-/// \relates AnyFuture
-inline bool HaveSameSharedState(const AnyFuture& a, const AnyFuture& b) {
-  return internal_future::FutureAccess::rep_pointer(a).get() ==
-         internal_future::FutureAccess::rep_pointer(b).get();
-}
-
-template <typename T>
-inline bool HaveSameSharedState(const Promise<T>& a, const AnyFuture& b) {
-  return internal_future::FutureAccess::rep_pointer(a).get() ==
-         internal_future::FutureAccess::rep_pointer(b).get();
-}
-
-template <typename T>
-inline bool HaveSameSharedState(const AnyFuture& a, const Promise<T>& b) {
-  return internal_future::FutureAccess::rep_pointer(a).get() ==
-         internal_future::FutureAccess::rep_pointer(b).get();
-}
-
-template <typename T, typename U>
-inline bool HaveSameSharedState(const Promise<T>& a, const Promise<U>& b) {
-  return internal_future::FutureAccess::rep_pointer(a).get() ==
-         internal_future::FutureAccess::rep_pointer(b).get();
-}
 
 /// Future that is guaranteed to be ready.
 ///
@@ -919,15 +994,25 @@ class ReadyFuture : public Future<T> {
     return *this;
   }
 
-  /// Returns a reference to the result, guaranteed not to
-  /// block.
-  result_type& result() const {
+  /// Returns a reference to the contained `Result<T>`. Guaranteed not to block.
+  TENSORSTORE_NODISCARD result_type& result() const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return internal_future::FutureAccess::rep(*this).result;
   }
 
-  /// Returns a reference to the value contained in the
-  /// result, guaranteed not to block.
-  std::add_lvalue_reference_t<T> value() const { return result().value(); }
+  /// Returns a reference to the contained `absl::Status`. Guaranteed not to
+  /// block.
+  TENSORSTORE_NODISCARD const absl::Status& status() const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    return result().status();
+  }
+
+  /// Returns a reference to `T`, equivalent to `result().value()`. Guaranteed
+  /// not to block.
+  std::add_lvalue_reference_t<T> value() const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    return result().value();
+  }
 
  private:
   friend class internal_future::FutureAccess;

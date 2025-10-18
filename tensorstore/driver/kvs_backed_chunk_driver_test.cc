@@ -16,11 +16,11 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
 #include "tensorstore/index.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -28,9 +28,10 @@ namespace {
 using ::tensorstore::Box;
 using ::tensorstore::Index;
 using ::tensorstore::kImplicit;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_kvs_backed_chunk_driver::
     ValidateResizeConstraints;
+using ::testing::HasSubstr;
 
 using ISpan = ::tensorstore::span<const Index>;
 
@@ -106,9 +107,10 @@ TEST(ValidateResizeConstraintsTest, Failure) {
           /*exclusive_max_constraint=*/ISpan({5, kImplicit}),
           /*expand_only=*/false,
           /*shrink_only=*/false),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would also affect output dimension 0 "
-                    "over the out-of-bounds interval \\[4, 5\\)"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Resize operation would also affect output dimension 0 "
+                    "over the out-of-bounds interval [4, 5)")));
 
   EXPECT_THAT(  //
       ValidateResizeConstraints(
@@ -119,10 +121,11 @@ TEST(ValidateResizeConstraintsTest, Failure) {
           /*exclusive_max_constraint=*/ISpan({3, kImplicit}),
           /*expand_only=*/false,
           /*shrink_only=*/false),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Resize operation would also affect output dimension 0 over the "
-          "interval \\[3, 4\\) but `resize_tied_bounds` was not specified"));
+          HasSubstr(
+              "Resize operation would also affect output dimension 0 over the "
+              "interval [3, 4) but `resize_tied_bounds` was not specified")));
 
   EXPECT_THAT(  //
       ValidateResizeConstraints(
@@ -133,10 +136,10 @@ TEST(ValidateResizeConstraintsTest, Failure) {
           /*exclusive_max_constraint=*/ISpan({kImplicit, kImplicit}),
           /*expand_only=*/false,
           /*shrink_only=*/true),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Resize operation would expand output dimension 1 from "
-          "\\[0, 5\\) to \\[0, 6\\) but `shrink_only` was specified"));
+          HasSubstr("Resize operation would expand output dimension 1 from "
+                    "[0, 5) to [0, 6) but `shrink_only` was specified")));
 
   EXPECT_THAT(  //
       ValidateResizeConstraints(
@@ -147,10 +150,10 @@ TEST(ValidateResizeConstraintsTest, Failure) {
           /*exclusive_max_constraint=*/ISpan({kImplicit, kImplicit}),
           /*expand_only=*/true,
           /*shrink_only=*/false),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kFailedPrecondition,
-          "Resize operation would shrink output dimension 1 from "
-          "\\[0, 5\\) to \\[0, 4\\) but `expand_only` was specified"));
+          HasSubstr("Resize operation would shrink output dimension 1 from "
+                    "[0, 5) to [0, 4) but `expand_only` was specified")));
 }
 
 }  // namespace

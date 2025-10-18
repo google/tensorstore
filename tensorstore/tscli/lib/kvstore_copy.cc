@@ -57,7 +57,7 @@ absl::Status KvstoreCopy(Context context,
         [&output, &target, key = entry.key](
             const Result<kvstore::ReadResult>& read_result) -> Future<void> {
           if (!read_result.ok()) {
-            absl::MutexLock lock(&log_mutex);
+            absl::MutexLock lock(log_mutex);
             output << "Error reading: " << tensorstore::QuoteString(key) << ": "
                    << read_result.status() << std::endl;
           }
@@ -65,7 +65,7 @@ absl::Status KvstoreCopy(Context context,
             return absl::OkStatus();
           }
           {
-            absl::MutexLock lock(&log_mutex);
+            absl::MutexLock lock(log_mutex);
             output << "Read: " << tensorstore::QuoteString(key) << std::endl;
           }
           return MapFuture(
@@ -73,13 +73,13 @@ absl::Status KvstoreCopy(Context context,
               [&output, key](const Result<TimestampedStorageGeneration>& stamp)
                   -> Result<void> {
                 if (!stamp.ok()) {
-                  absl::MutexLock lock(&log_mutex);
+                  absl::MutexLock lock(log_mutex);
                   output << "Error writing: " << tensorstore::QuoteString(key)
                          << ": " << stamp.status() << std::endl;
                   return stamp.status();
                 }
                 {
-                  absl::MutexLock lock(&log_mutex);
+                  absl::MutexLock lock(log_mutex);
                   output << "Wrote: " << tensorstore::QuoteString(key)
                          << std::endl;
                 }

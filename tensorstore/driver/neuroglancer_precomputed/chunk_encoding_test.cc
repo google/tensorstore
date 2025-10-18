@@ -53,7 +53,7 @@ namespace {
 using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_image::ImageReader;
 using ::tensorstore::internal_neuroglancer_precomputed::DecodeChunk;
 using ::tensorstore::internal_neuroglancer_precomputed::EncodeChunk;
@@ -141,11 +141,10 @@ TEST_P(ChunkEncodingTest, Roundtrip) {
     // Test that truncating the chunk leads to a decoding error.
     auto corrupt = out.Subcord(
         0, out.size() - std::min(static_cast<size_t>(5), out.size()));
-    EXPECT_THAT(
-        DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout,
-                    corrupt),
-        testing::AnyOf(MatchesStatus(absl::StatusCode::kDataLoss),
-                       MatchesStatus(absl::StatusCode::kInvalidArgument)));
+    EXPECT_THAT(DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout,
+                            corrupt),
+                testing::AnyOf(StatusIs(absl::StatusCode::kDataLoss),
+                               StatusIs(absl::StatusCode::kInvalidArgument)));
   }
 
   if (double max_rms_error = GetParam().max_root_mean_squared_error) {

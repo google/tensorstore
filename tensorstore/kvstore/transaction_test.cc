@@ -43,8 +43,8 @@ namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::JsonSubValuesMatch;
 using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
@@ -54,6 +54,7 @@ using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::kvstore::KvStore;
 using ::tensorstore::kvstore::ReadResult;
+using ::testing::HasSubstr;
 
 TEST(KvStoreTest, WriteThenRead) {
   auto mock_driver = MockKeyValueStore::Make();
@@ -484,8 +485,9 @@ TEST(KvStoreTest, ByteRangeRepeatableReadMismatchBeforeCommit) {
     options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
     EXPECT_THAT(
         kvstore::Read(store, "a", options).result(),
-        MatchesStatus(absl::StatusCode::kAborted,
-                      "Generation mismatch in repeatable_read transaction"));
+        StatusIs(
+            absl::StatusCode::kAborted,
+            HasSubstr("Generation mismatch in repeatable_read transaction")));
     EXPECT_THAT(mock_driver->request_log.pop_all(),
                 ::testing::ElementsAreArray({
                     JsonSubValuesMatch({{"/type", "read"},
@@ -496,9 +498,9 @@ TEST(KvStoreTest, ByteRangeRepeatableReadMismatchBeforeCommit) {
   }
 
   EXPECT_THAT(txn.CommitAsync().result(),
-              MatchesStatus(absl::StatusCode::kAborted,
-                            "Error reading \"a\": Generation mismatch in "
-                            "repeatable_read transaction"));
+              StatusIs(absl::StatusCode::kAborted,
+                       HasSubstr("Error reading \"a\": Generation mismatch in "
+                                 "repeatable_read transaction")));
   EXPECT_THAT(mock_driver->request_log.pop_all(), ::testing::ElementsAre());
 }
 
@@ -534,8 +536,8 @@ TEST(KvStoreTest, ByteRangeRepeatableReadMismatchDuringCommit) {
       memory_store->Write("a", absl::Cord("0123456789x")).result());
 
   EXPECT_THAT(txn.CommitAsync().result(),
-              MatchesStatus(absl::StatusCode::kAborted,
-                            "Error writing \"a\": Generation mismatch"));
+              StatusIs(absl::StatusCode::kAborted,
+                       HasSubstr("Error writing \"a\": Generation mismatch")));
   EXPECT_THAT(mock_driver->request_log.pop_all(),
               ::testing::ElementsAreArray({
                   JsonSubValuesMatch({{"/type", "read"},
@@ -581,8 +583,8 @@ TEST(KvStoreTest, ReadMismatch) {
   }
 
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kAborted,
-                            "Error writing \"a\": Generation mismatch"));
+              StatusIs(absl::StatusCode::kAborted,
+                       HasSubstr("Error writing \"a\": Generation mismatch")));
 }
 
 TEST(KvStoreTest, ListInvalid) {
@@ -592,7 +594,7 @@ TEST(KvStoreTest, ListInvalid) {
   KvStore store(mock_driver, "", txn);
 
   EXPECT_THAT(kvstore::ListFuture(store).result(),
-              MatchesStatus(absl::StatusCode::kUnimplemented));
+              StatusIs(absl::StatusCode::kUnimplemented));
 }
 
 }  // namespace

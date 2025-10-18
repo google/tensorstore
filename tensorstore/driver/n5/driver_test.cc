@@ -69,9 +69,9 @@ using ::tensorstore::DimensionSet;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::kImplicit;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ParseJsonMatches;
@@ -79,6 +79,8 @@ using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreSpecRoundtripNormalize;
 using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -105,9 +107,10 @@ TEST(N5DriverTest, OpenNonExisting) {
       tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "Error opening \"n5\" driver: "
-                    "Metadata at \"prefix/attributes\\.json\" does not exist"));
+      StatusIs(
+          absl::StatusCode::kNotFound,
+          HasSubstr("Error opening \"n5\" driver: "
+                    "Metadata at \"prefix/attributes.json\" does not exist")));
 }
 
 TEST(N5DriverTest, OpenOrCreate) {
@@ -139,6 +142,7 @@ TEST(MatchesRawChunkTest, Basic) {
       0, 4, 0, 5,  // int16be data
       0, 0, 0, 0,  // int16be data
   };
+  // clang-format off
   EXPECT_THAT(absl::Cord(chunk), MatchesRawChunk(  //
                                      {3, 2},       //
                                      {
@@ -156,6 +160,7 @@ TEST(MatchesRawChunkTest, Basic) {
                                          0, 4, 0, 5,  // int16be data
                                          0, 0, 0, 0,  // int16be data
                                      })));
+  // clang-format on
 }
 
 TEST(N5DriverTest, Create) {
@@ -212,7 +217,7 @@ TEST(N5DriverTest, Create) {
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {10, 7}, {1, 1}))
                     .result(),
-                MatchesStatus(absl::StatusCode::kOutOfRange));
+                StatusIs(absl::StatusCode::kOutOfRange));
 
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
@@ -226,7 +231,7 @@ TEST(N5DriverTest, Create) {
             store |
                 tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3}))
             .commit_future.result(),
-        MatchesStatus(absl::StatusCode::kOutOfRange));
+        StatusIs(absl::StatusCode::kOutOfRange));
 
     // Re-read and validate result.  This verifies that the read/write
     // encoding/decoding paths round trip.
@@ -254,6 +259,7 @@ TEST(N5DriverTest, Create) {
                    {"blockSize", {3, 2}},
                    {"extra", "attribute"},
                }))),
+          // clang-format off
           Pair("prefix/2/4",  // chunk starting at: 6, 8
                MatchesRawChunk({3, 2},
                                {
@@ -278,6 +284,7 @@ TEST(N5DriverTest, Create) {
                                    0, 6, 0, 0, 0, 0,  // int16be data
                                    0, 0, 0, 0, 0, 0,  // int16be data
                                })),
+          // clang-format on
       }));
 
   // Check that attempting to create the store again fails.
@@ -285,7 +292,7 @@ TEST(N5DriverTest, Create) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kAlreadyExists));
+      StatusIs(absl::StatusCode::kAlreadyExists));
 
   // Check that create or open succeeds.
   TENSORSTORE_EXPECT_OK(tensorstore::Open(
@@ -516,39 +523,39 @@ TEST(N5DriverTest, InvalidResize) {
              span<const Index>({kImplicit, kImplicit}),
              span<const Index>({kImplicit, 2}))
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would also affect output dimension 0 "
-                    "over the interval \\[10, 100\\) but `resize_tied_bounds` "
-                    "was not specified"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Resize operation would also affect output dimension 0 "
+                    "over the interval [10, 100) but `resize_tied_bounds` "
+                    "was not specified")));
 
   EXPECT_THAT(
       Resize(store | tensorstore::Dims(0).HalfOpenInterval(5, 100),
              span<const Index>({kImplicit, kImplicit}),
              span<const Index>({kImplicit, 2}))
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would also affect output dimension 0 "
-                    "over the interval \\[0, 5\\) but `resize_tied_bounds` "
-                    "was not specified"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Resize operation would also affect output dimension 0 "
+                    "over the interval [0, 5) but `resize_tied_bounds` "
+                    "was not specified")));
 
   EXPECT_THAT(
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({kImplicit, 10}), tensorstore::expand_only)
           .result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          "Error writing \"prefix/attributes\\.json\": "
-          "Resize operation would shrink output dimension 1 from "
-          "\\[0, 100\\) to \\[0, 10\\) but `expand_only` was specified"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               "Error writing \"prefix/attributes.json\": "
+               "Resize operation would shrink output dimension 1 from "
+               "[0, 100) to [0, 10) but `expand_only` was specified"));
 
   EXPECT_THAT(
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({kImplicit, 200}), tensorstore::shrink_only)
           .result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          "Resize operation would expand output dimension 1 from "
-          "\\[0, 100\\) to \\[0, 200\\) but `shrink_only` was specified"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               "Resize operation would expand output dimension 1 from "
+               "[0, 100) to [0, 200) but `shrink_only` was specified"));
 }
 
 TEST(N5DriverTest, InvalidResizeConcurrentModification) {
@@ -579,9 +586,10 @@ TEST(N5DriverTest, InvalidResizeConcurrentModification) {
       Resize(store_slice, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({kImplicit, 50}))
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Resize operation would also affect output dimension 0 "
-                    "over the out-of-bounds interval \\[50, 100\\)"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("Resize operation would also affect output dimension 0 "
+                    "over the out-of-bounds interval [50, 100)")));
 }
 
 TEST(N5DriverTest, InvalidResizeLowerBound) {
@@ -601,14 +609,14 @@ TEST(N5DriverTest, InvalidResizeLowerBound) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
-  EXPECT_THAT(Resize(store | tensorstore::Dims(0).UnsafeMarkBoundsImplicit(),
-                     span<const Index>({10, kImplicit}),
-                     span<const Index>({kImplicit, kImplicit}))
-                  .result(),
-              MatchesStatus(
-                  absl::StatusCode::kFailedPrecondition,
-                  "Cannot change inclusive lower bound of output dimension 0, "
-                  "which is fixed at 0, to 10"));
+  EXPECT_THAT(
+      Resize(store | tensorstore::Dims(0).UnsafeMarkBoundsImplicit(),
+             span<const Index>({10, kImplicit}),
+             span<const Index>({kImplicit, kImplicit}))
+          .result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               "Cannot change inclusive lower bound of output dimension 0, "
+               "which is fixed at 0, to 10"));
 }
 
 TEST(N5DriverTest, InvalidResizeIncompatibleMetadata) {
@@ -637,10 +645,10 @@ TEST(N5DriverTest, InvalidResizeIncompatibleMetadata) {
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({5, 5}), tensorstore::resize_metadata_only)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error writing \"prefix/attributes\\.json\": "
-                    "Updated N5 metadata .* is incompatible with "
-                    "existing metadata .*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               MatchesRegex(
+                   "Error writing \"prefix/attributes.json\": Updated N5 "
+                   "metadata .* is incompatible with existing metadata.*")));
 }
 
 TEST(N5DriverTest, InvalidResizeDeletedMetadata) {
@@ -668,9 +676,9 @@ TEST(N5DriverTest, InvalidResizeDeletedMetadata) {
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({5, 5}), tensorstore::resize_metadata_only)
           .result(),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "Error writing \"prefix/attributes\\.json\": "
-                    "Metadata was deleted"));
+      StatusIs(absl::StatusCode::kNotFound,
+               HasSubstr("Error writing \"prefix/attributes.json\": "
+                         "Metadata was deleted")));
 }
 
 TEST(N5DriverTest, UnsupportedDataTypeInSpec) {
@@ -690,9 +698,10 @@ TEST(N5DriverTest, UnsupportedDataTypeInSpec) {
           },
           tensorstore::OpenMode::create, tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "string data type is not one of the supported data types: .*"));
+          HasSubstr(
+              "string data type is not one of the supported data types:")));
 }
 
 TEST(N5DriverTest, DataTypeMismatch) {
@@ -715,29 +724,31 @@ TEST(N5DriverTest, DataTypeMismatch) {
                       tensorstore::ReadWriteMode::read_write)
                       .result());
   EXPECT_EQ(tensorstore::dtype_v<int8_t>, store.dtype());
-  EXPECT_THAT(tensorstore::Open(
-                  {
-                      {"dtype", "uint8"},
-                      {"driver", "n5"},
-                      {"kvstore", {{"driver", "memory"}}},
-                      {"path", "prefix/"},
-                  },
-                  context, tensorstore::OpenMode::open,
-                  tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error opening \"n5\" driver: "
-                            ".*dtype.*"));
+  EXPECT_THAT(
+      tensorstore::Open(
+          {
+              {"dtype", "uint8"},
+              {"driver", "n5"},
+              {"kvstore", {{"driver", "memory"}}},
+              {"path", "prefix/"},
+          },
+          context, tensorstore::OpenMode::open,
+          tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Error opening \"n5\" driver: dtype from metadata "
+                         "(int8) does not match dtype in schema (uint8)")));
 }
 
 TEST(N5DriverTest, InvalidSpecExtraMember) {
   auto spec = GetJsonSpec();
   spec["extra_member"] = 5;
-  EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
-                                tensorstore::ReadWriteMode::read_write)
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Object includes extra members: \"extra_member\""));
+  EXPECT_THAT(
+      tensorstore::Open(spec, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Object includes extra members: \"extra_member\"")));
 }
 
 TEST(N5DriverTest, InvalidSpecMissingKvstore) {
@@ -746,9 +757,9 @@ TEST(N5DriverTest, InvalidSpecMissingKvstore) {
   EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
                                 tensorstore::ReadWriteMode::read_write)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error opening \"n5\" driver: "
-                            "\"kvstore\" must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error opening \"n5\" driver: "
+                                 "\"kvstore\" must be specified")));
 }
 
 TEST(N5DriverTest, InvalidSpecInvalidMemberType) {
@@ -758,11 +769,10 @@ TEST(N5DriverTest, InvalidSpecInvalidMemberType) {
     EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
                                   tensorstore::ReadWriteMode::read_write)
                     .result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              tensorstore::StrCat(
-                                  "Error parsing object member \"", member_name,
-                                  "\": "
-                                  "Expected .*, but received: 5")));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         MatchesRegex(tensorstore::StrCat(
+                             "Error parsing object member \"", member_name,
+                             "\": Expected .*, but received: 5"))));
   }
 }
 
@@ -773,10 +783,10 @@ TEST(N5DriverTest, InvalidSpecMissingDomain) {
       tensorstore::Open(spec, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*: "
-                    "Cannot create using specified \"metadata\" and schema: "
-                    "domain must be specified"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot create using specified \"metadata\" and schema: "
+                    "domain must be specified")));
 }
 
 TEST(N5DriverTest, OpenInvalidMetadata) {
@@ -801,10 +811,10 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      "Error opening \"n5\" driver: "
-                      "Error reading "
-                      "\"prefix/attributes.json\": Invalid JSON"));
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Error opening \"n5\" driver: "
+                           "Error reading "
+                           "\"prefix/attributes.json\": Invalid JSON")));
   }
 
   {
@@ -819,11 +829,11 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      "Error opening \"n5\" driver: "
-                      "Error reading \"prefix/attributes.json\": "
-                      "Error parsing object member \"dimensions\": "
-                      "Expected array, but member is missing"));
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Error opening \"n5\" driver: "
+                           "Error reading \"prefix/attributes.json\": "
+                           "Error parsing object member \"dimensions\": "
+                           "Expected array, but member is missing")));
   }
 }
 
@@ -863,10 +873,11 @@ TEST(N5DriverTest, ResolveBoundsIncompatibleMetadata) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
-  EXPECT_THAT(ResolveBounds(store).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Updated N5 metadata .* is incompatible with "
-                            "existing metadata .*"));
+  EXPECT_THAT(
+      ResolveBounds(store).result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               MatchesRegex(".*Updated N5 metadata .* is incompatible with "
+                            "existing metadata.*")));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
@@ -1296,8 +1307,8 @@ TEST(DriverTest, InvalidCodec) {
                   },
                   tensorstore::OpenMode::create)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Cannot merge codec spec .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot merge codec spec")));
 }
 
 TEST(DriverTest, MissingDtype) {
@@ -1312,8 +1323,8 @@ TEST(DriverTest, MissingDtype) {
                   },
                   tensorstore::OpenMode::create)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: dtype must be specified"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("dtype must be specified")));
 }
 
 TEST(DriverTest, InvalidFillValue) {
@@ -1330,8 +1341,8 @@ TEST(DriverTest, InvalidFillValue) {
                   },
                   tensorstore::OpenMode::create)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: fill_value not supported by N5 format"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("fill_value not supported by N5 format")));
 }
 
 TEST(DriverTest, MetadataMismatch) {
@@ -1363,8 +1374,8 @@ TEST(DriverTest, MetadataMismatch) {
                                   }}},
                                 context, tensorstore::OpenMode::open)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"dimensions\".*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"dimensions\"")));
 
   // Mismatched "axes"
   EXPECT_THAT(
@@ -1376,19 +1387,19 @@ TEST(DriverTest, MetadataMismatch) {
                           }}},
                         context, tensorstore::OpenMode::open)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"axes\".*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"axes\"")));
 
   // Mismatched "dataType"
-  EXPECT_THAT(
-      tensorstore::Open({{"driver", "n5"},
-                         {"kvstore", {{"driver", "memory"}}},
-                         {"metadata",
-                          {
-                              {"dataType", "int32"},
-                          }}},
-                        context, tensorstore::OpenMode::open)
-          .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"dataType\".*"));
+  EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"metadata",
+                                  {
+                                      {"dataType", "int32"},
+                                  }}},
+                                context, tensorstore::OpenMode::open)
+                  .result(),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"dataType\"")));
 
   // Mismatched "blockSize"
   EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
@@ -1399,8 +1410,8 @@ TEST(DriverTest, MetadataMismatch) {
                                   }}},
                                 context, tensorstore::OpenMode::open)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"blockSize\".*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"blockSize\"")));
 
   // Mismatched "compression"
   EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
@@ -1416,8 +1427,8 @@ TEST(DriverTest, MetadataMismatch) {
                                   }}},
                                 context, tensorstore::OpenMode::open)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"compression\".*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"compression\"")));
 
   // Mismatched "rank"
   EXPECT_THAT(
@@ -1426,9 +1437,9 @@ TEST(DriverTest, MetadataMismatch) {
                          {"schema", {{"rank", 2}}}},
                         context, tensorstore::OpenMode::open)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*Rank specified by schema \\(2\\) "
-                    "does not match rank specified by metadata \\(1\\)"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Rank specified by schema (2) "
+                         "does not match rank specified by metadata (1)")));
 }
 
 TEST(DriverTest, SchemaMismatch) {
@@ -1457,9 +1468,9 @@ TEST(DriverTest, SchemaMismatch) {
                   },
                   context, tensorstore::OpenMode::open)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*Rank specified by schema \\(2\\) does not "
-                            "match rank specified by metadata \\(1\\)"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Rank specified by schema (2) does not "
+                                 "match rank specified by metadata (1)")));
 
   // Mismatched dtype
   EXPECT_THAT(tensorstore::Open(
@@ -1470,9 +1481,9 @@ TEST(DriverTest, SchemaMismatch) {
                   },
                   context, tensorstore::OpenMode::open)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*dtype from metadata \\(uint32\\) does not "
-                            "match dtype in schema \\(int32\\)"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("dtype from metadata (uint32) does not "
+                                 "match dtype in schema (int32)")));
 
   // Mismatched codec
   EXPECT_THAT(
@@ -1492,8 +1503,9 @@ TEST(DriverTest, SchemaMismatch) {
           },
           context, tensorstore::OpenMode::open)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*codec from metadata does not match codec in schema.*"));
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr("codec from metadata does not match codec in schema")));
 
   // codec_chunk_shape specified (not allowed)
   EXPECT_THAT(tensorstore::Open(
@@ -1508,8 +1520,8 @@ TEST(DriverTest, SchemaMismatch) {
                   },
                   context, tensorstore::OpenMode::open)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*codec_chunk_shape not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("codec_chunk_shape not supported")));
 
   // Mismatched dimension units
   EXPECT_THAT(tensorstore::Open(
@@ -1520,8 +1532,8 @@ TEST(DriverTest, SchemaMismatch) {
                   },
                   context, tensorstore::OpenMode::open)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*Cannot merge dimension units.*.*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Cannot merge dimension units")));
 }
 
 TEST(SpecSchemaTest, Domain) {
@@ -1735,8 +1747,8 @@ TEST(DriverTest, DimensionUnitsMetadataMismatch) {
                   },
                   context, Schema::DimensionUnits({"4nm", "5nm", "1um"}))
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*dimension units.*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("dimension units")));
 
   // Re-open with non-matching "resolution" in metadata
   EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
@@ -1744,8 +1756,8 @@ TEST(DriverTest, DimensionUnitsMetadataMismatch) {
                                  {"metadata", {{"resolution", {4, 5, 40}}}}},
                                 context)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"resolution\".*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"resolution\"")));
 
   // Re-open with non-matching "units" in metadata
   EXPECT_THAT(
@@ -1754,7 +1766,7 @@ TEST(DriverTest, DimensionUnitsMetadataMismatch) {
                          {"metadata", {{"units", {"nm", "nm", "nm"}}}}},
                         context)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"units\".*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"units\"")));
 }
 
 TEST(DriverTest, MissingDimensionUnitsMetadataMismatch) {
@@ -1775,8 +1787,8 @@ TEST(DriverTest, MissingDimensionUnitsMetadataMismatch) {
                   },
                   context, Schema::DimensionUnits({"4nm", "5nm", "1um"}))
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*dimension units.*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("dimension units")));
 
   // Re-open with non-matching "resolution" in metadata
   EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
@@ -1784,8 +1796,8 @@ TEST(DriverTest, MissingDimensionUnitsMetadataMismatch) {
                                  {"metadata", {{"resolution", {4, 5, 40}}}}},
                                 context)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"resolution\".*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"resolution\"")));
 
   // Re-open with non-matching "units" in metadata
   EXPECT_THAT(
@@ -1794,7 +1806,7 @@ TEST(DriverTest, MissingDimensionUnitsMetadataMismatch) {
                          {"metadata", {{"units", {"nm", "nm", "nm"}}}}},
                         context)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"units\".*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"units\"")));
 }
 
 TEST(DriverTest, ResolutionOnlyMetadataMismatch) {
@@ -1814,18 +1826,18 @@ TEST(DriverTest, ResolutionOnlyMetadataMismatch) {
                             .result());
 
   // Same as above, but this time the "resolution" does not match.
-  EXPECT_THAT(
-      tensorstore::Open(
-          {
-              {"driver", "n5"},
-              {"kvstore", {{"driver", "memory"}}},
-              {"metadata", {{"resolution", {4, 5, 6}}}},
-          },
-          Schema::Shape({100, 200, 300}), dtype_v<uint8_t>,
-          Schema::DimensionUnits({"4nm", "5nm", "7nm"}),
-          tensorstore::OpenMode::create)
-          .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"resolution\".*"));
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"metadata", {{"resolution", {4, 5, 6}}}},
+                  },
+                  Schema::Shape({100, 200, 300}), dtype_v<uint8_t>,
+                  Schema::DimensionUnits({"4nm", "5nm", "7nm"}),
+                  tensorstore::OpenMode::create)
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"resolution\"")));
 
   auto context = Context::Default();
   // Create n5 TensorStore with "resolution" specified but "units" not
@@ -1848,8 +1860,8 @@ TEST(DriverTest, ResolutionOnlyMetadataMismatch) {
                   },
                   context, Schema::DimensionUnits({"4nm", "5nm", "6um"}))
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*dimension units.*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("dimension units")));
 
   // Re-open with non-matching "resolution" in metadata
   EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
@@ -1857,8 +1869,8 @@ TEST(DriverTest, ResolutionOnlyMetadataMismatch) {
                                  {"metadata", {{"resolution", {4, 5, 7}}}}},
                                 context)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"resolution\".*"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("\"resolution\"")));
 
   // Re-open with non-matching "units" in metadata
   EXPECT_THAT(
@@ -1867,7 +1879,7 @@ TEST(DriverTest, ResolutionOnlyMetadataMismatch) {
                          {"metadata", {{"units", {"", "", ""}}}}},
                         context)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"units\".*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("\"units\"")));
 }
 
 TEST(DriverTest, FillMissingDataReads) {
@@ -1890,9 +1902,10 @@ TEST(DriverTest, FillMissingDataReads) {
         EXPECT_THAT(read_result,
                     ::testing::Optional(tensorstore::MakeArray<int16_t>({0})));
       } else {
-        EXPECT_THAT(read_result,
-                    MatchesStatus(absl::StatusCode::kNotFound,
-                                  "chunk \\{0\\} stored at \"0\" is missing"));
+        EXPECT_THAT(
+            read_result,
+            StatusIs(absl::StatusCode::kNotFound,
+                     HasSubstr("chunk {0} stored at \"0\" is missing")));
       }
     }
     TENSORSTORE_ASSERT_OK(

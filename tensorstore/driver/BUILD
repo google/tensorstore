@@ -390,8 +390,8 @@ tensorstore_cc_test(
         "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )
@@ -400,10 +400,10 @@ tensorstore_cc_library(
     name = "chunk_receiver_utils",
     hdrs = ["chunk_receiver_utils.h"],
     deps = [
-        ":chunk",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util:future",
+        "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:flow_sender_operation_state",
         "@abseil-cpp//absl/status",

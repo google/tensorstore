@@ -33,9 +33,13 @@ load(
 
 _PYPA_BUILD_FILE_TEMPLATE = """
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
   name = "{target}",
-  srcs = glob(["**/*.py"]),
+  srcs = glob(["**/*.py"], allow_empty = True),
   data = glob(["**/*"], exclude=["**/*.py", "**/* *", "BUILD.bazel", "WORKSPACE"]),
   imports = ["."],
   deps = {deps},
@@ -53,7 +57,7 @@ SCRIPT_SUFFIX = ".py"
     deps = [":{target}"],
     visibility = ["//visibility:public"],
   )
-  for bin in glob([SCRIPT_PREFIX + "*" + SCRIPT_SUFFIX])
+  for bin in glob([SCRIPT_PREFIX + "*" + SCRIPT_SUFFIX], allow_empty = True)
 ]
 """
 
@@ -69,14 +73,16 @@ cc_library(
 def _pip_install(
         ctx,
         *,
-        requirement,
+        requirement_filename,
         postinstall_fix,
         interpreter_path,
         logger):
-    if not requirement:
-        logger.fail("pip_install: requirement must be specified")
+    if not requirement_filename:
+        logger.fail("pip_install: requirement_filename must be specified")
     if not interpreter_path:
         logger.fail("pip_install: interpreter_path must be specified")
+
+    target = ctx.attr.target
 
     # Write requirements to a temporary file because pip does not support `--hash` on
     # the command-line.  Then run pip install and delete the temporary file.
@@ -88,27 +94,21 @@ def _pip_install(
         "install",
         "--no-deps",
         "-r",
-        temp_requirements_filename,
+        requirement_filename,
         "-t",
         ".",
     ]
-    ctx.file(
-        temp_requirements_filename,
-        content = " ".join(requirement) + "\n",
-        executable = False,
-    )
     exec_result = repo_utils.execute_unchecked(
         ctx,
-        op = "PipInstall({})".format(requirement),
+        op = "PipInstall({})".format(target),
         arguments = arguments,
         quiet = True,
         logger = logger,
     )
-    ctx.delete(temp_requirements_filename)
     if exec_result.return_code != 0:
         logger.fail(
             lambda: "PipInstall({}) failed: {}".format(
-                requirement,
+                target,
                 exec_result.describe_failure(),
             ),
         )
@@ -118,7 +118,7 @@ def _pip_install(
     if postinstall_fix != None:
         exec_result = repo_utils.execute_unchecked(
             ctx,
-            op = "PostinstallFix({})".format(requirement),
+            op = "PostinstallFix({})".format(target),
             arguments = [
                 interpreter_path,
                 ctx.path(ctx.attr._postinstall_fix).realpath,
@@ -128,9 +128,28 @@ def _pip_install(
         )
         if exec_result.return_code != 0:
             logger.fail(lambda: "PostinstallFix({}) failed: {}".format(
-                requirement,
+                target,
                 exec_result.describe_failure(),
             ))
+
+def _requirements_frozen_content(requirement_lines):
+    """Formats the requirement lines to be compatible with pip install."""
+    _BACKSLASH_ESCAPE = " \\\n"
+    lines = []
+    for x in requirement_lines:
+        if not x:
+            lines.append("\n\n")
+        elif x.endswith("\\\n"):
+            lines.append(x)
+        elif x.endswith("\\"):
+            lines.append(x)
+            lines.append("\n")
+        else:
+            lines.append(x)
+            lines.append(_BACKSLASH_ESCAPE)
+
+    lines.append("\n\n")
+    return "".join(lines)
 
 def _third_party_pypa_package_impl(ctx):
     target = ctx.attr.target
@@ -146,9 +165,14 @@ def _third_party_pypa_package_impl(ctx):
     else:
         interpreter_path = result.resolved_path
 
+    ctx.file(
+        "_requirements_frozen.txt",
+        content = _requirements_frozen_content(ctx.attr.requirement),
+        executable = False,
+    )
     _pip_install(
         ctx,
-        requirement = ctx.attr.requirement,
+        requirement_filename = "_requirements_frozen.txt",
         postinstall_fix = ctx.attr._postinstall_fix,
         interpreter_path = interpreter_path,
         logger = logger,

@@ -14,7 +14,6 @@
 
 #include "tensorstore/internal/masked_array.h"
 
-#include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -55,14 +54,15 @@ using ::tensorstore::MakeArray;
 using ::tensorstore::MakeArrayView;
 using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MakeScalarArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::offset_origin;
 using ::tensorstore::SharedArray;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::TransformedArray;
 using ::tensorstore::internal::ElementCopyFunction;
 using ::tensorstore::internal::MaskData;
 using ::tensorstore::internal::SimpleElementwiseFunction;
+using ::testing::HasSubstr;
 
 /// Stores a MaskData object along with a Box representing its associated domain
 /// and a StridedLayout representing the mask array layout.
@@ -169,11 +169,12 @@ TEST(WriteToMaskedArrayTest, RankZero) {
 
 TEST(WriteToMaskedArrayTest, RankZeroError) {
   MaskedArrayWriteTester<int> tester{BoxView<>(0)};
-  EXPECT_THAT(
-      tester.Write(
-          tester.transform(), MakeScalarArray(5),
-          [](const int* source, int* dest, void* status) { return false; }),
-      MatchesStatus(absl::StatusCode::kUnknown, "Data conversion failure."));
+  EXPECT_THAT(tester.Write(tester.transform(), MakeScalarArray(5),
+                           [](const int* source, int* dest, void* status) {
+                             return false;
+                           }),
+              StatusIs(absl::StatusCode::kUnknown,
+                       HasSubstr("Data conversion failure.")));
 
   EXPECT_EQ(0, tester.num_masked_elements());
   EXPECT_FALSE(tester.mask_array().valid());
@@ -368,21 +369,21 @@ TEST(WriteToMaskedArrayTest, RankTwoNonExactContainedInExistingMaskRegion) {
 TEST(WriteToMaskedArrayTest, RankTwoPartialCopy) {
   MaskedArrayWriteTester<int> tester{BoxView({1, 2}, {4, 5})};
   // Copy a rectangular region
-  EXPECT_THAT(
-      tester.Write((tester.transform() |
-                    Dims(0, 1).TranslateSizedInterval({2, 3}, {3, 2}))
-                       .value(),
-                   MakeArray({
-                       {1, 2},
-                       {3, 4},
-                       {5, 6},
-                   }),
-                   [](const int* source, int* dest, void* arg) {
-                     if (*source == 4) return false;
-                     *dest = *source;
-                     return true;
-                   }),
-      MatchesStatus(absl::StatusCode::kUnknown, "Data conversion failure."));
+  EXPECT_THAT(tester.Write((tester.transform() |
+                            Dims(0, 1).TranslateSizedInterval({2, 3}, {3, 2}))
+                               .value(),
+                           MakeArray({
+                               {1, 2},
+                               {3, 4},
+                               {5, 6},
+                           }),
+                           [](const int* source, int* dest, void* arg) {
+                             if (*source == 4) return false;
+                             *dest = *source;
+                             return true;
+                           }),
+              StatusIs(absl::StatusCode::kUnknown,
+                       HasSubstr("Data conversion failure.")));
 
   EXPECT_EQ(0, tester.num_masked_elements());
 }
@@ -470,7 +471,7 @@ TEST(WriteToMaskedArrayTest, RankOneInvalidTransform) {
   EXPECT_THAT(
       tester.Write((tester.transform() | Dims(0).SizedInterval(2, 3)).value(),
                    MakeOffsetArray({1}, {1, 2, 3})),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_EQ(0, tester.num_masked_elements());
   EXPECT_TRUE(tester.mask_region().is_empty());
   EXPECT_FALSE(tester.mask_array().valid());
@@ -490,7 +491,8 @@ TEST(WriteToMaskedArrayTest, RankOnePartialCopyDefaultError) {
             *dest = *source;
             return true;
           }),
-      MatchesStatus(absl::StatusCode::kUnknown, "Data conversion failure."));
+      StatusIs(absl::StatusCode::kUnknown,
+               HasSubstr("Data conversion failure.")));
 
   EXPECT_EQ(0, tester.num_masked_elements());
 }
@@ -510,7 +512,7 @@ TEST(WriteToMaskedArrayTest, RankOnePartialCopyCustomError) {
             *dest = *source;
             return true;
           }),
-      MatchesStatus(absl::StatusCode::kUnknown, "My custom error"));
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("My custom error")));
 
   EXPECT_EQ(0, tester.num_masked_elements());
 }

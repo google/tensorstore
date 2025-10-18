@@ -33,11 +33,12 @@ namespace {
 
 using ::tensorstore::dynamic_extent;
 using ::tensorstore::IsStaticCastConstructible;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StaticCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::unchecked;
 using ::tensorstore::unchecked_t;
+using ::testing::HasSubstr;
 
 /// Define a type that follows the `unchecked_t` construction convention.
 template <ptrdiff_t Extent>
@@ -169,8 +170,9 @@ TEST(DefaultCastTraitsTest, CheckedFailure) {
   X<dynamic_extent> x(vec);
   EXPECT_THAT(
       StaticCast<X<2>>(x),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast X with extent of 3 to X with extent of 2"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast X with extent of 3 to X with extent of 2")));
 }
 
 TEST(DefaultCastTraitsDeathTest, UncheckedFailure) {
@@ -200,8 +202,9 @@ TEST(CustomTraitsTest, CheckedFailure) {
   Y<dynamic_extent> x(vec);
   EXPECT_THAT(
       StaticCast<Y<2>>(x),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast Y with extent of 3 to Y with extent of 2"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast Y with extent of 3 to Y with extent of 2")));
 }
 
 TEST(CustomTraitsDeathTest, UncheckedFailure) {

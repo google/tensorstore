@@ -25,11 +25,11 @@ def repo():
     maybe(
         http_archive,
         name = "rules_nasm",
-        strip_prefix = "rules_nasm-0.3.1",
-        urls = mirror_url("https://github.com/morganwl/rules_nasm/archive/0.3.1.tar.gz"),
-        sha256 = "cd79c1ccff2d290f91ea3d23b42df246865dc88e1247cf193999e3e1f4cd6886",
+        strip_prefix = "rules_nasm-0.4.0",
+        urls = mirror_url("https://github.com/morganwl/rules_nasm/archive/0.4.0.tar.gz"),
+        sha256 = "96d967505151b3e2b4d59adcd655c06a16d78b630a4074e643810e7a01a6d420",
         patches = [
-            Label("//third_party:rules_nasm/patches/rules_nasm_pull_56.diff"),
+            Label("//third_party:rules_nasm/patches/use_default_shell_env.diff"),
         ],
         patch_args = ["-p1"],
     )

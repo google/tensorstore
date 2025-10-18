@@ -14,9 +14,14 @@
 
 #include "tensorstore/index_space/internal/compose_transforms.h"
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/util/status.h"
@@ -32,7 +37,8 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::IndexTransformView;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(ComposeTransformsTest, EmptyDomain) {
   auto b_to_c = IndexTransformBuilder<3, 2>()
@@ -73,7 +79,7 @@ TEST(ComposeTransformsTest, TransformArrayError) {
                     .Finalize()
                     .value();
   EXPECT_THAT(ComposeTransforms(b_to_c, a_to_b),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(ComposeTransformsTest, BtoCIndexArrayWithSingleIndex) {
@@ -114,7 +120,7 @@ TEST(ComposeTransformsTest, BtoCIndexArrayWithInvalidSingleIndex) {
                     .Finalize()
                     .value();
   EXPECT_THAT(ComposeTransforms(b_to_c, a_to_b),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(ComposeTransformsTest, AtoBIndexArrayWithSingleIndex) {
@@ -151,7 +157,7 @@ TEST(ComposeTransformsTest, AtoBIndexArrayWithInvalidSingleIndex) {
                     .Finalize()
                     .value();
   EXPECT_THAT(ComposeTransforms(b_to_c, a_to_b),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(ComposeTransformsTest, ConstantOutOfDomain) {
@@ -169,8 +175,8 @@ TEST(ComposeTransformsTest, ConstantOutOfDomain) {
                     .Finalize()
                     .value();
   EXPECT_THAT(ComposeTransforms(b_to_c, a_to_b).status(),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".*Index 2 is outside valid range \\[3, 10\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Index 2 is outside valid range [3, 10)")));
 }
 
 TEST(ComposeTransformsTest, ConstantOverflow) {
@@ -184,7 +190,7 @@ TEST(ComposeTransformsTest, ConstantOverflow) {
                                     .Finalize()
                                     .value())
                   .status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Overflow computing addition of b_to_c offset and multiplied a_to_c offset.
   EXPECT_THAT(
@@ -198,7 +204,7 @@ TEST(ComposeTransformsTest, ConstantOverflow) {
                             .Finalize()
                             .value())
           .status(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ComposeTransformsTest, SingleInputDimensionOverflow) {
@@ -216,7 +222,7 @@ TEST(ComposeTransformsTest, SingleInputDimensionOverflow) {
                             .Finalize()
                             .value())
           .status(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Overflow multiplying a_to_c offset by b_to_c output stride.
   EXPECT_THAT(ComposeTransforms(
@@ -231,7 +237,7 @@ TEST(ComposeTransformsTest, SingleInputDimensionOverflow) {
                       .Finalize()
                       .value())
                   .status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Overflow multiplying a_to_c output stride by b_to_c output stride.
   EXPECT_THAT(
@@ -247,7 +253,7 @@ TEST(ComposeTransformsTest, SingleInputDimensionOverflow) {
                             .Finalize()
                             .value())
           .status(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ComposeTransformsTest, IndexArrayBoundsOverflow) {
@@ -268,15 +274,16 @@ TEST(ComposeTransformsTest, IndexArrayBoundsOverflow) {
                       .Finalize()
                       .value())
                   .status(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ComposeTransformsTest, RankMismatch) {
   EXPECT_THAT(
       ComposeTransforms(IdentityTransform(2), IdentityTransform(3)).status(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Rank 2 -> 2 transform cannot be composed with rank 3 -> 3 "
-                    "transform\\."));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Rank 2 -> 2 transform cannot be composed with rank 3 -> 3 "
+                    "transform.")));
 }
 
 /// Tests that IndexTransform::operator() can be used to compose transforms.

@@ -87,6 +87,41 @@ def fix_path(s):
   return s.replace("\\", "/")
 
 
+def _perform_build(
+    root_dir,
+    platform,
+    extra_args,
+    env,
+    cibw_environment,
+    bazel_startup_options,
+    bazel_build_options,
+):
+  """Completes the build setup and starts the build."""
+  cibw_environment["TENSORSTORE_BAZEL_STARTUP_OPTIONS"] = shlex_join(
+      bazel_startup_options
+  )
+
+  cibw_environment["TENSORSTORE_BAZEL_BUILD_OPTIONS"] = shlex_join(
+      bazel_build_options
+  )
+
+  env["CIBW_ENVIRONMENT"] = join_cibw_environment(cibw_environment)
+
+  cibuildwheel_args = []
+  if platform:
+    cibuildwheel_args += ["--platform", platform]
+  cibuildwheel_args += extra_args
+
+  sys.exit(
+      subprocess.call(
+          [sys.executable, "-m", "cibuildwheel", "--output-dir", "dist"]
+          + cibuildwheel_args,
+          cwd=root_dir,
+          env=env,
+      )
+  )
+
+
 def run(args, extra_args):
   """Invokes cibuildwheel from the parsed arguments."""
   platform = args.platform
@@ -95,8 +130,9 @@ def run(args, extra_args):
   # Setup common to all platforms
 
   env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
+  # https://cibuildwheel.pypa.io/en/stable/options/#build-skip
   env["CIBW_SKIP"] = (
-      "cp36-* cp37-* cp38-* cp39-* pp* *_i686 *-win32 *-musllinux*"
+      "cp38-* cp39-* cp314-* cp314t-* *_i686 *-win32 *-musllinux*"
   )
   env["CIBW_TEST_COMMAND"] = (
       "python -m pytest {project}/python/tensorstore/tests -vv -s"
@@ -142,47 +178,16 @@ def run(args, extra_args):
   )
 
   env["CIBW_BEFORE_BUILD"] = " && ".join([
-      (
-          "pip install "
-          "-r {package}/third_party/pypa/wheel_requirements_frozen.txt"
-      ),
+      "pip install -r {package}/third_party/pypa/wheel_requirements_frozen.txt",
   ])
   bazel_cache_dir = os.getenv(
       "CIBUILDWHEEL_BAZEL_CACHE",
       os.path.join(home_dir, ".cache", "cibuildwheel_bazel_cache"),
   )
 
-  # Logic for completing the build setup and starting the build that is common
-  # to all platforms.
-  def perform_build():
-    cibw_environment["TENSORSTORE_BAZEL_STARTUP_OPTIONS"] = shlex_join(
-        bazel_startup_options
-    )
-
-    cibw_environment["TENSORSTORE_BAZEL_BUILD_OPTIONS"] = shlex_join(
-        bazel_build_options
-    )
-
-    env["CIBW_ENVIRONMENT"] = join_cibw_environment(cibw_environment)
-
-    cibuildwheel_args = []
-    if platform:
-      cibuildwheel_args += ["--platform", platform]
-    cibuildwheel_args += extra_args
-
-    sys.exit(
-        subprocess.call(
-            [sys.executable, "-m", "cibuildwheel", "--output-dir", "dist"]
-            + cibuildwheel_args,
-            cwd=root_dir,
-            env=env,
-        )
-    )
-
   extra_bazelrc = args.bazelrc
 
   # Platform-specific setup
-
   if sys.platform.startswith("linux") or platform == "linux":
     # On Linux, cibuildwheel builds images using manylinux container images.
     #
@@ -226,30 +231,48 @@ def run(args, extra_args):
         pathlib.Path(temp_bazelrc).write_text(bazelrc_data, encoding="utf-8")
         bazel_startup_options.append("--bazelrc=" + "/host" + temp_bazelrc)
       with preserve_permissions([pip_cache_dir, bazel_cache_dir]):
-        perform_build()
+        _perform_build(
+            root_dir,
+            platform,
+            extra_args,
+            env,
+            cibw_environment,
+            bazel_startup_options,
+            bazel_build_options,
+        )
+        return
+
+  elif platform != "linux" and sys.platform.startswith("darwin"):
+    # macOS (and not building for linux via docker)
+    cibw_environment["MACOSX_DEPLOYMENT_TARGET"] = "10.14"
+
+    # Workaround for https://github.com/bazelbuild/bazel/issues/10472
+    bazel_build_options.append("--sandbox_block_path=/usr/local/include")
   else:
-    # macOS or Windows: build is performed without a container.
-    cibw_environment["BAZELISK_HOME"] = fix_path(bazelisk_home)
+    # Windows
+    # See https://github.com/protocolbuffers/protobuf/issues/12947
     bazel_startup_options.append(
-        "--output_user_root=" + fix_path(bazel_cache_dir)
+        "--output_base=" + pathlib.Path.home().drive + "/Out"
     )
 
-    if platform != "linux" and sys.platform.startswith("darwin"):
-      # macOS (and not building for linux via docker)
-      cibw_environment["MACOSX_DEPLOYMENT_TARGET"] = "10.14"
+  # macOS or Windows: build is performed without a container.
+  cibw_environment["BAZELISK_HOME"] = fix_path(bazelisk_home)
+  bazel_startup_options.append(
+      "--output_user_root=" + fix_path(bazel_cache_dir)
+  )
 
-      # Workaround for https://github.com/bazelbuild/bazel/issues/10472
-      bazel_build_options.append("--sandbox_block_path=/usr/local/include")
-    else:
-      # Windows
-      # See https://github.com/protocolbuffers/protobuf/issues/12947
-      bazel_startup_options.append(
-          "--output_base=" + pathlib.Path.home().drive + "/Out"
-      )
+  if extra_bazelrc:
+    bazel_startup_options.append("--bazelrc=" + fix_path(extra_bazelrc))
 
-    if extra_bazelrc:
-      bazel_startup_options.append("--bazelrc=" + fix_path(extra_bazelrc))
-    perform_build()
+  _perform_build(
+      root_dir,
+      platform,
+      extra_args,
+      env,
+      cibw_environment,
+      bazel_startup_options,
+      bazel_build_options,
+  )
 
 
 def main():

@@ -167,13 +167,13 @@ class AwsApi {
   aws_allocator *allocator() { return allocator_; }
 
   aws_client_bootstrap *client_bootstrap() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock l(&mutex_);
+    absl::MutexLock l(mutex_);
     init_client_bootstrap();
     return client_bootstrap_;
   }
 
   aws_tls_ctx *tls_ctx() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock l(&mutex_);
+    absl::MutexLock l(mutex_);
     init_tls_ctx();
     return tls_ctx_;
   }

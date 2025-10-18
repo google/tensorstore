@@ -16,15 +16,16 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/testing/json_gtest.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr::Compressor;
+using ::testing::HasSubstr;
 
 TEST(ParseCompressorTest, Null) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto compressor,
@@ -42,23 +43,23 @@ TEST(ParseCompressorTest, ZlibSuccess) {
 TEST(ParseCompressorTest, ZlibFailure) {
   EXPECT_THAT(
       Compressor::FromJson(::nlohmann::json{{"id", "zlib"}, {"level", "a"}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing object member \"level\": .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"level\": ")));
 }
 
 TEST(ParseCompressorTest, UnsupportedId) {
   EXPECT_THAT(
       Compressor::FromJson(::nlohmann::json{{"id", "invalid"}, {"level", "a"}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing object member \"id\": "
-                    "\"invalid\" is not registered"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"id\": "
+                         "\"invalid\" is not registered")));
 }
 
 TEST(ParseCompressorTest, InvalidId) {
   EXPECT_THAT(Compressor::FromJson(::nlohmann::json{{"id", 5}, {"level", "a"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"id\": "
-                            "Expected string, but received: 5"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"id\": "
+                                 "Expected string, but received: 5")));
 }
 
 }  // namespace

@@ -37,10 +37,11 @@
 namespace {
 
 using ::tensorstore::AnyFlowReceiver;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::WriteProgress;
 using ::tensorstore::internal::DriverWrite;
 using ::tensorstore::internal::DriverWriteOptions;
+using ::testing::HasSubstr;
 
 class ChunkErrorDriver : public tensorstore::internal::Driver {
  public:
@@ -81,7 +82,7 @@ TEST(WriteTest, ChunkError) {
        /*.transform=*/tensorstore::IdentityTransform(0)},
       std::move(options));
   EXPECT_THAT(write_result.copy_future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Chunk error"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Chunk error")));
   EXPECT_EQ(write_result.copy_future.status(),
             write_result.commit_future.status());
 }

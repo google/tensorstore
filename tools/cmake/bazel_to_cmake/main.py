@@ -34,7 +34,7 @@ from .evaluation import EvaluationState
 from .platforms import add_platform_constraints
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
-from .starlark.common_providers import BuildSettingProvider
+from .starlark.common_providers import BuildSettingInfo
 from .starlark.common_providers import ConditionProvider
 from .starlark.provider import TargetInfo
 from .util import get_matching_build_files
@@ -312,7 +312,7 @@ bazel_to_cmake.py encountered errors
     # * Build and configuration settings.
     def _persist_targetinfo(target: TargetId, info: TargetInfo):
       if (
-          info.get(BuildSettingProvider) is not None
+          info.get(BuildSettingInfo) is not None
           or info.get(ConditionProvider) is not None
       ):
         workspace.set_persistent_target_info(target, info)

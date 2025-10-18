@@ -345,6 +345,7 @@ tensorstore_cc_library(
     name = "future",
     srcs = [
         "future.cc",
+        "future_impl.cc",
     ],
     hdrs = [
         "future.h",
@@ -355,6 +356,7 @@ tensorstore_cc_library(
         ":result",
         ":span",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:lldb_scripting",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/internal/meta:attributes",
@@ -368,6 +370,8 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/hash",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:has_ostream_operator",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
     ],
@@ -390,6 +394,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/internal/testing:concurrent",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
         "@google_benchmark//:benchmark",
         "@googletest//:gtest_main",
@@ -522,6 +527,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "result",
+    srcs = ["result_impl.cc"],
     hdrs = [
         "result.h",
         "result_impl.h",
@@ -533,10 +539,11 @@ tensorstore_cc_library(
         "//tensorstore/internal/preprocessor:cat",
         "//tensorstore/internal/preprocessor:expand",
         "@abseil-cpp//absl/base:core_headers",
-        "@abseil-cpp//absl/log:absl_check",
-        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/base:nullability",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:has_ostream_operator",
     ],
 )
 
@@ -643,7 +650,9 @@ tensorstore_cc_test(
         ":status",
         ":status_testutil",
         ":str_cat",
+        "//tensorstore/internal:source_location",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
     ],
 )
@@ -717,6 +726,7 @@ tensorstore_cc_test(
         ":utf8_string",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )

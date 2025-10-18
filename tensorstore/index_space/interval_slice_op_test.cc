@@ -16,13 +16,17 @@
 /// DimExpression::{{Translate,}{Closed,HalfOpen,Sized}Interval,Stride}
 /// operations.
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
-#include "tensorstore/util/status.h"
 
 namespace {
 
@@ -383,7 +387,7 @@ TEST(ClosedIntervalTest, OneDimensionalArrayNonStridedInvalidOneElement) {
           .Finalize()
           .value(),
       AllDims().ClosedInterval(-1, -1), absl::StatusCode::kOutOfRange,
-      "Index 5 is outside valid range \\[3, 5\\)");
+      testing::HasSubstr("Index 5 is outside valid range [3, 5)"));
 }
 
 TEST(SliceTranslateClosedIntervalTest, OneDimensionalArrayNonStrided) {
@@ -679,7 +683,7 @@ TEST(SliceHalfOpenIntervalTest, ErrorHandling) {
       IndexTransformBuilder<1, 0>().Finalize().value(),
       Dims(0).HalfOpenInterval(6, std::numeric_limits<Index>::min() + 1),
       absl::StatusCode::kInvalidArgument,
-      StrCat(".* do not specify a valid closed index interval"));
+      testing::HasSubstr("do not specify a valid closed index interval"));
 }
 
 TEST(SliceClosedIntervalTest, ErrorHandling) {
@@ -690,7 +694,7 @@ TEST(SliceClosedIntervalTest, ErrorHandling) {
                              .value(),
                          Dims(0).ClosedInterval(6, 10, 0),
                          absl::StatusCode::kInvalidArgument,
-                         ".*Invalid stride 0");
+                         testing::HasSubstr("Invalid stride 0"));
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 0>()
@@ -699,13 +703,15 @@ TEST(SliceClosedIntervalTest, ErrorHandling) {
           .Finalize()
           .value(),
       Dims(0).ClosedInterval(6, 4), absl::StatusCode::kInvalidArgument,
-      ".*\\(6, 4\\) do not specify a valid closed index interval");
+      testing::HasSubstr(
+          "(6, 4) do not specify a valid closed index interval"));
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 0>().input_shape({10}).Finalize().value(),
       Dims(0).ClosedInterval(-kInfIndex, 4, 2),
       absl::StatusCode::kInvalidArgument,
-      ".*Slicing with non-unit stride of 2 requires a finite start index");
+      testing::HasSubstr(
+          "Slicing with non-unit stride of 2 requires a finite start index"));
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 0>()
@@ -715,7 +721,8 @@ TEST(SliceClosedIntervalTest, ErrorHandling) {
           .value(),
       Dims(0).ClosedInterval(kInfIndex, 4, -2),
       absl::StatusCode::kInvalidArgument,
-      ".*Slicing with non-unit stride of -2 requires a finite start index");
+      testing::HasSubstr(
+          "Slicing with non-unit stride of -2 requires a finite start index"));
 
   TestDimExpressionError(IndexTransformBuilder<1, 0>()
                              .input_origin({5})
@@ -724,8 +731,8 @@ TEST(SliceClosedIntervalTest, ErrorHandling) {
                              .value(),
                          Dims(0).ClosedInterval(6, 15),
                          absl::StatusCode::kOutOfRange,
-                         ".*Slice interval \\[6, 16\\) is not "
-                         "contained within domain \\[5, 15\\)");
+                         testing::HasSubstr("Slice interval [6, 16) is not "
+                                            "contained within domain [5, 15)"));
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 1>()
@@ -736,7 +743,8 @@ TEST(SliceClosedIntervalTest, ErrorHandling) {
           .Finalize()
           .value(),
       Dims(0).ClosedInterval(5, 10, 3), absl::StatusCode::kInvalidArgument,
-      "Integer overflow computing offset for output dimension 0");
+      testing::HasSubstr(
+          "Integer overflow computing offset for output dimension 0"));
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 1>()
@@ -747,7 +755,8 @@ TEST(SliceClosedIntervalTest, ErrorHandling) {
           .Finalize()
           .value(),
       Dims(0).ClosedInterval(5, 10, 3), absl::StatusCode::kInvalidArgument,
-      "Integer overflow computing offset for output dimension 0");
+      testing::HasSubstr(
+          "Integer overflow computing offset for output dimension 0"));
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 1>()
@@ -758,33 +767,36 @@ TEST(SliceClosedIntervalTest, ErrorHandling) {
           .Finalize()
           .value(),
       Dims(0).ClosedInterval(5, 10, 2), absl::StatusCode::kInvalidArgument,
-      "Integer overflow computing stride for output dimension 0");
+      testing::HasSubstr(
+          "Integer overflow computing stride for output dimension 0"));
 }
 
 TEST(SliceTranslateClosedIntervalTest, ErrorHandling) {
-  TestDimExpressionError(IndexTransformBuilder<1, 0>().Finalize().value(),
-                         Dims(0).TranslateClosedInterval(-kInfIndex, 100),
-                         absl::StatusCode::kInvalidArgument,
-                         ".*Interval \\(-inf, 101\\) is not bounded below");
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 0>().Finalize().value(),
+      Dims(0).TranslateClosedInterval(-kInfIndex, 100),
+      absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Interval (-inf, 101) is not bounded below"));
 }
 
 TEST(SliceSizedIntervalTest, ErrorHandling) {
-  TestDimExpressionError(IndexTransformBuilder<1, 0>()
-                             .input_origin({5})
-                             .input_shape({10})
-                             .Finalize()
-                             .value(),
-                         Dims(0).SizedInterval(6, -2),
-                         absl::StatusCode::kInvalidArgument,
-                         ".*Negative size -2 specified for sized interval");
-  TestDimExpressionError(IndexTransformBuilder<1, 0>().Finalize().value(),
-                         Dims(0).SizedInterval(6, kInfIndex - 1, 100),
-                         absl::StatusCode::kOutOfRange,
-                         ".*Integer overflow computing slice result");
-  TestDimExpressionError(IndexTransformBuilder<1, 0>().Finalize().value(),
-                         Dims(0).SizedInterval(6, kInfSize - 1),
-                         absl::StatusCode::kOutOfRange,
-                         ".*Integer overflow computing slice result");
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 0>()
+          .input_origin({5})
+          .input_shape({10})
+          .Finalize()
+          .value(),
+      Dims(0).SizedInterval(6, -2), absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Negative size -2 specified for sized interval"));
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 0>().Finalize().value(),
+      Dims(0).SizedInterval(6, kInfIndex - 1, 100),
+      absl::StatusCode::kOutOfRange,
+      testing::HasSubstr("Integer overflow computing slice result"));
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 0>().Finalize().value(),
+      Dims(0).SizedInterval(6, kInfSize - 1), absl::StatusCode::kOutOfRange,
+      testing::HasSubstr("Integer overflow computing slice result"));
 }
 
 TEST(SliceSizedIntervalTest, OneDimensionalUnstrided) {
@@ -1020,7 +1032,8 @@ TEST(StrideTest, ErrorZeroStride) {
   TestDimExpressionError(
       IndexTransformBuilder<1, 0>().Finalize().value(), Dims(0).Stride(0),
       absl::StatusCode::kInvalidArgument,
-      StrCat("Applying stride to input dimension 0: Stride must be non-zero"));
+      testing::HasSubstr(
+          "Applying stride to input dimension 0: Stride must be non-zero"));
 }
 
 TEST(StrideTest, ErrorStrideOverflow) {
@@ -1032,7 +1045,8 @@ TEST(StrideTest, ErrorStrideOverflow) {
           .value(),
       Dims(0).Stride(std::numeric_limits<Index>::min()),
       absl::StatusCode::kInvalidArgument,
-      StrCat("Integer overflow computing stride for output dimension 0"));
+      testing::HasSubstr(
+          "Integer overflow computing stride for output dimension 0"));
 }
 
 TEST(BoxSliceTest, Example) {

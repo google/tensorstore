@@ -43,12 +43,13 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::IndexTransformView;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeScalarArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::SharedArray;
 using ::tensorstore::SharedArrayView;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::TransformInputBroadcastableArray;
 using ::tensorstore::TransformOutputBroadcastableArray;
+using ::testing::HasSubstr;
 
 /// Tests round tripping, with both the `input_array` and `output_array`
 /// specified.
@@ -192,11 +193,10 @@ TEST(TransformInputBroadcastableArrayTest, ConstantMap) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto transform,
       IndexTransformBuilder(0, 1).output_constant(0, 42).Finalize());
-  EXPECT_THAT(
-      TransformInputBroadcastableArray(transform, array),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Cannot transform input array through constant output index map"));
+  EXPECT_THAT(TransformInputBroadcastableArray(transform, array),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot transform input array through "
+                                 "constant output index map")));
 }
 
 TEST(TransformInputBroadcastableArrayTest, NonUnitStrideMap) {
@@ -206,9 +206,9 @@ TEST(TransformInputBroadcastableArrayTest, NonUnitStrideMap) {
                           .output_single_input_dimension(0, 5, 2, 0)
                           .Finalize());
   EXPECT_THAT(TransformInputBroadcastableArray(transform, array),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot transform input array through "
-                            "non-unit-stride output index map"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot transform input array through "
+                                 "non-unit-stride output index map")));
 }
 
 TEST(TransformInputBroadcastableArrayTest, ArrayMap) {
@@ -221,9 +221,10 @@ TEST(TransformInputBroadcastableArrayTest, ArrayMap) {
           .Finalize());
   EXPECT_THAT(
       TransformInputBroadcastableArray(transform, array),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Cannot transform input array through array output index map"));
+          HasSubstr(
+              "Cannot transform input array through array output index map")));
 }
 
 TEST(TransformInputBroadcastableArrayTest, Diagonal) {
@@ -235,9 +236,10 @@ TEST(TransformInputBroadcastableArrayTest, Diagonal) {
                                        .Finalize());
   EXPECT_THAT(
       TransformInputBroadcastableArray(transform, array),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot transform input array with multiple "
-                    "output dimensions mapping to the same input dimension"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot transform input array with multiple "
+                    "output dimensions mapping to the same input dimension")));
 }
 
 TEST(TransformInputBroadcastableArrayTest, UnmappedNoError) {
@@ -258,9 +260,10 @@ TEST(TransformInputBroadcastableArrayTest, UnmappedError) {
                                        .Finalize());
   EXPECT_THAT(
       TransformInputBroadcastableArray(transform, array),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Cannot transform input array; dimension 0 cannot be mapped"));
+          HasSubstr(
+              "Cannot transform input array; dimension 0 cannot be mapped")));
 }
 
 TEST(TransformInputBroadcastableArrayTest, ExtraDimensionError) {
@@ -268,9 +271,10 @@ TEST(TransformInputBroadcastableArrayTest, ExtraDimensionError) {
   EXPECT_THAT(
       TransformInputBroadcastableArray(tensorstore::IdentityTransform(1),
                                        array),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Cannot transform input array; dimension 0 cannot be mapped"));
+          HasSubstr(
+              "Cannot transform input array; dimension 0 cannot be mapped")));
 }
 
 TEST(TransformInputBroadcastableArrayTest, ExtraDimensionNoError) {

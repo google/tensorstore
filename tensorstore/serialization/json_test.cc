@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/serialization/serialization.h"
@@ -25,9 +26,10 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+using ::testing::HasSubstr;
 
 TEST(SerializationTest, Valid) {
   TestSerializationRoundTrip(::nlohmann::json(5));
@@ -37,8 +39,8 @@ TEST(SerializationTest, Valid) {
 TEST(SerializationTest, Invalid) {
   EXPECT_THAT(SerializationRoundTrip(
                   ::nlohmann::json(::nlohmann::json::value_t::discarded)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot encode discarded json value.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot encode discarded json value")));
 }
 
 }  // namespace

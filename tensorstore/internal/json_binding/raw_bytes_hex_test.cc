@@ -29,7 +29,8 @@ namespace jb = tensorstore::internal_json_binding;
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(RawBytesHexTest, RoundTrip) {
   tensorstore::TestJsonBinderRoundTrip<std::array<unsigned char, 3>>(
@@ -49,11 +50,12 @@ TEST(RawBytesHexTest, Invalid) {
   tensorstore::TestJsonBinderFromJson<std::array<unsigned char, 3>>(
       {
           {1,
-           MatchesStatus(absl::StatusCode::kInvalidArgument,
-                         "Expected string with 6 hex digits, but received: 1")},
-          {"0102zb", MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                   "Expected string with 6 hex "
-                                   "digits, but received: \"0102zb\"")},
+           StatusIs(absl::StatusCode::kInvalidArgument,
+                    HasSubstr(
+                        "Expected string with 6 hex digits, but received: 1"))},
+          {"0102zb", StatusIs(absl::StatusCode::kInvalidArgument,
+                              HasSubstr("Expected string with 6 hex "
+                                        "digits, but received: \"0102zb\""))},
       },
       jb::RawBytesHex);
 }

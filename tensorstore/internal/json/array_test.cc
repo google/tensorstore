@@ -36,12 +36,13 @@ namespace {
 
 using ::nlohmann::json;
 using ::tensorstore::dtype_v;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::SharedArray;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_json::JsonEncodeNestedArray;
 using ::tensorstore::internal_json::JsonParseNestedArray;
 using ::tensorstore::internal_json::JsonValueAs;
+using ::testing::HasSubstr;
 
 TEST(JsonEncodeNestedArray, Rank0) {
   EXPECT_EQ((::nlohmann::json(1)),
@@ -136,15 +137,16 @@ TEST(JsonEncodeNestedArray, DataTypeConversionString) {
 TEST(JsonEncodeNestedArray, DataTypeConversionStringError) {
   EXPECT_THAT(JsonEncodeNestedArray(
                   tensorstore::MakeArray<std::string>({"a", "b\xff"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid UTF-8 sequence encountered"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid UTF-8 sequence encountered")));
 }
 
 TEST(JsonEncodeNestedArray, DataTypeConversionByteError) {
-  EXPECT_THAT(JsonEncodeNestedArray(tensorstore::MakeArray<std::byte>(
-                  {std::byte{1}, std::byte{2}})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Conversion from byte to JSON is not implemented"));
+  EXPECT_THAT(
+      JsonEncodeNestedArray(
+          tensorstore::MakeArray<std::byte>({std::byte{1}, std::byte{2}})),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Conversion from byte to JSON is not implemented")));
 }
 
 Result<int64_t> DecodeInt64(const ::nlohmann::json& v) {
@@ -174,42 +176,45 @@ TEST(JsonParseNestedArrayTest, InvalidRank) {
     j = ::nlohmann::json::array_t{j};
   }
   EXPECT_THAT(JsonParseNestedArray(j, &DecodeInt64),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Nesting level exceeds maximum rank of 32"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Nesting level exceeds maximum rank of 32")));
 }
 
 TEST(JsonParseNestedArrayTest, DecodeElementError) {
-  EXPECT_THAT(JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, "a"}},
-                                   &DecodeInt64),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing array element at position \\{1, "
-                            "2\\}: Invalid integer"));
+  EXPECT_THAT(
+      JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, "a"}},
+                           &DecodeInt64),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing array element at position {1, 2}: "
+                         "Invalid integer")));
 }
 
 TEST(JsonParseNestedArrayTest, TooShallow) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{{1, 2}, 2, 3}, {4, 5, 6}},
                            &DecodeInt64),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected rank-3 array, but found non-array element 2 at "
-                    "position \\{0, 1\\}\\."));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected rank-3 array, but found non-array element 2 at "
+                    "position {0, 1}.")));
 }
 
 TEST(JsonParseNestedArrayTest, TooDeep) {
-  EXPECT_THAT(JsonParseNestedArray(::nlohmann::json{{1, {2, 3}, 3}, {4, 5, 6}},
-                                   &DecodeInt64),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Expected rank-2 array, but found array element \\[2,3\\] at "
-                  "position \\{0, 1\\}\\."));
+  EXPECT_THAT(
+      JsonParseNestedArray(::nlohmann::json{{1, {2, 3}, 3}, {4, 5, 6}},
+                           &DecodeInt64),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Expected rank-2 array, but found array element [2,3] at "
+                    "position {0, 1}.")));
 }
 
 TEST(JsonParseNestedArrayTest, Ragged) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5}}, &DecodeInt64),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected array of shape \\{2, 3\\}, but found array "
-                    "element \\[4,5\\] of length 2 at position \\{1\\}."));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected array of shape {2, 3}, but found array "
+                         "element [4,5] of length 2 at position {1}.")));
 }
 
 TEST(JsonParseNestedArrayTest, ZeroSize) {
@@ -231,8 +236,8 @@ TEST(JsonParseNestedArrayTest, DataTypeConversionIntRankError) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, 6}},
                            dtype_v<int32_t>, 3),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Array rank \\(2\\) does not match expected rank \\(3\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Array rank (2) does not match expected rank (3)")));
 }
 
 TEST(JsonParseNestedArrayTest, DataTypeConversionString) {
@@ -247,17 +252,17 @@ TEST(JsonParseNestedArray, DataTypeConversionStringError) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{"a", "b", 3}, {"d", "e", "f"}},
                            dtype_v<std::string>, 2),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing array element at position \\{0, 2\\}: "
-                    "Expected string, but received: 3"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing array element at position {0, 2}: "
+                         "Expected string, but received: 3")));
 }
 
 TEST(JsonParseNestedArray, DataTypeConversionByteError) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{"a", "b", 3}, {"d", "e", "f"}},
                            dtype_v<std::byte>, 2),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Conversion from JSON to byte is not implemented"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Conversion from JSON to byte is not implemented")));
 }
 
 }  // namespace

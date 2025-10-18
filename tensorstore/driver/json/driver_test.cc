@@ -48,13 +48,14 @@ namespace kvstore = tensorstore::kvstore;
 
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeScalarArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreSpecRoundtripNormalize;
 using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
+using ::testing::HasSubstr;
 using ::testing::Optional;
 using ::testing::Pair;
 
@@ -88,8 +89,8 @@ TEST(JsonDriverTest, Basic) {
       auto store_c_x, tensorstore::Open(GetSpec("/c/x"), context).result());
 
   EXPECT_THAT(tensorstore::Read(store_a).result(),
-              MatchesStatus(absl::StatusCode::kNotFound,
-                            "Error reading \"path\\.json\""));
+              StatusIs(absl::StatusCode::kNotFound,
+                       HasSubstr("Error reading \"path.json\"")));
 
   TENSORSTORE_EXPECT_OK(tensorstore::Write(MakeScalarArray(42), store_a));
 
@@ -125,7 +126,7 @@ TEST(JsonDriverTest, Basic) {
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
         MakeScalarArray<::nlohmann::json>({{"c", 50}}), store | transaction));
     EXPECT_THAT(tensorstore::Read(store_a | transaction).result(),
-                MatchesStatus(absl::StatusCode::kNotFound));
+                StatusIs(absl::StatusCode::kNotFound));
     // Actual contents of kvstore has not yet changed since transaction has not
     // been committed.
     EXPECT_THAT(
@@ -141,11 +142,12 @@ TEST(JsonDriverTest, Basic) {
       testing::ElementsAre(
           Pair(GetPath(), ::testing::MatcherCast<absl::Cord>(
                               ParseJsonMatches(::nlohmann::json{{"c", 50}})))));
-  EXPECT_THAT(tensorstore::Read(store_c_x).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error reading \"path.json\": "
-                            "JSON Pointer reference \"/c/x\" cannot be applied "
-                            "to number value: 50"));
+  EXPECT_THAT(
+      tensorstore::Read(store_c_x).result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Error reading \"path.json\": "
+                         "JSON Pointer reference \"/c/x\" cannot be applied "
+                         "to number value: 50")));
 
   TENSORSTORE_EXPECT_OK(
       kvstore::Write(kvs, GetPath(), absl::Cord("{\"x\":42}")));
@@ -171,9 +173,9 @@ TEST(JsonDriverTest, WriteIncompatibleWithExisting) {
   EXPECT_THAT(
       tensorstore::Write(MakeScalarArray<::nlohmann::json>(true), store_a)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error writing \"path\\.json\": JSON Pointer reference "
-                    "\"/a\" cannot be applied to number value: 42"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Error writing \"path.json\": JSON Pointer reference "
+                         "\"/a\" cannot be applied to number value: 42")));
 }
 
 TEST(JsonDriverTest, WriteDiscarded) {
@@ -211,9 +213,9 @@ TEST(JsonDriverTest, IncompatibleWrites) {
       tensorstore::Write(MakeScalarArray<::nlohmann::json>(true),
                          store_a | transaction)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error writing \"path\\.json\": JSON Pointer reference "
-                    "\"/a\" cannot be applied to number value: 42"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Error writing \"path.json\": JSON Pointer reference "
+                         "\"/a\" cannot be applied to number value: 42")));
 }
 
 TEST(JsonDriverTest, InvalidJson) {
@@ -224,16 +226,17 @@ TEST(JsonDriverTest, InvalidJson) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(GetSpec(""), context).result());
   EXPECT_THAT(tensorstore::Read(store).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error reading \"path\\.json\": Invalid JSON"));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Error reading \"path.json\": Invalid JSON")));
 }
 
 TEST(JsonDriverTest, InvalidSpec) {
   auto json_spec = GetSpec("foo");
-  EXPECT_THAT(tensorstore::Spec::FromJson(json_spec),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"json_pointer\": "
-                            "JSON Pointer does not start with '/': \"foo\""));
+  EXPECT_THAT(
+      tensorstore::Spec::FromJson(json_spec),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"json_pointer\": "
+                         "JSON Pointer does not start with '/': \"foo\"")));
 }
 
 TEST(JsonDriverTest, ReadError) {
@@ -253,8 +256,8 @@ TEST(JsonDriverTest, ReadError) {
     mock_key_value_store->read_requests.pop().promise.SetResult(
         absl::UnknownError("read error"));
     EXPECT_THAT(read_future.result(),
-                MatchesStatus(absl::StatusCode::kUnknown,
-                              "Error reading \"path\\.json\": read error"));
+                StatusIs(absl::StatusCode::kUnknown,
+                         HasSubstr("Error reading \"path.json\": read error")));
   }
 
   // Test read error handling during writeback
@@ -265,9 +268,10 @@ TEST(JsonDriverTest, ReadError) {
     TENSORSTORE_EXPECT_OK(write_future.copy_future);
     mock_key_value_store->read_requests.pop().promise.SetResult(
         absl::UnknownError("read error2"));
-    EXPECT_THAT(write_future.commit_future.result(),
-                MatchesStatus(absl::StatusCode::kUnknown,
-                              "Error reading \"path\\.json\": read error2"));
+    EXPECT_THAT(
+        write_future.commit_future.result(),
+        StatusIs(absl::StatusCode::kUnknown,
+                 HasSubstr("Error reading \"path.json\": read error2")));
   }
 }
 
@@ -402,16 +406,16 @@ TEST(DriverTest, InvalidFillValue) {
                                  {"kvstore", {{"driver", "memory"}}},
                                  {"schema", {{"fill_value", 42}}}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "fill_value not supported by json driver"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("fill_value not supported by json driver")));
 }
 
 TEST(SpecTest, InvalidFillValue) {
   EXPECT_THAT(tensorstore::Spec::FromJson({{"driver", "json"},
                                            {"kvstore", {{"driver", "memory"}}},
                                            {"schema", {{"fill_value", 42}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "fill_value not supported by json driver"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("fill_value not supported by json driver")));
 }
 
 TEST(DriverTest, InvalidCodec) {
@@ -419,8 +423,8 @@ TEST(DriverTest, InvalidCodec) {
                                  {"kvstore", {{"driver", "memory"}}},
                                  {"schema", {{"codec", {{"driver", "n5"}}}}}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "codec not supported by json driver"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("codec not supported by json driver")));
 }
 
 TEST(SpecTest, InvalidCodec) {
@@ -428,8 +432,8 @@ TEST(SpecTest, InvalidCodec) {
                   {{"driver", "json"},
                    {"kvstore", {{"driver", "memory"}}},
                    {"schema", {{"codec", {{"driver", "n5"}}}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "codec not supported by json driver"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("codec not supported by json driver")));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {

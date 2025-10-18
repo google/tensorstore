@@ -14,14 +14,18 @@
 
 """Shims for Python type checking rules."""
 
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+load("@rules_python//python:py_test.bzl", "py_test")
+
 def pytype_strict_library(**kwargs):
     """Python type checking not currently supported in open source builds."""
-    native.py_library(**kwargs)
+    py_library(**kwargs)
 
 def pytype_strict_binary(**kwargs):
     """Python type checking not currently supported in open source builds."""
-    native.py_binary(**kwargs)
+    py_binary(**kwargs)
 
 def pytype_strict_test(**kwargs):
     """Python type checking not currently supported in open source builds."""
-    native.py_test(**kwargs)
+    py_test(**kwargs)

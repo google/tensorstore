@@ -50,8 +50,9 @@ using ::tensorstore::Context;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
+using ::testing::HasSubstr;
 
 struct P {
   std::string driver;
@@ -200,7 +201,7 @@ TEST_P(ImageDriverReadTest, OpenSchemaDomainTooSmall) {
 
   EXPECT_THAT(
       tensorstore::Open(spec, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*Schema domain.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Schema domain")));
 }
 
 TEST_P(ImageDriverReadTest, OpenSchemaDomainTooLarge) {
@@ -222,7 +223,7 @@ TEST_P(ImageDriverReadTest, OpenSchemaDomainTooLarge) {
 
   EXPECT_THAT(
       tensorstore::Open(spec, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*Schema domain.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Schema domain")));
 }
 
 TEST_P(ImageDriverReadTest, OpenTransformTooLarge) {
@@ -245,7 +246,7 @@ TEST_P(ImageDriverReadTest, OpenTransformTooLarge) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));
 
   EXPECT_THAT(tensorstore::Open(spec, context).result(),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST_P(ImageDriverReadTest, OpenTransformSmall) {
@@ -319,14 +320,14 @@ TEST_P(ImageDriverReadTest, ReadTransactionError) {
   // But read/write/resolve are unsupported.
   EXPECT_THAT(
       tensorstore::Read(store).result(),
-      MatchesStatus(absl::StatusCode::kUnimplemented, ".*transaction.*"));
+      StatusIs(absl::StatusCode::kUnimplemented, HasSubstr("transaction")));
 }
 
 TEST_P(ImageDriverReadTest, MissingPath_Open) {
   auto context = tensorstore::Context::Default();
   auto spec = GetSpec();
   EXPECT_THAT(tensorstore::Open(spec).result(),
-              MatchesStatus(absl::StatusCode::kNotFound));
+              StatusIs(absl::StatusCode::kNotFound));
 }
 
 TEST(ImageDriverErrors, NoKvStore) {
@@ -335,7 +336,7 @@ TEST(ImageDriverErrors, NoKvStore) {
                             {"driver", "png"},
                         })
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"kvstore\".*"));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"kvstore\"")));
 }
 
 TEST(ImageDriverErrors, Mode) {
@@ -350,8 +351,8 @@ TEST(ImageDriverErrors, Mode) {
                     },
                     mode)
                     .result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              ".*: only reading is supported"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(": only reading is supported")));
   }
 }
 
@@ -366,21 +367,22 @@ TEST(ImageDriverErrors, RankMismatch) {
                        }},
                   })
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("rank")));
 }
 
 TEST(ImageDriverErrors, DomainOrigin) {
-  EXPECT_THAT(tensorstore::Open(
-                  {
-                      {"driver", "png"},
-                      {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
-                      {"schema",
-                       {
-                           {"domain", {{"inclusive_min", {0, 0, 1}}}},
-                       }},
-                  })
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*origin.*"));
+  EXPECT_THAT(
+      tensorstore::Open(
+          {
+              {"driver", "png"},
+              {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
+              {"schema",
+               {
+                   {"domain", {{"inclusive_min", {0, 0, 1}}}},
+               }},
+          })
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("origin")));
 }
 
 TEST(ImageDriverErrors, DimensionUnits) {
@@ -395,7 +397,7 @@ TEST(ImageDriverErrors, DimensionUnits) {
                   })
                   .result(),
               // dimension_units sets schema.rank
-              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("rank")));
 }
 
 // TODO: schema.fill_value

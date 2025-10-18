@@ -66,6 +66,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate_over_index_range.h"
@@ -779,31 +780,43 @@ struct OpenLayerOp {
       Link(WithExecutor(
                self->data_copy_executor(),
                AfterOpenOp<StateType>{state, layer_i, std::move(kv.second)}),
-           state->promise,
+           state->read_or_write_state->promise,
            internal::OpenDriver(layer.GetTransformedDriverSpec(),
                                 std::move(request)));
     }
   }
 };
 
-// Asynchronous state for StackDriver::{Read,Write} that maintains reference
-// counts while the read/write operation is in progress.
+// Asynchronous state for StackDriver::{Read,Write} that is used to dispatch
+// the operations on each layer.  The `Batch` object is retained here, breaking
+// a potential reference cycle.
 template <typename ChunkType>
-struct ReadOrWriteState : public internal::ChunkOperationState<ChunkType> {
-  static constexpr ReadWriteMode kMode = std::is_same_v<ChunkType, ReadChunk>
-                                             ? ReadWriteMode::read
-                                             : ReadWriteMode::write;
+struct ReadOrWriteDispatchState : public internal::AtomicReferenceCount<
+                                      ReadOrWriteDispatchState<ChunkType>> {
   using RequestType = std::conditional_t<std::is_same_v<ChunkType, ReadChunk>,
                                          internal::Driver::ReadRequest,
                                          internal::Driver::WriteRequest>;
-  using Base = internal::ChunkOperationState<ChunkType>;
-  using State = ReadOrWriteState<ChunkType>;
-  using ForwardingReceiver = internal::ForwardingChunkOperationReceiver<State>;
+  static constexpr ReadWriteMode kMode = std::is_same_v<ChunkType, ReadChunk>
+                                             ? ReadWriteMode::read
+                                             : ReadWriteMode::write;
+  using State = internal::FlowSenderOperationState<ChunkType, IndexTransform<>>;
+  using ForwardingReceiver =
+      internal::ForwardingChunkOperationReceiver<ChunkType, State>;
 
-  using Base::Base;
+  explicit ReadOrWriteDispatchState(IntrusivePtr<StackDriver> self,
+                                    IntrusivePtr<State> read_or_write_state,
+                                    RequestType request)
+      : self(std::move(self)),
+        read_or_write_state(std::move(read_or_write_state)),
+        request(std::move(request)) {}
 
   IntrusivePtr<StackDriver> self;
+  IntrusivePtr<State> read_or_write_state;
   RequestType request;
+
+  void SetError(absl::Status error) {
+    read_or_write_state->SetError(std::move(error));
+  }
 
   // Initiate the read of an individual transform; dispatched by AfterOpenOp
   void Dispatch(const internal::Driver::Handle& h,
@@ -820,30 +833,31 @@ struct ReadOrWriteState : public internal::ChunkOperationState<ChunkType> {
       }
     }();
 
-    (h.driver.get()->*method)(std::move(sub_request),
-                              ForwardingReceiver{IntrusivePtr<State>(this),
-                                                 std::move(cell_transform)});
+    (h.driver.get()->*method)(
+        std::move(sub_request),
+        ForwardingReceiver{read_or_write_state, std::move(cell_transform)});
   }
 
   static void Start(
       StackDriver& driver, RequestType&& request,
       AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>>&& receiver) {
-    auto state = MakeIntrusivePtr<State>(std::move(receiver));
-    const auto& executor = driver.data_copy_executor();
-    state->self = IntrusivePtr<StackDriver>(&driver);
-    state->request = std::move(request);
-    executor(OpenLayerOp<State>{std::move(state)});
+    auto dispatch_state = MakeIntrusivePtr<ReadOrWriteDispatchState<ChunkType>>(
+        IntrusivePtr<StackDriver>(&driver),
+        MakeIntrusivePtr<State>(std::move(receiver)), std::move(request));
+    driver.data_copy_executor()(
+        OpenLayerOp<ReadOrWriteDispatchState<ChunkType>>{
+            std::move(dispatch_state)});
   }
 };
 
 void StackDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
-  ReadOrWriteState<ReadChunk>::Start(*this, std::move(request),
-                                     std::move(receiver));
+  ReadOrWriteDispatchState<ReadChunk>::Start(*this, std::move(request),
+                                             std::move(receiver));
 }
 
 void StackDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
-  ReadOrWriteState<WriteChunk>::Start(*this, std::move(request),
-                                      std::move(receiver));
+  ReadOrWriteDispatchState<WriteChunk>::Start(*this, std::move(request),
+                                              std::move(receiver));
 }
 
 Result<internal::ReadWritePtr<StackDriver>> MakeDriverFromLayerSpecs(

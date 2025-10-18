@@ -61,7 +61,7 @@ void RegisterScheme(std::string_view scheme, UrlSchemeHandler handler,
                     UrlSchemeKind scheme_kind) {
   internal::RegisterUrlSchemeKind(scheme, scheme_kind);
   auto& registry = GetUrlSchemeRegistry();
-  absl::MutexLock lock(&registry.mutex);
+  absl::MutexLock lock(registry.mutex);
   if (!registry.handlers.emplace(scheme, handler).second) {
     ABSL_LOG(FATAL) << scheme << " already registered";
   }
@@ -109,7 +109,7 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrlImpl(
   Handler handler;
   {
     auto& registry = GetUrlSchemeRegistry();
-    absl::MutexLock lock(&registry.mutex);
+    absl::MutexLock lock(registry.mutex);
     auto it = registry.handlers.find(scheme);
     if (it == registry.handlers.end() ||
         !std::holds_alternative<Handler>(it->second)) {

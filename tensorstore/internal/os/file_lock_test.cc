@@ -32,17 +32,19 @@
 #include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::IsOk;
 using ::tensorstore::IsOkAndHolds;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_os::AcquireExclusiveFile;
 using ::tensorstore::internal_os::AcquireFileLock;
 using ::tensorstore::internal_os::FileDescriptorTraits;
 using ::tensorstore::internal_os::FileLock;
+using ::tensorstore::internal_os::TruncateAndOverwrite;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 
 namespace {
@@ -101,7 +103,18 @@ TEST(AcquireExclusiveFileTest, FileExistsNotAcquired) {
 
   // The lock is stale, so it should be deleted.
   auto lock = AcquireExclusiveFile(lock_path, absl::Milliseconds(100));
-  EXPECT_THAT(lock, MatchesStatus(absl::StatusCode::kDeadlineExceeded));
+  EXPECT_THAT(lock, StatusIs(absl::StatusCode::kDeadlineExceeded));
+}
+
+TEST(TruncateAndOverwrite, Basic) {
+  /// Lock file does not exist.
+  ScopedTemporaryDirectory tempdir;
+  std::string lock_path = tempdir.path() + "/foo.txt";
+  auto lock = TruncateAndOverwrite(lock_path);
+  EXPECT_THAT(lock, IsOk());
+  EXPECT_NE(lock->fd(), FileDescriptorTraits::Invalid());
+
+  EXPECT_THAT(std::move(lock).value().Delete(), IsOk());
 }
 
 }  // namespace

@@ -27,6 +27,7 @@
 #include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/util/status_testutil.h"
 
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_http::DefaultMockHttpTransport;
 using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
@@ -112,7 +113,7 @@ TEST(ValidateEndpointTest, Basic) {
   // error: kOldUSEast1 bucket not in us-east-1
   EXPECT_THAT(ValidateEndpoint("OldBucket", "us-west-1", {}, {}),
               ::testing::VariantWith<absl::Status>(
-                  tensorstore::StatusIs(absl::StatusCode::kInvalidArgument)));
+                  StatusIs(absl::StatusCode::kInvalidArgument)));
 
   EXPECT_THAT(ValidateEndpoint("testbucket", "region", "http://my.host", {}),
               ::testing::VariantWith<S3EndpointRegion>(
@@ -128,7 +129,7 @@ TEST(ValidateEndpointTest, Basic) {
   // error: host header with empty endpoint
   EXPECT_THAT(ValidateEndpoint("testbucket", {}, {}, "my.header"),
               ::testing::VariantWith<absl::Status>(
-                  tensorstore::StatusIs(absl::StatusCode::kInvalidArgument)));
+                  StatusIs(absl::StatusCode::kInvalidArgument)));
 }
 
 // Mock-based tests for s3.
@@ -212,7 +213,7 @@ TEST(ResolveEndpointRegion, Error) {
            absl::InternalError("Mock error")}});
   EXPECT_THAT(
       ResolveEndpointRegion("testbucket", {}, {}, mock_transport).result(),
-      tensorstore::StatusIs(absl::StatusCode::kInternal, "Mock error"));
+      StatusIs(absl::StatusCode::kInternal, "Mock error"));
 }
 
 }  // namespace

@@ -359,7 +359,7 @@ class GcsKeyValueStore
 
   // Returns the Auth header for a GCS request.
   Result<std::optional<std::string>> GetAuthHeader() {
-    absl::MutexLock lock(&auth_provider_mutex_);
+    absl::MutexLock lock(auth_provider_mutex_);
     if (!auth_provider_) {
       auto result = GetSharedGoogleAuthProvider(transport_);
       if (!result.ok() && absl::IsNotFound(result.status())) {
@@ -488,7 +488,7 @@ void AddUniqueQueryParameterToDisableCaching(std::string& url) {
   };
   static RandomState random_state;
   uint64_t uuid[2];
-  absl::MutexLock lock(&random_state.mutex);
+  absl::MutexLock lock(random_state.mutex);
   for (auto& x : uuid) {
     x = absl::Uniform<uint64_t>(random_state.gen);
   }

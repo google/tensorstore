@@ -123,24 +123,29 @@ def _configure_macos_deployment_target():
   # order to support sized/aligned operator new/delete.
   min_macos_target = '10.14'
   key = 'MACOSX_DEPLOYMENT_TARGET'
-  python_macos_target = str(sysconfig.get_config_var(key))
-  macos_target = python_macos_target
-  if macos_target and (
-      _parse_version(macos_target) < _parse_version(min_macos_target)
-  ):
-    macos_target = min_macos_target
 
-  macos_target_override = os.getenv(key)
-  if macos_target_override:
-    if _parse_version(macos_target_override) < _parse_version(macos_target):
-      print(
-          '%s=%s is set in environment but >= %s is required by this package '
-          'and >= %s is required by the current Python build'
-          % (key, macos_target_override, min_macos_target, python_macos_target)
-      )
-      sys.exit(1)
+  macos_target = min_macos_target
+
+  # The specific python version may have a different target.
+  # Use that if it is higher than the tensorstore minimum.
+  sysconfig_macos_target = str(sysconfig.get_config_var(key))
+  if sysconfig_macos_target and _parse_version(
+      sysconfig_macos_target
+  ) >= _parse_version(macos_target):
+    macos_target = sysconfig_macos_target
+
+  # The environment variable may be set by the user.
+  # Use that if it is higher than the tensorstore minimum, otherwise log.
+  env_macos_target = os.getenv(key)
+  if env_macos_target:
+    if _parse_version(env_macos_target) >= _parse_version(macos_target):
+      macos_target = env_macos_target
     else:
-      macos_target = macos_target_override
+      print(
+          f'WARNING: {key}={env_macos_target} is set in environment but '
+          f' >={min_macos_target} is required by this package and '
+          f' >={sysconfig_macos_target} is required by the current Python build'
+      )
 
   # Set MACOSX_DEPLOYMENT_TARGET in the environment, because the `wheel` package
   # checks there.  Note that Bazel receives the version via a command-line
@@ -239,6 +244,12 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             build_flags.append('--copt=/Ox')
           else:
             build_flags.append('--copt=-O3')
+
+        version_stamp = self.distribution.get_version()
+        if version_stamp:
+          build_flags.append(
+              '--//tensorstore/internal/version=%s' % version_stamp
+          )
 
         build_command = (
             [sys.executable, '-u', bazelisk]

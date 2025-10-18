@@ -14,6 +14,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
@@ -30,7 +31,8 @@ using ::tensorstore::Index;
 using ::tensorstore::IndexDomainBuilder;
 using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(IndexTransformSliceByBoxTest, Simple) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transform,
@@ -85,9 +87,9 @@ TEST(IndexTransformSliceByBoxTest, OutOfBounds) {
   Box<> box({1, -1, 3}, {2, 2, 1});
   EXPECT_THAT(
       transform | box,
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Cannot slice dimension 1 \\{\"y\": \\[1, 5\\)\\} with "
-                    "interval \\{\\[-1, 1\\)\\}"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Cannot slice dimension 1 {\"y\": [1, 5)} with "
+                         "interval {[-1, 1)}")));
 }
 
 TEST(IndexTransformSliceByBoxTest, RankMismatch) {
@@ -101,9 +103,9 @@ TEST(IndexTransformSliceByBoxTest, RankMismatch) {
   Box<> box({1, 1}, {2, 2});
   EXPECT_THAT(
       transform | box,
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Rank of index domain \\(3\\) must match rank of box \\(2\\)"));
+          HasSubstr("Rank of index domain (3) must match rank of box (2)")));
 }
 
 TEST(IndexTransformSliceByBoxTest, IndexArray) {

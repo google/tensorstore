@@ -29,7 +29,7 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 
 namespace blosc = tensorstore::blosc;
 
@@ -166,7 +166,7 @@ TEST(BloscTest, TooLong) {
                          /*.element_size=*/1};
   EXPECT_THAT(
       blosc::Encode(std::string(BLOSC_MAX_BUFFERSIZE + 1, '\0'), options),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Tests that decoding data with a corrupted blosc header returns an error.
@@ -182,7 +182,7 @@ TEST(BloscTest, DecodeHeaderCorrupted) {
   std::string corrupted = std::move(encoded);
   corrupted[0] = 0;
   EXPECT_THAT(blosc::Decode(corrupted),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Tests that decoding data with an incomplete blosc header returns an error.
@@ -196,7 +196,7 @@ TEST(BloscCompressorTest, DecodeHeaderTruncated) {
                                           /*element_size=*/1}));
   ASSERT_GE(encoded.size(), 5);
   EXPECT_THAT(blosc::Decode(std::string_view(encoded).substr(0, 5)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Tests that decoding truncated data returns an error.
@@ -210,7 +210,7 @@ TEST(BloscCompressorTest, DecodeDataTruncated) {
                                           /*element_size=*/1}));
   EXPECT_THAT(blosc::Decode(
                   std::string_view(encoded).substr(0, BLOSC_MIN_HEADER_LENGTH)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

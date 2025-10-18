@@ -68,7 +68,7 @@ SharedThreadPool::SharedThreadPool() : waiting_(128) {
 
 void SharedThreadPool::NotifyWorkAvailable(
     internal::IntrusivePtr<TaskProvider> task_provider) {
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   if (in_queue_.insert(task_provider.get()).second) {
     waiting_.push_back(std::move(task_provider));
   }
@@ -131,7 +131,7 @@ void SharedThreadPool::Overseer::OverseerBody() {
   absl::Time now = absl::Now();
   idle_start_time_ = now;
   absl::Time deadline = absl::InfinitePast();
-  absl::MutexLock lock(&pool_->mutex_);
+  absl::MutexLock lock(pool_->mutex_);
   while (true) {
     pool_->overseer_condvar_.WaitWithDeadline(&pool_->mutex_, deadline);
     now = absl::Now();
@@ -209,7 +209,7 @@ void SharedThreadPool::Worker::WorkerBody() {
     absl::Time now = absl::Now();
     absl::Time deadline = now + kThreadIdleBeforeExit;
     {
-      absl::MutexLock lock(&pool_->mutex_);
+      absl::MutexLock lock(pool_->mutex_);
       ScopedIncDec idle(pool_->idle_threads_);
       while (!task_provider_) {
         bool active = pool_->mutex_.AwaitWithDeadline(

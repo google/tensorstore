@@ -29,6 +29,10 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "tensorstore/internal/ascii_set.h"
+#include "tensorstore/internal/path.h"
+#include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -53,6 +57,10 @@ static inline constexpr AsciiSet kSchemeChars{
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
     "+-._"};  // NOTE: rfc3986 scheme do not allow '_'
+
+bool IsWindowsDriveLetter(std::string_view path) {
+  return path.length() >= 2 && path[1] == ':' && absl::ascii_isalpha(path[0]);
+}
 
 }  // namespace
 
@@ -226,32 +234,66 @@ std::optional<HostPort> SplitHostPort(std::string_view host_port) {
   return HostPort{host_port.substr(0, colon), host_port.substr(colon + 1)};
 }
 
-std::string OsPathToUriPath(std::string_view path) {
-  bool is_root_path =
-      (path.size() > 2 && absl::ascii_isalpha(path[0]) && path[1] == ':') ||
-      (!path.empty() && path[0] == '/');
-#ifdef _WIN32
-  constexpr const char kPathSeparator[] = "/\\";
-#else
-  constexpr const char kPathSeparator[] = "/";
-#endif
-  auto splitter = absl::StrSplit(path, absl::ByAnyChar(kPathSeparator));
-  auto it = splitter.begin();
-  if (it->empty()) it++;
-  std::string joined_path = absl::StrJoin(it, splitter.end(), "/");
-  if (is_root_path) {
-    joined_path.insert(0, 1, '/');
+Result<std::string> OsPathToFileUri(std::string_view path) {
+  if (!IsAbsolutePath(path)) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "file: URIs do not support relative paths: ", QuoteString(path)));
   }
-  return PercentEncodeUriPath(joined_path);
+
+  std::string_view authority_part;
+  if (std::string_view root_name = internal::PathRootName(path);
+      !root_name.empty() && !IsWindowsDriveLetter(root_name)) {
+    path.remove_prefix(root_name.size());
+    authority_part = root_name.substr(2);
+  }
+
+#ifdef _WIN32
+  constexpr const char kDirSeparator[] = "/\\";
+#else
+  constexpr const char kDirSeparator[] = "/";
+#endif
+
+  auto splitter = absl::StrSplit(path, absl::ByAnyChar(kDirSeparator));
+  auto it = splitter.begin();
+  while (it != splitter.end() && it->empty()) it++;
+  return absl::StrCat(
+      "file://", authority_part, "/",
+      PercentEncodeUriPath(absl::StrJoin(it, splitter.end(), "/")));
 }
 
-std::string UriPathToOsPath(std::string_view path) {
-  std::string result = PercentDecode(path);
-  if (result.size() > 3 && result[0] == '/' && absl::ascii_isalpha(result[1]) &&
-      result[2] == ':') {
-    return result.substr(1);
+Result<std::string> FileUriToOsPath(ParsedGenericUri parsed) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      EnsureSchemaWithAuthorityDelimiter(parsed, "file"));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
+
+  if (parsed.path.empty() || parsed.path[0] != '/') {
+    return absl::InvalidArgumentError(
+        absl::StrCat("file: URIs do not support relative paths: ",
+                     QuoteString(parsed.path)));
   }
-  return result;
+
+#ifdef _WIN32
+  if (std::string_view uri_path = parsed.path.substr(1);
+      IsWindowsDriveLetter(uri_path)) {
+    // Translate windows drive letter paths.
+    if (uri_path.size() > 2 && uri_path[2] != '/') {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "file: URIs do not support relative paths: ", QuoteString(uri_path)));
+    }
+    return LexicalNormalizePath(PercentDecode(uri_path));
+  } else if (!parsed.authority.empty()) {
+    // Allow windows network shares to be used via file uris.
+    return absl::StrCat("//", PercentDecode(parsed.authority),
+                        LexicalNormalizePath(PercentDecode(parsed.path)));
+  }
+#endif
+
+  if (!parsed.authority.empty() && parsed.authority != "localhost") {
+    return absl::InvalidArgumentError(
+        absl::StrCat("file: URIs do not support authority: ",
+                     QuoteString(parsed.authority)));
+  }
+  return LexicalNormalizePath(PercentDecode(parsed.path));
 }
 
 }  // namespace internal

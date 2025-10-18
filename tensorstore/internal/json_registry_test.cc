@@ -31,9 +31,10 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::JsonRegistry;
+using ::testing::HasSubstr;
 
 class MyInterface
     : public tensorstore::internal::AtomicReferenceCount<MyInterface> {
@@ -134,17 +135,17 @@ TEST(RegistryTest, Bar) {
 
 TEST(RegistryTest, Unknown) {
   EXPECT_THAT(MyInterfacePtr::FromJson({{"id", "baz"}, {"y", 42.5}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"id\": "
-                            "\"baz\" is not registered"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"id\": "
+                                 "\"baz\" is not registered")));
 }
 
 TEST(RegistryTest, UnknownCustomError) {
   EXPECT_THAT(jb::FromJson<MyInterfacePtr>({{"id", "baz"}, {"y", 42.5}},
                                            GetBinderWithCustomError()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"id\": "
-                            "custom error: baz"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"id\": "
+                                 "custom error: baz")));
 }
 
 }  // namespace

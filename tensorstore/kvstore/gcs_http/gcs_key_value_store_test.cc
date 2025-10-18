@@ -74,8 +74,8 @@ using ::tensorstore::Future;
 using ::tensorstore::GCSMockStorageBucket;
 using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesListEntry;
@@ -88,6 +88,7 @@ using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_oauth2::GoogleAuthTestScope;
+using ::testing::HasSubstr;
 
 static constexpr char kDriver[] = "gcs";
 
@@ -207,22 +208,22 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
       kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
   EXPECT_THAT(kvstore::Read(store, ".").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Read(store, "..").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Read(store, ".well-known/acme-challenge").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Read(store, "foo\nbar").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Read(store, "foo\rbar").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   {
     kvstore::ReadOptions options;
     options.generation_conditions.if_not_equal =
         StorageGeneration::FromString("abc123");
     EXPECT_THAT(kvstore::Read(store, "abc", options).result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 
@@ -289,7 +290,7 @@ TEST(GcsKeyValueStoreTest, Retry) {
       if (fail) {
         bucket.TriggerErrors(max_retries + 1);
         EXPECT_THAT(kvstore::Read(store, "x").result(),
-                    MatchesStatus(absl::StatusCode::kAborted));
+                    StatusIs(absl::StatusCode::kAborted));
       } else {
         bucket.TriggerErrors(max_retries - 2);
         TENSORSTORE_EXPECT_OK(kvstore::Read(store, "x").result());
@@ -442,16 +443,16 @@ TEST(GcsKeyValueStoreTest, InvalidSpec) {
           {{"driver", kDriver}, {"bucket", "my-bucket"}, {"extra", "key"}},
           context)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with missing `"bucket"` key.
   EXPECT_THAT(kvstore::Open({{"driver", kDriver}}, context).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"bucket"` key.
   EXPECT_THAT(
       kvstore::Open({{"driver", kDriver}, {"bucket", 5}}, context).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"path"`
   EXPECT_THAT(
@@ -459,8 +460,8 @@ TEST(GcsKeyValueStoreTest, InvalidSpec) {
           {{"driver", kDriver}, {"bucket", "my-bucket"}, {"path", "a\tb"}},
           context)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*Invalid GCS path.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid GCS path")));
 }
 
 TEST(GcsKeyValueStoreTest, RequestorPays) {
@@ -502,12 +503,11 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
                 bucket2_status_matcher);
   };
 
-  TestWrite(Context::Default(),
-            MatchesStatus(absl::StatusCode::kInvalidArgument));
+  TestWrite(Context::Default(), StatusIs(absl::StatusCode::kInvalidArgument));
   TestWrite(Context(Context::Spec::FromJson(
                         {{"gcs_user_project", {{"project_id", "badproject"}}}})
                         .value()),
-            MatchesStatus(absl::StatusCode::kInvalidArgument));
+            StatusIs(absl::StatusCode::kInvalidArgument));
   TestWrite(Context(Context::Spec::FromJson(
                         {{"gcs_user_project", {{"project_id", "myproject"}}}})
                         .value()),
@@ -574,7 +574,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
 class MyConcurrentMockTransport : public MyMockTransport {
  public:
   size_t reset() {
-    absl::MutexLock lock(&concurrent_request_mutex_);
+    absl::MutexLock lock(concurrent_request_mutex_);
     cur_concurrent_requests_ = 0;
     return std::exchange(max_concurrent_requests_, 0);
   }
@@ -594,7 +594,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
     }
 
     {
-      absl::MutexLock lock(&concurrent_request_mutex_);
+      absl::MutexLock lock(concurrent_request_mutex_);
       ++cur_concurrent_requests_;
       max_concurrent_requests_ =
           std::max(max_concurrent_requests_, cur_concurrent_requests_);
@@ -604,7 +604,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
     auto op = tensorstore::PromiseFuturePair<HttpResponse>::Make();
     ScheduleAt(absl::Now() + absl::Milliseconds(5),
                [this, r = request, o = std::move(options), response_handler] {
-                 absl::MutexLock lock(&concurrent_request_mutex_);
+                 absl::MutexLock lock(concurrent_request_mutex_);
                  --cur_concurrent_requests_;
                  MyMockTransport::IssueRequestWithHandler(r, std::move(o),
                                                           response_handler);
@@ -659,7 +659,7 @@ TEST(GcsKeyValueStoreTest, Concurrency) {
 class MyRateLimitedMockTransport : public MyMockTransport {
  public:
   std::tuple<absl::Time, absl::Time, size_t> reset() {
-    absl::MutexLock l(&request_timing_mutex_);
+    absl::MutexLock l(request_timing_mutex_);
     return {min_time_, max_time_, std::exchange(count_, 0)};
   }
 
@@ -676,7 +676,7 @@ class MyRateLimitedMockTransport : public MyMockTransport {
 
     // Measure the inter-request interval on non-auth requests.
     {
-      absl::MutexLock l(&request_timing_mutex_);
+      absl::MutexLock l(request_timing_mutex_);
       max_time_ = absl::Now();
       if (count_++ == 0) {
         min_time_ = max_time_;
@@ -755,22 +755,22 @@ TEST(GcsKeyValueStoreTest, UrlRoundtrip) {
 
 TEST(GcsKeyValueStoreTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Spec::FromUrl("gs:///"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket:xyz"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Invalid GCS bucket name: \"bucket:xyz\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid GCS bucket name: \"bucket:xyz\"")));
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket?query"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Query string not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Query string not supported")));
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket#fragment"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Fragment identifier not supported"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Fragment identifier not supported")));
   EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket/a%0Ab"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid GCS path.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid GCS path")));
 }
 
 TEST(GcsKeyValueStoreTest, BatchRead) {

@@ -39,8 +39,8 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::BtreeNode;
 using ::tensorstore::internal_ocdbt::BtreeNodeEncoder;
 using ::tensorstore::internal_ocdbt::Config;
@@ -49,6 +49,7 @@ using ::tensorstore::internal_ocdbt::EncodedNode;
 using ::tensorstore::internal_ocdbt::InteriorNodeEntry;
 using ::tensorstore::internal_ocdbt::kMaxNodeArity;
 using ::tensorstore::internal_ocdbt::LeafNodeEntry;
+using ::testing::HasSubstr;
 
 Result<std::vector<EncodedNode>> EncodeExistingNode(const Config& config,
                                                     const BtreeNode& node) {
@@ -239,8 +240,9 @@ absl::Status RoundTripRawBtree(const std::vector<unsigned char>& data) {
 TEST(BtreeNodeTest, CorruptTruncateBodyZeroSize) {
   EXPECT_THAT(
       RoundTripRawBtree({}),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Error decoding b-tree node: Unexpected end of data; .*"));
+      StatusIs(
+          absl::StatusCode::kDataLoss,
+          HasSubstr("Error decoding b-tree node: Unexpected end of data;")));
 }
 
 TEST(BtreeNodeTest, CorruptLeafTruncatedNumEntries) {
@@ -248,8 +250,9 @@ TEST(BtreeNodeTest, CorruptLeafTruncatedNumEntries) {
       RoundTripRawBtree({
           0,  // height
       }),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Error decoding b-tree node: Unexpected end of data; .*"));
+      StatusIs(
+          absl::StatusCode::kDataLoss,
+          HasSubstr("Error decoding b-tree node: Unexpected end of data;")));
 }
 
 TEST(BtreeNodeTest, CorruptLeafZeroNumEntries) {
@@ -263,8 +266,8 @@ TEST(BtreeNodeTest, CorruptLeafZeroNumEntries) {
           // Leaf node
           0,  // num_entries
       }),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Error decoding b-tree node: Empty b-tree node; .*"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               HasSubstr("Error decoding b-tree node: Empty b-tree node;")));
 }
 
 TEST(BtreeNodeTest, CorruptInteriorZeroNumEntries) {
@@ -278,8 +281,8 @@ TEST(BtreeNodeTest, CorruptInteriorZeroNumEntries) {
           // Interior node
           0,  // num_entries
       }),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Error decoding b-tree node: Empty b-tree node; .*"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               HasSubstr("Error decoding b-tree node: Empty b-tree node;")));
 }
 
 TEST(BtreeNodeTest, MaxArity) {

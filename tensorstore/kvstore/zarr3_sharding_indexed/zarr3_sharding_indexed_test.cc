@@ -83,10 +83,10 @@ using ::tensorstore::Future;
 using ::tensorstore::Index;
 using ::tensorstore::JsonSubValuesMatch;
 using ::tensorstore::KvStore;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::Result;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
@@ -106,6 +106,8 @@ using ::tensorstore::zarr3_sharding_indexed::EntryIdToKey;
 using ::tensorstore::zarr3_sharding_indexed::GetShardedKeyValueStore;
 using ::tensorstore::zarr3_sharding_indexed::ShardedKeyValueStoreParameters;
 using ::tensorstore::zarr3_sharding_indexed::ShardIndexLocation;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
@@ -542,22 +544,23 @@ TEST_F(RawEncodingTest, ShardIndexTooShort) {
   kvstore::DriverPtr store = GetStore(grid_shape);
   base_kv_store->Write("shard_path", Bytes({1, 2, 3})).value();
   EXPECT_THAT(store->Read(EntryIdToKey(1, grid_shape)).result(),
-              MatchesStatus(
-                  absl::StatusCode::kFailedPrecondition,
-                  RE2::QuoteMeta("Error reading shard index in \"shard_path\": "
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Error reading shard index in \"shard_path\": "
                                  "Requested byte range [-1604, ?) is not valid "
                                  "for value of size 3")));
   EXPECT_THAT(
       store->Write(EntryIdToKey(10, grid_shape), absl::Cord("abc")).result(),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Error reading \"shard_path\": "
+      StatusIs(
+          absl::StatusCode::kDataLoss,
+          HasSubstr("Error reading \"shard_path\": "
                     "Existing shard has size of 3 bytes, but expected at least "
-                    "1604 bytes"));
+                    "1604 bytes")));
 }
 
 TEST_F(RawEncodingTest, ShardIndexByteRangeOverflow) {
   std::vector<Index> grid_shape{2};
   kvstore::DriverPtr store = GetStore(grid_shape);
+  // clang-format off
   auto content = WithCrc32c(Bytes({
       // entries[0].offset
       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
@@ -568,18 +571,19 @@ TEST_F(RawEncodingTest, ShardIndexByteRangeOverflow) {
       // entries[1].length
       0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
   }));
+  // clang-format on
 
   TENSORSTORE_ASSERT_OK(base_kv_store->Write("shard_path", content));
-  EXPECT_THAT(
-      store->Read(EntryIdToKey(1, grid_shape)).result(),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Error reading shard index in \"shard_path\": "
-                    "Invalid shard index entry 1 with offset=.*, length=.*"));
+  EXPECT_THAT(store->Read(EntryIdToKey(1, grid_shape)).result(),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Error reading shard index in \"shard_path\": "
+                                 "Invalid shard index entry 1 with offset")));
 }
 
 TEST_F(RawEncodingTest, ShardIndexEntryByteRangeOutOfRange) {
   std::vector<Index> grid_shape{2};
   kvstore::DriverPtr store = GetStore(grid_shape);
+  // clang-format off
   auto content = WithCrc32c(Bytes({
       // entries[0].offset
       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
@@ -590,19 +594,21 @@ TEST_F(RawEncodingTest, ShardIndexEntryByteRangeOutOfRange) {
       // entries[1].length
       37, 0, 0, 0, 0, 0, 0, 0,  //
   }));
+  // clang-format on
 
   TENSORSTORE_ASSERT_OK(base_kv_store->Write("shard_path", content));
   EXPECT_THAT(
       store->Write(EntryIdToKey(1, grid_shape), absl::Cord("x")).result(),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Error reading \"shard_path\": "
-                    "Shard index entry 1 with byte range .* is invalid "
-                    "for shard of size .*"));
+      StatusIs(absl::StatusCode::kDataLoss,
+               MatchesRegex("Error reading \"shard_path\": "
+                            "Shard index entry 1 with byte range .* is invalid "
+                            "for shard of size .*")));
 }
 
 TEST_F(RawEncodingTest, ShardIndexInvalidChecksum) {
   std::vector<Index> grid_shape{2};
   kvstore::DriverPtr store = GetStore(grid_shape);
+  // clang-format off
   auto content = Bytes({
       // entries[0].offset
       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
@@ -613,12 +619,13 @@ TEST_F(RawEncodingTest, ShardIndexInvalidChecksum) {
       // entries[1].length
       5, 0, 0, 0, 0, 0, 0, 0,  //
   });
+  // clang-format on
   content.Append("abcd");
   TENSORSTORE_ASSERT_OK(base_kv_store->Write("shard_path", content));
   EXPECT_THAT(store->Read(EntryIdToKey(1, grid_shape)).result(),
-              MatchesStatus(absl::StatusCode::kDataLoss,
-                            "Error reading shard index in \"shard_path\": "
-                            "Digest mismatch.*"));
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Error reading shard index in \"shard_path\": "
+                                 "Digest mismatch")));
 }
 
 // Tests of operations issued to underlying KeyValueStore.
@@ -655,6 +662,7 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
                 req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(init_time));
       shard_index_time = absl::Now();
+      // clang-format off
       req.promise.SetResult(
           ReadResult{ReadResult::kValue,
                      WithCrc32c(Bytes({
@@ -680,6 +688,7 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
                          0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
                      })),
                      {StorageGeneration::FromString("g0"), shard_index_time}});
+      // clang-format on
     }
     ASSERT_FALSE(future.ready()) << future.status();
     absl::Time read_time;
@@ -807,6 +816,7 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
                 req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Ge(abort_time));
       shard_index_time = absl::Now();
+      // clang-format off
       req.promise.SetResult(
           ReadResult{ReadResult::kValue,
                      WithCrc32c(Bytes({
@@ -832,6 +842,7 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
                          0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
                      })),
                      {StorageGeneration::FromString("g1"), shard_index_time}});
+      // clang-format on
     }
     // Request for value.
     absl::Time read_time;
@@ -898,6 +909,7 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
     EXPECT_EQ(OptionalByteRangeRequest::SuffixLength(5 * 16 + 4),
               req.options.byte_range);
+    // clang-format off
     req.promise.SetResult(
         ReadResult{ReadResult::kValue,
                    WithCrc32c(Bytes({
@@ -923,6 +935,7 @@ TEST_F(UnderlyingKeyValueStoreTest,
                        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
                    })),
                    {StorageGeneration::FromString("g0"), absl::Now()}});
+    // clang-format on
   }
   // Request for value.
   absl::Time read_time;
@@ -956,9 +969,9 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingShardIndex) {
   }
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown,
-                            "Error reading shard index in \"shard_path\": "
-                            "Read error"));
+              StatusIs(absl::StatusCode::kUnknown,
+                       HasSubstr("Error reading shard index in \"shard_path\": "
+                                 "Read error")));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
@@ -970,6 +983,7 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
     EXPECT_EQ("shard_path", req.key);
     EXPECT_EQ(OptionalByteRangeRequest::SuffixLength(5 * 16 + 4),
               req.options.byte_range);
+    // clang-format off
     req.promise.SetResult(
         ReadResult{ReadResult::kValue,
                    WithCrc32c(Bytes({
@@ -995,6 +1009,7 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
                        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
                    })),
                    {StorageGeneration::FromString("g0"), absl::Now()}});
+    // clang-format on
   }
   ASSERT_FALSE(future.ready()) << future.status();
   // Request for value.
@@ -1007,28 +1022,25 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
   }
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Read error"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("Read error")));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, ReadInvalidKey) {
   auto future = store->Read("abc", {});
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteInvalidKey) {
   auto future = store->Write("abc", absl::Cord("x"));
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, DeleteInvalidKey) {
   auto future = store->Delete("abc");
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(future.result(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
@@ -1049,6 +1061,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
     EXPECT_EQ("shard_path", req.key);
     EXPECT_EQ(StorageGeneration::NoValue(),
               req.options.generation_conditions.if_equal);
+    // clang-format off
     auto expected = Bytes({
         1, 2, 3,  //
     });
@@ -1062,6 +1075,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
         // entries[1].length
         3, 0, 0, 0, 0, 0, 0, 0,  //
     })));
+    // clang-format on
     EXPECT_THAT(req.value, ::testing::Optional(expected));
     write_time = absl::Now();
     req.promise.SetResult(std::in_place, StorageGeneration::FromString("g0"),
@@ -1094,6 +1108,7 @@ TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
     // unconditional.
     EXPECT_EQ(StorageGeneration::Unknown(),
               req.options.generation_conditions.if_equal);
+    // clang-format off
     auto expected = Bytes({
         1, 2, 3,  //
         4, 5, 6,  //
@@ -1108,6 +1123,7 @@ TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
         // entries[1].length
         3, 0, 0, 0, 0, 0, 0, 0,  //
     })));
+    // clang-format on
     EXPECT_THAT(req.value, ::testing::Optional(expected));
     write_time = absl::Now();
     req.promise.SetResult(std::in_place, StorageGeneration::FromString("g0"),
@@ -1161,9 +1177,10 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShardError) {
     req.promise.SetResult(absl::UnknownError("Write error"));
   }
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kUnknown,
-                                             "Error writing \"shard_path\": "
-                                             "Write error"));
+  EXPECT_THAT(future.result(),
+              StatusIs(absl::StatusCode::kUnknown,
+                       HasSubstr("Error writing \"shard_path\": "
+                                 "Write error")));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
@@ -1180,6 +1197,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
     EXPECT_EQ(StorageGeneration::Unknown(),
               req.options.generation_conditions.if_not_equal);
 
+    // clang-format off
     auto content = Bytes({
         4, 5, 6,  //
     });
@@ -1193,6 +1211,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
         // entries[1].length
         3, 0, 0, 0, 0, 0, 0, 0,  //
     })));
+    // clang-format on
     req.promise.SetResult(
         ReadResult{ReadResult::kValue,
                    content,
@@ -1207,6 +1226,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
     EXPECT_EQ("shard_path", req.key);
     EXPECT_EQ(StorageGeneration::FromString("g0"),
               req.options.generation_conditions.if_equal);
+    // clang-format off
     auto content = Bytes({
         1, 2, 3,  //
         4, 5, 6,  //
@@ -1221,6 +1241,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
         // entries[1].length
         3, 0, 0, 0, 0, 0, 0, 0,  //
     })));
+    // clang-format on
     EXPECT_THAT(req.value, content);
     write_time = absl::Now();
     req.promise.SetResult(std::in_place, StorageGeneration::FromString("g1"),
@@ -1245,9 +1266,10 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShardReadError) {
     req.promise.SetResult(absl::UnknownError("Read error"));
   }
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kUnknown,
-                                             "Error reading \"shard_path\": "
-                                             "Read error"));
+  EXPECT_THAT(future.result(),
+              StatusIs(absl::StatusCode::kUnknown,
+                       HasSubstr("Error reading \"shard_path\": "
+                                 "Read error")));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, DeleteRangeWhenEmpty) {

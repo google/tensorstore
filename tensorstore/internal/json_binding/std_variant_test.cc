@@ -35,7 +35,9 @@ namespace jb = ::tensorstore::internal_json_binding;
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(JsonBindingTest, VariantDefaultBinder) {
   tensorstore::TestJsonBinderRoundTrip<std::variant<int, std::string>>({
@@ -47,10 +49,11 @@ TEST(JsonBindingTest, VariantDefaultBinder) {
 TEST(JsonBindingTest, VariantDefaultBinderError) {
   EXPECT_THAT(
       (jb::FromJson<std::variant<int, std::string>>(::nlohmann::json(false))),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "No matching value binder: "
-                    "Expected integer in the range .*, but received: false; "
-                    "Expected string, but received: false"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex("No matching value binder: "
+                       "Expected integer in the range .*, but received: false; "
+                       "Expected string, but received: false")));
 }
 
 TEST(JsonBindingTest, VariantExplicitBinder) {
@@ -88,9 +91,10 @@ TEST(JsonBindingTest, TaggedVariantBinderError) {
 
   EXPECT_THAT(
       (jb::FromJson<V>(::nlohmann::json({{"foo", 4}, {"d", 3}}), binder)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Failed to parse tag name, expected one of: 1, 2, 3, but "
-                    "received: 4"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Failed to parse tag name, expected one of: 1, 2, 3, but "
+                    "received: 4")));
 }
 
 }  // namespace

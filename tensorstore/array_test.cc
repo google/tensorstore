@@ -94,7 +94,6 @@ using ::tensorstore::MakeCopy;
 using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MakeScalarArrayView;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::offset_origin;
 using ::tensorstore::SharedArray;
 using ::tensorstore::SharedArrayView;
@@ -102,6 +101,7 @@ using ::tensorstore::SharedSubArray;
 using ::tensorstore::StaticCast;
 using ::tensorstore::StaticDataTypeCast;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::SubArray;
@@ -115,6 +115,7 @@ using ::tensorstore::serialization::EncodeBatch;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 
 namespace array_metafunctions_tests {
 static_assert(IsArrayExplicitlyConvertible<int, dynamic_rank, zero_origin,
@@ -430,32 +431,37 @@ TEST(ArrayViewTest, StaticCast) {
 
   EXPECT_THAT(
       (StaticCast<ArrayView<float, 3>>(a2)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast array with data type of float32 and rank of 2 "
-                    "to array with data type of float32 and rank of 3"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast array with data type of float32 and rank of 2 "
+                    "to array with data type of float32 and rank of 3")));
   EXPECT_THAT(
       (StaticCast<ArrayView<void, 3>>(a2)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast array with data type of float32 and rank of 2 "
-                    "to array with dynamic data type and rank of 3"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast array with data type of float32 and rank of 2 "
+                    "to array with dynamic data type and rank of 3")));
 
   EXPECT_THAT(
       (StaticCast<ArrayView<int32_t, 2>>(a2)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast array with data type of float32 and rank of 2 "
-                    "to array with data type of int32 and rank of 2"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast array with data type of float32 and rank of 2 "
+                    "to array with data type of int32 and rank of 2")));
 
   EXPECT_THAT(
       (StaticCast<ArrayView<int32_t>>(a2)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast array with data type of float32 and rank of 2 "
-                    "to array with data type of int32 and dynamic rank"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast array with data type of float32 and rank of 2 "
+                    "to array with data type of int32 and dynamic rank")));
 
   EXPECT_THAT(
       (StaticCast<ArrayView<int32_t>>(a3)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot cast array with data type of float32 and rank of 2 "
-                    "to array with data type of int32 and dynamic rank"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot cast array with data type of float32 and rank of 2 "
+                    "to array with data type of int32 and dynamic rank")));
 }
 
 TEST(SharedArrayTest, ConstructAndAssign) {
@@ -1102,9 +1108,10 @@ TEST(CopyConvertedArrayTest, CopyError) {
   auto b = tensorstore::AllocateArray<float32_t>({2});
   EXPECT_THAT(
       CopyConvertedArray(a, b),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Expected 64-bit floating-point number, but received: \"x\""));
+          HasSubstr(
+              "Expected 64-bit floating-point number, but received: \"x\"")));
 }
 
 TEST(CopyConvertedArrayTest, InvalidDataType) {
@@ -1114,8 +1121,8 @@ TEST(CopyConvertedArrayTest, InvalidDataType) {
   auto a = MakeArray<string_t>({"x", "y"});
   auto b = tensorstore::AllocateArray<float32_t>({2});
   EXPECT_THAT(CopyConvertedArray(a, b),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot convert string -> float32"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot convert string -> float32")));
 }
 
 TEST(MakeCopyTest, NoConversion) {
@@ -1195,8 +1202,8 @@ TEST(MakeCopyTest, Conversion) {
       MakeArray<const float>({{{1, 2, 3}, {4, 5, 6}}, {{1, 2, 3}, {4, 5, 6}}});
 
   EXPECT_THAT(MakeCopy<std::byte>(array),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot convert int32 -> byte"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot convert int32 -> byte")));
 
   {
     auto copy = MakeCopy<float>(array).value();
@@ -1622,9 +1629,9 @@ TEST(ArrayOriginCastTest, OffsetOriginToZeroOriginFailure) {
   array.origin()[0] = -kInfIndex;
   array.shape()[0] = kInfSize;
   EXPECT_THAT(tensorstore::ArrayOriginCast<zero_origin>(array),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            StrCat("Cannot translate array with shape \\{",
-                                   kInfSize, "\\} to have zero origin\\.")));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(StrCat("Cannot translate array with shape {",
+                                        kInfSize, "} to have zero origin."))));
 }
 
 TEST(ArrayOriginCastTest, ImplicitCaseOffsetOriginSource) {
@@ -1825,10 +1832,10 @@ TEST(ValidateShapeBroadcastTest, Examples) {
                              tensorstore::span<const Index>({4, 5})));
   EXPECT_THAT(ValidateShapeBroadcast(tensorstore::span<const Index>({2, 5}),
                                      tensorstore::span<const Index>({4, 5})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ValidateShapeBroadcast(tensorstore::span<const Index>({2, 5}),
                                      tensorstore::span<const Index>({5, 5})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ValidateShapeBroadcastTest, Basic) {
@@ -1864,9 +1871,9 @@ TEST(ValidateShapeBroadcastTest, Basic) {
   EXPECT_THAT(
       ValidateShapeBroadcast(tensorstore::span<const Index>({5}),
                              tensorstore::span<const Index>({3, 4})),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot broadcast array of shape \\{5\\} to target shape "
-                    "\\{3, 4\\}"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot broadcast array of shape {5} to target shape "
+                         "{3, 4}")));
 }
 
 TEST(BroadcastStridedLayoutTest, Basic) {
@@ -1889,12 +1896,13 @@ TEST(BroadcastArrayTest, ZeroOrigin) {
   EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
                              tensorstore::span<const Index>({3, 2})),
               MakeArray<int>({{1, 1}, {2, 2}, {3, 3}}));
-  EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
-                             tensorstore::span<const Index>({4, 2})),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Cannot broadcast array of shape \\{3, 1\\} to target shape "
-                  "\\{4, 2\\}"));
+  EXPECT_THAT(
+      BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
+                     tensorstore::span<const Index>({4, 2})),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot broadcast array of shape {3, 1} to target shape "
+                    "{4, 2}")));
 }
 
 TEST(BroadcastArrayTest, OffsetOrigin) {
@@ -1909,12 +1917,13 @@ TEST(BroadcastArrayTest, OffsetOrigin) {
   EXPECT_THAT(BroadcastArray(MakeOffsetArray<int>({3, 4}, {{1}, {2}, {3}}),
                              BoxView<>({1, 2}, {3, 2})),
               MakeOffsetArray<int>({1, 2}, {{1, 1}, {2, 2}, {3, 3}}));
-  EXPECT_THAT(BroadcastArray(MakeOffsetArray<int>({3, 4}, {{1}, {2}, {3}}),
-                             BoxView<>({1, 2}, {4, 2})),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Cannot broadcast array of shape \\{3, 1\\} to target shape "
-                  "\\{4, 2\\}"));
+  EXPECT_THAT(
+      BroadcastArray(MakeOffsetArray<int>({3, 4}, {{1}, {2}, {3}}),
+                     BoxView<>({1, 2}, {4, 2})),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Cannot broadcast array of shape {3, 1} to target shape "
+                    "{4, 2}")));
 }
 
 TEST(UnbroadcastArrayTest, Basic) {
@@ -1982,8 +1991,9 @@ TEST(ArraySerializationTest, DataTypeMismatch) {
   SharedArray<float> array;
   EXPECT_THAT(
       DecodeBatch(encoded, array),
-      MatchesStatus(absl::StatusCode::kDataLoss,
-                    "Expected data type of float32 but received: int32; .*"));
+      StatusIs(
+          absl::StatusCode::kDataLoss,
+          HasSubstr("Expected data type of float32 but received: int32;")));
 }
 
 TEST(ArraySerializationTest, RankMismatch) {
@@ -1991,8 +2001,8 @@ TEST(ArraySerializationTest, RankMismatch) {
                                    EncodeBatch(MakeArray<int>({1, 2, 3})));
   SharedArray<int, 2> array;
   EXPECT_THAT(DecodeBatch(encoded, array),
-              MatchesStatus(absl::StatusCode::kDataLoss,
-                            "Expected rank of 2 but received: 1; .*"));
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Expected rank of 2 but received: 1;")));
 }
 
 class RandomDataSerializationTest

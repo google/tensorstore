@@ -27,7 +27,7 @@ from typing import Dict, List, Optional
 from .evaluation import EvaluationState
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import TargetId
-from .starlark.common_providers import BuildSettingProvider
+from .starlark.common_providers import BuildSettingInfo
 from .starlark.common_providers import ConditionProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
@@ -80,9 +80,9 @@ def _config_setting_impl(
       for flag, value in flag_values.items():
         flag_target = _context.resolve_target_or_label(flag)
         flag_info = _context.get_target_info(flag_target)
-        if not flag_info.get(BuildSettingProvider):
+        if not flag_info.get(BuildSettingInfo):
           return False
-        if str(flag_info[BuildSettingProvider].value) != value:
+        if str(flag_info[BuildSettingInfo].value) != value:
           return False
     if constraint_values:
       for constraint in _context.resolve_target_or_label_list(

@@ -16,16 +16,18 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::Utf8String;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+using ::testing::HasSubstr;
 
 TEST(SerializationTest, Valid) {
   TestSerializationRoundTrip(Utf8String{""});
@@ -35,8 +37,8 @@ TEST(SerializationTest, Valid) {
 
 TEST(SerializationTest, Invalid) {
   EXPECT_THAT(SerializationRoundTrip(Utf8String{"\xC1"}),
-              MatchesStatus(absl::StatusCode::kDataLoss,
-                            "String is not valid utf-8: .*"));
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("String is not valid utf-8:")));
 }
 
 }  // namespace

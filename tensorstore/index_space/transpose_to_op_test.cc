@@ -16,11 +16,12 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace {
 
@@ -75,27 +76,28 @@ TEST(TransposeToTest, Example) {
 }
 
 TEST(TransposeToTest, ErrorHandling) {
-  TestDimExpressionError(IndexTransformBuilder<>(2, 2)
-                             .input_origin({1, 2})
-                             .input_shape({5, 6})
-                             .output_constant(0, 1)
-                             .output_constant(1, 2)
-                             .Finalize()
-                             .value(),
-                         Dims(1).Transpose(span<const DimensionIndex>({1, 2})),
-                         absl::StatusCode::kInvalidArgument,
-                         "Number of selected dimensions \\(1\\) must equal "
-                         "number of target dimensions \\(2\\)");
-  TestDimExpressionError(IndexTransformBuilder<>(2, 2)
-                             .input_origin({1, 2})
-                             .input_shape({5, 6})
-                             .output_constant(0, 1)
-                             .output_constant(1, 2)
-                             .Finalize()
-                             .value(),
-                         Dims(0, 1).Transpose({1, 1}),
-                         absl::StatusCode::kInvalidArgument,
-                         "Target dimension 1 occurs more than once");
+  TestDimExpressionError(
+      IndexTransformBuilder<>(2, 2)
+          .input_origin({1, 2})
+          .input_shape({5, 6})
+          .output_constant(0, 1)
+          .output_constant(1, 2)
+          .Finalize()
+          .value(),
+      Dims(1).Transpose(span<const DimensionIndex>({1, 2})),
+      absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Number of selected dimensions (1) must equal "
+                         "number of target dimensions (2)"));
+  TestDimExpressionError(
+      IndexTransformBuilder<>(2, 2)
+          .input_origin({1, 2})
+          .input_shape({5, 6})
+          .output_constant(0, 1)
+          .output_constant(1, 2)
+          .Finalize()
+          .value(),
+      Dims(0, 1).Transpose({1, 1}), absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Target dimension 1 occurs more than once"));
   TestDimExpressionError(
       IndexTransformBuilder<>(2, 2)
           .input_origin({1, 2})
@@ -105,7 +107,7 @@ TEST(TransposeToTest, ErrorHandling) {
           .Finalize()
           .value(),
       Dims(0).Transpose({2}), absl::StatusCode::kInvalidArgument,
-      "Dimension index 2 is outside valid range \\[-2, 2\\)");
+      testing::HasSubstr("Dimension index 2 is outside valid range [-2, 2)"));
 }
 
 }  // namespace

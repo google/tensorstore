@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/cord_test_helpers.h"
 #include <lzma.h>
@@ -26,7 +27,7 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::XzCompressor;
 
 // Tests that a small input round trips, and that the result is appended to the
@@ -123,7 +124,7 @@ TEST(XzCompressorTest, DecodeCorruptData) {
     std::string corrupted(encode_result);
     corrupted[0] = 0;
     EXPECT_THAT(compressor.Decode(absl::Cord(corrupted), &decode_result, 0),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 
   // Test corrupting the trailer.
@@ -134,7 +135,7 @@ TEST(XzCompressorTest, DecodeCorruptData) {
     EXPECT_THAT(
         compressor.Decode(encode_result.Subcord(0, encode_result.size() - 1),
                           &decode_result, 0),
-        MatchesStatus(absl::StatusCode::kInvalidArgument));
+        StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 

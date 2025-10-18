@@ -18,6 +18,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/nullability.h"
+#include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/meta/type_traits.h"
@@ -60,6 +62,10 @@ struct value_t {};
 // Storage base classes for Result<T>
 // ----------------------------------------------------------------
 
+// Move type-agnostic error handling to the .cc.
+[[noreturn]] void CrashOnResultNotOk(const absl::Status& status);
+void HandleInvalidResultCtor(absl::Status* absl_nonnull status);
+
 // `ResultStorage` is the storage base class for `Result<T>` (where
 // `T != void`), and implements the constructors, copy, and assignment
 // operators.  This separate base class is needed so that we can default those
@@ -67,54 +73,69 @@ struct value_t {};
 // depending on `{Copy,Move},{Ctor,Assign}Base`.
 template <typename T>
 struct ResultStorage {
-  ResultStorage() noexcept {}
+  template <typename U>
+  friend struct ResultStorage;
+
+  ResultStorage() = delete;
+
+  ResultStorage(const ResultStorage& other) {
+    if (other.ok()) {
+      construct_value(other.value_);
+      construct_status();
+    } else {
+      construct_status(other.status_);
+    }
+  }
+
+  ResultStorage(ResultStorage&& other) noexcept(
+      std::is_nothrow_move_constructible_v<T>) {
+    if (other.ok()) {
+      construct_value(std::move(other.value_));
+      construct_status();
+    } else {
+      construct_status(std::move(other.status_));
+    }
+  }
+
+  template <typename U>
+  ResultStorage(const ResultStorage<U>& other) {
+    if (other.ok()) {
+      construct_value(other.value_);
+      construct_status();
+    } else {
+      construct_status(other.status_);
+    }
+  }
+
+  template <typename U>
+  ResultStorage(ResultStorage<U>&& other) noexcept(
+      std::is_nothrow_move_constructible_v<T>) {
+    if (other.ok()) {
+      construct_value(std::move(other.value_));
+      construct_status();
+    } else {
+      construct_status(std::move(other.status_));
+    }
+  }
 
   template <typename... Args>
   explicit ResultStorage(value_t, Args&&... args)
-      : value_(std::forward<Args>(args)...) {}
+      : value_(std::forward<Args>(args)...) {
+    construct_status();
+  }
 
   template <typename... Args>
   explicit ResultStorage(status_t, Args&&... args) noexcept
-      : status_(std::forward<Args>(args)...) {}
-
-  ~ResultStorage() { destruct(); }
-
-  inline void destruct() {
-    if (status_.ok()) {
-      destruct_value();
-    }
-  }
-
-  inline void destruct_value() { value_.~T(); }
-
-  template <typename... Args>
-  inline void construct_value(Args&&... args) {
-    ::new (&value_) T(std::forward<Args>(args)...);
-  }
-
-  ResultStorage(const ResultStorage& rhs) {
-    if (rhs.status_.ok()) {
-      this->construct_value(rhs.value_);
-    } else {
-      status_ = rhs.status_;
-    }
-  }
-
-  ResultStorage(ResultStorage&& rhs) noexcept(
-      std::is_nothrow_move_constructible_v<T>) {
-    if (rhs.status_.ok()) {
-      this->construct_value(std::move(rhs).value_);
-    } else {
-      // This relies on the fact that the moved-from `absl::Status` value is not
-      // `ok`.
-      status_ = std::move(rhs).status_;
+      : status_(std::forward<Args>(args)...) {
+    if (ABSL_PREDICT_FALSE(ok())) {
+      internal_result::HandleInvalidResultCtor(&status_);
     }
   }
 
   ResultStorage& operator=(const ResultStorage& rhs) {
     if (&rhs == this) return *this;
-    if (rhs.status_.ok()) {
-      emplace_value(rhs.value_);
+    if (rhs.ok()) {
+      assign_value(rhs.value_);
     } else {
       assign_status(rhs.status_);
     }
@@ -124,33 +145,88 @@ struct ResultStorage {
   ResultStorage& operator=(ResultStorage&& rhs) noexcept(
       std::is_nothrow_move_assignable_v<T>) {
     if (&rhs == this) return *this;
-    if (rhs.status_.ok()) {
-      emplace_value(std::move(rhs).value_);
+    if (rhs.ok()) {
+      assign_value(std::move(rhs.value_));
     } else {
-      assign_status(std::move(rhs).status_);
+      assign_status(std::move(rhs.status_));
     }
     return *this;
   }
 
-  template <typename Arg>
-  void assign_status(Arg&& arg) noexcept {
-    if (status_.ok()) {
-      this->destruct_value();
+  ~ResultStorage() {
+    if (ok()) {
+      status_.~Status();
+      if constexpr (!std::is_trivially_destructible_v<T>) {
+        value_.~T();
+      }
+    } else {
+      status_.~Status();
     }
-    status_ = std::forward<Arg>(arg);
   }
 
   template <typename... Args>
-  void emplace_value(Args&&... args) {
-    // NOTE: I think that using emplace_value in place of assignment is
-    // misleading. We should use this->value_ = arg when a value already exists,
-    // which is the same as std::optional<> and other monadic structures.
-    this->destruct();
-    status_ = absl::OkStatus();
-    this->construct_value(std::forward<Args>(args)...);
+  inline void construct_value(Args&&... args) {
+    ::new (&value_) T(std::forward<Args>(args)...);
   }
 
-  absl::Status status_;
+  template <typename... Args>
+  inline void construct_status(Args&&... args) {
+    ::new (&status_) absl::Status(std::forward<Args>(args)...);
+  }
+
+  template <typename U>
+  void assign_status(U&& value) noexcept {
+    Clear();
+    status_ = static_cast<absl::Status>(std::forward<U>(value));
+    if (ABSL_PREDICT_FALSE(ok())) {
+      internal_result::HandleInvalidResultCtor(&status_);
+    }
+  }
+
+  template <typename U>
+  void assign_value(U&& value) {
+    if (ok()) {
+      value_ = std::forward<U>(value);
+    } else {
+      this->construct_value(std::forward<U>(value));
+      status_ = absl::OkStatus();
+    }
+  }
+
+  bool ok() const { return status_.ok(); }
+
+ protected:
+  void Clear() {
+    if constexpr (!std::is_trivially_destructible_v<T>) {
+      if (ok()) value_.~T();
+    }
+  }
+
+  void EnsureOk() const {
+    if (ABSL_PREDICT_FALSE(!ok())) internal_result::CrashOnResultNotOk(status_);
+  }
+
+  template <typename U>
+  T ValueOrImpl(U&& default_value) const& {
+    if (ok()) {
+      return value_;
+    }
+    return std::forward<U>(default_value);
+  }
+
+  template <typename U>
+  T ValueOrImpl(U&& default_value) && {
+    if (ok()) {
+      return std::move(value_);
+    }
+    return std::forward<U>(default_value);
+  }
+
+  // status_ will always be active, however by putting it in a union
+  // we can ensure that the initialization is done exactly as needed.
+  union {
+    absl::Status status_;
+  };
   union {
     T value_;
   };

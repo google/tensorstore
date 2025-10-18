@@ -20,6 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status_testutil.h"
@@ -28,11 +29,12 @@
 namespace {
 
 using ::tensorstore::ByteRange;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::internal::GetSubCord;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+using ::testing::HasSubstr;
 
 TEST(ByteRangeTest, SatisfiesInvariants) {
   EXPECT_TRUE((ByteRange{0, 0}).SatisfiesInvariants());
@@ -150,22 +152,23 @@ TEST(OptionalByteRangeRequestTest, Validate) {
   EXPECT_THAT(OptionalByteRangeRequest(-10).Validate(10),
               ::testing::Optional(ByteRange{0, 10}));
 
-  EXPECT_THAT(OptionalByteRangeRequest(5, 10).Validate(9),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Requested byte range \\[5, 10\\) is not valid for "
-                            "value of size 9"));
+  EXPECT_THAT(
+      OptionalByteRangeRequest(5, 10).Validate(9),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Requested byte range [5, 10) is not valid for "
+                         "value of size 9")));
 
   EXPECT_THAT(
       OptionalByteRangeRequest(10, 15).Validate(9),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Requested byte range \\[10, 15\\) is not valid for "
-                    "value of size 9"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Requested byte range [10, 15) is not valid for "
+                         "value of size 9")));
 
   EXPECT_THAT(
       OptionalByteRangeRequest(-10).Validate(9),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Requested byte range \\[-10, \\?\\) is not valid for "
-                    "value of size 9"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Requested byte range [-10, ?) is not valid for "
+                         "value of size 9")));
 }
 
 TEST(GetSubStringTest, Basic) {

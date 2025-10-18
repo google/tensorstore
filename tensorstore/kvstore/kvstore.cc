@@ -210,7 +210,7 @@ Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
   {
     // Check if the driver is already in the open driver cache.
     auto& open_cache = GetOpenDriverCache();
-    absl::MutexLock lock(&open_cache.mutex);
+    absl::MutexLock lock(open_cache.mutex);
     auto it = open_cache.map.find(cache_identifier);
     if (it != open_cache.map.end()) {
       ABSL_LOG_IF(INFO, kvstore_cache_logging)
@@ -224,7 +224,7 @@ Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
       [cache_identifier =
            std::move(cache_identifier)](DriverPtr driver) mutable {
         auto& open_cache = GetOpenDriverCache();
-        absl::MutexLock lock(&open_cache.mutex);
+        absl::MutexLock lock(open_cache.mutex);
         auto p = open_cache.map.emplace(cache_identifier, driver.get());
         if (p.second) {
           driver->cache_identifier_ = std::move(cache_identifier);
@@ -246,7 +246,7 @@ void Driver::DestroyLastReference() {
     // Hold `open_cache.mutex` while decrementing the count to zero, to ensure
     // that it does not concurrently increase due to being retrieved from the
     // cache.
-    absl::MutexLock lock(&open_cache.mutex);
+    absl::MutexLock lock(open_cache.mutex);
     if (reference_count_.fetch_sub(1, std::memory_order_acq_rel) != 1) {
       // Another reference was added concurrently.  Don't destroy.
       return;

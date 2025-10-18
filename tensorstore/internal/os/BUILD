@@ -152,6 +152,7 @@ tensorstore_cc_library(
     srcs = ["file_lock.cc"],
     hdrs = ["file_lock.h"],
     deps = [
+        ":file_descriptor",
         ":file_util",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
@@ -169,6 +170,7 @@ tensorstore_cc_test(
     name = "file_lock_test",
     srcs = ["file_lock_test.cc"],
     deps = [
+        ":file_descriptor",
         ":file_lock",
         ":file_util",
         "//tensorstore/internal/testing:scoped_directory",

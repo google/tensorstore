@@ -38,8 +38,8 @@ namespace {
 using ::protobuf_matchers::EqualsProto;
 using ::tensorstore::Index;
 using ::tensorstore::kInfIndex;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::ParseArrayFromProto;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StridedLayout;
 
 template <typename Proto>
@@ -137,7 +137,7 @@ TEST(ArrayProtoTest, Errors) {
         dtype: "foo"
         int_data: [ 3 ]
       )pb")),
-      MatchesStatus(absl::StatusCode::kDataLoss));
+      StatusIs(absl::StatusCode::kDataLoss));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
@@ -145,7 +145,7 @@ TEST(ArrayProtoTest, Errors) {
                             int_data: [ 3 ]
                           )pb"),
                           tensorstore::offset_origin, 2),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
@@ -155,7 +155,7 @@ TEST(ArrayProtoTest, Errors) {
           1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
         ]
       )pb")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
@@ -164,7 +164,7 @@ TEST(ArrayProtoTest, Errors) {
                             origin: [ 1, 2, 3 ]
                           )pb"),
                           tensorstore::zero_origin),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
@@ -172,21 +172,21 @@ TEST(ArrayProtoTest, Errors) {
         shape: [ 1, 2, 3 ]
         origin: [ 1, 2 ]
       )pb")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
         dtype: "int32"
         shape: [ 1, -2, 3 ]
       )pb")),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
         dtype: "int32"
         shape: [ 2147483647, 2147483647, 2147483647 ]
       )pb")),
-      MatchesStatus(absl::StatusCode::kDataLoss));
+      StatusIs(absl::StatusCode::kDataLoss));
 
   /// size mismatch.
   EXPECT_THAT(
@@ -194,7 +194,7 @@ TEST(ArrayProtoTest, Errors) {
         dtype: "int64"
         int_data: [ 3, 4 ]
       )pb")),
-      MatchesStatus(absl::StatusCode::kDataLoss));
+      StatusIs(absl::StatusCode::kDataLoss));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
@@ -202,28 +202,28 @@ TEST(ArrayProtoTest, Errors) {
         shape: 2
         int_data: [ 3 ]
       )pb")),
-      MatchesStatus(absl::StatusCode::kDataLoss));
+      StatusIs(absl::StatusCode::kDataLoss));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
         dtype: "uint64"
         shape: 2
       )pb")),
-      MatchesStatus(absl::StatusCode::kDataLoss));
+      StatusIs(absl::StatusCode::kDataLoss));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
         dtype: "double"
         shape: 2
       )pb")),
-      MatchesStatus(absl::StatusCode::kDataLoss));
+      StatusIs(absl::StatusCode::kDataLoss));
 
   EXPECT_THAT(
       ParseArrayFromProto(ParseProtoOrDie<::tensorstore::proto::Array>(R"pb(
         dtype: "float"
         shape: 2
       )pb")),
-      MatchesStatus(absl::StatusCode::kDataLoss));
+      StatusIs(absl::StatusCode::kDataLoss));
 }
 
 class RandomArrayProtoTest

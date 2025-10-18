@@ -216,14 +216,38 @@ FileDescriptor OpenFileImpl(const std::wstring& wpath, OpenFlags flags) {
   }
 
   DWORD createmode = 0;
-  if ((flags & OpenFlags::Create) == OpenFlags::Create) {
-    if ((flags & OpenFlags::Exclusive) == OpenFlags::Exclusive) {
-      createmode = CREATE_NEW;
-    } else {
+  switch (flags &
+          (OpenFlags::Create | OpenFlags::Exclusive | OpenFlags::Truncate)) {
+    case OpenFlags::Create:
       createmode = OPEN_ALWAYS;
-    }
-  } else {
-    createmode = OPEN_EXISTING;
+      break;
+
+    case OpenFlags::Exclusive:
+      createmode = OPEN_EXISTING;
+      break;
+
+    case OpenFlags::Truncate:
+      createmode = TRUNCATE_EXISTING;
+      break;
+
+    case OpenFlags::Create | OpenFlags::Truncate:
+      createmode = CREATE_ALWAYS;
+      break;
+
+    case OpenFlags::Create | OpenFlags::Exclusive:
+      createmode = CREATE_NEW;
+      break;
+    case OpenFlags::Create | OpenFlags::Exclusive | OpenFlags::Truncate:
+      createmode = CREATE_NEW;
+      break;
+
+    case OpenFlags::Truncate | OpenFlags::Exclusive:
+      createmode = TRUNCATE_EXISTING;
+      break;
+
+    default:
+      createmode = OPEN_EXISTING;
+      break;
   }
 
   DWORD flags_and_attributes = 0;
@@ -261,6 +285,13 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
 Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
                                              OpenFlags flags) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
+
+  if (static_cast<int>(OpenFlags::Truncate & flags) &&
+      !static_cast<int>(
+          flags & (OpenFlags::OpenReadWrite | OpenFlags::OpenWriteOnly))) {
+    return absl::InvalidArgumentError(
+        "OpenFlags::Truncate flag must be combined with a write flag");
+  }
 
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
@@ -336,7 +367,8 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
                   /*lpOverlapped=*/nullptr)) {
     return static_cast<size_t>(num_written);
   }
-  auto status = StatusFromOsError(::GetLastError(), "Failed to write to file");
+  auto status = StatusFromOsError(::GetLastError(), "Failed to write ", count,
+                                  " bytes to file ", fd);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 

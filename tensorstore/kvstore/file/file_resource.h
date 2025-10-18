@@ -69,6 +69,9 @@ struct FileIoLockingResource
 
     /// Do not use locking.
     none,
+
+    /// Writes are non-atomic, they do not use locking or file renaming.
+    non_atomic,
   };
 
   struct Spec {
@@ -93,6 +96,7 @@ struct FileIoLockingResource
                                        {LockingMode::os, "os"},
                                        {LockingMode::lockfile, "lockfile"},
                                        {LockingMode::none, "none"},
+                                       {LockingMode::non_atomic, "non_atomic"},
                                    })))),
         jb::Member(
             "acquire_timeout",

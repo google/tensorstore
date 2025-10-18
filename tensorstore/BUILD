@@ -522,6 +522,8 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["index_interval_test.cc"],
     deps = [
+        ":container_kind",
+        ":index",
         ":index_interval",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
@@ -529,6 +531,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/hash:hash_testing",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )
@@ -752,6 +755,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/internal/testing:json_gtest",
+        "//tensorstore/internal/testing:on_windows",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
@@ -924,8 +928,10 @@ tensorstore_cc_test(
     srcs = ["transaction_test.cc"],
     deps = [
         ":transaction",
+        "//tensorstore/util:future",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )

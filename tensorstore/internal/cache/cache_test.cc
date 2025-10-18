@@ -108,7 +108,7 @@ class TestCache : public Cache {
 
   ~TestCache() {
     if (log_) {
-      absl::MutexLock lock(&log_->mutex);
+      absl::MutexLock lock(log_->mutex);
       log_->cache_destroy_log.emplace_back(cache_identifier());
     }
   }
@@ -117,7 +117,7 @@ class TestCache : public Cache {
 
   Entry* DoAllocateEntry() override {
     if (log_) {
-      absl::MutexLock lock(&log_->mutex);
+      absl::MutexLock lock(log_->mutex);
       log_->entry_allocate_log.emplace_back(cache_identifier());
     }
     auto* entry = new Entry;
@@ -222,7 +222,7 @@ CachePtr<CacheType> GetTestCache(
     std::shared_ptr<TestCache::RequestLog> log = {}) {
   return GetCache<CacheType>(pool, cache_identifier, [&] {
     if (log) {
-      absl::MutexLock lock(&log->mutex);
+      absl::MutexLock lock(log->mutex);
       log->cache_allocate_log.emplace_back(cache_identifier);
     }
     return std::make_unique<CacheType>(log);
@@ -1113,7 +1113,9 @@ TEST(CacheTest, WeakRefOwnedByEntry) {
     auto entry_b = GetCacheEntry(cache1, "b");
     entry_a->weak_ref = entry_b->AcquireWeakReference();
   }
-  { auto entry_c = GetCacheEntry(cache2, "c"); }
+  {
+    auto entry_c = GetCacheEntry(cache2, "c");
+  }
 
   EXPECT_THAT(log->entry_destroy_log, ElementsAre());
   pool = {};
@@ -1125,6 +1127,31 @@ TEST(CacheTest, WeakRefOwnedByEntry) {
   EXPECT_THAT(log->entry_destroy_log,
               UnorderedElementsAre(Pair("cache1", "a"), Pair("cache1", "b"),
                                    Pair("cache2", "c")));
+}
+
+TEST(CacheTest, ConcurrentReleaseStrongCachePoolEvict) {
+  CachePool::StrongPtr pool;
+  CachePtr<TestCache> cache1, cache2;
+  TestConcurrent(
+      kDefaultIterations,
+      /*initialize=*/
+      [&] {
+        CachePool::Limits limits;
+        limits.total_bytes_limit = 1;
+        pool = CachePool::Make(limits);
+        cache1 = GetTestCache(pool.get(), "x");
+        cache2 = GetTestCache(pool.get(), "y");
+        GetCacheEntry(cache1, "a");
+      },
+      /*finalize=*/
+      [&] {},
+      // Concurrent operations:
+      [&] { pool = {}; },    // release strong reference to pool
+      [&] { cache1 = {}; },  // release strong reference to cache1
+      [&] {
+        GetCacheEntry(cache2, "b");
+      }  // create new cache entry in cache2, evicting only entry in cache1
+  );
 }
 
 }  // namespace

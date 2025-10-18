@@ -69,14 +69,14 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::JsonSubValueMatches;
 using ::tensorstore::KeyRange;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
-using ::tensorstore::internal::OsPathToUriPath;
+using ::tensorstore::internal::OsPathToFileUri;
 using ::tensorstore::internal::UniqueNow;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::Config;
@@ -86,6 +86,7 @@ using ::tensorstore::internal_ocdbt::ManifestKind;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
 using ::tensorstore::internal_ocdbt::ReadManifest;
 using ::tensorstore::kvstore::SupportedFeatures;
+using ::testing::HasSubstr;
 
 TEST(OcdbtTest, ReadWithoutManifest) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -512,7 +513,7 @@ TEST(OcdbtTest, SpecRoundtripFile) {
       {"base", options.full_base_spec},
   };
   options.url =
-      absl::StrCat("file://", OsPathToUriPath(tempdir.path()), "/|ocdbt:");
+      absl::StrCat(OsPathToFileUri(tempdir.path()).value(), "/|ocdbt:");
   options.check_auto_detect = true;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
@@ -697,8 +698,8 @@ TEST(OcdbtTest, NoSuitableManifestKind) {
 
   EXPECT_THAT(
       write_future.result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*Cannot choose OCDBT manifest_kind automatically .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+                    HasSubstr("Cannot choose OCDBT manifest_kind automatically")));
 }
 #endif
 
@@ -997,8 +998,8 @@ TEST(OcdbtTest, AssumeConfigMismatch) {
     }
 
     EXPECT_THAT(write_future.result(),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              "Configuration mismatch .*"));
+                StatusIs(absl::StatusCode::kFailedPrecondition,
+                         HasSubstr("Configuration mismatch")));
   }
 
   // Reading also fails.
@@ -1023,10 +1024,11 @@ TEST(OcdbtTest, AssumeConfigMismatch) {
       EXPECT_THAT(req.key, "manifest.ocdbt");
       req(base_store.driver);
     }
-    EXPECT_THAT(read_future.result(),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              "Observed config does not match assumed config: "
-                              "Configuration mismatch .*"));
+    EXPECT_THAT(
+        read_future.result(),
+        StatusIs(absl::StatusCode::kFailedPrecondition,
+                 HasSubstr("Observed config does not match assumed config: "
+                           "Configuration mismatch")));
   }
 }
 
@@ -1062,8 +1064,8 @@ TEST(OcdbtTest, VersionedOpenReadOnly) {
           {{"driver", "ocdbt"}, {"base", "memory://"}, {"version", 1}}, context)
           .result());
   const auto read_only_error_matcher =
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Writing is not supported with version=v1 specified");
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Writing is not supported with version=v1 specified"));
   EXPECT_THAT(kvstore::Delete(versioned_store, "a").result(),
               read_only_error_matcher);
   EXPECT_THAT(kvstore::DeleteRange(versioned_store, {}).result(),
@@ -1135,12 +1137,12 @@ TEST(OcdbtTest, NormalizeUrl) {
 TEST(OcdbtTest, UrlErrors) {
   EXPECT_THAT(
       kvstore::Spec::FromJson("memory://abc.ocdbt/|ocdbt:@v"),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          ".*: Invalid OCDBT version: \"v\": Invalid generation number"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(
+                   "Invalid OCDBT version: \"v\": Invalid generation number")));
   EXPECT_THAT(kvstore::Spec::FromJson("memory://abc.ocdbt/|ocdbt:@x"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Invalid OCDBT commit time \"x\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid OCDBT commit time \"x\": ")));
 }
 
 }  // namespace

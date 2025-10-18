@@ -27,11 +27,11 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/status_testutil.h"
 
-using ::tensorstore::MatchesStatus;
-
+namespace {
 namespace jb = tensorstore::internal_json_binding;
 
-namespace {
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(JsonBindingTest, Array) {
   const auto binder = jb::Array();
@@ -43,9 +43,10 @@ TEST(JsonBindingTest, Array) {
   tensorstore::TestJsonBinderFromJson<std::vector<int>>(
       {
           {{1, 2, "a"},
-           MatchesStatus(
+           StatusIs(
                absl::StatusCode::kInvalidArgument,
-               "Error parsing value at position 2: Expected integer .*")},
+               HasSubstr(
+                   "Error parsing value at position 2: Expected integer"))},
       },
       binder);
 }
@@ -61,8 +62,8 @@ TEST(JsonBindingTest, FixedSizeArray) {
       {
 
           {{1, 2, 3, 4},
-           MatchesStatus(absl::StatusCode::kInvalidArgument,
-                         "Array has length 4 but should have length 3")},
+           StatusIs(absl::StatusCode::kInvalidArgument,
+                    HasSubstr("Array has length 4 but should have length 3"))},
       },
       binder);
 }

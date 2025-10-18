@@ -14,13 +14,17 @@
 
 /// Tests for the DimExpression::Translate* operations.
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -37,8 +41,8 @@ using ::tensorstore::kInfSize;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::kMinFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_index_space::EquivalentIndices;
 using ::tensorstore::internal_index_space::TestDimExpression;
 
@@ -285,8 +289,8 @@ TEST(TranslateByTest, ErrorHandling) {
       IndexTransformBuilder<1, 1>().Finalize().value(),
       AllDims().TranslateBy(span<const Index>({1, 2})),
       absl::StatusCode::kInvalidArgument,
-      "Number of dimensions \\(1\\) does not match number of "
-      "indices \\(2\\)");
+      testing::HasSubstr("Number of dimensions (1) does not match number of "
+                         "indices (2)"));
 
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .input_origin({kMinFiniteIndex})
@@ -295,7 +299,7 @@ TEST(TranslateByTest, ErrorHandling) {
                              .value(),
                          AllDims().TranslateBy(-kInfIndex),
                          absl::StatusCode::kInvalidArgument,
-                         ".* is outside valid range .*");
+                         testing::HasSubstr("is outside valid range"));
 
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .input_origin({kMinFiniteIndex})
@@ -304,7 +308,7 @@ TEST(TranslateByTest, ErrorHandling) {
                              .value(),
                          AllDims().TranslateBy(-1),
                          absl::StatusCode::kInvalidArgument,
-                         ".* is outside valid range .*");
+                         testing::HasSubstr("is outside valid range"));
 
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .input_origin({kMaxFiniteIndex - 1})
@@ -313,16 +317,16 @@ TEST(TranslateByTest, ErrorHandling) {
                              .value(),
                          AllDims().TranslateBy(1),
                          absl::StatusCode::kInvalidArgument,
-                         ".* is outside valid range .*");
+                         testing::HasSubstr("is outside valid range"));
 
-  TestDimExpressionError(IndexTransformBuilder<1, 1>()
-                             .output_single_input_dimension(
-                                 0, std::numeric_limits<Index>::min(), 1, 0)
-                             .Finalize()
-                             .value(),
-                         AllDims().TranslateBy(1),
-                         absl::StatusCode::kInvalidArgument,
-                         "Integer overflow computing output offset .*");
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 1>()
+          .output_single_input_dimension(0, std::numeric_limits<Index>::min(),
+                                         1, 0)
+          .Finalize()
+          .value(),
+      AllDims().TranslateBy(1), absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Integer overflow computing output offset"));
 }
 
 TEST(TranslateByTest, DimSubsetUniform) {
@@ -493,10 +497,10 @@ TEST(TranslateToTest, TwoDimensionalSingleInputDimensionOneImplicit) {
 }
 
 TEST(TranslateToTest, ErrorHandling) {
-  TestDimExpressionError(IndexTransformBuilder<1, 1>().Finalize().value(),
-                         AllDims().TranslateTo(1),
-                         absl::StatusCode::kInvalidArgument,
-                         "Interval \\(-inf, \\+inf\\) is not bounded below");
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 1>().Finalize().value(),
+      AllDims().TranslateTo(1), absl::StatusCode::kInvalidArgument,
+      testing::HasSubstr("Interval (-inf, +inf) is not bounded below"));
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 1>()
@@ -505,7 +509,8 @@ TEST(TranslateToTest, ErrorHandling) {
           .Finalize()
           .value(),
       AllDims().TranslateTo(std::numeric_limits<Index>::max()),
-      absl::StatusCode::kOutOfRange, "Origin [0-9]+ is outside valid range .*");
+      absl::StatusCode::kOutOfRange,
+      testing::MatchesRegex(".*Origin [0-9]+ is outside valid range.*"));
 }
 
 TEST(TranslateToTest, IndexDomain) {
@@ -531,7 +536,7 @@ TEST(TranslateToTest, IndexDomainOverflow) {
       auto translated_domain,
       IndexDomainBuilder(1).origin({-5}).shape({10}).Finalize());
   EXPECT_THAT(transform | AllDims().TranslateTo({-5}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   // Tests that integer overflow does not occur, because output dimensions are
   // ignored.
   EXPECT_THAT(domain | AllDims().TranslateTo({-5}),

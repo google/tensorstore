@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
@@ -31,7 +35,8 @@ using ::tensorstore::IndexDomain;
 using ::tensorstore::IndexDomainBuilder;
 using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 TEST(SliceByIndexDomainTest, BothFullyUnlabeled) {
   auto transform = IndexTransformBuilder<>(2, 2)
@@ -167,9 +172,9 @@ TEST(SliceByIndexDomainTest, OutOfBounds) {
                     .value();
   EXPECT_THAT(
       domain(transform),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Cannot slice target dimension 0 \\{\"x\": \\[0, 5\\)\\} "
-                    "with index domain dimension 1 \\{\"x\": \\[-1, 4\\)\\}"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Cannot slice target dimension 0 {\"x\": [0, 5)} "
+                         "with index domain dimension 1 {\"x\": [-1, 4)}")));
 }
 
 // Tests that when the domain is fully labeled, the ranks need not be the same.
@@ -244,10 +249,11 @@ TEST(SliceByIndexDomainTest, PartiallyLabeledRankMismatch) {
                     .labels({"y", "", "x"})
                     .Finalize()
                     .value();
-  EXPECT_THAT(domain(std::move(transform)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Rank \\(3\\) of index domain containing unlabeled "
-                            "dimensions must equal slice target rank \\(4\\)"));
+  EXPECT_THAT(
+      domain(std::move(transform)),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Rank (3) of index domain containing unlabeled "
+                         "dimensions must equal slice target rank (4)")));
 }
 
 TEST(SliceByIndexDomainTest, LabelMismatch) {
@@ -265,8 +271,8 @@ TEST(SliceByIndexDomainTest, LabelMismatch) {
                     .value();
   EXPECT_THAT(
       domain(std::move(transform)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Label \"z\" does not match one of \\{\"x\", \"y\"\\}"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Label \"z\" does not match one of {\"x\", \"y\"}")));
 }
 
 TEST(SliceByIndexDomainTest, PartiallyLabeledUnlabeledDimensionMismatch) {
@@ -284,9 +290,10 @@ TEST(SliceByIndexDomainTest, PartiallyLabeledUnlabeledDimensionMismatch) {
                     .value();
   EXPECT_THAT(
       domain(std::move(transform)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Number of unlabeled dimensions in index domain exceeds "
-                    "number of unlabeled dimensions in slice target"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Number of unlabeled dimensions in index domain exceeds "
+                    "number of unlabeled dimensions in slice target")));
 }
 
 TEST(SliceByIndexDomainTest, FullyUnlabeledRankMismatch) {
@@ -301,10 +308,10 @@ TEST(SliceByIndexDomainTest, FullyUnlabeledRankMismatch) {
       IndexDomainBuilder(1).origin({2}).exclusive_max({4}).Finalize().value();
   EXPECT_THAT(
       domain(std::move(transform)),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Rank of index domain \\(1\\) must match rank of slice target "
-          "\\(2\\) when the index domain or slice target is unlabeled"));
+          HasSubstr("Rank of index domain (1) must match rank of slice target "
+                    "(2) when the index domain or slice target is unlabeled")));
 }
 
 TEST(SliceByIndexDomainTest, IndexArray) {

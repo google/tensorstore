@@ -37,7 +37,8 @@
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/dimension_set.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -61,12 +62,12 @@ using ::tensorstore::kInfIndex;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::kMinFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::MergeIndexDomains;
 using ::tensorstore::Result;
 using ::tensorstore::span;
 using ::tensorstore::StaticCast;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::unchecked;
 using ::tensorstore::view;
@@ -74,6 +75,8 @@ using ::tensorstore::internal::ComputeInputDimensionReferenceCounts;
 using ::tensorstore::internal::GetInputDimensionsForOutputDimension;
 using ::tensorstore::internal_index_space::TransformAccess;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 TEST(IndexTransformTest, Equality) {
   // Two invalid transforms are equal.
@@ -447,9 +450,9 @@ TEST(TransformIndicesTest, Implicit) {
             t.TransformIndices(span<const Index, 1>({-3}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(-3));
   EXPECT_THAT(t.TransformIndices(span<const Index, 1>({10}), output_indices),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 10 is not contained in the domain "
-                            "\\[1\\*, 4\\) for input dimension 0"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Index 10 is not contained in the domain "
+                                 "[1*, 4) for input dimension 0")));
 }
 
 TEST(TransformIndicesTest, IndexRangeError) {
@@ -464,11 +467,12 @@ TEST(TransformIndicesTest, IndexRangeError) {
   EXPECT_EQ(absl::OkStatus(),
             t.TransformIndices(span<const Index, 1>({2}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(6));
-  EXPECT_THAT(t.TransformIndices(span<const Index, 1>({1}), output_indices),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Computing index for output dimension 0: "
-                            "Checking result of index array output index map: "
-                            "Index 5 is outside valid range \\[6, 8\\)"));
+  EXPECT_THAT(
+      t.TransformIndices(span<const Index, 1>({1}), output_indices),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Computing index for output dimension 0: "
+                         "Checking result of index array output index map: "
+                         "Index 5 is outside valid range [6, 8)")));
 }
 
 TEST(IndexTransformTest, ConstructMove) {
@@ -632,9 +636,9 @@ TEST(IndexDomainTest, ConvertRank) {
 
   // Test failed conversion.
   EXPECT_THAT(StaticRankCast<3>(d_dynamic),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot cast index domain with rank of 2 "
-                            "to index domain with rank of 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot cast index domain with rank of 2 "
+                                 "to index domain with rank of 3")));
 }
 
 TEST(IndexDomainTest, SubDomain) {
@@ -693,19 +697,21 @@ TEST(CastTest, IndexTransform) {
 
   EXPECT_THAT(
       (StaticCast<IndexTransform<2, 3>>(t)),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Cannot cast "
-          "index transform with input rank of 2 and output rank of 2 to "
-          "index transform with input rank of 2 and output rank of 3"));
+          HasSubstr(
+              "Cannot cast "
+              "index transform with input rank of 2 and output rank of 2 to "
+              "index transform with input rank of 2 and output rank of 3")));
 
   EXPECT_THAT(
       (tensorstore::StaticRankCast<3>(t)),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Cannot cast "
-          "index transform with input rank of 2 and output rank of 2 to "
-          "index transform with input rank of 3 and output dynamic rank"));
+          HasSubstr(
+              "Cannot cast "
+              "index transform with input rank of 2 and output rank of 2 to "
+              "index transform with input rank of 3 and output dynamic rank")));
 }
 
 TEST(CastTest, IndexTransformView) {
@@ -726,19 +732,21 @@ TEST(CastTest, IndexTransformView) {
 
   EXPECT_THAT(
       (StaticCast<IndexTransformView<2, 3>>(t_ref)),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Cannot cast "
-          "index transform with input rank of 2 and output rank of 2 to "
-          "index transform with input rank of 2 and output rank of 3"));
+          HasSubstr(
+              "Cannot cast "
+              "index transform with input rank of 2 and output rank of 2 to "
+              "index transform with input rank of 2 and output rank of 3")));
 
   EXPECT_THAT(
       (tensorstore::StaticRankCast<3>(t_ref)),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Cannot cast "
-          "index transform with input rank of 2 and output rank of 2 to "
-          "index transform with input rank of 3 and output dynamic rank"));
+          HasSubstr(
+              "Cannot cast "
+              "index transform with input rank of 2 and output rank of 2 to "
+              "index transform with input rank of 3 and output dynamic rank")));
 }
 
 TEST(MergeIndexDomainsTest, Basic) {
@@ -763,12 +771,11 @@ TEST(MergeIndexDomainsTest, Basic) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
                                    IndexDomainBuilder(4).Finalize());
-  EXPECT_THAT(
-      MergeIndexDomains(domain1, domain2),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Cannot merge index domain \\{ .* \\} with index domain \\{ .* \\}: "
-          "Ranks do not match"));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain2),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*Cannot merge index domain \\{ .* \\} "
+                                    "with index domain \\{ .* \\}: "
+                                    "Ranks do not match")));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain3,
                                    IndexDomainBuilder(3)
@@ -825,20 +832,17 @@ TEST(MergeIndexDomainsTest, Basic) {
                                        .Finalize());
 
   EXPECT_THAT(MergeIndexDomains(domain1, domain5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge .*: "
-                            "Mismatch in dimension 0: "
-                            "Dimension labels do not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Mismatch in dimension 0: "
+                                 "Dimension labels do not match")));
   EXPECT_THAT(MergeIndexDomains(domain1, domain6),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge .*: "
-                            "Mismatch in dimension 0: "
-                            "Lower bounds do not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Mismatch in dimension 0: "
+                                 "Lower bounds do not match")));
   EXPECT_THAT(MergeIndexDomains(domain1, domain7),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot merge .*: "
-                            "Mismatch in dimension 1: "
-                            "Upper bounds do not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Mismatch in dimension 1: "
+                                 "Upper bounds do not match")));
 }
 
 TEST(HullIndexDomains, Basic) {
@@ -863,12 +867,11 @@ TEST(HullIndexDomains, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
                                    IndexDomainBuilder(4).Finalize());
 
-  EXPECT_THAT(
-      HullIndexDomains(domain1, domain2),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Cannot hull index domain \\{ .* \\} with index domain \\{ .* \\}: "
-          "Ranks do not match"));
+  EXPECT_THAT(HullIndexDomains(domain1, domain2),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*Cannot hull index domain \\{ .* \\} "
+                                    "with index domain \\{ .* \\}: "
+                                    "Ranks do not match")));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto domain3, IndexDomainBuilder(3)
@@ -913,11 +916,12 @@ TEST(IntersectIndexDomains, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
                                    IndexDomainBuilder(4).Finalize());
 
-  EXPECT_THAT(IntersectIndexDomains(domain1, domain2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot intersect index domain \\{ .* \\} with "
+  EXPECT_THAT(
+      IntersectIndexDomains(domain1, domain2),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex(".*Cannot intersect index domain \\{ .* \\} with "
                             "index domain \\{ .* \\}: "
-                            "Ranks do not match"));
+                            "Ranks do not match.*")));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto domain3, IndexDomainBuilder(3)
@@ -987,11 +991,12 @@ TEST(ConstrainIndexDomain, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
                                    IndexDomainBuilder(4).Finalize());
 
-  EXPECT_THAT(ConstrainIndexDomain(domain1, domain2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot constrain index domain \\{ .* \\} with "
+  EXPECT_THAT(
+      ConstrainIndexDomain(domain1, domain2),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("Cannot constrain index domain \\{ .* \\} with "
                             "index domain \\{ .* \\}: "
-                            "Ranks do not match"));
+                            "Ranks do not match")));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto domain3, IndexDomainBuilder(3)

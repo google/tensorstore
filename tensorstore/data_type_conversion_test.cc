@@ -38,8 +38,8 @@ using ::tensorstore::DataTypeConversionTraits;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::IsDataTypeConversionSupported;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::internal::GetDataTypeConverter;
 using ::tensorstore::internal::GetDataTypeConverterOrError;
@@ -779,12 +779,12 @@ TEST(DataTypeConversionTest, String) {
                 value, kSafeAndImplicit | kCanReinterpretCast | kIdentity));
   EXPECT_EQ(ustring_t{value}, TestConversion<ustring_t>(value));
   EXPECT_THAT(TestConversion<ustring_t>(invalid_utf8),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid UTF-8 sequence encountered"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Invalid UTF-8 sequence encountered"));
   EXPECT_EQ(json_t("test"), TestConversion<json_t>(value));
   EXPECT_THAT(TestConversion<json_t>(invalid_utf8),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid UTF-8 sequence encountered"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Invalid UTF-8 sequence encountered"));
 }
 
 TEST(DataTypeConversionTest, Ustring) {
@@ -817,41 +817,41 @@ TEST(DataTypeConversionTest, Ustring) {
 
 TEST(DataTypeConversionTest, Json) {
   EXPECT_THAT(TestConversion<bool_t>(json_t("hello")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<bool_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<int4_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<int8_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<int16_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<int32_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<int64_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<uint8_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<uint16_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<uint32_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<uint64_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<float16_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<bfloat16_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<float32_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<float64_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<string_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<ustring_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<string_t>(json_t(nullptr)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_EQ(false, TestConversion<bool_t>(json_t(false)));
   EXPECT_EQ(false, TestConversion<bool_t>(json_t("false")));
   EXPECT_EQ(true, TestConversion<bool_t>(json_t(true)));
@@ -881,13 +881,13 @@ TEST(DataTypeConversionTest, Json) {
   TestUnsupported<json_t, complex128_t>();
   EXPECT_EQ("hello", TestConversion<string_t>(json_t("hello")));
   EXPECT_THAT(TestConversion<string_t>(json_t(7)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<string_t>(json_t(true)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<string_t>(json_t(1.5)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<string_t>(json_t::array({2, 3})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_EQ(ustring_t{"hello"}, TestConversion<ustring_t>(json_t("hello")));
   EXPECT_EQ(json_t("hello"), TestConversion<json_t>(
                                  json_t("hello"), kSafeAndImplicit | kIdentity |
@@ -905,12 +905,12 @@ TEST(GetDataTypeConverterOrErrorTest, Basic) {
       dtype_v<int32_t>, dtype_v<uint32_t>, kCanReinterpretCast));
   EXPECT_THAT(
       GetDataTypeConverterOrError(dtype_v<json_t>, dtype_v<complex64_t>),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot convert json -> complex64"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Cannot convert json -> complex64"));
   EXPECT_THAT(
       GetDataTypeConverterOrError(dtype_v<uint32_t>, dtype_v<int32_t>,
                                   kSafeAndImplicit),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
           "Explicit data type conversion required to convert uint32 -> int32"));
 }

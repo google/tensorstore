@@ -171,6 +171,7 @@ using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::kLockSuffix;
 using ::tensorstore::internal_os::MemmapFileReadOnly;
 using ::tensorstore::internal_os::OpenFlags;
+using ::tensorstore::internal_os::TruncateAndOverwrite;
 using ::tensorstore::internal_os::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
@@ -268,12 +269,7 @@ class FileKeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    std::string uri_path = internal::OsPathToUriPath(path);
-    if (uri_path.empty() || uri_path[0] == '/') {
-      return absl::StrCat(id, "://", uri_path);
-    }
-    return absl::InvalidArgumentError(absl::StrCat(
-        "file: URIs do not support relative paths: ", QuoteString(path)));
+    return internal::OsPathToFileUri(path);
   }
 };
 
@@ -611,9 +607,25 @@ struct WriteTask {
     r.time = absl::Now();
     TENSORSTORE_ASSIGN_OR_RETURN(auto dir_fd, OpenParentDirectory(full_path));
 
+    const bool is_non_atomic_mode =
+        file_io_locking.mode == FileIoLockingResource::LockingMode::non_atomic;
+    if (is_non_atomic_mode &&
+        !StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
+      StorageGeneration generation;
+      TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
+                                   OpenValueFile(full_path, &generation));
+      if (generation != options.generation_conditions.if_equal) {
+        r.generation = StorageGeneration::Unknown();
+        return r;
+      }
+    }
+
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto lock_helper, [&]() -> Result<internal_os::FileLock> {
           switch (file_io_locking.mode) {
+            case FileIoLockingResource::LockingMode::non_atomic: {
+              return TruncateAndOverwrite(full_path);
+            }
             case FileIoLockingResource::LockingMode::none: {
               // This will generate a unique "lock" file without waiting or
               // attempting to cleanup.
@@ -636,8 +648,8 @@ struct WriteTask {
 
     absl::Status status = [&]() {
       // Check condition.
-      if (!StorageGeneration::IsUnknown(
-              options.generation_conditions.if_equal)) {
+      if (!is_non_atomic_mode && !StorageGeneration::IsUnknown(
+                                     options.generation_conditions.if_equal)) {
         StorageGeneration generation;
         TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
                                      OpenValueFile(full_path, &generation));
@@ -646,14 +658,18 @@ struct WriteTask {
           return absl::OkStatus();
         }
       }
+
       TENSORSTORE_RETURN_IF_ERROR(WriteWithSync(
           lock_helper.fd(), lock_helper.lock_path(), value, sync));
       // Stat and Rename
       FileInfo info;
       TENSORSTORE_RETURN_IF_ERROR(
           internal_os::GetFileInfo(lock_helper.fd(), &info));
-      TENSORSTORE_RETURN_IF_ERROR(internal_os::RenameOpenFile(
-          lock_helper.fd(), lock_helper.lock_path(), full_path));
+
+      if (lock_helper.lock_path() != full_path) {
+        TENSORSTORE_RETURN_IF_ERROR(internal_os::RenameOpenFile(
+            lock_helper.fd(), lock_helper.lock_path(), full_path));
+      }
 
       delete_lock_file = false;
       r.generation = GetFileGeneration(info);
@@ -890,14 +906,7 @@ Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
 
 Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchemaWithAuthorityDelimiter(
-      parsed, FileKeyValueStoreSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
-  if (!parsed.authority.empty() && parsed.authority != "localhost") {
-    // NOTE: Consider allowing network paths in windows?
-    return absl::InvalidArgumentError("file uris do not support authority");
-  }
-  std::string path = internal::UriPathToOsPath(parsed.path);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto path, internal::FileUriToOsPath(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
   driver_spec->data_.file_io_concurrency =
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();

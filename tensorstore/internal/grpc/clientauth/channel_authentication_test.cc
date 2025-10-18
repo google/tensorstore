@@ -23,6 +23,7 @@
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "tensorstore/util/status_testutil.h"
 
+using ::tensorstore::IsOk;
 using ::tensorstore::internal_grpc::CreateInsecureAuthenticationStrategy;
 using ::tensorstore::internal_grpc::GrpcChannelCredentialsAuthentication;
 using ::testing::IsNull;
@@ -41,7 +42,7 @@ TEST(GrpcChannelCredentialsAuthenticationTest, Basic) {
     auto context = std::make_shared<grpc::ClientContext>();
     EXPECT_THAT(context->credentials(), IsNull());
     auto configured = auth.ConfigureContext(context).result();
-    EXPECT_THAT(configured.status(), tensorstore::IsOk());
+    EXPECT_THAT(configured.status(), IsOk());
     EXPECT_THAT(configured.value()->credentials(), IsNull());
   }
 }

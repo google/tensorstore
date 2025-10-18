@@ -46,11 +46,19 @@ class RuleCtxAttr:
 
 
 class RuleCtxActions:
+  """https://bazel.build/rules/lib/builtins/actions"""
 
   def __init__(self, ctx: "RuleCtx"):
     self._ctx = ctx
 
-  def write(self, output: File, content: str):
+  def write(
+      self,
+      output: File,
+      content: str,
+      is_executable: bool = False,
+      *,
+      mnemonic: Optional[str] = None,
+  ):
     write_file_if_not_already_equal(
         pathlib.PurePath(output.path), content.encode("utf-8")
     )
@@ -352,8 +360,12 @@ def _rule_impl(
   ctx = RuleCtx(_context, Label(target, _context.workspace_root_for_label))
   for a in attr_impls:
     a(ctx)
-  _context.add_analyzed_target(target, TargetInfo())
-  implementation(ctx)
+  result = implementation(ctx)
+  if result is None:
+    result = []
+  elif not isinstance(result, list):
+    result = [result]
+  _context.add_analyzed_target(target, TargetInfo(*result))
 
 
 def rule(

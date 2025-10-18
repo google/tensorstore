@@ -31,7 +31,6 @@
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
 #include "tensorstore/util/executor.h"
@@ -177,10 +176,8 @@ struct ListVersionsOperation : public internal::FlowSenderOperationState<
         << "ListVersions: Emitting " << matching_entries.size() << "/"
         << entries.size() << " versions";
     if (!matching_entries.empty()) {
-      execution::set_value(
-          op.shared_receiver->receiver,
-          std::vector<BtreeGenerationReference>(matching_entries.begin(),
-                                                matching_entries.end()));
+      op.YieldValue(std::vector<BtreeGenerationReference>(
+          matching_entries.begin(), matching_entries.end()));
     }
   }
 

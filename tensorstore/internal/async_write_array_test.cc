@@ -59,6 +59,7 @@ using ::tensorstore::MakeArray;
 using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::ReferencesSameDataAs;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::Arena;
 using ::tensorstore::internal::AsyncWriteArray;
@@ -803,7 +804,7 @@ TEST(WriteArrayErrorTest, SourceArrayIndexArrayMap) {
   EXPECT_THAT(TestWriteArrayError(WriteArraySourceCapabilities::kMutable,
                                   tensorstore::Box<>({2, 5}), chunk_transform,
                                   source_array),
-              tensorstore::MatchesStatus(absl::StatusCode::kCancelled));
+              StatusIs(absl::StatusCode::kCancelled));
 }
 
 TEST(WriteArrayErrorTest, ChunkTransformIndexArrayMap) {
@@ -819,7 +820,7 @@ TEST(WriteArrayErrorTest, ChunkTransformIndexArrayMap) {
   EXPECT_THAT(TestWriteArrayError(WriteArraySourceCapabilities::kMutable,
                                   tensorstore::Box<>({2, 3}), chunk_transform,
                                   source_array),
-              tensorstore::MatchesStatus(absl::StatusCode::kCancelled));
+              StatusIs(absl::StatusCode::kCancelled));
 }
 
 }  // namespace

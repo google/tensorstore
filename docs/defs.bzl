@@ -18,7 +18,6 @@ def _compilation_flags_aspect_impl(target, ctx):
         cc_toolchain = cc_toolchain,
         user_compile_flags = ctx.fragments.cpp.cxxopts +
                              ctx.fragments.cpp.copts,
-        add_legacy_cxx_options = True,
     )
     compiler_options = cc_common.get_memory_inefficient_command_line(
         feature_configuration = feature_configuration,

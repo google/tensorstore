@@ -78,9 +78,9 @@ tensorstore_cc_test(
     srcs = ["bmp_test.cc"],
     deps = [
         ":bmp",
-        "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
         "@riegeli//riegeli/bytes:string_reader",

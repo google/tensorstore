@@ -14,24 +14,33 @@
 
 #include "tensorstore/index_space/dimension_identifier.h"
 
+#include <limits>
+#include <optional>
+#include <string>
+#include <string_view>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
+
 using ::tensorstore::DimensionIdentifier;
 using ::tensorstore::DimensionIndexBuffer;
 using ::tensorstore::DimRangeSpec;
 using ::tensorstore::DynamicDimSpec;
 using ::tensorstore::Index;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::NormalizeDimensionIdentifier;
 using ::tensorstore::NormalizeDimensionIndex;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
+using ::testing::HasSubstr;
 
 TEST(DimensionIdentifierTest, ConstructDefault) {
   DimensionIdentifier d;
@@ -91,16 +100,16 @@ TEST(NormalizeDimensionIndexTest, ValidNegative) {
 
 TEST(NormalizeDimensionIndexTest, InvalidNegative) {
   EXPECT_THAT(NormalizeDimensionIndex(-6, 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(NormalizeDimensionIndex(-7, 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(NormalizeDimensionIndexTest, InvalidNonNegative) {
   EXPECT_THAT(NormalizeDimensionIndex(5, 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(NormalizeDimensionIndex(6, 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(NormalizeDimensionLabelTest, ValidLabel) {
@@ -111,13 +120,13 @@ TEST(NormalizeDimensionLabelTest, ValidLabel) {
 TEST(NormalizeDimensionLabelTest, MissingLabel) {
   EXPECT_THAT(NormalizeDimensionLabel(
                   "w", span<const std::string>({"a", "b", "x", "y"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(NormalizeDimensionLabelTest, EmptyLabel) {
   EXPECT_THAT(NormalizeDimensionLabel(
                   "", span<const std::string>({"a", "b", "x", "y"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(NormalizeDimensionIdentifierTest, ValidLabel) {
@@ -146,11 +155,11 @@ TEST(NormalizeDimensionIdentifierTest, ValidNegativeIndex) {
 TEST(NormalizeDimensionIdentifierTest, InvalidIndex) {
   EXPECT_THAT(NormalizeDimensionIdentifier(
                   4, span<const std::string>({"a", "b", "x", "y"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(NormalizeDimensionIdentifier(
                   -5, span<const std::string>({"a", "b", "x", "y"})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(DimRangeSpecTest, Comparison) {
@@ -281,32 +290,33 @@ TEST(NormalizeDimRangeSpecTest, ValidMaxStop) {
 
 TEST(NormalizeDimRangeSpecTest, InvalidStep0) {
   DimensionIndexBuffer buffer;
-  EXPECT_THAT(
-      NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, std::nullopt, 0}, 5,
-                            &buffer),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "step must not be 0"));
+  EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, std::nullopt, 0},
+                                    5, &buffer),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("step must not be 0")));
 }
 
 TEST(NormalizeDimRangeSpecTest, InvalidIntervalStep1) {
   DimensionIndexBuffer buffer;
   EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{3, 1, 1}, 5, &buffer),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "3:1 is not a valid range"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("3:1 is not a valid range")));
 }
 
 TEST(NormalizeDimRangeSpecTest, InvalidIntervalStepNeg1) {
   DimensionIndexBuffer buffer;
   EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{1, 3, -1}, 5, &buffer),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "1:3:-1 is not a valid range"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("1:3:-1 is not a valid range")));
 }
 
 TEST(NormalizeDimRangeSpecTest, InvalidIndex) {
   DimensionIndexBuffer buffer;
-  EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{1, 8, 1}, 5, &buffer),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Dimension exclusive stop index 8 is outside valid "
-                            "range \\[-6, 5\\]"));
+  EXPECT_THAT(
+      NormalizeDimRangeSpec(DimRangeSpec{1, 8, 1}, 5, &buffer),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Dimension exclusive stop index 8 is outside valid "
+                         "range [-6, 5]")));
 }
 
 }  // namespace

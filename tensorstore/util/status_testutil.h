@@ -52,39 +52,6 @@
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
-
-// Prints a debugging representation of a result.
-template <typename T>
-void PrintTo(const Result<T>& result, std::ostream* os) {
-  if (result) {
-    if constexpr (std::is_void_v<T>) {
-      *os << "Result{}";
-    } else {
-      *os << "Result{" << ::testing::PrintToString(*result) << "}";
-    }
-  } else {
-    *os << result.status();
-  }
-}
-
-// Prints a debugging representation of a future.
-template <typename T>
-void PrintTo(const Future<T>& future, std::ostream* os) {
-  if (!future.ready()) {
-    *os << "Future{<not ready>}";
-    return;
-  }
-  if (future.status().ok()) {
-    if constexpr (std::is_void_v<T>) {
-      *os << "Future{}";
-    } else {
-      *os << "Future{" << ::testing::PrintToString(future.value()) << "}";
-    }
-  } else {
-    *os << future.status();
-  }
-}
-
 namespace internal_status {
 
 // Monomorphic implementation of matcher IsOkAndHolds(m).
@@ -289,13 +256,6 @@ template <typename CodeMatcher>
 internal_status::StatusIsMatcher StatusIs(CodeMatcher code_matcher) {
   return internal_status::StatusIsMatcher(std::move(code_matcher),
                                           ::testing::_);
-}
-
-// Returns a matcher that matches a Status/Result/Future whose code
-// is code_matcher.
-inline internal_status::StatusIsMatcher MatchesStatus(
-    absl::StatusCode status_code) {
-  return internal_status::StatusIsMatcher(status_code, ::testing::_);
 }
 
 // Returns a matcher that matches a Status/Result/Future whose code

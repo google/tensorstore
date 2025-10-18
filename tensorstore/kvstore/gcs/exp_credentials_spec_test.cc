@@ -24,6 +24,9 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/status_testutil.h"
 
+namespace {
+
+using ::tensorstore::IsOk;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::internal_storage_gcs::MakeGrpcAuthenticationStrategy;
 
@@ -31,8 +34,6 @@ using Spec =
     ::tensorstore::internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec;
 
 namespace jb = ::tensorstore::internal_json_binding;
-
-namespace {
 
 // See grpc/test/cpp/client/credentials_test.cc
 const auto kServiceAccountJsonObject = ::nlohmann::json::object_t({
@@ -192,7 +193,7 @@ TEST_P(SpecTest, Load) {
   Spec from_json;
   EXPECT_THAT(
       binder(std::true_type{}, jb::NoOptions{}, &from_json, &param.json),
-      tensorstore::IsOk());
+      IsOk());
   EXPECT_THAT(from_json, ::testing::Eq(param.spec));
 }
 
@@ -201,7 +202,7 @@ TEST_P(SpecTest, Save) {
   ::nlohmann::json::object_t to_json;
   EXPECT_THAT(binder(std::false_type{}, tensorstore::IncludeDefaults{},
                      &param.spec, &to_json),
-              tensorstore::IsOk());
+              IsOk());
   EXPECT_THAT(to_json, MatchesJson(param.json));
 }
 
@@ -218,7 +219,7 @@ TEST_P(SpecTest, Create) {
   }
 
   auto strategy = MakeGrpcAuthenticationStrategy(p.spec, {});
-  EXPECT_THAT(strategy, ::tensorstore::IsOk());
+  EXPECT_THAT(strategy, IsOk());
   EXPECT_THAT(strategy.value(), ::testing::NotNull());
 
   grpc::ChannelArguments args;

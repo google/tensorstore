@@ -5,6 +5,7 @@
 
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_nasm//nasm:nasm_cc_library.bzl", "nasm_cc_library")
 
 package(default_visibility = ["//visibility:private"])

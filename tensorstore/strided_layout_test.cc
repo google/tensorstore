@@ -58,15 +58,16 @@ using ::tensorstore::GetSubLayoutView;
 using ::tensorstore::Index;
 using ::tensorstore::IndexInnerProduct;
 using ::tensorstore::IsStridedLayout;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::offset_origin;
 using ::tensorstore::StaticCast;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::StridedLayoutView;
 using ::tensorstore::unchecked;
 using ::tensorstore::zero_origin;
+using ::testing::HasSubstr;
 
 static_assert(!IsStridedLayout<int>);
 static_assert(IsStridedLayout<StridedLayout<>>);
@@ -599,9 +600,9 @@ TEST(StridedLayoutViewTest, CastError) {
   StridedLayoutView<> ref(shape, byte_strides);
 
   EXPECT_THAT(StaticCast<StridedLayout<1>>(ref),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot cast strided layout with rank of 2 to "
-                            "strided layout with rank of 1"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot cast strided layout with rank of 2 to "
+                                 "strided layout with rank of 1")));
 }
 
 TEST(StridedLayoutViewTest, DynamicConsructAndAssign) {
@@ -745,9 +746,9 @@ TEST(StridedLayoutViewDeathTest, DynamicConstruct) {
   x.set_rank(2);
 
   EXPECT_THAT(StaticCast<StridedLayoutView<0>>(StridedLayoutView<>(x)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(StaticCast<StridedLayoutView<0>>(x),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(StridedLayoutViewTest, Compare) {

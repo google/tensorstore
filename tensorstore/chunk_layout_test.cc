@@ -70,11 +70,13 @@ using ::tensorstore::kImplicit;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kMaxRank;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::ChooseChunkGrid;
 using ::tensorstore::internal::ChooseChunkShape;
 using ::tensorstore::internal::ChooseReadWriteChunkShapes;
 using ::tensorstore::internal::MakeRandomDimensionOrder;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 using ::testing::Optional;
 
 using Usage = ChunkLayout::Usage;
@@ -906,20 +908,24 @@ TEST(ChunkLayoutTest, ApplyIndexTransformOverflow) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto transform, tensorstore::IdentityTransform(3) |
                           tensorstore::Dims(0).TranslateBy(kInfIndex));
-  EXPECT_THAT(constraints | transform,
-              MatchesStatus(
-                  absl::StatusCode::kOutOfRange,
-                  "Error transforming grid_origin: "
-                  "Error transforming output dimension 0 -> input dimension 0: "
-                  "Integer overflow transforming output origin 0 by offset .* "
-                  "and stride 1"));
-  EXPECT_THAT(ApplyInverseIndexTransform(transform, constraints),
-              MatchesStatus(
-                  absl::StatusCode::kOutOfRange,
-                  "Error transforming grid_origin: "
-                  "Error transforming input dimension 0 -> output dimension 0: "
-                  "Integer overflow transforming input origin 0 by offset .* "
-                  "and stride 1"));
+  EXPECT_THAT(
+      constraints | transform,
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          MatchesRegex(
+              "Error transforming grid_origin: "
+              "Error transforming output dimension 0 -> input dimension 0: "
+              "Integer overflow transforming output origin 0 by offset .* "
+              "and stride 1")));
+  EXPECT_THAT(
+      ApplyInverseIndexTransform(transform, constraints),
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          MatchesRegex(
+              "Error transforming grid_origin: "
+              "Error transforming input dimension 0 -> output dimension 0: "
+              "Integer overflow transforming input origin 0 by offset .* "
+              "and stride 1")));
 }
 
 TEST(ChunkLayoutTest, ApplyInverseIndexTransformMissingInputDimensionRequired) {
@@ -931,9 +937,10 @@ TEST(ChunkLayoutTest, ApplyInverseIndexTransformMissingInputDimensionRequired) {
                                        .Finalize());
   EXPECT_THAT(
       ApplyInverseIndexTransform(transform, input_constraints),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error transforming grid_origin: "
-                    "No output dimension corresponds to input dimension 0"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error transforming grid_origin: "
+                    "No output dimension corresponds to input dimension 0")));
 }
 
 TEST(ChunkLayoutTest,
@@ -969,15 +976,17 @@ TEST(ChunkLayoutTest, ApplyIndexTransformRankMismatch) {
                                    ChunkLayout::FromJson({
                                        {"inner_order", {2, 1, 0}},
                                    }));
-  EXPECT_THAT(constraints | tensorstore::IdentityTransform(2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot transform constraints of rank 3 by index "
-                            "transform of rank 2 -> 2"));
-  EXPECT_THAT(ApplyInverseIndexTransform(tensorstore::IdentityTransform(2),
-                                         constraints),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot transform constraints of rank 3 by index "
-                            "transform of rank 2 -> 2"));
+  EXPECT_THAT(
+      constraints | tensorstore::IdentityTransform(2),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot transform constraints of rank 3 by index "
+                         "transform of rank 2 -> 2")));
+  EXPECT_THAT(
+      ApplyInverseIndexTransform(tensorstore::IdentityTransform(2),
+                                 constraints),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot transform constraints of rank 3 by index "
+                         "transform of rank 2 -> 2")));
 }
 
 TEST(ChunkLayoutTest, ApplyIndexTransformUnknownRankNullTransform) {
@@ -1004,17 +1013,15 @@ TEST(ChunkLayoutTest, InnerOrder) {
   EXPECT_FALSE(constraints.inner_order().hard_constraint);
   EXPECT_THAT(constraints.inner_order(), ::testing::ElementsAre(0, 2, 1));
 
-  EXPECT_THAT(
-      constraints.Set(ChunkLayout::InnerOrder({0, 2, 2})),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Error setting inner_order: Invalid permutation: \\{0, 2, 2\\}"));
-  EXPECT_THAT(
-      constraints.Set(
-          ChunkLayout::InnerOrder({0, 2, 2}, /*hard_constraint=*/false)),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Error setting inner_order: Invalid permutation: \\{0, 2, 2\\}"));
+  EXPECT_THAT(constraints.Set(ChunkLayout::InnerOrder({0, 2, 2})),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting inner_order: Invalid "
+                                 "permutation: {0, 2, 2}")));
+  EXPECT_THAT(constraints.Set(ChunkLayout::InnerOrder(
+                  {0, 2, 2}, /*hard_constraint=*/false)),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting inner_order: Invalid "
+                                 "permutation: {0, 2, 2}")));
 
   TENSORSTORE_ASSERT_OK(constraints.Set(
       ChunkLayout::InnerOrder({1, 2, 0}, /*hard_constraint=*/false)));
@@ -1031,10 +1038,10 @@ TEST(ChunkLayoutTest, InnerOrder) {
   TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::InnerOrder()));
   EXPECT_THAT(
       constraints.Set(ChunkLayout::InnerOrder({0, 1, 2})),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error setting inner_order: "
-                    "New hard constraint \\(\\{0, 1, 2\\}\\) does not match "
-                    "existing hard constraint \\(\\{2, 1, 0\\}\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error setting inner_order: "
+                         "New hard constraint ({0, 1, 2}) does not match "
+                         "existing hard constraint ({2, 1, 0})")));
   EXPECT_TRUE(constraints.inner_order().hard_constraint);
   EXPECT_THAT(constraints.inner_order(), ::testing::ElementsAre(2, 1, 0));
 }
@@ -1053,24 +1060,25 @@ TEST(ChunkLayoutTest, GridOrigin) {
               ::testing::ElementsAre(1, 3, kImplicit));
   EXPECT_EQ(0, constraints.grid_origin().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::GridOrigin({kInfIndex, 2, 3})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting grid_origin: "
-                            "Invalid value for dimension 0: .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting grid_origin: "
+                                 "Invalid value for dimension 0:")));
   EXPECT_THAT(constraints.Set(
                   ChunkLayout::GridOrigin({2, 3}, /*hard_constraint=*/false)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting grid_origin: "
-                            "Rank 2 does not match existing rank 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting grid_origin: "
+                                 "Rank 2 does not match existing rank 3")));
   TENSORSTORE_ASSERT_OK(
       constraints.Set(ChunkLayout::GridOrigin({kImplicit, 4, kImplicit})));
   EXPECT_THAT(constraints.grid_origin(),
               ::testing::ElementsAre(1, 4, kImplicit));
   EXPECT_EQ(0b10, constraints.grid_origin().hard_constraint.to_uint());
-  EXPECT_THAT(constraints.Set(ChunkLayout::GridOrigin({3, 5, kImplicit})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting grid_origin: "
-                            "New hard constraint \\(5\\) for dimension 1 "
-                            "does not match existing hard constraint \\(4\\)"));
+  EXPECT_THAT(
+      constraints.Set(ChunkLayout::GridOrigin({3, 5, kImplicit})),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error setting grid_origin: "
+                         "New hard constraint (5) for dimension 1 "
+                         "does not match existing hard constraint (4)")));
   EXPECT_THAT(constraints.grid_origin(),
               ::testing::ElementsAre(1, 4, kImplicit));
   EXPECT_EQ(0b10, constraints.grid_origin().hard_constraint.to_uint());
@@ -1096,25 +1104,26 @@ TEST(ChunkLayoutTest, ReadChunkShape) {
               ::testing::ElementsAre(100, 300, 0));
   EXPECT_EQ(0, constraints.read_chunk_shape().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkShape({-5, 300, 3})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting read_chunk shape: "
-                            "Invalid value for dimension 0: .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting read_chunk shape: "
+                                 "Invalid value for dimension 0:")));
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkShape(
                   {2, 3}, /*hard_constraint=*/false)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting read_chunk shape: "
-                            "Rank 2 does not match existing rank 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting read_chunk shape: "
+                                 "Rank 2 does not match existing rank 3")));
   TENSORSTORE_ASSERT_OK(
       constraints.Set(ChunkLayout::ReadChunkShape({0, 4, 0})));
   EXPECT_THAT(constraints.read_chunk_shape(),
               ::testing::ElementsAre(100, 4, 0));
   EXPECT_EQ(0b10, constraints.read_chunk_shape().hard_constraint.to_uint());
   EXPECT_EQ(0b10, constraints.read_chunk().shape().hard_constraint.to_uint());
-  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkShape({100, 5, 0})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting read_chunk shape: "
-                            "New hard constraint \\(5\\) for dimension 1 "
-                            "does not match existing hard constraint \\(4\\)"));
+  EXPECT_THAT(
+      constraints.Set(ChunkLayout::ReadChunkShape({100, 5, 0})),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error setting read_chunk shape: "
+                         "New hard constraint (5) for dimension 1 "
+                         "does not match existing hard constraint (4)")));
   EXPECT_THAT(constraints.read_chunk_shape(),
               ::testing::ElementsAre(100, 4, 0));
   EXPECT_EQ(0b10, constraints.read_chunk_shape().hard_constraint.to_uint());
@@ -1156,14 +1165,14 @@ TEST(ChunkLayoutTest, ReadChunkAspectRatio) {
               ::testing::ElementsAre(2, 1.5, 0));
   EXPECT_EQ(0, constraints.read_chunk_aspect_ratio().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkAspectRatio({-5, 1.5, 3})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting read_chunk aspect_ratio: "
-                            "Invalid value for dimension 0: .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting read_chunk aspect_ratio: "
+                                 "Invalid value for dimension 0:")));
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkAspectRatio(
                   {2, 3}, /*hard_constraint=*/false)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting read_chunk aspect_ratio: "
-                            "Rank 2 does not match existing rank 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting read_chunk aspect_ratio: "
+                                 "Rank 2 does not match existing rank 3")));
   TENSORSTORE_ASSERT_OK(
       constraints.Set(ChunkLayout::ReadChunkAspectRatio({0, 4, 0})));
   EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
@@ -1172,11 +1181,12 @@ TEST(ChunkLayoutTest, ReadChunkAspectRatio) {
             constraints.read_chunk_aspect_ratio().hard_constraint.to_uint());
   EXPECT_EQ(0b10,
             constraints.read_chunk().aspect_ratio().hard_constraint.to_uint());
-  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkAspectRatio({2, 5, 0})),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting read_chunk aspect_ratio: "
-                            "New hard constraint \\(5\\) for dimension 1 "
-                            "does not match existing hard constraint \\(4\\)"));
+  EXPECT_THAT(
+      constraints.Set(ChunkLayout::ReadChunkAspectRatio({2, 5, 0})),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error setting read_chunk aspect_ratio: "
+                         "New hard constraint (5) for dimension 1 "
+                         "does not match existing hard constraint (4)")));
   EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
               ::testing::ElementsAre(2, 4, 0));
   EXPECT_EQ(0b10,
@@ -1247,19 +1257,19 @@ TEST(ChunkLayoutTest, ReadChunkElements) {
   EXPECT_EQ(42, constraints.read_chunk().elements());
   EXPECT_EQ(false, constraints.read_chunk_elements().hard_constraint);
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkElements(-5)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error setting read_chunk elements: "
-                            "Invalid value: -5"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error setting read_chunk elements: "
+                                 "Invalid value: -5")));
   TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::ReadChunkElements(45)));
   EXPECT_EQ(45, constraints.read_chunk_elements());
   EXPECT_EQ(true, constraints.read_chunk_elements().hard_constraint);
   EXPECT_EQ(true, constraints.read_chunk().elements().hard_constraint);
   EXPECT_THAT(
       constraints.Set(ChunkLayout::ReadChunkElements(46)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error setting read_chunk elements: "
-                    "New hard constraint \\(46\\) "
-                    "does not match existing hard constraint \\(45\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error setting read_chunk elements: "
+                         "New hard constraint (46) "
+                         "does not match existing hard constraint (45)")));
   EXPECT_EQ(45, constraints.read_chunk_elements());
   EXPECT_EQ(true, constraints.read_chunk_elements().hard_constraint);
   TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::ReadChunkElements(45)));
@@ -1505,9 +1515,9 @@ TEST(ChooseChunkGridTest, Rank1ShapeFullExtent) {
               ChunkLayout::ChunkShape({-1}), ChunkLayout::ChunkAspectRatio(),
               ChunkLayout::ChunkElements(10)),
           BoxView(1), box),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot match chunk size for dimension 0 to "
-                    "unbounded domain \\(-inf, \\+inf\\)"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cannot match chunk size for dimension 0 to "
+                         "unbounded domain (-inf, +inf)")));
 }
 
 TEST(ChooseChunkGridTest, Rank1BoundedDomain) {
@@ -1596,37 +1606,34 @@ TEST(ChooseChunkGridTest, Rank3AspectRatioLarge3) {
 
 TEST(ChooseChunkGridTest, GridOriginRankMismatch) {
   Box box(3);
-  EXPECT_THAT(
-      ChooseChunkGrid(
-          /*origin_constraints=*/tensorstore::span<const Index>({1, 2}),
-          ChunkLayout::GridView(), BoxView(3), box),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Rank of constraints \\(2\\) does not match rank of domain \\(3\\)"));
+  EXPECT_THAT(ChooseChunkGrid(
+                  /*origin_constraints=*/tensorstore::span<const Index>({1, 2}),
+                  ChunkLayout::GridView(), BoxView(3), box),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank of constraints (2) does not match "
+                                 "rank of domain (3)")));
 }
 
 TEST(ChooseChunkGridTest, ShapeConstraintRankMismatch) {
   Box box(3);
-  EXPECT_THAT(
-      ChooseChunkGrid(
-          /*origin_constraints=*/{},
-          ChunkLayout::GridView(ChunkLayout::ChunkShape({1, 2})), BoxView(3),
-          box),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Rank of constraints \\(2\\) does not match rank of domain \\(3\\)"));
+  EXPECT_THAT(ChooseChunkGrid(
+                  /*origin_constraints=*/{},
+                  ChunkLayout::GridView(ChunkLayout::ChunkShape({1, 2})),
+                  BoxView(3), box),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank of constraints (2) does not match "
+                                 "rank of domain (3)")));
 }
 
 TEST(ChooseChunkGridTest, AspectRatioConstraintRankMismatch) {
   Box box(3);
-  EXPECT_THAT(
-      ChooseChunkGrid(
-          /*origin_constraints=*/{},
-          ChunkLayout::GridView(ChunkLayout::ChunkAspectRatio({1, 2})),
-          BoxView(3), box),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Rank of constraints \\(2\\) does not match rank of domain \\(3\\)"));
+  EXPECT_THAT(ChooseChunkGrid(
+                  /*origin_constraints=*/{},
+                  ChunkLayout::GridView(ChunkLayout::ChunkAspectRatio({1, 2})),
+                  BoxView(3), box),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank of constraints (2) does not match "
+                                 "rank of domain (3)")));
 }
 
 TEST(ChunkLayoutGridTest, Basic) {
@@ -1764,15 +1771,16 @@ TEST(ChooseReadWriteChunkShapesTest, ShapeNonMultiple) {
 TEST(ChooseReadWriteChunkShapesTest, ShapeIncompatible) {
   Index read_chunk_shape[1];
   Index write_chunk_shape[1];
-  EXPECT_THAT(ChooseReadWriteChunkShapes(
-                  /*read_constraints=*/ChunkLayout::GridView(
-                      ChunkLayout::ChunkShapeBase({5}, true)),
-                  /*write_constraints=*/
-                  ChunkLayout::GridView(ChunkLayout::ChunkShapeBase({6}, true)),
-                  /*domain=*/BoxView(1), read_chunk_shape, write_chunk_shape),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Incompatible chunk size constraints for dimension "
-                            "0: read size of 5, write size of 6"));
+  EXPECT_THAT(
+      ChooseReadWriteChunkShapes(
+          /*read_constraints=*/ChunkLayout::GridView(
+              ChunkLayout::ChunkShapeBase({5}, true)),
+          /*write_constraints=*/
+          ChunkLayout::GridView(ChunkLayout::ChunkShapeBase({6}, true)),
+          /*domain=*/BoxView(1), read_chunk_shape, write_chunk_shape),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Incompatible chunk size constraints for dimension "
+                         "0: read size of 5, write size of 6")));
 }
 
 TEST(ChooseReadWriteChunkShapesTest, ReadShapeConstrained) {

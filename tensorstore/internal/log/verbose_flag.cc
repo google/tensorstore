@@ -140,7 +140,7 @@ void UpdateVerboseLogging(std::string_view input, bool overwrite)
   // This can stall logging on first-seen VerboseFlags, so if VerboseFlag
   // are frequently declared inline in each ABSL_LOG statement, such as in
   // an implementation detail of a macro, perhaps, revisit this.
-  absl::MutexLock lock(&g_mutex);
+  absl::MutexLock lock(g_mutex);
 
   VerboseFlag* slist = g_list_head;
   LoggingLevelConfig& global_config = GetLoggingLevelConfig();
@@ -169,7 +169,7 @@ void UpdateVerboseLogging(std::string_view input, bool overwrite)
 
 /* static */
 int VerboseFlag::RegisterVerboseFlag(VerboseFlag* flag) {
-  absl::MutexLock lock(&g_mutex);
+  absl::MutexLock lock(g_mutex);
   int old_v = flag->value_.load(std::memory_order_relaxed);
   if (old_v == kValueUninitialized) {
     // If the value was uninitialized, this is the first time the registration

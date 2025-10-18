@@ -98,7 +98,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:flow_sender_operation_state",
         "//tensorstore/util/execution:sync_flow_sender",

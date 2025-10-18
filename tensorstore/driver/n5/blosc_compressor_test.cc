@@ -34,7 +34,7 @@ namespace {
 
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_n5::Compressor;
 using ::tensorstore::internal_n5::DecodeChunk;
 using ::tensorstore::internal_n5::N5Metadata;
@@ -58,53 +58,53 @@ TEST(BloscCompressionTest, Parse) {
   // Missing codec
   EXPECT_THAT(
       Compressor::FromJson({{"type", "blosc"}, {"shuffle", 0}, {"clevel", 5}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Missing shuffle
   EXPECT_THAT(Compressor::FromJson(
                   {{"type", "blosc"}, {"cname", "lz4"}, {"clevel", 5}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Missing level
   EXPECT_THAT(Compressor::FromJson(
                   {{"type", "blosc"}, {"cname", "lz4"}, {"shuffle", 0}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid codec option type
   EXPECT_THAT(
       Compressor::FromJson(
           {{"type", "blosc"}, {"cname", 3}, {"shuffle", 0}, {"clevel", 5}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid codec option value
   EXPECT_THAT(Compressor::FromJson({{"type", "blosc"},
                                     {"cname", "invalid"},
                                     {"shuffle", 0},
                                     {"clevel", 5}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid level option value
   EXPECT_THAT(Compressor::FromJson({{"type", "blosc"},
                                     {"cname", "lz4"},
                                     {"shuffle", 0},
                                     {"clevel", -1}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(Compressor::FromJson({{"type", "blosc"},
                                     {"cname", "lz4"},
                                     {"shuffle", 0},
                                     {"clevel", 10}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid shuffle option value
   EXPECT_THAT(Compressor::FromJson({{"type", "blosc"},
                                     {"cname", "lz4"},
                                     {"shuffle", -1},
                                     {"clevel", 3}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(
       Compressor::FromJson(
           {{"type", "blosc"}, {"cname", "lz4"}, {"shuffle", 3}, {"clevel", 3}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+      StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid extra option
   EXPECT_THAT(Compressor::FromJson({{"type", "blosc"},
@@ -112,7 +112,7 @@ TEST(BloscCompressionTest, Parse) {
                                     {"shuffle", 0},
                                     {"clevel", 3},
                                     {"extra", 5}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(BloscCompressionTest, RoundTrip) {

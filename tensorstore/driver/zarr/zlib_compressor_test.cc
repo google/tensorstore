@@ -22,8 +22,9 @@
 
 namespace {
 
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr::Compressor;
+using ::testing::HasSubstr;
 
 class ZlibCompressorTest : public ::testing::TestWithParam<const char*> {};
 
@@ -69,17 +70,17 @@ TEST_P(ZlibCompressorTest, NonDefaultLevel) {
 // Tests that an invalid parameter gives an error.
 TEST_P(ZlibCompressorTest, InvalidParameter) {
   EXPECT_THAT(Compressor::FromJson({{"id", GetParam()}, {"level", "6"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"level\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"level\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", GetParam()}, {"level", -1}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"level\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"level\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", GetParam()}, {"level", 10}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"level\": .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing object member \"level\": ")));
   EXPECT_THAT(Compressor::FromJson({{"id", GetParam()}, {"foo", 10}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Object includes extra members: \"foo\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Object includes extra members: \"foo\"")));
 }
 
 TEST_P(ZlibCompressorTest, ToJson) {

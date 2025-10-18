@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/json_binding/data_type.h"
 
+#include <stdint.h>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
@@ -23,16 +25,16 @@
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
+
+namespace {
+namespace jb = tensorstore::internal_json_binding;
 
 using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
-namespace jb = tensorstore::internal_json_binding;
-
-namespace {
 struct X {};
 
 TEST(DataTypeJsonBinderTest, ToJson) {
@@ -41,8 +43,8 @@ TEST(DataTypeJsonBinderTest, ToJson) {
   EXPECT_THAT(jb::ToJson(DataType(dtype_v<bool>)),
               ::testing::Optional(::nlohmann::json("bool")));
   EXPECT_THAT(jb::ToJson(DataType(dtype_v<X>)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Data type has no canonical identifier"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Data type has no canonical identifier")));
   EXPECT_THAT(jb::ToJson(DataType{}),
               ::testing::Optional(tensorstore::MatchesJson(
                   ::nlohmann::json(::nlohmann::json::value_t::discarded))));
@@ -54,15 +56,15 @@ TEST(DataTypeJsonBinderTest, FromJson) {
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("bool")),
               ::testing::Optional(dtype_v<bool>));
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("invalid")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Unsupported data type: \"invalid\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unsupported data type: \"invalid\"")));
   EXPECT_THAT(jb::FromJson<DataType>(
                   ::nlohmann::json(::nlohmann::json::value_t::discarded)),
               ::testing::Optional(DataType{}));
   EXPECT_THAT(jb::FromJson<DataType>(
                   ::nlohmann::json(::nlohmann::json::value_t::discarded),
                   tensorstore::internal_json_binding::DataTypeJsonBinder),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

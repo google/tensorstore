@@ -40,11 +40,13 @@ using ::tensorstore::dtype_v;
 using ::tensorstore::endian;
 using ::tensorstore::Index;
 using ::tensorstore::kInfIndex;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr::ChooseBaseDType;
 using ::tensorstore::internal_zarr::ParseBaseDType;
 using ::tensorstore::internal_zarr::ParseDType;
 using ::tensorstore::internal_zarr::ZarrDType;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 
 void CheckBaseDType(std::string dtype, DataType r, endian e,
                     std::vector<Index> flexible_shape) {
@@ -122,45 +124,44 @@ TEST(ParseBaseDType, Success) {
 }
 
 TEST(ParseBaseDType, Failure) {
-  EXPECT_THAT(ParseBaseDType(""),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Unsupported zarr dtype: \"\""));
+  EXPECT_THAT(ParseBaseDType(""), StatusIs(absl::StatusCode::kInvalidArgument,
+                                           "Unsupported zarr dtype: \"\""));
   EXPECT_THAT(ParseBaseDType("|f4"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|f8"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|c8"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|c16"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|b2"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|i2"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<i9"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<u9"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<S"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|S999999999999999999999999999"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|S9223372036854775808"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|Sa"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|S "),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<f5"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<c5"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<m8"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<M8"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<X5"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {
@@ -254,79 +255,84 @@ TEST(ParseDType, TwoNamedFieldsCharAndInt) {
 }
 
 TEST(ParseDType, FieldSpecTooShort) {
-  EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"x"}}),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Error parsing value at position 0: "
-                  "Expected array of size 2 or 3, but received: \\[\"x\"\\]"));
+  EXPECT_THAT(
+      ParseDType(::nlohmann::json::array_t{{"x"}}),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Error parsing value at position 0: "
+                    "Expected array of size 2 or 3, but received: [\"x\"]")));
 }
 
 TEST(ParseDType, FieldSpecTooLong) {
   EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"x", "<i2", {2, 3}, 5}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing value at position 0: "
-                            "Expected array of size 2 or 3, but received: "
-                            "\\[\"x\",\"<i2\",\\[2,3\\],5\\]"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing value at position 0: "
+                                 "Expected array of size 2 or 3, but received: "
+                                 "[\"x\",\"<i2\",[2,3],5]")));
 }
 
 TEST(ParseDType, InvalidFieldName) {
-  EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{3, "<i2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing value at position 0: "
-                            "Error parsing value at position 0: "
-                            "Expected non-empty string, but received: 3"));
+  EXPECT_THAT(
+      ParseDType(::nlohmann::json::array_t{{3, "<i2"}}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing value at position 0: "
+                         "Error parsing value at position 0: "
+                         "Expected non-empty string, but received: 3")));
 }
 
 TEST(ParseDType, EmptyFieldName) {
-  EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"", "<i2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing value at position 0: "
-                            "Error parsing value at position 0: "
-                            "Expected non-empty string, but received: \"\""));
+  EXPECT_THAT(
+      ParseDType(::nlohmann::json::array_t{{"", "<i2"}}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing value at position 0: "
+                         "Error parsing value at position 0: "
+                         "Expected non-empty string, but received: \"\"")));
 }
 
 TEST(ParseDType, DuplicateFieldName) {
   EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"x", "<i2"}, {"x", "<u2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Field name \"x\" occurs more than once"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Field name \"x\" occurs more than once")));
 }
 
 TEST(ParseDType, NonStringFieldBaseDType) {
   EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"x", 3}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing value at position 0: "
-                            "Error parsing value at position 1: "
-                            "Expected string, but received: 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing value at position 0: "
+                                 "Error parsing value at position 1: "
+                                 "Expected string, but received: 3")));
 }
 
 TEST(ParseDType, InvalidFieldBaseDType) {
   EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"x", "<X2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing value at position 0: "
-                            "Error parsing value at position 1: "
-                            "Unsupported zarr dtype: \"<X2\""));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error parsing value at position 0: "
+                                 "Error parsing value at position 1: "
+                                 "Unsupported zarr dtype: \"<X2\"")));
 }
 
 TEST(ParseDType, ProductOfDimensionsOverflow) {
-  EXPECT_THAT(ParseDType(::nlohmann::json::array_t{
-                  {"x", "|i1", {kInfIndex, kInfIndex}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Product of dimensions .* is too large"));
+  EXPECT_THAT(
+      ParseDType(
+          ::nlohmann::json::array_t{{"x", "|i1", {kInfIndex, kInfIndex}}}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex(".*Product of dimensions .* is too large.*")));
 }
 
 TEST(ParseDType, FieldSizeInBytesOverflow) {
   EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"x", "<f8", {kInfIndex}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Field size in bytes is too large"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Field size in bytes is too large")));
 }
 
 TEST(ParseDType, BytesPerOuterElementOverflow) {
   EXPECT_THAT(
       ParseDType(::nlohmann::json::array_t{{"x", "<i2", {kInfIndex}},
                                            {"y", "<i2", {kInfIndex}}}),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Total number of bytes per outer array element is too large"));
+          HasSubstr(
+              "Total number of bytes per outer array element is too large")));
 }
 
 TEST(ChooseBaseDTypeTest, RoundTrip) {
@@ -362,11 +368,11 @@ TEST(ChooseBaseDTypeTest, RoundTrip) {
 TEST(ChooseBaseDTypeTest, Invalid) {
   struct X {};
   EXPECT_THAT(ChooseBaseDType(dtype_v<X>),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Data type not supported: .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Data type not supported:")));
   EXPECT_THAT(ChooseBaseDType(dtype_v<::tensorstore::dtypes::string_t>),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Data type not supported: string"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Data type not supported: string")));
 }
 
 }  // namespace

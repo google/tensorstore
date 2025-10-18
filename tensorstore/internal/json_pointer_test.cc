@@ -26,7 +26,7 @@
 namespace {
 
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::json_pointer::Compare;
 using ::tensorstore::json_pointer::CompareResult;
 using ::tensorstore::json_pointer::Dereference;
@@ -37,6 +37,7 @@ using ::tensorstore::json_pointer::kMustExist;
 using ::tensorstore::json_pointer::kSimulateCreate;
 using ::tensorstore::json_pointer::Replace;
 using ::tensorstore::json_pointer::Validate;
+using ::testing::HasSubstr;
 using ::testing::Optional;
 using ::testing::Pointee;
 
@@ -51,27 +52,25 @@ TEST(ValidateTest, Valid) {
 }
 
 TEST(ValidateTest, Invalid) {
-  EXPECT_THAT(Validate("foo"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "JSON Pointer does not start with '/': \"foo\""));
-
   EXPECT_THAT(
-      Validate("/~~"),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "JSON Pointer requires '~' to be followed by '0' or '1': \"/~~\""));
+      Validate("foo"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("JSON Pointer does not start with '/': \"foo\"")));
 
-  EXPECT_THAT(
-      Validate("/~"),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "JSON Pointer requires '~' to be followed by '0' or '1': \"/~\""));
+  EXPECT_THAT(Validate("/~~"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON Pointer requires '~' to be followed by "
+                                 "'0' or '1': \"/~~\"")));
+
+  EXPECT_THAT(Validate("/~"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON Pointer requires '~' to be followed by "
+                                 "'0' or '1': \"/~\"")));
   // Verify bounds checking.
-  EXPECT_THAT(
-      Validate(std::string_view("/~0", 2)),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "JSON Pointer requires '~' to be followed by '0' or '1': \"/~\""));
+  EXPECT_THAT(Validate(std::string_view("/~0", 2)),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON Pointer requires '~' to be followed by "
+                                 "'0' or '1': \"/~\"")));
 }
 
 TEST(CompareTest, Basic) {
@@ -137,52 +136,62 @@ TEST(DereferenceTest, ExamplesFromRfc6901) {
 
 TEST(DereferenceTest, ConstAccess) {
   EXPECT_THAT(Dereference(true, "", kMustExist), Optional(Pointee(true)));
-  EXPECT_THAT(Dereference(true, "/", kMustExist),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "JSON Pointer reference \"/\" cannot be applied to "
-                            "boolean value: true"));
+  EXPECT_THAT(
+      Dereference(true, "/", kMustExist),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("JSON Pointer reference \"/\" cannot be applied to "
+                         "boolean value: true")));
   EXPECT_THAT(
       Dereference(true, "/a/b/c", kMustExist),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "JSON Pointer reference \"/a\" cannot be applied to "
-                    "boolean value: true"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("JSON Pointer reference \"/a\" cannot be applied to "
+                         "boolean value: true")));
   EXPECT_THAT(Dereference({1, 2, 3}, "/0", kMustExist), Optional(Pointee(1)));
   EXPECT_THAT(Dereference({1, 2, 3}, "/1", kMustExist), Optional(Pointee(2)));
   EXPECT_THAT(
       Dereference({1, 2, 3}, "/3", kMustExist),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "JSON Pointer \"/3\" is out-of-range for array of size 3"));
-  EXPECT_THAT(Dereference({1, 2, 3}, "/a", kMustExist),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "JSON Pointer \"/a\" is invalid for array value"));
-  EXPECT_THAT(Dereference({1, 2, 3}, "/ 1", kMustExist),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "JSON Pointer \"/ 1\" is invalid for array value"));
-  EXPECT_THAT(Dereference({1, 2, 3}, "/00", kMustExist),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "JSON Pointer \"/00\" is invalid for array value"));
-  EXPECT_THAT(Dereference({1, 2, 3}, "/", kMustExist),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "JSON Pointer \"/\" is invalid for array value"));
-  EXPECT_THAT(Dereference({1, 2, 3}, "/-", kMustExist),
-              MatchesStatus(
-                  absl::StatusCode::kFailedPrecondition,
-                  "JSON Pointer \"/-\" refers to non-existent array element"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr(
+                   "JSON Pointer \"/3\" is out-of-range for array of size 3")));
+  EXPECT_THAT(
+      Dereference({1, 2, 3}, "/a", kMustExist),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("JSON Pointer \"/a\" is invalid for array value")));
+  EXPECT_THAT(
+      Dereference({1, 2, 3}, "/ 1", kMustExist),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("JSON Pointer \"/ 1\" is invalid for array value")));
+  EXPECT_THAT(
+      Dereference({1, 2, 3}, "/00", kMustExist),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("JSON Pointer \"/00\" is invalid for array value")));
+  EXPECT_THAT(
+      Dereference({1, 2, 3}, "/", kMustExist),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("JSON Pointer \"/\" is invalid for array value")));
+  EXPECT_THAT(
+      Dereference({1, 2, 3}, "/-", kMustExist),
+      StatusIs(
+          absl::StatusCode::kFailedPrecondition,
+          HasSubstr(
+              "JSON Pointer \"/-\" refers to non-existent array element")));
   EXPECT_THAT(Dereference({1, {{"a", 7}, {"b", 8}}, 3}, "/1/a", kMustExist),
               Optional(Pointee(7)));
   EXPECT_THAT(
       Dereference({1, {{"a", 7}, {"b", 8}}, 3}, "/1/c", kMustExist),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kNotFound,
-          "JSON Pointer \"/1/c\" refers to non-existent object member"));
+          HasSubstr(
+              "JSON Pointer \"/1/c\" refers to non-existent object member")));
   EXPECT_THAT(
       Dereference({1, {{"a", 7}, {"b", 8}}, 3}, "/1/c", kMustExist),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kNotFound,
-          "JSON Pointer \"/1/c\" refers to non-existent object member"));
+          HasSubstr(
+              "JSON Pointer \"/1/c\" refers to non-existent object member")));
   EXPECT_THAT(
       Dereference(::nlohmann::json::value_t::discarded, "/a/b", kMustExist),
-      MatchesStatus(absl::StatusCode::kNotFound, ""));
+      StatusIs(absl::StatusCode::kNotFound, HasSubstr("")));
 }
 
 TEST(DereferenceTest, NonConstAccess) {
@@ -202,7 +211,7 @@ TEST(DereferenceTest, NonConstAccess) {
   {
     ::nlohmann::json doc(::nlohmann::json::value_t::discarded);
     EXPECT_THAT(Dereference(doc, "", kMustExist),
-                MatchesStatus(absl::StatusCode::kNotFound));
+                StatusIs(absl::StatusCode::kNotFound));
     EXPECT_THAT(doc, MatchesJson(::nlohmann::json::value_t::discarded));
   }
 
@@ -245,9 +254,10 @@ TEST(DereferenceTest, NonConstAccess) {
     ::nlohmann::json doc{1, 2, 3};
     EXPECT_THAT(
         Dereference(doc, "/-/a", kMustExist),
-        MatchesStatus(
+        StatusIs(
             absl::StatusCode::kFailedPrecondition,
-            "JSON Pointer \"/-\" refers to non-existent array element"));
+            HasSubstr(
+                "JSON Pointer \"/-\" refers to non-existent array element")));
   }
 }
 
@@ -345,10 +355,11 @@ TEST(ReplaceTest, DeleteOutOfRangeArrayElement) {
 
 TEST(ReplaceTest, DeleteInvalidElement) {
   ::nlohmann::json doc(false);
-  EXPECT_THAT(Replace(doc, "/4", ::nlohmann::json::value_t::discarded),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "JSON Pointer reference \"/4\" cannot be applied "
-                            "to boolean value: false"));
+  EXPECT_THAT(
+      Replace(doc, "/4", ::nlohmann::json::value_t::discarded),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("JSON Pointer reference \"/4\" cannot be applied "
+                         "to boolean value: false")));
   EXPECT_THAT(doc, MatchesJson(false));
 }
 

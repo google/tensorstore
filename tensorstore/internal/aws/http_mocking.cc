@@ -222,7 +222,7 @@ aws_http_stream *s_aws_http_connection_make_request_mock(
   std::optional<internal_http::HttpResponse> response;
   {
     auto &mock = GetMock();
-    absl::MutexLock lock(&mock.mutex);
+    absl::MutexLock lock(mock.mutex);
     for (size_t i = 0; i < mock.responses.size(); ++i) {
       if (mock.responses[i].first == request_path_and_query) {
         response = mock.responses[i].second;
@@ -299,7 +299,7 @@ void EnableAwsHttpMocking(
     std::vector<std::pair<std::string, internal_http::HttpResponse>>
         responses) {
   auto &mock = GetMock();
-  absl::MutexLock lock(&mock.mutex);
+  absl::MutexLock lock(mock.mutex);
   mock.responses = std::move(responses);
   g_use_mock.store(true);
 }

@@ -1,5 +1,6 @@
 # Description:
-#   AWS s2n tls
+#   AWS C IO
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -25,7 +26,6 @@ cc_library(
         "//conditions:default": glob([
             "source/linux/*.c",
             "source/posix/*.c",
-            "source/s2n/*.h",
             "source/s2n/*.c",
         ]),
     }),

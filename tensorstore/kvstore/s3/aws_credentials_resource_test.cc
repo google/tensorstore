@@ -23,25 +23,28 @@
 #include "tensorstore/context.h"
 #include "tensorstore/util/status_testutil.h"
 
-using ::tensorstore::Context;
-using ::tensorstore::MatchesStatus;
-using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
-
 namespace {
 
+using ::tensorstore::Context;
+using ::tensorstore::StatusIs;
+using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
+using ::testing::HasSubstr;
+
 TEST(AwsCredentialsResourceTest, InvalidDirectSpec) {
-  EXPECT_THAT(Context::Resource<AwsCredentialsResource>::FromJson(nullptr),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected non-null value, but received: null"));
+  EXPECT_THAT(
+      Context::Resource<AwsCredentialsResource>::FromJson(nullptr),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected non-null value, but received: null")));
 
   EXPECT_THAT(Context::Resource<AwsCredentialsResource>::FromJson(3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected object, but received: 3"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected object, but received: 3")));
 
-  EXPECT_THAT(Context::Resource<AwsCredentialsResource>::FromJson("anonymous"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid spec or reference to \"aws_credentials\" "
-                            "resource: \"anonymous\".*"));
+  EXPECT_THAT(
+      Context::Resource<AwsCredentialsResource>::FromJson("anonymous"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Invalid spec or reference to \"aws_credentials\" "
+                         "resource: \"anonymous\"")));
 }
 
 TEST(AwsCredentialsResourceTest, Default) {
@@ -91,7 +94,7 @@ TEST(AwsCredentialsResourceTest, InvalidSpecs) {
                   {"type", "bad_type"},
                   {"profile", "xyz"},
               }),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

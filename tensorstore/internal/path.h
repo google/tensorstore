@@ -73,6 +73,17 @@ void EnsureNonDirectoryPath(std::string& path);
 /// as many relative path segments ('.' and '..') as possible.
 std::string LexicalNormalizePath(std::string path);
 
+// Returns the length of the root name. Generally this is the empty
+// string, however in Windows this may be drive-letter prefix or the
+// network share name. For example:
+//  * "/tmp/foo" -> ""
+//  * "C:\foo" -> "C:"
+//  * "\\server\share\foo" -> "\\server"
+std::string_view PathRootName(std::string_view path);
+
+/// Returns true if the path is an absolute path.
+bool IsAbsolutePath(std::string_view path);
+
 }  // namespace internal
 }  // namespace tensorstore
 

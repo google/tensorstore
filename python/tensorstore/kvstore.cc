@@ -1392,9 +1392,9 @@ Example of constructing from the :json:schema:`JSON representation<KvStore>`:
 
 Example of constructing from a :json:schema:`URL<KvStoreUrl>`:
 
-    >>> spec = ts.KvStore.Spec('file:///tmp/data/')
+    >>> spec = ts.KvStore.Spec('file:///path/to/data/')
     >>> spec
-    KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+    KvStore.Spec({'driver': 'file', 'path': '/path/to/data/'})
 
 )");
 

@@ -32,7 +32,7 @@
 #include "tensorstore/internal/lldb_scripting.h"
 #include "tensorstore/internal/meta/attributes.h"
 
-TENSORSTORE_LLDB_AUTO_SCRIPT("span_lldb.py")
+TENSORSTORE_LLDB_AUTO_SCRIPT("span.py")
 
 namespace tensorstore {
 

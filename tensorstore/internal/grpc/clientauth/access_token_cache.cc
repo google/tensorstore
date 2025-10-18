@@ -49,7 +49,7 @@ Result<AccessToken> AccessTokenCache::GetAccessToken(absl::Time now) {
 }
 
 Future<AccessToken> AccessTokenCache::AsyncGetAccessToken(absl::Time now) {
-  mu_.Lock();
+  mu_.lock();
   if (now + kUseSlack > token_.expiration) {
     return StartRefresh();
   }
@@ -57,7 +57,7 @@ Future<AccessToken> AccessTokenCache::AsyncGetAccessToken(absl::Time now) {
   if (now + kRefreshSlack >= token_.expiration) {
     StartRefresh().IgnoreFuture();
   } else {
-    mu_.Unlock();
+    mu_.unlock();
   }
   return tmp;
 }
@@ -65,13 +65,13 @@ Future<AccessToken> AccessTokenCache::AsyncGetAccessToken(absl::Time now) {
 Future<AccessToken> AccessTokenCache::StartRefresh() {
   mu_.AssertHeld();
   if (!pending_.null()) {
-    mu_.Unlock();
+    mu_.unlock();
     return pending_;
   }
   pending_ = source_();
   auto tmp = pending_;
   auto w = WeakFromThis();
-  mu_.Unlock();
+  mu_.unlock();
 
   pending_.ExecuteWhenReady([w](ReadyFuture<AccessToken> f) {
     if (auto self = w.lock()) self->OnRefresh(std::move(f).result());
@@ -80,7 +80,7 @@ Future<AccessToken> AccessTokenCache::StartRefresh() {
 }
 
 void AccessTokenCache::OnRefresh(Result<AccessToken> f) {
-  absl::MutexLock lk(&mu_);
+  absl::MutexLock lk(mu_);
   pending_ = {};
   if (f.status().ok()) {
     token_ = *std::move(f);

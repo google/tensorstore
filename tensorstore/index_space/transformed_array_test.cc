@@ -58,12 +58,13 @@ using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeOffsetArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::Shared;
 using ::tensorstore::StaticDataTypeCast;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::StatusIs;
 using ::tensorstore::TransformedArray;
+using ::testing::HasSubstr;
 
 using ::tensorstore::dtypes::float32_t;
 
@@ -403,7 +404,7 @@ TEST(TransformedArrayTest, MaterializeError) {
                                               MakeArray<Index>({3, 4})))
           .value()
           .Materialize(),
-      MatchesStatus(absl::StatusCode::kOutOfRange));
+      StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(TransformedArrayTest, MakeCopy) {
@@ -411,7 +412,7 @@ TEST(TransformedArrayTest, MakeCopy) {
                                    tensorstore::Dims(0).IndexArraySlice(
                                        MakeArray<Index>({3, 4})))
                            .value()),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 /// Tests that move constructing a TransformedArray view from a TransformedArray
@@ -479,9 +480,9 @@ TEST(ComposeLayoutAndTransformTest, RankMismatch) {
       layout({1, 2}, {3, 4}, {5, 6});
   EXPECT_THAT(tensorstore::ComposeLayoutAndTransform(
                   layout, tensorstore::IdentityTransform(3)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transform output rank \\(3\\) does not equal "
-                            "array rank \\(2\\)"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Transform output rank (3) does not equal "
+                                 "array rank (2)")));
 }
 
 TEST(MakeTransformedArrayTest, TwoArgumentBaseArrayAndTransform) {
@@ -555,10 +556,12 @@ TEST(TransformedArrayTest, StaticRankCast) {
   EXPECT_THAT(GetPointers(*ta1), ::testing::ElementsAreArray(GetPointers(ta)));
   EXPECT_THAT(
       StaticRankCast<2>(ta),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "Cannot cast transformed array with data type of int32 and rank of 1 "
-          "to transformed array with data type of int32 and rank of 2"));
+          HasSubstr(
+              "Cannot cast transformed array with data type of int32 and rank "
+              "of 1 "
+              "to transformed array with data type of int32 and rank of 2")));
 }
 
 TEST(TransformedArrayTest, ApplyIndexTransform) {
@@ -599,8 +602,8 @@ TEST(CopyTransformedArrayTest, InvalidDataType) {
   auto a = MakeArray<::tensorstore::dtypes::string_t>({"x", "y"});
   auto b = tensorstore::AllocateArray<float32_t>({2});
   EXPECT_THAT(CopyTransformedArray(a, b),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot convert string -> float32"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cannot convert string -> float32")));
 }
 
 TEST(TransformedArrayTest, UnownedToShared) {
@@ -644,7 +647,7 @@ TEST(TryConvertToArrayTest, Basic) {
                   tensorstore::Dims(0).OuterIndexArraySlice(
                       tensorstore::MakeArray<Index>({0, 1, 1})) |
                   tensorstore::TryConvertToArray(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(TryConvertToArrayTest, Random) {

@@ -14,23 +14,27 @@
 
 #include "tensorstore/index_space/alignment.h"
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
-using ::tensorstore::IndexDomain;
 using ::tensorstore::IndexDomainBuilder;
 using ::tensorstore::IndexTransform;
 using ::tensorstore::IndexTransformBuilder;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 using Dao = tensorstore::DomainAlignmentOptions;
 
@@ -70,22 +74,22 @@ TEST(AlignDimensionsToTest, AllUnlabeled) {
     std::vector<DimensionIndex> source_matches(source.rank());
     EXPECT_THAT(
         AlignDimensionsTo(source, target, source_matches, Dao::translate),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Error aligning dimensions: "
-                      "source dimension 1 \\[5, 6\\) mismatch with target "
-                      "dimension 1 \\[0, 4\\)"));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Error aligning dimensions: "
+                           "source dimension 1 [5, 6) mismatch with target "
+                           "dimension 1 [0, 4)")));
   }
 
   {
     std::vector<DimensionIndex> source_matches(source.rank());
     EXPECT_THAT(
         AlignDimensionsTo(source, target, source_matches, Dao::broadcast),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Error aligning dimensions: "
-                      "source dimension 0 \\[3, 7\\) mismatch with target "
-                      "dimension 0 \\[2, 6\\), "
-                      "source dimension 2 \\[4, 10\\) mismatch with target "
-                      "dimension 2 \\[6, 12\\)"));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Error aligning dimensions: "
+                           "source dimension 0 [3, 7) mismatch with target "
+                           "dimension 0 [2, 6), "
+                           "source dimension 2 [4, 10) mismatch with target "
+                           "dimension 2 [6, 12)")));
   }
 }
 
@@ -111,12 +115,12 @@ TEST(AlignDimensionsToTest, MismatchedLabelsNoPermute) {
   EXPECT_THAT(source_matches, ::testing::ElementsAre(0, -1, 2));
 
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches, Dao::all),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error aligning dimensions: "
-                            "unmatched source dimension 0 \"x\": \\[3, 7\\) "
-                            "does not have a size of 1, "
-                            "unmatched source dimension 2 \"z\": \\[4, 10\\) "
-                            "does not have a size of 1"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error aligning dimensions: "
+                                 "unmatched source dimension 0 \"x\": [3, 7) "
+                                 "does not have a size of 1, "
+                                 "unmatched source dimension 2 \"z\": [4, 10) "
+                                 "does not have a size of 1")));
 }
 
 TEST(AlignDimensionsToTest, SourceUnlabeled) {
@@ -221,8 +225,8 @@ TEST(AlignDimensionsToTest, AllLabeledPermuteOnly) {
                        Dao::translate | Dao::broadcast}) {
     std::vector<DimensionIndex> source_matches(source.rank());
     EXPECT_THAT(AlignDimensionsTo(source, target, source_matches, options),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Error aligning dimensions: .*"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Error aligning dimensions: ")));
   }
 }
 
@@ -276,9 +280,9 @@ TEST(AlignDimensionsToTest, PartiallyLabeled) {
   EXPECT_THAT(source_matches, ::testing::ElementsAre(2, -1, 1));
 
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches, Dao::none),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Aligning source domain of rank 3 to target "
-                            "domain of rank 4 requires broadcasting"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Aligning source domain of rank 3 to target "
+                                 "domain of rank 4 requires broadcasting")));
 }
 
 TEST(AlignDomainToTest, PartiallyLabeled) {
@@ -333,9 +337,9 @@ TEST(AlignDimensionsToTest, BroadcastOnly) {
                        Dao::permute | Dao::translate}) {
     std::vector<DimensionIndex> source_matches(source.rank());
     EXPECT_THAT(AlignDimensionsTo(source, target, source_matches, options),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Aligning source domain of rank 2 to target "
-                              "domain of rank 3 requires broadcasting"));
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Aligning source domain of rank 2 to target "
+                                   "domain of rank 3 requires broadcasting")));
   }
 }
 
@@ -363,9 +367,9 @@ TEST(AlignDimensionsToTest, PermuteAndBroadcast) {
     std::vector<DimensionIndex> source_matches(source.rank());
     EXPECT_THAT(
         AlignDimensionsTo(source, target, source_matches, options),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Error aligning dimensions: "
-                      "unmatched source dimension 1 \"y\": \\[3, 4\\)"));
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Error aligning dimensions: "
+                           "unmatched source dimension 1 \"y\": [3, 4)")));
   }
 }
 
@@ -403,10 +407,10 @@ TEST(AlignDimensionsToTest, MismatchedLabeled) {
                     .value();
   std::vector<DimensionIndex> source_matches(source.rank());
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error aligning dimensions: "
-                            "unmatched source dimension 0 \"x\": \\[3, 7\\) "
-                            "does not have a size of 1"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error aligning dimensions: "
+                                 "unmatched source dimension 0 \"x\": [3, 7) "
+                                 "does not have a size of 1")));
 }
 
 TEST(AlignDomainToTest, MismatchedLabeled) {
@@ -423,7 +427,7 @@ TEST(AlignDomainToTest, MismatchedLabeled) {
                     .Finalize()
                     .value();
   EXPECT_THAT(AlignDomainTo(source, target),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(AlignDimensionsToTest, MismatchedSizeLabeled) {
@@ -441,10 +445,10 @@ TEST(AlignDimensionsToTest, MismatchedSizeLabeled) {
                     .value();
   std::vector<DimensionIndex> source_matches(source.rank());
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error aligning dimensions: "
-                            "source dimension 1 \"y\": \\[5, 7\\) mismatch "
-                            "with target dimension 2 \"y\": \\[0, 4\\)"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error aligning dimensions: "
+                                 "source dimension 1 \"y\": [5, 7) mismatch "
+                                 "with target dimension 2 \"y\": [0, 4)")));
 }
 
 TEST(AlignDimensionsToTest, MismatchedSizeUnlabeled) {
@@ -460,10 +464,10 @@ TEST(AlignDimensionsToTest, MismatchedSizeUnlabeled) {
                     .value();
   std::vector<DimensionIndex> source_matches(source.rank());
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error aligning dimensions: "
-                            "source dimension 1 \\[5, 7\\) mismatch with "
-                            "target dimension 1 \\[0, 4\\)"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Error aligning dimensions: "
+                                 "source dimension 1 [5, 7) mismatch with "
+                                 "target dimension 1 [0, 4)")));
 }
 
 }  // namespace

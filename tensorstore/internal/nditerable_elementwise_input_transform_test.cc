@@ -39,9 +39,10 @@
 namespace {
 
 using ::tensorstore::Index;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal::NDIterableCopier;
 using ::testing::_;
+using ::testing::HasSubstr;
 using ::testing::Pair;
 
 /// Returns the `absl::Status` returned by `Copy()`.
@@ -128,7 +129,7 @@ TEST(NDIterableElementwiseInputTransformTest, PartialCopy) {
                     return true;
                   },
                   /*constraints=*/tensorstore::c_order, dest, source),
-              MatchesStatus(absl::StatusCode::kUnknown, "zero"));
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("zero")));
   EXPECT_EQ(tensorstore::MakeArray<double>({-1.0, -2.0, -3.0, 0.0, 0.0, 0.0}),
             dest);
 }

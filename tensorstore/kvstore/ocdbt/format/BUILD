@@ -87,7 +87,9 @@ tensorstore_cc_test(
         ":format",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
     ],
 )
@@ -159,6 +161,7 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
         "@riegeli//riegeli/bytes:cord_reader",

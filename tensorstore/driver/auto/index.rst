@@ -72,7 +72,10 @@ A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
     },
     'driver': 'zarr3',
     'dtype': 'int32',
-    'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr/'},
+    'kvstore': {
+      'driver': 'file',
+      'path': '/tmp/dataset.zarr/',
+    },
     'metadata': {
       'chunk_grid': {'configuration': {'chunk_shape': [5]}, 'name': 'regular'},
       'chunk_key_encoding': {'name': 'default'},
@@ -98,7 +101,10 @@ A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
     },
     'driver': 'zarr3',
     'dtype': 'int32',
-    'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr/'},
+    'kvstore': {
+      'driver': 'file',
+      'path': '/tmp/dataset.zarr/',
+    },
     'metadata': {
       'chunk_grid': {'configuration': {'chunk_shape': [5]}, 'name': 'regular'},
       'chunk_key_encoding': {'name': 'default'},
@@ -116,9 +122,21 @@ Explicitly constructing a :py:obj:`~tensorstore.Spec` demonstrates the
 explicit syntax for using the ``auto`` driver:
 
   >>> ts.Spec("file:///tmp/dataset|auto")
-  Spec({'driver': 'auto', 'kvstore': {'driver': 'file', 'path': '/tmp/dataset'}})
+  Spec({
+    'driver': 'auto',
+    'kvstore': {
+      'driver': 'file',
+      'path': '/tmp/dataset',
+    },
+  })
   >>> ts.Spec("file:///tmp/dataset")
-  Spec({'driver': 'auto', 'kvstore': {'driver': 'file', 'path': '/tmp/dataset'}})
+  Spec({
+    'driver': 'auto',
+    'kvstore': {
+      'driver': 'file',
+      'path': '/tmp/dataset',
+    },
+  })
 
 Chaining TensorStore adapters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -130,7 +148,10 @@ used in conjunction with format auto-detection:
   Spec({
     'base': {
       'driver': 'auto',
-      'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr'},
+      'kvstore': {
+        'driver': 'file',
+        'path': '/tmp/dataset.zarr',
+      },
     },
     'driver': 'cast',
     'dtype': 'int64',
@@ -139,7 +160,10 @@ used in conjunction with format auto-detection:
   Spec({
     'base': {
       'driver': 'auto',
-      'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr'},
+      'kvstore': {
+        'driver': 'file',
+        'path': '/tmp/dataset.zarr',
+      },
     },
     'driver': 'cast',
     'dtype': 'int64',
@@ -149,7 +173,10 @@ used in conjunction with format auto-detection:
     'base': {
       'driver': 'zarr3',
       'dtype': 'int32',
-      'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr/'},
+      'kvstore': {
+        'driver': 'file',
+        'path': '/tmp/dataset.zarr/',
+      },
       'metadata': {
         'chunk_grid': {
           'configuration': {'chunk_shape': [5]},
@@ -203,7 +230,10 @@ from the path to the OCDBT database.
     'driver': 'zarr3',
     'dtype': 'int32',
     'kvstore': {
-      'base': {'driver': 'file', 'path': '/tmp/dataset.ocdbt/'},
+      'base': {
+        'driver': 'file',
+        'path': '/tmp/dataset.ocdbt/',
+      },
       'config': {
         'compression': {'id': 'zstd'},
         'max_decoded_node_bytes': 8388608,
@@ -240,7 +270,10 @@ from the path to the OCDBT database.
     'driver': 'zarr3',
     'dtype': 'int32',
     'kvstore': {
-      'base': {'driver': 'file', 'path': '/tmp/dataset.ocdbt/'},
+      'base': {
+        'driver': 'file',
+        'path': '/tmp/dataset.ocdbt/',
+      },
       'config': {
         'compression': {'id': 'zstd'},
         'max_decoded_node_bytes': 8388608,
@@ -285,7 +318,10 @@ of the OCDBT database:
     'driver': 'zarr3',
     'dtype': 'int32',
     'kvstore': {
-      'base': {'driver': 'file', 'path': '/tmp/dataset2.ocdbt/'},
+      'base': {
+        'driver': 'file',
+        'path': '/tmp/dataset2.ocdbt/',
+      },
       'config': {
         'compression': {'id': 'zstd'},
         'max_decoded_node_bytes': 8388608,

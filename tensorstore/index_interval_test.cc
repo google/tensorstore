@@ -14,9 +14,16 @@
 
 #include "tensorstore/index_interval.h"
 
+#include <limits>
+#include <string>
+#include <type_traits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/hash/hash_testing.h"
+#include "absl/status/status.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status.h"
@@ -46,16 +53,18 @@ using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::kMinFiniteIndex;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::MergeDimensionLabels;
 using ::tensorstore::MergeOptionallyImplicitIndexIntervals;
 using ::tensorstore::OptionallyImplicitIndexInterval;
 using ::tensorstore::ShiftInterval;
 using ::tensorstore::ShiftIntervalBackward;
 using ::tensorstore::ShiftIntervalTo;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StrCat;
 using ::tensorstore::view;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
 using ::testing::Optional;
 using ::testing::Pair;
 
@@ -118,7 +127,7 @@ TEST(IndexIntervalTest, ValidHalfOpen) {
 TEST(IndexIntervalTest, Sized) {
   EXPECT_EQ(IndexInterval::UncheckedSized(0, 5), IndexInterval::Sized(0, 5));
   EXPECT_THAT(IndexInterval::Sized(0, -1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexIntervalTest, UncheckedSized) {
@@ -154,7 +163,7 @@ TEST(IndexIntervalTest, UncheckedClosed) {
 TEST(IndexIntervalTest, Closed) {
   EXPECT_EQ(IndexInterval::UncheckedClosed(2, 4), IndexInterval::Closed(2, 4));
   EXPECT_THAT(IndexInterval::Closed(2, 0),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexIntervalTest, UncheckedHalfOpen) {
@@ -166,7 +175,7 @@ TEST(IndexIntervalTest, HalfOpen) {
   EXPECT_EQ(IndexInterval::UncheckedHalfOpen(2, 4),
             IndexInterval::HalfOpen(2, 4));
   EXPECT_THAT(IndexInterval::HalfOpen(2, 0),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexIntervalTest, ContainsIndex) {
@@ -527,22 +536,23 @@ TEST(IndexIntervalTest, ShiftInterval) {
               Optional(IndexInterval::UncheckedClosed(-kInfIndex + 5,
                                                       -kInfIndex + 10)));
   EXPECT_THAT(ShiftInterval(IndexInterval::UncheckedClosed(5, 10), kInfIndex),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "5 \\+ [0-9]+ is outside valid range .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("5 \\+ [0-9]+ is outside valid range.*")));
   EXPECT_THAT(
       ShiftInterval(IndexInterval::UncheckedClosed(5, 10), kMaxFiniteIndex),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "5 \\+ [0-9]+ is outside valid range .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("5 \\+ [0-9]+ is outside valid range.*")));
 
   EXPECT_THAT(
       ShiftInterval(IndexInterval::UncheckedClosed(-1, 10), kMinFiniteIndex),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "-1 \\+ -[0-9]+ is outside valid range .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("-1 \\+ -[0-9]+ is outside valid range.*")));
 
-  EXPECT_THAT(ShiftInterval(IndexInterval::UncheckedClosed(-kInfIndex, -5),
-                            kMinFiniteIndex),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "-5 \\+ -[0-9]+ is outside valid range .*"));
+  EXPECT_THAT(
+      ShiftInterval(IndexInterval::UncheckedClosed(-kInfIndex, -5),
+                    kMinFiniteIndex),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("-5 \\+ -[0-9]+ is outside valid range.*")));
 }
 
 TEST(IndexIntervalTest, ShiftIntervalBackward) {
@@ -566,23 +576,24 @@ TEST(IndexIntervalTest, ShiftIntervalBackward) {
           IndexInterval::UncheckedClosed(-kInfIndex + 5, -kInfIndex + 10)));
   EXPECT_THAT(
       ShiftIntervalBackward(IndexInterval::UncheckedClosed(5, 10), -kInfIndex),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "5 \\+ [0-9]+ is outside valid range .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("5 \\+ [0-9]+ is outside valid range .*")));
   EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(5, 10),
                                     kMinFiniteIndex),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "5 \\+ [0-9]+ is outside valid range .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("5 \\+ [0-9]+ is outside valid range .*")));
 
-  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(-1, 10),
-                                    kMaxFiniteIndex),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "-1 \\+ -[0-9]+ is outside valid range .*"));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(-1, 10),
+                            kMaxFiniteIndex),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("-1 \\+ -[0-9]+ is outside valid range .*")));
 
   EXPECT_THAT(
       ShiftIntervalBackward(IndexInterval::UncheckedClosed(-kInfIndex, -5),
                             kMaxFiniteIndex),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "-5 \\+ -[0-9]+ is outside valid range .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("-5 \\+ -[0-9]+ is outside valid range .*")));
 }
 
 TEST(IndexIntervalTest, ShiftIntervalSeparateOffsets) {
@@ -596,27 +607,29 @@ TEST(IndexIntervalTest, ShiftIntervalSeparateOffsets) {
       Optional(IndexInterval::UncheckedClosed(-kMaxFiniteIndex + 1, 13)));
   EXPECT_THAT(
       ShiftInterval(IndexInterval::UncheckedClosed(-kMaxFiniteIndex, 8), -1, 5),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "-[0-9]+ \\+ -1 is outside valid range .*"));
-  EXPECT_THAT(ShiftInterval(IndexInterval::UncheckedClosed(-1, 8),
-                            std::numeric_limits<Index>::min(), 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "-1 \\+ -[0-9]+ is outside valid range .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("-[0-9]+ \\+ -1 is outside valid range .*")));
+  EXPECT_THAT(
+      ShiftInterval(IndexInterval::UncheckedClosed(-1, 8),
+                    std::numeric_limits<Index>::min(), 5),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("-1 \\+ -[0-9]+ is outside valid range .*")));
   EXPECT_THAT(
       ShiftInterval(IndexInterval::UncheckedClosed(2, kMaxFiniteIndex), -1, 0),
       Optional(IndexInterval::UncheckedClosed(1, kMaxFiniteIndex)));
   EXPECT_THAT(
       ShiftInterval(IndexInterval::UncheckedClosed(2, kMaxFiniteIndex), -1, 1),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "[0-9]+ \\+ 1 is outside valid range .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("[0-9]+ \\+ 1 is outside valid range .*")));
   EXPECT_THAT(ShiftInterval(IndexInterval::UncheckedClosed(2, 1), -1,
                             std::numeric_limits<Index>::max()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "1 \\+ [0-9]+ is outside valid range .*"));
-  EXPECT_THAT(ShiftInterval(IndexInterval::UncheckedClosed(0, 8),
-                            std::numeric_limits<Index>::min(), 5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "0 \\+ -[0-9]+ is outside valid range .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("1 \\+ [0-9]+ is outside valid range .*")));
+  EXPECT_THAT(
+      ShiftInterval(IndexInterval::UncheckedClosed(0, 8),
+                    std::numeric_limits<Index>::min(), 5),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("0 \\+ -[0-9]+ is outside valid range .*")));
   EXPECT_THAT(ShiftInterval(IndexInterval::UncheckedClosed(1, 8), 2, 5),
               Optional(IndexInterval::UncheckedClosed(3, 13)));
   EXPECT_THAT(
@@ -641,29 +654,33 @@ TEST(IndexIntervalTest, ShiftIntervalBackwardSeparateOffsets) {
       ShiftIntervalBackward(IndexInterval::UncheckedClosed(-kMaxFiniteIndex, 8),
                             -1, -5),
       Optional(IndexInterval::UncheckedClosed(-kMaxFiniteIndex + 1, 13)));
-  EXPECT_THAT(ShiftIntervalBackward(
-                  IndexInterval::UncheckedClosed(-kMaxFiniteIndex, 8), 1, -5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "-[0-9]+ \\+ -1 is outside valid range .*"));
-  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(-1, 8),
-                                    std::numeric_limits<Index>::max(), -5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "-1 \\+ -[0-9]+ is outside valid range .*"));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(-kMaxFiniteIndex, 8),
+                            1, -5),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("-[0-9]+ \\+ -1 is outside valid range .*")));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(-1, 8),
+                            std::numeric_limits<Index>::max(), -5),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("-1 \\+ -[0-9]+ is outside valid range .*")));
   EXPECT_THAT(ShiftIntervalBackward(
                   IndexInterval::UncheckedClosed(2, kMaxFiniteIndex), 1, 0),
               Optional(IndexInterval::UncheckedClosed(1, kMaxFiniteIndex)));
   EXPECT_THAT(ShiftIntervalBackward(
                   IndexInterval::UncheckedClosed(2, kMaxFiniteIndex), 1, -1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "[0-9]+ \\+ 1 is outside valid range .*"));
-  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(2, 1), 1,
-                                    std::numeric_limits<Index>::min()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "1 \\+ -[0-9]+ is outside valid range .*"));
-  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(0, 8),
-                                    std::numeric_limits<Index>::max(), -5),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "0 \\+ -[0-9]+ is outside valid range .*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("[0-9]+ \\+ 1 is outside valid range .*")));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(2, 1), 1,
+                            std::numeric_limits<Index>::min()),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("1 \\+ -[0-9]+ is outside valid range .*")));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(0, 8),
+                            std::numeric_limits<Index>::max(), -5),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("0 \\+ -[0-9]+ is outside valid range .*")));
   EXPECT_THAT(
       ShiftIntervalBackward(IndexInterval::UncheckedClosed(1, 8), -2, -5),
       Optional(IndexInterval::UncheckedClosed(3, 13)));
@@ -684,8 +701,8 @@ TEST(IndexIntervalTest, ShiftIntervalTo) {
               Optional(IndexInterval::UncheckedClosed(3, 10)));
 
   EXPECT_THAT(ShiftIntervalTo(IndexInterval::UncheckedClosed(-kInfIndex, 8), 2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Interval .* is not bounded below"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Interval .* is not bounded below")));
 
   EXPECT_THAT(ShiftIntervalTo(IndexInterval::UncheckedClosed(1, kInfIndex), 3),
               Optional(IndexInterval::UncheckedClosed(3, kInfIndex)));
@@ -697,15 +714,16 @@ TEST(IndexIntervalTest, ShiftIntervalTo) {
 
   EXPECT_THAT(
       ShiftIntervalTo(IndexInterval::UncheckedClosed(5, 10), -kInfIndex),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Origin -[0-9]+ is outside valid range .*"));
-  EXPECT_THAT(ShiftIntervalTo(IndexInterval::UncheckedClosed(5, 10), kInfIndex),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Origin [0-9]+ is outside valid range .*"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               MatchesRegex("Origin -[0-9]+ is outside valid range .*")));
+  EXPECT_THAT(
+      ShiftIntervalTo(IndexInterval::UncheckedClosed(5, 10), kInfIndex),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               MatchesRegex("Origin [0-9]+ is outside valid range .*")));
   EXPECT_THAT(
       ShiftIntervalTo(IndexInterval::UncheckedClosed(5, 10), kMaxFiniteIndex),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "10 \\+ [0-9]+ is outside valid range .*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               MatchesRegex("10 \\+ [0-9]+ is outside valid range .*")));
 }
 
 TEST(ExtractStridedSliceTest, Closed) {
@@ -756,9 +774,9 @@ TEST(ExtractStridedSliceTest, Closed) {
   EXPECT_THAT(ExtractClosedStridedSlice(
                   {IndexInterval::UncheckedClosed(5, 10), false, false},
                   -kInfIndex, 9, 1),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Slice interval \\(-inf, 10\\) is not contained "
-                            "within domain \\[5, 11\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Slice interval (-inf, 10) is not contained "
+                                 "within domain [5, 11)")));
 
   EXPECT_THAT(
       ExtractClosedStridedSlice(
@@ -770,9 +788,9 @@ TEST(ExtractStridedSliceTest, Closed) {
   EXPECT_THAT(ExtractClosedStridedSlice(
                   {IndexInterval::UncheckedClosed(5, 10), false, false}, 9,
                   -kInfIndex, -2),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Slice interval \\(-inf, 10\\) is not contained "
-                            "within domain \\[5, 11\\)"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Slice interval (-inf, 10) is not contained "
+                                 "within domain [5, 11)")));
 
   EXPECT_THAT(
       ExtractClosedStridedSlice(
@@ -811,30 +829,30 @@ TEST(ExtractStridedSliceTest, Closed) {
       Pair(OIII{IndexInterval::UncheckedClosed(-kInfIndex, -5), false, false},
            kInfIndex));
 
-  EXPECT_THAT(
-      ExtractClosedStridedSlice(
-          {IndexInterval::UncheckedClosed(5, 10), false, false}, kImplicit, 6,
-          0),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid stride 0"));
+  EXPECT_THAT(ExtractClosedStridedSlice(
+                  {IndexInterval::UncheckedClosed(5, 10), false, false},
+                  kImplicit, 6, 0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid stride 0")));
 
   EXPECT_THAT(ExtractClosedStridedSlice(
                   {IndexInterval::UncheckedClosed(5, 10), false, false},
                   kImplicit, 6, std::numeric_limits<Index>::min()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid stride -[0-9]+"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Invalid stride -[0-9]+")));
 
   EXPECT_THAT(
       ExtractClosedStridedSlice(
           {IndexInterval::UncheckedClosed(5, 10), false, false}, 4, 6, 1),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Slice interval \\[4, 7\\) is not contained within domain "
-                    "\\[5, 11\\)"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Slice interval [4, 7) is not contained within domain "
+                         "[5, 11)")));
 
   EXPECT_THAT(ExtractClosedStridedSlice(
                   {IndexInterval::UncheckedClosed(3, 10), false, false},
                   -kInfIndex - 1, 10, 1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid start index -[0-9]+"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Invalid start index -[0-9]+")));
 }
 
 TEST(ExtractStridedSliceTest, Sized) {
@@ -906,47 +924,48 @@ TEST(ExtractStridedSliceTest, Sized) {
   EXPECT_THAT(
       ExtractSizedStridedSlice(
           {IndexInterval::UncheckedClosed(5, 10), false, false}, 9, -1, -2),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Negative size -1 specified for sized interval"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Negative size -1 specified for sized interval")));
 
   EXPECT_THAT(ExtractSizedStridedSlice(
                   {IndexInterval::UncheckedClosed(5, 10), false, false},
                   std::numeric_limits<Index>::min() + 1, 0, 2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid start index -[0-9]+"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Invalid start index -[0-9]+")));
 
   EXPECT_THAT(ExtractSizedStridedSlice(
                   {IndexInterval::UncheckedClosed(5, 10), false, false},
                   std::numeric_limits<Index>::max(), 0, -2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid start index [0-9]+"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex("Invalid start index [0-9]+")));
 
   EXPECT_THAT(ExtractSizedStridedSlice(
                   {IndexInterval::UncheckedClosed(5, 10), false, false}, 5, 100,
                   kInfIndex),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Integer overflow computing slice result"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Integer overflow computing slice result")));
 
   EXPECT_THAT(ExtractSizedStridedSlice(
                   {IndexInterval::UncheckedClosed(5, 10), false, false}, 5,
                   kInfIndex, 2),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Integer overflow computing slice result"));
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Integer overflow computing slice result")));
 
   EXPECT_THAT(
       ExtractSizedStridedSlice(
           {IndexInterval::UncheckedClosed(-kInfIndex, 10), false, false},
           kImplicit, kImplicit, 2),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Slicing with non-unit stride of 2 requires a "
-                    "finite start index"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Slicing with non-unit stride of 2 requires a "
+                         "finite start index")));
 
-  EXPECT_THAT(ExtractSizedStridedSlice(
-                  {IndexInterval::UncheckedClosed(3, kInfIndex), false, false},
-                  kImplicit, kImplicit, -2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Slicing with non-unit stride of -2 requires a "
-                            "finite start index"));
+  EXPECT_THAT(
+      ExtractSizedStridedSlice(
+          {IndexInterval::UncheckedClosed(3, kInfIndex), false, false},
+          kImplicit, kImplicit, -2),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Slicing with non-unit stride of -2 requires a "
+                         "finite start index")));
 }
 
 TEST(ExtractStridedSliceTest, HalfOpen) {
@@ -985,17 +1004,19 @@ TEST(ExtractStridedSliceTest, HalfOpen) {
           .value(),
       Pair(OIII{IndexInterval::UncheckedHalfOpen(6, 15), false, false}, 6));
 
-  EXPECT_THAT(ExtractHalfOpenStridedSlice(
-                  {IndexInterval::UncheckedClosed(5, 10), false, false}, 9,
-                  std::numeric_limits<Index>::min() + 1, 2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".* do not specify a valid closed index interval"));
+  EXPECT_THAT(
+      ExtractHalfOpenStridedSlice(
+          {IndexInterval::UncheckedClosed(5, 10), false, false}, 9,
+          std::numeric_limits<Index>::min() + 1, 2),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(" do not specify a valid closed index interval")));
 
-  EXPECT_THAT(ExtractHalfOpenStridedSlice(
-                  {IndexInterval::UncheckedClosed(5, 10), false, false}, 9,
-                  std::numeric_limits<Index>::max(), -2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".* do not specify a valid closed index interval"));
+  EXPECT_THAT(
+      ExtractHalfOpenStridedSlice(
+          {IndexInterval::UncheckedClosed(5, 10), false, false}, 9,
+          std::numeric_limits<Index>::max(), -2),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(" do not specify a valid closed index interval")));
 }
 
 TEST(ComputeStridedSliceMapTest, NoTranslationStride1) {
@@ -1081,7 +1102,7 @@ TEST(ComputeStridedSliceMapTest, TranslationError) {
                   /*start=*/2,
                   /*stop_or_size=*/8,
                   /*stride=*/1, &new_domain, &output_offset),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ComputeStridedSliceMapTest, SliceError) {
@@ -1095,7 +1116,7 @@ TEST(ComputeStridedSliceMapTest, SliceError) {
                   /*start=*/2,
                   /*stop_or_size=*/8,
                   /*stride=*/1, &new_domain, &output_offset),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(GetAffineTransformDomainTest, Divisor1) {
@@ -1145,14 +1166,14 @@ TEST(GetAffineTransformDomainTest, DivisorInvalid) {
   EXPECT_THAT(GetAffineTransformDomain(
                   IndexInterval::UncheckedClosed(1, 10),
                   /*offset=*/0, /*divisor=*/std::numeric_limits<Index>::min()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(GetAffineTransformDomainTest, OffsetInvalid) {
   EXPECT_THAT(GetAffineTransformDomain(
                   IndexInterval::UncheckedClosed(1, 10),
                   /*offset=*/std::numeric_limits<Index>::min(), /*divisor=*/-1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 void TestGetAffineTransformRangeRoundTrip(IndexInterval domain, Index offset,
@@ -1233,15 +1254,15 @@ TEST(GetAffineTransformRangeTest, ZeroMultiplier) {
 TEST(GetAffineTransformRangeTest, ErrorCases) {
   EXPECT_THAT(GetAffineTransformRange(IndexInterval::UncheckedClosed(3, 10),
                                       kInfIndex, 1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   EXPECT_THAT(GetAffineTransformRange(IndexInterval::UncheckedClosed(3, 10), 5,
                                       kInfIndex),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(GetAffineTransformRange(
                   IndexInterval::UncheckedClosed(-1, 1),
                   std::numeric_limits<Index>::max() - kInfIndex + 1, kInfIndex),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(GetAffineTransformInverseDomainTest, Examples) {
@@ -1312,7 +1333,7 @@ TEST(GetAffineTransformRangeTest, OptionallyImplicitErrorCases) {
   EXPECT_THAT(GetAffineTransformRange(
                   OIII{IndexInterval::UncheckedClosed(3, 10), true, false},
                   kInfIndex, 1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Errors from regular GetAffineTransformDomain simply pass through.
@@ -1321,7 +1342,7 @@ TEST(GetAffineTransformDomainTest, OptionallyImplicitErrorCases) {
   EXPECT_THAT(GetAffineTransformDomain(
                   OIII{IndexInterval::UncheckedClosed(1, 10), true, false},
                   /*offset=*/std::numeric_limits<Index>::min(), /*divisor=*/-1),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(IndexIntervalRefTest, Basic) {
@@ -1634,8 +1655,8 @@ TEST(MergeDimensionLabelsTest, Basic) {
   EXPECT_THAT(MergeDimensionLabels("", ""),
               ::testing::Optional(std::string("")));
   EXPECT_THAT(MergeDimensionLabels("a", "b"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Dimension labels do not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Dimension labels do not match")));
 }
 
 TEST(MergeOptionallyImplicitIndexIntervalsTest, EqualExplicit) {
@@ -1709,8 +1730,8 @@ TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchLower) {
                       IndexInterval::UncheckedClosed(1, 5), false, false},
                   OptionallyImplicitIndexInterval{
                       IndexInterval::UncheckedClosed(2, 5), false, false}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Lower bounds do not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Lower bounds do not match")));
 }
 
 TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchLowerInfinite) {
@@ -1720,8 +1741,8 @@ TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchLowerInfinite) {
                                           false, false},
           OptionallyImplicitIndexInterval{
               IndexInterval::UncheckedClosed(-kInfIndex, 5), false, false}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Lower bounds do not match"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Lower bounds do not match")));
 }
 
 TEST(MergeOptionallyImplicitIndexIntervalsTest, LowerImplicitMerge) {
@@ -1750,8 +1771,8 @@ TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchUpper) {
                       IndexInterval::UncheckedClosed(1, 5), false, false},
                   OptionallyImplicitIndexInterval{
                       IndexInterval::UncheckedClosed(1, 6), false, false}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Upper bounds do not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Upper bounds do not match")));
 }
 
 TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchUpperInfinite) {
@@ -1761,8 +1782,8 @@ TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchUpperInfinite) {
                                           false, false},
           OptionallyImplicitIndexInterval{
               IndexInterval::UncheckedClosed(1, kInfIndex), false, false}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Upper bounds do not match"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Upper bounds do not match")));
 }
 
 TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchUpperImplicit) {
@@ -1771,8 +1792,8 @@ TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchUpperImplicit) {
                       IndexInterval::UncheckedClosed(1, 5), false, false},
                   OptionallyImplicitIndexInterval{
                       IndexInterval::UncheckedClosed(1, 6), false, true}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Upper bounds do not match"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Upper bounds do not match")));
 }
 
 TEST(MergeOptionallyImplicitIndexIntervalsTest, InvalidInterval) {
@@ -1782,9 +1803,9 @@ TEST(MergeOptionallyImplicitIndexIntervalsTest, InvalidInterval) {
               IndexInterval::UncheckedClosed(-kInfIndex, -5), true, false},
           OptionallyImplicitIndexInterval{
               IndexInterval::UncheckedClosed(5, kInfIndex), false, true}),
-      MatchesStatus(
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          "\\(5, -5\\) do not specify a valid closed index interval"));
+          HasSubstr("(5, -5) do not specify a valid closed index interval")));
 }
 
 TEST(IndexIntervalSerializationTest, Basic) {

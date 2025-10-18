@@ -30,12 +30,13 @@
 namespace {
 
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
 using ::tensorstore::internal_zarr3::BytesCodecResolveParameters;
 using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
+using ::testing::MatchesRegex;
 
 TEST(ShardingIndexedTest, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -97,9 +98,11 @@ TEST(ShardingIndexedTest, InvalidBytesToBytes) {
   BytesCodecResolveParameters encoded_params;
   EXPECT_THAT(
       spec.Resolve(std::move(decoded_params), encoded_params, nullptr),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Sharding codec .* is not compatible with subsequent bytes "
-                    "-> bytes .*"));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex(
+              ".*Sharding codec .* is not compatible with subsequent bytes "
+              "-> bytes .*")));
 }
 
 TEST(ShardingIndexedTest, DefaultIndexLocation) {

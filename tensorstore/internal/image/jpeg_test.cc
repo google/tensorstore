@@ -15,6 +15,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -32,9 +33,12 @@
 
 namespace {
 
+using ::tensorstore::IsOk;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::JpegReader;
 using ::tensorstore::internal_image::JpegWriter;
+using ::testing::HasSubstr;
 
 TEST(JpegTest, Decode) {
   // Started the same as the png image, but very much the worse for wear after
@@ -129,7 +133,7 @@ TEST(JpegTest, Decode) {
                                       sizeof(data));
 
   JpegReader decoder;
-  ASSERT_THAT(decoder.Initialize(&string_reader), ::tensorstore::IsOk());
+  ASSERT_THAT(decoder.Initialize(&string_reader), IsOk());
 
   const auto info = decoder.GetImageInfo();
   EXPECT_EQ(256, info.width);
@@ -137,7 +141,7 @@ TEST(JpegTest, Decode) {
   EXPECT_EQ(3, info.num_components);
 
   std::vector<unsigned char> pixel(256 * 256 * 3);
-  ASSERT_THAT(decoder.Decode(pixel), tensorstore::IsOk());
+  ASSERT_THAT(decoder.Decode(pixel), IsOk());
 
   EXPECT_EQ(0, pixel[0]);
   EXPECT_EQ(8, pixel[1]);
@@ -149,6 +153,7 @@ TEST(JpegTest, Decode) {
 //
 // https://cure53.de/pentest-report_libjpeg-turbo.pdf
 TEST(JpegTest, LJT_01_003) {
+  // clang-format off
   static constexpr unsigned char initial[] = {
       /*SOI*/ 0xFF, 0xD8,
       /*SOF10*/ 0xFF, 0xCA, 0x00, 0x0B, 0x08,
@@ -165,6 +170,7 @@ TEST(JpegTest, LJT_01_003) {
       49, 64, 78, 87, 103, 121, 120, 101,  //
       72, 92, 95, 98, 112, 100, 103, 99,   //
   };
+  // clang-format on
   std::string encoded(std::begin(initial), std::end(initial));
   static constexpr unsigned char sos[] = {0xFF, 0xDA, 0x00, 0x08, 0x01,
                                           0x00, 0x00, 0x00, 0x00, 0x10};
@@ -177,7 +183,7 @@ TEST(JpegTest, LJT_01_003) {
   // abort, which prevents the DoS.
   JpegReader decoder;
   riegeli::StringReader string_reader(encoded);
-  EXPECT_THAT(decoder.Initialize(&string_reader), ::tensorstore::IsOk());
+  EXPECT_THAT(decoder.Initialize(&string_reader), IsOk());
 
   const auto info = decoder.GetImageInfo();
   EXPECT_EQ(8192, info.width);
@@ -186,8 +192,8 @@ TEST(JpegTest, LJT_01_003) {
 
   std::vector<unsigned char> raw(ImageRequiredBytes(info));
   ASSERT_THAT(decoder.Decode(raw),
-              ::tensorstore::MatchesStatus(absl::StatusCode::kDataLoss,
-                                           "Inconsistent progression .*"));
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Inconsistent progression ")));
 }
 
 TEST(JpegTest, EncodeDecode) {
@@ -228,11 +234,10 @@ TEST(JpegTest, EncodeDecode) {
   {
     JpegWriter encoder;
     riegeli::CordWriter cord_writer(&encoded);
-    ASSERT_THAT(encoder.Initialize(&cord_writer), ::tensorstore::IsOk());
+    ASSERT_THAT(encoder.Initialize(&cord_writer), IsOk());
 
-    ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 1}, pixels),
-                ::tensorstore::IsOk());
-    ASSERT_THAT(encoder.Done(), ::tensorstore::IsOk());
+    ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 1}, pixels), IsOk());
+    ASSERT_THAT(encoder.Done(), IsOk());
   }
   EXPECT_THAT(encoded, ::testing::StrEq(std::string_view(
                            reinterpret_cast<const char*>(raw), sizeof(raw))));
@@ -240,7 +245,7 @@ TEST(JpegTest, EncodeDecode) {
   {
     JpegReader decoder;
     riegeli::CordReader cord_reader(&encoded);
-    ASSERT_THAT(decoder.Initialize(&cord_reader), ::tensorstore::IsOk());
+    ASSERT_THAT(decoder.Initialize(&cord_reader), IsOk());
 
     const auto& info = decoder.GetImageInfo();
     EXPECT_EQ(1, info.width);
@@ -251,7 +256,7 @@ TEST(JpegTest, EncodeDecode) {
     ASSERT_THAT(
         decoder.Decode(tensorstore::span(
             reinterpret_cast<unsigned char*>(&new_pixel), sizeof(new_pixel))),
-        tensorstore::IsOk());
+        IsOk());
   }
 }
 
@@ -268,7 +273,7 @@ TEST(JpegTest, NotAJpeg) {
 
   JpegReader decoder;
   EXPECT_THAT(decoder.Initialize(&string_reader),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(JpegTest, CorruptData) {
@@ -281,7 +286,7 @@ TEST(JpegTest, CorruptData) {
 
   JpegReader decoder;
   EXPECT_THAT(decoder.Initialize(&string_reader),
-              tensorstore::MatchesStatus(absl::StatusCode::kDataLoss));
+              StatusIs(absl::StatusCode::kDataLoss));
 }
 
 TEST(JpegTest, InvalidNumComponents) {
@@ -291,11 +296,10 @@ TEST(JpegTest, InvalidNumComponents) {
     std::vector<uint8_t> pixels(num_components);
     JpegWriter encoder;
     riegeli::CordWriter cord_writer(&encoded);
-    EXPECT_THAT(encoder.Initialize(&cord_writer), ::tensorstore::IsOk());
+    EXPECT_THAT(encoder.Initialize(&cord_writer), IsOk());
 
-    EXPECT_THAT(
-        encoder.Encode(ImageInfo{1, 1, num_components}, pixels),
-        ::tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(encoder.Encode(ImageInfo{1, 1, num_components}, pixels),
+                StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
 

@@ -178,7 +178,7 @@ void MaybeEvictEntries(CachePoolImpl* pool) noexcept {
     bool evict = false;
     bool should_delete_cache = false;
     auto& shard = cache->ShardForKey(entry->key_);
-    if (absl::MutexLock lock(&shard.mutex);
+    if (absl::MutexLock lock(shard.mutex);
         entry->reference_count_.load(std::memory_order_acquire) == 0) {
       [[maybe_unused]] size_t erase_count = shard.entries.erase(entry);
       assert(erase_count == 1);
@@ -232,16 +232,16 @@ void DestroyCache(CachePoolImpl* pool,
       // been marked `ShouldDelete == true`, that the pool already contains a
       // replacement cache with the same key; the replacement cache should be
       // ignored.
-      absl::MutexLock lock(&pool->caches_mutex_);
+      absl::MutexLock lock(pool->caches_mutex_);
       auto it = pool->caches_.find(cache);
       if (it != pool->caches_.end() && *it == cache) {
         pool->caches_.erase(it);
       }
     }
     if (HasLruCache(pool)) {
-      absl::MutexLock lru_lock(&pool->lru_mutex_);
+      absl::MutexLock lru_lock(pool->lru_mutex_);
       for (auto& shard : cache->shards_) {
-        absl::MutexLock lock(&shard.mutex);
+        absl::MutexLock lock(shard.mutex);
         for (CacheEntryImpl* entry : shard.entries) {
           // Increment reference count by 2, to ensure that concurrently
           // releasing the last weak reference to `entry` does not result in a
@@ -255,7 +255,7 @@ void DestroyCache(CachePoolImpl* pool,
       // the entries can safely be destroyed without holding any locks.
     } else {
       for (auto& shard : cache->shards_) {
-        absl::MutexLock lock(&shard.mutex);
+        absl::MutexLock lock(shard.mutex);
         for (CacheEntryImpl* entry : shard.entries) {
           // Increment reference count by 2, to ensure that concurrently
           // releasing the last weak reference to `entry` does not result in a
@@ -429,7 +429,7 @@ CachePtr<Cache> GetCacheInternal(
   CachePoolImpl::CacheKey key(cache_type, cache_key);
   if (pool && !cache_key.empty()) {
     // An non-empty key indicates to look for an existing cache.
-    absl::MutexLock lock(&pool->caches_mutex_);
+    absl::MutexLock lock(pool->caches_mutex_);
     auto it = pool->caches_.find(key);
     if (it != pool->caches_.end()) {
       auto* cache = *it;
@@ -461,7 +461,7 @@ CachePtr<Cache> GetCacheInternal(
   }
   cache_impl->cache_type_ = &cache_type;
   cache_impl->cache_identifier_ = std::string(cache_key);
-  absl::MutexLock lock(&pool->caches_mutex_);
+  absl::MutexLock lock(pool->caches_mutex_);
   auto insert_result = pool->caches_.insert(cache_impl);
   if (insert_result.second ||
       !TryToAcquireCacheStrongReference(pool, *insert_result.first)) {
@@ -498,7 +498,7 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
         Access::StaticCast<CacheEntry>(entry_impl), internal::adopt_object_ref);
   } else {
     auto& shard = cache_impl->ShardForKey(key);
-    absl::MutexLock lock(&shard.mutex);
+    absl::MutexLock lock(shard.mutex);
     auto it = shard.entries.find(key);
     if (it != shard.entries.end()) {
       hit_count.Increment();
@@ -557,16 +557,16 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
 }
 
 void StrongPtrTraitsCache::decrement_impl(CacheImpl* cache) noexcept {
+  // Note: `pool_` must be accessed here because `cache` may have been
+  // concurrently destroyed after calling `DecrementCacheReferenceCount` unless
+  // `should_delete==true`.
+  CachePoolImpl* pool = cache->pool_;
   auto decrement_result =
       DecrementCacheReferenceCount(cache, CacheImpl::kStrongReferenceIncrement);
-  CachePoolImpl* pool = nullptr;
-  if (decrement_result.should_release_cache_pool_weak_reference()) {
-    pool = cache->pool_;
-  }
   if (decrement_result.should_delete()) {
-    DestroyCache(cache->pool_, cache);
+    DestroyCache(pool, cache);
   }
-  if (pool) {
+  if (decrement_result.should_release_cache_pool_weak_reference() && pool) {
     ReleaseWeakReference(pool);
   }
 }
@@ -731,7 +731,7 @@ void UpdateTotalBytes(CachePoolImpl& pool, ptrdiff_t change) {
       change <= 0) {
     return;
   }
-  absl::MutexLock lock(&pool.lru_mutex_);
+  absl::MutexLock lock(pool.lru_mutex_);
   MaybeEvictEntries(&pool);
 }
 
@@ -751,7 +751,7 @@ CacheEntry::~CacheEntry() {
   auto* weak_state = this->weak_state_.load(std::memory_order_relaxed);
   if (!weak_state) return;
   {
-    absl::MutexLock lock(&weak_state->mutex);
+    absl::MutexLock lock(weak_state->mutex);
     weak_state->entry = nullptr;
     if (weak_state->weak_references.load(std::memory_order_acquire) != 0) {
       // Don't destroy the weak reference state, since there are still weak
@@ -801,7 +801,7 @@ CachePool::StrongPtr::StrongPtr(const CachePool::WeakPtr& ptr)
   auto* pool =
       internal_cache::Access::StaticCast<internal_cache::CachePoolImpl>(
           ptr.get());
-  absl::MutexLock lock(&pool->caches_mutex_);
+  absl::MutexLock lock(pool->caches_mutex_);
   if (pool->strong_references_.fetch_add(1, std::memory_order_acq_rel) == 0) {
     internal_cache::AcquireWeakReference(pool);
     for (auto* cache : pool->caches_) {

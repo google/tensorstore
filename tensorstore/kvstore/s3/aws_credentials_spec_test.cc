@@ -26,12 +26,13 @@
 
 using Spec = ::tensorstore::internal_kvstore_s3::AwsCredentialsSpec;
 
-using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
+namespace {
 
 namespace jb = ::tensorstore::internal_json_binding;
-
-namespace {
+using ::tensorstore::IsOk;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::StatusIs;
+using ::testing::HasSubstr;
 
 struct Params {
   Spec spec;
@@ -117,7 +118,7 @@ TEST_P(SpecParamTest, Load) {
   ::nlohmann::json::object_t json = param.json;
   Spec from_json;
   EXPECT_THAT(binder(std::true_type{}, jb::NoOptions{}, &from_json, &json),
-              tensorstore::IsOk());
+              IsOk());
   EXPECT_THAT(from_json, ::testing::Eq(param.spec));
 }
 
@@ -126,7 +127,7 @@ TEST_P(SpecParamTest, Save) {
   ::nlohmann::json::object_t to_json;
   EXPECT_THAT(binder(std::false_type{}, tensorstore::IncludeDefaults{},
                      &param.spec, &to_json),
-              tensorstore::IsOk());
+              IsOk());
   EXPECT_THAT(to_json, MatchesJson(param.json));
 }
 
@@ -137,8 +138,8 @@ TEST(SpecTest, Error) {
   EXPECT_THAT(
       Spec::PartialBinder{}(std::true_type{}, tensorstore::IncludeDefaults(),
                             &spec, &json),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Failed to parse AWS credentials spec.*"));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Failed to parse AWS credentials spec")));
 }
 
 }  // namespace

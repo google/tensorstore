@@ -34,8 +34,8 @@ namespace {
 
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_n5::Compressor;
 using ::tensorstore::internal_n5::DecodeChunk;
 using ::tensorstore::internal_n5::N5Metadata;
@@ -51,17 +51,17 @@ TEST(Bzip2CompressionTest, Parse) {
 
   // Invalid blockSize option type
   EXPECT_THAT(Compressor::FromJson({{"type", "bzip2"}, {"blockSize", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid blockSize option value
   EXPECT_THAT(Compressor::FromJson({{"type", "bzip2"}, {"blockSize", 0}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(Compressor::FromJson({{"type", "bzip2"}, {"blockSize", 10}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   // Invalid extra option
   EXPECT_THAT(Compressor::FromJson({{"type", "bzip2"}, {"extra", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 // Bzip2 chunk example from the specification:

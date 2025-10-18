@@ -41,9 +41,10 @@ namespace {
 
 using ::tensorstore::Context;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::Spec;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
+using ::testing::HasSubstr;
 
 auto MakeInitial(const Context &context) {
   return tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
@@ -54,7 +55,7 @@ auto MakeInitial(const Context &context) {
 
 template <typename... Args>
 std::string AsFileUri(std::string_view path, Args... args) {
-  return absl::StrCat("file://", tensorstore::internal::OsPathToUriPath(path),
+  return absl::StrCat(tensorstore::internal::OsPathToFileUri(path).value(),
                       std::forward<Args>(args)...);
 }
 
@@ -234,9 +235,9 @@ TEST(AutoTest, MemoryOcdbtZarr3Transaction) {
   EXPECT_THAT(
       tensorstore::Open("memory://tmp/dataset.zarr.ocdbt", context, transaction)
           .result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          "Error opening \"auto\" driver: Failed to detect format for .*"));
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               HasSubstr("Error opening \"auto\" driver: Failed to detect "
+                         "format for ")));
 
   // Write an extra file to ensure manifest.ocdbt is written.
   {

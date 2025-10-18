@@ -29,9 +29,9 @@
 namespace tensorstore {
 namespace internal_file_util {
 
-/// A key is valid if its consists of one or more '/'-separated non-empty valid
-/// path components, where each valid path component does not contain '\0', and
-/// is not equal to "." or "..".
+/// A key is valid if is either an absolute path or a relative path, and it
+/// consists of one or more path components separated by '/'. Each path
+/// component must not equal "." or "..", and must not contain '\0'.
 bool IsKeyValid(std::string_view key, std::string_view lock_suffix);
 
 /// Returns the longest directory prefix of a key range.

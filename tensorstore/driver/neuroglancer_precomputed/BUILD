@@ -259,6 +259,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util:unit",
         "//tensorstore/util/execution:any_receiver",
+        "//tensorstore/util/execution:flow_sender_operation_state",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/algorithm:container",
         "@abseil-cpp//absl/container:inlined_vector",
