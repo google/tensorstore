@@ -19,7 +19,7 @@ import signal
 import threading
 import time
 import types
-from typing import Any, Callable
+from typing import Any, Callable, assert_type
 
 import pytest
 import tensorstore as ts
@@ -33,6 +33,17 @@ def test_promise_new() -> None:
   promise.set_result(5)
   assert future.done()
   assert future.result() == 5
+
+
+def test_promise_new_typed() -> None:
+  promise, future = ts.Promise[int].new()
+  assert_type(promise, ts.Promise[int])  # pytype: disable=assert-type
+  assert_type(future, ts.Future[int])  # pytype: disable=assert-type
+  assert not future.done()
+  promise.set_result(5)
+  assert future.done()
+  assert future.result() == 5
+  assert_type(future.result(), int)  # pytype: disable=assert-type
 
 
 def test_type_params() -> None:

@@ -6,7 +6,8 @@ load(
     "pybind11_py_extension",
 )
 load("//bazel:pytest.bzl", "tensorstore_pytest_test")
-load("//bazel:pytype.bzl", "pytype_strict_binary")
+load("//bazel:pytype.bzl", "pytype_strict_binary", "pytype_strict_library")
+load("//bazel:run_binary_in_target_cfg_if_possible.bzl", "run_binary")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 load("//docs:doctest.bzl", "doctest_test")
 
@@ -20,6 +21,11 @@ exports_files([
     "cc_test_driver.cc",
     "cc_test_driver_main.py",
 ])
+
+PYI_FILES = [
+    "__init__.pyi",
+    "ocdbt.pyi",
+]
 
 doctest_test(
     name = "doctest_test",
@@ -67,6 +73,15 @@ pybind11_py_extension(
     ],
 )
 
+py_library(
+    name = "_tensorstore_with_python_deps",
+    deps = [
+        ":_tensorstore",
+        "@pypa_ml_dtypes//:ml_dtypes",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
 pybind11_cc_library(
     name = "tensorstore_module_components",
     srcs = ["tensorstore_module_components.cc"],
@@ -88,14 +103,13 @@ pybind11_cc_library(
     ],
 )
 
-py_library(
+pytype_strict_library(
     name = "core",
     srcs = ["__init__.py"],
+    pytype_srcs = PYI_FILES,
     visibility = ["//visibility:public"],
     deps = [
-        ":_tensorstore",
-        "@pypa_ml_dtypes//:ml_dtypes",  # build_cleaner: keep
-        "@pypa_numpy//:numpy",
+        ":_tensorstore_with_python_deps",
     ],
 )
 
@@ -1235,4 +1249,25 @@ tensorstore_pytest_test(
         ":conftest",
         ":tensorstore",
     ],
+)
+
+pytype_strict_binary(
+    name = "generate_type_stubs",
+    srcs = ["generate_type_stubs.py"],
+    data = ["__init__.py"],
+    main = "generate_type_stubs.py",
+    deps = [
+        ":_tensorstore_with_python_deps",  # build_cleaner: keep
+        "@pypa_pybind11_stubgen//:pybind11_stubgen",
+    ],
+)
+
+run_binary(
+    name = "genrule_type_stubs",
+    outs = PYI_FILES,
+    args = [
+        "$(execpath __init__.pyi)",
+        "$(execpath ocdbt.pyi)",
+    ],
+    tool = ":generate_type_stubs",
 )

@@ -18,6 +18,7 @@ import pathlib
 import pickle
 import re
 import tempfile
+from typing import assert_type
 import numpy as np
 import pytest
 import tensorstore as ts
@@ -29,11 +30,14 @@ async def test_open_array_driver() -> None:
       "array": [[1, 2, 3], [4, 5, 6]],
       "dtype": "int32",
   })
+  assert_type(t, ts.TensorStore)
   assert t.domain == ts.IndexDomain(shape=[2, 3])
   assert t.rank == 2
   assert t.ndim == 2
   assert t.origin == (0, 0)
+  assert_type(t.shape, tuple[int, ...])
   assert t.shape == (2, 3)
+  assert_type(t.dtype, ts.dtype)
   assert t.dtype == ts.int32
   assert t.readable
   assert t.writable
@@ -428,8 +432,11 @@ async def test_assume_metadata() -> None:
       open=True,
       assume_metadata=True,
   )
+  assert_type(t, ts.TensorStore)
   kvs = t.kvstore
+  assert_type(kvs, ts.KvStore | None)
   assert kvs is not None
+  assert_type(kvs, ts.KvStore)
   assert await kvs.list() == []
 
 
@@ -478,6 +485,9 @@ def test_tensorstore_ocdbt_zarr_repr() -> None:
       open=True,
       create=True,
   )
+
+  assert_type(arr_future, ts.Future[ts.TensorStore])
+
   arr = arr_future.result()
   repr(arr)
 

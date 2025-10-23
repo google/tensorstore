@@ -15,6 +15,7 @@
 """Supports pybind11 extension modules"""
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(
@@ -73,17 +74,15 @@ def py_extension(
     exported_symbol = "PyInit_" + name
 
     # Generate linker script used on non-macOS unix platforms.
-    native.genrule(
+    write_file(
         name = linker_script_name_rule,
-        outs = [linker_script_name],
-        cmd = "\n".join([
-            "cat <<'EOF' >$@",
+        out = linker_script_name,
+        content = [
             "{",
             "  global: " + exported_symbol + ";",
             "  local: *;",
             "};",
-            "EOF",
-        ]),
+        ],
     )
 
     for cc_binary_name in [cc_binary_dll_name, cc_binary_so_name]:

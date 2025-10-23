@@ -18,7 +18,9 @@ load("@rules_python//python:py_binary.bzl", "py_binary")
 load("@rules_python//python:py_library.bzl", "py_library")
 load("@rules_python//python:py_test.bzl", "py_test")
 
-def pytype_strict_library(**kwargs):
+def pytype_strict_library(
+        pytype_srcs = None,  # @unused
+        **kwargs):
     """Python type checking not currently supported in open source builds."""
     py_library(**kwargs)
 
@@ -29,3 +31,9 @@ def pytype_strict_binary(**kwargs):
 def pytype_strict_test(**kwargs):
     """Python type checking not currently supported in open source builds."""
     py_test(**kwargs)
+
+def pytype_stub_library(
+        srcs = None,  # @unused
+        **kwargs):
+    """Python type checking not currently supported in open source builds."""
+    py_library(srcs = [], **kwargs)

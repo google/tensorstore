@@ -29,10 +29,13 @@ if sys.version_info < (3, 10):
 import setuptools
 
 import atexit
+import distutils.cmd
 import distutils.command.build
 import os
+import pathlib
 import shlex
 import shutil
+import subprocess
 import sysconfig
 import tempfile
 
@@ -42,14 +45,19 @@ import setuptools.command.install
 import setuptools.command.sdist
 import setuptools.dist
 
+_REPO_ROOT = os.path.dirname(__file__)
 
-def _setup_temp_egg_info(cmd):
+
+def _setup_temp_egg_info(cmd: distutils.cmd.Command) -> None:
   """Use a temporary directory for the `.egg-info` directory.
 
   When building an sdist (source distribution) or installing, locate the
   `.egg-info` directory inside a temporary directory so that it
   doesn't litter the source directory and doesn't pick up a stale SOURCES.txt
   from a previous build.
+
+  Args:
+    cmd: The setuptools command.
   """
   egg_info_cmd = cmd.distribution.get_command_obj('egg_info')
   if egg_info_cmd.egg_base is None:
@@ -63,11 +71,9 @@ def _parse_version(version_str: str):
 
 
 class SdistCommand(setuptools.command.sdist.sdist):
+  """Overrides default sdist command to exclude .egg-info."""
 
   def run(self):
-    # Build the client bundle if it does not already exist.  If it has
-    # already been built but is stale, the user is responsible for
-    # rebuilding it.
     _setup_temp_egg_info(self)
     super().run()
 
@@ -80,6 +86,7 @@ class SdistCommand(setuptools.command.sdist.sdist):
 
 
 class BuildCommand(distutils.command.build.build):
+  """Overrides default build command to use a temporary directory."""
 
   def finalize_options(self):
     if self.build_base == 'build':
@@ -95,6 +102,7 @@ _EXCLUDED_PYTHON_MODULES = frozenset([
     'tensorstore.bazel_pytest_main',
     'tensorstore.shell',
     'tensorstore.cc_test_driver_main',
+    'tensorstore.generate_type_stubs',
 ])
 
 
@@ -118,7 +126,13 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
     ]
 
 
-def _configure_macos_deployment_target():
+def _configure_macos_deployment_target() -> str:
+  """Configures the MACOSX_DEPLOYMENT_TARGET environment variable.
+
+  Returns:
+    The configured value.
+  """
+
   # TensorStore requires MACOSX_DEPLOYMENT_TARGET >= 10.14 in
   # order to support sized/aligned operator new/delete.
   min_macos_target = '10.14'
@@ -154,8 +168,26 @@ def _configure_macos_deployment_target():
   return macos_target
 
 
-def _get_action_env():
-  """Returns an optional bazel --action_env PATH override.
+def _remove_virtual_env_paths(parts: list[str], venv_dir: str) -> list[str]:
+  """Removes from `parts` any paths that start with `venv_dir`.
+
+  Args:
+    parts: The list of path parts to modify.
+    venv_dir: The directory to remove.
+
+  Returns:
+    The modified list.
+  """
+  venv_dir = os.path.normpath(venv_dir)
+  return [
+      part
+      for part in parts
+      if not pathlib.Path(os.path.normpath(part)).is_relative_to(venv_dir)
+  ]
+
+
+def _normalize_path(path: str) -> str:
+  """Normalize the PATH used when invoking Bazel.
 
   `pip install .` creates a temporary build environment, and adjusts the PATH
   to add a binary path and an overlay path. As bazel is already hermetic, the
@@ -167,42 +199,53 @@ def _get_action_env():
   passed to the build and review of the PIP sources. The source, as reviewed,
   creates a temporary directory including pip-{kind}, where kind=build-env.
 
+  When using `uv build`, the `VIRTUAL_ENV` environment variable is set
+  to the temporary build environment, which can be detected directly.
+  easily.
+
   See: dist-packages/pip/_internal/utils/temp_dir.py
   Also: https://github.com/bazelbuild/bazel/issues/18809
+
+  Args:
+    path: The PATH to normalize.
+
+  Returns:
+    The normalized PATH.
   """
 
-  path = os.getenv('PATH', None)
-  if path is None:
-    return []
   parts = path.split(os.pathsep)
+
+  # Remove any VIRTUAL_ENV paths if present.
+  #
+  # uv build sets `VIRTUAL_ENV` for its temporary build environment.
+  if (virtual_env := os.getenv('VIRTUAL_ENV', None)) is not None:
+    parts = _remove_virtual_env_paths(parts, virtual_env)
+
+  # Remove pip temporary build environment, if present.
+  #
+  # pip does not set VIRTUAL_ENV; instead it must be detected
+  # heuristically.
   build_env = None
+
   for x in parts:
     if 'pip-build-env' in x:
       build_env = x
       break
-  if not build_env:
-    return []
+  if build_env is not None:
+    # There may be multiple path entries added under the build-env directory,
+    # so remove them all.
+    while 'pip-build-env' in os.path.dirname(build_env):
+      build_env = os.path.dirname(build_env)
 
-  # There may be multiple path entries added under the build-env directory,
-  # so remove them all.
-  while 'pip-build-env' in os.path.dirname(build_env):
-    build_env = os.path.dirname(build_env)
+    parts = _remove_virtual_env_paths(parts, build_env)
 
-  def _is_buildenv_path(x):
-    return (
-        x.startswith(build_env + os.sep)
-        or os.altsep is not None
-        and x.startswith(build_env + os.altsep)
-    )
-
-  return [
-      '--action_env=PATH='
-      + os.pathsep.join([x for x in parts if not _is_buildenv_path(x)])
-  ]
+  return os.pathsep.join(parts)
 
 
 if 'darwin' in sys.platform:
   _macos_deployment_target = _configure_macos_deployment_target()
+
+_TYPE_STUBS = ['__init__.pyi', 'ocdbt.pyi']
 
 
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
@@ -215,12 +258,16 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
 
       prebuilt_path = os.getenv('TENSORSTORE_PREBUILT_DIR')
       if not prebuilt_path:
+
+        env = os.environ.copy()
+
         # Bazel cache includes PATH; attempt to remove the pip build-env
         # from the PATH as bazel is already hermetic to improve cache use.
-        action_env = _get_action_env()
+        if 'PATH' in env:
+          env['PATH'] = _normalize_path(env['PATH'])
 
         # Ensure python_configure.bzl finds the correct Python version.
-        os.environ['PYTHON_BIN_PATH'] = sys.executable
+        env['PYTHON_BIN_PATH'] = sys.executable
 
         bazelisk = os.getenv('TENSORSTORE_BAZELISK', 'bazelisk.py')
         # Controlled via `setup.py build_ext --debug` flag.
@@ -257,12 +304,12 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             + build_flags
             + [
                 '//python/tensorstore:_tensorstore__shared_objects',
+                '//python/tensorstore:genrule_type_stubs',
                 '--verbose_failures',
                 # Bazel does not seem to download these files by default when
                 # using remote caching.
-                r'--remote_download_regex=.*/_tensorstore\.(so|pyd)',
+                r'--remote_download_regex=.*/(_tensorstore\.(so|pyd)|.*\.pyi)',
             ]
-            + action_env
             + build_options
         )
         if 'darwin' in sys.platform:
@@ -307,7 +354,8 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
           # used to hide all extraneous symbols anyway.
           build_command += ['--copt=-fvisibility=hidden']
 
-        self.spawn(build_command)
+        print(f'Executing {shlex.join(build_command)} with env {env}')
+        subprocess.check_call(build_command, env=env)
         suffix = '.pyd' if os.name == 'nt' else '.so'
         built_ext_path = os.path.join(
             'bazel-bin/python/tensorstore/_tensorstore' + suffix
@@ -336,6 +384,42 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
           )
       )
       shutil.copyfile(built_ext_path, ext_full_path)
+
+      for name in _TYPE_STUBS:
+        bazel_output_path = os.path.join(os.path.dirname(built_ext_path), name)
+        output_path = (
+            os.path.join(_REPO_ROOT, 'python/tensorstore', name)
+            if self.inplace
+            else self._get_type_stub_not_inplace_path(name)
+        )
+        print(
+            'Copying type stub %s -> %s'
+            % (
+                bazel_output_path,
+                output_path,
+            )
+        )
+        shutil.copyfile(
+            bazel_output_path,
+            output_path,
+        )
+
+  def _get_type_stub_not_inplace_path(self, name: str) -> str:
+    return os.path.join(self.build_lib, 'tensorstore', name)
+
+  def get_outputs(self) -> list[str]:
+    return super().get_outputs() + [
+        self._get_type_stub_not_inplace_path(name) for name in _TYPE_STUBS
+    ]
+
+  def get_output_mapping(self) -> dict[str, str]:
+    mapping = super().get_output_mapping()
+    if not self.inplace:
+      for name in _TYPE_STUBS:
+        mapping[self._get_type_stub_not_inplace_path(name)] = (
+            f'python/tensorstore/{name}'
+        )
+    return mapping
 
 
 class InstallCommand(setuptools.command.install.install):

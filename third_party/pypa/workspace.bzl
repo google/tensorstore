@@ -96,6 +96,7 @@ def repo():
     repo_pypa_ptyprocess()
     repo_pypa_pure_eval()
     repo_pypa_py_partiql_parser()
+    repo_pypa_pybind11_stubgen()
     repo_pypa_pycparser()
     repo_pypa_pydantic()
     repo_pypa_pydantic_core()
@@ -232,8 +233,8 @@ def repo_pypa_attrs():
     )
 
 def repo_pypa_aws_sam_translator():
-    repo_pypa_boto3()
     repo_pypa_jsonschema()
+    repo_pypa_boto3()
     repo_pypa_pydantic()
     repo_pypa_typing_extensions()
     maybe(
@@ -246,8 +247,8 @@ def repo_pypa_aws_sam_translator():
             "--hash=sha256:a83f0c2e1712a7695446675faf93276518a690d75e190f861636d5326a3d2f30",
         ],
         deps = [
-            "@pypa_boto3//:boto3",
             "@pypa_jsonschema//:jsonschema",
+            "@pypa_boto3//:boto3",
             "@pypa_pydantic//:pydantic",
             "@pypa_typing_extensions//:typing_extensions",
         ],
@@ -308,14 +309,14 @@ def repo_pypa_bashlex():
     )
 
 def repo_pypa_black():
-    repo_pypa_platformdirs()
     repo_pypa_typing_extensions()
-    repo_pypa_pytokens()
     repo_pypa_tomli()
-    repo_pypa_packaging()
-    repo_pypa_pathspec()
-    repo_pypa_mypy_extensions()
+    repo_pypa_pytokens()
     repo_pypa_click()
+    repo_pypa_platformdirs()
+    repo_pypa_mypy_extensions()
+    repo_pypa_pathspec()
+    repo_pypa_packaging()
     maybe(
         third_party_python_package,
         name = "pypa_black",
@@ -346,14 +347,14 @@ def repo_pypa_black():
             "--hash=sha256:f96b6726d690c96c60ba682955199f8c39abc1ae0c3a494a9c62c0184049a713",
         ],
         deps = [
-            "@pypa_platformdirs//:platformdirs",
             "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_pytokens//:pytokens",
             "@pypa_tomli//:tomli",
-            "@pypa_packaging//:packaging",
-            "@pypa_pathspec//:pathspec",
-            "@pypa_mypy_extensions//:mypy_extensions",
+            "@pypa_pytokens//:pytokens",
             "@pypa_click//:click",
+            "@pypa_platformdirs//:platformdirs",
+            "@pypa_mypy_extensions//:mypy_extensions",
+            "@pypa_pathspec//:pathspec",
+            "@pypa_packaging//:packaging",
         ],
     )
 
@@ -390,9 +391,9 @@ def repo_pypa_boto3():
     )
 
 def repo_pypa_botocore():
-    repo_pypa_python_dateutil()
-    repo_pypa_urllib3()
     repo_pypa_jmespath()
+    repo_pypa_urllib3()
+    repo_pypa_python_dateutil()
     maybe(
         third_party_python_package,
         name = "pypa_botocore",
@@ -403,9 +404,9 @@ def repo_pypa_botocore():
             "--hash=sha256:b29df3418a299609632cab240ee79275463b176ebeb3adc841ba367a3fa0c4db",
         ],
         deps = [
-            "@pypa_python_dateutil//:python_dateutil",
-            "@pypa_urllib3//:urllib3",
             "@pypa_jmespath//:jmespath",
+            "@pypa_urllib3//:urllib3",
+            "@pypa_python_dateutil//:python_dateutil",
         ],
     )
 
@@ -422,11 +423,11 @@ def repo_pypa_bracex():
     )
 
 def repo_pypa_build():
-    repo_pypa_importlib_metadata()
-    repo_pypa_tomli()
-    repo_pypa_packaging()
-    repo_pypa_pyproject_hooks()
     repo_pypa_colorama()
+    repo_pypa_tomli()
+    repo_pypa_importlib_metadata()
+    repo_pypa_pyproject_hooks()
+    repo_pypa_packaging()
     maybe(
         third_party_python_package,
         name = "pypa_build",
@@ -437,11 +438,11 @@ def repo_pypa_build():
             "--hash=sha256:7145f0b5061ba90a1500d60bd1b13ca0a8a4cebdd0cc16ed8adf1c0e739f43b4",
         ],
         deps = [
-            "@pypa_importlib_metadata//:importlib_metadata",
-            "@pypa_tomli//:tomli",
-            "@pypa_packaging//:packaging",
-            "@pypa_pyproject_hooks//:pyproject_hooks",
             "@pypa_colorama//:colorama",
+            "@pypa_tomli//:tomli",
+            "@pypa_importlib_metadata//:importlib_metadata",
+            "@pypa_pyproject_hooks//:pyproject_hooks",
+            "@pypa_packaging//:packaging",
         ],
     )
 
@@ -556,13 +557,13 @@ def repo_pypa_cffi():
     )
 
 def repo_pypa_cfn_lint():
+    repo_pypa_pyyaml()
+    repo_pypa_typing_extensions()
     repo_pypa_networkx()
     repo_pypa_aws_sam_translator()
-    repo_pypa_typing_extensions()
+    repo_pypa_sympy()
     repo_pypa_regex()
     repo_pypa_jsonpatch()
-    repo_pypa_sympy()
-    repo_pypa_pyyaml()
     maybe(
         third_party_python_package,
         name = "pypa_cfn_lint",
@@ -573,13 +574,13 @@ def repo_pypa_cfn_lint():
             "--hash=sha256:fa44a3101bd8d7f644bc146b8a9e63d0fa2b64cd61c8a767e65c46920646277c",
         ],
         deps = [
+            "@pypa_pyyaml//:pyyaml",
+            "@pypa_typing_extensions//:typing_extensions",
             "@pypa_networkx//:networkx",
             "@pypa_aws_sam_translator//:aws_sam_translator",
-            "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_sympy//:sympy",
             "@pypa_regex//:regex",
             "@pypa_jsonpatch//:jsonpatch",
-            "@pypa_sympy//:sympy",
-            "@pypa_pyyaml//:pyyaml",
         ],
     )
 
@@ -707,20 +708,20 @@ def repo_pypa_charset_normalizer():
     )
 
 def repo_pypa_cibuildwheel():
-    repo_pypa_dependency_groups()
-    repo_pypa_platformdirs()
-    repo_pypa_filelock()
-    repo_pypa_certifi()
-    repo_pypa_bashlex()
-    repo_pypa_pyelftools()
-    repo_pypa_typing_extensions()
-    repo_pypa_wheel()
-    repo_pypa_tomli()
-    repo_pypa_bracex()
     repo_pypa_humanize()
-    repo_pypa_packaging()
-    repo_pypa_build()
+    repo_pypa_bashlex()
+    repo_pypa_wheel()
     repo_pypa_patchelf()
+    repo_pypa_typing_extensions()
+    repo_pypa_tomli()
+    repo_pypa_pyelftools()
+    repo_pypa_bracex()
+    repo_pypa_platformdirs()
+    repo_pypa_build()
+    repo_pypa_dependency_groups()
+    repo_pypa_filelock()
+    repo_pypa_packaging()
+    repo_pypa_certifi()
     maybe(
         third_party_python_package,
         name = "pypa_cibuildwheel",
@@ -735,20 +736,20 @@ def repo_pypa_cibuildwheel():
             "--hash=sha256:98beb9700e2447172b0855fc0e5cf6b5145ac058c35e8e1256d2db86daf02722",
         ],
         deps = [
-            "@pypa_dependency_groups//:dependency_groups",
-            "@pypa_platformdirs//:platformdirs",
-            "@pypa_filelock//:filelock",
-            "@pypa_certifi//:certifi",
-            "@pypa_bashlex//:bashlex",
-            "@pypa_pyelftools//:pyelftools",
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_wheel//:wheel",
-            "@pypa_tomli//:tomli",
-            "@pypa_bracex//:bracex",
             "@pypa_humanize//:humanize",
-            "@pypa_packaging//:packaging",
-            "@pypa_build//:build",
+            "@pypa_bashlex//:bashlex",
+            "@pypa_wheel//:wheel",
             "@pypa_patchelf//:patchelf",
+            "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_tomli//:tomli",
+            "@pypa_pyelftools//:pyelftools",
+            "@pypa_bracex//:bracex",
+            "@pypa_platformdirs//:platformdirs",
+            "@pypa_build//:build",
+            "@pypa_dependency_groups//:dependency_groups",
+            "@pypa_filelock//:filelock",
+            "@pypa_packaging//:packaging",
+            "@pypa_certifi//:certifi",
         ],
     )
 
@@ -918,8 +919,8 @@ def repo_pypa_crc32c():
     )
 
 def repo_pypa_cryptography():
-    repo_pypa_cffi()
     repo_pypa_typing_extensions()
+    repo_pypa_cffi()
     maybe(
         third_party_python_package,
         name = "pypa_cryptography",
@@ -982,8 +983,8 @@ def repo_pypa_cryptography():
             "--hash=sha256:f260d0d41e9b4da1ed1e0f1ce571f97fe370b152ab18778e9e8f67d6af432018",
         ],
         deps = [
-            "@pypa_cffi//:cffi",
             "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_cffi//:cffi",
         ],
     )
 
@@ -1018,8 +1019,8 @@ def repo_pypa_dependency_groups():
     )
 
 def repo_pypa_docker():
-    repo_pypa_urllib3()
     repo_pypa_requests()
+    repo_pypa_urllib3()
     repo_pypa_pywin32()
     maybe(
         third_party_python_package,
@@ -1031,8 +1032,8 @@ def repo_pypa_docker():
             "--hash=sha256:c96b93b7f0a746f9e77d325bcfb87422a3d8bd4f03136ae8a85b37f1898d5fc0",
         ],
         deps = [
-            "@pypa_urllib3//:urllib3",
             "@pypa_requests//:requests",
+            "@pypa_urllib3//:urllib3",
             "@pypa_pywin32//:pywin32",
         ],
     )
@@ -1090,12 +1091,12 @@ def repo_pypa_filelock():
     )
 
 def repo_pypa_flask():
-    repo_pypa_jinja2()
     repo_pypa_markupsafe()
     repo_pypa_itsdangerous()
-    repo_pypa_blinker()
-    repo_pypa_werkzeug()
+    repo_pypa_jinja2()
     repo_pypa_click()
+    repo_pypa_werkzeug()
+    repo_pypa_blinker()
     maybe(
         third_party_python_package,
         name = "pypa_flask",
@@ -1106,18 +1107,18 @@ def repo_pypa_flask():
             "--hash=sha256:ca1d8112ec8a6158cc29ea4858963350011b5c846a414cdb7a954aa9e967d03c",
         ],
         deps = [
-            "@pypa_jinja2//:jinja2",
             "@pypa_markupsafe//:markupsafe",
             "@pypa_itsdangerous//:itsdangerous",
-            "@pypa_blinker//:blinker",
-            "@pypa_werkzeug//:werkzeug",
+            "@pypa_jinja2//:jinja2",
             "@pypa_click//:click",
+            "@pypa_werkzeug//:werkzeug",
+            "@pypa_blinker//:blinker",
         ],
     )
 
 def repo_pypa_flask_cors():
-    repo_pypa_werkzeug()
     repo_pypa_flask()
+    repo_pypa_werkzeug()
     maybe(
         third_party_python_package,
         name = "pypa_flask_cors",
@@ -1128,8 +1129,8 @@ def repo_pypa_flask_cors():
             "--hash=sha256:d81bcb31f07b0985be7f48406247e9243aced229b7747219160a0559edd678db",
         ],
         deps = [
-            "@pypa_werkzeug//:werkzeug",
             "@pypa_flask//:flask",
+            "@pypa_werkzeug//:werkzeug",
         ],
     )
 
@@ -1343,18 +1344,18 @@ def repo_pypa_iniconfig():
     )
 
 def repo_pypa_ipython():
-    repo_pypa_stack_data()
-    repo_pypa_pexpect()
     repo_pypa_prompt_toolkit()
     repo_pypa_decorator()
-    repo_pypa_typing_extensions()
-    repo_pypa_traitlets()
-    repo_pypa_exceptiongroup()
-    repo_pypa_jedi()
     repo_pypa_matplotlib_inline()
-    repo_pypa_pygments()
     repo_pypa_colorama()
+    repo_pypa_typing_extensions()
+    repo_pypa_stack_data()
+    repo_pypa_traitlets()
+    repo_pypa_pexpect()
+    repo_pypa_pygments()
+    repo_pypa_exceptiongroup()
     repo_pypa_ipython_pygments_lexers()
+    repo_pypa_jedi()
     maybe(
         third_party_python_package,
         name = "pypa_ipython",
@@ -1369,18 +1370,18 @@ def repo_pypa_ipython():
             "--hash=sha256:5f77efafc886d2f023442479b8149e7d86547ad0a979e9da9f045d252f648196",
         ],
         deps = [
-            "@pypa_stack_data//:stack_data",
-            "@pypa_pexpect//:pexpect",
             "@pypa_prompt_toolkit//:prompt_toolkit",
             "@pypa_decorator//:decorator",
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_traitlets//:traitlets",
-            "@pypa_exceptiongroup//:exceptiongroup",
-            "@pypa_jedi//:jedi",
             "@pypa_matplotlib_inline//:matplotlib_inline",
-            "@pypa_pygments//:pygments",
             "@pypa_colorama//:colorama",
+            "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_stack_data//:stack_data",
+            "@pypa_traitlets//:traitlets",
+            "@pypa_pexpect//:pexpect",
+            "@pypa_pygments//:pygments",
+            "@pypa_exceptiongroup//:exceptiongroup",
             "@pypa_ipython_pygments_lexers//:ipython_pygments_lexers",
+            "@pypa_jedi//:jedi",
         ],
     )
 
@@ -1518,10 +1519,10 @@ def repo_pypa_jsonpointer():
     )
 
 def repo_pypa_jsonschema():
-    repo_pypa_jsonschema_specifications()
-    repo_pypa_rpds_py()
-    repo_pypa_attrs()
     repo_pypa_referencing()
+    repo_pypa_attrs()
+    repo_pypa_rpds_py()
+    repo_pypa_jsonschema_specifications()
     maybe(
         third_party_python_package,
         name = "pypa_jsonschema",
@@ -1532,18 +1533,18 @@ def repo_pypa_jsonschema():
             "--hash=sha256:e4a9655ce0da0c0b67a085847e00a3a51449e1157f4f75e9fb5aa545e122eb85",
         ],
         deps = [
-            "@pypa_jsonschema_specifications//:jsonschema_specifications",
-            "@pypa_rpds_py//:rpds_py",
-            "@pypa_attrs//:attrs",
             "@pypa_referencing//:referencing",
+            "@pypa_attrs//:attrs",
+            "@pypa_rpds_py//:rpds_py",
+            "@pypa_jsonschema_specifications//:jsonschema_specifications",
         ],
     )
 
 def repo_pypa_jsonschema_spec():
     repo_pypa_jsonschema()
+    repo_pypa_pyyaml()
     repo_pypa_pathable()
     repo_pypa_typing_extensions()
-    repo_pypa_pyyaml()
     maybe(
         third_party_python_package,
         name = "pypa_jsonschema_spec",
@@ -1555,9 +1556,9 @@ def repo_pypa_jsonschema_spec():
         ],
         deps = [
             "@pypa_jsonschema//:jsonschema",
+            "@pypa_pyyaml//:pyyaml",
             "@pypa_pathable//:pathable",
             "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_pyyaml//:pyyaml",
         ],
     )
 
@@ -1816,29 +1817,29 @@ def repo_pypa_ml_dtypes():
     )
 
 def repo_pypa_moto():
+    repo_pypa_py_partiql_parser()
+    repo_pypa_pyyaml()
+    repo_pypa_requests()
+    repo_pypa_setuptools()
+    repo_pypa_botocore()
+    repo_pypa_joserfc()
+    repo_pypa_flask()
+    repo_pypa_graphql_core()
     repo_pypa_aws_xray_sdk()
-    repo_pypa_openapi_spec_validator()
+    repo_pypa_werkzeug()
     repo_pypa_pyparsing()
+    repo_pypa_docker()
+    repo_pypa_boto3()
+    repo_pypa_responses()
+    repo_pypa_jsonpath_ng()
     repo_pypa_python_dateutil()
     repo_pypa_cryptography()
-    repo_pypa_py_partiql_parser()
-    repo_pypa_werkzeug()
-    repo_pypa_flask_cors()
-    repo_pypa_joserfc()
-    repo_pypa_responses()
     repo_pypa_xmltodict()
-    repo_pypa_jsonpath_ng()
-    repo_pypa_graphql_core()
-    repo_pypa_boto3()
-    repo_pypa_pyyaml()
     repo_pypa_antlr4_python3_runtime()
-    repo_pypa_setuptools()
+    repo_pypa_flask_cors()
     repo_pypa_jinja2()
-    repo_pypa_flask()
-    repo_pypa_requests()
     repo_pypa_cfn_lint()
-    repo_pypa_docker()
-    repo_pypa_botocore()
+    repo_pypa_openapi_spec_validator()
     maybe(
         third_party_python_package,
         name = "pypa_moto",
@@ -1849,29 +1850,29 @@ def repo_pypa_moto():
             "--hash=sha256:2ad9cc9710a3460505511543dba6761c8bd2006a49954ad3988bbf20ce9e6413",
         ],
         deps = [
+            "@pypa_py_partiql_parser//:py_partiql_parser",
+            "@pypa_pyyaml//:pyyaml",
+            "@pypa_requests//:requests",
+            "@pypa_setuptools//:setuptools",
+            "@pypa_botocore//:botocore",
+            "@pypa_joserfc//:joserfc",
+            "@pypa_flask//:flask",
+            "@pypa_graphql_core//:graphql_core",
             "@pypa_aws_xray_sdk//:aws_xray_sdk",
-            "@pypa_openapi_spec_validator//:openapi_spec_validator",
+            "@pypa_werkzeug//:werkzeug",
             "@pypa_pyparsing//:pyparsing",
+            "@pypa_docker//:docker",
+            "@pypa_boto3//:boto3",
+            "@pypa_responses//:responses",
+            "@pypa_jsonpath_ng//:jsonpath_ng",
             "@pypa_python_dateutil//:python_dateutil",
             "@pypa_cryptography//:cryptography",
-            "@pypa_py_partiql_parser//:py_partiql_parser",
-            "@pypa_werkzeug//:werkzeug",
-            "@pypa_flask_cors//:flask_cors",
-            "@pypa_joserfc//:joserfc",
-            "@pypa_responses//:responses",
             "@pypa_xmltodict//:xmltodict",
-            "@pypa_jsonpath_ng//:jsonpath_ng",
-            "@pypa_graphql_core//:graphql_core",
-            "@pypa_boto3//:boto3",
-            "@pypa_pyyaml//:pyyaml",
             "@pypa_antlr4_python3_runtime//:antlr4_python3_runtime",
-            "@pypa_setuptools//:setuptools",
+            "@pypa_flask_cors//:flask_cors",
             "@pypa_jinja2//:jinja2",
-            "@pypa_flask//:flask",
-            "@pypa_requests//:requests",
             "@pypa_cfn_lint//:cfn_lint",
-            "@pypa_docker//:docker",
-            "@pypa_botocore//:botocore",
+            "@pypa_openapi_spec_validator//:openapi_spec_validator",
         ],
     )
 
@@ -2075,10 +2076,10 @@ def repo_pypa_openapi_schema_validator():
     )
 
 def repo_pypa_openapi_spec_validator():
-    repo_pypa_openapi_schema_validator()
     repo_pypa_jsonschema()
     repo_pypa_jsonschema_spec()
     repo_pypa_lazy_object_proxy()
+    repo_pypa_openapi_schema_validator()
     maybe(
         third_party_python_package,
         name = "pypa_openapi_spec_validator",
@@ -2089,10 +2090,10 @@ def repo_pypa_openapi_spec_validator():
             "--hash=sha256:93ba247f585e1447214b4207728a7cce3726d148238217be69e6b8725c118fbe",
         ],
         deps = [
-            "@pypa_openapi_schema_validator//:openapi_schema_validator",
             "@pypa_jsonschema//:jsonschema",
             "@pypa_jsonschema_spec//:jsonschema_spec",
             "@pypa_lazy_object_proxy//:lazy_object_proxy",
+            "@pypa_openapi_schema_validator//:openapi_schema_validator",
         ],
     )
 
@@ -2287,6 +2288,18 @@ def repo_pypa_py_partiql_parser():
         ],
     )
 
+def repo_pypa_pybind11_stubgen():
+    maybe(
+        third_party_python_package,
+        name = "pypa_pybind11_stubgen",
+        target = "pybind11_stubgen",
+        requirement = [
+            "pybind11-stubgen==2.5.5",
+            "--hash=sha256:10824cd2fc5cbbee032b8fb39e6f6c08de232deb309bc66d786a6c6e8a4601bd",
+            "--hash=sha256:758d6d6bbeefc62ad7f78d5e5bbf357ccf6af83cd4504f5f549403f452942708",
+        ],
+    )
+
 def repo_pypa_pycparser():
     maybe(
         third_party_python_package,
@@ -2302,8 +2315,8 @@ def repo_pypa_pycparser():
 def repo_pypa_pydantic():
     repo_pypa_pydantic_core()
     repo_pypa_typing_inspection()
-    repo_pypa_typing_extensions()
     repo_pypa_annotated_types()
+    repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
         name = "pypa_pydantic",
@@ -2316,8 +2329,8 @@ def repo_pypa_pydantic():
         deps = [
             "@pypa_pydantic_core//:pydantic_core",
             "@pypa_typing_inspection//:typing_inspection",
-            "@pypa_typing_extensions//:typing_extensions",
             "@pypa_annotated_types//:annotated_types",
+            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -2453,8 +2466,8 @@ def repo_pypa_pydantic_core():
     )
 
 def repo_pypa_pydantic_extra_types():
-    repo_pypa_pydantic()
     repo_pypa_typing_extensions()
+    repo_pypa_pydantic()
     maybe(
         third_party_python_package,
         name = "pypa_pydantic_extra_types",
@@ -2465,8 +2478,8 @@ def repo_pypa_pydantic_extra_types():
             "--hash=sha256:c63d70bf684366e6bbe1f4ee3957952ebe6973d41e7802aea0b770d06b116aeb",
         ],
         deps = [
-            "@pypa_pydantic//:pydantic",
             "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_pydantic//:pydantic",
         ],
     )
 
@@ -2519,13 +2532,13 @@ def repo_pypa_pyproject_hooks():
     )
 
 def repo_pypa_pytest():
-    repo_pypa_iniconfig()
-    repo_pypa_exceptiongroup()
-    repo_pypa_tomli()
-    repo_pypa_packaging()
-    repo_pypa_pygments()
-    repo_pypa_colorama()
     repo_pypa_pluggy()
+    repo_pypa_colorama()
+    repo_pypa_tomli()
+    repo_pypa_pygments()
+    repo_pypa_exceptiongroup()
+    repo_pypa_iniconfig()
+    repo_pypa_packaging()
     maybe(
         third_party_python_package,
         name = "pypa_pytest",
@@ -2536,20 +2549,20 @@ def repo_pypa_pytest():
             "--hash=sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79",
         ],
         deps = [
-            "@pypa_iniconfig//:iniconfig",
-            "@pypa_exceptiongroup//:exceptiongroup",
-            "@pypa_tomli//:tomli",
-            "@pypa_packaging//:packaging",
-            "@pypa_pygments//:pygments",
-            "@pypa_colorama//:colorama",
             "@pypa_pluggy//:pluggy",
+            "@pypa_colorama//:colorama",
+            "@pypa_tomli//:tomli",
+            "@pypa_pygments//:pygments",
+            "@pypa_exceptiongroup//:exceptiongroup",
+            "@pypa_iniconfig//:iniconfig",
+            "@pypa_packaging//:packaging",
         ],
     )
 
 def repo_pypa_pytest_asyncio():
+    repo_pypa_pytest()
     repo_pypa_backports_asyncio_runner()
     repo_pypa_typing_extensions()
-    repo_pypa_pytest()
     maybe(
         third_party_python_package,
         name = "pypa_pytest_asyncio",
@@ -2560,9 +2573,9 @@ def repo_pypa_pytest_asyncio():
             "--hash=sha256:c609a64a2a8768462d0c99811ddb8bd2583c33fd33cf7f21af1c142e824ffb57",
         ],
         deps = [
+            "@pypa_pytest//:pytest",
             "@pypa_backports_asyncio_runner//:backports_asyncio_runner",
             "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_pytest//:pytest",
         ],
     )
 
@@ -2853,10 +2866,10 @@ def repo_pypa_regex():
     )
 
 def repo_pypa_requests():
-    repo_pypa_certifi()
     repo_pypa_charset_normalizer()
     repo_pypa_idna()
     repo_pypa_urllib3()
+    repo_pypa_certifi()
     maybe(
         third_party_python_package,
         name = "pypa_requests",
@@ -2867,10 +2880,10 @@ def repo_pypa_requests():
             "--hash=sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf",
         ],
         deps = [
-            "@pypa_certifi//:certifi",
             "@pypa_charset_normalizer//:charset_normalizer",
             "@pypa_idna//:idna",
             "@pypa_urllib3//:urllib3",
+            "@pypa_certifi//:certifi",
         ],
     )
 
@@ -2891,8 +2904,8 @@ def repo_pypa_requests_toolbelt():
     )
 
 def repo_pypa_responses():
-    repo_pypa_urllib3()
     repo_pypa_requests()
+    repo_pypa_urllib3()
     repo_pypa_pyyaml()
     maybe(
         third_party_python_package,
@@ -2904,8 +2917,8 @@ def repo_pypa_responses():
             "--hash=sha256:9374d047a575c8f781b94454db5cab590b6029505f488d12899ddb10a4af1cf4",
         ],
         deps = [
-            "@pypa_urllib3//:urllib3",
             "@pypa_requests//:requests",
+            "@pypa_urllib3//:urllib3",
             "@pypa_pyyaml//:pyyaml",
         ],
     )
@@ -3188,24 +3201,24 @@ def repo_pypa_snowballstemmer():
     )
 
 def repo_pypa_sphinx():
-    repo_pypa_jinja2()
-    repo_pypa_sphinxcontrib_qthelp()
-    repo_pypa_sphinxcontrib_htmlhelp()
-    repo_pypa_requests()
-    repo_pypa_sphinxcontrib_jsmath()
-    repo_pypa_babel()
+    repo_pypa_alabaster()
     repo_pypa_docutils()
     repo_pypa_snowballstemmer()
-    repo_pypa_roman_numerals_py()
-    repo_pypa_sphinxcontrib_serializinghtml()
-    repo_pypa_sphinxcontrib_applehelp()
-    repo_pypa_tomli()
-    repo_pypa_sphinxcontrib_devhelp()
-    repo_pypa_imagesize()
-    repo_pypa_alabaster()
-    repo_pypa_packaging()
-    repo_pypa_pygments()
     repo_pypa_colorama()
+    repo_pypa_requests()
+    repo_pypa_babel()
+    repo_pypa_tomli()
+    repo_pypa_sphinxcontrib_applehelp()
+    repo_pypa_jinja2()
+    repo_pypa_pygments()
+    repo_pypa_sphinxcontrib_devhelp()
+    repo_pypa_sphinxcontrib_jsmath()
+    repo_pypa_sphinxcontrib_htmlhelp()
+    repo_pypa_sphinxcontrib_serializinghtml()
+    repo_pypa_imagesize()
+    repo_pypa_packaging()
+    repo_pypa_roman_numerals_py()
+    repo_pypa_sphinxcontrib_qthelp()
     maybe(
         third_party_python_package,
         name = "pypa_sphinx",
@@ -3220,35 +3233,35 @@ def repo_pypa_sphinx():
             "--hash=sha256:4405915165f13521d875a8c29c8970800a0141c14cc5416a38feca4ea5d9b9c3",
         ],
         deps = [
-            "@pypa_jinja2//:jinja2",
-            "@pypa_sphinxcontrib_qthelp//:sphinxcontrib_qthelp",
-            "@pypa_sphinxcontrib_htmlhelp//:sphinxcontrib_htmlhelp",
-            "@pypa_requests//:requests",
-            "@pypa_sphinxcontrib_jsmath//:sphinxcontrib_jsmath",
-            "@pypa_babel//:babel",
+            "@pypa_alabaster//:alabaster",
             "@pypa_docutils//:docutils",
             "@pypa_snowballstemmer//:snowballstemmer",
-            "@pypa_roman_numerals_py//:roman_numerals_py",
-            "@pypa_sphinxcontrib_serializinghtml//:sphinxcontrib_serializinghtml",
-            "@pypa_sphinxcontrib_applehelp//:sphinxcontrib_applehelp",
-            "@pypa_tomli//:tomli",
-            "@pypa_sphinxcontrib_devhelp//:sphinxcontrib_devhelp",
-            "@pypa_imagesize//:imagesize",
-            "@pypa_alabaster//:alabaster",
-            "@pypa_packaging//:packaging",
-            "@pypa_pygments//:pygments",
             "@pypa_colorama//:colorama",
+            "@pypa_requests//:requests",
+            "@pypa_babel//:babel",
+            "@pypa_tomli//:tomli",
+            "@pypa_sphinxcontrib_applehelp//:sphinxcontrib_applehelp",
+            "@pypa_jinja2//:jinja2",
+            "@pypa_pygments//:pygments",
+            "@pypa_sphinxcontrib_devhelp//:sphinxcontrib_devhelp",
+            "@pypa_sphinxcontrib_jsmath//:sphinxcontrib_jsmath",
+            "@pypa_sphinxcontrib_htmlhelp//:sphinxcontrib_htmlhelp",
+            "@pypa_sphinxcontrib_serializinghtml//:sphinxcontrib_serializinghtml",
+            "@pypa_imagesize//:imagesize",
+            "@pypa_packaging//:packaging",
+            "@pypa_roman_numerals_py//:roman_numerals_py",
+            "@pypa_sphinxcontrib_qthelp//:sphinxcontrib_qthelp",
         ],
     )
 
 def repo_pypa_sphinx_immaterial():
     repo_pypa_markupsafe()
-    repo_pypa_pydantic_extra_types()
-    repo_pypa_requests()
-    repo_pypa_pydantic()
-    repo_pypa_typing_extensions()
     repo_pypa_appdirs()
+    repo_pypa_requests()
     repo_pypa_sphinx()
+    repo_pypa_typing_extensions()
+    repo_pypa_pydantic_extra_types()
+    repo_pypa_pydantic()
     maybe(
         third_party_python_package,
         name = "pypa_sphinx_immaterial",
@@ -3259,12 +3272,12 @@ def repo_pypa_sphinx_immaterial():
         ],
         deps = [
             "@pypa_markupsafe//:markupsafe",
-            "@pypa_pydantic_extra_types//:pydantic_extra_types",
-            "@pypa_requests//:requests",
-            "@pypa_pydantic//:pydantic",
-            "@pypa_typing_extensions//:typing_extensions",
             "@pypa_appdirs//:appdirs",
+            "@pypa_requests//:requests",
             "@pypa_sphinx//:sphinx",
+            "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_pydantic_extra_types//:pydantic_extra_types",
+            "@pypa_pydantic//:pydantic",
         ],
     )
 
@@ -3341,8 +3354,8 @@ def repo_pypa_sphinxcontrib_serializinghtml():
     )
 
 def repo_pypa_stack_data():
-    repo_pypa_pure_eval()
     repo_pypa_asttokens()
+    repo_pypa_pure_eval()
     repo_pypa_executing()
     maybe(
         third_party_python_package,
@@ -3354,8 +3367,8 @@ def repo_pypa_stack_data():
             "--hash=sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695",
         ],
         deps = [
-            "@pypa_pure_eval//:pure_eval",
             "@pypa_asttokens//:asttokens",
+            "@pypa_pure_eval//:pure_eval",
             "@pypa_executing//:executing",
         ],
     )
