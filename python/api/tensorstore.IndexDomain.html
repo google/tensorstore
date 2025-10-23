@@ -2400,14 +2400,40 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.d.html" class="md-nav__link">
+      <a href="tensorstore.DimSelection.html" class="md-nav__link">
         
   
   
     <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore.d (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>d</span></span>
+    <span title="tensorstore.DimSelection (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>Dim<wbr>Selection</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.d.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python method" class="objinfo-icon objinfo-icon__procedure" title="Python method">M</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.d (Python method) — Constructs a DimSelection from a sequence of dimension indices, ranges, and/or labels."><span>d</span></span>
     
   </span>
   
@@ -2460,6 +2486,84 @@
   
   <span class="md-ellipsis">
     <span title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><span>Indexable</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.NumpyIndexTerm.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.NumpyIndexTerm (Python data) — Individual term in a NumpyIndexingSpec."><span>Numpy<wbr>Index<wbr>Term</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.NumpyIndexingSpec.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span>Numpy<wbr>Indexing<wbr>Spec</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimSelectionLike.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.DimSelectionLike (Python data) — Subsequence of dimensions to select in a DimSelection object."><span>Dim<wbr>Selection<wbr>Like</span></span>
     
   </span>
   
@@ -3114,7 +3218,9 @@
 <dt class="sig sig-object highlight py">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">IndexDomain</span></span></dt>
 <dd><p><a class="reference internal" href="../../index_space.html#index-domain"><span class="std std-ref">Domain</span></a> (including bounds and optional dimension labels) of an N-dimensional <a class="reference internal" href="../../index_space.html#index-space"><span class="std std-ref">index space</span></a>.</p>
-<p>Logically, an <a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><code class="xref py py-class docutils literal notranslate"><span class="pre">IndexDomain</span></code></a> is the cartesian product of a sequence of <a class="reference internal" href="tensorstore.Dim.html" title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label."><code class="xref py py-obj docutils literal notranslate"><span class="pre">Dim</span></code></a> objects.</p>
+<p>Logically, an <a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><code class="xref py py-class docutils literal notranslate"><span class="pre">IndexDomain</span></code></a> is the cartesian product of a sequence of
+<a class="reference internal" href="tensorstore.Dim.html" title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label."><code class="xref py py-obj docutils literal notranslate"><span class="pre">Dim</span></code></a> objects, and supports the <a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Collection" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Collection</span></code></a>
+interface.</p>
 <div class="note admonition">
 <p class="admonition-title">Note</p>
 <p>Index domains are immutable, but
@@ -3131,13 +3237,13 @@
 <h2 id="constructors">Constructors<a class="headerlink" href="#constructors" title="Link to this heading">¶</a></h2>
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.__init__-components.html" title="tensorstore.IndexDomain.__init__(components) (Python method) — Constructs an index domain from component vectors."><span class="sig-name descname pseudo-toc-entry"><span class="pre">IndexDomain</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.__init__-components.html#p-rank" title="tensorstore.IndexDomain.__init__(components).rank (Python parameter) — Number of dimensions."><span class="n"><span class="pre">rank</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code></em>, </span><span class="sig-param-decl"><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, </span><span class="sig-param-decl"><em class="sig-param"><span class="p"><span class="pre">...</span></span></em></span><span class="sig-paren">)</span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.__init__-components.html" title="tensorstore.IndexDomain.__init__(components) (Python method) — Constructs an index domain from component vectors."><span class="sig-name descname pseudo-toc-entry"><span class="pre">IndexDomain</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.__init__-components.html#p-rank" title="tensorstore.IndexDomain.__init__(components).rank (Python parameter) — Number of dimensions."><span class="n"><span class="pre">rank</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.SupportsInt" title="(in Python v3.11)"><span class="pre">SupportsInt</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code></em>, </span><span class="sig-param-decl"><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, </span><span class="sig-param-decl"><em class="sig-param"><span class="p"><span class="pre">...</span></span></em></span><span class="sig-paren">)</span></dt>
 <dd><p>Constructs an index domain from component vectors.</p>
 </dd></dl>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.__init__-dimensions.html" title="tensorstore.IndexDomain.__init__(dimensions) (Python method) — Constructs an index domain from a :py:class`.Dim` sequence."><span class="sig-name descname pseudo-toc-entry"><span class="pre">IndexDomain</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.__init__-dimensions.html#p-dimensions" title="tensorstore.IndexDomain.__init__(dimensions).dimensions (Python parameter) — Sequence of :py:class`.Dim` objects."><span class="n"><span class="pre">dimensions</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="tensorstore.Dim.html" title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label."><span class="pre">Dim</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">)</span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.__init__-dimensions.html" title="tensorstore.IndexDomain.__init__(dimensions) (Python method) — Constructs an index domain from a :py:class`.Dim` sequence."><span class="sig-name descname pseudo-toc-entry"><span class="pre">IndexDomain</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.__init__-dimensions.html#p-dimensions" title="tensorstore.IndexDomain.__init__(dimensions).dimensions (Python parameter) — Sequence of :py:class`.Dim` objects."><span class="n"><span class="pre">dimensions</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="tensorstore.Dim.html" title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label."><span class="pre">Dim</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">)</span></dt>
 <dd><p>Constructs an index domain from a :py:class`.Dim` sequence.</p>
 </dd></dl>
 
@@ -3248,7 +3354,7 @@
 <h2 id="indexing">Indexing<a class="headerlink" href="#indexing" title="Link to this heading">¶</a></h2>
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.__getitem__-selection.html" title="tensorstore.IndexDomain.__getitem__(selection) (Python method) — Returns a new domain with a subset of the dimensions."><span class="sig-name descname pseudo-toc-entry"><span class="pre">__getitem__</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.__getitem__-selection.html#p-selection" title="tensorstore.IndexDomain.__getitem__(selection).selection (Python parameter) — Specifies the dimensions to include, either by index or label."><span class="n"><span class="pre">selection</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="../indexing.html#python-dim-selections"><span class="std std-ref"><span class="pre">DimSelectionLike</span></span></a></span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span class="pre">IndexDomain</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.__getitem__-selection.html" title="tensorstore.IndexDomain.__getitem__(selection) (Python method) — Returns a new domain with a subset of the dimensions."><span class="sig-name descname pseudo-toc-entry"><span class="pre">__getitem__</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.__getitem__-selection.html#p-selection" title="tensorstore.IndexDomain.__getitem__(selection).selection (Python parameter) — Specifies the dimensions to include, either by index or label."><span class="n"><span class="pre">selection</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.DimSelectionLike.html" title="tensorstore.DimSelectionLike (Python data) — Subsequence of dimensions to select in a DimSelection object."><span class="pre">DimSelectionLike</span></a></span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span class="pre">IndexDomain</span></a></span></span></span></dt>
 <dd><p>Returns a new domain with a subset of the dimensions.</p>
 </dd></dl>
 
@@ -3296,20 +3402,20 @@
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.label.html" title="tensorstore.IndexDomain.label (Python method) — Returns a new view with the dimension labels changed."><span class="sig-name descname pseudo-toc-entry"><span class="pre">label</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.label.html#p-labels" title="tensorstore.IndexDomain.label.labels (Python parameter) — Dimension labels for each dimension."><span class="n"><span class="pre">labels</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span class="pre">IndexDomain</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.label.html" title="tensorstore.IndexDomain.label (Python method) — Returns a new view with the dimension labels changed."><span class="sig-name descname pseudo-toc-entry"><span class="pre">label</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.label.html#p-labels" title="tensorstore.IndexDomain.label.labels (Python parameter) — Dimension labels for each dimension."><span class="n"><span class="pre">labels</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span class="pre">IndexDomain</span></a></span></span></span></dt>
 <dd><p>Returns a new view with the <a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">dimension labels</span></a> changed.</p>
 </dd></dl>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.mark_bounds_implicit.html" title="tensorstore.IndexDomain.mark_bounds_implicit (Python method) — Returns a new view with the lower/upper bounds changed to implicit/explicit."><span class="sig-name descname pseudo-toc-entry"><span class="pre">mark_bounds_implicit</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.mark_bounds_implicit.html#p-implicit" title="tensorstore.IndexDomain.mark_bounds_implicit.implicit (Python parameter) — Indicates the new implicit value for the lower and upper bounds. Must be one of:"><span class="n"><span class="pre">implicit</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><span class="pre">slice</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span class="pre">IndexDomain</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.mark_bounds_implicit.html" title="tensorstore.IndexDomain.mark_bounds_implicit (Python method) — Returns a new view with the lower/upper bounds changed to implicit/explicit."><span class="sig-name descname pseudo-toc-entry"><span class="pre">mark_bounds_implicit</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.mark_bounds_implicit.html#p-implicit" title="tensorstore.IndexDomain.mark_bounds_implicit.implicit (Python parameter) — Indicates the new implicit value for the lower and upper bounds. Must be one of:"><span class="n"><span class="pre">implicit</span></span></a></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span class="pre">IndexDomain</span></a></span></span></span></dt>
 <dd><p>Returns a new view with the lower/upper bounds changed to
 <a class="reference internal" href="../../index_space.html#implicit-bounds"><span class="std std-ref">implicit/explicit</span></a>.</p>
 </dd></dl>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.transpose.html" title="tensorstore.IndexDomain.transpose (Python method) — Returns a view with a transposed domain."><span class="sig-name descname pseudo-toc-entry"><span class="pre">transpose</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.transpose.html#p-axes" title="tensorstore.IndexDomain.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view."><span class="n"><span class="pre">axes</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="../indexing.html#python-dim-selections"><span class="std std-ref"><span class="pre">DimSelectionLike</span></span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span class="pre">IndexDomain</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.IndexDomain.transpose.html" title="tensorstore.IndexDomain.transpose (Python method) — Returns a view with a transposed domain."><span class="sig-name descname pseudo-toc-entry"><span class="pre">transpose</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.IndexDomain.transpose.html#p-axes" title="tensorstore.IndexDomain.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view."><span class="n"><span class="pre">axes</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.DimSelectionLike.html" title="tensorstore.DimSelectionLike (Python data) — Subsequence of dimensions to select in a DimSelection object."><span class="pre">DimSelectionLike</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span class="pre">IndexDomain</span></a></span></span></span></dt>
 <dd><p>Returns a view with a transposed domain.</p>
 </dd></dl>
 

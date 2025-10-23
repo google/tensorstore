@@ -11,17 +11,17 @@
       
       
       
-        <link rel="prev" href="tensorstore.dtype.__init__-name.html">
+        <link rel="prev" href="tensorstore.DimExpression.mark_bounds_implicit.html">
       
       
-        <link rel="next" href="tensorstore.dtype.name.html">
+        <link rel="next" href="tensorstore.d.html">
       
       
       <link rel="icon" href="../../_static/logo.svg">
     
     
       
-        <title>tensorstore.dtype.__init__(dtype) - TensorStore</title>
+        <title>tensorstore.DimSelection - TensorStore</title>
       
     
     
@@ -68,6 +68,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#operations" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -97,7 +102,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              tensorstore.dtype.__init__(dtype)
+              tensorstore.DimSelection
             
           </span>
         </div>
@@ -398,12 +403,25 @@
                 
   
   
+    
   
   
   
-    <li class="md-nav__item">
-      <a href="index.html#indexing" class="md-nav__link">
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1_3_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="index.html#indexing" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -412,8 +430,470 @@
   </span>
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_1_3_2" id="__nav_1_3_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_1_3_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_1_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            <span>Indexing</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.inf.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.inf (Python data) — Special constant equal to 2^{62}-1 that indicates an unbounded index domain."><span>inf</span></span>
+    
+  </span>
+  
+
       </a>
     </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.IndexDomain.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space."><span>Index<wbr>Domain</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.IndexTransform.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.IndexTransform (Python class) — Represents a transform from an input index space to an output space."><span>Index<wbr>Transform</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Dim.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label."><span>Dim</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.OutputIndexMap.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.OutputIndexMap (Python class) — Represents an output index map for an index transform."><span>Output<wbr>Index<wbr>Map</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.OutputIndexMaps.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.OutputIndexMaps (Python class) — View of the output index maps for an index transform."><span>Output<wbr>Index<wbr>Maps</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.OutputIndexMethod.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.OutputIndexMethod (Python class) — Indicates the output index method of an OutputIndexMap."><span>Output<wbr>Index<wbr>Method</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span>Dim<wbr>Expression</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.DimSelection (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>Dim<wbr>Selection</span></span>
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.DimSelection (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>Dim<wbr>Selection</span></span>
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span><span title="tensorstore.DimSelection (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>Dim<wbr>Selection</span></span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Operations</span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.d.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python method" class="objinfo-icon objinfo-icon__procedure" title="Python method">M</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.d (Python method) — Constructs a DimSelection from a sequence of dimension indices, ranges, and/or labels."><span>d</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.newaxis.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.newaxis (Python data) — Alias for None used in indexing expressions to specify a new singleton dimension."><span>newaxis</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Indexable.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><span>Indexable</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.NumpyIndexTerm.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.NumpyIndexTerm (Python data) — Individual term in a NumpyIndexingSpec."><span>Numpy<wbr>Index<wbr>Term</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.NumpyIndexingSpec.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span>Numpy<wbr>Indexing<wbr>Spec</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimSelectionLike.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.DimSelectionLike (Python data) — Subsequence of dimensions to select in a DimSelection object."><span>Dim<wbr>Selection<wbr>Like</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
   
 
               
@@ -470,25 +950,12 @@
                 
   
   
-    
   
   
   
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
+    <li class="md-nav__item">
+      <a href="index.html#data-types" class="md-nav__link">
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1_3_5" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="index.html#data-types" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -497,875 +964,8 @@
   </span>
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_1_3_5" id="__nav_1_3_5_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_1_3_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_1_3_5">
-            <span class="md-nav__icon md-icon"></span>
-            <span>Data types</span>
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1_3_5_1" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="tensorstore.dtype.html" class="md-nav__link ">
-              
-  
-  
-    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.dtype (Python class) — TensorStore data type representation."><span>dtype</span></span>
-    
-  </span>
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_1_3_5_1" id="__nav_1_3_5_1_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_1_3_5_1_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_1_3_5_1">
-            <span class="md-nav__icon md-icon"></span>
-            <span title="tensorstore.dtype (Python class) — TensorStore data type representation."><span>dtype</span></span>
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1_3_5_1_1" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="tensorstore.dtype.html#constructors" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    <span>Constructors</span>
-    
-  </span>
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_1_3_5_1_1" id="__nav_1_3_5_1_1_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_1_3_5_1_1_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_1_3_5_1_1">
-            <span class="md-nav__icon md-icon"></span>
-            <span>Constructors</span>
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.dtype.__init__-name.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python method" class="objinfo-icon objinfo-icon__procedure" title="Python method">M</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.dtype.__init__(name) (Python method) — Construct by name."><span>__<wbr>init__<wbr><wbr>(name)</span></span>
-    
-  </span>
-  
-
       </a>
     </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      <a href="#" class="md-nav__link md-nav__link--active">
-        
-  
-  
-    <span aria-label="Python method" class="objinfo-icon objinfo-icon__procedure" title="Python method">M</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.dtype.__init__(dtype) (Python method) — Construct from an existing TensorStore or NumPy data type."><span>__<wbr>init__<wbr><wbr>(dtype)</span></span>
-    
-  </span>
-  
-
-      </a>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.dtype.html#public-members" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    <span>Public members</span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.bool.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.bool (Python data) — Boolean data type (0 or 1).  Corresponds to the python:bool type and numpy.bool_."><span>bool</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.int4.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.int4 (Python data) — 4-bit signed two&#39;s-complement integer data type, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended). Corresponds to jax.numpy.int4."><span>int4</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.int8.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.int8 (Python data) — 8-bit signed two&#39;s-complement integer data type.  Corresponds to numpy.int8."><span>int8</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.uint8.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.uint8 (Python data) — 8-bit unsigned integer.  Corresponds to numpy.uint8."><span>uint8</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.int16.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.int16 (Python data) — 16-bit signed two&#39;s-complement integer data type.  Corresponds to numpy.int16."><span>int16</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.uint16.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.uint16 (Python data) — 16-bit unsigned integer.  Corresponds to numpy.uint16."><span>uint16</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.int32.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.int32 (Python data) — 32-bit signed two&#39;s-complement integer data type.  Corresponds to numpy.int32."><span>int32</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.uint32.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.uint32 (Python data) — 32-bit unsigned integer.  Corresponds to numpy.uint32."><span>uint32</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.int64.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.int64 (Python data) — 32-bit signed two&#39;s-complement integer data type.  Corresponds to numpy.int64."><span>int64</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.uint64.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.uint64 (Python data) — 64-bit unsigned integer data type.  Corresponds to numpy.uint64."><span>uint64</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float8_e3m4.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float8_e3m4 (Python data) — 8-bit floating-point data type."><span>float8_<wbr>e3m4</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float8_e4m3fn.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float8_e4m3fn (Python data) — 8-bit floating-point data type."><span>float8_<wbr>e4m3fn</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float8_e4m3fnuz.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float8_e4m3fnuz (Python data) — 8-bit floating-point data type."><span>float8_<wbr>e4m3fnuz</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float8_e4m3b11fnuz.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float8_e4m3b11fnuz (Python data) — 8-bit floating-point data type."><span>float8_<wbr>e4m3b11fnuz</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float8_e5m2.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float8_e5m2 (Python data) — 8-bit floating-point data type."><span>float8_<wbr>e5m2</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float8_e5m2fnuz.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float8_e5m2fnuz (Python data) — 8-bit floating-point data type."><span>float8_<wbr>e5m2fnuz</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float16.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float16 (Python data) — IEEE 754 binary16 half-precision floating-point data type.  Correspond to numpy.float16."><span>float16</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.bfloat16.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.bfloat16 (Python data) — bfloat16 floating-point data type."><span>bfloat16</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float32.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float32 (Python data) — IEEE 754 binary32 single-precision floating-point data type.  Corresponds to numpy.float32."><span>float32</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.float64.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.float64 (Python data) — IEEE 754 binary64 double-precision floating-point data type.  Corresponds to numpy.float64."><span>float64</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.complex64.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.complex64 (Python data) — Complex number based on float32.  Corresponds to numpy.complex64."><span>complex64</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.complex128.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.complex128 (Python data) — Complex number based on float64.  Corresponds to numpy.complex128."><span>complex128</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.string.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.string (Python data) — Variable-length byte string data type.  Corresponds to the Python python:bytes type."><span>string</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.ustring.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.ustring (Python data) — Variable-length Unicode string data type.  Corresponds to the Python python:str type."><span>ustring</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.json.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore.json (Python data) — JSON data type.  Corresponds to an arbitrary Python JSON value."><span>json</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
   
 
               
@@ -1841,9 +1441,29 @@
                   <div class="md-sidebar__inner">
                     
 
+  
+
 <nav class="md-nav md-nav--secondary">
   
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span><span title="tensorstore.DimSelection (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>Dim<wbr>Selection</span></span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Operations</span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1859,10 +1479,100 @@
                   
 
 
-<dl class="py method objdesc">
+<dl class="py class objdesc">
 <dt class="sig sig-object highlight py">
-<span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">dtype</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#" title="tensorstore.dtype.__init__(dtype).dtype (Python parameter)"><span class="n"><span class="pre">dtype</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.dtype.html" title="tensorstore.dtype (Python class) — TensorStore data type representation."><span class="pre">dtype</span></a></span></span></em></span><span class="sig-paren">)</span></dt>
-<dd><p>Construct from an existing TensorStore or NumPy data type.</p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">DimSelection</span></span><span class="p"><span class="pre">(</span></span><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span><span class="p"><span class="pre">)</span></span></dt>
+<dd><p>Specifies a dimension selection, for starting a <a class="reference internal" href="../indexing.html#python-dim-expressions"><span class="std std-ref">dimension expression</span></a>.</p>
+<p>A dimension selection specifies a sequence of dimensions, either by index or
+<a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">label</span></a>.</p>
+<p><a class="reference internal" href="../indexing.html#python-dim-selections"><span class="std std-ref">Dimension selections</span></a> may be used as part of a
+<a class="reference internal" href="../indexing.html#python-dim-expression-construction"><span class="std std-ref">dimension expression</span></a> to specify the
+dimensions to which an indexing operation applies.</p>
+<p>A <a class="reference internal" href="#" title="tensorstore.DimSelection (Python class) — Specifies a dimension selection, for starting a dimension expression."><code class="xref py py-obj docutils literal notranslate"><span class="pre">DimSelection</span></code></a> may be constructed by subscripting <a class="reference internal" href="tensorstore.d.html" title="tensorstore.d (Python method) — Constructs a DimSelection from a sequence of dimension indices, ranges, and/or labels."><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.d</span></code></a>:</p>
+<div class="example admonition">
+<p class="admonition-title">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="go">d[0,1,2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">]</span>
+<span class="go">d[0:1,2,&#39;x&#39;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+<span class="go">d[0,1,2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]</span>
+<span class="go">d[0,1,2,3]</span>
+</code></pre></div>
+</div>
+</div>
+<h2 id="operations">Operations<a class="headerlink" href="#operations" title="Link to this heading">¶</a></h2>
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.__getitem__.html" title="tensorstore.DimExpression.__getitem__ (Python method) — Applies a NumPy-style indexing operation with default index array semantics."><span class="sig-name descname"><span class="pre">__getitem__</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.__getitem__.html" title="tensorstore.DimExpression.__getitem__.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.NumpyIndexingSpec.html" title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span class="pre">NumpyIndexingSpec</span></a></span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Applies a <a class="reference internal" href="../indexing.html#python-dim-expression-numpy-indexing"><span class="std std-ref">NumPy-style indexing operation</span></a> with default index array semantics.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex (Python method) — Applies a NumPy-style indexing operation with outer indexing semantics."><span class="sig-name descname"><span class="pre">oindex</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.NumpyIndexingSpec.html" title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span class="pre">NumpyIndexingSpec</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Applies a <a class="reference internal" href="../indexing.html#python-dim-expression-numpy-indexing"><span class="std std-ref">NumPy-style indexing operation</span></a> with <a class="reference internal" href="../indexing.html#python-oindex-indexing"><span class="std std-ref">outer indexing semantics</span></a>.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.vindex.html" title="tensorstore.DimExpression.vindex (Python method) — Applies a NumPy-style indexing operation with vectorized indexing semantics."><span class="sig-name descname"><span class="pre">vindex</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.vindex.html" title="tensorstore.DimExpression.vindex.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.NumpyIndexingSpec.html" title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span class="pre">NumpyIndexingSpec</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Applies a <a class="reference internal" href="../indexing.html#python-dim-expression-numpy-indexing"><span class="std std-ref">NumPy-style indexing operation</span></a> with <a class="reference internal" href="../indexing.html#python-vindex-indexing"><span class="std std-ref">vectorized indexing semantics</span></a>.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.translate_to.html" title="tensorstore.DimExpression.translate_to (Python method) — Translates the domains of the selected input dimensions to the specified origins without affecting the output range."><span class="sig-name descname"><span class="pre">translate_to</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.translate_to.html#p-origins" title="tensorstore.DimExpression.translate_to.origins (Python parameter) — The new origins for each of the selected dimensions."><span class="n"><span class="pre">origins</span></span></a></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Translates the domains of the selected input dimensions to the specified
+origins without affecting the output range.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.translate_by.html" title="tensorstore.DimExpression.translate_by (Python method) — Translates (shifts) the domains of the selected input dimensions by the specified offsets, without affecting the output range."><span class="sig-name descname"><span class="pre">translate_by</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.translate_by.html#p-offsets" title="tensorstore.DimExpression.translate_by.offsets (Python parameter) — The offsets for each of the selected dimensions."><span class="n"><span class="pre">offsets</span></span></a></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Translates (shifts) the domains of the selected input dimensions by the
+specified offsets, without affecting the output range.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.translate_backward_by.html" title="tensorstore.DimExpression.translate_backward_by (Python method) — Translates (shifts) the domains of the selected input dimensions backward by the specified offsets, without affecting the output range."><span class="sig-name descname"><span class="pre">translate_backward_by</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.translate_backward_by.html#p-offsets" title="tensorstore.DimExpression.translate_backward_by.offsets (Python parameter) — The offsets for each of the selected dimensions."><span class="n"><span class="pre">offsets</span></span></a></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Translates (shifts) the domains of the selected input dimensions backward by the
+specified offsets, without affecting the output range.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.stride.html" title="tensorstore.DimExpression.stride (Python method) — Strides the domains of the selected input dimensions by the specified amounts."><span class="sig-name descname"><span class="pre">stride</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.stride.html#p-strides" title="tensorstore.DimExpression.stride.strides (Python parameter) — Strides for each selected dimension."><span class="n"><span class="pre">strides</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Strides the domains of the selected input dimensions by the specified amounts.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.transpose.html" title="tensorstore.DimExpression.transpose (Python method) — Transposes the selected dimensions to the specified target indices."><span class="sig-name descname"><span class="pre">transpose</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.transpose.html#p-target" title="tensorstore.DimExpression.transpose.target (Python parameter) — Target dimension indices for the selected dimensions."><span class="n"><span class="pre">target</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.DimSelectionLike.html" title="tensorstore.DimSelectionLike (Python data) — Subsequence of dimensions to select in a DimSelection object."><span class="pre">DimSelectionLike</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Transposes the selected dimensions to the specified target indices.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.label.html" title="tensorstore.DimExpression.label (Python method) — Sets (or changes) the labels of the selected dimensions."><span class="sig-name descname"><span class="pre">label</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.label.html#p-labels" title="tensorstore.DimExpression.label.labels (Python parameter) — Dimension labels for each selected dimension."><span class="n"><span class="pre">labels</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Sets (or changes) the <a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">labels</span></a> of the selected dimensions.</p>
+</dd></dl>
+
+<dl class="py property summary objdesc">
+<dt class="sig sig-object highlight py">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><a class="sig-name descname reference internal" href="tensorstore.DimExpression.diagonal.html" title="tensorstore.DimExpression.diagonal (Python property) — Extracts the diagonal of the selected dimensions."><span class="sig-name descname"><span class="pre">diagonal</span></span></a><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></dt>
+<dd><p>Extracts the diagonal of the selected dimensions.</p>
+</dd></dl>
+
+<dl class="py method summary objdesc">
+<dt class="sig sig-object highlight py">
+<a class="sig-name descname reference internal" href="tensorstore.DimExpression.mark_bounds_implicit.html" title="tensorstore.DimExpression.mark_bounds_implicit (Python method) — Marks the lower/upper bounds of the selected dimensions as implicit/explicit."><span class="sig-name descname"><span class="pre">mark_bounds_implicit</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.mark_bounds_implicit.html#p-implicit" title="tensorstore.DimExpression.mark_bounds_implicit.implicit (Python parameter) — Indicates the new implicit value for the lower and upper bounds."><span class="n"><span class="pre">implicit</span></span></a></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<dd><p>Marks the lower/upper bounds of the selected dimensions as
+<a class="reference internal" href="../../index_space.html#implicit-bounds"><span class="std std-ref">implicit/explicit</span></a>.</p>
+</dd></dl>
+
 </dd></dl>
 
 

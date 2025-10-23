@@ -1242,14 +1242,40 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.d.html" class="md-nav__link">
+      <a href="tensorstore.DimSelection.html" class="md-nav__link">
         
   
   
     <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore.d (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>d</span></span>
+    <span title="tensorstore.DimSelection (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>Dim<wbr>Selection</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.d.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python method" class="objinfo-icon objinfo-icon__procedure" title="Python method">M</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.d (Python method) — Constructs a DimSelection from a sequence of dimension indices, ranges, and/or labels."><span>d</span></span>
     
   </span>
   
@@ -1302,6 +1328,84 @@
   
   <span class="md-ellipsis">
     <span title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><span>Indexable</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.NumpyIndexTerm.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.NumpyIndexTerm (Python data) — Individual term in a NumpyIndexingSpec."><span>Numpy<wbr>Index<wbr>Term</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.NumpyIndexingSpec.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span>Numpy<wbr>Indexing<wbr>Spec</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimSelectionLike.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.DimSelectionLike (Python data) — Subsequence of dimensions to select in a DimSelection object."><span>Dim<wbr>Selection<wbr>Like</span></span>
     
   </span>
   
@@ -1912,19 +2016,19 @@ that cannot be performed with plain <a class="reference internal" href="../index
 <h2 id="operations">Operations<a class="headerlink" href="#operations" title="Link to this heading">¶</a></h2>
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.__getitem__.html" title="tensorstore.DimExpression.__getitem__ (Python method) — Applies a NumPy-style indexing operation with default index array semantics."><span class="sig-name descname pseudo-toc-entry"><span class="pre">__getitem__</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.__getitem__.html" title="tensorstore.DimExpression.__getitem__.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="../indexing.html#python-numpy-style-indexing"><span class="std std-ref"><span class="pre">NumpyIndexingSpec</span></span></a></span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.__getitem__.html" title="tensorstore.DimExpression.__getitem__ (Python method) — Applies a NumPy-style indexing operation with default index array semantics."><span class="sig-name descname pseudo-toc-entry"><span class="pre">__getitem__</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.__getitem__.html" title="tensorstore.DimExpression.__getitem__.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.NumpyIndexingSpec.html" title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span class="pre">NumpyIndexingSpec</span></a></span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
 <dd><p>Applies a <a class="reference internal" href="../indexing.html#python-dim-expression-numpy-indexing"><span class="std std-ref">NumPy-style indexing operation</span></a> with default index array semantics.</p>
 </dd></dl>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex (Python method) — Applies a NumPy-style indexing operation with outer indexing semantics."><span class="sig-name descname pseudo-toc-entry"><span class="pre">oindex</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="../indexing.html#python-numpy-style-indexing"><span class="std std-ref"><span class="pre">NumpyIndexingSpec</span></span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex (Python method) — Applies a NumPy-style indexing operation with outer indexing semantics."><span class="sig-name descname pseudo-toc-entry"><span class="pre">oindex</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.NumpyIndexingSpec.html" title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span class="pre">NumpyIndexingSpec</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
 <dd><p>Applies a <a class="reference internal" href="../indexing.html#python-dim-expression-numpy-indexing"><span class="std std-ref">NumPy-style indexing operation</span></a> with <a class="reference internal" href="../indexing.html#python-oindex-indexing"><span class="std std-ref">outer indexing semantics</span></a>.</p>
 </dd></dl>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.vindex.html" title="tensorstore.DimExpression.vindex (Python method) — Applies a NumPy-style indexing operation with vectorized indexing semantics."><span class="sig-name descname pseudo-toc-entry"><span class="pre">vindex</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.vindex.html" title="tensorstore.DimExpression.vindex.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="../indexing.html#python-numpy-style-indexing"><span class="std std-ref"><span class="pre">NumpyIndexingSpec</span></span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.vindex.html" title="tensorstore.DimExpression.vindex (Python method) — Applies a NumPy-style indexing operation with vectorized indexing semantics."><span class="sig-name descname pseudo-toc-entry"><span class="pre">vindex</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.vindex.html" title="tensorstore.DimExpression.vindex.indices (Python parameter)"><span class="n"><span class="pre">indices</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.NumpyIndexingSpec.html" title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span class="pre">NumpyIndexingSpec</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
 <dd><p>Applies a <a class="reference internal" href="../indexing.html#python-dim-expression-numpy-indexing"><span class="std std-ref">NumPy-style indexing operation</span></a> with <a class="reference internal" href="../indexing.html#python-vindex-indexing"><span class="std std-ref">vectorized indexing semantics</span></a>.</p>
 </dd></dl>
 
@@ -1951,19 +2055,19 @@ specified offsets, without affecting the output range.</p>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.stride.html" title="tensorstore.DimExpression.stride (Python method) — Strides the domains of the selected input dimensions by the specified amounts."><span class="sig-name descname pseudo-toc-entry"><span class="pre">stride</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.stride.html#p-strides" title="tensorstore.DimExpression.stride.strides (Python parameter) — Strides for each selected dimension."><span class="n"><span class="pre">strides</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.stride.html" title="tensorstore.DimExpression.stride (Python method) — Strides the domains of the selected input dimensions by the specified amounts."><span class="sig-name descname pseudo-toc-entry"><span class="pre">stride</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.stride.html#p-strides" title="tensorstore.DimExpression.stride.strides (Python parameter) — Strides for each selected dimension."><span class="n"><span class="pre">strides</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
 <dd><p>Strides the domains of the selected input dimensions by the specified amounts.</p>
 </dd></dl>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.transpose.html" title="tensorstore.DimExpression.transpose (Python method) — Transposes the selected dimensions to the specified target indices."><span class="sig-name descname pseudo-toc-entry"><span class="pre">transpose</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.transpose.html#p-target" title="tensorstore.DimExpression.transpose.target (Python parameter) — Target dimension indices for the selected dimensions."><span class="n"><span class="pre">target</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="../indexing.html#python-dim-selections"><span class="std std-ref"><span class="pre">DimSelectionLike</span></span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.transpose.html" title="tensorstore.DimExpression.transpose (Python method) — Transposes the selected dimensions to the specified target indices."><span class="sig-name descname pseudo-toc-entry"><span class="pre">transpose</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.transpose.html#p-target" title="tensorstore.DimExpression.transpose.target (Python parameter) — Target dimension indices for the selected dimensions."><span class="n"><span class="pre">target</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.DimSelectionLike.html" title="tensorstore.DimSelectionLike (Python data) — Subsequence of dimensions to select in a DimSelection object."><span class="pre">DimSelectionLike</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
 <dd><p>Transposes the selected dimensions to the specified target indices.</p>
 </dd></dl>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.label.html" title="tensorstore.DimExpression.label (Python method) — Sets (or changes) the labels of the selected dimensions."><span class="sig-name descname pseudo-toc-entry"><span class="pre">label</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.label.html#p-labels" title="tensorstore.DimExpression.label.labels (Python parameter) — Dimension labels for each selected dimension."><span class="n"><span class="pre">labels</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.label.html" title="tensorstore.DimExpression.label (Python method) — Sets (or changes) the labels of the selected dimensions."><span class="sig-name descname pseudo-toc-entry"><span class="pre">label</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.label.html#p-labels" title="tensorstore.DimExpression.label.labels (Python parameter) — Dimension labels for each selected dimension."><span class="n"><span class="pre">labels</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
 <dd><p>Sets (or changes) the <a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">labels</span></a> of the selected dimensions.</p>
 </dd></dl>
 
@@ -1975,7 +2079,7 @@ specified offsets, without affecting the output range.</p>
 
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.mark_bounds_implicit.html" title="tensorstore.DimExpression.mark_bounds_implicit (Python method) — Marks the lower/upper bounds of the selected dimensions as implicit/explicit."><span class="sig-name descname pseudo-toc-entry"><span class="pre">mark_bounds_implicit</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.mark_bounds_implicit.html#p-implicit" title="tensorstore.DimExpression.mark_bounds_implicit.implicit (Python parameter) — Indicates the new implicit value for the lower and upper bounds."><span class="n"><span class="pre">implicit</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><span class="pre">slice</span></a></span></span></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.DimExpression.mark_bounds_implicit.html" title="tensorstore.DimExpression.mark_bounds_implicit (Python method) — Marks the lower/upper bounds of the selected dimensions as implicit/explicit."><span class="sig-name descname pseudo-toc-entry"><span class="pre">mark_bounds_implicit</span></span></a><span class="sig-paren">[</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.DimExpression.mark_bounds_implicit.html#p-implicit" title="tensorstore.DimExpression.mark_bounds_implicit.implicit (Python parameter) — Indicates the new implicit value for the lower and upper bounds."><span class="n"><span class="pre">implicit</span></span></a></em></span><span class="sig-paren">]</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="#" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><span class="pre">DimExpression</span></a></span></span></span></dt>
 <dd><p>Marks the lower/upper bounds of the selected dimensions as
 <a class="reference internal" href="../../index_space.html#implicit-bounds"><span class="std std-ref">implicit/explicit</span></a>.</p>
 </dd></dl>

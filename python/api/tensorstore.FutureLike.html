@@ -634,10 +634,10 @@
         
   
   
-    <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore.FutureLike (Python class) — Abstract base class for types representing an asynchronous result."><span>Future<wbr>Like</span></span>
+    <span title="tensorstore.FutureLike (Python data) — Generic type representing a possibly-asynchronous result."><span>Future<wbr>Like</span></span>
     
   </span>
   
@@ -1123,17 +1123,18 @@
                   
 
 
-<dl class="py class objdesc">
+<dl class="py data objdesc">
 <dt class="sig sig-object highlight py">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">FutureLike</span></span></dt>
-<dd><p>Abstract base class for types representing an asynchronous result.</p>
-<p>The following types may be used where a <a class="reference internal" href="#" title="tensorstore.FutureLike (Python class) — Abstract base class for types representing an asynchronous result."><code class="xref py py-obj docutils literal notranslate"><span class="pre">FutureLike[T]</span></code></a>
+<span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">FutureLike</span></span></dt>
+<dd><p>Generic type representing a possibly-asynchronous result.</p>
+<p>The following types may be used where a <a class="reference internal" href="#" title="tensorstore.FutureLike (Python data) — Generic type representing a possibly-asynchronous result."><code class="xref py py-obj docutils literal notranslate"><span class="pre">FutureLike[T]</span></code></a>
 value is expected:</p>
 <ul class="simple">
 <li><p>an immediate value of type <code class="code highlight python docutils literal highlight-python"><span class="n">T</span></code>;</p></li>
 <li><p><a class="reference internal" href="tensorstore.Future.html" title="tensorstore.Future (Python class) — Handle for consuming the result of an asynchronous operation."><code class="xref py py-class docutils literal notranslate"><span class="pre">tensorstore.Future</span></code></a> that resolves to a value of type <code class="code highlight python docutils literal highlight-python"><span class="n">T</span></code>;</p></li>
 <li><p><a class="reference external" href="https://docs.python.org/3/reference/compound_stmts.html#async" title="(in Python v3.11)"><span class="xref std std-ref">coroutine</span></a> that resolves to a value of type <code class="code highlight python docutils literal highlight-python"><span class="n">T</span></code>.</p></li>
 </ul>
+<p>alias of <a class="reference internal" href="tensorstore.Future.html" title="tensorstore.Future (Python class) — Handle for consuming the result of an asynchronous operation."><code class="xref py py-class docutils literal notranslate"><span class="pre">Future</span></code></a>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">T</span></code>] | <a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Awaitable" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">T</span></code>] | <code class="xref py py-obj docutils literal notranslate"><span class="pre">T</span></code></p>
 </dd></dl>
 
 

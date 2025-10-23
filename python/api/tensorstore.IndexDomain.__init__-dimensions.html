@@ -1019,14 +1019,40 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.d.html" class="md-nav__link">
+      <a href="tensorstore.DimSelection.html" class="md-nav__link">
         
   
   
     <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore.d (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>d</span></span>
+    <span title="tensorstore.DimSelection (Python class) — Specifies a dimension selection, for starting a dimension expression."><span>Dim<wbr>Selection</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.d.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python method" class="objinfo-icon objinfo-icon__procedure" title="Python method">M</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.d (Python method) — Constructs a DimSelection from a sequence of dimension indices, ranges, and/or labels."><span>d</span></span>
     
   </span>
   
@@ -1079,6 +1105,84 @@
   
   <span class="md-ellipsis">
     <span title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><span>Indexable</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.NumpyIndexTerm.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.NumpyIndexTerm (Python data) — Individual term in a NumpyIndexingSpec."><span>Numpy<wbr>Index<wbr>Term</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.NumpyIndexingSpec.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.NumpyIndexingSpec (Python data) — NumPy-style indexing expression."><span>Numpy<wbr>Indexing<wbr>Spec</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimSelectionLike.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="Python data" class="objinfo-icon objinfo-icon__alias" title="Python data">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore.DimSelectionLike (Python data) — Subsequence of dimensions to select in a DimSelection object."><span>Dim<wbr>Selection<wbr>Like</span></span>
     
   </span>
   
@@ -1699,12 +1803,12 @@
 
 <dl class="py method objdesc">
 <dt class="sig sig-object highlight py">
-<span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">IndexDomain</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-dimensions" title="tensorstore.IndexDomain.__init__(dimensions).dimensions (Python parameter) — Sequence of :py:class`.Dim` objects."><span class="n"><span class="pre">dimensions</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="tensorstore.Dim.html" title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label."><span class="pre">Dim</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">)</span></dt>
+<span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">IndexDomain</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-dimensions" title="tensorstore.IndexDomain.__init__(dimensions).dimensions (Python parameter) — Sequence of :py:class`.Dim` objects."><span class="n"><span class="pre">dimensions</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="tensorstore.Dim.html" title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label."><span class="pre">Dim</span></a><span class="p"><span class="pre">]</span></span></span></span></em></span><span class="sig-paren">)</span></dt>
 <dd><p>Constructs an index domain from a :py:class`.Dim` sequence.</p>
 <dl class="field-list simple">
 <dt class="field-odd" id="parameters">Parameters<span class="colon">:</span><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd"><dl class="simple api-field highlight">
-<dt id="p-dimensions"><span class="n sig-name">dimensions</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)">Sequence</a><span class="p">[</span><a class="reference internal" href="tensorstore.Dim.html" title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label.">Dim</a><span class="p">]</span></span></span><a class="headerlink" href="#p-dimensions" title="Permalink to this definition">¶</a></dt><dd><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Sequence</span></code></a> of :py:class`.Dim` objects.</p>
+<dt id="p-dimensions"><span class="n sig-name">dimensions</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.11)">Iterable</a><span class="p">[</span><a class="reference internal" href="tensorstore.Dim.html" title="tensorstore.Dim (Python class) — 1-d index interval with optionally-implicit bounds and dimension label.">Dim</a><span class="p">]</span></span></span><a class="headerlink" href="#p-dimensions" title="Permalink to this definition">¶</a></dt><dd><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Sequence</span></code></a> of :py:class`.Dim` objects.</p>
 </dd>
 </dl>
 </dd>
