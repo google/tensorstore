@@ -135,7 +135,7 @@ def _local_python_repo_impl(rctx):
 
     result = py_utils.get_python_interpreter(rctx, rctx.attr.interpreter_path)
     if not result.resolved_path:
-        _emit_log(lambda: "interpreter not found: {}".format(result.describe_failure()))
+        _emit_log(lambda: "python interpreter not found: {}".format(result.describe_failure()))
 
         # else, on_failure must be skip
         rctx.file("BUILD.bazel", _expand_incompatible_template())
@@ -149,7 +149,7 @@ def _local_python_repo_impl(rctx):
         logger = logger,
     )
     if not result.info:
-        _emit_log(lambda: "GetPythonInfo failed: {}".format(result.describe_failure()))
+        _emit_log(result.describe_failure)
 
         # else, on_failure must be skip
         rctx.file("BUILD.bazel", _expand_incompatible_template())
