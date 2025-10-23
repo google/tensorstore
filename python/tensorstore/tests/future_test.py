@@ -22,8 +22,6 @@ import time
 import pytest
 import tensorstore as ts
 
-pytestmark = pytest.mark.asyncio
-
 
 def test_promise_new():
   promise, future = ts.Promise.new()

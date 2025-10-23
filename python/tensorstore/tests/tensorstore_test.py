@@ -22,8 +22,6 @@ import numpy as np
 import pytest
 import tensorstore as ts
 
-pytestmark = pytest.mark.asyncio
-
 
 async def test_open_array_driver():
   t = await ts.open({

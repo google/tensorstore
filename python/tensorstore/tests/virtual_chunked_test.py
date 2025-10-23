@@ -18,10 +18,7 @@ import weakref
 
 import cloudpickle
 import numpy as np
-import pytest
 import tensorstore as ts
-
-pytestmark = pytest.mark.asyncio
 
 
 def test_read_pickle():

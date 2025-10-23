@@ -13,11 +13,9 @@
 # limitations under the License.
 """Tests for tensorstore.experimental methods."""
 
-import pytest
 import tensorstore as ts
 
 
-@pytest.mark.asyncio
 async def test_collect_matching_metrics():
   # Open a tensorstore and read to ensure that some metric is populated.
   t = await ts.open({
@@ -33,7 +31,6 @@ async def test_collect_matching_metrics():
     assert m['name'].startswith('/tensorstore/')
 
 
-@pytest.mark.asyncio
 async def test_collect_prometheus_format_metrics():
   # Open a tensorstore and read to ensure that some metric is populated.
   t = await ts.open({

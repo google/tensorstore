@@ -20,8 +20,6 @@ import numpy as np
 import pytest
 import tensorstore as ts
 
-pytestmark = pytest.mark.asyncio
-
 
 @contextlib.contextmanager
 def make_dataset():
@@ -33,9 +31,7 @@ def make_dataset():
             'path': dir_path,
         },
         'metadata': {
-            'compression': {
-                'type': 'gzip'
-            },
+            'compression': {'type': 'gzip'},
             'dataType': 'uint16',
             'dimensions': [3, 4],
             'blockSize': [2, 3],
@@ -53,51 +49,63 @@ async def test_transaction_read_write():
     assert txn.open
     dataset.with_transaction(txn)[1:2, 3:4] = 42
     dataset.with_transaction(txn)[0:2, :1] = 5
-    np.testing.assert_equal([
-        [5, 0, 0, 0],
-        [5, 0, 0, 42],
-        [0, 0, 0, 0],
-    ],
-                            dataset.with_transaction(txn).read().result())
-    np.testing.assert_equal([
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-    ],
-                            dataset.read().result())
+    np.testing.assert_equal(
+        [
+            [5, 0, 0, 0],
+            [5, 0, 0, 42],
+            [0, 0, 0, 0],
+        ],
+        dataset.with_transaction(txn).read().result(),
+    )
+    np.testing.assert_equal(
+        [
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+        ],
+        dataset.read().result(),
+    )
     txn.commit_async().result()
     assert txn.commit_started
     assert not txn.open
-    np.testing.assert_equal([
-        [5, 0, 0, 0],
-        [5, 0, 0, 42],
-        [0, 0, 0, 0],
-    ],
-                            dataset.read().result())
+    np.testing.assert_equal(
+        [
+            [5, 0, 0, 0],
+            [5, 0, 0, 42],
+            [0, 0, 0, 0],
+        ],
+        dataset.read().result(),
+    )
 
 
 async def test_transaction_context_manager_commit():
   with make_dataset() as dataset:
     with ts.Transaction() as txn:
       dataset.with_transaction(txn)[1:2, 3:4] = 42
-      np.testing.assert_equal([
-          [0, 0, 0, 0],
-          [0, 0, 0, 42],
-          [0, 0, 0, 0],
-      ],
-                              dataset.with_transaction(txn).read().result())
-      np.testing.assert_equal([
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-      ],
-                              dataset.read().result())
-    np.testing.assert_equal([
-        [0, 0, 0, 0],
-        [0, 0, 0, 42],
-        [0, 0, 0, 0],
-    ],
-                            dataset.read().result())
+      np.testing.assert_equal(
+          [
+              [0, 0, 0, 0],
+              [0, 0, 0, 42],
+              [0, 0, 0, 0],
+          ],
+          dataset.with_transaction(txn).read().result(),
+      )
+      np.testing.assert_equal(
+          [
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+          ],
+          dataset.read().result(),
+      )
+    np.testing.assert_equal(
+        [
+            [0, 0, 0, 0],
+            [0, 0, 0, 42],
+            [0, 0, 0, 0],
+        ],
+        dataset.read().result(),
+    )
 
 
 async def test_transaction_context_manager_abort():
@@ -105,43 +113,53 @@ async def test_transaction_context_manager_abort():
     with pytest.raises(ValueError, match='want to abort'):
       with ts.Transaction() as txn:
         dataset.with_transaction(txn)[1:2, 3:4] = 42
-        np.testing.assert_equal([
+        np.testing.assert_equal(
+            [
+                [0, 0, 0, 0],
+                [0, 0, 0, 42],
+                [0, 0, 0, 0],
+            ],
+            dataset.with_transaction(txn).read().result(),
+        )
+        raise ValueError('want to abort')
+    np.testing.assert_equal(
+        [
             [0, 0, 0, 0],
-            [0, 0, 0, 42],
+            [0, 0, 0, 0],
             [0, 0, 0, 0],
         ],
-                                dataset.with_transaction(txn).read().result())
-        raise ValueError('want to abort')
-    np.testing.assert_equal([
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-    ],
-                            dataset.read().result())
+        dataset.read().result(),
+    )
 
 
 async def test_transaction_async_context_manager_commit():
   with make_dataset() as dataset:
     async with ts.Transaction() as txn:
       dataset.with_transaction(txn)[1:2, 3:4] = 42
-      np.testing.assert_equal([
-          [0, 0, 0, 0],
-          [0, 0, 0, 42],
-          [0, 0, 0, 0],
-      ],
-                              dataset.with_transaction(txn).read().result())
-      np.testing.assert_equal([
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-      ],
-                              dataset.read().result())
-    np.testing.assert_equal([
-        [0, 0, 0, 0],
-        [0, 0, 0, 42],
-        [0, 0, 0, 0],
-    ],
-                            dataset.read().result())
+      np.testing.assert_equal(
+          [
+              [0, 0, 0, 0],
+              [0, 0, 0, 42],
+              [0, 0, 0, 0],
+          ],
+          dataset.with_transaction(txn).read().result(),
+      )
+      np.testing.assert_equal(
+          [
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+          ],
+          dataset.read().result(),
+      )
+    np.testing.assert_equal(
+        [
+            [0, 0, 0, 0],
+            [0, 0, 0, 42],
+            [0, 0, 0, 0],
+        ],
+        dataset.read().result(),
+    )
 
 
 async def test_transaction_async_context_manager_abort():
@@ -149,16 +167,20 @@ async def test_transaction_async_context_manager_abort():
     with pytest.raises(ValueError, match='want to abort'):
       async with ts.Transaction() as txn:
         dataset.with_transaction(txn)[1:2, 3:4] = 42
-        np.testing.assert_equal([
+        np.testing.assert_equal(
+            [
+                [0, 0, 0, 0],
+                [0, 0, 0, 42],
+                [0, 0, 0, 0],
+            ],
+            dataset.with_transaction(txn).read().result(),
+        )
+        raise ValueError('want to abort')
+    np.testing.assert_equal(
+        [
             [0, 0, 0, 0],
-            [0, 0, 0, 42],
+            [0, 0, 0, 0],
             [0, 0, 0, 0],
         ],
-                                dataset.with_transaction(txn).read().result())
-        raise ValueError('want to abort')
-    np.testing.assert_equal([
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-    ],
-                            dataset.read().result())
+        dataset.read().result(),
+    )

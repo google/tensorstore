@@ -93,6 +93,7 @@ def tensorstore_pytest_test(
         pytest_args = [
             "-vv",
             "-s",
+            "--asyncio-mode=auto",
         ] + pytest_args,
         use_absl = use_absl,
         out = wrapper_script,
