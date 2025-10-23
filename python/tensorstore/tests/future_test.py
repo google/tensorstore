@@ -18,6 +18,7 @@ import pickle
 import signal
 import threading
 import time
+import types
 
 import pytest
 import tensorstore as ts
@@ -29,6 +30,11 @@ def test_promise_new():
   promise.set_result(5)
   assert future.done()
   assert future.result() == 5
+
+
+def test_type_params():
+  assert ts.Promise[int] == types.GenericAlias(ts.Promise, (int,))
+  assert ts.Future[int] == types.GenericAlias(ts.Future, (int,))
 
 
 def test_promise_result_release_gil():

@@ -703,6 +703,11 @@ See also:
 Group:
   Asynchronous support
 )";
+
+  static const PyMethodDef future_methods[] = {
+      {"__class_getitem__", Py_GenericAlias, METH_O | METH_CLASS, ""},
+      {nullptr},
+  };
   PyType_Slot slots[] = {
       {Py_tp_doc, const_cast<char*>(doc)},
       {Py_tp_alloc, reinterpret_cast<void*>(&FutureAlloc)},
@@ -710,6 +715,8 @@ Group:
       {Py_tp_traverse, reinterpret_cast<void*>(&FutureTraverse)},
       {Py_tp_clear, reinterpret_cast<void*>(&FutureClear)},
       {Py_tp_finalize, reinterpret_cast<void*>(&FutureFinalize)},
+      {Py_tp_methods,
+       const_cast<void*>(reinterpret_cast<const void*>(future_methods))},
       {0, nullptr},
   };
   PyType_Spec spec = {};
@@ -1025,12 +1032,18 @@ See also:
 Group:
   Asynchronous support
 )";
+  static const PyMethodDef promise_methods[] = {
+      {"__class_getitem__", Py_GenericAlias, METH_O | METH_CLASS, ""},
+      {nullptr},
+  };
   PyType_Slot slots[] = {
       {Py_tp_doc, const_cast<char*>(doc)},
       {Py_tp_alloc, reinterpret_cast<void*>(&PromiseAlloc)},
       {Py_tp_dealloc, reinterpret_cast<void*>(&PromiseDealloc)},
       {Py_tp_traverse, reinterpret_cast<void*>(&PromiseTraverse)},
       {Py_tp_clear, reinterpret_cast<void*>(&PromiseClear)},
+      {Py_tp_methods,
+       const_cast<void*>(reinterpret_cast<const void*>(promise_methods))},
       {0, nullptr},
   };
   PyType_Spec spec = {};
