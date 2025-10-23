@@ -1,4 +1,5 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@bazel_skylib//rules:run_binary.bzl", "run_binary")
 load("//bazel:pytest.bzl", "tensorstore_pytest_test")
 load("//bazel:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
@@ -9,7 +10,7 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-# To exclude the Python API documentation from the generation documentation,
+# To exclude the Python API documentation from the generated documentation,
 # specify:
 #
 # bazel build --//docs:exclude_python_api
@@ -22,10 +23,30 @@ bool_flag(
     build_setting_default = False,
 )
 
+# To exclude the C++ API documentation from the generated documentation,
+# specify:
+#
+# bazel build --//docs:exclude_cpp_api
+#
+# This speeds up the documentation build since the C++ symbol
+# resolution takes a long time in Sphinx.
+bool_flag(
+    name = "exclude_cpp_api",
+    build_setting_default = False,
+)
+
 config_setting(
     name = "exclude_python_api_setting",
     flag_values = {
         ":exclude_python_api": "True",
+    },
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "exclude_cpp_api_setting",
+    flag_values = {
+        ":exclude_cpp_api": "True",
     },
     visibility = ["//visibility:private"],
 )
@@ -54,13 +75,11 @@ pytype_strict_binary(
     ],
 )
 
-genrule(
+run_binary(
     name = "generate_logo_rule",
     outs = ["_templates/logo.svg"],
-    cmd = "./$(location :generate_logo) $@",
-    tools = [
-        ":generate_logo",
-    ],
+    args = ["$(execpath _templates/logo.svg)"],
+    tool = ":generate_logo",
 )
 
 pytype_strict_test(
@@ -74,17 +93,22 @@ pytype_strict_test(
         "--keep-going",
     ],
     data = [
-        "cpp_api.json",
         ":doc_sources",
         "@pypa_clang_format//:clang-format_binary",
-    ] + glob(
+    ] + select({
+        ":exclude_cpp_api_setting": [],
+        "//conditions:default": ["cpp_api.json"],
+    }) + glob(
         ["cached_external_resources/**"],
         allow_empty = True,
     ),
     env = {
         "TENSORSTORE_SPECIAL_CPU_USER_LIMITS": "forge-00=4",
         "SPHINX_CLANG_FORMAT": "$(location @pypa_clang_format//:clang-format_binary)",
-    },
+    } | select({
+        ":exclude_cpp_api_setting": {"TENSORSTORE_SKIP_CPP_API_DOCS": "1"},
+        "//conditions:default": {},
+    }),
     tags = [
         "cpu:4",
         "manual",
@@ -252,20 +276,19 @@ pytype_strict_binary(
     ],
 )
 
-genrule(
+run_binary(
     name = "genrule_cpp_api.json",
     testonly = True,
     srcs = [
-        ":cpp_api_preprocessed.cc",
         ":compiler_flags.json",
+        ":cpp_api_preprocessed.cc",
     ],
     outs = ["cpp_api.json"],
-    cmd = ("$(location :generate_cpp_api) " +
-           "--source=$(location :cpp_api_preprocessed.cc) " +
-           "--flags-file=$(location :compiler_flags.json) " +
-           "--output=$@"),
-    tags = ["manual"],
-    tools = [
-        ":generate_cpp_api",
+    args = [
+        "--source=$(execpath :cpp_api_preprocessed.cc)",
+        "--flags-file=$(execpath :compiler_flags.json)",
+        "--output=$(execpath cpp_api.json)",
     ],
+    tags = ["manual"],
+    tool = ":generate_cpp_api",
 )

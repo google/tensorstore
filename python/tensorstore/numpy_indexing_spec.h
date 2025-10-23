@@ -80,7 +80,7 @@ struct NumpyIndexingSpecPlaceholder {
   }
 
   constexpr static auto tensorstore_pybind11_type_name_override =
-      pybind11::detail::_("NumpyIndexingSpec");
+      pybind11::detail::_("tensorstore.NumpyIndexingSpec");
 };
 
 /// Docstrings for a getter and `NumAssign` setters.

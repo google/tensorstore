@@ -100,6 +100,13 @@ struct OutputIndexMap {
   }
 };
 
+// Wraps an `IndexDomain` for use as a Python parameter type that can
+// be constructed from either a Python `IndexDomain` or a sequence of
+// `IndexDomainDimension`.
+struct IndexDomainLike {
+  IndexDomain<> value;
+};
+
 template <size_t NumAssign>
 struct IndexTransformOperationDocstrings {
   NumpyIndexingMethodDocstrings<NumAssign> numpy_indexing;
@@ -514,5 +521,22 @@ Group:
 
 }  // namespace internal_python
 }  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+// Defines automatic conversion of Python objects to `IndexDomainLike`
+// parameter types of pybind11-exposed functions.
+template <>
+struct type_caster<tensorstore::internal_python::IndexDomainLike> {
+  PYBIND11_TYPE_CASTER(tensorstore::internal_python::IndexDomainLike,
+                       _("IndexDomain | collections.abc.Sequence[Dim]"));
+  static handle cast(const tensorstore::internal_python::IndexDomainLike& x,
+                     return_value_policy /* policy */, handle /* parent */);
+  bool load(handle src, bool convert);
+};
+
+}  // namespace detail
+}  // namespace pybind11
 
 #endif  // PYTHON_TENSORSTORE_INDEX_SPACE_H_

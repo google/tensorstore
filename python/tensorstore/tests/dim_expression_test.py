@@ -15,16 +15,18 @@
 
 import pickle
 import re
-from typing import List, Optional
 
 import numpy as np
 import pytest
 import tensorstore as ts
 
 
-def check_expr(expr: ts.DimExpression, expected_repr: Optional[str] = None,
-               before: Optional[ts.IndexTransform] = None,
-               after: Optional[ts.IndexTransform] = None):
+def check_expr(
+    expr: ts.DimExpression,
+    expected_repr: str | None = None,
+    before: ts.IndexTransform | None = None,
+    after: ts.IndexTransform | None = None,
+) -> None:
   if expected_repr is not None:
     assert repr(expr) == expected_repr
 
@@ -33,7 +35,7 @@ def check_expr(expr: ts.DimExpression, expected_repr: Optional[str] = None,
   expr_repr = repr(expr)
 
   # Check that `expr` round trips through `repr`.
-  eval_globals = {"d": ts.d, "array": np.array, 'int64': np.int64}
+  eval_globals = {"d": ts.d, "array": np.array, "int64": np.int64}
   # pylint: disable-next=eval-used
   assert eval(expr_repr, eval_globals) == expr
 
@@ -51,7 +53,7 @@ def check_expr(expr: ts.DimExpression, expected_repr: Optional[str] = None,
     assert before.domain[expr] == after.domain
 
 
-def check_expr_equality(exprs: List[ts.DimExpression]):
+def check_expr_equality(exprs: list[ts.DimExpression]) -> None:
   for a in exprs:
     for b in exprs:
       if a is b:
@@ -60,7 +62,7 @@ def check_expr_equality(exprs: List[ts.DimExpression]):
         assert a != b
 
 
-def test_dimension_selection():
+def test_dimension_selection() -> None:
   check_expr(
       expr=ts.d[2],
       expected_repr="d[2]",
@@ -97,19 +99,20 @@ def test_dimension_selection():
   ])
 
   with pytest.raises(TypeError):
-    iter(ts.d)
+    iter(ts.d)  # type: ignore
 
 
-def test_no_operations():
+def test_no_operations() -> None:
   x = ts.IndexTransform(input_rank=3)
   expr = ts.d[0, 1]
   with pytest.raises(
       IndexError,
-      match="Must specify at least one operation in dimension expression"):
-    x[expr]  # pylint: disable=pointless-statement
+      match="Must specify at least one operation in dimension expression",
+  ):
+    _ = x[expr]
 
 
-def test_translate_by_vector():
+def test_translate_by_vector() -> None:
   check_expr(
       expr=ts.d["x", "y"].translate_by[4, 5],
       expected_repr="d['x','y'].translate_by[4,5]",
@@ -126,7 +129,7 @@ def test_translate_by_vector():
   )
 
 
-def test_translate_by_vector_with_none():
+def test_translate_by_vector_with_none() -> None:
   check_expr(
       expr=ts.d["x", "y"].translate_by[4, None],
       expected_repr="d['x','y'].translate_by[4,None]",
@@ -143,7 +146,7 @@ def test_translate_by_vector_with_none():
   )
 
 
-def test_translate_by_scalar():
+def test_translate_by_scalar() -> None:
   check_expr(
       expr=ts.d["x", "y"].translate_by[4],
       before=ts.IndexTransform(input_shape=[2, 3], input_labels=["x", "y"]),
@@ -160,7 +163,7 @@ def test_translate_by_scalar():
   )
 
 
-def test_translate_equality():
+def test_translate_equality() -> None:
   check_expr_equality([
       ts.d[:].translate_to[4],
       ts.d[:].translate_by[4],
@@ -171,11 +174,14 @@ def test_translate_equality():
   ])
 
 
-def test_translate_to():
+def test_translate_to() -> None:
   check_expr(
       expr=ts.d["x", "y"].translate_to[4, 5],
-      before=ts.IndexTransform(input_shape=[2, 3], input_inclusive_min=[1, 2],
-                               input_labels=["x", "y"]),
+      before=ts.IndexTransform(
+          input_shape=[2, 3],
+          input_inclusive_min=[1, 2],
+          input_labels=["x", "y"],
+      ),
       expected_repr="d['x','y'].translate_to[4,5]",
       after=ts.IndexTransform(
           input_shape=[2, 3],
@@ -189,13 +195,15 @@ def test_translate_to():
   )
 
 
-def test_stride_vector():
+def test_stride_vector() -> None:
   check_expr(
       expr=ts.d["x", "z"].stride[-2, 3],
       expected_repr="d['x','z'].stride[-2,3]",
-      before=ts.IndexTransform(input_inclusive_min=[0, 2, 1],
-                               input_inclusive_max=[6, 5, 8],
-                               input_labels=["x", "y", "z"]),
+      before=ts.IndexTransform(
+          input_inclusive_min=[0, 2, 1],
+          input_inclusive_max=[6, 5, 8],
+          input_labels=["x", "y", "z"],
+      ),
       after=ts.IndexTransform(
           input_inclusive_min=[-3, 2, 1],
           input_inclusive_max=[0, 5, 2],
@@ -209,13 +217,15 @@ def test_stride_vector():
   )
 
 
-def test_stride_scalar():
+def test_stride_scalar() -> None:
   check_expr(
       expr=ts.d["x", "z"].stride[3],
       expected_repr="d['x','z'].stride[3]",
-      before=ts.IndexTransform(input_inclusive_min=[0, 2, 1],
-                               input_inclusive_max=[6, 5, 8],
-                               input_labels=["x", "y", "z"]),
+      before=ts.IndexTransform(
+          input_inclusive_min=[0, 2, 1],
+          input_inclusive_max=[6, 5, 8],
+          input_labels=["x", "y", "z"],
+      ),
       after=ts.IndexTransform(
           input_inclusive_min=[0, 2, 1],
           input_inclusive_max=[2, 5, 2],
@@ -229,7 +239,7 @@ def test_stride_scalar():
   )
 
 
-def test_stride_equality():
+def test_stride_equality() -> None:
   check_expr_equality([
       ts.d[:].stride[4],
       ts.d[:].stride[5],
@@ -238,7 +248,7 @@ def test_stride_equality():
   ])
 
 
-def test_label_single():
+def test_label_single() -> None:
   check_expr(
       expr=ts.d["x"].label["a"],
       expected_repr="d['x'].label['a']",
@@ -247,7 +257,7 @@ def test_label_single():
   )
 
 
-def test_label_multiple():
+def test_label_multiple() -> None:
   check_expr(
       expr=ts.d["x", "y"].label["a", "b"],
       expected_repr="d['x','y'].label['a','b']",
@@ -256,7 +266,7 @@ def test_label_multiple():
   )
 
 
-def test_label_vector():
+def test_label_vector() -> None:
   check_expr(
       expr=ts.d["x", "y"].label[["a", "b"]],
       expected_repr="d['x','y'].label['a','b']",
@@ -265,7 +275,7 @@ def test_label_vector():
   )
 
 
-def test_label_equality():
+def test_label_equality() -> None:
   check_expr_equality([
       ts.d[:].label["a", "b"],
       ts.d[:].label["a", "c"],
@@ -274,19 +284,19 @@ def test_label_equality():
   ])
 
 
-def test_label_wrong_number():
+def test_label_wrong_number() -> None:
   transform = ts.IndexTransform(3)
   with pytest.raises(IndexError):
-    transform[ts.d[0].label["x", "y"]]  # pylint: disable=pointless-statement
+    _ = transform[ts.d[0].label["x", "y"]]
 
 
-def test_label_duplicates():
+def test_label_duplicates() -> None:
   transform = ts.IndexTransform(3)[ts.d[0].label["x"]]
   with pytest.raises(IndexError):
-    transform[ts.d[1].label["x"]]  # pylint: disable=pointless-statement
+    _ = transform[ts.d[1].label["x"]]
 
 
-def test_add_new():
+def test_add_new() -> None:
   check_expr(
       expr=ts.d[0, -2:][ts.newaxis],
       expected_repr="d[0,-2:][None]",
@@ -295,8 +305,8 @@ def test_add_new():
           input_inclusive_min=[0, 0, 0, 0, 0],
           input_exclusive_max=[1, 2, 3, 1, 1],
           input_labels=["", "x", "y", "", ""],
-          implicit_lower_bounds=[1, 0, 0, 1, 1],
-          implicit_upper_bounds=[1, 0, 0, 1, 1],
+          implicit_lower_bounds=[True, False, False, True, True],
+          implicit_upper_bounds=[True, False, False, True, True],
           output=[
               ts.OutputIndexMap(input_dimension=1),
               ts.OutputIndexMap(input_dimension=2),
@@ -305,14 +315,14 @@ def test_add_new():
   )
 
 
-def test_add_new_invalid_rank():
+def test_add_new_invalid_rank() -> None:
   x = ts.IndexTransform(input_shape=[2, 3], input_labels=["x", "y"])
   expr = ts.d[0:32][ts.newaxis]
   with pytest.raises(IndexError):
-    x[expr]  # pylint: disable=pointless-statement
+    _ = x[expr]
 
 
-def test_diagonal():
+def test_diagonal() -> None:
   check_expr(
       expr=ts.d["x", "y"].diagonal,
       expected_repr="d['x','y'].diagonal",
@@ -327,7 +337,7 @@ def test_diagonal():
   )
 
 
-def test_transpose_dim_range():
+def test_transpose_dim_range() -> None:
   check_expr(
       expr=ts.d["y", "x"].transpose[:],
       expected_repr="d['y','x'].transpose[:]",
@@ -343,7 +353,7 @@ def test_transpose_dim_range():
   )
 
 
-def test_transpose_single_dim():
+def test_transpose_single_dim() -> None:
   check_expr(
       expr=ts.d["x"].transpose[1],
       expected_repr="d['x'].transpose[1]",
@@ -359,7 +369,7 @@ def test_transpose_single_dim():
   )
 
 
-def test_transpose_move_to_front():
+def test_transpose_move_to_front() -> None:
   check_expr(
       expr=ts.d["y", "x"].transpose[0],
       expected_repr="d['y','x'].transpose[0]",
@@ -375,7 +385,7 @@ def test_transpose_move_to_front():
   )
 
 
-def test_transpose_move_to_front_with_indices():
+def test_transpose_move_to_front_with_indices() -> None:
   check_expr(
       expr=ts.d["y", "x"].transpose[0, 1],
       expected_repr="d['y','x'].transpose[0,1]",
@@ -391,7 +401,7 @@ def test_transpose_move_to_front_with_indices():
   )
 
 
-def test_transpose_empty():
+def test_transpose_empty() -> None:
   x = ts.IndexTransform(input_labels=["x", "y", "z"])
   check_expr(
       expr=ts.d[()].transpose[()],
@@ -401,14 +411,15 @@ def test_transpose_empty():
   )
 
 
-def test_transpose_label_target():
+def test_transpose_label_target() -> None:
   x = ts.IndexTransform(input_labels=["x", "y", "z"])
-  with pytest.raises(IndexError,
-                     match="Target dimensions cannot be specified by label"):
-    x[ts.d["x", "y"].transpose["x"]]  # pylint: disable=pointless-statement
+  with pytest.raises(
+      IndexError, match="Target dimensions cannot be specified by label"
+  ):
+    _ = x[ts.d["x", "y"].transpose["x"]]
 
 
-def test_transpose_move_to_back():
+def test_transpose_move_to_back() -> None:
   check_expr(
       expr=ts.d["y", "x"].transpose[-1],
       expected_repr="d['y','x'].transpose[-1]",
@@ -424,7 +435,7 @@ def test_transpose_move_to_back():
   )
 
 
-def test_transpose_equality():
+def test_transpose_equality() -> None:
   check_expr_equality([
       ts.d[1, 2].transpose[:],
       ts.d[1, 2].transpose[2:3],
@@ -432,77 +443,105 @@ def test_transpose_equality():
   ])
 
 
-def test_mark_bounds_implicit_true():
+def test_mark_bounds_implicit_true() -> None:
   check_expr(
       expr=ts.d[0, 2].mark_bounds_implicit[True],
-      before=ts.IndexTransform(implicit_lower_bounds=[True, False, False],
-                               implicit_upper_bounds=[False, False, True]),
-      after=ts.IndexTransform(implicit_lower_bounds=[True, False, True],
-                              implicit_upper_bounds=[True, False, True]),
+      before=ts.IndexTransform(
+          implicit_lower_bounds=[True, False, False],
+          implicit_upper_bounds=[False, False, True],
+      ),
+      after=ts.IndexTransform(
+          implicit_lower_bounds=[True, False, True],
+          implicit_upper_bounds=[True, False, True],
+      ),
   )
 
 
-def test_mark_bounds_implicit_false():
+def test_mark_bounds_implicit_false() -> None:
   check_expr(
       expr=ts.d[0, 2].mark_bounds_implicit[False],
-      before=ts.IndexTransform(implicit_lower_bounds=[True, True, False],
-                               implicit_upper_bounds=[False, True, True]),
-      after=ts.IndexTransform(implicit_lower_bounds=[False, True, False],
-                              implicit_upper_bounds=[False, True, False]),
+      before=ts.IndexTransform(
+          implicit_lower_bounds=[True, True, False],
+          implicit_upper_bounds=[False, True, True],
+      ),
+      after=ts.IndexTransform(
+          implicit_lower_bounds=[False, True, False],
+          implicit_upper_bounds=[False, True, False],
+      ),
   )
 
 
-def test_mark_bounds_implicit_none_true():
+def test_mark_bounds_implicit_none_true() -> None:
   check_expr(
       expr=ts.d[0, 2].mark_bounds_implicit[:True],
-      before=ts.IndexTransform(implicit_lower_bounds=[True, False, False],
-                               implicit_upper_bounds=[False, False, True]),
-      after=ts.IndexTransform(implicit_lower_bounds=[True, False, False],
-                              implicit_upper_bounds=[True, False, True]),
+      before=ts.IndexTransform(
+          implicit_lower_bounds=[True, False, False],
+          implicit_upper_bounds=[False, False, True],
+      ),
+      after=ts.IndexTransform(
+          implicit_lower_bounds=[True, False, False],
+          implicit_upper_bounds=[True, False, True],
+      ),
   )
 
 
-def test_mark_bounds_implicit_none_false():
+def test_mark_bounds_implicit_none_false() -> None:
   check_expr(
       expr=ts.d[0, 2].mark_bounds_implicit[:False],
-      before=ts.IndexTransform(implicit_lower_bounds=[True, True, False],
-                               implicit_upper_bounds=[False, True, True]),
-      after=ts.IndexTransform(implicit_lower_bounds=[True, True, False],
-                              implicit_upper_bounds=[False, True, False]),
+      before=ts.IndexTransform(
+          implicit_lower_bounds=[True, True, False],
+          implicit_upper_bounds=[False, True, True],
+      ),
+      after=ts.IndexTransform(
+          implicit_lower_bounds=[True, True, False],
+          implicit_upper_bounds=[False, True, False],
+      ),
   )
 
 
-def test_mark_bounds_implicit_true_none():
+def test_mark_bounds_implicit_true_none() -> None:
   check_expr(
       expr=ts.d[0, 2].mark_bounds_implicit[True:],
-      before=ts.IndexTransform(implicit_lower_bounds=[True, False, False],
-                               implicit_upper_bounds=[False, False, True]),
-      after=ts.IndexTransform(implicit_lower_bounds=[True, False, True],
-                              implicit_upper_bounds=[False, False, True]),
+      before=ts.IndexTransform(
+          implicit_lower_bounds=[True, False, False],
+          implicit_upper_bounds=[False, False, True],
+      ),
+      after=ts.IndexTransform(
+          implicit_lower_bounds=[True, False, True],
+          implicit_upper_bounds=[False, False, True],
+      ),
   )
 
 
-def test_mark_bounds_implicit_false_none():
+def test_mark_bounds_implicit_false_none() -> None:
   check_expr(
       expr=ts.d[0, 2].mark_bounds_implicit[False:],
-      before=ts.IndexTransform(implicit_lower_bounds=[True, True, False],
-                               implicit_upper_bounds=[False, True, True]),
-      after=ts.IndexTransform(implicit_lower_bounds=[False, True, False],
-                              implicit_upper_bounds=[False, True, True]),
+      before=ts.IndexTransform(
+          implicit_lower_bounds=[True, True, False],
+          implicit_upper_bounds=[False, True, True],
+      ),
+      after=ts.IndexTransform(
+          implicit_lower_bounds=[False, True, False],
+          implicit_upper_bounds=[False, True, True],
+      ),
   )
 
 
-def test_mark_bounds_implicit_false_true():
+def test_mark_bounds_implicit_false_true() -> None:
   check_expr(
       expr=ts.d[0, 2].mark_bounds_implicit[False:True],
-      before=ts.IndexTransform(implicit_lower_bounds=[True, True, False],
-                               implicit_upper_bounds=[False, False, True]),
-      after=ts.IndexTransform(implicit_lower_bounds=[False, True, False],
-                              implicit_upper_bounds=[True, False, True]),
+      before=ts.IndexTransform(
+          implicit_lower_bounds=[True, True, False],
+          implicit_upper_bounds=[False, False, True],
+      ),
+      after=ts.IndexTransform(
+          implicit_lower_bounds=[False, True, False],
+          implicit_upper_bounds=[True, False, True],
+      ),
   )
 
 
-def test_mark_bounds_implicit_equality():
+def test_mark_bounds_implicit_equality() -> None:
   check_expr_equality([
       ts.d[1, 2].mark_bounds_implicit[:],
       ts.d[1, 2].mark_bounds_implicit[True:],
@@ -516,20 +555,19 @@ def test_mark_bounds_implicit_equality():
   ])
 
 
-def test_index_integer():
+def test_index_integer() -> None:
   check_expr(
       expr=ts.d["x", "y"][2, 3],
       expected_repr="d['x','y'][2,3]",
       before=ts.IndexTransform(input_shape=[15, 20], input_labels=["x", "y"]),
       after=ts.IndexTransform(
           input_rank=0,
-          output=[ts.OutputIndexMap(offset=2),
-                  ts.OutputIndexMap(offset=3)],
+          output=[ts.OutputIndexMap(offset=2), ts.OutputIndexMap(offset=3)],
       ),
   )
 
 
-def test_index_integer_non_scalar():
+def test_index_integer_non_scalar() -> None:
   x = ts.IndexTransform(input_shape=[15, 20], input_labels=["x", "y"])
   check_expr(
       expr=ts.d["x"][2,],
@@ -539,15 +577,15 @@ def test_index_integer_non_scalar():
           domain=x.domain[("y",)],
           output=[
               ts.OutputIndexMap(offset=2),
-              ts.OutputIndexMap(input_dimension=0)
+              ts.OutputIndexMap(input_dimension=0),
           ],
       ),
   )
 
 
-def test_index_slice():
+def test_index_slice() -> None:
   check_expr(
-      expr=ts.d["x", "y"][(1, 2):(7, 8)],
+      expr=ts.d["x", "y"][slice((1, 2), (7, 8))],
       expected_repr="d['x','y'][1:7,2:8]",
       before=ts.IndexTransform(input_shape=[15, 20], input_labels=["x", "y"]),
       after=ts.IndexTransform(
@@ -558,46 +596,49 @@ def test_index_slice():
   )
 
 
-def test_index_slice_incompatible_stop():
+def test_index_slice_incompatible_stop() -> None:
   with pytest.raises(
       IndexError,
       match=re.escape(
-          "stop=[7,8,9] (rank 3) is incompatible with start=[1,2] (rank 2)"),
+          "stop=[7,8,9] (rank 3) is incompatible with start=[1,2] (rank 2)"
+      ),
   ):
-    ts.d[:][(1, 2):(7, 8, 9)]  # pylint: disable=pointless-statement
+    _ = ts.d[:][slice((1, 2), (7, 8, 9))]
 
 
-def test_index_slice_incompatible_step():
+def test_index_slice_incompatible_step() -> None:
   with pytest.raises(
       IndexError,
       match=re.escape(
-          "step=[9,10,11] (rank 3) is incompatible with stop=[7,8] (rank 2)"),
+          "step=[9,10,11] (rank 3) is incompatible with stop=[7,8] (rank 2)"
+      ),
   ):
-    ts.d[:][(1, 2):(7, 8):(9, 10, 11)]  # pylint: disable=pointless-statement
+    _ = ts.d[:][slice((1, 2), (7, 8), (9, 10, 11))]
 
 
-def test_index_slice_invalid_start():
+def test_index_slice_invalid_start() -> None:
   with pytest.raises(
       TypeError,
       match=re.escape(
-          "slice indices must be integers or None or have an __index__ method"),
+          "slice indices must be integers or None or have an __index__ method"
+      ),
   ):
-    ts.d[:]["a":3]  # pylint: disable=pointless-statement
+    _ = ts.d[:]["a":3]  # type: ignore
 
 
-def test_index_slice_invalid_stop():
+def test_index_slice_invalid_stop() -> None:
   with pytest.raises(TypeError):
-    ts.d[:][3:"a"]  # pylint: disable=pointless-statement
+    _ = ts.d[:][3:"a"]  # type: ignore
 
 
-def test_index_slice_invalid_step():
+def test_index_slice_invalid_step() -> None:
   with pytest.raises(TypeError):
-    ts.d[:][3:5:"a"]  # pylint: disable=pointless-statement
+    _ = ts.d[:][3:5:"a"]  # type: ignore
 
 
-def test_label_index_slice():
+def test_label_index_slice() -> None:
   x = ts.IndexTransform(input_labels=["x", "y"])
-  expr = ts.d["x", "y"].label["a", "b"][(1, 2):(7, 8)]
+  expr = ts.d["x", "y"].label["a", "b"][slice((1, 2), (7, 8))]
   assert repr(expr) == "d['x','y'].label['a','b'][1:7,2:8]"
   assert x[expr] == ts.IndexTransform(
       input_inclusive_min=[1, 2],
@@ -606,9 +647,9 @@ def test_label_index_slice():
   )
 
 
-def test_slice_interval_strided():
+def test_slice_interval_strided() -> None:
   check_expr(
-      expr=ts.d["x", "y"][(1, 2):(8, 9):2],
+      expr=ts.d["x", "y"][slice((1, 2), (8, 9), 2)],
       expected_repr="d['x','y'][1:8:2,2:9:2]",
       before=ts.IndexTransform(input_shape=[15, 20], input_labels=["x", "y"]),
       after=ts.IndexTransform(
@@ -623,47 +664,56 @@ def test_slice_interval_strided():
   )
 
 
-def test_index_repr():
-  expr = ts.d[:][ts.newaxis, ..., 3, 4:5, [[False, True], [True, False]],
-                 np.array([1, 2])]
+def test_index_repr() -> None:
+  expr = ts.d[:][
+      ts.newaxis, ..., 3, 4:5, [[False, True], [True, False]], np.array([1, 2])
+  ]
   assert repr(expr) == (
-      "d[:][None,...,3,4:5," +
-      repr(np.array([[False, True], [True, False]], dtype=bool)) + "," +
-      repr(np.array([1, 2], dtype=np.int64)) + "]")
+      "d[:][None,...,3,4:5,"
+      + repr(np.array([[False, True], [True, False]], dtype=bool))
+      + ","
+      + repr(np.array([1, 2], dtype=np.int64))
+      + "]"
+  )
 
 
-def test_index_too_many_ops():
+def test_index_too_many_ops() -> None:
   x = ts.IndexTransform(input_rank=2)
   with pytest.raises(
-      IndexError, match=re.escape(
+      IndexError,
+      match=re.escape(
           "Indexing expression requires 3 dimensions, and cannot be applied to "
-          "a domain of rank 2")):
-    x[1, 2, 3]  # pylint: disable=pointless-statement
+          "a domain of rank 2"
+      ),
+  ):
+    _ = x[1, 2, 3]
 
 
-def test_dimension_selection_index_too_many_ops():
+def test_dimension_selection_index_too_many_ops() -> None:
   x = ts.IndexTransform(input_rank=2)
   with pytest.raises(
       IndexError,
       match=re.escape(
           "Indexing expression requires 3 dimensions but selection has 2 "
-          "dimensions"),
+          "dimensions"
+      ),
   ):
-    x[ts.d[0, 1][1, 2, 3]]  # pylint: disable=pointless-statement
+    _ = x[ts.d[0, 1][1, 2, 3]]
 
 
-def test_dimension_selection_chained_newaxis():
+def test_dimension_selection_chained_newaxis() -> None:
   x = ts.IndexTransform(input_rank=2)
   with pytest.raises(
       IndexError,
       match=re.escape(
           "tensorstore.newaxis (`None`) not valid in chained indexing "
-          "operations"),
+          "operations"
+      ),
   ):
-    x[ts.d[:].label["x", "y"][ts.newaxis, ...]]  # pylint: disable=pointless-statement
+    _ = x[ts.d[:].label["x", "y"][ts.newaxis, ...]]
 
 
-def test_dimension_selection_index_arrays_non_consecutive():
+def test_dimension_selection_index_arrays_non_consecutive() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
       expr=ts.d["a", "c", "d"][[[1, 2, 3], [4, 5, 6]], :, [6, 7, 8]],
@@ -676,7 +726,8 @@ def test_dimension_selection_index_arrays_non_consecutive():
           ],
           output=[
               ts.OutputIndexMap(
-                  index_array=[[[[1]], [[2]], [[3]]], [[[4]], [[5]], [[6]]]]),
+                  index_array=[[[[1]], [[2]], [[3]]], [[[4]], [[5]], [[6]]]]
+              ),
               ts.OutputIndexMap(input_dimension=2),
               ts.OutputIndexMap(input_dimension=3),
               ts.OutputIndexMap(index_array=[[[[6]], [[7]], [[8]]]]),
@@ -685,7 +736,7 @@ def test_dimension_selection_index_arrays_non_consecutive():
   )
 
 
-def test_dimension_selection_index_arrays_consecutive():
+def test_dimension_selection_index_arrays_consecutive() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
       expr=ts.d["a", "c", "d"][..., [[1, 2, 3], [4, 5, 6]], [6, 7, 8]],
@@ -706,12 +757,14 @@ def test_dimension_selection_index_arrays_consecutive():
   )
 
 
-def test_dimension_selection_bool_arrays_non_consecutive():
+def test_dimension_selection_bool_arrays_non_consecutive() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
-      expr=ts.d["a", "b", "c",
-                "d"][[[False, True, True], [False, False, False]], :,
-                     [False, False, True, True]],
+      expr=ts.d["a", "b", "c", "d"][
+          [[False, True, True], [False, False, False]],
+          :,
+          [False, False, True, True],
+      ],
       after=ts.IndexTransform(
           domain=[ts.Dim(size=2), ts.Dim(label="c")],
           output=[
@@ -724,12 +777,14 @@ def test_dimension_selection_bool_arrays_non_consecutive():
   )
 
 
-def test_dimension_selection_bool_arrays_consecutive():
+def test_dimension_selection_bool_arrays_consecutive() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
-      expr=ts.d["a", "b", "c",
-                "d"][:, [[False, True, True], [False, False, False]],
-                     [False, False, True, True]],
+      expr=ts.d["a", "b", "c", "d"][
+          :,
+          [[False, True, True], [False, False, False]],
+          [False, False, True, True],
+      ],
       after=ts.IndexTransform(
           domain=[ts.Dim(label="a"), ts.Dim(size=2)],
           output=[
@@ -742,16 +797,16 @@ def test_dimension_selection_bool_arrays_consecutive():
   )
 
 
-def test_dimension_selection_oindex_bool_arrays():
+def test_dimension_selection_oindex_bool_arrays() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
-      expr=ts.d["a", "b", "c",
-                "d"].oindex[[[False, True, True], [False, False, False]], :,
-                            [True, False, True, True]],
+      expr=ts.d["a", "b", "c", "d"].oindex[
+          [[False, True, True], [False, False, False]],
+          :,
+          [True, False, True, True],
+      ],
       after=ts.IndexTransform(
-          domain=[ts.Dim(size=2),
-                  ts.Dim(label="c"),
-                  ts.Dim(size=3)],
+          domain=[ts.Dim(size=2), ts.Dim(label="c"), ts.Dim(size=3)],
           output=[
               ts.OutputIndexMap(index_array=[[[0]], [[0]]]),
               ts.OutputIndexMap(index_array=[[[1]], [[2]]]),
@@ -762,12 +817,14 @@ def test_dimension_selection_oindex_bool_arrays():
   )
 
 
-def test_dimension_selection_vindex_bool_arrays_non_consecutive():
+def test_dimension_selection_vindex_bool_arrays_non_consecutive() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
-      expr=ts.d["a", "b", "c",
-                "d"].vindex[[[False, True, True], [False, False, False]], :,
-                            [False, False, True, True]],
+      expr=ts.d["a", "b", "c", "d"].vindex[
+          [[False, True, True], [False, False, False]],
+          :,
+          [False, False, True, True],
+      ],
       after=ts.IndexTransform(
           domain=[ts.Dim(size=2), ts.Dim(label="c")],
           output=[
@@ -780,33 +837,35 @@ def test_dimension_selection_vindex_bool_arrays_non_consecutive():
   )
 
 
-def test_dimension_selection_vindex_repr():
+def test_dimension_selection_vindex_repr() -> None:
   check_expr(
       expr=ts.d[:].vindex[1, 2],
       expected_repr="d[:].vindex[1,2]",
   )
 
 
-def test_dimension_selection_oindex_repr():
+def test_dimension_selection_oindex_repr() -> None:
   check_expr(
       expr=ts.d[:].oindex[1, 2],
       expected_repr="d[:].oindex[1,2]",
   )
 
 
-def test_dimension_selection_index_repr():
+def test_dimension_selection_index_repr() -> None:
   check_expr(
       expr=ts.d[:][1, 2],
       expected_repr="d[:][1,2]",
   )
 
 
-def test_dimension_selection_vindex_bool_arrays_consecutive():
+def test_dimension_selection_vindex_bool_arrays_consecutive() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
-      expr=ts.d["a", "b", "c",
-                "d"].vindex[:, [[False, True, True], [False, False, False]],
-                            [False, False, True, True]],
+      expr=ts.d["a", "b", "c", "d"].vindex[
+          :,
+          [[False, True, True], [False, False, False]],
+          [False, False, True, True],
+      ],
       after=ts.IndexTransform(
           domain=[ts.Dim(size=2), ts.Dim(label="a")],
           output=[
@@ -819,7 +878,7 @@ def test_dimension_selection_vindex_bool_arrays_consecutive():
   )
 
 
-def test_dimension_selection_oindex_index_arrays():
+def test_dimension_selection_oindex_index_arrays() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
       expr=ts.d["a", "c", "d"].oindex[[[1, 2, 3], [4, 5, 6]], :, [6, 7, 8]],
@@ -832,8 +891,12 @@ def test_dimension_selection_oindex_index_arrays():
               ts.Dim(size=3),
           ],
           output=[
-              ts.OutputIndexMap(index_array=[[[[[1]]], [[[2]]], [[[3]]]],
-                                             [[[[4]]], [[[5]]], [[[6]]]]]),
+              ts.OutputIndexMap(
+                  index_array=[
+                      [[[[1]]], [[[2]]], [[[3]]]],
+                      [[[[4]]], [[[5]]], [[[6]]]],
+                  ]
+              ),
               ts.OutputIndexMap(input_dimension=2),
               ts.OutputIndexMap(input_dimension=3),
               ts.OutputIndexMap(index_array=[[[[[6, 7, 8]]]]]),
@@ -842,7 +905,7 @@ def test_dimension_selection_oindex_index_arrays():
   )
 
 
-def test_dimension_selection_vindex_index_arrays_non_consecutive():
+def test_dimension_selection_vindex_index_arrays_non_consecutive() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
       expr=ts.d["a", "c", "d"].vindex[[[1, 2, 3], [4, 5, 6]], :, [6, 7, 8]],
@@ -855,7 +918,8 @@ def test_dimension_selection_vindex_index_arrays_non_consecutive():
           ],
           output=[
               ts.OutputIndexMap(
-                  index_array=[[[[1]], [[2]], [[3]]], [[[4]], [[5]], [[6]]]]),
+                  index_array=[[[[1]], [[2]], [[3]]], [[[4]], [[5]], [[6]]]]
+              ),
               ts.OutputIndexMap(input_dimension=2),
               ts.OutputIndexMap(input_dimension=3),
               ts.OutputIndexMap(index_array=[[[[6]], [[7]], [[8]]]]),
@@ -864,7 +928,7 @@ def test_dimension_selection_vindex_index_arrays_non_consecutive():
   )
 
 
-def test_dimension_selection_vindex_index_arrays_consecutive():
+def test_dimension_selection_vindex_index_arrays_consecutive() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c", "d"]),
       expr=ts.d["a", "c", "d"].vindex[..., [[1, 2, 3], [4, 5, 6]], [6, 7, 8]],
@@ -879,14 +943,15 @@ def test_dimension_selection_vindex_index_arrays_consecutive():
               ts.OutputIndexMap(input_dimension=2),
               ts.OutputIndexMap(input_dimension=3),
               ts.OutputIndexMap(
-                  index_array=[[[[1]], [[2]], [[3]]], [[[4]], [[5]], [[6]]]]),
+                  index_array=[[[[1]], [[2]], [[3]]], [[[4]], [[5]], [[6]]]]
+              ),
               ts.OutputIndexMap(index_array=[[[[6]], [[7]], [[8]]]]),
           ],
       ),
   )
 
 
-def test_dimension_selection_dimrange_index():
+def test_dimension_selection_dimrange_index() -> None:
   check_expr(
       before=ts.IndexTransform(input_labels=["a", "b", "c"]),
       expr=ts.d["c", :2][:5, 1, 2],
@@ -902,63 +967,68 @@ def test_dimension_selection_dimrange_index():
   )
 
 
-def test_dimension_selection_dimrange_index_invalid_start():
+def test_dimension_selection_dimrange_index_invalid_start() -> None:
   x = ts.IndexTransform(input_rank=3)
   expr = ts.d[5:][...]
   with pytest.raises(
       IndexError,
       match=re.escape("Dimension index 5 is outside valid range [-3, 3)"),
   ):
-    x[expr]  # pylint: disable=pointless-statement
+    _ = x[expr]
 
 
-def test_dimension_selection_dimrange_index_invalid_stop():
+def test_dimension_selection_dimrange_index_invalid_stop() -> None:
   x = ts.IndexTransform(input_rank=3)
   expr = ts.d[:5][...]
   with pytest.raises(
       IndexError,
       match=re.escape(
-          "Dimension exclusive stop index 5 is outside valid range [-4, 3]"),
+          "Dimension exclusive stop index 5 is outside valid range [-4, 3]"
+      ),
   ):
-    x[expr]  # pylint: disable=pointless-statement
+    _ = x[expr]
 
 
-def test_dimension_selection_duplicate_index():
+def test_dimension_selection_duplicate_index() -> None:
   x = ts.IndexTransform(input_rank=3)
   expr = ts.d[1, 1][...]
-  with pytest.raises(IndexError,
-                     match=re.escape("Dimension 1 specified more than once")):
-    x[expr]  # pylint: disable=pointless-statement
+  with pytest.raises(
+      IndexError, match=re.escape("Dimension 1 specified more than once")
+  ):
+    _ = x[expr]
 
 
-def test_dimension_selection_duplicate_index_label():
+def test_dimension_selection_duplicate_index_label() -> None:
   x = ts.IndexTransform(input_labels=["x", "y", "z"])
   expr = ts.d[1, "y"][...]
-  with pytest.raises(IndexError,
-                     match=re.escape("Dimension 1 specified more than once")):
-    x[expr]  # pylint: disable=pointless-statement
+  with pytest.raises(
+      IndexError, match=re.escape("Dimension 1 specified more than once")
+  ):
+    _ = x[expr]
 
 
-def test_dimension_selection_duplicate_index_label_newaxis():
+def test_dimension_selection_duplicate_index_label_newaxis() -> None:
   x = ts.IndexTransform(input_labels=["x", "y", "z"])
   expr = ts.d[0, 2, "y"][ts.newaxis, ...]
-  with pytest.raises(IndexError,
-                     match=re.escape("Dimension 2 specified more than once")):
-    x[expr]  # pylint: disable=pointless-statement
+  with pytest.raises(
+      IndexError, match=re.escape("Dimension 2 specified more than once")
+  ):
+    _ = x[expr]
 
 
-def test_dimension_selection_index_label_newaxis():
+def test_dimension_selection_index_label_newaxis() -> None:
   x = ts.IndexTransform(input_labels=["x", "y", "z"])
   expr = ts.d[0, "y"][ts.newaxis, ts.newaxis]
   with pytest.raises(
       IndexError,
       match=re.escape(
-          "Dimensions specified by label cannot be used with newaxis"),
+          "Dimensions specified by label cannot be used with newaxis"
+      ),
   ):
-    x[expr]  # pylint: disable=pointless-statement
+    _ = x[expr]
 
 
-def test_dimension_selection_index_zero_rank_bool():
+def test_dimension_selection_index_zero_rank_bool() -> None:
   x = ts.IndexTransform(input_rank=2)
   assert x[ts.d[:][..., True]] == ts.IndexTransform(
       domain=[ts.Dim(size=1), *x.domain],
@@ -969,18 +1039,19 @@ def test_dimension_selection_index_zero_rank_bool():
   )
 
 
-def test_dimension_selection_oindex_zero_rank_bool():
+def test_dimension_selection_oindex_zero_rank_bool() -> None:
   x = ts.IndexTransform(input_rank=2)
   with pytest.raises(
       IndexError,
       match=re.escape(
           "Zero-rank bool array incompatible with outer indexing of a "
-          "dimension selection"),
+          "dimension selection"
+      ),
   ):
-    x[ts.d[:].oindex[..., True]]  # pylint: disable=pointless-statement
+    _ = x[ts.d[:].oindex[..., True]]
 
 
-def test_numpy_indexing_equality():
+def test_numpy_indexing_equality() -> None:
   check_expr_equality([
       ts.d[2:][1],
       ts.d[2:][2],
@@ -1000,47 +1071,56 @@ def test_numpy_indexing_equality():
   ])
 
 
-def test_label_without_dimension_selection():
+def test_label_without_dimension_selection() -> None:
   before = ts.IndexTransform(input_rank=3)
   after = ts.IndexTransform(input_labels=["x", "y", "z"])
   assert before.label["x", "y", "z"] == after
   assert before.domain.label["x", "y", "z"] == after.domain
 
 
-def test_translate_to_without_dimension_selection():
+def test_translate_to_without_dimension_selection() -> None:
   before = ts.IndexTransform(input_shape=[20, 30])
   after = ts.IndexTransform(
-      input_inclusive_min=[20, 20], input_shape=[20, 30], output=[
+      input_inclusive_min=[20, 20],
+      input_shape=[20, 30],
+      output=[
           ts.OutputIndexMap(input_dimension=0, offset=-20),
           ts.OutputIndexMap(input_dimension=1, offset=-20),
-      ])
+      ],
+  )
   assert before.translate_to[20] == after
   assert before.domain.translate_to[20] == after.domain
 
 
-def test_translate_by_without_dimension_selection():
+def test_translate_by_without_dimension_selection() -> None:
   before = ts.IndexTransform(input_shape=[20, 30])
   after = ts.IndexTransform(
-      input_inclusive_min=[20, 20], input_shape=[20, 30], output=[
+      input_inclusive_min=[20, 20],
+      input_shape=[20, 30],
+      output=[
           ts.OutputIndexMap(input_dimension=0, offset=-20),
           ts.OutputIndexMap(input_dimension=1, offset=-20),
-      ])
+      ],
+  )
   assert before.translate_by[20] == after
   assert before.domain.translate_by[20] == after.domain
 
 
-def test_translate_backward_by_without_dimension_selection():
+def test_translate_backward_by_without_dimension_selection() -> None:
   before = ts.IndexTransform(input_shape=[20, 30])
   after = ts.IndexTransform(
-      input_inclusive_min=[20, 20], input_shape=[20, 30], output=[
+      input_inclusive_min=[20, 20],
+      input_shape=[20, 30],
+      output=[
           ts.OutputIndexMap(input_dimension=0, offset=-20),
           ts.OutputIndexMap(input_dimension=1, offset=-20),
-      ])
+      ],
+  )
   assert before.translate_backward_by[-20] == after
   assert before.domain.translate_backward_by[-20] == after.domain
 
 
-def test_mark_bounds_implicit_without_dimension_selection():
+def test_mark_bounds_implicit_without_dimension_selection() -> None:
   before = ts.IndexTransform(input_shape=[20, 30])
   after = ts.IndexTransform(
       input_shape=[20, 30],
@@ -1051,13 +1131,13 @@ def test_mark_bounds_implicit_without_dimension_selection():
   assert before.domain.mark_bounds_implicit[True] == after.domain
 
 
-def test_transpose_without_dimension_selection():
+def test_transpose_without_dimension_selection() -> None:
   before = ts.IndexTransform(input_shape=[20, 30])
   after = ts.IndexTransform(
       input_shape=[30, 20],
       output=[
           ts.OutputIndexMap(input_dimension=1),
-          ts.OutputIndexMap(input_dimension=0)
+          ts.OutputIndexMap(input_dimension=0),
       ],
   )
   assert before.transpose([1, 0]) == after

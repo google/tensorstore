@@ -16,7 +16,7 @@
 import tensorstore as ts
 
 
-async def test_collect_matching_metrics():
+async def test_collect_matching_metrics() -> None:
   # Open a tensorstore and read to ensure that some metric is populated.
   t = await ts.open({
       'driver': 'array',
@@ -31,7 +31,7 @@ async def test_collect_matching_metrics():
     assert m['name'].startswith('/tensorstore/')
 
 
-async def test_collect_prometheus_format_metrics():
+async def test_collect_prometheus_format_metrics() -> None:
   # Open a tensorstore and read to ensure that some metric is populated.
   t = await ts.open({
       'driver': 'array',
@@ -51,7 +51,7 @@ async def test_collect_prometheus_format_metrics():
     assert m.startswith('tensorstore_')
 
 
-def test_experimental_update_verbose_logging():
+def test_experimental_update_verbose_logging() -> None:
   # There's no way to query whether the verbose logging flags are set, so just
   # check that the function exists.
   assert hasattr(ts, 'experimental_update_verbose_logging')

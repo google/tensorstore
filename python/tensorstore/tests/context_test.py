@@ -19,7 +19,7 @@ import pytest
 import tensorstore as ts
 
 
-def test_context_spec():
+def test_context_spec() -> None:
   json_spec = {
       'memory_key_value_store': {},
       'memory_key_value_store#a': 'memory_key_value_store',
@@ -30,17 +30,17 @@ def test_context_spec():
 
   assert spec.to_json() == json_spec
 
-  assert repr(spec) == '''Context.Spec({
+  assert repr(spec) == """Context.Spec({
   'memory_key_value_store': {},
   'memory_key_value_store#a': 'memory_key_value_store',
   'memory_key_value_store#b': {},
-})'''
+})"""
 
   new_spec = pickle.loads(pickle.dumps(spec))
   assert new_spec.to_json() == json_spec
 
 
-def test_pickle():
+def test_pickle() -> None:
 
   parent_context = ts.Context({
       'memory_key_value_store#c': {},
@@ -55,8 +55,9 @@ def test_pickle():
 
   context = ts.Context(child_spec, parent_context)
 
-  with pytest.raises(ValueError,
-                     match="Invalid context resource identifier: \"abc\""):
+  with pytest.raises(
+      ValueError, match='Invalid context resource identifier: "abc"'
+  ):
     context['abc']
 
   assert context.spec is child_spec
@@ -66,9 +67,13 @@ def test_pickle():
   assert repr(context['memory_key_value_store']) == 'Context.Resource({})'
   assert context['memory_key_value_store#b'].to_json() == {}
   assert context['memory_key_value_store#c'].to_json() == {}
-  assert context['memory_key_value_store'] is context['memory_key_value_store#a']
-  assert context['memory_key_value_store'] is not context[
-      'memory_key_value_store#b']
+  assert (
+      context['memory_key_value_store'] is context['memory_key_value_store#a']
+  )
+  assert (
+      context['memory_key_value_store']
+      is not context['memory_key_value_store#b']
+  )
 
   # Ensure that we can pickle a normally constructed Context, and also that we
   # can repickle a previously unpickled Context.
@@ -80,7 +85,8 @@ def test_pickle():
             context['memory_key_value_store#c'],
             context,
             parent_context,
-        ]))
+        ])
+    )
 
     assert res_a is not res_b
     assert res_a.to_json() == {}
@@ -92,8 +98,10 @@ def test_pickle():
     assert new_ctx['memory_key_value_store#b'] is res_b
     assert new_ctx['memory_key_value_store#c'] is res_c
     assert new_parent['memory_key_value_store#c'] is res_c
-    assert new_parent['memory_key_value_store'] is not new_ctx[
-        'memory_key_value_store']
+    assert (
+        new_parent['memory_key_value_store']
+        is not new_ctx['memory_key_value_store']
+    )
     # Verify that the relationship between `parent` and `context` is preserved in
     # `new_parent` and `new_ctx`.
     assert new_ctx.parent is new_parent

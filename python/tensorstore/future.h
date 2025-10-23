@@ -103,7 +103,8 @@ struct FutureLike {
 
   constexpr static auto tensorstore_pybind11_type_name_override =
       pybind11::detail::_("tensorstore.FutureLike[") +
-      pybind11::detail::make_caster<T>::name + pybind11::detail::_("]");
+      pybind11::detail::arg_descr(pybind11::detail::make_caster<T>::name) +
+      pybind11::detail::_("]");
 };
 
 /// Type intended for use as a pybind11 function parameter type.
@@ -604,8 +605,22 @@ struct PythonFutureWrapper {
 
   constexpr static auto tensorstore_pybind11_type_name_override =
       pybind11::detail::_("tensorstore.Future[") +
-      pybind11::detail::make_caster<std::conditional_t<
-          std::is_void_v<T>, pybind11::detail::void_type, T>>::name +
+      pybind11::detail::return_descr(
+          pybind11::detail::make_caster<std::conditional_t<
+              std::is_void_v<T>, pybind11::detail::void_type, T>>::name) +
+      pybind11::detail::_("]");
+};
+
+// Wrapper that holds a `pybind11::object` but which displays in
+// pybind11-generated type signatures as `tensorstore.Promise[T]`.
+template <typename T>
+struct PythonPromiseWrapper {
+  pybind11::object value;
+
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("tensorstore.Promise[") +
+      pybind11::detail::return_descr(
+          pybind11::detail::make_caster<T>::name) +
       pybind11::detail::_("]");
 };
 

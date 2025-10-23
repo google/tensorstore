@@ -16,17 +16,14 @@
 import pickle
 
 import pytest
-import numpy as np
 import tensorstore as ts
 
 
-def test_spec_init_json():
+def test_spec_init_json() -> None:
   s = ts.Spec({
       "driver": "array",
       "array": [[1, 2], [3, 4]],
-      "transform": {
-          "input_rank": 2
-      },
+      "transform": {"input_rank": 2},
       "dtype": "int32",
   })
   assert s.transform == ts.IndexTransform(input_rank=2)
@@ -37,9 +34,7 @@ def test_spec_init_json():
       "driver": "array",
       "array": [[1, 2], [3, 4]],
       "dtype": "int32",
-      "transform": {
-          "input_rank": 2
-      },
+      "transform": {"input_rank": 2},
   }
   assert s.T == ts.Spec({
       "driver": "array",
@@ -47,20 +42,15 @@ def test_spec_init_json():
       "transform": {
           "input_rank": 2,
           "output": [
-              {
-                  "input_dimension": 1
-              },
-              {
-                  "input_dimension": 0
-              },
+              {"input_dimension": 1},
+              {"input_dimension": 0},
           ],
       },
       "dtype": "int32",
   })
 
 
-def test_spec_pickle():
-  driver_json = {"$type": "array", "array": [[1, 2], [3, 4]]}
+def test_spec_pickle() -> None:
   s = ts.Spec({
       "driver": "array",
       "array": [[1, 2], [3, 4]],
@@ -73,7 +63,7 @@ def test_spec_pickle():
   assert pickle.loads(pickle.dumps(s)) == s
 
 
-def test_spec_indexing():
+def test_spec_indexing() -> None:
   transform = ts.IndexTransform(input_rank=2)
   s = ts.Spec({
       "driver": "array",
@@ -94,66 +84,53 @@ def test_spec_indexing():
   assert s_transformed == s_expected
 
 
-def test_spec_indexing_unknown_rank():
+def test_spec_indexing_unknown_rank() -> None:
   s = ts.Spec({
       "driver": "zarr",
-      "kvstore": {
-          "driver": "memory"
-      },
+      "kvstore": {"driver": "memory"},
       "dtype": "int32",
   })
   assert s.rank is None
   assert s.ndim is None
   with pytest.raises(
       ValueError,
-      match="Cannot perform indexing operations on Spec with unspecified rank"):
+      match="Cannot perform indexing operations on Spec with unspecified rank",
+  ):
     s[..., ts.newaxis]
   with pytest.raises(
       ValueError,
-      match="Cannot perform indexing operations on Spec with unspecified rank"):
+      match="Cannot perform indexing operations on Spec with unspecified rank",
+  ):
     s.T
 
 
-def test_codec_spec():
+def test_codec_spec() -> None:
   s = ts.CodecSpec({"driver": "zarr", "compressor": None})
   assert s.to_json() == {"driver": "zarr", "compressor": None}
 
 
-def test_schema_from_json():
-  s = ts.Schema({
-      "dtype": "int32",
-      "chunk_layout": {
-          "read_chunk": {
-              "elements": 10000
-          }
-      }
-  })
+def test_schema_from_json() -> None:
+  s = ts.Schema(
+      {"dtype": "int32", "chunk_layout": {"read_chunk": {"elements": 10000}}}
+  )
   assert s.to_json() == {
       "dtype": "int32",
-      "chunk_layout": {
-          "read_chunk": {
-              "elements": 10000
-          }
-      }
+      "chunk_layout": {"read_chunk": {"elements": 10000}},
   }
 
 
-def test_schema():
+def test_schema() -> None:
   s = ts.Schema(dtype=ts.int32, fill_value=42)
   assert s.to_json() == {"dtype": "int32", "fill_value": 42}
   s.update(chunk_layout=ts.ChunkLayout(read_chunk_elements=5))
   assert s.to_json() == {
       "dtype": "int32",
       "fill_value": 42,
-      "chunk_layout": {
-          "read_chunk": {
-              "elements": 5
-          }
-      },
+      "chunk_layout": {"read_chunk": {"elements": 5}},
   }
 
 
-def test_schema_pickle():
+def test_schema_pickle() -> None:
   s = ts.Schema(dtype=ts.int32, fill_value=42)
   assert s.dtype == ts.int32
   assert pickle.loads(pickle.dumps(s)) == s

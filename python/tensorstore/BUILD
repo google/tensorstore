@@ -345,6 +345,7 @@ pybind11_cc_library(
         ":status",
         ":subscript_method",
         ":tensorstore_module_components",
+        ":typed_slice",
         "//tensorstore:array",
         "//tensorstore:container_kind",
         "//tensorstore:index",
@@ -809,39 +810,6 @@ pybind11_cc_googletest_test(
     ],
 )
 
-tensorstore_pytest_test(
-    name = "bfloat16_test",
-    size = "small",
-    srcs = ["tests/bfloat16_test.py"],
-    deps = [
-        ":conftest",
-        ":tensorstore",
-        "@pypa_numpy//:numpy",
-    ],
-)
-
-tensorstore_pytest_test(
-    name = "int2_test",
-    size = "small",
-    srcs = ["tests/int2_test.py"],
-    deps = [
-        ":conftest",
-        ":tensorstore",
-        "@pypa_numpy//:numpy",
-    ],
-)
-
-tensorstore_pytest_test(
-    name = "int4_test",
-    size = "small",
-    srcs = ["tests/int4_test.py"],
-    deps = [
-        ":conftest",
-        ":tensorstore",
-        "@pypa_numpy//:numpy",
-    ],
-)
-
 pybind11_cc_library(
     name = "define_heap_type",
     srcs = ["define_heap_type.cc"],
@@ -891,6 +859,7 @@ pybind11_cc_library(
     deps = [
         ":index",
         ":result_type_caster",
+        ":sequence_parameter",
         ":spec",
         ":status",
         ":tensorstore_class",
@@ -1090,6 +1059,7 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         ":time",
         ":transaction",
+        ":type_name_override",
         "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",

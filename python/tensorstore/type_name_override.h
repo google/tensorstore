@@ -44,21 +44,59 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <string>
+#include <string_view>
 #include <type_traits>
 
 namespace tensorstore {
 namespace internal_python {
 
+/// Wrapper for a `pybind11::object` that displays as `T` in type annotations.
+struct TypeVarT {
+  pybind11::object value;
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("T");
+};
+
+// Return type of `Awaitable[T].__await__` method.
+template <typename T>
+struct AwaitResult {
+  pybind11::object value;
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("collections.abc.Generator[typing.Any, None, ") +
+      pybind11::detail::make_caster<T>::name + pybind11::detail::_("]");
+};
+
+struct StrOrBytesView {
+  std::string_view value;
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("str | bytes");
+};
+
+struct StrOrBytes {
+  std::string value;
+
+  operator StrOrBytesView() const { return {value}; }
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("str | bytes");
+};
+
 /// Wrapper for a `pybind11::handle` that displays as a `Callable` type.
+///
+/// Note: Because the arguments will be supplied by C++, and the return type
+/// will be received by C++, the arguments use `return_descr` and the return
+/// value uses `arg_descr`.
 template <typename R, typename... Arg>
 struct Callable {
   pybind11::handle value;
   constexpr static auto tensorstore_pybind11_type_name_override =
       pybind11::detail::_("Callable[[") +
-      pybind11::detail::concat(pybind11::detail::make_caster<Arg>::name...) +
+      pybind11::detail::concat(pybind11::detail::return_descr(
+          pybind11::detail::make_caster<Arg>::name)...) +
       pybind11::detail::_("], ") +
-      pybind11::detail::make_caster<std::conditional_t<
-          std::is_void_v<R>, pybind11::detail::void_type, R>>::name +
+      pybind11::detail::arg_descr(
+          pybind11::detail::make_caster<std::conditional_t<
+              std::is_void_v<R>, pybind11::detail::void_type, R>>::name) +
       pybind11::detail::_("]");
 };
 

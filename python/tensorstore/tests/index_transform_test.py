@@ -14,14 +14,12 @@
 """Tests of tensorstore.IndexTransform"""
 
 import pickle
-import re
 
 import pytest
 import tensorstore as ts
-import numpy as np
 
 
-def test_identity():
+def test_identity() -> None:
   x = ts.IndexTransform(input_rank=3)
   assert x.ndim == 3
   assert x.input_rank == 3
@@ -31,8 +29,9 @@ def test_identity():
   assert x.input_exclusive_max == (+ts.inf + 1,) * 3
   assert x.input_shape == (2 * ts.inf + 1,) * 3
   assert x.output == [ts.OutputIndexMap(input_dimension=i) for i in range(3)]
-  assert list(
-      x.output) == [ts.OutputIndexMap(input_dimension=i) for i in range(3)]
+  assert list(x.output) == [
+      ts.OutputIndexMap(input_dimension=i) for i in range(3)
+  ]
   assert x([1, 2, 3]) == (1, 2, 3)
   with pytest.raises(ValueError):
     x([1])
@@ -44,27 +43,30 @@ def test_identity():
   assert x.output == [ts.OutputIndexMap(input_dimension=i) for i in range(2)]
 
 
-def test_init_rank_positional():
+def test_init_rank_positional() -> None:
   x = ts.IndexTransform(3)
   assert x.input_rank == 3
   assert x.output_rank == 3
 
 
-def test_init_domain():
+def test_init_domain() -> None:
   x = ts.IndexTransform(ts.IndexDomain(3))
   assert x == ts.IndexTransform(3)
 
 
-def test_init_output():
+def test_init_output() -> None:
   x = ts.IndexTransform(
       input_shape=[3, 2],
       output=[
           ts.OutputIndexMap(offset=7, input_dimension=1),
           ts.OutputIndexMap([[1, 2]], offset=2, stride=-1),
           ts.OutputIndexMap(8),
-          ts.OutputIndexMap([[1, 2]], offset=2, stride=-1,
-                            index_range=ts.Dim(inclusive_min=0,
-                                               exclusive_max=8)),
+          ts.OutputIndexMap(
+              [[1, 2]],
+              offset=2,
+              stride=-1,
+              index_range=ts.Dim(inclusive_min=0, exclusive_max=8),
+          ),
       ],
   )
   assert x.output[3].index_range == ts.Dim(inclusive_min=0, exclusive_max=8)
@@ -72,12 +74,16 @@ def test_init_output():
       ts.OutputIndexMap(offset=7, input_dimension=1),
       ts.OutputIndexMap([[1, 2]], offset=2, stride=-1),
       ts.OutputIndexMap(8),
-      ts.OutputIndexMap([[1, 2]], offset=2, stride=-1,
-                        index_range=ts.Dim(inclusive_min=0, exclusive_max=8)),
+      ts.OutputIndexMap(
+          [[1, 2]],
+          offset=2,
+          stride=-1,
+          index_range=ts.Dim(inclusive_min=0, exclusive_max=8),
+      ),
   ]
 
 
-def test_init_output_index_maps():
+def test_init_output_index_maps() -> None:
   x = ts.IndexTransform(
       input_shape=[3, 2],
       output=[
@@ -89,7 +95,7 @@ def test_init_output_index_maps():
   assert x == y
 
 
-def test_output_index_maps_lifetime():
+def test_output_index_maps_lifetime() -> None:
   output = ts.IndexTransform(3).output
   assert output == [
       ts.OutputIndexMap(input_dimension=0),
@@ -98,17 +104,17 @@ def test_output_index_maps_lifetime():
   ]
 
 
-def test_identity_error():
+def test_identity_error() -> None:
   with pytest.raises(ValueError):
     ts.IndexTransform(input_rank=-4)
 
 
-def test_pickle():
+def test_pickle() -> None:
   x = ts.IndexTransform(
       input_inclusive_min=[1, 2, -1],
-      implicit_lower_bounds=[1, 0, 0],
+      implicit_lower_bounds=[True, False, False],
       input_shape=[3, 2, 4],
-      implicit_upper_bounds=[0, 1, 0],
+      implicit_upper_bounds=[False, True, False],
       input_labels=['x', 'y', 'z'],
       output=[
           ts.OutputIndexMap(offset=7, stride=13, input_dimension=1),
@@ -124,19 +130,14 @@ def test_pickle():
   assert pickle.loads(pickle.dumps(x)) == x
 
 
-def test_json():
+def test_json() -> None:
   json = {
       'input_inclusive_min': [1, 2, 3],
       'input_exclusive_max': [4, 5, 6],
       'input_labels': ['x', 'y', 'z'],
       'output': [
-          {
-              'offset': 3
-          },
-          {
-              'input_dimension': 0,
-              'stride': 2
-          },
+          {'offset': 3},
+          {'input_dimension': 0, 'stride': 2},
       ],
   }
   x = ts.IndexTransform(json=json)
@@ -153,14 +154,14 @@ def test_json():
   assert x.to_json() == json
 
 
-def test_eq():
+def test_eq() -> None:
   x = ts.IndexTransform(input_rank=2)
   y = ts.IndexTransform(input_rank=3)
   assert x == x
   assert x != y
 
 
-def test_domain_access():
+def test_domain_access() -> None:
   x = ts.IndexTransform(input_inclusive_min=[1, 2, 3], input_shape=[5, 6, 7])
   assert x.origin == (1, 2, 3)
   assert x.shape == (5, 6, 7)

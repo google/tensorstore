@@ -13,12 +13,15 @@
 # limitations under the License.
 """Defines pytest fixtures for tensorstore tests."""
 
+from collections.abc import Iterator
 import gc
 import os
-from typing import Any, List
+from typing import Any, Callable
 import weakref
 
 import pytest
+
+GcTester = Callable[[Any], None]
 
 
 # Some required DLLs may be present in the PATH rather than in the system
@@ -33,7 +36,7 @@ if hasattr(os, "add_dll_directory"):
 
 
 @pytest.fixture
-def gc_tester():
+def gc_tester() -> Iterator[GcTester]:
   """Tests that an object is garbage collected.
 
   Yields a function that should be called with objects that may be part of a
@@ -43,7 +46,7 @@ def gc_tester():
   yielded function are garbage collected.
   """
 
-  weak_refs: List[weakref.ref] = []
+  weak_refs: list[weakref.ref] = []
 
   def add_ref(obj: Any) -> None:
     # PyPy does not support `gc.is_tracked`.

@@ -700,6 +700,10 @@ This type supports a subset of the interfaces of
 See also:
   - :py:class:`WriteFutures`
 
+Type parameters:
+  T:
+    Result type of the asynchronous operation.
+
 Group:
   Asynchronous support
 )";
@@ -798,13 +802,13 @@ Warning:
 )",
       py::arg("future"), py::kw_only(), py::arg("loop") = std::nullopt);
 
-  cls.def("__await__",
-          [](PythonFutureObject& self) { return self.GetAwaitable(); });
+  cls.def("__await__", [](PythonFutureObject& self) -> AwaitResult<TypeVarT> {
+    return {self.GetAwaitable()};
+  });
 
   cls.def(
       "add_done_callback",
-      [](PythonFutureObject& self,
-         Callable<void, PythonFutureObject> callback) {
+      [](PythonFutureObject& self, Callable<void, Future<TypeVarT>> callback) {
         self.AddDoneCallback(callback.value);
       },
       py::arg("callback"),
@@ -830,8 +834,7 @@ Group:
 
   cls.def(
       "remove_done_callback",
-      [](PythonFutureObject& self,
-         Callable<void, PythonFutureObject> callback) {
+      [](PythonFutureObject& self, Callable<void, Future<TypeVarT>> callback) {
         return self.RemoveDoneCallback(callback.value);
       },
       py::arg("callback"),
@@ -845,8 +848,8 @@ Group:
   cls.def(
       "result",
       [](PythonFutureObject& self, std::optional<double> timeout,
-         std::optional<double> deadline) -> py::object {
-        return self.GetResult(GetWaitDeadline(timeout, deadline));
+         std::optional<double> deadline) -> TypeVarT {
+        return TypeVarT{self.GetResult(GetWaitDeadline(timeout, deadline))};
       },
       py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt,
       R"(
@@ -921,6 +924,9 @@ Ensures the asynchronous operation begins executing.
 
 This is called automatically by :py:obj:`.result` and :py:obj:`.exception`, but
 must be called explicitly when using :py:obj:`.add_done_callback`.
+
+Group:
+  Operations
 )");
 
   cls.def(
@@ -952,6 +958,9 @@ Requests cancellation of the asynchronous operation.
 
 If the operation has not already completed, it is marked as unsuccessfully
 completed with an instance of :py:obj:`asyncio.CancelledError`.
+
+Group:
+  Operations
 )");
 }
 
@@ -1026,8 +1035,22 @@ operation.
     >>> future.result()
     5
 
+:py:class:`Promise` and :py:class:`Future` can also be used with type
+parameters:
+
+    >>> promise, future = ts.Promise[int].new()
+    >>> typing.assert_type(promise, ts.Promise[int])
+    >>> typing.assert_type(future, ts.Future[int])
+    >>> promise.set_result(5)
+    >>> future.result()
+    5
+
 See also:
   - :py:class:`Future`
+
+Type parameters:
+  T:
+    Result type of the asynchronous operation.
 
 Group:
   Asynchronous support
@@ -1061,11 +1084,11 @@ void DefinePromiseAttributes(PromiseCls& cls) {
   using Self = PythonPromiseObject;
   cls.def(
       "set_result",
-      [](Self& self, py::object result) {
+      [](Self& self, TypeVarT result) {
         self.cpp_data.promise.SetResult(
             GilSafePythonValueOrExceptionWeakRef{PythonValueOrExceptionWeakRef(
                 self.cpp_data.reference_manager,
-                PythonValueOrException{std::move(result)})});
+                PythonValueOrException{std::move(result.value)})});
       },
       py::arg("result"), R"(
 Marks the linked future as successfully completed with the specified result.
@@ -1081,6 +1104,8 @@ Example:
     >>> future.result()
     5
 
+Group:
+  Operations
 )");
   cls.def(
       "set_exception",
@@ -1108,6 +1133,8 @@ Example:
         ...
     Exception: 5
 
+Group:
+  Operations
 )");
   cls.def_static(
       "new",
@@ -1136,9 +1163,9 @@ Example:
             reinterpret_cast<PythonFutureObject*>(future_object.ptr());
         future_cpp_data.python_promise_object =
             reinterpret_cast<PythonPromiseObject*>(promise_object.ptr());
-
-        return std::make_pair(PromiseWrapper{std::move(promise_object)},
-                              UntypedFutureWrapper{std::move(future_object)});
+        return std::make_pair(
+            PythonPromiseWrapper<TypeVarT>{std::move(promise_object)},
+            PythonFutureWrapper<TypeVarT>{std::move(future_object)});
       },
       R"(
 Creates a linked promise and future pair.

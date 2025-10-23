@@ -1432,13 +1432,11 @@ Group:
   cls.def("__repr__", &PythonDimExpression::repr);
 
   cls.def("__eq__", [](const Self& a, const Self& b) { return a == b; });
-
-  cls.attr("__iter__") = py::none();
   EnablePicklingFromSerialization(cls);
 }
 
 ClsDimensionSelection MakeDimensionSelectionClass(py::module m) {
-  return ClsDimensionSelection(m, "d",
+  return ClsDimensionSelection(m, "DimSelection",
                                R"(
 Specifies a dimension selection, for starting a :ref:`dimension expression<python-dim-expressions>`.
 
@@ -1449,24 +1447,7 @@ A dimension selection specifies a sequence of dimensions, either by index or
 :ref:`dimension expression<python-dim-expression-construction>` to specify the
 dimensions to which an indexing operation applies.
 
-Group:
-  Indexing
-
-Constructors
-============
-
-Operations
-==========
-
-)");
-}
-
-void DefineDimensionSelectionAttributes(ClsDimensionSelection& cls) {
-  cls.def_static(
-      "__class_getitem__",
-      [](DimensionSelectionLike selection) { return selection.value; },
-      R"(
-Constructs from a sequence of dimension indices, ranges, and/or labels.
+A `DimSelection` may be constructed by subscripting `tensorstore.d`:
 
 Examples:
 
@@ -1479,16 +1460,65 @@ Examples:
    >>> ts.d[[0, 1], ts.d[2, 3]]
    d[0,1,2,3]
 
-)",
-      py::arg("selection"));
+Group:
+  Indexing
 
+Operations
+==========
+
+)");
+}
+
+void DefineDimensionSelectionAttributes(ClsDimensionSelection& cls) {
   cls.def(
       "__eq__",
       [](const DimensionSelection& a, const DimensionSelection& b) {
         return a.dims() == b.dims();
       },
       py::arg("other"));
+  cls.attr("__iter__") = py::none();
+  EnablePicklingFromSerialization(cls);
+}
 
+struct DimensionSelectionSubscriptHelper {};
+
+using ClsDimensionSelectionSubscriptHelper =
+    py::class_<DimensionSelectionSubscriptHelper>;
+
+ClsDimensionSelectionSubscriptHelper MakeDimensionSelectionSubscriptHelperClass(
+    py::module m) {
+  using Self = DimensionSelectionSubscriptHelper;
+  ClsDimensionSelectionSubscriptHelper cls(m, "_DimSelection");
+  m.attr("d") = Self{};
+  return cls;
+}
+
+void DefineDimensionSelectionSubscriptHelperAttributes(
+    ClsDimensionSelectionSubscriptHelper& cls) {
+  cls.def_static(
+      "__getitem__",
+      [](DimensionSelectionLike selection) {
+        return std::move(selection.value);
+      },
+      R"(
+Constructs a `DimSelection` from a sequence of dimension indices, ranges, and/or labels.
+
+Examples:
+
+   >>> ts.d[0, 1, 2]
+   d[0,1,2]
+   >>> ts.d[0:1, 2, "x"]
+   d[0:1,2,'x']
+   >>> ts.d[[0, 1], [2]]
+   d[0,1,2]
+   >>> ts.d[[0, 1], ts.d[2, 3]]
+   d[0,1,2,3]
+
+Group:
+  Indexing
+)",
+      py::arg("selection"));
+  cls.attr("__iter__") = py::none();
   EnablePicklingFromSerialization(cls);
 }
 
@@ -1499,6 +1529,10 @@ void RegisterDimExpressionBindings(pybind11::module m, Executor defer) {
 
   defer([cls = MakeDimensionSelectionClass(m)]() mutable {
     DefineDimensionSelectionAttributes(cls);
+  });
+
+  defer([cls = MakeDimensionSelectionSubscriptHelperClass(m)]() mutable {
+    DefineDimensionSelectionSubscriptHelperAttributes(cls);
   });
 
   m.attr("newaxis") = py::none();

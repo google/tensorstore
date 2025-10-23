@@ -24,17 +24,18 @@ import atexit
 import os
 import sys
 import traceback
+from typing import Any
 
 import tensorstore as ts
 
 
-def run_during_finalization():
-  """Test function called when `sys.is_finalizing == True`."""
+def run_during_finalization() -> None:
+  """Test function called when `sys.is_finalizing() == True`."""
   sys.stdout.write('Running finalization test\n')
   sys.stdout.flush()
   try:
 
-    async def test_read():
+    async def test_read() -> None:
       t = ts.array([1, 2, 3], dtype=ts.int64)
       await asyncio.wait_for(t.read(), timeout=1)
       # Normally, await won't succeed.  However, await may still succeed, if it
@@ -45,7 +46,7 @@ def run_during_finalization():
   except asyncio.TimeoutError:
     # Expected behavior
     os._exit(0)
-  except:  # pylint: disable=bare-except
+  except:  # pylint: disable=bare-except  # noqa: E722
     sys.stderr.write('Unexpected error\n')
     sys.stderr.flush()
     traceback.print_exc()
@@ -53,7 +54,7 @@ def run_during_finalization():
     os._exit(3)
 
 
-def on_exit():
+def on_exit() -> None:
   """Ensures `run_during_finalization` is called while the interpreter is exiting.
 
   Python does not provide a direct mechanism for running a function when the
@@ -64,14 +65,14 @@ def on_exit():
   """
   orig_flush = sys.stderr.flush
 
-  def do_flush(*args, **kwargs):
+  def do_flush(*args: Any, **kwargs: Any) -> None:
     orig_flush(*args, **kwargs)
-    if not sys.is_finalizing:
+    if not sys.is_finalizing():
       return
-    sys.stderr.flush = orig_flush
+    sys.stderr.flush = orig_flush  # type: ignore
     run_during_finalization()
 
-  sys.stderr.flush = do_flush
+  sys.stderr.flush = do_flush  # type: ignore
 
 
 atexit.register(on_exit)

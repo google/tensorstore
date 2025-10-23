@@ -13,13 +13,24 @@
 # limitations under the License.
 """TensorStore is a library for reading and writing multi-dimensional arrays."""
 
-import abc as _abc
-import builtins as _builtins
-import collections.abc as _collections_abc
-import typing as _typing
+from __future__ import annotations
+
+import abc
+import builtins
+import collections.abc
+import types
+import typing
 
 from ._tensorstore import *
 from ._tensorstore import _Decodable
+from ._tensorstore import _DimSelection
+from ._tensorstore import DimSelection
+from ._tensorstore import dtype
+from ._tensorstore import Future
+from ._tensorstore import IndexTransform
+from ._tensorstore import Promise
+from ._tensorstore import Spec
+from ._tensorstore import TensorStore
 
 newaxis = None
 """Alias for `None` used in :ref:`indexing expressions<python-indexing>` to specify a new singleton dimension.
@@ -60,7 +71,7 @@ Group:
 """
 
 
-class Indexable(metaclass=_abc.ABCMeta):
+class Indexable(metaclass=abc.ABCMeta):
   """Abstract base class for types that support :ref:`TensorStore indexing operations<python-indexing>`.
 
   Supported types are:
@@ -78,27 +89,51 @@ Indexable.register(TensorStore)
 Indexable.register(Spec)
 Indexable.register(IndexTransform)
 
+# Note: This is intentionally named `T` rather than `T_co` because the actual
+# name appears in the generated API documentation.
+T = typing.TypeVar("T", covariant=True)  # pylint: disable=typevar-name-incorrect-variance
 
-class FutureLike(metaclass=_abc.ABCMeta):
-  """Abstract base class for types representing an asynchronous result.
+FutureLike = Future[T] | collections.abc.Awaitable[T] | T
+"""Generic type representing a possibly-asynchronous result.
 
-  The following types may be used where a :py:obj:`FutureLike[T]<.FutureLike>`
-  value is expected:
+The following types may be used where a :py:obj:`FutureLike[T]<.FutureLike>`
+value is expected:
 
-  - an immediate value of type :python:`T`;
-  - :py:class:`tensorstore.Future` that resolves to a value of type :python:`T`;
-  - :ref:`coroutine<async>` that resolves to a value of type :python:`T`.
+- an immediate value of type :python:`T`;
+- :py:class:`tensorstore.Future` that resolves to a value of type :python:`T`;
+- :ref:`coroutine<async>` that resolves to a value of type :python:`T`.
 
-  Group:
-    Asynchronous support
-  """
+Group:
+  Asynchronous support
+"""
 
 
-FutureLike.register(Future)
-FutureLike.register(_collections_abc.Coroutine)
+Future.__type_params__ = (T,)
+Promise.__type_params__ = (typing.TypeVar("T", contravariant=True),)
 
 bool: dtype
 """Boolean data type (0 or 1).  Corresponds to the :py:obj:`python:bool` type and ``numpy.bool_``.
+
+Group:
+  Data types
+"""
+
+char: dtype
+"""Single byte, interpreted as an ASCII character.
+
+Group:
+  Data types
+"""
+
+byte: dtype
+"""Single byte.
+
+Group:
+  Data types
+"""
+
+int2: dtype
+"""2-bit signed :wikipedia:`two's-complement <Two%27s_complement>` integer data type, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended). Corresponds to ``jax.numpy.int2``.
 
 Group:
   Data types
@@ -308,9 +343,7 @@ Group:
   Data types
 """
 
-RecheckCacheOption = _typing.Union[
-    _builtins.bool, _typing.Literal["open"], _builtins.float
-]
+RecheckCacheOption = builtins.bool | typing.Literal["open"] | builtins.float
 """Determines under what circumstances cached data is revalidated.
 
 ``True``
@@ -331,7 +364,92 @@ Group:
   Spec
 """
 
-del _abc
-del _builtins
-del _collections_abc
-del _typing
+
+DownsampleMethod = typing.Literal[
+    "stride", "median", "mode", "mean", "min", "max"
+]
+"""Downsampling method for use by the :ref:`downsample driver<driver/downsample>`.
+
+Refer to the :json:schema:`JSON<DownsampleMethod>` documentation for
+details on each method.
+
+Group:
+  Views
+"""
+
+NumpyIndexTerm = typing.Union[
+    typing.SupportsIndex,
+    "slice[typing.SupportsIndex | collections.abc.Sequence[typing.SupportsIndex | None] | None]",  # pylint: disable=line-too-long
+    None,
+    types.EllipsisType,
+    "numpy.typing.ArrayLike",
+]
+"""Individual term in a `NumpyIndexingSpec`.
+
+Refer to the :ref:`NumPy-style indexing<python-numpy-style-indexing>`
+documentation for details.
+
+Group:
+  Indexing
+"""
+
+NumpyIndexingSpec = typing.Union["NumpyIndexTerm", tuple["NumpyIndexTerm", ...]]
+"""NumPy-style indexing expression.
+
+Refer to the :ref:`NumPy-style indexing<python-numpy-style-indexing>`
+documentation for details.
+
+Group:
+  Indexing
+
+"""
+
+DimSelectionLike = typing.Union[
+    DimSelection,
+    typing.SupportsIndex,
+    str,
+    builtins.bytes,
+    "slice[typing.SupportsIndex | None]",
+    collections.abc.Sequence["DimSelectionLike"],
+]
+"""Subsequence of dimensions to select in a `DimSelection` object.
+
+Refer to the :ref:`dimension selections<python-dim-selections>`
+documentation for details.
+
+Group:
+  Indexing
+"""
+
+DTypeLike = typing.Union["dtype", str, type, "numpy.dtype"]
+"""Value that may be converted to a TensorStore `dtype`.
+
+May specify a data type by name, its corresponding scalar class type,
+or by its corresponding :py:obj:`NumPy dtype<numpy.dtype>`.
+
+Example:
+
+    >>> ts.dtype("int32")
+    dtype("int32")
+    >>> ts.dtype(np.int32)
+    dtype("int32")
+    >>> ts.dtype(bool)
+    dtype("bool")
+
+Group:
+  Data types
+
+"""
+
+d: _DimSelection
+"""Subscriptable object for constructing a `DimSelection`."""
+# Note: The above doc comment is not shown in generated documentation
+# but is necessary for ``d`` to be discovered by the api documentation
+# generator.
+
+
+del abc
+del builtins
+del collections
+del typing
+del types

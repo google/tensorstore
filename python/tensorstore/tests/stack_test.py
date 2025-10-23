@@ -17,14 +17,14 @@ import numpy as np
 import tensorstore as ts
 
 
-def test_overlay():
+def test_overlay() -> None:
   a = ts.array([1, 2, 3, 4], dtype=ts.int32)
   b = ts.array([5, 6, 7, 8], dtype=ts.int32)
   c = ts.overlay([a, b.translate_to[3]])
   np.testing.assert_equal(np.array([1, 2, 3, 5, 6, 7, 8], dtype=np.int32), c)
 
 
-def test_stack():
+def test_stack() -> None:
   a = ts.array([1, 2, 3, 4], dtype=ts.int32)
   b = ts.array([5, 6, 7, 8], dtype=ts.int32)
   c = ts.stack([a, b])
@@ -33,7 +33,7 @@ def test_stack():
   )
 
 
-def test_concat():
+def test_concat() -> None:
   a = ts.array([[1, 2, 3], [4, 5, 6]], dtype=ts.int32)
   b = ts.array([[7, 8, 9], [10, 11, 12]], dtype=ts.int32)
   c = ts.concat([a, b], axis=0)

@@ -14,17 +14,24 @@
 """Tests for tensorstore.virtual_chunked."""
 
 import gc
+from typing import Any, Callable
 import weakref
 
-import cloudpickle
+import cloudpickle  # type: ignore[import-untyped]
 import numpy as np
 import tensorstore as ts
 
+GcTester = Callable[[Any], None]
 
-def test_read_pickle():
+
+def test_read_pickle() -> None:
   """Tests reading, and that reading works after pickling."""
 
-  def do_read(domain, array, read_params):
+  def do_read(
+      domain: ts.IndexDomain,
+      array: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
     del domain
     del read_params
     array[...] = 42
@@ -44,15 +51,23 @@ def test_read_pickle():
   )
 
 
-def test_read_write_pickle():
+def test_read_write_pickle() -> None:
   """Tests reading and writing, and that writing works after pickling."""
   array = np.zeros(shape=[4, 5], dtype=np.int32)
 
-  def do_read(domain, chunk, read_params):
+  def do_read(
+      domain: ts.IndexDomain,
+      chunk: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
     del read_params
     chunk[...] = array[domain.index_exp]
 
-  def do_write(domain, chunk, write_params):
+  def do_write(
+      domain: ts.IndexDomain,
+      chunk: np.ndarray,
+      write_params: ts.VirtualChunkedWriteParameters,
+  ) -> None:
     del write_params
     array[domain.index_exp] = chunk
 
@@ -131,11 +146,15 @@ def test_read_write_pickle():
   )
 
 
-async def test_read_adapt():
+async def test_read_adapt() -> None:
   """Tests reading where the `read_function` itself reads from a TensorStore."""
   a = ts.array([[1, 2, 3], [4, 5, 6]], dtype=ts.int32)
 
-  async def do_read(domain, array, read_params):
+  async def do_read(
+      domain: ts.IndexDomain,
+      array: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
     del read_params
     array[...] = (await a[domain].read()) + 100
 
@@ -147,14 +166,18 @@ async def test_read_adapt():
   )
 
 
-async def test_string_read():
+async def test_string_read() -> None:
   """Tests that reading works with a dtype of ustring.
 
   This relies on an additional copy since TensorStore does not share the same
   string representation as Python.
   """
 
-  async def do_read(domain, array, read_params):
+  async def do_read(
+      domain: ts.IndexDomain,
+      array: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
     del read_params
     for i, x in enumerate(domain[0]):
       for j, y in enumerate(domain[1]):
@@ -179,7 +202,7 @@ async def test_string_read():
   )
 
 
-async def test_string_write():
+async def test_string_write() -> None:
   """Tests that writing works with a dtype of ustring.
 
   This relies on an additional copy since TensorStore does not share the same
@@ -188,7 +211,11 @@ async def test_string_write():
 
   arr = np.zeros(shape=(2,), dtype=object)
 
-  async def do_write(domain, array, write_params):
+  async def do_write(
+      domain: ts.IndexDomain,
+      array: np.ndarray,
+      write_params: ts.VirtualChunkedWriteParameters,
+  ) -> None:
     del write_params
     arr[domain.index_exp] = array
 
@@ -199,38 +226,50 @@ async def test_string_write():
   np.testing.assert_array_equal(arr, ['a', 'b'])
 
 
-def test_gc(gc_tester):
+def test_gc(gc_tester: GcTester) -> None:
   """Tests that a cyclic reference involving the TensorStore is collected."""
 
-  def do_read(domain, array, read_params):
+  def do_read(
+      domain: ts.IndexDomain,
+      array: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
     del domain
     del read_params
     array[...] = 42
 
   t = ts.virtual_chunked(do_read, dtype=np.int32, shape=[2, 3])
 
-  do_read.t = t
+  do_read.t = t  # type: ignore
 
   gc_tester(do_read)
   gc_tester(t)
 
 
-def test_spec_gc(gc_tester):
+def test_spec_gc(gc_tester: GcTester) -> None:
   """Tests that a cyclic reference involving the Spec is collected."""
 
-  def do_read(domain, array, read_params):
+  def do_read(
+      domain: ts.IndexDomain,
+      array: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
     del domain
     del read_params
     array[...] = 42
 
   t = ts.virtual_chunked(do_read, dtype=np.int32, shape=[2, 3])
   spec = t.spec()
-  do_read.spec = spec
+  do_read.spec = spec  # type: ignore
   gc_tester(spec)
 
 
-def test_spec_keep_alive():
-  def do_read(domain, array, read_params):
+def test_spec_keep_alive() -> None:
+  def do_read(
+      domain: ts.IndexDomain,
+      array: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
     del domain
     del read_params
     array[...] = 42
@@ -238,7 +277,7 @@ def test_spec_keep_alive():
   t = ts.virtual_chunked(do_read, dtype=np.int32, shape=[2, 3])
   ref = weakref.ref(do_read)
   del do_read
-  spec = t.spec()  # pylint: disable=unused-variable
+  spec = t.spec()
   del t
 
   gc.collect()
@@ -246,22 +285,27 @@ def test_spec_keep_alive():
   # Verify that `spec` holds a strong reference to `do_read`.
 
   assert ref() is not None
+  del spec
 
 
-def test_gc_future(gc_tester):
+def test_gc_future(gc_tester: GcTester) -> None:
   """Tests that a cyclic reference involving a Future is collected."""
 
-  def do_read(domain, array, read_params):
+  def do_read(
+      domain: ts.IndexDomain,
+      array: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> ts.Future:
     del domain
     del array
     del read_params
     promise, future = ts.Promise.new()
-    do_read.promise = promise
+    do_read.promise = promise  # type: ignore
     return future
 
   t = ts.virtual_chunked(do_read, dtype=np.int32, shape=[2, 3])
 
   future = t.read()
-  do_read.future = future
+  do_read.future = future  # type: ignore
 
   gc_tester(t)

@@ -52,8 +52,9 @@ struct SequenceParameter {
   std::vector<T> value;
 
   constexpr static auto tensorstore_pybind11_type_name_override =
-      pybind11::detail::_("Sequence[") +
-      pybind11::detail::make_caster<T>::name + pybind11::detail::_("]");
+      pybind11::detail::_("collections.abc.Iterable[") +
+      pybind11::detail::arg_descr(pybind11::detail::make_caster<T>::name) +
+      pybind11::detail::_("]");
 };
 
 }  // namespace internal_python

@@ -195,7 +195,7 @@ namespace detail {
 template <>
 struct type_caster<tensorstore::internal_python::DataTypeLike> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::DataTypeLike,
-                       _("tensorstore.dtype"));
+                       io_name("tensorstore.DTypeLike", "tensorstore.dtype"));
   bool load(handle src, bool convert);
   static handle cast(tensorstore::internal_python::DataTypeLike value,
                      return_value_policy policy, handle parent);

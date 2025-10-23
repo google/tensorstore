@@ -46,6 +46,7 @@
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/time.h"
 #include "python/tensorstore/transaction.h"
+#include "python/tensorstore/type_name_override.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
@@ -74,9 +75,9 @@ py::bytes CordToPython(const absl::Cord& value) {
 }
 
 std::optional<absl::Cord> OptionalCordFromPython(
-    std::optional<std::string_view> value) {
+    std::optional<StrOrBytesView> value) {
   if (!value) return std::nullopt;
-  return absl::Cord(*value);
+  return absl::Cord(value->value);
 }
 
 namespace kvstore_spec_setters {
@@ -271,7 +272,9 @@ void DefineKvStoreAttributes(KvStoreCls& cls) {
 
   cls.def_property(
       "path", [](Self& self) -> std::string_view { return self.value.path; },
-      [](Self& self, std::string path) { self.value.path = std::move(path); },
+      [](Self& self, StrOrBytes path) {
+        self.value.path = std::move(path.value);
+      },
       R"(
 Path prefix within the base key-value store.
 
@@ -315,9 +318,9 @@ Group:
 
   cls.def(
       "__add__",
-      [](Self& self, std::string_view suffix) {
+      [](Self& self, StrOrBytesView suffix) {
         auto new_store = self.value;
-        new_store.AppendSuffix(suffix);
+        new_store.AppendSuffix(suffix.value);
         return new_store;
       },
       py::arg("suffix"), R"(
@@ -358,9 +361,9 @@ Group:
 
   cls.def(
       "__truediv__",
-      [](Self& self, std::string_view component) {
+      [](Self& self, StrOrBytesView component) {
         auto new_store = self.value;
-        new_store.AppendPathComponent(component);
+        new_store.AppendPathComponent(component.value);
         return new_store;
       },
       py::arg("component"), R"(
@@ -543,20 +546,19 @@ Group:
 
   cls.def(
       "read",
-      [](Self& self, std::string_view key,
-         std::optional<std::string> if_not_equal,
+      [](Self& self, StrOrBytesView key, std::optional<StrOrBytes> if_not_equal,
          std::optional<double> staleness_bound, std::optional<Batch> batch) {
         kvstore::ReadOptions options;
         if (if_not_equal) {
           options.generation_conditions.if_not_equal.value =
-              std::move(*if_not_equal);
+              std::move(if_not_equal->value);
         }
         if (staleness_bound) {
           options.staleness_bound = FromPythonTimestamp(*staleness_bound);
         }
         options.batch =
             internal_python::ValidateOptionalBatch(std::move(batch));
-        return kvstore::Read(self.value, key, std::move(options));
+        return kvstore::Read(self.value, key.value, std::move(options));
       },
       py::arg("key"), py::kw_only(), py::arg("if_not_equal") = std::nullopt,
       py::arg("staleness_bound") = std::nullopt,
@@ -645,9 +647,9 @@ Group:
 
   cls.def(
       "__getitem__",
-      [](Self& self, std::string_view key) {
-        auto result =
-            ValueOrThrow(InterruptibleWait(kvstore::Read(self.value, key)));
+      [](Self& self, StrOrBytesView key) {
+        auto result = ValueOrThrow(
+            InterruptibleWait(kvstore::Read(self.value, key.value)));
         if (result.state == kvstore::ReadResult::kMissing) {
           throw py::key_error();
         }
@@ -746,15 +748,15 @@ Group:
 
   cls.def(
       "write",
-      [](Self& self, std::string_view key,
-         std::optional<std::string_view> value,
-         std::optional<std::string> if_equal) {
+      [](Self& self, StrOrBytesView key, std::optional<StrOrBytes> value,
+         std::optional<StrOrBytes> if_equal) {
         kvstore::WriteOptions options;
         if (if_equal) {
           options.generation_conditions.if_equal =
-              StorageGeneration{std::move(*if_equal)};
+              StorageGeneration{std::move(if_equal->value)};
         }
-        return kvstore::Write(self.value, key, OptionalCordFromPython(value),
+        return kvstore::Write(self.value, key.value,
+                              OptionalCordFromPython(value),
                               std::move(options));
       },
       py::arg("key"), py::arg("value"), py::kw_only(),
@@ -807,10 +809,9 @@ Group:
 
   cls.def(
       "__setitem__",
-      [](Self& self, std::string_view key,
-         std::optional<std::string_view> value) {
-        ValueOrThrow(InterruptibleWait(
-            kvstore::Write(self.value, key, OptionalCordFromPython(value))));
+      [](Self& self, StrOrBytesView key, std::optional<StrOrBytesView> value) {
+        ValueOrThrow(InterruptibleWait(kvstore::Write(
+            self.value, key.value, OptionalCordFromPython(value))));
       },
       py::arg("key"), py::arg("value"), R"(
 Synchronously writes the value of a single key.

@@ -30,6 +30,7 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/index_space/output_index_method.h"
@@ -242,6 +243,26 @@ Result<bool> GetOutputRange(IndexTransformView<> transform,
     }
   }
   return exact;
+}
+
+Result<IndexDomain<>> IndexDomainFromDimensions(
+    tensorstore::span<const IndexDomainDimension<>> dimensions) {
+  const DimensionIndex rank = dimensions.size();
+  auto builder = IndexDomainBuilder<>(rank);
+  auto origin = builder.origin();
+  auto shape = builder.shape();
+  auto labels = builder.labels();
+  auto& implicit_lower_bounds = builder.implicit_lower_bounds();
+  auto& implicit_upper_bounds = builder.implicit_upper_bounds();
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    const auto& d = dimensions[i];
+    origin[i] = d.inclusive_min();
+    shape[i] = d.size();
+    labels[i] = std::string(d.label());
+    implicit_lower_bounds[i] = d.implicit_lower();
+    implicit_upper_bounds[i] = d.implicit_upper();
+  }
+  return builder.Finalize();
 }
 
 namespace internal_index_space {

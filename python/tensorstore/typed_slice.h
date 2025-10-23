@@ -70,7 +70,10 @@ struct pybind11::detail::type_caster<
   // components
   //
   // https://github.com/python/typeshed/issues/8647
-  PYBIND11_TYPE_CASTER(T, _("slice"));
+  PYBIND11_TYPE_CASTER(
+      T, _("slice[") + pybind11::detail::make_caster<Start>::name + _(", ") +
+             pybind11::detail::make_caster<Stop>::name + _(", ") +
+             pybind11::detail::make_caster<Step>::name + _("]"));
 };
 
 #endif  // PYTHON_TENSORSTORE_TYPED_SLICE_H_

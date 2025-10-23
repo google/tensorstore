@@ -20,7 +20,7 @@ import pytest
 import tensorstore as ts
 
 
-def test_grid_json():
+def test_grid_json() -> None:
   json_grid = dict(
       shape=[5, None, 20],
       shape_soft_constraint=[None, 17, None],
@@ -38,7 +38,7 @@ def test_grid_json():
   assert grid.to_json() == json_grid
 
 
-def test_grid_update():
+def test_grid_update() -> None:
   grid = ts.ChunkLayout.Grid()
   assert grid.rank is None
   assert grid.ndim is None
@@ -49,12 +49,12 @@ def test_grid_update():
     grid.update(shape=[4, None, None])
 
 
-def test_pickle_grid():
+def test_pickle_grid() -> None:
   x = ts.ChunkLayout.Grid(shape=[10, 12])
   assert pickle.loads(pickle.dumps(x)) == x
 
 
-def test_json():
+def test_json() -> None:
   json_layout = {
       'inner_order': [1, 0],
       'grid_origin': [1, 2],
@@ -65,7 +65,7 @@ def test_json():
   assert json_layout == ts.ChunkLayout(json_layout).to_json()
 
 
-def test_init():
+def test_init() -> None:
   layout = ts.ChunkLayout(
       write_chunk=ts.ChunkLayout.Grid(shape=[10, 12]),
       read_chunk=ts.ChunkLayout.Grid(shape=[0, 6]),
@@ -79,54 +79,60 @@ def test_init():
   assert layout.write_chunk.shape == (10, 12)
   assert layout.read_chunk.shape == (10, 6)
   assert layout.codec_chunk.shape == (None, 3)
-  assert layout.read_chunk_template == ts.IndexDomain(inclusive_min=[1, 2],
-                                                      shape=[10, 6])
-  assert layout.write_chunk_template == ts.IndexDomain(inclusive_min=[1, 2],
-                                                       shape=[10, 12])
+  assert layout.read_chunk_template == ts.IndexDomain(
+      inclusive_min=[1, 2], shape=[10, 6]
+  )
+  assert layout.write_chunk_template == ts.IndexDomain(
+      inclusive_min=[1, 2], shape=[10, 12]
+  )
   assert layout.rank == 2
   np.testing.assert_array_equal(layout.inner_order, [1, 0])
 
 
-def test_chunk_shape():
+def test_chunk_shape() -> None:
   layout = ts.ChunkLayout(chunk_shape=[10, None, None])
   assert layout.read_chunk.shape == (10, None, None)
   assert layout.write_chunk.shape == (10, None, None)
 
 
-def test_chunk_aspect_ratio():
+def test_chunk_aspect_ratio() -> None:
   layout = ts.ChunkLayout(chunk_aspect_ratio=[None, 2, 1])
   assert layout.read_chunk.aspect_ratio == (None, 2, 1)
   assert layout.write_chunk.aspect_ratio == (None, 2, 1)
 
 
-def test_chunk_elements():
+def test_chunk_elements() -> None:
   layout = ts.ChunkLayout(chunk_elements=100000)
   assert layout.read_chunk.elements == 100000
   assert layout.write_chunk.elements == 100000
 
 
-def test_lifetime():
+def test_lifetime() -> None:
   shape = ts.ChunkLayout.Grid(shape=[1, 2, 3]).shape
   np.testing.assert_array_equal(shape, [1, 2, 3])
 
 
-def test_tensorstore_layout():
-  layout = ts.open(
-      {
-          'driver': 'zarr',
-          'kvstore': {
-              'driver': 'memory'
+def test_tensorstore_layout() -> None:
+  layout = (
+      ts.open(
+          {
+              'driver': 'zarr',
+              'kvstore': {'driver': 'memory'},
+              'metadata': {
+                  'chunks': [10, 11],
+                  'shape': [100, 200],
+                  'fill_value': None,
+                  'dtype': '<u2',
+                  'compressor': None,
+                  'filters': None,
+                  'order': 'C',
+              },
           },
-          'metadata': {
-              'chunks': [10, 11],
-              'shape': [100, 200],
-              'fill_value': None,
-              'dtype': '<u2',
-              'compressor': None,
-              'filters': None,
-              'order': 'C'
-          },
-      }, create=True).result().chunk_layout
+          create=True,
+      )
+      .result()
+      .chunk_layout
+  )
   assert layout == ts.ChunkLayout(
       grid_origin=[0, 0],
       chunk=ts.ChunkLayout.Grid(shape=[10, 11]),
@@ -134,7 +140,7 @@ def test_tensorstore_layout():
   )
 
 
-def test_pickle_chunk_layout():
+def test_pickle_chunk_layout() -> None:
   x = ts.ChunkLayout(
       write_chunk=ts.ChunkLayout.Grid(shape=[10, 12]),
       read_chunk=ts.ChunkLayout.Grid(shape=[0, 6]),

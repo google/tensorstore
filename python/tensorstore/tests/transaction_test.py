@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tests for tensorstore.Transaction."""
 
+from collections.abc import Iterator
 import contextlib
 import tempfile
 
@@ -22,7 +23,7 @@ import tensorstore as ts
 
 
 @contextlib.contextmanager
-def make_dataset():
+def make_dataset() -> Iterator[ts.TensorStore]:
   with tempfile.TemporaryDirectory() as dir_path:
     yield ts.open({
         'driver': 'n5',
@@ -41,7 +42,7 @@ def make_dataset():
     }).result()
 
 
-async def test_transaction_read_write():
+async def test_transaction_read_write() -> None:
   with make_dataset() as dataset:
     txn = ts.Transaction()
     assert not txn.aborted
@@ -78,7 +79,7 @@ async def test_transaction_read_write():
     )
 
 
-async def test_transaction_context_manager_commit():
+async def test_transaction_context_manager_commit() -> None:
   with make_dataset() as dataset:
     with ts.Transaction() as txn:
       dataset.with_transaction(txn)[1:2, 3:4] = 42
@@ -108,7 +109,7 @@ async def test_transaction_context_manager_commit():
     )
 
 
-async def test_transaction_context_manager_abort():
+async def test_transaction_context_manager_abort() -> None:
   with make_dataset() as dataset:
     with pytest.raises(ValueError, match='want to abort'):
       with ts.Transaction() as txn:
@@ -132,7 +133,7 @@ async def test_transaction_context_manager_abort():
     )
 
 
-async def test_transaction_async_context_manager_commit():
+async def test_transaction_async_context_manager_commit() -> None:
   with make_dataset() as dataset:
     async with ts.Transaction() as txn:
       dataset.with_transaction(txn)[1:2, 3:4] = 42
@@ -162,7 +163,7 @@ async def test_transaction_async_context_manager_commit():
     )
 
 
-async def test_transaction_async_context_manager_abort():
+async def test_transaction_async_context_manager_abort() -> None:
   with make_dataset() as dataset:
     with pytest.raises(ValueError, match='want to abort'):
       async with ts.Transaction() as txn:

@@ -13,6 +13,8 @@
 # limitations under the License.
 """Tests for tensorstore.DataType."""
 
+from typing import Any
+
 import numpy as np
 import pytest
 import tensorstore as ts
@@ -46,7 +48,7 @@ import tensorstore as ts
         "json",
     ],
 )
-def test_dtype_init_name(name):
+def test_dtype_init_name(name: str) -> None:
   d = ts.dtype(name)
   d_attr = getattr(ts, name)
   assert d_attr.name == name
@@ -78,7 +80,7 @@ def test_dtype_init_name(name):
         "complex128",
     ],
 )
-def test_dtype_init_numpy_dtype(name):
+def test_dtype_init_numpy_dtype(name: str) -> None:
   numpy_dtype = np.dtype(name)
   d = ts.dtype(numpy_dtype)
   assert d.name == name
@@ -103,7 +105,7 @@ def test_dtype_init_numpy_dtype(name):
         "complex128",
     ],
 )
-def test_dtype_init_type(name):
+def test_dtype_init_type(name: str) -> None:
   t = getattr(np, name)
   d = ts.dtype(t)
   assert d.name == name
@@ -113,15 +115,15 @@ def test_dtype_init_type(name):
   assert v == 5
 
 
-def test_dtype_init_bool():
+def test_dtype_init_bool() -> None:
   assert ts.dtype(bool) == ts.bool
   assert ts.dtype(bool).type is np.bool_
   assert type(ts.bool(True)) is np.bool_
-  assert ts.bool(True) == True
-  assert ts.bool(False) == False
+  assert ts.bool(True) is np.True_
+  assert ts.bool(False) is np.False_
 
 
-def test_dtype_init_int2():
+def test_dtype_init_int2() -> None:
   v = ts.int2(1)
   t = type(v)
   assert ts.dtype(t) == ts.int2
@@ -130,7 +132,7 @@ def test_dtype_init_int2():
   assert ts.int2(-2) == -2
 
 
-def test_dtype_init_int4():
+def test_dtype_init_int4() -> None:
   v = ts.int4(1)
   t = type(v)
   assert ts.dtype(t) == ts.int4
@@ -139,7 +141,7 @@ def test_dtype_init_int4():
   assert ts.int4(-8) == -8
 
 
-def test_dtype_init_bfloat16():
+def test_dtype_init_bfloat16() -> None:
   v = ts.bfloat16(1)
   t = type(v)
   assert ts.dtype(t) == ts.bfloat16
@@ -148,7 +150,7 @@ def test_dtype_init_bfloat16():
   assert ts.bfloat16(1.5) == 1.5
 
 
-def test_dtype_init_str():
+def test_dtype_init_str() -> None:
   assert ts.dtype(str) == ts.ustring
   assert ts.dtype(str).type is str
   assert ts.ustring.numpy_dtype == np.dtype("object")
@@ -156,7 +158,7 @@ def test_dtype_init_str():
   assert type(ts.ustring("hello")) is str
 
 
-def test_dtype_init_bytes():
+def test_dtype_init_bytes() -> None:
   assert ts.dtype(bytes) == ts.string
   assert ts.dtype(bytes).type is bytes
   assert ts.string.numpy_dtype == np.dtype("object")
@@ -164,12 +166,12 @@ def test_dtype_init_bytes():
   assert type(ts.string(b"hello")) is bytes
 
 
-def assert_exact(expected, value):
+def assert_exact(expected: Any, value: Any) -> None:
   assert value == expected
   assert type(value) is type(expected)
 
 
-def test_dtype_json():
+def test_dtype_json() -> None:
   assert ts.json.numpy_dtype == np.dtype("object")
   assert ts.json((1, 2, 3)) == [1, 2, 3]
   assert ts.json.type is np.object_
@@ -193,9 +195,9 @@ def test_dtype_json():
     assert_exact(ts.json(v), v)
 
 
-def test_compare():
+def test_compare() -> None:
   assert ts.uint8 == np.uint8
-  assert ts.bool == bool
-  assert bool == ts.bool
+  assert ts.bool == bool  # noqa: E721
+  assert bool == ts.bool  # noqa: E721
   assert ts.bool != np.uint8
   assert np.uint8 != ts.bool

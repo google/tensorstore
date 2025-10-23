@@ -19,14 +19,14 @@ import pytest
 import tensorstore as ts
 
 
-def test_unbounded():
+def test_unbounded() -> None:
   x = ts.Dim()
   assert x.inclusive_min == -ts.inf
   assert x.inclusive_max == +ts.inf
   assert not x.finite
 
 
-def test_closed():
+def test_closed() -> None:
   x = ts.Dim(inclusive_min=3, inclusive_max=5)
   assert x.inclusive_min == 3
   assert x.inclusive_max == 5
@@ -58,7 +58,7 @@ def test_closed():
     ts.Dim(inclusive_min=3, inclusive_max=1)
 
 
-def test_half_open():
+def test_half_open() -> None:
   x = ts.Dim(3, 5)
   assert x.inclusive_min == 3
   assert x.exclusive_max == 5
@@ -73,7 +73,7 @@ def test_half_open():
     ts.Dim(inclusive_min=3, exclusive_max=1)
 
 
-def test_sized():
+def test_sized() -> None:
   x = ts.Dim(inclusive_min=3, size=10)
   assert x.inclusive_min == 3
   assert x.size == 10
@@ -90,7 +90,7 @@ def test_sized():
     ts.Dim(inclusive_min=3, size=-3)
 
 
-def test_intersect():
+def test_intersect() -> None:
   a = ts.Dim(inclusive_min=1, exclusive_max=5, label="x")
   b = ts.Dim(size=3)
   x = a.intersect(b)
@@ -102,7 +102,7 @@ def test_intersect():
     a.intersect(ts.Dim(size=3, label="y"))
 
 
-def test_hull():
+def test_hull() -> None:
   a = ts.Dim(inclusive_min=1, exclusive_max=5, label="x")
   b = ts.Dim(size=3)
   x = a.hull(b)
@@ -114,6 +114,6 @@ def test_hull():
     a.hull(ts.Dim(size=3, label="y"))
 
 
-def test_pickle():
+def test_pickle() -> None:
   x = ts.Dim(inclusive_min=3, size=10)
   assert pickle.loads(pickle.dumps(x)) == x

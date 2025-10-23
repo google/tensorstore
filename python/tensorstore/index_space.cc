@@ -45,6 +45,7 @@
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
+#include "python/tensorstore/typed_slice.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
@@ -339,7 +340,9 @@ auto MakeIndexDomainClass(py::module m) {
   return py::class_<IndexDomain<>>(m, "IndexDomain", R"(
 :ref:`Domain<index-domain>` (including bounds and optional dimension labels) of an N-dimensional :ref:`index space<index-space>`.
 
-Logically, an :py:class:`.IndexDomain` is the cartesian product of a sequence of `Dim` objects.
+Logically, an :py:class:`.IndexDomain` is the cartesian product of a sequence of
+`Dim` objects, and supports the :py:obj:`~collections.abc.Collection`
+interface.
 
 Note:
 
@@ -416,22 +419,7 @@ Overload:
 
   cls.def(
       py::init([](const SequenceParameter<IndexDomainDimension<>>& dimensions) {
-        const DimensionIndex rank = dimensions.size();
-        auto builder = IndexTransformBuilder<>(rank, 0);
-        auto origin = builder.input_origin();
-        auto shape = builder.input_shape();
-        auto labels = builder.input_labels();
-        auto& implicit_lower_bounds = builder.implicit_lower_bounds();
-        auto& implicit_upper_bounds = builder.implicit_upper_bounds();
-        for (DimensionIndex i = 0; i < rank; ++i) {
-          const auto& d = dimensions[i];
-          origin[i] = d.inclusive_min();
-          shape[i] = d.size();
-          labels[i] = std::string(d.label());
-          implicit_lower_bounds[i] = d.implicit_lower();
-          implicit_upper_bounds[i] = d.implicit_upper();
-        }
-        return ValueOrThrow(builder.Finalize()).domain();
+        return ValueOrThrow(IndexDomainFromDimensions(dimensions.value));
       }),
       R"(
 Constructs an index domain from a :py:class`.Dim` sequence.
@@ -1140,9 +1128,6 @@ Group:
 
   EnablePicklingFromSerialization(
       cls, internal_index_space::IndexDomainNonNullSerializer{});
-
-  py::implicitly_convertible<std::vector<IndexDomainDimension<>>,
-                             IndexDomain<>>();
 }
 
 auto MakeIndexTransformClass(py::module m) {
@@ -1277,12 +1262,12 @@ Overload:
       py::arg("implicit_upper_bounds") = std::nullopt,
       py::arg("input_labels") = std::nullopt, py::arg("output") = std::nullopt);
 
-  cls.def(py::init([](IndexDomain<> domain,
+  cls.def(py::init([](IndexDomainLike domain,
                       std::optional<SequenceParameter<OutputIndexMap>> output) {
             const DimensionIndex output_rank =
-                output ? output->size() : domain.rank();
-            IndexTransformBuilder<> builder(domain.rank(), output_rank);
-            builder.input_domain(domain);
+                output ? output->size() : domain.value.rank();
+            IndexTransformBuilder<> builder(domain.value.rank(), output_rank);
+            builder.input_domain(domain.value);
             SetOutputIndexMaps(output, &builder);
             return ValueOrThrow(builder.Finalize());
           }),
@@ -2859,12 +2844,52 @@ void DefineOutputIndexMapsAttributes(
                             "Returns the output rank.");
 
   cls.def("__len__", &OutputIndexMapRangeContainer::size,
-          "Returns the output rank.");
-  cls.def("__getitem__",
-          [](const OutputIndexMapRangeContainer& r,
-             PythonDimensionIndex i) -> OutputIndexMap {
-            return r[NormalizePythonDimensionIndex(i, r.size())];
-          });
+          R"(Returns the output rank.
+
+Group:
+  Sequence accessors
+)");
+  cls.def(
+      "__getitem__",
+      [](const OutputIndexMapRangeContainer& r,
+         PythonDimensionIndex i) -> OutputIndexMap {
+        return r[NormalizePythonDimensionIndex(i, r.size())];
+      },
+      R"(Returns the output index map for the specified output dimension.
+
+Overload:
+  index
+
+Group:
+  Sequence accessors
+       )");
+  cls.def(
+      "__getitem__",
+      [](const OutputIndexMapRangeContainer& r,
+         TypedSlice<std::optional<PythonDimensionIndex>,
+                    std::optional<PythonDimensionIndex>,
+                    std::optional<PythonDimensionIndex>>
+             slice) -> std::vector<OutputIndexMap> {
+        DimensionIndexBuffer dims;
+        ThrowStatusException(NormalizeDimRangeSpec(
+            DimRangeSpec{slice.start, slice.stop,
+                         slice.step.value_or(PythonDimensionIndex{1})},
+            r.size(), &dims));
+        std::vector<OutputIndexMap> out;
+        out.reserve(dims.size());
+        for (auto dim : dims) {
+          out.push_back(r[dim]);
+        }
+        return out;
+      },
+      R"(Returns the list of output index maps corresponding to the slice.
+
+Overload:
+  slice
+
+Group:
+  Sequence accessors
+       )");
 
   cls.def("__repr__", [](const OutputIndexMapRangeContainer& r) {
     std::string out = "[";
@@ -2944,3 +2969,50 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 }  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+handle type_caster<tensorstore::internal_python::IndexDomainLike>::cast(
+    const tensorstore::internal_python::IndexDomainLike& x,
+    return_value_policy /* policy */, handle /* parent */) {
+  return pybind11::cast(x.value).release();
+}
+bool type_caster<tensorstore::internal_python::IndexDomainLike>::load(
+    handle src, bool convert) {
+  if (pybind11::isinstance<tensorstore::IndexDomain<>>(src)) {
+    auto existing = pybind11::cast<tensorstore::IndexDomain<>>(src);
+    value.value = existing;
+    return true;
+  }
+  if (!convert) return false;
+  pybind11::object seq = pybind11::reinterpret_steal<pybind11::object>(
+      PySequence_Fast(src.ptr(), ""));
+  if (!seq) {
+    PyErr_Clear();
+    return false;
+  }
+  // Copy new references to elements to temporary vector to ensure they remain
+  // valid even after possibly running Python code.
+  std::vector<tensorstore::IndexDomainDimension<>> dimensions;
+  dimensions.reserve(PySequence_Fast_GET_SIZE(seq.ptr()));
+  // Check the size every iteration because the size can change.
+  for (Py_ssize_t i = 0; i < PySequence_Fast_GET_SIZE(seq.ptr()); ++i) {
+    auto obj = pybind11::reinterpret_borrow<pybind11::object>(
+        PySequence_Fast_GET_ITEM(src.ptr(), i));
+    pybind11::detail::make_caster<tensorstore::IndexDomainDimension<>>
+        dim_caster;
+    if (!dim_caster.load(obj, /*convert=*/true)) {
+      return false;
+    }
+    dimensions.push_back(
+        pybind11::detail::cast_op<tensorstore::IndexDomainDimension<>&&>(
+            std::move(dim_caster)));
+  }
+  value.value = tensorstore::internal_python::ValueOrThrow(
+      tensorstore::IndexDomainFromDimensions(dimensions));
+  return true;
+}
+
+}  // namespace detail
+}  // namespace pybind11

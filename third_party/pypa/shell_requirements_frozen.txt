@@ -29,9 +29,9 @@ ipython==8.37.0 ; python_full_version < '3.11' \
     --hash=sha256:ca815841e1a41a1e6b73a0b08f3038af9b2252564d01fc405356d34033012216 \
     --hash=sha256:ed87326596b878932dbcb171e3e698845434d8c61b8d8cd474bf663041a9dcf2
     # via -c /dev/stdin, -r shell_requirements.txt
-ipython==9.5.0 ; python_full_version >= '3.11' \
-    --hash=sha256:129c44b941fe6d9b82d36fc7a7c18127ddb1d6f02f78f867f402e2e3adde3113 \
-    --hash=sha256:88369ffa1d5817d609120daa523a6da06d02518e582347c29f8451732a9c5e72
+ipython==9.6.0 ; python_full_version >= '3.11' \
+    --hash=sha256:5603d6d5d356378be5043e69441a072b50a5b33b4503428c77b04cb8ce7bc731 \
+    --hash=sha256:5f77efafc886d2f023442479b8149e7d86547ad0a979e9da9f045d252f648196
     # via -c /dev/stdin, -r shell_requirements.txt
 ipython-pygments-lexers==1.1.1 ; python_full_version >= '3.11' \
     --hash=sha256:09c0138009e56b6854f9535736f4171d855c8c08a563a0dcd8022f78355c7e81 \

@@ -49,7 +49,7 @@ TESTING_DTYPES = [
 
 
 @pytest.mark.parametrize("custom_type", TESTING_DTYPES)
-def test_save_and_restore(custom_type):
+def test_save_and_restore(custom_type: np.dtype) -> None:
   """test save and restore dtypes."""
   np.random.seed(0)
   shape = [3, 4, 5]
@@ -79,7 +79,7 @@ def test_save_and_restore(custom_type):
 
 
 @pytest.mark.parametrize("custom_type", TESTING_DTYPES)
-def test_save_and_restore_cast_driver(custom_type):
+def test_save_and_restore_cast_driver(custom_type: np.dtype) -> None:
   """Test save and restore by casting to a bigger dtype and make sure no precision loss."""
 
   np.random.seed(0)

@@ -27,7 +27,7 @@ import tempfile
 import tensorstore as ts
 
 
-def test_fork_without_tensorstore_use_does_not_crash():
+def test_fork_without_tensorstore_use_does_not_crash() -> None:
   if sys.platform not in ('linux', 'darwin'):
     return
   with tempfile.TemporaryDirectory() as dir_path:
@@ -48,7 +48,7 @@ def test_fork_without_tensorstore_use_does_not_crash():
       assert child == (pid, 0)
 
 
-def test_fork_with_tensorstore_use_does_crash():
+def test_fork_with_tensorstore_use_does_crash() -> None:
   if sys.platform not in ('linux', 'darwin'):
     return
   with tempfile.TemporaryDirectory() as dir_path:

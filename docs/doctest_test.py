@@ -42,6 +42,7 @@ import sys
 import tempfile
 import textwrap
 import traceback
+import typing
 from typing import Any, Callable
 
 import numpy as np
@@ -138,6 +139,7 @@ def execute_doctests_in_temp_dir(
   context = dict(
       ts=ts,
       np=np,
+      typing=typing,
       asyncio=asyncio,
       json=json,
       json_pprint=json_pprint,

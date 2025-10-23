@@ -33,7 +33,7 @@ namespace detail {
 template <>
 struct type_caster<tensorstore::DownsampleMethod> {
   using T = tensorstore::DownsampleMethod;
-  PYBIND11_TYPE_CASTER(T, _("DownsampleMethod"));
+  PYBIND11_TYPE_CASTER(T, _("tensorstore.DownsampleMethod"));
   bool load(handle src, bool convert);
   static handle cast(tensorstore::DownsampleMethod value,
                      return_value_policy /* policy */, handle /* parent */);

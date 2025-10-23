@@ -218,7 +218,7 @@ namespace detail {
 template <typename Element, tensorstore::DimensionIndex Rank>
 struct type_caster<tensorstore::SharedArray<Element, Rank>> {
   using T = tensorstore::SharedArray<Element, Rank>;
-  PYBIND11_TYPE_CASTER(T, _("numpy.typing.ArrayLike"));
+  PYBIND11_TYPE_CASTER(T, io_name("numpy.typing.ArrayLike", "numpy.ndarray"));
 
   bool load(handle src, bool convert) {
     return tensorstore::internal_python::ConvertToArray<Element, Rank,

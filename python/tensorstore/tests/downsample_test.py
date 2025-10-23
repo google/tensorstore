@@ -17,7 +17,7 @@ import numpy as np
 import tensorstore as ts
 
 
-async def test_downsample_store_float32():
+async def test_downsample_store_float32() -> None:
   t = ts.array(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
 
   downsampled = ts.downsample(t, [1, 2], method='mean')
@@ -27,7 +27,7 @@ async def test_downsample_store_float32():
   )
 
 
-async def test_downsample_store_uint32():
+async def test_downsample_store_uint32() -> None:
   t = ts.array(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.uint32))
 
   downsampled = ts.downsample(t, [2, 2], method='mean')
@@ -37,7 +37,7 @@ async def test_downsample_store_uint32():
   )
 
 
-async def test_downsample_spec():
+async def test_downsample_spec() -> None:
 
   t = ts.array(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
   spec = t.spec()

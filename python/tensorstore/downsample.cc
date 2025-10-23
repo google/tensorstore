@@ -24,6 +24,7 @@
 
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_class.h"
@@ -47,7 +48,8 @@ void RegisterDownsampleBindings(pybind11::module m, Executor defer) {
   defer([m]() mutable {
     m.def(
         "downsample",
-        [](PythonTensorStoreObject& base, std::vector<Index> downsample_factors,
+        [](PythonTensorStoreObject& base,
+           SequenceParameter<Index> downsample_factors,
            DownsampleMethod method) -> PythonTensorStore {
           return TensorStore<>(ValueOrThrow(
               tensorstore::Downsample(base.value, downsample_factors, method)));
@@ -65,7 +67,7 @@ Overload:
 
     m.def(
         "downsample",
-        [](PythonSpecObject& base, std::vector<Index> downsample_factors,
+        [](PythonSpecObject& base, SequenceParameter<Index> downsample_factors,
            DownsampleMethod method) -> PythonSpec {
           return ValueOrThrow(
               tensorstore::Downsample(base.value, downsample_factors, method));

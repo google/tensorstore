@@ -561,7 +561,8 @@ namespace detail {
 template <>
 struct type_caster<tensorstore::internal_python::DimensionSelectionLike> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::DimensionSelectionLike,
-                       _("DimSelectionLike"));
+                       io_name("tensorstore.DimSelectionLike",
+                               "tensorstore.DimSelection"));
 
   bool load(handle src, bool convert);
   static handle cast(tensorstore::internal_python::DimensionSelectionLike value,

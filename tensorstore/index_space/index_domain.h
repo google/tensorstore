@@ -535,6 +535,15 @@ BoxView<Rank> GetBoxDomainOf(const IndexDomain<Rank, CKind>& domain) {
   return domain.box();
 }
 
+/// Constructs an `IndexDomain` from a sequence of `IndexDomainDimension`.
+///
+/// \relates IndexDomain
+/// \membergroup Constructors
+/// \error `absl::StatusCode::kInvalidArgument` if the domain is not valid.
+/// \returns The constructed domain, or an error if invalid.
+Result<IndexDomain<>> IndexDomainFromDimensions(
+    tensorstore::span<const IndexDomainDimension<>> dimensions);
+
 /// Merges two index domains.
 ///
 /// If both `a` and `b` are null, returns a null index domain.

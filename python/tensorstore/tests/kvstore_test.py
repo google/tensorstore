@@ -22,24 +22,24 @@ import pytest
 import tensorstore as ts
 
 
-def test_instantiation():
+def test_instantiation() -> None:
   with pytest.raises(TypeError):
     ts.KvStore()
 
 
-def test_spec_pickle():
+def test_spec_pickle() -> None:
   kv_spec = ts.KvStore.Spec('memory://')
   assert ts.KvStore.Spec.__module__ == 'tensorstore'
   assert ts.KvStore.Spec.__qualname__ == 'KvStore.Spec'
   assert pickle.loads(pickle.dumps(kv_spec)).to_json() == kv_spec.to_json()
 
 
-def test_pickle():
+def test_pickle() -> None:
   kv = ts.KvStore.open('memory://').result()
   assert pickle.loads(pickle.dumps(kv)).url == 'memory://'
 
 
-def test_copy():
+def test_copy() -> None:
   with tempfile.TemporaryDirectory() as dir_path:
     spec = {
         'driver': 'file',
@@ -59,12 +59,12 @@ def test_copy():
     assert t3['abc'] == b'def'
 
 
-def test_keyrange():
+def test_keyrange() -> None:
   r = ts.KvStore.KeyRange('a', 'b')
   assert repr(r) == "KvStore.KeyRange(b'a', b'b')"
 
 
-def test_copy_memory():
+def test_copy_memory() -> None:
   spec = {
       'driver': 'memory',
   }
@@ -80,10 +80,10 @@ def test_copy_memory():
   assert t1['abc'] == b'def'
   assert t2['abc'] == b'def'
   with pytest.raises(KeyError):
-    t3['abc']  # pylint: disable=pointless-statement
+    _ = t3['abc']
 
 
-def test_copy_range_to_ocdbt_memory():
+def test_copy_range_to_ocdbt_memory() -> None:
   context = ts.Context()
   for k in ['a', 'b', 'c']:
     child = ts.KvStore.open(
@@ -101,7 +101,7 @@ def test_copy_range_to_ocdbt_memory():
   assert parent.list().result() == [b'a', b'b', b'c']
 
 
-def test_copy_range_to_ocdbt_file():
+def test_copy_range_to_ocdbt_file() -> None:
   context = ts.Context()
   with tempfile.TemporaryDirectory() as dir_path:
     base_url = pathlib.Path(dir_path).resolve().as_uri()
@@ -123,7 +123,7 @@ def test_copy_range_to_ocdbt_file():
     assert parent.list().result() == [b'a', b'b', b'c']
 
 
-def test_copy_range_to_memory_fails():
+def test_copy_range_to_memory_fails() -> None:
   context = ts.Context()
   child = ts.KvStore.open('memory://child/', context=context).result()
   for k in ['a', 'b', 'c']:
@@ -133,7 +133,7 @@ def test_copy_range_to_memory_fails():
     child.experimental_copy_range_to(parent).result()
 
 
-def test_copy_range_to_file_fails():
+def test_copy_range_to_file_fails() -> None:
   context = ts.Context()
   with tempfile.TemporaryDirectory() as dir_path:
     base_url = pathlib.Path(dir_path).resolve().as_uri()
@@ -145,7 +145,7 @@ def test_copy_range_to_file_fails():
       child.experimental_copy_range_to(parent).result()
 
 
-def test_copy_range_to_ocdbt_memory_bad_path():
+def test_copy_range_to_ocdbt_memory_bad_path() -> None:
   context = ts.Context()
   child = ts.KvStore.open(
       {'driver': 'ocdbt', 'base': 'memory://child/'}, context=context

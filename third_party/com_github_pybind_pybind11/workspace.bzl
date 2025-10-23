@@ -27,9 +27,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_pybind_pybind11",
-        strip_prefix = "pybind11-2.13.6",
-        urls = mirror_url("https://github.com/pybind/pybind11/archive/v2.13.6.tar.gz"),
-        sha256 = "e08cb87f4773da97fa7b5f035de8763abc656d87d5773e62f6da0587d1f0ec20",
+        strip_prefix = "pybind11-3.0.1",
+        urls = mirror_url("https://github.com/pybind/pybind11/archive/v3.0.1.tar.gz"),
+        sha256 = "741633da746b7c738bb71f1854f957b9da660bcd2dce68d71949037f0969d0ca",
         build_file = Label("//third_party:com_github_pybind_pybind11/pybind11.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_pybind_pybind11/system.BUILD.bazel"),
         # documentation-only
