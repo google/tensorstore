@@ -18,7 +18,6 @@ def repo():
     repo_pypa_aws_sam_translator()
     repo_pypa_aws_xray_sdk()
     repo_pypa_babel()
-    repo_pypa_backports_asyncio_runner()
     repo_pypa_bashlex()
     repo_pypa_black()
     repo_pypa_blinker()
@@ -41,7 +40,6 @@ def repo():
     repo_pypa_dependency_groups()
     repo_pypa_docker()
     repo_pypa_docutils()
-    repo_pypa_exceptiongroup()
     repo_pypa_executing()
     repo_pypa_filelock()
     repo_pypa_flask()
@@ -55,7 +53,6 @@ def repo():
     repo_pypa_hyperframe()
     repo_pypa_idna()
     repo_pypa_imagesize()
-    repo_pypa_importlib_metadata()
     repo_pypa_iniconfig()
     repo_pypa_ipython()
     repo_pypa_ipython_pygments_lexers()
@@ -135,7 +132,6 @@ def repo():
     repo_pypa_sphinxcontrib_serializinghtml()
     repo_pypa_stack_data()
     repo_pypa_sympy()
-    repo_pypa_tomli()
     repo_pypa_traitlets()
     repo_pypa_typing_extensions()
     repo_pypa_typing_inspection()
@@ -146,7 +142,6 @@ def repo():
     repo_pypa_wrapt()
     repo_pypa_xmltodict()
     repo_pypa_yapf()
-    repo_pypa_zipp()
 
 def repo_pypa_absl_py():
     maybe(
@@ -233,8 +228,8 @@ def repo_pypa_attrs():
     )
 
 def repo_pypa_aws_sam_translator():
-    repo_pypa_jsonschema()
     repo_pypa_boto3()
+    repo_pypa_jsonschema()
     repo_pypa_pydantic()
     repo_pypa_typing_extensions()
     maybe(
@@ -247,16 +242,16 @@ def repo_pypa_aws_sam_translator():
             "--hash=sha256:a83f0c2e1712a7695446675faf93276518a690d75e190f861636d5326a3d2f30",
         ],
         deps = [
-            "@pypa_jsonschema//:jsonschema",
             "@pypa_boto3//:boto3",
+            "@pypa_jsonschema//:jsonschema",
             "@pypa_pydantic//:pydantic",
             "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
 def repo_pypa_aws_xray_sdk():
-    repo_pypa_wrapt()
     repo_pypa_botocore()
+    repo_pypa_wrapt()
     maybe(
         third_party_python_package,
         name = "pypa_aws_xray_sdk",
@@ -267,8 +262,8 @@ def repo_pypa_aws_xray_sdk():
             "--hash=sha256:cfbe6feea3d26613a2a869d14c9246a844285c97087ad8f296f901633554ad94",
         ],
         deps = [
-            "@pypa_wrapt//:wrapt",
             "@pypa_botocore//:botocore",
+            "@pypa_wrapt//:wrapt",
         ],
     )
 
@@ -281,18 +276,6 @@ def repo_pypa_babel():
             "babel==2.17.0",
             "--hash=sha256:0c54cffb19f690cdcc52a3b50bcbf71e07a808d1c80d549f2459b9d2cf0afb9d",
             "--hash=sha256:4d0b53093fdfb4b21c92b5213dba5a1b23885afa8383709427046b21c366e5f2",
-        ],
-    )
-
-def repo_pypa_backports_asyncio_runner():
-    maybe(
-        third_party_python_package,
-        name = "pypa_backports_asyncio_runner",
-        target = "backports_asyncio_runner",
-        requirement = [
-            "backports-asyncio-runner==1.2.0; python_full_version < '3.11'",
-            "--hash=sha256:0da0a936a8aeb554eccb426dc55af3ba63bcdc69fa1a600b5bb305413a4477b5",
-            "--hash=sha256:a5aa7b2b7d8f8bfcaa2b57313f70792df84e32a2a746f585213373f900b42162",
         ],
     )
 
@@ -309,14 +292,12 @@ def repo_pypa_bashlex():
     )
 
 def repo_pypa_black():
-    repo_pypa_typing_extensions()
-    repo_pypa_tomli()
     repo_pypa_pytokens()
-    repo_pypa_click()
     repo_pypa_platformdirs()
+    repo_pypa_packaging()
+    repo_pypa_click()
     repo_pypa_mypy_extensions()
     repo_pypa_pathspec()
-    repo_pypa_packaging()
     maybe(
         third_party_python_package,
         name = "pypa_black",
@@ -347,14 +328,12 @@ def repo_pypa_black():
             "--hash=sha256:f96b6726d690c96c60ba682955199f8c39abc1ae0c3a494a9c62c0184049a713",
         ],
         deps = [
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_tomli//:tomli",
             "@pypa_pytokens//:pytokens",
-            "@pypa_click//:click",
             "@pypa_platformdirs//:platformdirs",
+            "@pypa_packaging//:packaging",
+            "@pypa_click//:click",
             "@pypa_mypy_extensions//:mypy_extensions",
             "@pypa_pathspec//:pathspec",
-            "@pypa_packaging//:packaging",
         ],
     )
 
@@ -371,42 +350,42 @@ def repo_pypa_blinker():
     )
 
 def repo_pypa_boto3():
+    repo_pypa_botocore()
     repo_pypa_jmespath()
     repo_pypa_s3transfer()
-    repo_pypa_botocore()
     maybe(
         third_party_python_package,
         name = "pypa_boto3",
         target = "boto3",
         requirement = [
-            "boto3==1.40.56",
-            "--hash=sha256:8985a840d57671aa3c6124b0c178e79be97e3447de4b5819156071793f82ee5c",
-            "--hash=sha256:c1afdb04dd27418fc58400434ab8e05998bb452b69c428168d9ada344fe6b93e",
+            "boto3==1.40.58",
+            "--hash=sha256:5a99c0bd2e282af4afde1af10d8838b397120722b6b685f0c0fa6b8cac351304",
+            "--hash=sha256:951515c1ea0ae9e99e56c3b6f408a2f59e1b57fab4d96dab737e73956f729177",
         ],
         deps = [
+            "@pypa_botocore//:botocore",
             "@pypa_jmespath//:jmespath",
             "@pypa_s3transfer//:s3transfer",
-            "@pypa_botocore//:botocore",
         ],
     )
 
 def repo_pypa_botocore():
+    repo_pypa_python_dateutil()
     repo_pypa_jmespath()
     repo_pypa_urllib3()
-    repo_pypa_python_dateutil()
     maybe(
         third_party_python_package,
         name = "pypa_botocore",
         target = "botocore",
         requirement = [
-            "botocore==1.40.56",
-            "--hash=sha256:0962dfc9bfb0afa1855042a88a72cc722cc7f9c08f51d2c5c88181d525a59a27",
-            "--hash=sha256:b29df3418a299609632cab240ee79275463b176ebeb3adc841ba367a3fa0c4db",
+            "botocore==1.40.58",
+            "--hash=sha256:2571ca3aec8150e1b5a597794da6fd06284de72f29d3ea806804b798755f2e5a",
+            "--hash=sha256:cf2de7f5538f23c8067408a984ed32221e8b196ce98e66945a479d06b2663c33",
         ],
         deps = [
+            "@pypa_python_dateutil//:python_dateutil",
             "@pypa_jmespath//:jmespath",
             "@pypa_urllib3//:urllib3",
-            "@pypa_python_dateutil//:python_dateutil",
         ],
     )
 
@@ -424,10 +403,8 @@ def repo_pypa_bracex():
 
 def repo_pypa_build():
     repo_pypa_colorama()
-    repo_pypa_tomli()
-    repo_pypa_importlib_metadata()
-    repo_pypa_pyproject_hooks()
     repo_pypa_packaging()
+    repo_pypa_pyproject_hooks()
     maybe(
         third_party_python_package,
         name = "pypa_build",
@@ -439,10 +416,8 @@ def repo_pypa_build():
         ],
         deps = [
             "@pypa_colorama//:colorama",
-            "@pypa_tomli//:tomli",
-            "@pypa_importlib_metadata//:importlib_metadata",
-            "@pypa_pyproject_hooks//:pyproject_hooks",
             "@pypa_packaging//:packaging",
+            "@pypa_pyproject_hooks//:pyproject_hooks",
         ],
     )
 
@@ -557,13 +532,13 @@ def repo_pypa_cffi():
     )
 
 def repo_pypa_cfn_lint():
-    repo_pypa_pyyaml()
-    repo_pypa_typing_extensions()
-    repo_pypa_networkx()
-    repo_pypa_aws_sam_translator()
-    repo_pypa_sympy()
-    repo_pypa_regex()
     repo_pypa_jsonpatch()
+    repo_pypa_regex()
+    repo_pypa_typing_extensions()
+    repo_pypa_pyyaml()
+    repo_pypa_networkx()
+    repo_pypa_sympy()
+    repo_pypa_aws_sam_translator()
     maybe(
         third_party_python_package,
         name = "pypa_cfn_lint",
@@ -574,13 +549,13 @@ def repo_pypa_cfn_lint():
             "--hash=sha256:fa44a3101bd8d7f644bc146b8a9e63d0fa2b64cd61c8a767e65c46920646277c",
         ],
         deps = [
-            "@pypa_pyyaml//:pyyaml",
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_networkx//:networkx",
-            "@pypa_aws_sam_translator//:aws_sam_translator",
-            "@pypa_sympy//:sympy",
-            "@pypa_regex//:regex",
             "@pypa_jsonpatch//:jsonpatch",
+            "@pypa_regex//:regex",
+            "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_pyyaml//:pyyaml",
+            "@pypa_networkx//:networkx",
+            "@pypa_sympy//:sympy",
+            "@pypa_aws_sam_translator//:aws_sam_translator",
         ],
     )
 
@@ -708,48 +683,40 @@ def repo_pypa_charset_normalizer():
     )
 
 def repo_pypa_cibuildwheel():
-    repo_pypa_humanize()
-    repo_pypa_bashlex()
-    repo_pypa_wheel()
+    repo_pypa_build()
     repo_pypa_patchelf()
-    repo_pypa_typing_extensions()
-    repo_pypa_tomli()
+    repo_pypa_platformdirs()
+    repo_pypa_humanize()
     repo_pypa_pyelftools()
     repo_pypa_bracex()
-    repo_pypa_platformdirs()
-    repo_pypa_build()
-    repo_pypa_dependency_groups()
+    repo_pypa_wheel()
     repo_pypa_filelock()
+    repo_pypa_bashlex()
     repo_pypa_packaging()
     repo_pypa_certifi()
+    repo_pypa_dependency_groups()
     maybe(
         third_party_python_package,
         name = "pypa_cibuildwheel",
         target = "cibuildwheel",
         requirement = [
-            "cibuildwheel==2.23.3; python_full_version < '3.11'",
-            "--hash=sha256:0fa40073ae23a56d5f995d8405e82c1206049999bb89b92aa0835ee62ab8a891",
-            "--hash=sha256:d85dd15b7eb81711900d8129e67efb32b12f99cc00fc271ab060fa6270c38397",
-            "",
-            "cibuildwheel==3.2.1; python_full_version >= '3.11'",
+            "cibuildwheel==3.2.1",
             "--hash=sha256:48fc815b4768c394c2041de21a0664b84a8090788887c729bcc858a6adc10455",
             "--hash=sha256:98beb9700e2447172b0855fc0e5cf6b5145ac058c35e8e1256d2db86daf02722",
         ],
         deps = [
-            "@pypa_humanize//:humanize",
-            "@pypa_bashlex//:bashlex",
-            "@pypa_wheel//:wheel",
+            "@pypa_build//:build",
             "@pypa_patchelf//:patchelf",
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_tomli//:tomli",
+            "@pypa_platformdirs//:platformdirs",
+            "@pypa_humanize//:humanize",
             "@pypa_pyelftools//:pyelftools",
             "@pypa_bracex//:bracex",
-            "@pypa_platformdirs//:platformdirs",
-            "@pypa_build//:build",
-            "@pypa_dependency_groups//:dependency_groups",
+            "@pypa_wheel//:wheel",
             "@pypa_filelock//:filelock",
+            "@pypa_bashlex//:bashlex",
             "@pypa_packaging//:packaging",
             "@pypa_certifi//:certifi",
+            "@pypa_dependency_groups//:dependency_groups",
         ],
     )
 
@@ -919,7 +886,6 @@ def repo_pypa_crc32c():
     )
 
 def repo_pypa_cryptography():
-    repo_pypa_typing_extensions()
     repo_pypa_cffi()
     maybe(
         third_party_python_package,
@@ -983,7 +949,6 @@ def repo_pypa_cryptography():
             "--hash=sha256:f260d0d41e9b4da1ed1e0f1ce571f97fe370b152ab18778e9e8f67d6af432018",
         ],
         deps = [
-            "@pypa_typing_extensions//:typing_extensions",
             "@pypa_cffi//:cffi",
         ],
     )
@@ -1001,7 +966,6 @@ def repo_pypa_decorator():
     )
 
 def repo_pypa_dependency_groups():
-    repo_pypa_tomli()
     repo_pypa_packaging()
     maybe(
         third_party_python_package,
@@ -1013,15 +977,14 @@ def repo_pypa_dependency_groups():
             "--hash=sha256:78078301090517fd938c19f64a53ce98c32834dfe0dee6b88004a569a6adfefd",
         ],
         deps = [
-            "@pypa_tomli//:tomli",
             "@pypa_packaging//:packaging",
         ],
     )
 
 def repo_pypa_docker():
     repo_pypa_requests()
-    repo_pypa_urllib3()
     repo_pypa_pywin32()
+    repo_pypa_urllib3()
     maybe(
         third_party_python_package,
         name = "pypa_docker",
@@ -1033,8 +996,8 @@ def repo_pypa_docker():
         ],
         deps = [
             "@pypa_requests//:requests",
-            "@pypa_urllib3//:urllib3",
             "@pypa_pywin32//:pywin32",
+            "@pypa_urllib3//:urllib3",
         ],
     )
 
@@ -1047,22 +1010,6 @@ def repo_pypa_docutils():
             "docutils==0.21.2",
             "--hash=sha256:3a6b18732edf182daa3cd12775bbb338cf5691468f91eeeb109deff6ebfa986f",
             "--hash=sha256:dafca5b9e384f0e419294eb4d2ff9fa826435bf15f15b7bd45723e8ad76811b2",
-        ],
-    )
-
-def repo_pypa_exceptiongroup():
-    repo_pypa_typing_extensions()
-    maybe(
-        third_party_python_package,
-        name = "pypa_exceptiongroup",
-        target = "exceptiongroup",
-        requirement = [
-            "exceptiongroup==1.3.0; python_full_version < '3.11'",
-            "--hash=sha256:4d111e6e0c13d0644cad6ddaa7ed0261a0b36971f6d23e7ec9b4b9097da78a10",
-            "--hash=sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88",
-        ],
-        deps = [
-            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -1091,12 +1038,12 @@ def repo_pypa_filelock():
     )
 
 def repo_pypa_flask():
-    repo_pypa_markupsafe()
-    repo_pypa_itsdangerous()
-    repo_pypa_jinja2()
-    repo_pypa_click()
     repo_pypa_werkzeug()
     repo_pypa_blinker()
+    repo_pypa_markupsafe()
+    repo_pypa_itsdangerous()
+    repo_pypa_click()
+    repo_pypa_jinja2()
     maybe(
         third_party_python_package,
         name = "pypa_flask",
@@ -1107,18 +1054,18 @@ def repo_pypa_flask():
             "--hash=sha256:ca1d8112ec8a6158cc29ea4858963350011b5c846a414cdb7a954aa9e967d03c",
         ],
         deps = [
-            "@pypa_markupsafe//:markupsafe",
-            "@pypa_itsdangerous//:itsdangerous",
-            "@pypa_jinja2//:jinja2",
-            "@pypa_click//:click",
             "@pypa_werkzeug//:werkzeug",
             "@pypa_blinker//:blinker",
+            "@pypa_markupsafe//:markupsafe",
+            "@pypa_itsdangerous//:itsdangerous",
+            "@pypa_click//:click",
+            "@pypa_jinja2//:jinja2",
         ],
     )
 
 def repo_pypa_flask_cors():
-    repo_pypa_flask()
     repo_pypa_werkzeug()
+    repo_pypa_flask()
     maybe(
         third_party_python_package,
         name = "pypa_flask_cors",
@@ -1129,8 +1076,8 @@ def repo_pypa_flask_cors():
             "--hash=sha256:d81bcb31f07b0985be7f48406247e9243aced229b7747219160a0559edd678db",
         ],
         deps = [
-            "@pypa_flask//:flask",
             "@pypa_werkzeug//:werkzeug",
+            "@pypa_flask//:flask",
         ],
     )
 
@@ -1273,7 +1220,7 @@ def repo_pypa_humanize():
         name = "pypa_humanize",
         target = "humanize",
         requirement = [
-            "humanize==4.14.0; python_full_version >= '3.11'",
+            "humanize==4.14.0",
             "--hash=sha256:2fa092705ea640d605c435b1ca82b2866a1b601cdf96f076d70b79a855eba90d",
             "--hash=sha256:d57701248d040ad456092820e6fde56c930f17749956ac47f4f655c0c547bfff",
         ],
@@ -1315,22 +1262,6 @@ def repo_pypa_imagesize():
         ],
     )
 
-def repo_pypa_importlib_metadata():
-    repo_pypa_zipp()
-    maybe(
-        third_party_python_package,
-        name = "pypa_importlib_metadata",
-        target = "importlib_metadata",
-        requirement = [
-            "importlib-metadata==8.7.0; python_full_version < '3.10.2'",
-            "--hash=sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000",
-            "--hash=sha256:e5dd1551894c77868a30651cef00984d50e1002d06942a7101d34870c5f02afd",
-        ],
-        deps = [
-            "@pypa_zipp//:zipp",
-        ],
-    )
-
 def repo_pypa_iniconfig():
     maybe(
         third_party_python_package,
@@ -1344,44 +1275,38 @@ def repo_pypa_iniconfig():
     )
 
 def repo_pypa_ipython():
-    repo_pypa_prompt_toolkit()
+    repo_pypa_stack_data()
     repo_pypa_decorator()
+    repo_pypa_traitlets()
+    repo_pypa_jedi()
+    repo_pypa_typing_extensions()
     repo_pypa_matplotlib_inline()
     repo_pypa_colorama()
-    repo_pypa_typing_extensions()
-    repo_pypa_stack_data()
-    repo_pypa_traitlets()
     repo_pypa_pexpect()
-    repo_pypa_pygments()
-    repo_pypa_exceptiongroup()
+    repo_pypa_prompt_toolkit()
     repo_pypa_ipython_pygments_lexers()
-    repo_pypa_jedi()
+    repo_pypa_pygments()
     maybe(
         third_party_python_package,
         name = "pypa_ipython",
         target = "ipython",
         requirement = [
-            "ipython==8.37.0; python_full_version < '3.11'",
-            "--hash=sha256:ca815841e1a41a1e6b73a0b08f3038af9b2252564d01fc405356d34033012216",
-            "--hash=sha256:ed87326596b878932dbcb171e3e698845434d8c61b8d8cd474bf663041a9dcf2",
-            "",
-            "ipython==9.6.0; python_full_version >= '3.11'",
+            "ipython==9.6.0",
             "--hash=sha256:5603d6d5d356378be5043e69441a072b50a5b33b4503428c77b04cb8ce7bc731",
             "--hash=sha256:5f77efafc886d2f023442479b8149e7d86547ad0a979e9da9f045d252f648196",
         ],
         deps = [
-            "@pypa_prompt_toolkit//:prompt_toolkit",
+            "@pypa_stack_data//:stack_data",
             "@pypa_decorator//:decorator",
+            "@pypa_traitlets//:traitlets",
+            "@pypa_jedi//:jedi",
+            "@pypa_typing_extensions//:typing_extensions",
             "@pypa_matplotlib_inline//:matplotlib_inline",
             "@pypa_colorama//:colorama",
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_stack_data//:stack_data",
-            "@pypa_traitlets//:traitlets",
             "@pypa_pexpect//:pexpect",
-            "@pypa_pygments//:pygments",
-            "@pypa_exceptiongroup//:exceptiongroup",
+            "@pypa_prompt_toolkit//:prompt_toolkit",
             "@pypa_ipython_pygments_lexers//:ipython_pygments_lexers",
-            "@pypa_jedi//:jedi",
+            "@pypa_pygments//:pygments",
         ],
     )
 
@@ -1392,7 +1317,7 @@ def repo_pypa_ipython_pygments_lexers():
         name = "pypa_ipython_pygments_lexers",
         target = "ipython_pygments_lexers",
         requirement = [
-            "ipython-pygments-lexers==1.1.1; python_full_version >= '3.11'",
+            "ipython-pygments-lexers==1.1.1",
             "--hash=sha256:09c0138009e56b6854f9535736f4171d855c8c08a563a0dcd8022f78355c7e81",
             "--hash=sha256:a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c",
         ],
@@ -1519,10 +1444,10 @@ def repo_pypa_jsonpointer():
     )
 
 def repo_pypa_jsonschema():
+    repo_pypa_jsonschema_specifications()
+    repo_pypa_rpds_py()
     repo_pypa_referencing()
     repo_pypa_attrs()
-    repo_pypa_rpds_py()
-    repo_pypa_jsonschema_specifications()
     maybe(
         third_party_python_package,
         name = "pypa_jsonschema",
@@ -1533,17 +1458,17 @@ def repo_pypa_jsonschema():
             "--hash=sha256:e4a9655ce0da0c0b67a085847e00a3a51449e1157f4f75e9fb5aa545e122eb85",
         ],
         deps = [
+            "@pypa_jsonschema_specifications//:jsonschema_specifications",
+            "@pypa_rpds_py//:rpds_py",
             "@pypa_referencing//:referencing",
             "@pypa_attrs//:attrs",
-            "@pypa_rpds_py//:rpds_py",
-            "@pypa_jsonschema_specifications//:jsonschema_specifications",
         ],
     )
 
 def repo_pypa_jsonschema_spec():
-    repo_pypa_jsonschema()
-    repo_pypa_pyyaml()
     repo_pypa_pathable()
+    repo_pypa_pyyaml()
+    repo_pypa_jsonschema()
     repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
@@ -1555,9 +1480,9 @@ def repo_pypa_jsonschema_spec():
             "--hash=sha256:b3cde007ad65c2e631e2f8653cf187124a2c714d02d9fafbab68ad64bf5745d6",
         ],
         deps = [
-            "@pypa_jsonschema//:jsonschema",
-            "@pypa_pyyaml//:pyyaml",
             "@pypa_pathable//:pathable",
+            "@pypa_pyyaml//:pyyaml",
+            "@pypa_jsonschema//:jsonschema",
             "@pypa_typing_extensions//:typing_extensions",
         ],
     )
@@ -1758,9 +1683,9 @@ def repo_pypa_matplotlib_inline():
         name = "pypa_matplotlib_inline",
         target = "matplotlib_inline",
         requirement = [
-            "matplotlib-inline==0.1.7",
-            "--hash=sha256:8423b23ec666be3d16e16b60bdd8ac4e86e840ebd1dd11a30b9f117f2fa0ab90",
-            "--hash=sha256:df192d39a4ff8f21b1895d72e6a13f5fcc5099f00fa84384e0ea28c2cc0653ca",
+            "matplotlib-inline==0.2.1",
+            "--hash=sha256:d56ce5156ba6085e00a9d54fead6ed29a9c47e215cd1bba2e976ef39f5710a76",
+            "--hash=sha256:e1ee949c340d771fc39e241ea75683deb94762c8fa5f2927ec57c83c4dffa9fe",
         ],
         deps = [
             "@pypa_traitlets//:traitlets",
@@ -1817,29 +1742,29 @@ def repo_pypa_ml_dtypes():
     )
 
 def repo_pypa_moto():
-    repo_pypa_py_partiql_parser()
-    repo_pypa_pyyaml()
-    repo_pypa_requests()
-    repo_pypa_setuptools()
-    repo_pypa_botocore()
-    repo_pypa_joserfc()
-    repo_pypa_flask()
-    repo_pypa_graphql_core()
-    repo_pypa_aws_xray_sdk()
-    repo_pypa_werkzeug()
     repo_pypa_pyparsing()
-    repo_pypa_docker()
-    repo_pypa_boto3()
-    repo_pypa_responses()
     repo_pypa_jsonpath_ng()
     repo_pypa_python_dateutil()
-    repo_pypa_cryptography()
-    repo_pypa_xmltodict()
-    repo_pypa_antlr4_python3_runtime()
-    repo_pypa_flask_cors()
-    repo_pypa_jinja2()
+    repo_pypa_responses()
     repo_pypa_cfn_lint()
+    repo_pypa_aws_xray_sdk()
+    repo_pypa_flask_cors()
+    repo_pypa_docker()
+    repo_pypa_xmltodict()
+    repo_pypa_joserfc()
+    repo_pypa_jinja2()
+    repo_pypa_werkzeug()
+    repo_pypa_antlr4_python3_runtime()
+    repo_pypa_py_partiql_parser()
+    repo_pypa_pyyaml()
     repo_pypa_openapi_spec_validator()
+    repo_pypa_requests()
+    repo_pypa_boto3()
+    repo_pypa_botocore()
+    repo_pypa_setuptools()
+    repo_pypa_cryptography()
+    repo_pypa_graphql_core()
+    repo_pypa_flask()
     maybe(
         third_party_python_package,
         name = "pypa_moto",
@@ -1850,29 +1775,29 @@ def repo_pypa_moto():
             "--hash=sha256:2ad9cc9710a3460505511543dba6761c8bd2006a49954ad3988bbf20ce9e6413",
         ],
         deps = [
-            "@pypa_py_partiql_parser//:py_partiql_parser",
-            "@pypa_pyyaml//:pyyaml",
-            "@pypa_requests//:requests",
-            "@pypa_setuptools//:setuptools",
-            "@pypa_botocore//:botocore",
-            "@pypa_joserfc//:joserfc",
-            "@pypa_flask//:flask",
-            "@pypa_graphql_core//:graphql_core",
-            "@pypa_aws_xray_sdk//:aws_xray_sdk",
-            "@pypa_werkzeug//:werkzeug",
             "@pypa_pyparsing//:pyparsing",
-            "@pypa_docker//:docker",
-            "@pypa_boto3//:boto3",
-            "@pypa_responses//:responses",
             "@pypa_jsonpath_ng//:jsonpath_ng",
             "@pypa_python_dateutil//:python_dateutil",
-            "@pypa_cryptography//:cryptography",
-            "@pypa_xmltodict//:xmltodict",
-            "@pypa_antlr4_python3_runtime//:antlr4_python3_runtime",
-            "@pypa_flask_cors//:flask_cors",
-            "@pypa_jinja2//:jinja2",
+            "@pypa_responses//:responses",
             "@pypa_cfn_lint//:cfn_lint",
+            "@pypa_aws_xray_sdk//:aws_xray_sdk",
+            "@pypa_flask_cors//:flask_cors",
+            "@pypa_docker//:docker",
+            "@pypa_xmltodict//:xmltodict",
+            "@pypa_joserfc//:joserfc",
+            "@pypa_jinja2//:jinja2",
+            "@pypa_werkzeug//:werkzeug",
+            "@pypa_antlr4_python3_runtime//:antlr4_python3_runtime",
+            "@pypa_py_partiql_parser//:py_partiql_parser",
+            "@pypa_pyyaml//:pyyaml",
             "@pypa_openapi_spec_validator//:openapi_spec_validator",
+            "@pypa_requests//:requests",
+            "@pypa_boto3//:boto3",
+            "@pypa_botocore//:botocore",
+            "@pypa_setuptools//:setuptools",
+            "@pypa_cryptography//:cryptography",
+            "@pypa_graphql_core//:graphql_core",
+            "@pypa_flask//:flask",
         ],
     )
 
@@ -1906,11 +1831,7 @@ def repo_pypa_networkx():
         name = "pypa_networkx",
         target = "networkx",
         requirement = [
-            "networkx==3.4.2; python_full_version < '3.11'",
-            "--hash=sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1",
-            "--hash=sha256:df5d4365b724cf81b8c6a7312509d0c22386097011ad1abe274afd5e9d3bbc5f",
-            "",
-            "networkx==3.5; python_full_version >= '3.11'",
+            "networkx==3.5",
             "--hash=sha256:0030d386a9a06dee3565298b4a734b68589749a544acbb6c412dc9e2489ec6ec",
             "--hash=sha256:d4c6f9cf81f52d69230866796b82afbccdec3db7ae4fbd1b65ea750feed50037",
         ],
@@ -1922,64 +1843,7 @@ def repo_pypa_numpy():
         name = "pypa_numpy",
         target = "numpy",
         requirement = [
-            "numpy==2.2.6; python_full_version < '3.11'",
-            "--hash=sha256:038613e9fb8c72b0a41f025a7e4c3f0b7a1b5d768ece4796b674c8f3fe13efff",
-            "--hash=sha256:0678000bb9ac1475cd454c6b8c799206af8107e310843532b04d49649c717a47",
-            "--hash=sha256:0811bb762109d9708cca4d0b13c4f67146e3c3b7cf8d34018c722adb2d957c84",
-            "--hash=sha256:0b605b275d7bd0c640cad4e5d30fa701a8d59302e127e5f79138ad62762c3e3d",
-            "--hash=sha256:0bca768cd85ae743b2affdc762d617eddf3bcf8724435498a1e80132d04879e6",
-            "--hash=sha256:1bc23a79bfabc5d056d106f9befb8d50c31ced2fbc70eedb8155aec74a45798f",
-            "--hash=sha256:287cc3162b6f01463ccd86be154f284d0893d2b3ed7292439ea97eafa8170e0b",
-            "--hash=sha256:37c0ca431f82cd5fa716eca9506aefcabc247fb27ba69c5062a6d3ade8cf8f49",
-            "--hash=sha256:37e990a01ae6ec7fe7fa1c26c55ecb672dd98b19c3d0e1d1f326fa13cb38d163",
-            "--hash=sha256:389d771b1623ec92636b0786bc4ae56abafad4a4c513d36a55dce14bd9ce8571",
-            "--hash=sha256:3d70692235e759f260c3d837193090014aebdf026dfd167834bcba43e30c2a42",
-            "--hash=sha256:41c5a21f4a04fa86436124d388f6ed60a9343a6f767fced1a8a71c3fbca038ff",
-            "--hash=sha256:481b49095335f8eed42e39e8041327c05b0f6f4780488f61286ed3c01368d491",
-            "--hash=sha256:4eeaae00d789f66c7a25ac5f34b71a7035bb474e679f410e5e1a94deb24cf2d4",
-            "--hash=sha256:55a4d33fa519660d69614a9fad433be87e5252f4b03850642f88993f7b2ca566",
-            "--hash=sha256:5a6429d4be8ca66d889b7cf70f536a397dc45ba6faeb5f8c5427935d9592e9cf",
-            "--hash=sha256:5bd4fc3ac8926b3819797a7c0e2631eb889b4118a9898c84f585a54d475b7e40",
-            "--hash=sha256:5beb72339d9d4fa36522fc63802f469b13cdbe4fdab4a288f0c441b74272ebfd",
-            "--hash=sha256:6031dd6dfecc0cf9f668681a37648373bddd6421fff6c66ec1624eed0180ee06",
-            "--hash=sha256:71594f7c51a18e728451bb50cc60a3ce4e6538822731b2933209a1f3614e9282",
-            "--hash=sha256:74d4531beb257d2c3f4b261bfb0fc09e0f9ebb8842d82a7b4209415896adc680",
-            "--hash=sha256:7befc596a7dc9da8a337f79802ee8adb30a552a94f792b9c9d18c840055907db",
-            "--hash=sha256:894b3a42502226a1cac872f840030665f33326fc3dac8e57c607905773cdcde3",
-            "--hash=sha256:8e41fd67c52b86603a91c1a505ebaef50b3314de0213461c7a6e99c9a3beff90",
-            "--hash=sha256:8e9ace4a37db23421249ed236fdcdd457d671e25146786dfc96835cd951aa7c1",
-            "--hash=sha256:8fc377d995680230e83241d8a96def29f204b5782f371c532579b4f20607a289",
-            "--hash=sha256:9551a499bf125c1d4f9e250377c1ee2eddd02e01eac6644c080162c0c51778ab",
-            "--hash=sha256:b0544343a702fa80c95ad5d3d608ea3599dd54d4632df855e4c8d24eb6ecfa1c",
-            "--hash=sha256:b093dd74e50a8cba3e873868d9e93a85b78e0daf2e98c6797566ad8044e8363d",
-            "--hash=sha256:b412caa66f72040e6d268491a59f2c43bf03eb6c96dd8f0307829feb7fa2b6fb",
-            "--hash=sha256:b4f13750ce79751586ae2eb824ba7e1e8dba64784086c98cdbbcc6a42112ce0d",
-            "--hash=sha256:b64d8d4d17135e00c8e346e0a738deb17e754230d7e0810ac5012750bbd85a5a",
-            "--hash=sha256:ba10f8411898fc418a521833e014a77d3ca01c15b0c6cdcce6a0d2897e6dbbdf",
-            "--hash=sha256:bd48227a919f1bafbdda0583705e547892342c26fb127219d60a5c36882609d1",
-            "--hash=sha256:c1f9540be57940698ed329904db803cf7a402f3fc200bfe599334c9bd84a40b2",
-            "--hash=sha256:c820a93b0255bc360f53eca31a0e676fd1101f673dda8da93454a12e23fc5f7a",
-            "--hash=sha256:ce47521a4754c8f4593837384bd3424880629f718d87c5d44f8ed763edd63543",
-            "--hash=sha256:d042d24c90c41b54fd506da306759e06e568864df8ec17ccc17e9e884634fd00",
-            "--hash=sha256:de749064336d37e340f640b05f24e9e3dd678c57318c7289d222a8a2f543e90c",
-            "--hash=sha256:e1dda9c7e08dc141e0247a5b8f49cf05984955246a327d4c48bda16821947b2f",
-            "--hash=sha256:e29554e2bef54a90aa5cc07da6ce955accb83f21ab5de01a62c8478897b264fd",
-            "--hash=sha256:e3143e4451880bed956e706a3220b4e5cf6172ef05fcc397f6f36a550b1dd868",
-            "--hash=sha256:e8213002e427c69c45a52bbd94163084025f533a55a59d6f9c5b820774ef3303",
-            "--hash=sha256:efd28d4e9cd7d7a8d39074a4d44c63eda73401580c5c76acda2ce969e0a38e83",
-            "--hash=sha256:f0fd6321b839904e15c46e0d257fdd101dd7f530fe03fd6359c1ea63738703f3",
-            "--hash=sha256:f1372f041402e37e5e633e586f62aa53de2eac8d98cbfb822806ce4bbefcb74d",
-            "--hash=sha256:f2618db89be1b4e05f7a1a847a9c1c0abd63e63a1607d892dd54668dd92faf87",
-            "--hash=sha256:f447e6acb680fd307f40d3da4852208af94afdfab89cf850986c3ca00562f4fa",
-            "--hash=sha256:f92729c95468a2f4f15e9bb94c432a9229d0d50de67304399627a943201baa2f",
-            "--hash=sha256:f9f1adb22318e121c5c69a09142811a201ef17ab257a1e66ca3025065b7f53ae",
-            "--hash=sha256:fc0c5673685c508a142ca65209b4e79ed6740a4ed6b2267dbba90f34b0b3cfda",
-            "--hash=sha256:fc7b73d02efb0e18c000e9ad8b83480dfcd5dfd11065997ed4c6747470ae8915",
-            "--hash=sha256:fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249",
-            "--hash=sha256:fe27749d33bb772c80dcd84ae7e8df2adc920ae8297400dabec45f0dedb3f6de",
-            "--hash=sha256:fee4236c876c4e8369388054d02d0e9bb84821feb1a64dd59e137e6511a551f8",
-            "",
-            "numpy==2.3.4; python_full_version >= '3.11'",
+            "numpy==2.3.4",
             "--hash=sha256:035796aaaddfe2f9664b9a9372f089cfc88bd795a67bd1bfe15e6e770934cf64",
             "--hash=sha256:043885b4f7e6e232d7df4f51ffdef8c36320ee9d5f227b380ea636722c7ed12e",
             "--hash=sha256:04a69abe45b49c5955923cf2c407843d1c85013b424ae8a560bba16c92fe44a0",
@@ -2058,8 +1922,8 @@ def repo_pypa_numpy():
     )
 
 def repo_pypa_openapi_schema_validator():
-    repo_pypa_jsonschema()
     repo_pypa_rfc3339_validator()
+    repo_pypa_jsonschema()
     maybe(
         third_party_python_package,
         name = "pypa_openapi_schema_validator",
@@ -2070,16 +1934,16 @@ def repo_pypa_openapi_schema_validator():
             "--hash=sha256:f1eff2a7936546a3ce62b88a17d09de93c9bd229cbc43cb696c988a61a382548",
         ],
         deps = [
-            "@pypa_jsonschema//:jsonschema",
             "@pypa_rfc3339_validator//:rfc3339_validator",
+            "@pypa_jsonschema//:jsonschema",
         ],
     )
 
 def repo_pypa_openapi_spec_validator():
-    repo_pypa_jsonschema()
-    repo_pypa_jsonschema_spec()
     repo_pypa_lazy_object_proxy()
+    repo_pypa_jsonschema_spec()
     repo_pypa_openapi_schema_validator()
+    repo_pypa_jsonschema()
     maybe(
         third_party_python_package,
         name = "pypa_openapi_spec_validator",
@@ -2090,10 +1954,10 @@ def repo_pypa_openapi_spec_validator():
             "--hash=sha256:93ba247f585e1447214b4207728a7cce3726d148238217be69e6b8725c118fbe",
         ],
         deps = [
-            "@pypa_jsonschema//:jsonschema",
-            "@pypa_jsonschema_spec//:jsonschema_spec",
             "@pypa_lazy_object_proxy//:lazy_object_proxy",
+            "@pypa_jsonschema_spec//:jsonschema_spec",
             "@pypa_openapi_schema_validator//:openapi_schema_validator",
+            "@pypa_jsonschema//:jsonschema",
         ],
     )
 
@@ -2127,7 +1991,7 @@ def repo_pypa_patchelf():
         name = "pypa_patchelf",
         target = "patchelf",
         requirement = [
-            "patchelf==0.17.2.4; (python_full_version >= '3.11' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version >= '3.11' and platform_machine == 'arm64' and sys_platform == 'darwin') or (python_full_version >= '3.11' and platform_machine == 'x86_64' and sys_platform == 'darwin') or (python_full_version >= '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.11' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version >= '3.11' and platform_machine == 'x86_64' and sys_platform == 'linux')",
+            "patchelf==0.17.2.4; (platform_machine == 'aarch64' and sys_platform == 'darwin') or (platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')",
             "--hash=sha256:09fd848d625a165fc7b7e07745508c24077129b019c4415a882938781d43adf8",
             "--hash=sha256:2931a1b5b85f3549661898af7bf746afbda7903c7c9a967cfc998a3563f84fad",
             "--hash=sha256:343bb1b94e959f9070ca9607453b04390e36bbaa33c88640b989cefad0aa049e",
@@ -2313,9 +2177,9 @@ def repo_pypa_pycparser():
     )
 
 def repo_pypa_pydantic():
+    repo_pypa_annotated_types()
     repo_pypa_pydantic_core()
     repo_pypa_typing_inspection()
-    repo_pypa_annotated_types()
     repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
@@ -2327,9 +2191,9 @@ def repo_pypa_pydantic():
             "--hash=sha256:6986454a854bc3bc6e5443e1369e06a3a456af9d339eda45510f517d9ea5c6bf",
         ],
         deps = [
+            "@pypa_annotated_types//:annotated_types",
             "@pypa_pydantic_core//:pydantic_core",
             "@pypa_typing_inspection//:typing_inspection",
-            "@pypa_annotated_types//:annotated_types",
             "@pypa_typing_extensions//:typing_extensions",
         ],
     )
@@ -2466,8 +2330,8 @@ def repo_pypa_pydantic_core():
     )
 
 def repo_pypa_pydantic_extra_types():
-    repo_pypa_typing_extensions()
     repo_pypa_pydantic()
+    repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
         name = "pypa_pydantic_extra_types",
@@ -2478,8 +2342,8 @@ def repo_pypa_pydantic_extra_types():
             "--hash=sha256:c63d70bf684366e6bbe1f4ee3957952ebe6973d41e7802aea0b770d06b116aeb",
         ],
         deps = [
-            "@pypa_typing_extensions//:typing_extensions",
             "@pypa_pydantic//:pydantic",
+            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -2489,7 +2353,7 @@ def repo_pypa_pyelftools():
         name = "pypa_pyelftools",
         target = "pyelftools",
         requirement = [
-            "pyelftools==0.32; python_full_version >= '3.11'",
+            "pyelftools==0.32",
             "--hash=sha256:013df952a006db5e138b1edf6d8a68ecc50630adbd0d83a2d41e7f846163d738",
             "--hash=sha256:6de90ee7b8263e740c8715a925382d4099b354f29ac48ea40d840cf7aa14ace5",
         ],
@@ -2532,13 +2396,11 @@ def repo_pypa_pyproject_hooks():
     )
 
 def repo_pypa_pytest():
-    repo_pypa_pluggy()
-    repo_pypa_colorama()
-    repo_pypa_tomli()
-    repo_pypa_pygments()
-    repo_pypa_exceptiongroup()
     repo_pypa_iniconfig()
+    repo_pypa_colorama()
     repo_pypa_packaging()
+    repo_pypa_pluggy()
+    repo_pypa_pygments()
     maybe(
         third_party_python_package,
         name = "pypa_pytest",
@@ -2549,19 +2411,16 @@ def repo_pypa_pytest():
             "--hash=sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79",
         ],
         deps = [
-            "@pypa_pluggy//:pluggy",
-            "@pypa_colorama//:colorama",
-            "@pypa_tomli//:tomli",
-            "@pypa_pygments//:pygments",
-            "@pypa_exceptiongroup//:exceptiongroup",
             "@pypa_iniconfig//:iniconfig",
+            "@pypa_colorama//:colorama",
             "@pypa_packaging//:packaging",
+            "@pypa_pluggy//:pluggy",
+            "@pypa_pygments//:pygments",
         ],
     )
 
 def repo_pypa_pytest_asyncio():
     repo_pypa_pytest()
-    repo_pypa_backports_asyncio_runner()
     repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
@@ -2574,7 +2433,6 @@ def repo_pypa_pytest_asyncio():
         ],
         deps = [
             "@pypa_pytest//:pytest",
-            "@pypa_backports_asyncio_runner//:backports_asyncio_runner",
             "@pypa_typing_extensions//:typing_extensions",
         ],
     )
@@ -2721,9 +2579,9 @@ def repo_pypa_pyyaml():
     )
 
 def repo_pypa_referencing():
-    repo_pypa_typing_extensions()
-    repo_pypa_attrs()
     repo_pypa_rpds_py()
+    repo_pypa_attrs()
+    repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
         name = "pypa_referencing",
@@ -2734,9 +2592,9 @@ def repo_pypa_referencing():
             "--hash=sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8",
         ],
         deps = [
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_attrs//:attrs",
             "@pypa_rpds_py//:rpds_py",
+            "@pypa_attrs//:attrs",
+            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -2866,10 +2724,10 @@ def repo_pypa_regex():
     )
 
 def repo_pypa_requests():
-    repo_pypa_charset_normalizer()
-    repo_pypa_idna()
-    repo_pypa_urllib3()
     repo_pypa_certifi()
+    repo_pypa_charset_normalizer()
+    repo_pypa_urllib3()
+    repo_pypa_idna()
     maybe(
         third_party_python_package,
         name = "pypa_requests",
@@ -2880,10 +2738,10 @@ def repo_pypa_requests():
             "--hash=sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf",
         ],
         deps = [
-            "@pypa_charset_normalizer//:charset_normalizer",
-            "@pypa_idna//:idna",
-            "@pypa_urllib3//:urllib3",
             "@pypa_certifi//:certifi",
+            "@pypa_charset_normalizer//:charset_normalizer",
+            "@pypa_urllib3//:urllib3",
+            "@pypa_idna//:idna",
         ],
     )
 
@@ -2905,8 +2763,8 @@ def repo_pypa_requests_toolbelt():
 
 def repo_pypa_responses():
     repo_pypa_requests()
-    repo_pypa_urllib3()
     repo_pypa_pyyaml()
+    repo_pypa_urllib3()
     maybe(
         third_party_python_package,
         name = "pypa_responses",
@@ -2918,8 +2776,8 @@ def repo_pypa_responses():
         ],
         deps = [
             "@pypa_requests//:requests",
-            "@pypa_urllib3//:urllib3",
             "@pypa_pyyaml//:pyyaml",
+            "@pypa_urllib3//:urllib3",
         ],
     )
 
@@ -2945,7 +2803,7 @@ def repo_pypa_roman_numerals_py():
         name = "pypa_roman_numerals_py",
         target = "roman_numerals_py",
         requirement = [
-            "roman-numerals-py==3.1.0; python_full_version >= '3.11'",
+            "roman-numerals-py==3.1.0",
             "--hash=sha256:9da2ad2fb670bcf24e81070ceb3be72f6c11c440d73bd579fbeca1e9f330954c",
             "--hash=sha256:be4bf804f083a4ce001b5eb7e3c0862479d10f94c936f6c4e5f250aa5ff5bd2d",
         ],
@@ -2957,162 +2815,122 @@ def repo_pypa_rpds_py():
         name = "pypa_rpds_py",
         target = "rpds_py",
         requirement = [
-            "rpds-py==0.27.1",
-            "--hash=sha256:008b839781d6c9bf3b6a8984d1d8e56f0ec46dc56df61fd669c49b58ae800400",
-            "--hash=sha256:037a2361db72ee98d829bc2c5b7cc55598ae0a5e0ec1823a56ea99374cfd73c1",
-            "--hash=sha256:079bc583a26db831a985c5257797b2b5d3affb0386e7ff886256762f82113b5e",
-            "--hash=sha256:08f1e20bccf73b08d12d804d6e1c22ca5530e71659e6673bce31a6bb71c1e73f",
-            "--hash=sha256:0b08d152555acf1f455154d498ca855618c1378ec810646fcd7c76416ac6dc60",
-            "--hash=sha256:0d807710df3b5faa66c731afa162ea29717ab3be17bdc15f90f2d9f183da4059",
-            "--hash=sha256:0dc5dceeaefcc96dc192e3a80bbe1d6c410c469e97bdd47494a7d930987f18b2",
-            "--hash=sha256:12ed005216a51b1d6e2b02a7bd31885fe317e45897de81d86dcce7d74618ffff",
-            "--hash=sha256:134fae0e36022edad8290a6661edf40c023562964efea0cc0ec7f5d392d2aaef",
-            "--hash=sha256:13e608ac9f50a0ed4faec0e90ece76ae33b34c0e8656e3dceb9a7db994c692cd",
-            "--hash=sha256:1441811a96eadca93c517d08df75de45e5ffe68aa3089924f963c782c4b898cf",
-            "--hash=sha256:15d3b4d83582d10c601f481eca29c3f138d44c92187d197aff663a269197c02d",
-            "--hash=sha256:16323f674c089b0360674a4abd28d5042947d54ba620f72514d69be4ff64845e",
-            "--hash=sha256:168b025f8fd8d8d10957405f3fdcef3dc20f5982d398f90851f4abc58c566c52",
-            "--hash=sha256:1b207d881a9aef7ba753d69c123a35d96ca7cb808056998f6b9e8747321f03b8",
-            "--hash=sha256:1fea2b1a922c47c51fd07d656324531adc787e415c8b116530a1d29c0516c62d",
-            "--hash=sha256:23f6b69d1c26c4704fec01311963a41d7de3ee0570a84ebde4d544e5a1859ffc",
-            "--hash=sha256:2643400120f55c8a96f7c9d858f7be0c88d383cd4653ae2cf0d0c88f668073e5",
-            "--hash=sha256:26a1c73171d10b7acccbded82bf6a586ab8203601e565badc74bbbf8bc5a10f8",
-            "--hash=sha256:2bde09cbcf2248b73c7c323be49b280180ff39fadcfe04e7b6f54a678d02a7cf",
-            "--hash=sha256:2c426b99a068601b5f4623573df7a7c3d72e87533a2dd2253353a03e7502566c",
-            "--hash=sha256:2efe4eb1d01b7f5f1939f4ef30ecea6c6b3521eec451fb93191bf84b2a522418",
-            "--hash=sha256:2f57af9b4d0793e53266ee4325535a31ba48e2f875da81a9177c9926dfa60746",
-            "--hash=sha256:2fd50659a069c15eef8aa3d64bbef0d69fd27bb4a50c9ab4f17f83a16cbf8905",
-            "--hash=sha256:3020724ade63fe320a972e2ffd93b5623227e684315adce194941167fee02688",
-            "--hash=sha256:3182af66048c00a075010bc7f4860f33913528a4b6fc09094a6e7598e462fe39",
-            "--hash=sha256:31d3ebadefcd73b73928ed0b2fd696f7fefda8629229f81929ac9c1854d0cffb",
-            "--hash=sha256:33aa65b97826a0e885ef6e278fbd934e98cdcfed80b63946025f01e2f5b29502",
-            "--hash=sha256:387ce8c44ae94e0ec50532d9cb0edce17311024c9794eb196b90e1058aadeb66",
-            "--hash=sha256:3adc388fc3afb6540aec081fa59e6e0d3908722771aa1e37ffe22b220a436f0b",
-            "--hash=sha256:3c64d07e95606ec402a0a1c511fe003873fa6af630bda59bac77fac8b4318ebc",
-            "--hash=sha256:3ce0cac322b0d69b63c9cdb895ee1b65805ec9ffad37639f291dd79467bee675",
-            "--hash=sha256:3d905d16f77eb6ab2e324e09bfa277b4c8e5e6b8a78a3e7ff8f3cdf773b4c013",
-            "--hash=sha256:3deab27804d65cd8289eb814c2c0e807c4b9d9916c9225e363cb0cf875eb67c1",
-            "--hash=sha256:3e039aabf6d5f83c745d5f9a0a381d031e9ed871967c0a5c38d201aca41f3ba1",
-            "--hash=sha256:41e532bbdcb57c92ba3be62c42e9f096431b4cf478da9bc3bc6ce5c38ab7ba7a",
-            "--hash=sha256:42a89282d711711d0a62d6f57d81aa43a1368686c45bc1c46b7f079d55692734",
-            "--hash=sha256:466bfe65bd932da36ff279ddd92de56b042f2266d752719beb97b08526268ec5",
-            "--hash=sha256:4708c5c0ceb2d034f9991623631d3d23cb16e65c83736ea020cdbe28d57c0a0e",
-            "--hash=sha256:47162fdab9407ec3f160805ac3e154df042e577dd53341745fc7fb3f625e6d92",
-            "--hash=sha256:4848ca84d6ded9b58e474dfdbad4b8bfb450344c0551ddc8d958bf4b36aa837c",
-            "--hash=sha256:4b507d19f817ebaca79574b16eb2ae412e5c0835542c93fe9983f1e432aca195",
-            "--hash=sha256:4e44099bd522cba71a2c6b97f68e19f40e7d85399de899d66cdb67b32d7cb786",
-            "--hash=sha256:4ed2e16abbc982a169d30d1a420274a709949e2cbdef119fe2ec9d870b42f274",
-            "--hash=sha256:4f75e4bd8ab8db624e02c8e2fc4063021b58becdbe6df793a8111d9343aec1e3",
-            "--hash=sha256:4fc9b7fe29478824361ead6e14e4f5aed570d477e06088826537e202d25fe859",
-            "--hash=sha256:50c946f048209e6362e22576baea09193809f87687a95a8db24e5fbdb307b93a",
-            "--hash=sha256:5281ed1cc1d49882f9997981c88df1a22e140ab41df19071222f7e5fc4e72125",
-            "--hash=sha256:530064db9146b247351f2a0250b8f00b289accea4596a033e94be2389977de71",
-            "--hash=sha256:55266dafa22e672f5a4f65019015f90336ed31c6383bd53f5e7826d21a0e0b83",
-            "--hash=sha256:5b640501be9288c77738b5492b3fd3abc4ba95c50c2e41273c8a1459f08298d3",
-            "--hash=sha256:62ac3d4e3e07b58ee0ddecd71d6ce3b1637de2d373501412df395a0ec5f9beb5",
-            "--hash=sha256:62f85b665cedab1a503747617393573995dac4600ff51869d69ad2f39eb5e817",
-            "--hash=sha256:639fd5efec029f99b79ae47e5d7e00ad8a773da899b6309f6786ecaf22948c48",
-            "--hash=sha256:6567d2bb951e21232c2f660c24cf3470bb96de56cdcb3f071a83feeaff8a2772",
-            "--hash=sha256:67ce7620704745881a3d4b0ada80ab4d99df390838839921f99e63c474f82cf2",
-            "--hash=sha256:689fb5200a749db0415b092972e8eba85847c23885c8543a8b0f5c009b1a5948",
-            "--hash=sha256:68afeec26d42ab3b47e541b272166a0b4400313946871cba3ed3a4fc0cab1cef",
-            "--hash=sha256:6e5e54da1e74b91dbc7996b56640f79b195d5925c2b78efaa8c5d53e1d88edde",
-            "--hash=sha256:6f4461bf931108c9fa226ffb0e257c1b18dc2d44cd72b125bec50ee0ab1248a9",
-            "--hash=sha256:6f5b7bd8e219ed50299e58551a410b64daafb5017d54bbe822e003856f06a802",
-            "--hash=sha256:70d0738ef8fee13c003b100c2fbd667ec4f133468109b3472d249231108283a3",
-            "--hash=sha256:71108900c9c3c8590697244b9519017a400d9ba26a36c48381b3f64743a44aab",
-            "--hash=sha256:74e5b2f7bb6fa38b1b10546d27acbacf2a022a8b5543efb06cfebc72a59c85be",
-            "--hash=sha256:78af06ddc7fe5cc0e967085a9115accee665fb912c22a3f54bad70cc65b05fe6",
-            "--hash=sha256:7b002cab05d6339716b03a4a3a2ce26737f6231d7b523f339fa061d53368c9d8",
-            "--hash=sha256:7b90b0496570bd6b0321724a330d8b545827c4df2034b6ddfc5f5275f55da2ad",
-            "--hash=sha256:7ba22cb9693df986033b91ae1d7a979bc399237d45fccf875b76f62bb9e52ddf",
-            "--hash=sha256:7ba32c16b064267b22f1850a34051121d423b6f7338a12b9459550eb2096e7ec",
-            "--hash=sha256:7e32721e5d4922deaaf963469d795d5bde6093207c52fec719bd22e5d1bedbc4",
-            "--hash=sha256:7ee6521b9baf06085f62ba9c7a3e5becffbc32480d2f1b351559c001c38ce4c1",
-            "--hash=sha256:80c60cfb5310677bd67cb1e85a1e8eb52e12529545441b43e6f14d90b878775a",
-            "--hash=sha256:8177002868d1426305bb5de1e138161c2ec9eb2d939be38291d7c431c4712df8",
-            "--hash=sha256:819064fa048ba01b6dadc5116f3ac48610435ac9a0058bbde98e569f9e785c39",
-            "--hash=sha256:84f7d509870098de0e864cad0102711c1e24e9b1a50ee713b65928adb22269e4",
-            "--hash=sha256:879b0e14a2da6a1102a3fc8af580fc1ead37e6d6692a781bd8c83da37429b5ab",
-            "--hash=sha256:8a3f29aba6e2d7d90528d3c792555a93497fe6538aa65eb675b44505be747808",
-            "--hash=sha256:8a63b640a7845f2bdd232eb0d0a4a2dd939bcdd6c57e6bb134526487f3160ec5",
-            "--hash=sha256:8b61097f7488de4be8244c89915da8ed212832ccf1e7c7753a25a394bf9b1f10",
-            "--hash=sha256:8ee50c3e41739886606388ba3ab3ee2aae9f35fb23f833091833255a31740797",
-            "--hash=sha256:8fabb8fd848a5f75a2324e4a84501ee3a5e3c78d8603f83475441866e60b94a3",
-            "--hash=sha256:9024de74731df54546fab0bfbcdb49fae19159ecaecfc8f37c18d2c7e2c0bd61",
-            "--hash=sha256:92022bbbad0d4426e616815b16bc4127f83c9a74940e1ccf3cfe0b387aba0228",
-            "--hash=sha256:93a2ed40de81bcff59aabebb626562d48332f3d028ca2036f1d23cbb52750be4",
-            "--hash=sha256:94c44ee01fd21c9058f124d2d4f0c9dc7634bec93cd4b38eefc385dabe71acbf",
-            "--hash=sha256:9a1f4814b65eacac94a00fc9a526e3fdafd78e439469644032032d0d63de4881",
-            "--hash=sha256:9d992ac10eb86d9b6f369647b6a3f412fc0075cfd5d799530e84d335e440a002",
-            "--hash=sha256:9e71f5a087ead99563c11fdaceee83ee982fd39cf67601f4fd66cb386336ee52",
-            "--hash=sha256:a205fdfe55c90c2cd8e540ca9ceba65cbe6629b443bc05db1f590a3db8189ff9",
-            "--hash=sha256:a46fdec0083a26415f11d5f236b79fa1291c32aaa4a17684d82f7017a1f818b1",
-            "--hash=sha256:a50431bf02583e21bf273c71b89d710e7a710ad5e39c725b14e685610555926f",
-            "--hash=sha256:a512c8263249a9d68cac08b05dd59d2b3f2061d99b322813cbcc14c3c7421998",
-            "--hash=sha256:a55b9132bb1ade6c734ddd2759c8dc132aa63687d259e725221f106b83a0e485",
-            "--hash=sha256:a6e57b0abfe7cc513450fcf529eb486b6e4d3f8aee83e92eb5f1ef848218d456",
-            "--hash=sha256:a75f305c9b013289121ec0f1181931975df78738cdf650093e6b86d74aa7d8dd",
-            "--hash=sha256:a9e960fc78fecd1100539f14132425e1d5fe44ecb9239f8f27f079962021523e",
-            "--hash=sha256:aa8933159edc50be265ed22b401125c9eebff3171f570258854dbce3ecd55475",
-            "--hash=sha256:aaf94f812c95b5e60ebaf8bfb1898a7d7cb9c1af5744d4a67fa47796e0465d4e",
-            "--hash=sha256:abfa1171a9952d2e0002aba2ad3780820b00cc3d9c98c6630f2e93271501f66c",
-            "--hash=sha256:acb9aafccaae278f449d9c713b64a9e68662e7799dbd5859e2c6b3c67b56d334",
-            "--hash=sha256:ae2775c1973e3c30316892737b91f9283f9908e3cc7625b9331271eaaed7dc90",
-            "--hash=sha256:ae92443798a40a92dc5f0b01d8a7c93adde0c4dc965310a29ae7c64d72b9fad2",
-            "--hash=sha256:b2e7f8f169d775dd9092a1743768d771f1d1300453ddfe6325ae3ab5332b4657",
-            "--hash=sha256:b4938466c6b257b2f5c4ff98acd8128ec36b5059e5c8f8372d79316b1c36bb15",
-            "--hash=sha256:b6dfb0e058adb12d8b1d1b25f686e94ffa65d9995a5157afe99743bf7369d62b",
-            "--hash=sha256:b7fb801aa7f845ddf601c49630deeeccde7ce10065561d92729bfe81bd21fb33",
-            "--hash=sha256:ba81d2b56b6d4911ce735aad0a1d4495e808b8ee4dc58715998741a26874e7c2",
-            "--hash=sha256:bbf94c58e8e0cd6b6f38d8de67acae41b3a515c26169366ab58bdca4a6883bb8",
-            "--hash=sha256:be898f271f851f68b318872ce6ebebbc62f303b654e43bf72683dbdc25b7c881",
-            "--hash=sha256:bf876e79763eecf3e7356f157540d6a093cef395b65514f17a356f62af6cc136",
-            "--hash=sha256:c1476d6f29eb81aa4151c9a31219b03f1f798dc43d8af1250a870735516a1212",
-            "--hash=sha256:c2a8fed130ce946d5c585eddc7c8eeef0051f58ac80a8ee43bd17835c144c2cc",
-            "--hash=sha256:c46c9dd2403b66a2a3b9720ec4b74d4ab49d4fabf9f03dfdce2d42af913fe8d0",
-            "--hash=sha256:c4b676c4ae3921649a15d28ed10025548e9b561ded473aa413af749503c6737e",
-            "--hash=sha256:c796c0c1cc68cb08b0284db4229f5af76168172670c74908fdbd4b7d7f515819",
-            "--hash=sha256:c918c65ec2e42c2a78d19f18c553d77319119bf43aa9e2edf7fb78d624355527",
-            "--hash=sha256:cb56c6210ef77caa58e16e8c17d35c63fe3f5b60fd9ba9d424470c3400bcf9ed",
-            "--hash=sha256:cdfe4bb2f9fe7458b7453ad3c33e726d6d1c7c0a72960bcc23800d77384e42df",
-            "--hash=sha256:cf9931f14223de59551ab9d38ed18d92f14f055a5f78c1d8ad6493f735021bbb",
-            "--hash=sha256:d252f2d8ca0195faa707f8eb9368955760880b2b42a8ee16d382bf5dd807f89a",
-            "--hash=sha256:d5fa0ee122dc09e23607a28e6d7b150da16c662e66409bbe85230e4c85bb528a",
-            "--hash=sha256:d76f9cc8665acdc0c9177043746775aa7babbf479b5520b78ae4002d889f5c21",
-            "--hash=sha256:d78827d7ac08627ea2c8e02c9e5b41180ea5ea1f747e9db0915e3adf36b62dcf",
-            "--hash=sha256:d7ff07d696a7a38152ebdb8212ca9e5baab56656749f3d6004b34ab726b550b8",
-            "--hash=sha256:d9199717881f13c32c4046a15f024971a3b78ad4ea029e8da6b86e5aa9cf4594",
-            "--hash=sha256:dc23e6820e3b40847e2f4a7726462ba0cf53089512abe9ee16318c366494c17a",
-            "--hash=sha256:dce51c828941973a5684d458214d3a36fcd28da3e1875d659388f4f9f12cc33e",
-            "--hash=sha256:dd2135527aa40f061350c3f8f89da2644de26cd73e4de458e79606384f4f68e7",
-            "--hash=sha256:dd6cd0485b7d347304067153a6dc1d73f7d4fd995a396ef32a24d24b8ac63ac8",
-            "--hash=sha256:df8b74962e35c9249425d90144e721eed198e6555a0e22a563d29fe4486b51f6",
-            "--hash=sha256:dfbfac137d2a3d0725758cd141f878bf4329ba25e34979797c89474a89a8a3a3",
-            "--hash=sha256:e202e6d4188e53c6661af813b46c37ca2c45e497fc558bacc1a7630ec2695aec",
-            "--hash=sha256:e2f6fd8a1cea5bbe599b6e78a6e5ee08db434fc8ffea51ff201c8765679698b3",
-            "--hash=sha256:e48af21883ded2b3e9eb48cb7880ad8598b31ab752ff3be6457001d78f416723",
-            "--hash=sha256:e4b9fcfbc021633863a37e92571d6f91851fa656f0180246e84cbd8b3f6b329b",
-            "--hash=sha256:e5c20f33fd10485b80f65e800bbe5f6785af510b9f4056c5a3c612ebc83ba6cb",
-            "--hash=sha256:eb11a4f1b2b63337cfd3b4d110af778a59aae51c81d195768e353d8b52f88081",
-            "--hash=sha256:ed090ccd235f6fa8bb5861684567f0a83e04f52dfc2e5c05f2e4b1309fcf85e7",
-            "--hash=sha256:ed10dc32829e7d222b7d3b93136d25a406ba9788f6a7ebf6809092da1f4d279d",
-            "--hash=sha256:eda8719d598f2f7f3e0f885cba8646644b55a187762bec091fa14a2b819746a9",
-            "--hash=sha256:ee4308f409a40e50593c7e3bb8cbe0b4d4c66d1674a316324f0c2f5383b486f9",
-            "--hash=sha256:ee5422d7fb21f6a00c1901bf6559c49fee13a5159d0288320737bbf6585bd3e4",
-            "--hash=sha256:f149826d742b406579466283769a8ea448eed82a789af0ed17b0cd5770433444",
-            "--hash=sha256:f2729615f9d430af0ae6b36cf042cb55c0936408d543fb691e1a9e36648fd35a",
-            "--hash=sha256:f39f58a27cc6e59f432b568ed8429c7e1641324fbe38131de852cd77b2d534b0",
-            "--hash=sha256:f41f814b8eaa48768d1bb551591f6ba45f87ac76899453e8ccd41dba1289b04b",
-            "--hash=sha256:f9025faafc62ed0b75a53e541895ca272815bec18abe2249ff6501c8f2e12b83",
-            "--hash=sha256:faf8d146f3d476abfee026c4ae3bdd9ca14236ae4e4c310cbd1cf75ba33d24a3",
-            "--hash=sha256:fb08b65b93e0c6dd70aac7f7890a9c0938d5ec71d5cb32d45cf844fb8ae47636",
-            "--hash=sha256:fb7c72262deae25366e3b6c0c0ba46007967aea15d1eea746e44ddba8ec58dcc",
-            "--hash=sha256:fb89bec23fddc489e5d78b550a7b773557c9ab58b7946154a10a6f7a214a48b2",
-            "--hash=sha256:fe0dd05afb46597b9a2e11c351e5e4283c741237e7f617ffb3252780cca9336a",
-            "--hash=sha256:fecc80cb2a90e28af8a9b366edacf33d7a91cbfe4c2c4544ea1246e949cfebeb",
-            "--hash=sha256:fed467af29776f6556250c9ed85ea5a4dd121ab56a5f8b206e3e7a4c551e48ec",
-            "--hash=sha256:ffce0481cc6e95e5b3f0a47ee17ffbd234399e6d532f394c8dce320c3b089c21",
+            "rpds-py==0.28.0",
+            "--hash=sha256:03065002fd2e287725d95fbc69688e0c6daf6c6314ba38bdbaa3895418e09296",
+            "--hash=sha256:04c1b207ab8b581108801528d59ad80aa83bb170b35b0ddffb29c20e411acdc1",
+            "--hash=sha256:05cf1e74900e8da73fa08cc76c74a03345e5a3e37691d07cfe2092d7d8e27b04",
+            "--hash=sha256:0a403460c9dd91a7f23fc3188de6d8977f1d9603a351d5db6cf20aaea95b538d",
+            "--hash=sha256:0cb7203c7bc69d7c1585ebb33a2e6074492d2fc21ad28a7b9d40457ac2a51ab7",
+            "--hash=sha256:0d3259ea9ad8743a75a43eb7819324cdab393263c91be86e2d1901ee65c314e0",
+            "--hash=sha256:1571ae4292649100d743b26d5f9c63503bb1fedf538a8f29a98dce2d5ba6b4e6",
+            "--hash=sha256:1a4c6b05c685c0c03f80dabaeb73e74218c49deea965ca63f76a752807397207",
+            "--hash=sha256:1e8ee6413cfc677ce8898d9cde18cc3a60fc2ba756b0dec5b71eb6eb21c49fa1",
+            "--hash=sha256:1f0cfd1c69e2d14f8c892b893997fa9a60d890a0c8a603e88dca4955f26d1edd",
+            "--hash=sha256:23690b5827e643150cf7b49569679ec13fe9a610a15949ed48b85eb7f98f34ec",
+            "--hash=sha256:2374e16cc9131022e7d9a8f8d65d261d9ba55048c78f3b6e017971a4f5e6353c",
+            "--hash=sha256:24743a7b372e9a76171f6b69c01aedf927e8ac3e16c474d9fe20d552a8cb45c7",
+            "--hash=sha256:25dbade8fbf30bcc551cb352376c0ad64b067e4fc56f90e22ba70c3ce205988c",
+            "--hash=sha256:28ea02215f262b6d078daec0b45344c89e161eab9526b0d898221d96fdda5f27",
+            "--hash=sha256:2e42456917b6687215b3e606ab46aa6bca040c77af7df9a08a6dcfe8a4d10ca5",
+            "--hash=sha256:2e8456b6ee5527112ff2354dd9087b030e3429e43a74f480d4a5ca79d269fd85",
+            "--hash=sha256:3114f4db69ac5a1f32e7e4d1cbbe7c8f9cf8217f78e6e002cedf2d54c2a548ed",
+            "--hash=sha256:31eb671150b9c62409a888850aaa8e6533635704fe2b78335f9aaf7ff81eec4d",
+            "--hash=sha256:389c29045ee8bbb1627ea190b4976a310a295559eaf9f1464a1a6f2bf84dde78",
+            "--hash=sha256:3aa4dc0fdab4a7029ac63959a3ccf4ed605fee048ba67ce89ca3168da34a1342",
+            "--hash=sha256:3c03002f54cc855860bfdc3442928ffdca9081e73b5b382ed0b9e8efe6e5e205",
+            "--hash=sha256:46959ef2e64f9e4a41fc89aa20dbca2b85531f9a72c21099a3360f35d10b0d5a",
+            "--hash=sha256:48b55c1f64482f7d8bd39942f376bfdf2f6aec637ee8c805b5041e14eeb771db",
+            "--hash=sha256:4b0cb8a906b1a0196b863d460c0222fb8ad0f34041568da5620f9799b83ccf0b",
+            "--hash=sha256:4c6c4db5d73d179746951486df97fd25e92396be07fc29ee8ff9a8f5afbdfb27",
+            "--hash=sha256:4e27d3a5709cc2b3e013bf93679a849213c79ae0573f9b894b284b55e729e120",
+            "--hash=sha256:4fe0438ac4a29a520ea94c8c7f1754cdd8feb1bc490dfda1bfd990072363d527",
+            "--hash=sha256:5338742f6ba7a51012ea470bd4dc600a8c713c0c72adaa0977a1b1f4327d6592",
+            "--hash=sha256:5a7306c19b19005ad98468fcefeb7100b19c79fc23a5f24a12e06d91181193fa",
+            "--hash=sha256:5ae8ee156d6b586e4292491e885d41483136ab994e719a13458055bec14cf370",
+            "--hash=sha256:5b43c6a3726efd50f18d8120ec0551241c38785b68952d240c45ea553912ac41",
+            "--hash=sha256:5cfa9af45e7c1140af7321fa0bef25b386ee9faa8928c80dc3a5360971a29e8c",
+            "--hash=sha256:5d0145edba8abd3db0ab22b5300c99dc152f5c9021fab861be0f0544dc3cbc5f",
+            "--hash=sha256:5d3fd16b6dc89c73a4da0b4ac8b12a7ecc75b2864b95c9e5afed8003cb50a728",
+            "--hash=sha256:5ee514e0f0523db5d3fb171f397c54875dbbd69760a414dccf9d4d7ad628b5bd",
+            "--hash=sha256:5f3fa06d27fdcee47f07a39e02862da0100cb4982508f5ead53ec533cd5fe55e",
+            "--hash=sha256:66e6fa8e075b58946e76a78e69e1a124a21d9a48a5b4766d15ba5b06869d1fa1",
+            "--hash=sha256:6796079e5d24fdaba6d49bda28e2c47347e89834678f2bc2c1b4fc1489c0fb01",
+            "--hash=sha256:6897bebb118c44b38c9cb62a178e09f1593c949391b9a1a6fe777ccab5934ee7",
+            "--hash=sha256:6aa1bfce3f83baf00d9c5fcdbba93a3ab79958b4c7d7d1f55e7fe68c20e63912",
+            "--hash=sha256:6b4f28583a4f247ff60cd7bdda83db8c3f5b05a7a82ff20dd4b078571747708f",
+            "--hash=sha256:6e32dd207e2c4f8475257a3540ab8a93eff997abfa0a3fdb287cae0d6cd874b8",
+            "--hash=sha256:6f0c9266c26580e7243ad0d72fc3e01d6b33866cfab5084a6da7576bcf1c4f72",
+            "--hash=sha256:735f8495a13159ce6a0d533f01e8674cec0c57038c920495f87dcb20b3ddb48a",
+            "--hash=sha256:76500820c2af232435cbe215e3324c75b950a027134e044423f59f5b9a1ba515",
+            "--hash=sha256:7a4e59c90d9c27c561eb3160323634a9ff50b04e4f7820600a2beb0ac90db578",
+            "--hash=sha256:7a52a5169c664dfb495882adc75c304ae1d50df552fbd68e100fdc719dee4ff9",
+            "--hash=sha256:7a69df082db13c7070f7b8b1f155fa9e687f1d6aefb7b0e3f7231653b79a067b",
+            "--hash=sha256:7b0f9dceb221792b3ee6acb5438eb1f02b0cb2c247796a72b016dcc92c6de829",
+            "--hash=sha256:7b14b0c680286958817c22d76fcbca4800ddacef6f678f3a7c79a1fe7067fe37",
+            "--hash=sha256:7b6013db815417eeb56b2d9d7324e64fcd4fa289caeee6e7a78b2e11fc9b438a",
+            "--hash=sha256:7b7d9d83c942855e4fdcfa75d4f96f6b9e272d42fffcb72cd4bb2577db2e2907",
+            "--hash=sha256:8014045a15b4d2b3476f0a287fcc93d4f823472d7d1308d47884ecac9e612be3",
+            "--hash=sha256:8455933b4bcd6e83fde3fefc987a023389c4b13f9a58c8d23e4b3f6d13f78c84",
+            "--hash=sha256:85beb8b3f45e4e32f6802fb6cd6b17f615ef6c6a52f265371fb916fae02814aa",
+            "--hash=sha256:8a358a32dd3ae50e933347889b6af9a1bdf207ba5d1a3f34e1a38cd3540e6733",
+            "--hash=sha256:8aa23b6f0fc59b85b4c7d89ba2965af274346f738e8d9fc2455763602e62fd5f",
+            "--hash=sha256:8d252db6b1a78d0a3928b6190156042d54c93660ce4d98290d7b16b5296fb7cc",
+            "--hash=sha256:8f60c7ea34e78c199acd0d3cda37a99be2c861dd2b8cf67399784f70c9f8e57d",
+            "--hash=sha256:961ca621ff10d198bbe6ba4957decca61aa2a0c56695384c1d6b79bf61436df5",
+            "--hash=sha256:9a5690671cd672a45aa8616d7374fdf334a1b9c04a0cac3c854b1136e92374fe",
+            "--hash=sha256:9a7548b345f66f6695943b4ef6afe33ccd3f1b638bd9afd0f730dd255c249c9e",
+            "--hash=sha256:9f1d92ecea4fa12f978a367c32a5375a1982834649cdb96539dcdc12e609ab1a",
+            "--hash=sha256:a2036d09b363aa36695d1cc1a97b36865597f4478470b0697b5ee9403f4fe399",
+            "--hash=sha256:a3b695a8fa799dd2cfdb4804b37096c5f6dba1ac7f48a7fbf6d0485bcd060316",
+            "--hash=sha256:a410542d61fc54710f750d3764380b53bf09e8c4edbf2f9141a82aa774a04f7c",
+            "--hash=sha256:a6fe887c2c5c59413353b7c0caff25d0e566623501ccfff88957fa438a69377d",
+            "--hash=sha256:a805e9b3973f7e27f7cab63a6b4f61d90f2e5557cff73b6e97cd5b8540276d3d",
+            "--hash=sha256:abd4df20485a0983e2ca334a216249b6186d6e3c1627e106651943dbdb791aea",
+            "--hash=sha256:ac9f83e7b326a3f9ec3ef84cda98fb0a74c7159f33e692032233046e7fd15da2",
+            "--hash=sha256:acbe5e8b1026c0c580d0321c8aae4b0a1e1676861d48d6e8c6586625055b606a",
+            "--hash=sha256:ad50614a02c8c2962feebe6012b52f9802deec4263946cddea37aaf28dd25a66",
+            "--hash=sha256:ada7754a10faacd4f26067e62de52d6af93b6d9542f0df73c57b9771eb3ba9c4",
+            "--hash=sha256:adc8aa88486857d2b35d75f0640b949759f79dc105f50aa2c27816b2e0dd749f",
+            "--hash=sha256:b1b553dd06e875249fd43efd727785efb57a53180e0fde321468222eabbeaafa",
+            "--hash=sha256:b1cde22f2c30ebb049a9e74c5374994157b9b70a16147d332f89c99c5960737a",
+            "--hash=sha256:b3072b16904d0b5572a15eb9d31c1954e0d3227a585fc1351aa9878729099d6c",
+            "--hash=sha256:b670c30fd87a6aec281c3c9896d3bae4b205fd75d79d06dc87c2503717e46092",
+            "--hash=sha256:b8e1e9be4fa6305a16be628959188e4fd5cd6f1b0e724d63c6d8b2a8adf74ea6",
+            "--hash=sha256:b9699fa7990368b22032baf2b2dce1f634388e4ffc03dfefaaac79f4695edc95",
+            "--hash=sha256:b9b06fe1a75e05e0713f06ea0c89ecb6452210fd60e2f1b6ddc1067b990e08d9",
+            "--hash=sha256:bbdc5640900a7dbf9dd707fe6388972f5bbd883633eb68b76591044cfe346f7e",
+            "--hash=sha256:bcf1d210dfee61a6c86551d67ee1031899c0fdbae88b2d44a569995d43797712",
+            "--hash=sha256:bd3bbba5def70b16cd1c1d7255666aad3b290fbf8d0fe7f9f91abafb73611a91",
+            "--hash=sha256:beb880a9ca0a117415f241f66d56025c02037f7c4efc6fe59b5b8454f1eaa50d",
+            "--hash=sha256:c2a34fd26588949e1e7977cfcbb17a9a42c948c100cab890c6d8d823f0586457",
+            "--hash=sha256:c9a40040aa388b037eb39416710fbcce9443498d2eaab0b9b45ae988b53f5c67",
+            "--hash=sha256:cf128350d384b777da0e68796afdcebc2e9f63f0e9f242217754e647f6d32491",
+            "--hash=sha256:cf681ac76a60b667106141e11a92a3330890257e6f559ca995fbb5265160b56e",
+            "--hash=sha256:d15431e334fba488b081d47f30f091e5d03c18527c325386091f31718952fe08",
+            "--hash=sha256:d2412be8d00a1b895f8ad827cc2116455196e20ed994bb704bf138fe91a42724",
+            "--hash=sha256:d61b355c3275acb825f8777d6c4505f42b5007e357af500939d4a35b19177259",
+            "--hash=sha256:d678e91b610c29c4b3d52a2c148b641df2b4676ffe47c59f6388d58b99cdc424",
+            "--hash=sha256:d7366b6553cdc805abcc512b849a519167db8f5e5c3472010cd1228b224265cb",
+            "--hash=sha256:dcdcb890b3ada98a03f9f2bb108489cdc7580176cb73b4f2d789e9a1dac1d472",
+            "--hash=sha256:dd8d86b5d29d1b74100982424ba53e56033dc47720a6de9ba0259cf81d7cecaa",
+            "--hash=sha256:e0a0311caedc8069d68fc2bf4c9019b58a2d5ce3cd7cb656c845f1615b577e1e",
+            "--hash=sha256:e1460ebde1bcf6d496d80b191d854adedcc619f84ff17dc1c6d550f58c9efbba",
+            "--hash=sha256:e3eb248f2feba84c692579257a043a7699e28a77d86c77b032c1d9fbb3f0219c",
+            "--hash=sha256:e5bbc701eff140ba0e872691d573b3d5d30059ea26e5785acba9132d10c8c31d",
+            "--hash=sha256:e5d9b86aa501fed9862a443c5c3116f6ead8bc9296185f369277c42542bd646b",
+            "--hash=sha256:e5deca01b271492553fdb6c7fd974659dce736a15bae5dad7ab8b93555bceb28",
+            "--hash=sha256:e80848a71c78aa328fefaba9c244d588a342c8e03bda518447b624ea64d1ff56",
+            "--hash=sha256:e819e0e37a44a78e1383bf1970076e2ccc4dc8c2bbaa2f9bd1dc987e9afff628",
+            "--hash=sha256:e9e184408a0297086f880556b6168fa927d677716f83d3472ea333b42171ee3b",
+            "--hash=sha256:edd267266a9b0448f33dc465a97cfc5d467594b600fe28e7fa2f36450e03053a",
+            "--hash=sha256:efd489fec7c311dae25e94fe7eeda4b3d06be71c68f2cf2e8ef990ffcd2cd7e8",
+            "--hash=sha256:f0b2044fdddeea5b05df832e50d2a06fe61023acb44d76978e1b060206a8a476",
+            "--hash=sha256:f274f56a926ba2dc02976ca5b11c32855cbd5925534e57cfe1fda64e04d1add2",
+            "--hash=sha256:f296ea3054e11fc58ad42e850e8b75c62d9a93a9f981ad04b2e5ae7d2186ff9c",
+            "--hash=sha256:f4794c6c3fbe8f9ac87699b131a1f26e7b4abcf6d828da46a3a52648c7930eba",
+            "--hash=sha256:f586db2e209d54fe177e58e0bc4946bea5fb0102f150b1b2f13de03e1f0976f8",
+            "--hash=sha256:f5e7101145427087e493b9c9b959da68d357c28c562792300dd21a095118ed16",
+            "--hash=sha256:f9174471d6920cbc5e82a7822de8dfd4dcea86eb828b04fc8c6519a77b0ee51e",
         ],
     )
 
@@ -3157,9 +2975,8 @@ def repo_pypa_setuptools():
     )
 
 def repo_pypa_setuptools_scm():
-    repo_pypa_tomli()
-    repo_pypa_packaging()
     repo_pypa_setuptools()
+    repo_pypa_packaging()
     maybe(
         third_party_python_package,
         name = "pypa_setuptools_scm",
@@ -3170,9 +2987,8 @@ def repo_pypa_setuptools_scm():
             "--hash=sha256:30e8f84d2ab1ba7cb0e653429b179395d0c33775d54807fc5f1dd6671801aef7",
         ],
         deps = [
-            "@pypa_tomli//:tomli",
-            "@pypa_packaging//:packaging",
             "@pypa_setuptools//:setuptools",
+            "@pypa_packaging//:packaging",
         ],
     )
 
@@ -3201,67 +3017,61 @@ def repo_pypa_snowballstemmer():
     )
 
 def repo_pypa_sphinx():
-    repo_pypa_alabaster()
-    repo_pypa_docutils()
-    repo_pypa_snowballstemmer()
-    repo_pypa_colorama()
-    repo_pypa_requests()
-    repo_pypa_babel()
-    repo_pypa_tomli()
-    repo_pypa_sphinxcontrib_applehelp()
-    repo_pypa_jinja2()
-    repo_pypa_pygments()
-    repo_pypa_sphinxcontrib_devhelp()
-    repo_pypa_sphinxcontrib_jsmath()
-    repo_pypa_sphinxcontrib_htmlhelp()
-    repo_pypa_sphinxcontrib_serializinghtml()
     repo_pypa_imagesize()
+    repo_pypa_snowballstemmer()
+    repo_pypa_sphinxcontrib_devhelp()
+    repo_pypa_colorama()
+    repo_pypa_babel()
+    repo_pypa_docutils()
+    repo_pypa_requests()
+    repo_pypa_sphinxcontrib_jsmath()
+    repo_pypa_sphinxcontrib_applehelp()
     repo_pypa_packaging()
-    repo_pypa_roman_numerals_py()
     repo_pypa_sphinxcontrib_qthelp()
+    repo_pypa_sphinxcontrib_serializinghtml()
+    repo_pypa_sphinxcontrib_htmlhelp()
+    repo_pypa_pygments()
+    repo_pypa_roman_numerals_py()
+    repo_pypa_alabaster()
+    repo_pypa_jinja2()
     maybe(
         third_party_python_package,
         name = "pypa_sphinx",
         target = "sphinx",
         requirement = [
-            "sphinx==8.1.3; python_full_version < '3.11'",
-            "--hash=sha256:09719015511837b76bf6e03e42eb7595ac8c2e41eeb9c29c5b755c6b677992a2",
-            "--hash=sha256:43c1911eecb0d3e161ad78611bc905d1ad0e523e4ddc202a58a821773dc4c927",
-            "",
-            "sphinx==8.2.3; python_full_version >= '3.11'",
+            "sphinx==8.2.3",
             "--hash=sha256:398ad29dee7f63a75888314e9424d40f52ce5a6a87ae88e7071e80af296ec348",
             "--hash=sha256:4405915165f13521d875a8c29c8970800a0141c14cc5416a38feca4ea5d9b9c3",
         ],
         deps = [
-            "@pypa_alabaster//:alabaster",
-            "@pypa_docutils//:docutils",
-            "@pypa_snowballstemmer//:snowballstemmer",
-            "@pypa_colorama//:colorama",
-            "@pypa_requests//:requests",
-            "@pypa_babel//:babel",
-            "@pypa_tomli//:tomli",
-            "@pypa_sphinxcontrib_applehelp//:sphinxcontrib_applehelp",
-            "@pypa_jinja2//:jinja2",
-            "@pypa_pygments//:pygments",
-            "@pypa_sphinxcontrib_devhelp//:sphinxcontrib_devhelp",
-            "@pypa_sphinxcontrib_jsmath//:sphinxcontrib_jsmath",
-            "@pypa_sphinxcontrib_htmlhelp//:sphinxcontrib_htmlhelp",
-            "@pypa_sphinxcontrib_serializinghtml//:sphinxcontrib_serializinghtml",
             "@pypa_imagesize//:imagesize",
+            "@pypa_snowballstemmer//:snowballstemmer",
+            "@pypa_sphinxcontrib_devhelp//:sphinxcontrib_devhelp",
+            "@pypa_colorama//:colorama",
+            "@pypa_babel//:babel",
+            "@pypa_docutils//:docutils",
+            "@pypa_requests//:requests",
+            "@pypa_sphinxcontrib_jsmath//:sphinxcontrib_jsmath",
+            "@pypa_sphinxcontrib_applehelp//:sphinxcontrib_applehelp",
             "@pypa_packaging//:packaging",
-            "@pypa_roman_numerals_py//:roman_numerals_py",
             "@pypa_sphinxcontrib_qthelp//:sphinxcontrib_qthelp",
+            "@pypa_sphinxcontrib_serializinghtml//:sphinxcontrib_serializinghtml",
+            "@pypa_sphinxcontrib_htmlhelp//:sphinxcontrib_htmlhelp",
+            "@pypa_pygments//:pygments",
+            "@pypa_roman_numerals_py//:roman_numerals_py",
+            "@pypa_alabaster//:alabaster",
+            "@pypa_jinja2//:jinja2",
         ],
     )
 
 def repo_pypa_sphinx_immaterial():
-    repo_pypa_markupsafe()
-    repo_pypa_appdirs()
-    repo_pypa_requests()
-    repo_pypa_sphinx()
     repo_pypa_typing_extensions()
+    repo_pypa_markupsafe()
+    repo_pypa_requests()
+    repo_pypa_appdirs()
     repo_pypa_pydantic_extra_types()
     repo_pypa_pydantic()
+    repo_pypa_sphinx()
     maybe(
         third_party_python_package,
         name = "pypa_sphinx_immaterial",
@@ -3271,13 +3081,13 @@ def repo_pypa_sphinx_immaterial():
             "--hash=sha256:fd92cc9e9f65e1f3a28a9f4f6886250a97dc65da41ece67f562bc1c00e89be6f",
         ],
         deps = [
-            "@pypa_markupsafe//:markupsafe",
-            "@pypa_appdirs//:appdirs",
-            "@pypa_requests//:requests",
-            "@pypa_sphinx//:sphinx",
             "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_markupsafe//:markupsafe",
+            "@pypa_requests//:requests",
+            "@pypa_appdirs//:appdirs",
             "@pypa_pydantic_extra_types//:pydantic_extra_types",
             "@pypa_pydantic//:pydantic",
+            "@pypa_sphinx//:sphinx",
         ],
     )
 
@@ -3354,9 +3164,9 @@ def repo_pypa_sphinxcontrib_serializinghtml():
     )
 
 def repo_pypa_stack_data():
+    repo_pypa_executing()
     repo_pypa_asttokens()
     repo_pypa_pure_eval()
-    repo_pypa_executing()
     maybe(
         third_party_python_package,
         name = "pypa_stack_data",
@@ -3367,9 +3177,9 @@ def repo_pypa_stack_data():
             "--hash=sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695",
         ],
         deps = [
+            "@pypa_executing//:executing",
             "@pypa_asttokens//:asttokens",
             "@pypa_pure_eval//:pure_eval",
-            "@pypa_executing//:executing",
         ],
     )
 
@@ -3386,58 +3196,6 @@ def repo_pypa_sympy():
         ],
         deps = [
             "@pypa_mpmath//:mpmath",
-        ],
-    )
-
-def repo_pypa_tomli():
-    maybe(
-        third_party_python_package,
-        name = "pypa_tomli",
-        target = "tomli",
-        requirement = [
-            "tomli==2.3.0; python_full_version < '3.11'",
-            "--hash=sha256:00b5f5d95bbfc7d12f91ad8c593a1659b6387b43f054104cda404be6bda62456",
-            "--hash=sha256:0a154a9ae14bfcf5d8917a59b51ffd5a3ac1fd149b71b47a3a104ca4edcfa845",
-            "--hash=sha256:0c95ca56fbe89e065c6ead5b593ee64b84a26fca063b5d71a1122bf26e533999",
-            "--hash=sha256:0eea8cc5c5e9f89c9b90c4896a8deefc74f518db5927d0e0e8d4a80953d774d0",
-            "--hash=sha256:1cb4ed918939151a03f33d4242ccd0aa5f11b3547d0cf30f7c74a408a5b99878",
-            "--hash=sha256:4021923f97266babc6ccab9f5068642a0095faa0a51a246a6a02fccbb3514eaf",
-            "--hash=sha256:4c2ef0244c75aba9355561272009d934953817c49f47d768070c3c94355c2aa3",
-            "--hash=sha256:4dc4ce8483a5d429ab602f111a93a6ab1ed425eae3122032db7e9acf449451be",
-            "--hash=sha256:4f195fe57ecceac95a66a75ac24d9d5fbc98ef0962e09b2eddec5d39375aae52",
-            "--hash=sha256:5192f562738228945d7b13d4930baffda67b69425a7f0da96d360b0a3888136b",
-            "--hash=sha256:5e01decd096b1530d97d5d85cb4dff4af2d8347bd35686654a004f8dea20fc67",
-            "--hash=sha256:64be704a875d2a59753d80ee8a533c3fe183e3f06807ff7dc2232938ccb01549",
-            "--hash=sha256:70a251f8d4ba2d9ac2542eecf008b3c8a9fc5c3f9f02c56a9d7952612be2fdba",
-            "--hash=sha256:73ee0b47d4dad1c5e996e3cd33b8a76a50167ae5f96a2607cbe8cc773506ab22",
-            "--hash=sha256:74bf8464ff93e413514fefd2be591c3b0b23231a77f901db1eb30d6f712fc42c",
-            "--hash=sha256:792262b94d5d0a466afb5bc63c7daa9d75520110971ee269152083270998316f",
-            "--hash=sha256:7b0882799624980785240ab732537fcfc372601015c00f7fc367c55308c186f6",
-            "--hash=sha256:883b1c0d6398a6a9d29b508c331fa56adbcdff647f6ace4dfca0f50e90dfd0ba",
-            "--hash=sha256:88bd15eb972f3664f5ed4b57c1634a97153b4bac4479dcb6a495f41921eb7f45",
-            "--hash=sha256:8a35dd0e643bb2610f156cca8db95d213a90015c11fee76c946aa62b7ae7e02f",
-            "--hash=sha256:940d56ee0410fa17ee1f12b817b37a4d4e4dc4d27340863cc67236c74f582e77",
-            "--hash=sha256:97d5eec30149fd3294270e889b4234023f2c69747e555a27bd708828353ab606",
-            "--hash=sha256:a0e285d2649b78c0d9027570d4da3425bdb49830a6156121360b3f8511ea3441",
-            "--hash=sha256:a1f7f282fe248311650081faafa5f4732bdbfef5d45fe3f2e702fbc6f2d496e0",
-            "--hash=sha256:a4ea38c40145a357d513bffad0ed869f13c1773716cf71ccaa83b0fa0cc4e42f",
-            "--hash=sha256:a56212bdcce682e56b0aaf79e869ba5d15a6163f88d5451cbde388d48b13f530",
-            "--hash=sha256:ad805ea85eda330dbad64c7ea7a4556259665bdf9d2672f5dccc740eb9d3ca05",
-            "--hash=sha256:b273fcbd7fc64dc3600c098e39136522650c49bca95df2d11cf3b626422392c8",
-            "--hash=sha256:b5870b50c9db823c595983571d1296a6ff3e1b88f734a4c8f6fc6188397de005",
-            "--hash=sha256:b74a0e59ec5d15127acdabd75ea17726ac4c5178ae51b85bfe39c4f8a278e879",
-            "--hash=sha256:be71c93a63d738597996be9528f4abe628d1adf5e6eb11607bc8fe1a510b5dae",
-            "--hash=sha256:c22a8bf253bacc0cf11f35ad9808b6cb75ada2631c2d97c971122583b129afbc",
-            "--hash=sha256:c4665508bcbac83a31ff8ab08f424b665200c0e1e645d2bd9ab3d3e557b6185b",
-            "--hash=sha256:c5f3ffd1e098dfc032d4d3af5c0ac64f6d286d98bc148698356847b80fa4de1b",
-            "--hash=sha256:cebc6fe843e0733ee827a282aca4999b596241195f43b4cc371d64fc6639da9e",
-            "--hash=sha256:d1381caf13ab9f300e30dd8feadb3de072aeb86f1d34a8569453ff32a7dea4bf",
-            "--hash=sha256:d7d86942e56ded512a594786a5ba0a5e521d02529b3826e7761a05138341a2ac",
-            "--hash=sha256:e31d432427dcbf4d86958c184b9bfd1e96b5b71f8eb17e6d02531f434fd335b8",
-            "--hash=sha256:e95b1af3c5b07d9e643909b5abbec77cd9f1217e6d0bca72b0234736b9fb1f1b",
-            "--hash=sha256:f85209946d1fe94416debbb88d00eb92ce9cd5266775424ff81bc959e001acaf",
-            "--hash=sha256:feb0dacc61170ed7ab602d3d972a58f14ee3ee60494292d384649a3dc38ef463",
-            "--hash=sha256:ff72b71b5d10d22ecb084d345fc26f42b5143c5533db5e2eaba7d2d335358876",
         ],
     )
 
@@ -3663,7 +3421,6 @@ def repo_pypa_xmltodict():
     )
 
 def repo_pypa_yapf():
-    repo_pypa_tomli()
     repo_pypa_platformdirs()
     maybe(
         third_party_python_package,
@@ -3675,19 +3432,6 @@ def repo_pypa_yapf():
             "--hash=sha256:224faffbc39c428cb095818cf6ef5511fdab6f7430a10783fdfb292ccf2852ca",
         ],
         deps = [
-            "@pypa_tomli//:tomli",
             "@pypa_platformdirs//:platformdirs",
-        ],
-    )
-
-def repo_pypa_zipp():
-    maybe(
-        third_party_python_package,
-        name = "pypa_zipp",
-        target = "zipp",
-        requirement = [
-            "zipp==3.23.0; python_full_version < '3.10.2'",
-            "--hash=sha256:071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e",
-            "--hash=sha256:a07157588a12518c9d4034df3fbbee09c814741a33ff63c05fa29d26a2404166",
         ],
     )

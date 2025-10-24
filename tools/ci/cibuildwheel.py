@@ -132,7 +132,8 @@ def run(args, extra_args):
   env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
   # https://cibuildwheel.pypa.io/en/stable/options/#build-skip
   env["CIBW_SKIP"] = (
-      "cp38-* cp39-* cp314-* cp314t-* *_i686 *-win32 *-musllinux*"
+      "cp38-* cp39-* cp310-* cp314t-* cp315-* cp315t-* "
+      "*_i686 *-win32 *-musllinux*"
   )
   env["CIBW_TEST_COMMAND"] = (
       "python -m pytest {project}/python/tensorstore/tests -vv -s"

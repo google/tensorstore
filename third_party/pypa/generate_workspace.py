@@ -308,7 +308,7 @@ def main():
   ap.add_argument(
       "--python-version",
       help="Minimum python version",
-      default="3.10",
+      default="3.11",
   )
   ap.add_argument(
       "--tools-workspace", default="", help="Tools workspace bazel repository"

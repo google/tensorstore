@@ -8,7 +8,7 @@ Python API from PyPI
 
 The simplest and fastest way to start using TensorStore is to install
 a PyPI package and use the TensorStore `Python API<python-api>` bindings.
-TensorStore requires Python 3.10 or later (Python 2 is not supported).
+TensorStore requires Python 3.11 or later.
 
 The Python bindings can be installed directly from the `tensorstore PyPI package
 <https://pypi.org/project/tensorstore/>`_ using `pip
@@ -414,7 +414,7 @@ CMake Build Requirements
 In addition to a `supported C++ toolchain<build-requirements>`, the following
 system dependencies are required for the `CMake build<cmake-build>`:
 
-- Python 3.10 or later
+- Python 3.11 or later
 - CMake 3.24 or later
 - `NASM <https://nasm.us/>`__, for building libjpeg-turbo, libaom, and dav1d from
   source (default).  Must be in ``PATH``.Not required if

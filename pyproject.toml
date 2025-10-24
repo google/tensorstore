@@ -1,6 +1,6 @@
 [project]
 name = "tensorstore"
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 dynamic = ["version"]
 dependencies = [
   "numpy>=1.22.0",
