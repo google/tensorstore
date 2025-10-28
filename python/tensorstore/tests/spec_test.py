@@ -14,6 +14,9 @@
 """Tests of tensorstore.Spec"""
 
 import pickle
+import threading
+import time
+from typing import Callable
 
 import pytest
 import tensorstore as ts
@@ -134,3 +137,92 @@ def test_schema_pickle() -> None:
   s = ts.Schema(dtype=ts.int32, fill_value=42)
   assert s.dtype == ts.int32
   assert pickle.loads(pickle.dumps(s)) == s
+
+
+def _run_threads(
+    stop: threading.Event,
+    read_props: Callable[[], None],
+    update_props: Callable[[], None],
+) -> None:
+  threads = []
+  for _ in range(4):
+    threads.append(threading.Thread(target=read_props))
+    threads.append(threading.Thread(target=update_props))
+
+  for t in threads:
+    t.start()
+
+  time.sleep(0.3)
+  stop.set()
+
+  for t in threads:
+    t.join()
+
+
+def test_spec_concurrent_update_and_read() -> None:
+  """Validates that concurrent updates and reads do not crash."""
+  s = ts.Spec({
+      "driver": "zarr",
+      "kvstore": {"driver": "memory"},
+  })
+
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = s.rank
+      _ = s.ndim
+      _ = s.dtype
+      _ = s.transform
+      _ = s.domain
+      _ = s.url
+      _ = s.schema
+      _ = s.kvstore
+      _ = s.to_json()
+      _ = s == ts.Spec(s.to_json())
+      _ = f"{s}"
+      _ = repr(s)
+
+  def update_props() -> None:
+    i = 0
+    while not stop.is_set():
+      if (i % 2) == 0:
+        s.update(dtype=ts.uint32, shape=[10, 20])
+      else:
+        s.update(dtype=ts.int32, shape=[30, 40])
+      i += 1
+
+  _run_threads(stop, read_props, update_props)
+
+
+def test_schema_concurrent_update_and_read() -> None:
+  """Validates that concurrent updates and reads do not crash."""
+  s = ts.Schema(dtype=ts.int32, fill_value=42)
+
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = s.rank
+      _ = s.ndim
+      _ = s.dtype
+      _ = s.domain
+      _ = s.chunk_layout
+      _ = s.codec
+      _ = s.fill_value
+      _ = s.dimension_units
+      j = s.to_json()
+      _ = s == ts.Schema(j)
+      _ = f"{s}"
+      _ = repr(s)
+
+  def update_props() -> None:
+    i = 0
+    while not stop.is_set():
+      if (i % 2) == 0:
+        s.update(dtype=ts.uint32, fill_value=10)
+      else:
+        s.update(dtype=ts.int32, fill_value=20)
+      i += 1
+
+  _run_threads(stop, read_props, update_props)

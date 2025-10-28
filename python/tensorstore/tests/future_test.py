@@ -15,6 +15,7 @@
 import asyncio
 import os
 import pickle
+import random
 import signal
 import threading
 import time
@@ -233,3 +234,147 @@ def test_promise_not_fulfilled() -> None:
   del p
   assert f.done()
   assert exc is not None
+
+
+def _get_delay() -> float:
+  return random.random() * 0.01
+
+
+def _run_threads(
+    promise: ts.Promise,
+    i: int,
+    stop: threading.Event,
+    threads: list[threading.Thread],
+) -> None:
+  """Runs a list of threads concurrently with setting the promise result."""
+
+  delay = _get_delay()
+  for t in threads:
+    t.start()
+
+  time.sleep(delay)
+  try:
+    promise.set_result(i)
+  except:  # pylint: disable=bare-except
+    pass
+
+  time.sleep(0.01)
+  stop.set()
+
+  for t in threads:
+    t.join()
+
+
+def test_future_concurrent_set_cancel_callback() -> None:
+  """Test multi-treaded races between adding callbacks and cancellation."""
+
+  def _concurrent_set_cancel_callback(i: int) -> None:
+    callback_called = threading.Event()
+    callback_result = [None]
+    callback_error = [None]
+
+    def callback(f: ts.Future) -> None:
+      nonlocal callback_called
+      nonlocal callback_result
+      nonlocal callback_error
+      try:
+        callback_result[0] = f.result()
+      except asyncio.CancelledError as e:
+        callback_error[0] = e
+      except Exception as e:  # pylint: disable=broad-exception-caught
+        callback_error[0] = e
+      finally:
+        callback_called.set()
+
+    def do_add_callback(delay: float, f: ts.Future) -> None:
+      time.sleep(delay)
+      f.add_done_callback(callback)
+
+    def do_cancel(delay: float, f: ts.Future) -> None:
+      time.sleep(delay)
+      f.cancel()
+
+    promise, future = ts.Promise.new()
+    _run_threads(
+        promise,
+        i,
+        threading.Event(),  # unused
+        [
+            threading.Thread(target=do_cancel, args=(_get_delay(), future)),
+            threading.Thread(
+                target=do_add_callback, args=(_get_delay(), future)
+            ),
+        ],
+    )
+
+    assert future.done()
+    assert callback_called.wait(timeout=5)
+
+    if future.cancelled():
+      assert isinstance(callback_error[0], asyncio.CancelledError)
+      with pytest.raises(asyncio.CancelledError):
+        future.result()
+    else:
+      # If not cancelled, result must have been set.
+      assert callback_error[0] is None
+      assert future.result() == i
+      assert callback_result[0] == i
+
+  for i in range(20):
+    _concurrent_set_cancel_callback(i)
+
+
+def test_future_concurrent_ops() -> None:
+  """Test multi-treaded races between adding callbacks and setting result."""
+
+  def _concurrent_ops() -> None:
+    events = [threading.Event() for _ in range(8)]
+    results = {}
+    lock = threading.Lock()
+    stop = threading.Event()
+
+    def make_callback(
+        idx: int, event: threading.Event
+    ) -> Callable[[ts.Future], None]:
+      def callback(f: ts.Future) -> None:
+        try:
+          result = f.result()
+          with lock:
+            results[idx] = result
+        finally:
+          event.set()
+
+      return callback
+
+    promise, future = ts.Promise.new()
+
+    def do_add_callback(
+        delay: float, callback: Callable[[ts.Future], None]
+    ) -> None:
+      time.sleep(delay)
+      future.add_done_callback(callback)
+
+    def read_props() -> None:
+      while not stop.is_set():
+        _ = future.done()
+        _ = future.cancelled()
+
+    threads = []
+    for i in range(len(events)):
+      threads.append(
+          threading.Thread(
+              target=do_add_callback,
+              
+              args=(_get_delay(), make_callback(i, events[i])),
+          )
+      )
+      threads.append(threading.Thread(target=read_props))
+
+    _run_threads(promise, 42, stop, threads)
+
+    for i in range(len(events)):
+      assert events[i].wait(timeout=5)
+      assert results[i] == 42
+
+  for _ in range(20):
+    _concurrent_ops()

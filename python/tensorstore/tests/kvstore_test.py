@@ -17,6 +17,9 @@ import copy
 import pathlib
 import pickle
 import tempfile
+import threading
+import time
+from typing import Callable
 
 import pytest
 import tensorstore as ts
@@ -157,3 +160,78 @@ def test_copy_range_to_ocdbt_memory_bad_path() -> None:
   ).result()
   with pytest.raises(NotImplementedError):
     child.experimental_copy_range_to(parent).result()
+
+
+def _run_threads(
+    stop: threading.Event,
+    read_props: Callable[[], None],
+    update_props: Callable[[], None],
+) -> None:
+  threads = []
+  for _ in range(4):
+    threads.append(threading.Thread(target=read_props))
+    threads.append(threading.Thread(target=update_props))
+
+  for t in threads:
+    t.start()
+
+  time.sleep(0.3)
+  stop.set()
+
+  for t in threads:
+    t.join()
+
+
+def test_kvstore_spec_concurrent_update_and_read() -> None:
+  """Validates that concurrent updates and reads do not crash."""
+  s = ts.KvStore.Spec('memory://')
+
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = s.path
+      _ = s.url
+      _ = s.base
+      _ = s == ts.KvStore.Spec('memory://')
+      _ = s.to_json()
+      _ = f'{s}'
+      _ = repr(s)
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    i = 0
+    while not stop.is_set():
+      if (i % 2) == 0:
+        s.path = 'abc/'
+      else:
+        s.path = 'def/'
+      i += 1
+
+  _run_threads(stop, read_props, update_props)
+
+
+def test_kvstore_keyrange_concurrent() -> None:
+  """Tests concurrent access to KvStore.KeyRange properties."""
+  kr = ts.KvStore.KeyRange('a', 'z')
+
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = kr.inclusive_min
+      _ = kr.exclusive_max
+      _ = kr.empty
+      _ = kr == ts.KvStore.KeyRange('a', 'z')
+      _ = f'{kr}'
+      _ = repr(kr)
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    while not stop.is_set():
+      kr.inclusive_min = 'b'
+      kr.exclusive_max = 'y'
+      kr.inclusive_min = 'a'
+      kr.exclusive_max = 'z'
+
+  _run_threads(stop, read_props, update_props)

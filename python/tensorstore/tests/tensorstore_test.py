@@ -18,6 +18,8 @@ import pathlib
 import pickle
 import re
 import tempfile
+import threading
+import time
 from typing import assert_type
 import numpy as np
 import pytest
@@ -470,6 +472,41 @@ async def test_storage_statistics_pickle() -> None:
   assert pickle.loads(pickle.dumps(x)) == x
 
 
+def test_storage_statistics_concurrent() -> None:
+  s = ts.TensorStore.StorageStatistics()
+
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = s.not_stored
+      _ = s.fully_stored
+      _ = s == ts.TensorStore.StorageStatistics()
+      _ = f"{s}"
+      _ = repr(s)
+
+  def update_props() -> None:
+    while not stop.is_set():
+      s.not_stored = True
+      s.fully_stored = True
+      s.not_stored = None
+      s.fully_stored = None
+
+  threads = []
+  for _ in range(4):
+    threads.append(threading.Thread(target=read_props))
+    threads.append(threading.Thread(target=update_props))
+
+  for t in threads:
+    t.start()
+
+  time.sleep(0.3)
+  stop.set()
+
+  for t in threads:
+    t.join()
+
+
 def test_tensorstore_ocdbt_zarr_repr() -> None:
   arr_future = ts.open(
       {
@@ -528,6 +565,44 @@ async def test_spec_open_mode() -> None:
     store = await ts.open(spec, context=context, open_mode=open_mode)
     requested_spec = store.spec(**open_mode_kwargs)  # type: ignore[arg-type]
     assert requested_spec.open_mode == open_mode
+
+
+def test_openmode_concurrent() -> None:
+  o = ts.OpenMode()
+
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = o.open
+      _ = o.create
+      _ = o.delete_existing
+      _ = o == ts.OpenMode()
+      _ = f"{o}"
+      _ = repr(o)
+
+  def update_props() -> None:
+    while not stop.is_set():
+      o.open = True
+      o.create = True
+      o.delete_existing = True
+      o.open = False
+      o.create = False
+      o.delete_existing = False
+
+  threads = []
+  for _ in range(4):
+    threads.append(threading.Thread(target=read_props))
+    threads.append(threading.Thread(target=update_props))
+
+  for t in threads:
+    t.start()
+
+  time.sleep(0.3)
+  stop.set()
+
+  for t in threads:
+    t.join()
 
 
 @pytest.mark.parametrize("writable", [True, False])

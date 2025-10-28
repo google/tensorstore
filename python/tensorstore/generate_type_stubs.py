@@ -122,7 +122,13 @@ def transform_init_ast(
   #
   # These are internal implementation details that aren't useful in the type
   # stubs.
-  excluded_symbols = {"_unpickle", "__reduce__", "__getstate__", "__setstate__"}
+  excluded_symbols = {
+      "_unpickle",
+      "__reduce__",
+      "__getstate__",
+      "__setstate__",
+      "__conditional_annotations__",
+  }
 
   class _InitPyVisitor(ast.NodeTransformer):
 

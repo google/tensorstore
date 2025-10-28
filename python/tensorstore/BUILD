@@ -143,6 +143,7 @@ tensorstore_pytest_test(
     name = "dim_test",
     size = "small",
     srcs = ["tests/dim_test.py"],
+    tags = ["cpu:2"],
     deps = [
         ":conftest",
         ":tensorstore",
@@ -752,6 +753,7 @@ tensorstore_pytest_test(
     name = "spec_test",
     size = "small",
     srcs = ["tests/spec_test.py"],
+    tags = ["cpu:2"],
     deps = [
         ":conftest",
         ":tensorstore",
@@ -774,6 +776,7 @@ tensorstore_pytest_test(
     name = "tensorstore_test",
     size = "small",
     srcs = ["tests/tensorstore_test.py"],
+    tags = ["cpu:2"],
     deps = [
         ":conftest",
         ":tensorstore",
@@ -794,8 +797,9 @@ tensorstore_pytest_test(
 
 tensorstore_pytest_test(
     name = "future_test",
-    size = "small",
+    size = "medium",
     srcs = ["tests/future_test.py"],
+    tags = ["cpu:2"],
     deps = [
         ":conftest",
         ":tensorstore",
@@ -1100,6 +1104,7 @@ tensorstore_pytest_test(
     name = "kvstore_test",
     size = "small",
     srcs = ["tests/kvstore_test.py"],
+    tags = ["cpu:2"],
     deps = [
         ":conftest",
         ":tensorstore",
