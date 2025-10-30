@@ -27,8 +27,9 @@
 #include <utility>
 
 #include "absl/base/log_severity.h"  // IWYU pragma: keep
-#include "absl/log/globals.h"        // IWYU pragma: keep
-#include "absl/log/initialize.h"     // IWYU pragma: keep
+#include "absl/debugging/leak_check.h"
+#include "absl/log/globals.h"     // IWYU pragma: keep
+#include "absl/log/initialize.h"  // IWYU pragma: keep
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/tensorstore_module_components.h"
@@ -66,6 +67,9 @@ void InitializeAbslLogging() {
 }
 
 PYBIND11_MODULE(_tensorstore, m) {
+  // clang-format on
+  absl::LeakCheckDisabler disabler;
+
   InitializeAbslLogging();
   internal_python::InitializeNumpy();
 

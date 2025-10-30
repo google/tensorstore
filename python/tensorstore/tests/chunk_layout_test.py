@@ -14,6 +14,9 @@
 """Tests for tensorstore.ChunkLayout."""
 
 import pickle
+import threading
+import time
+from typing import Callable
 
 import numpy as np
 import pytest
@@ -149,3 +152,80 @@ def test_pickle_chunk_layout() -> None:
       grid_origin=[1, 2],
   )
   assert pickle.loads(pickle.dumps(x)) == x
+
+
+def _run_threads(
+    stop: threading.Event,
+    read_props: Callable[[], None],
+    update_props: Callable[[], None],
+) -> None:
+  threads = []
+  for _ in range(4):
+    threads.append(threading.Thread(target=read_props))
+    threads.append(threading.Thread(target=update_props))
+
+  for t in threads:
+    t.start()
+
+  time.sleep(0.3)
+  stop.set()
+
+  for t in threads:
+    t.join()
+
+
+def test_chunk_layout_concurrent() -> None:
+  """Tests concurrent access to ChunkLayout properties."""
+  layout = ts.ChunkLayout(rank=2)
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = layout.rank
+      _ = layout.ndim
+      _ = layout.inner_order
+      _ = layout.write_chunk
+      _ = layout.read_chunk
+      _ = layout == ts.ChunkLayout(rank=2)
+      _ = f'{layout}'
+      _ = repr(layout)
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    i = 0
+    while not stop.is_set():
+      if (i % 2) == 0:
+        layout.update(inner_order=[0, 1], chunk_shape=[10, 20])
+      else:
+        layout.update(inner_order=[1, 0], chunk_shape=[None, None])
+      i += 1
+
+  _run_threads(stop, read_props, update_props)
+
+
+def test_grid_concurrent() -> None:
+  """Tests concurrent access to ChunkLayout.Grid properties."""
+  grid = ts.ChunkLayout.Grid(rank=2)
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = grid.rank
+      _ = grid.ndim
+      _ = grid.shape
+      _ = grid.elements
+      _ = grid == ts.ChunkLayout.Grid(rank=2)
+      _ = f'{grid}'
+      _ = repr(grid)
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    i = 0
+    while not stop.is_set():
+      if (i % 2) == 0:
+        grid.update(shape=[1, 2], elements=10)
+      else:
+        grid.update(shape=[None, None], elements=None)
+      i += 1
+
+  _run_threads(stop, read_props, update_props)

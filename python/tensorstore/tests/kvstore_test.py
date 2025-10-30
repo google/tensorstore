@@ -182,10 +182,46 @@ def _run_threads(
     t.join()
 
 
-def test_kvstore_spec_concurrent_update_and_read() -> None:
+def test_kvstore_concurrent() -> None:
+  """Validates that concurrent updates and reads to a KvStore do not crash."""
+  kv = ts.KvStore.open('memory://').result()
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = kv.path
+      _ = kv.url
+      _ = kv.base
+      _ = kv.transaction
+      _ = kv.spec()
+      _ = kv.list().result()
+      _ = kv == ts.KvStore.open('memory://').result()
+      _ = f'{kv}'
+      _ = repr(kv)
+      _ = kv / 'foo'
+      _ = kv + 'bar'
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    i = 0
+    txn = ts.Transaction()
+    while not stop.is_set():
+      if (i % 4) == 0:
+        kv.path = 'abc'
+      elif (i % 4) == 1:
+        kv.path = ''
+      elif (i % 4) == 2:
+        kv.transaction = txn
+      else:
+        kv.transaction = None
+      i += 1
+
+  _run_threads(stop, read_props, update_props)
+
+
+def test_kvstore_spec_concurrent() -> None:
   """Validates that concurrent updates and reads do not crash."""
   s = ts.KvStore.Spec('memory://')
-
   stop = threading.Event()
 
   def read_props() -> None:
@@ -214,7 +250,6 @@ def test_kvstore_spec_concurrent_update_and_read() -> None:
 def test_kvstore_keyrange_concurrent() -> None:
   """Tests concurrent access to KvStore.KeyRange properties."""
   kr = ts.KvStore.KeyRange('a', 'z')
-
   stop = threading.Event()
 
   def read_props() -> None:
@@ -222,16 +257,67 @@ def test_kvstore_keyrange_concurrent() -> None:
       _ = kr.inclusive_min
       _ = kr.exclusive_max
       _ = kr.empty
-      _ = kr == ts.KvStore.KeyRange('a', 'z')
+      _ = kr == ts.KvStore.KeyRange(b'a', b'z')
       _ = f'{kr}'
       _ = repr(kr)
 
   def update_props() -> None:
     time.sleep(0.01)
     while not stop.is_set():
-      kr.inclusive_min = 'b'
+      kr.inclusive_min = b'b'
       kr.exclusive_max = 'y'
       kr.inclusive_min = 'a'
-      kr.exclusive_max = 'z'
+      kr.exclusive_max = b'z'
+
+  _run_threads(stop, read_props, update_props)
+
+
+def test_kvstore_timestampedstorategeneration_concurrent() -> None:
+  """Tests concurrent access to KvStore.TimestampedStorageGeneration properties."""
+  tsg = ts.KvStore.TimestampedStorageGeneration()
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = tsg.generation
+      _ = tsg.time
+      _ = tsg == ts.KvStore.TimestampedStorageGeneration()
+      _ = f'{tsg}'
+      _ = repr(tsg)
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    while not stop.is_set():
+      tsg.generation = 'gen'
+      tsg.time = 1.0
+      tsg.generation = b''
+      tsg.time = -float('inf')
+
+  _run_threads(stop, read_props, update_props)
+
+
+def test_kvstore_readresult_concurrent() -> None:
+  """Tests concurrent access to KvStore.ReadResult properties."""
+  rr = ts.KvStore.ReadResult()
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = rr.state
+      _ = rr.value
+      _ = rr.stamp
+      _ = rr == ts.KvStore.ReadResult()
+      _ = f'{rr}'
+      _ = repr(rr)
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    while not stop.is_set():
+      rr.state = 'value'
+      rr.value = b'value'
+      rr.stamp = ts.KvStore.TimestampedStorageGeneration(b'gen', 1.0)
+      rr.state = 'missing'
+      rr.value = b''
+      rr.stamp = ts.KvStore.TimestampedStorageGeneration()
 
   _run_threads(stop, read_props, update_props)

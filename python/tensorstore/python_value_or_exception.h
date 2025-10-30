@@ -19,6 +19,8 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <utility>
+
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/status.h"

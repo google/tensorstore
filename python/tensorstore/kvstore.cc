@@ -53,6 +53,7 @@
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -1534,8 +1535,9 @@ Half-open interval of byte string keys, according to lexicographical order.
 
 void DefineKeyRangeAttributes(KeyRangeCls& cls) {
   using Self = KeyRange;
-  cls.def(py::init([](std::string inclusive_min, std::string exclusive_max) {
-            return KeyRange(std::move(inclusive_min), std::move(exclusive_max));
+  cls.def(py::init([](StrOrBytes inclusive_min, StrOrBytes exclusive_max) {
+            return KeyRange(std::move(inclusive_min.value),
+                            std::move(exclusive_max.value));
           }),
           py::arg("inclusive_min") = "", py::arg("exclusive_max") = "",
           R"(
@@ -1553,8 +1555,9 @@ Args:
 
   cls.def_property(
       "inclusive_min",
-      [](const Self& self) -> std::string_view { return self.inclusive_min; },
-      [](Self& self, std::string value) { self.inclusive_min = value; }, R"(
+      [](const Self& self) -> py::bytes { return self.inclusive_min; },
+      [](Self& self, StrOrBytes value) { self.inclusive_min = value.value; },
+      R"(
 Inclusive lower bound of the range.
 
 In accordance with the usual lexicographical order, an empty string indicates no
@@ -1566,8 +1569,9 @@ Group:
 
   cls.def_property(
       "exclusive_max",
-      [](const Self& self) -> std::string_view { return self.exclusive_max; },
-      [](Self& self, std::string value) { self.exclusive_max = value; }, R"(
+      [](const Self& self) -> py::bytes { return self.exclusive_max; },
+      [](Self& self, StrOrBytes value) { self.exclusive_max = value.value; },
+      R"(
 Exclusive upper bound of the range.
 
 As a special case, an empty string indicates no upper bound.
@@ -1636,8 +1640,8 @@ Specifies a storage generation identifier and a timestamp.
 void DefineTimestampedStorageGenerationAttributes(
     TimestampedStorageGenerationCls& cls) {
   using Self = TimestampedStorageGeneration;
-  cls.def(py::init([](std::string generation, double time) {
-            return Self(StorageGeneration{std::move(generation)},
+  cls.def(py::init([](StrOrBytes generation, double time) {
+            return Self(StorageGeneration{std::move(generation.value)},
                         internal_python::FromPythonTimestamp(time));
           }),
           py::arg("generation") = "",
@@ -1658,8 +1662,8 @@ Constructs from a storage generation and time.
       [](const Self& self) -> py::bytes {
         return py::bytes(self.generation.value);
       },
-      [](Self& self, std::string value) {
-        self.generation.value = std::move(value);
+      [](Self& self, StrOrBytes value) {
+        self.generation.value = std::move(value.value);
       },
       R"(
 Identifies a specific version of a key-value store entry.

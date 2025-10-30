@@ -164,6 +164,7 @@ def test_spec_concurrent_update_and_read() -> None:
   s = ts.Spec({
       "driver": "zarr",
       "kvstore": {"driver": "memory"},
+      "transform": {"input_rank": 2},
   })
 
   stop = threading.Event()
@@ -182,6 +183,12 @@ def test_spec_concurrent_update_and_read() -> None:
       _ = s == ts.Spec(s.to_json())
       _ = f"{s}"
       _ = repr(s)
+      _ = s[0]
+      _ = s.oindex[0]
+      _ = s.vindex[0]
+      _ = s.T
+      _ = s.transpose([1, 0])
+      _ = s.translate_to[1]
 
   def update_props() -> None:
     i = 0
@@ -197,7 +204,7 @@ def test_spec_concurrent_update_and_read() -> None:
 
 def test_schema_concurrent_update_and_read() -> None:
   """Validates that concurrent updates and reads do not crash."""
-  s = ts.Schema(dtype=ts.int32, fill_value=42)
+  s = ts.Schema(dtype=ts.int32, fill_value=42, rank=2)
 
   stop = threading.Event()
 
@@ -215,6 +222,12 @@ def test_schema_concurrent_update_and_read() -> None:
       _ = s == ts.Schema(j)
       _ = f"{s}"
       _ = repr(s)
+      _ = s[0]
+      _ = s.oindex[0]
+      _ = s.vindex[0]
+      _ = s.T
+      _ = s.transpose([1, 0])
+      _ = s.translate_to[1]
 
   def update_props() -> None:
     i = 0

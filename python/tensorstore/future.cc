@@ -28,6 +28,7 @@
 #include <optional>
 #include <utility>
 
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -227,6 +228,28 @@ class ScopedFutureCallbackRegistration {
  private:
   FutureCallbackRegistration registration_;
 };
+
+// A `CancelCallback` is a callback that is invoked when a `PythonFutureObject`
+// is cancelled.  It is stored in a linked list, since there may be multiple
+// cancel callbacks for a single `PythonFutureObject`.
+//
+// At present this is only used by InterruptibleWaitImpl.
+struct CancelCallback : public PythonFutureObject::CancelCallbackBase {
+  using CancelCallbackBase = PythonFutureObject::CancelCallbackBase;
+  using Accessor =
+      internal::intrusive_linked_list::MemberAccessor<CancelCallbackBase>;
+  explicit CancelCallback(PythonFutureObject* base,
+                          absl::FunctionRef<void()> callback)
+      : callback(callback) {
+    internal::intrusive_linked_list::InsertBefore(
+        Accessor{}, &base->cpp_data.cancel_callbacks, this);
+  }
+  ~CancelCallback() {
+    internal::intrusive_linked_list::Remove(Accessor{}, this);
+  }
+  absl::FunctionRef<void()> callback;
+};
+
 }  // namespace
 
 [[noreturn]] void ThrowCancelledError() {
@@ -243,9 +266,7 @@ pybind11::object GetCancelledError() {
   return python_imports.asyncio_cancelled_error_class(py::none());
 }
 
-// FIXME: Change to AnyFuture.
-void InterruptibleWaitImpl(internal_future::FutureStateBase& future,
-                           absl::Time deadline,
+void InterruptibleWaitImpl(tensorstore::AnyFuture future, absl::Time deadline,
                            PythonFutureObject* python_future) {
   if (future.ready()) return;
   {
@@ -255,14 +276,12 @@ void InterruptibleWaitImpl(internal_future::FutureStateBase& future,
 
   ScopedEvent event;
   const auto notify_done = [&event] { event.Set(); };
-  std::optional<PythonFutureObject::CancelCallback> cancel_callback;
+  std::optional<CancelCallback> cancel_callback;
   if (python_future) {
     cancel_callback.emplace(python_future, notify_done);
   }
   ScopedFutureCallbackRegistration registration{
-      internal_future::FutureAccess::Construct<AnyFuture>(
-          internal_future::FutureStatePointer(&future))
-          .UntypedExecuteWhenReady([&event](auto future) { event.Set(); })};
+      future.UntypedExecuteWhenReady([&event](auto future) { event.Set(); })};
 
   while (true) {
     ScopedEventWaitResult wait_result;
@@ -291,7 +310,16 @@ bool PythonFutureObject::Cancel() {
   if (done()) return false;
   cpp_data.state = {};
   cpp_data.registration.Unregister();
-  RunCancelCallbacks();
+
+  // Run cancel callbacks. Note that the only user of cancel callbacks
+  // is InterruptibleWaitImpl.
+  for (CancelCallbackBase* callback = cpp_data.cancel_callbacks.next;
+       callback != &cpp_data.cancel_callbacks;) {
+    auto* next = callback->next;
+    static_cast<CancelCallback*>(callback)->callback();
+    callback = next;
+  }
+
   RunCallbacks();
   return true;
 }
@@ -358,23 +386,25 @@ pybind11::object PythonFutureObject::GetAwaitable() {
   return awaitable_future.attr("__await__")();
 }
 
-internal_future::FutureStatePointer WaitForResult(PythonFutureObject& obj,
-                                                  absl::Time deadline) {
-  auto state = obj.cpp_data.state;
-  internal_python::InterruptibleWaitImpl(*state, deadline, &obj);
-  return state;
-}
-
 pybind11::object PythonFutureObject::GetResult(absl::Time deadline) {
   if (!cpp_data.state) ThrowCancelledError();
-  auto state = WaitForResult(*this, deadline);
-  return cpp_data.vtable->get_result(*state);
+  auto state = cpp_data.state;
+  auto any_future = internal_future::FutureAccess::Construct<AnyFuture>(state);
+  InterruptibleWaitImpl(any_future, deadline, this);
+  return vtable->get_result(*state);
 }
 
 pybind11::object PythonFutureObject::GetException(absl::Time deadline) {
   if (!cpp_data.state) ThrowCancelledError();
-  auto state = WaitForResult(*this, deadline);
-  return cpp_data.vtable->get_exception(*state);
+  auto state = cpp_data.state;
+  auto any_future = internal_future::FutureAccess::Construct<AnyFuture>(state);
+  InterruptibleWaitImpl(any_future, deadline, this);
+  return vtable->get_exception(*state);
+}
+
+Future<GilSafePythonHandle> PythonFutureObject::GetPythonValueFuture() {
+  if (!cpp_data.state) return absl::CancelledError("");
+  return vtable->get_python_value_future(*cpp_data.state);
 }
 
 void PythonFutureObject::AddDoneCallback(pybind11::handle callback) {
@@ -403,42 +433,6 @@ size_t PythonFutureObject::RemoveDoneCallback(pybind11::handle callback) {
     Py_DECREF(reinterpret_cast<PyObject*>(this));
   }
   return num_removed;
-}
-
-Future<GilSafePythonHandle> PythonFutureObject::GetPythonValueFuture() {
-  if (!cpp_data.state) return absl::CancelledError("");
-  return cpp_data.vtable->get_python_value_future(*cpp_data.state);
-}
-
-int PythonFutureObject::TraversePythonReferences(visitproc visit, void* arg) {
-  for (const auto& obj : cpp_data.callbacks) {
-    Py_VISIT(obj.ptr());
-  }
-  return cpp_data.reference_manager.Traverse(visit, arg);
-}
-
-int PythonFutureObject::ClearPythonReferences() {
-  cpp_data.state = {};
-  cpp_data.registration.Unregister();
-  cpp_data.reference_manager.Clear();
-  // Don't modify `cpp_data.callbacks` in place, since clearing callbacks can
-  // result in calls back into Python code, and `std::vector` does not support
-  // re-entrant mutation.
-  auto callbacks = std::move(cpp_data.callbacks);
-  if (!callbacks.empty()) {
-    callbacks.clear();
-    Py_DECREF(reinterpret_cast<PyObject*>(this));
-  }
-  return 0;
-}
-
-void PythonFutureObject::RunCancelCallbacks() {
-  for (CancelCallbackBase* callback = cpp_data.cancel_callbacks.next;
-       callback != &cpp_data.cancel_callbacks;) {
-    auto* next = callback->next;
-    static_cast<CancelCallback*>(callback)->callback();
-    callback = next;
-  }
 }
 
 void PythonFutureObject::RunCallbacks() {
@@ -565,9 +559,8 @@ PyObject* FutureAlloc(PyTypeObject* type, Py_ssize_t nitems) {
   PyObject_GC_UnTrack(ptr);
   auto& cpp_data = reinterpret_cast<PythonFutureObject*>(ptr)->cpp_data;
   new (&cpp_data) PythonFutureObject::CppData;
-  internal::intrusive_linked_list::Initialize(
-      PythonFutureObject::CancelCallback::Accessor{},
-      &cpp_data.cancel_callbacks);
+  internal::intrusive_linked_list::Initialize(CancelCallback::Accessor{},
+                                              &cpp_data.cancel_callbacks);
   return ptr;
 }
 
@@ -604,14 +597,45 @@ void FutureDealloc(PyObject* self) {
   Py_DECREF(type);
 }
 
+// Invokes the visitor on each Python object directly owned by this object,
+// as required by the `tp_traverse` protocol.
+//
+// This is invoked by the `tp_traverse` method for `tensorstore.Future`,
+// which is called by the garbage collector to determine which objects are
+// reachable from this object.
 int FutureTraverse(PyObject* self, visitproc visit, void* arg) {
+  auto& cpp_data = reinterpret_cast<PythonFutureObject*>(self)->cpp_data;
   Py_VISIT(Py_TYPE(self));
-  return reinterpret_cast<PythonFutureObject*>(self)->TraversePythonReferences(
-      visit, arg);
+  for (const auto& obj : cpp_data.callbacks) {
+    Py_VISIT(obj.ptr());
+  }
+  return cpp_data.reference_manager.Traverse(visit, arg);
 }
 
+// Clears Python references directly owned by this object, as required by the
+// `tp_clear` protocol.
+//
+// This is invoked by the `tp_clear` method for `tensorstore.Future`, which
+// is called by the garbage collector to break a reference cycle that
+// contains this object.
+//
+// This leaves the object in a valid state, but all callbacks are
+// unregistered and the accessor methods will behave as if the future was
+// cancelled.
 int FutureClear(PyObject* self) {
-  return reinterpret_cast<PythonFutureObject*>(self)->ClearPythonReferences();
+  auto& cpp_data = reinterpret_cast<PythonFutureObject*>(self)->cpp_data;
+  cpp_data.state = {};
+  cpp_data.registration.Unregister();
+  cpp_data.reference_manager.Clear();
+  // Don't modify `cpp_data.callbacks` in place, since clearing callbacks can
+  // result in calls back into Python code, and `std::vector` does not support
+  // reentrant mutation.
+  auto callbacks = std::move(cpp_data.callbacks);
+  if (!callbacks.empty()) {
+    callbacks.clear();
+    Py_DECREF(self);
+  }
+  return 0;
 }
 
 FutureCls MakeFutureClass(py::module m) {
@@ -981,9 +1005,10 @@ void PromiseDealloc(PyObject* self) {
 
   if (obj.weakrefs) PyObject_ClearWeakRefs(self);
 
-  if (cpp_data.python_future_object) {
-    cpp_data.python_future_object->cpp_data.python_promise_object = nullptr;
-    cpp_data.python_future_object = nullptr;
+  if (auto* future_object =
+          std::exchange(cpp_data.python_future_object, nullptr);
+      future_object) {
+    future_object->cpp_data.python_promise_object = nullptr;
   }
 
   cpp_data.~CppData();
@@ -995,11 +1020,9 @@ void PromiseDealloc(PyObject* self) {
 int PromiseTraverse(PyObject* self, visitproc visit, void* arg) {
   Py_VISIT(Py_TYPE(self));
   auto& cpp_data = reinterpret_cast<PythonPromiseObject*>(self)->cpp_data;
-  if (cpp_data.python_future_object &&
-      !cpp_data.python_future_object->cpp_data.callbacks.empty()) {
-    auto* future_ptr =
-        reinterpret_cast<PyObject*>(cpp_data.python_future_object);
-    Py_VISIT(future_ptr);
+  if (auto* future_object = cpp_data.python_future_object;
+      future_object && !future_object->cpp_data.callbacks.empty()) {
+    Py_VISIT(reinterpret_cast<PyObject*>(future_object));
   }
   return cpp_data.reference_manager.Traverse(visit, arg);
 }
@@ -1007,13 +1030,12 @@ int PromiseTraverse(PyObject* self, visitproc visit, void* arg) {
 int PromiseClear(PyObject* self) {
   auto& cpp_data = reinterpret_cast<PythonPromiseObject*>(self)->cpp_data;
   cpp_data.reference_manager.Clear();
-  if (auto* future_object = cpp_data.python_future_object) {
-    if (!future_object->cpp_data.callbacks.empty()) {
-      auto callbacks = std::move(future_object->cpp_data.callbacks);
-      future_object->cpp_data.python_promise_object = nullptr;
-      cpp_data.python_future_object = nullptr;
-      Py_DECREF(reinterpret_cast<PyObject*>(future_object));
-    }
+  if (auto* future_object = cpp_data.python_future_object;
+      future_object && !future_object->cpp_data.callbacks.empty()) {
+    auto callbacks = std::move(future_object->cpp_data.callbacks);
+    future_object->cpp_data.python_promise_object = nullptr;
+    cpp_data.python_future_object = nullptr;
+    Py_DECREF(reinterpret_cast<PyObject*>(future_object));
   }
   return 0;
 }

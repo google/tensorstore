@@ -236,6 +236,43 @@ def test_promise_not_fulfilled() -> None:
   assert exc is not None
 
 
+def test_future_concurrent_wait_cancel() -> None:
+  _, future = ts.Promise.new()
+
+  def do_wait() -> None:
+    with pytest.raises(asyncio.CancelledError):
+      future.result(timeout=5)
+
+  threads = [threading.Thread(target=do_wait) for _ in range(4)]
+  for t in threads:
+    t.start()
+
+  time.sleep(0.01)
+  future.cancel()
+
+  for t in threads:
+    t.join()
+
+
+def test_future_concurrent_wait() -> None:
+  promise, future = ts.Promise.new()
+
+  def do_wait() -> None:
+    with pytest.raises(TimeoutError):
+      future.result(timeout=0.01)
+    assert future.result(timeout=5) == 5
+
+  threads = [threading.Thread(target=do_wait) for _ in range(4)]
+  for t in threads:
+    t.start()
+
+  time.sleep(0.1)
+  promise.set_result(5)
+
+  for t in threads:
+    t.join()
+
+
 def _get_delay() -> float:
   return random.random() * 0.01
 
@@ -364,7 +401,6 @@ def test_future_concurrent_ops() -> None:
       threads.append(
           threading.Thread(
               target=do_add_callback,
-              
               args=(_get_delay(), make_callback(i, events[i])),
           )
       )
