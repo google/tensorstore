@@ -298,15 +298,17 @@ def test_kvstore_timestampedstorategeneration_concurrent() -> None:
 
 def test_kvstore_readresult_concurrent() -> None:
   """Tests concurrent access to KvStore.ReadResult properties."""
-  rr = ts.KvStore.ReadResult()
+  gen = ts.KvStore.TimestampedStorageGeneration(b'gen', 1.0)
+  rr = ts.KvStore.ReadResult('value', b'foo', gen)
   stop = threading.Event()
 
   def read_props() -> None:
     while not stop.is_set():
+      _ = rr == ts.KvStore.ReadResult()
       _ = rr.state
       _ = rr.value
       _ = rr.stamp
-      _ = rr == ts.KvStore.ReadResult()
+      _ = rr == ts.KvStore.ReadResult('value', 'bar', gen)
       _ = f'{rr}'
       _ = repr(rr)
 

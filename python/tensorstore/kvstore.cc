@@ -1713,10 +1713,10 @@ Specifies the result of a read operation.
 void DefineReadResultAttributes(ReadResultCls& cls) {
   using Self = kvstore::ReadResult;
 
-  cls.def(py::init([](Self::State state, std::string value,
+  cls.def(py::init([](Self::State state, StrOrBytes value,
                       TimestampedStorageGeneration stamp) {
-            return kvstore::ReadResult{state, absl::Cord(std::move(value)),
-                                       std::move(stamp)};
+            return kvstore::ReadResult{
+                state, absl::Cord(std::move(value.value)), std::move(stamp)};
           }),
           py::arg("state") = Self::State::kUnspecified, py::arg("value") = "",
           py::arg("stamp") = TimestampedStorageGeneration(), R"(
@@ -1733,8 +1733,8 @@ Indicates the interpretation of :py:obj:`.value`.
   cls.def_property(
       "value",
       [](const Self& self) -> py::bytes { return CordToPython(self.value); },
-      [](Self& self, std::string value) {
-        self.value = absl::Cord(std::move(value));
+      [](Self& self, StrOrBytes value) {
+        self.value = absl::Cord(std::move(value.value));
       },
       R"(
 Value associated with the key.
