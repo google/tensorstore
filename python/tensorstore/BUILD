@@ -798,6 +798,17 @@ tensorstore_pytest_test(
 )
 
 tensorstore_pytest_test(
+    name = "batch_test",
+    size = "small",
+    srcs = ["tests/batch_test.py"],
+    deps = [
+        ":conftest",
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+tensorstore_pytest_test(
     name = "future_test",
     size = "medium",
     srcs = ["tests/future_test.py"],
