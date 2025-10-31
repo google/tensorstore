@@ -6,8 +6,7 @@ load(
     "pybind11_py_extension",
 )
 load("//bazel:pytest.bzl", "tensorstore_pytest_test")
-load("//bazel:pytype.bzl", "pytype_strict_binary", "pytype_strict_library")
-load("//bazel:run_binary_in_target_cfg_if_possible.bzl", "run_binary")
+load("//bazel:pytype.bzl", "pytype_strict_binary", "pytype_strict_library", "pytype_strict_test")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 load("//docs:doctest.bzl", "doctest_test")
 
@@ -22,10 +21,7 @@ exports_files([
     "cc_test_driver_main.py",
 ])
 
-PYI_FILES = [
-    "__init__.pyi",
-    "ocdbt.pyi",
-]
+PYI_FILES = glob(["**/*.pyi"])
 
 doctest_test(
     name = "doctest_test",
@@ -1270,23 +1266,16 @@ tensorstore_pytest_test(
     ],
 )
 
-pytype_strict_binary(
+pytype_strict_test(
     name = "generate_type_stubs",
+    size = "small",
     srcs = ["generate_type_stubs.py"],
-    data = ["__init__.py"],
+    args = ["--strip-generic-slice"],
+    data = ["__init__.py"] + PYI_FILES,
     main = "generate_type_stubs.py",
     deps = [
         ":_tensorstore_with_python_deps",  # build_cleaner: keep
+        "@pypa_black//:black",
         "@pypa_pybind11_stubgen//:pybind11_stubgen",
     ],
-)
-
-run_binary(
-    name = "genrule_type_stubs",
-    outs = PYI_FILES,
-    args = [
-        "$(execpath __init__.pyi)",
-        "$(execpath ocdbt.pyi)",
-    ],
-    tool = ":generate_type_stubs",
 )

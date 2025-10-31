@@ -245,8 +245,6 @@ def _normalize_path(path: str) -> str:
 if 'darwin' in sys.platform:
   _macos_deployment_target = _configure_macos_deployment_target()
 
-_TYPE_STUBS = ['__init__.pyi', 'ocdbt.pyi']
-
 
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
   """Overrides default build_ext command to invoke bazel."""
@@ -304,11 +302,10 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             + build_flags
             + [
                 '//python/tensorstore:_tensorstore__shared_objects',
-                '//python/tensorstore:genrule_type_stubs',
                 '--verbose_failures',
                 # Bazel does not seem to download these files by default when
                 # using remote caching.
-                r'--remote_download_regex=.*/(_tensorstore\.(so|pyd)|.*\.pyi)',
+                r'--remote_download_regex=.*/(_tensorstore\.(so|pyd))',
             ]
             + build_options
         )
@@ -384,42 +381,6 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
           )
       )
       shutil.copyfile(built_ext_path, ext_full_path)
-
-      for name in _TYPE_STUBS:
-        bazel_output_path = os.path.join(os.path.dirname(built_ext_path), name)
-        output_path = (
-            os.path.join(_REPO_ROOT, 'python/tensorstore', name)
-            if self.inplace
-            else self._get_type_stub_not_inplace_path(name)
-        )
-        print(
-            'Copying type stub %s -> %s'
-            % (
-                bazel_output_path,
-                output_path,
-            )
-        )
-        shutil.copyfile(
-            bazel_output_path,
-            output_path,
-        )
-
-  def _get_type_stub_not_inplace_path(self, name: str) -> str:
-    return os.path.join(self.build_lib, 'tensorstore', name)
-
-  def get_outputs(self) -> list[str]:
-    return super().get_outputs() + [
-        self._get_type_stub_not_inplace_path(name) for name in _TYPE_STUBS
-    ]
-
-  def get_output_mapping(self) -> dict[str, str]:
-    mapping = super().get_output_mapping()
-    if not self.inplace:
-      for name in _TYPE_STUBS:
-        mapping[self._get_type_stub_not_inplace_path(name)] = (
-            f'python/tensorstore/{name}'
-        )
-    return mapping
 
 
 class InstallCommand(setuptools.command.install.install):
