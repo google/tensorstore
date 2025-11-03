@@ -1,0 +1,40 @@
+cc_library(
+    name = "minidriver_lib",
+    srcs = ["minidriver.cc"],
+    hdrs = ["minidriver.h"],
+    visibility = ["//visibility:public"],
+    copts = ["-std=gnu++17"],
+    linkopts = ["-lnetcdf"],
+)
+
+cc_library(
+    name = "netcdf_driver",
+    srcs = [
+        "netcdf_driver.cc",
+        "netcdf_metadata.cc",
+    ],
+    hdrs = [
+        "netcdf_driver.h",
+        "netcdf_metadata.h",
+    ],
+    deps = [
+        ":minidriver_lib",
+        "//tensorstore/driver:registry",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+    visibility = ["//visibility:public"],
+    linkopts = ["-lnetcdf"],
+)
+
+cc_binary(
+    name = "netcdf_smoketest",
+    srcs = ["netcdf_smoketest.cc"],
+    deps = [
+        ":netcdf_driver",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
+    ],
+    linkopts = ["-lnetcdf"],
+)
