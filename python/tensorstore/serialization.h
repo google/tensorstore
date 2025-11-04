@@ -19,15 +19,18 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <optional>
 #include <type_traits>
 
 #include "absl/base/attributes.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/status.h"
+#include "python/tensorstore/with_handle.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/result.h"
@@ -186,12 +189,14 @@ pybind11::object MakeReduceSingleArgumentReturnValue(pybind11::object callable,
 /// \param cls Pybind11 class binding on which to install the pickling support.
 /// \param serializer Serializer to use, must be compatible with the `Holder`
 ///     type.
-template <typename Holder, typename Cls,
+template <bool WithLocking, typename Holder, typename Cls,
           typename Serializer = serialization::Serializer<Holder>>
 void EnablePicklingFromSerialization(Cls& cls, Serializer serializer = {}) {
+  using Handle = with_handle<const Holder&>;
   cls.def(pybind11::pickle(
-      [serializer](const Holder& holder) {
-        return EncodePickle(holder, serializer);
+      [serializer](Handle& self) {
+        MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
+        return EncodePickle(self.value, serializer);
       },
       [serializer](pybind11::object rep) {
         Holder value;
@@ -203,11 +208,11 @@ void EnablePicklingFromSerialization(Cls& cls, Serializer serializer = {}) {
 /// Convenience overload of `EnablePicklingFromSerialization` that just uses the
 /// bound class type `T`, rather than an explicitly specified `Holder` type
 /// which could be a smart pointer.
-template <int&... ExplicitArgumentBarrier, typename T, typename... Extra,
-          typename Serializer = serialization::Serializer<T>>
+template <bool WithLocking, int&... ExplicitArgumentBarrier, typename T,
+          typename... Extra, typename Serializer = serialization::Serializer<T>>
 void EnablePicklingFromSerialization(pybind11::class_<T, Extra...>& cls,
                                      Serializer serializer = {}) {
-  EnablePicklingFromSerialization<T>(cls, serializer);
+  EnablePicklingFromSerialization<WithLocking, T>(cls, serializer);
 }
 
 /// Defines the specified function as the `_unpickle` member of `cls`, and

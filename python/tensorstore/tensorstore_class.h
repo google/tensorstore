@@ -29,8 +29,10 @@
 #include "absl/status/status.h"
 #include "python/tensorstore/batch.h"
 #include "python/tensorstore/context.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/garbage_collection.h"
+#include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/transaction.h"
 #include "tensorstore/batch.h"
@@ -151,7 +153,12 @@ key-value store.
 )";
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
-    return std::visit([&](auto* p) { return self.Set(p->value); }, value);
+    return std::visit(
+        [&](auto* p) {
+          ScopedPyCriticalSection cs(reinterpret_cast<PyObject*>(p));
+          return self.Set(p->value);
+        },
+        value);
   }
 };
 

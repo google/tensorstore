@@ -32,6 +32,7 @@
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/batch.h"
 #include "python/tensorstore/context.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/future.h"
@@ -39,13 +40,14 @@
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/status.h"
-#include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/tensorstore_module_components.h"
+#include "python/tensorstore/with_handle.h"
 #include "python/tensorstore/write_futures.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -73,7 +75,6 @@
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
-#include "tensorstore/serialization/std_optional.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
@@ -88,6 +89,7 @@
 #include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/transaction.h"
 #include "python/tensorstore/unit.h"
+#include "tensorstore/serialization/std_optional.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -236,6 +238,7 @@ Group:
 
 void DefineTensorStoreAttributes(TensorStoreCls& cls) {
   using Self = PythonTensorStoreObject;
+
   cls.def_property_readonly(
       "rank", [](Self& self) { return self.value.rank(); },
       R"(Number of dimensions in the domain.
@@ -1431,7 +1434,7 @@ Group:
 )",
       py::arg("transaction"));
 
-  DefineIndexTransformOperations(
+  DefineIndexTransformOperations</*WithLocking=*/false>(
       &cls,
       {
           /*numpy_indexing=*/{
@@ -2211,9 +2214,11 @@ See also:
 
 )"},
       },
+      /*get_transform=*/
       [](const Self& self) {
         return internal::TensorStoreAccess::handle(self.value).transform;
       },
+      /*apply_transform=*/
       [](const Self& self,
          IndexTransform<> new_transform) -> PythonTensorStore {
         auto handle = internal::TensorStoreAccess::handle(self.value);
@@ -2221,6 +2226,7 @@ See also:
         return internal::TensorStoreAccess::Construct<TensorStore<>>(
             std::move(handle));
       },
+      /*copy_or_write_op=*/
       [](Self& self,
          std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder>
              source) {
@@ -2883,6 +2889,12 @@ struct ArrayStorageStatisticsAccessor {
     if (self.mask & MaskEntry) return self.*Member;
     return {};
   };
+  constexpr static inline auto GetLocked =
+      [](with_handle<const ArrayStorageStatistics&> self)
+      -> std::optional<bool> {
+    ScopedPyCriticalSection cs(self.handle.ptr());
+    return Get(self.value);
+  };
 
   constexpr static inline auto Set = [](ArrayStorageStatistics& self,
                                         std::optional<bool> value) {
@@ -2894,10 +2906,16 @@ struct ArrayStorageStatisticsAccessor {
       self.*Member = {};
     }
   };
+  constexpr static inline auto SetLocked =
+      [](with_handle<ArrayStorageStatistics&> self, std::optional<bool> value) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return Set(self.value, std::move(value));
+      };
 };
 
 void DefineArrayStorageStatisticsAttributes(ArrayStorageStatisticsCls& cls) {
   using Self = ArrayStorageStatistics;
+
   using NotStored =
       ArrayStorageStatisticsAccessor<&ArrayStorageStatistics::not_stored,
                                      ArrayStorageStatistics::query_not_stored>;
@@ -2917,7 +2935,8 @@ Constructs from attribute values.
 )",
           py::kw_only(), py::arg("not_stored") = std::nullopt,
           py::arg("fully_stored") = std::nullopt);
-  cls.def_property("not_stored", NotStored::Get, NotStored::Set,
+
+  cls.def_property("not_stored", NotStored::GetLocked, NotStored::SetLocked,
                    R"(
 Indicates whether *no* data is stored for the specified :py:obj:`~TensorStore.domain`.
 
@@ -2929,7 +2948,8 @@ If :python:`False`, it is guaranteed that all elements within the domain are equ
 to the :py:obj:`~TensorStore.fill_value`.
 )");
 
-  cls.def_property("fully_stored", FullyStored::Get, FullyStored::Set,
+  cls.def_property("fully_stored", FullyStored::GetLocked,
+                   FullyStored::SetLocked,
                    R"(
 Indicates whether data is stored for *all* elements of the specified :py:obj:`~TensorStore.domain`.
 
@@ -2939,20 +2959,24 @@ For the statistics returned by :py:obj:`TensorStore.storage_statistics`, if
 )");
 
   cls.def("__eq__",
-          [](const Self& self, const Self& other) { return self == other; });
+          [](with_handle<const Self&> self, with_handle<const Self&> other) {
+            ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+            return self.value == other.value;
+          });
 
-  cls.def("__repr__", [](const Self& self) {
-    const auto get_json = [&](auto getter) -> std::string {
-      if (auto value = getter(self); value) {
-        return PrettyPrintJsonAsPython(*value);
-      }
-      return "None";
+  cls.def("__repr__", [](with_handle<const Self&> self) {
+    const auto get_json_str = [&](auto v) -> std::string {
+      return v ? PrettyPrintJsonAsPython(*v) : "None";
     };
+    std::optional<ScopedPyCriticalSection> cs(self.handle.ptr());
+    auto not_stored = NotStored::Get(self.value);
+    auto fully_stored = FullyStored::Get(self.value);
+    cs = std::nullopt;
     return absl::StrFormat(
         "TensorStore.StorageStatistics(not_stored=%s, fully_stored=%s)",
-        get_json(NotStored::Get), get_json(FullyStored::Get));
+        get_json_str(not_stored), get_json_str(fully_stored));
   });
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 }
 
 void RegisterTensorStoreBindings(pybind11::module m, Executor defer) {

@@ -20,39 +20,49 @@
 #include "python/tensorstore/spec.h"
 
 // Other headers
-#include <new>
 #include <optional>
 #include <string>
 #include <utility>
 
 #include "absl/time/time.h"
 #include <nlohmann/json_fwd.hpp>
-#include "python/tensorstore/array_type_caster.h"
-#include "python/tensorstore/context.h"
-#include "python/tensorstore/data_type.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/intrusive_ptr_holder.h"
 #include "python/tensorstore/json_type_caster.h"
-#include "python/tensorstore/kvstore.h"
+#include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
+#include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
-#include "python/tensorstore/unit.h"
+#include "python/tensorstore/with_handle.h"
+#include "tensorstore/array.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/pprint_python.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -117,6 +127,7 @@ Comparison operators
 
 void DefineSpecAttributes(SpecCls& cls) {
   using Self = PythonSpecObject;
+
   cls.def(
       "__new__",
       [](py::handle cls, ::nlohmann::json json) {
@@ -163,20 +174,28 @@ Args:
 Group:
   Mutators
 )";
-    cls.def(
-        "update",
-        [](Self& self, KeywordArgument<decltype(param_def)>... kwarg) {
-          SpecConvertOptions options;
-          ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
-          ThrowStatusException(self.value.Set(std::move(options)));
-          self.UpdatePythonRefs();
-        },
-        doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
+    struct Update {
+      void operator()(Self& self,
+                      KeywordArgument<decltype(param_def)>... kwarg) const {
+        SpecConvertOptions options;
+        ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
+        ScopedPyCriticalSection cs(reinterpret_cast<PyObject*>(&self));
+        ThrowStatusException(self.value.Set(std::move(options)));
+        self.UpdatePythonRefs();
+      }
+    };
+    cls.def("update", Update{}, doc.c_str(), py::kw_only(),
+            MakeKeywordArgumentPyArg(param_def)...);
   });
 
-  cls.def_property_readonly(
-      "open_mode",
-      [](Self& self) -> OpenMode { return self.value.open_mode(); }, R"(
+  struct GetOpenMode {
+    OpenMode operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return self.value.open_mode();
+    }
+  };
+  cls.def_property_readonly("open_mode", GetOpenMode{},
+                            R"(
 Open mode with which the driver will be opened.
 
 If not applicable, equal to :python:`OpenMode()`.
@@ -202,13 +221,17 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "dtype",
-      [](Self& self) -> std::optional<DataType> {
-        if (auto dtype = self.value.dtype(); dtype.valid()) return dtype;
-        return std::nullopt;
-      },
-      R"(
+  struct GetDtype {
+    std::optional<DataType> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      if (const auto& dtype = self.value.dtype(); dtype.valid()) {
+        return dtype;
+      }
+      return std::nullopt;
+    }
+  };
+  cls.def_property_readonly("dtype", GetDtype{},
+                            R"(
 Data type, or :python:`None` if unspecified.
 
 Example:
@@ -233,14 +256,17 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "transform",
-      [](Self& self) -> std::optional<IndexTransform<>> {
-        if (auto transform = self.value.transform(); transform.valid())
-          return transform;
-        return std::nullopt;
-      },
-      R"(
+  struct GetTransform {
+    std::optional<IndexTransform<>> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      if (const auto& transform = self.value.transform(); transform.valid()) {
+        return transform;
+      }
+      return std::nullopt;
+    }
+  };
+  cls.def_property_readonly("transform", GetTransform{},
+                            R"(
 The :ref:`index transform<index-transform>`, or `None` if unspecified.
 
 Example:
@@ -280,14 +306,17 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "domain",
-      [](Self& self) -> std::optional<IndexDomain<>> {
-        if (auto transform = self.value.transform(); transform.valid())
-          return transform.domain();
-        return std::nullopt;
-      },
-      R"(
+  struct GetDomainFromTransform {
+    std::optional<IndexDomain<>> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      if (const auto& transform = self.value.transform(); transform.valid()) {
+        return transform.domain();
+      }
+      return std::nullopt;
+    }
+  };
+  cls.def_property_readonly("domain", GetDomainFromTransform{},
+                            R"(
 Returns the :ref:`index domain<index-domain>`, or `None` if unspecified.
 
 Example:
@@ -313,9 +342,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "rank", [](Self& self) { return RankToOptional(self.value.rank()); },
-      R"(
+  struct GetRank {
+    std::optional<DimensionIndex> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return RankToOptional(self.value.rank());
+    }
+  };
+  cls.def_property_readonly("rank", GetRank{},
+                            R"(
 Returns the rank of the domain, or `None` if unspecified.
 
 Example:
@@ -340,9 +374,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "ndim", [](Self& self) { return RankToOptional(self.value.rank()); },
-      R"(
+  struct GetNdim {
+    std::optional<DimensionIndex> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return RankToOptional(self.value.rank());
+    }
+  };
+  cls.def_property_readonly("ndim", GetNdim{},
+                            R"(
 Alias for :py:obj:`.rank`.
 
 Example:
@@ -367,9 +406,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "schema", [](Self& self) { return ValueOrThrow(self.value.schema()); },
-      R"(
+  struct GetSchema {
+    Schema operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return ValueOrThrow(self.value.schema());
+    }
+  };
+  cls.def_property_readonly("schema", GetSchema{},
+                            R"(
 Effective :ref:`schema<schema>`, including any constraints implied by driver-specific options.
 
 Example:
@@ -412,14 +456,16 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "domain",
-      [](Self& self) -> std::optional<IndexDomain<>> {
-        auto domain = ValueOrThrow(self.value.domain());
-        if (!domain.valid()) return std::nullopt;
-        return domain;
-      },
-      R"(
+  struct GetDomain {
+    std::optional<IndexDomain<>> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      auto domain = ValueOrThrow(self.value.domain());
+      if (!domain.valid()) return std::nullopt;
+      return domain;
+    }
+  };
+  cls.def_property_readonly("domain", GetDomain{},
+                            R"(
 
 Effective :ref:`index domain<index-domain>`, including any constraints implied
 by driver-specific options.
@@ -450,12 +496,14 @@ Group:
 
 )");
 
-  cls.def_property_readonly(
-      "chunk_layout",
-      [](Self& self) -> ChunkLayout {
-        return ValueOrThrow(self.value.chunk_layout());
-      },
-      R"(
+  struct GetChunkLayout {
+    ChunkLayout operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return ValueOrThrow(self.value.chunk_layout());
+    }
+  };
+  cls.def_property_readonly("chunk_layout", GetChunkLayout{},
+                            R"(
 
 Effective :ref:`chunk layout<chunk-layout>`, including any constraints implied
 by driver-specific options.
@@ -485,17 +533,18 @@ Group:
 
 )");
 
-  cls.def_property_readonly(
-      "codec",
-      [](Self& self)
-          -> std::optional<
-              internal::IntrusivePtr<const internal::CodecDriverSpec>> {
-        auto codec = ValueOrThrow(self.value.codec());
-        if (!codec.valid()) return std::nullopt;
-        return internal::IntrusivePtr<const internal::CodecDriverSpec>(
-            std::move(codec));
-      },
-      R"(
+  struct GetCodec {
+    std::optional<internal::IntrusivePtr<const internal::CodecDriverSpec>>
+    operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      auto codec = ValueOrThrow(self.value.codec());
+      if (!codec.valid()) return std::nullopt;
+      return internal::IntrusivePtr<const internal::CodecDriverSpec>(
+          std::move(codec));
+    }
+  };
+  cls.def_property_readonly("codec", GetCodec{},
+                            R"(
 
 Effective :ref:`codec<codec>`, including any constraints implied
 by driver-specific options.
@@ -524,14 +573,16 @@ Group:
 
 )");
 
-  cls.def_property_readonly(
-      "fill_value",
-      [](Self& self) -> std::optional<SharedArray<const void>> {
-        auto fill_value = ValueOrThrow(self.value.fill_value());
-        if (!fill_value.valid()) return std::nullopt;
-        return SharedArray<const void>(std::move(fill_value));
-      },
-      R"(
+  struct GetFillValue {
+    std::optional<SharedArray<const void>> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      auto fill_value = ValueOrThrow(self.value.fill_value());
+      if (!fill_value.valid()) return std::nullopt;
+      return SharedArray<const void>(std::move(fill_value));
+    }
+  };
+  cls.def_property_readonly("fill_value", GetFillValue{},
+                            R"(
 
 Effective fill value, including any constraints implied by driver-specific
 options.
@@ -562,13 +613,16 @@ Group:
 
 )");
 
-  cls.def_property_readonly(
-      "dimension_units",
-      [](Self& self) -> std::optional<HomogeneousTuple<std::optional<Unit>>> {
-        return internal_python::GetDimensionUnits(
-            self.value.rank(), ValueOrThrow(self.value.dimension_units()));
-      },
-      R"(
+  struct GetDimensionUnits {
+    std::optional<HomogeneousTuple<std::optional<Unit>>> operator()(
+        const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return internal_python::GetDimensionUnits(
+          self.value.rank(), ValueOrThrow(self.value.dimension_units()));
+    }
+  };
+  cls.def_property_readonly("dimension_units", GetDimensionUnits{},
+                            R"(
 
 Effective physical units of each dimension of the domain, including any
 constraints implied by driver-specific options.
@@ -598,14 +652,16 @@ Group:
 
 )");
 
-  cls.def_property_readonly(
-      "kvstore",
-      [](Self& self) -> std::optional<kvstore::Spec> {
-        auto kvstore = self.value.kvstore();
-        if (!kvstore.valid()) return std::nullopt;
-        return kvstore;
-      },
-      R"(
+  struct GetKvstore {
+    std::optional<kvstore::Spec> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      auto kvstore = self.value.kvstore();
+      if (!kvstore.valid()) return std::nullopt;
+      return kvstore;
+    }
+  };
+  cls.def_property_readonly("kvstore", GetKvstore{},
+                            R"(
 
 Spec of the associated key-value store used as the underlying storage.
 
@@ -629,12 +685,14 @@ Group:
 
        )");
 
-  cls.def_property_readonly(
-      "url",
-      [](Self& self) -> std::string {
-        return ValueOrThrow(self.value.ToUrl());
-      },
-      R"(
+  struct GetUrl {
+    std::string operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return ValueOrThrow(self.value.ToUrl());
+    }
+  };
+  cls.def_property_readonly("url", GetUrl{},
+                            R"(
 :json:schema:`URL representation<TensorStoreUrl>` of the TensorStore specification.
 
 Example:
@@ -654,14 +712,16 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "base",
-      [](Self& self) -> std::optional<Spec> {
-        auto spec = ValueOrThrow(self.value.base());
-        if (!spec.valid()) return std::nullopt;
-        return spec;
-      },
-      R"(
+  struct GetBase {
+    std::optional<Spec> operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      auto spec = ValueOrThrow(self.value.base());
+      if (!spec.valid()) return std::nullopt;
+      return spec;
+    }
+  };
+  cls.def_property_readonly("base", GetBase{},
+                            R"(
 
 Spec of the underlying `TensorStore`, if this is an adapter of a single
 underlying `TensorStore`.
@@ -741,13 +801,15 @@ Group:
 
 )");
 
-  cls.def(
-      "to_json",
-      [](Self& self, bool include_defaults) {
-        return ValueOrThrow(
-            self.value.ToJson({IncludeDefaults{include_defaults}}));
-      },
-      R"(
+  struct ToJson {
+    ::nlohmann::json operator()(const Self& self, bool include_defaults) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return ValueOrThrow(
+          self.value.ToJson({IncludeDefaults{include_defaults}}));
+    }
+  };
+  cls.def("to_json", ToJson{},
+          R"(
 Converts to the :json:schema:`JSON representation<TensorStore>`.
 
 Example:
@@ -774,9 +836,17 @@ Example:
 Group:
   Accessors
 )",
-      py::arg("include_defaults") = false);
+          py::arg("include_defaults") = false);
 
-  cls.def("copy", [](Self& self) { return self.value; }, R"(
+  struct CopyFunctor {
+    Spec operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return self.value;
+    }
+  };
+
+  cls.def("copy", CopyFunctor{},
+          R"(
 Returns a copy of the spec.
 
 Example:
@@ -794,21 +864,27 @@ Group:
   Accessors
 )");
 
-  cls.def("__copy__", [](Self& self) { return self.value; });
+  cls.def("__copy__", CopyFunctor{});
 
-  cls.def(
-      "__deepcopy__", [](Self& self, py::dict memo) { return self.value; },
-      py::arg("memo"));
+  struct DeepCopyFunctor {
+    Spec operator()(const Self& self, py::dict memo) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      return self.value;
+    }
+  };
+  cls.def("__deepcopy__", DeepCopyFunctor{}, py::arg("memo"));
 
-  cls.def(
-      "__repr__",
-      [](Self& self) {
-        JsonSerializationOptions options;
-        options.preserve_bound_context_resources_ = true;
-        return internal_python::PrettyPrintJsonAsPythonRepr(
-            self.value.ToJson(options), "Spec(", ")");
-      },
-      R"(
+  struct Repr {
+    std::string operator()(const Self& self) const {
+      ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+      JsonSerializationOptions options;
+      options.preserve_bound_context_resources_ = true;
+      return internal_python::PrettyPrintJsonAsPythonRepr(
+          self.value.ToJson(options), "Spec(", ")");
+    }
+  };
+  cls.def("__repr__", Repr{},
+          R"(
 Returns a string representation based on the :json:schema:`JSON representation<TensorStore>`.
 
 Example:
@@ -839,11 +915,15 @@ Example:
 
 )");
 
-  cls.def(
-      "__eq__",
-      [](Self& self, Self& other) { return self.value == other.value; },
-      py::arg("other"),
-      R"(
+  struct Eq {
+    bool operator()(const Self& self, const Self& other) const {
+      ScopedPyCriticalSection2 cs(reinterpret_cast<const PyObject*>(&self),
+                                  reinterpret_cast<const PyObject*>(&other));
+      return self.value == other.value;
+    }
+  };
+  cls.def("__eq__", Eq{}, py::arg("other"),
+          R"(
 Compares with another :py:obj:`Spec` for equality based on the :json:schema:`JSON representation<TensorStore>`.
 
 The comparison is based on the JSON representation, except that any bound
@@ -867,7 +947,7 @@ Example:
 
   cls.attr("__iter__") = py::none();
 
-  DefineIndexTransformOperations(
+  DefineIndexTransformOperations</*WithLocking=*/true>(
       &cls,
       /*doc_strings=*/
       {
@@ -1196,10 +1276,15 @@ Group:
 }
 
 void DefineSchemaAttributes(py::class_<Schema>& cls) {
-  using Self = Schema;
-  cls.def(py::init([](::nlohmann::json json) {
-            return ValueOrThrow(Schema::FromJson(std::move(json)));
-          }),
+  using Self = with_handle<Schema&>;
+  using ConstSelf = with_handle<const Schema&>;
+
+  struct SchemaFromJson {
+    Schema operator()(::nlohmann::json json) const {
+      return ValueOrThrow(Schema::FromJson(std::move(json)));
+    }
+  };
+  cls.def(py::init(SchemaFromJson{}),
           R"(
 Constructs from its :json:schema:`JSON representation<Schema>`.
 
@@ -1247,12 +1332,14 @@ Args:
 Overload:
   components
 )";
-      cls.def(py::init([](KeywordArgument<decltype(param_def)>... kwarg) {
-                Schema self;
-                ApplyKeywordArguments<decltype(param_def)...>(self, kwarg...);
-                return self;
-              }),
-              doc.c_str(), py::kw_only(),
+      struct SchemaInitComponents {
+        Schema operator()(KeywordArgument<decltype(param_def)>... kwarg) const {
+          Schema self;
+          ApplyKeywordArguments<decltype(param_def)...>(self, kwarg...);
+          return self;
+        }
+      };
+      cls.def(py::init(SchemaInitComponents{}), doc.c_str(), py::kw_only(),
               MakeKeywordArgumentPyArg(param_def)...);
     }
 
@@ -1277,18 +1364,26 @@ Args:
 Group:
   Mutators
 )";
-      cls.def(
-          "update",
-          [](Self& self, KeywordArgument<decltype(param_def)>... kwarg) {
-            ApplyKeywordArguments<decltype(param_def)...>(self, kwarg...);
-          },
-          doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
+      struct SchemaUpdate {
+        void operator()(Self self,
+                        KeywordArgument<decltype(param_def)>... kwarg) const {
+          ScopedPyCriticalSection cs(self.handle.ptr());
+          ApplyKeywordArguments<decltype(param_def)...>(self.value, kwarg...);
+        }
+      };
+      cls.def("update", SchemaUpdate{}, doc.c_str(), py::kw_only(),
+              MakeKeywordArgumentPyArg(param_def)...);
     }
   });
 
-  cls.def_property_readonly(
-      "rank", [](const Self& self) { return RankToOptional(self.rank()); },
-      R"(
+  struct GetRank {
+    std::optional<DimensionIndex> operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return RankToOptional(self.value.rank());
+    }
+  };
+  cls.def_property_readonly("rank", GetRank{},
+                            R"(
 Rank of the schema, or `None` if unspecified.
 
 Example:
@@ -1304,9 +1399,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "ndim", [](const Self& self) { return RankToOptional(self.rank()); },
-      R"(
+  struct GetNdim {
+    std::optional<DimensionIndex> operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return RankToOptional(self.value.rank());
+    }
+  };
+  cls.def_property_readonly("ndim", GetNdim{},
+                            R"(
 Alias for :py:obj:`.rank`.
 
 Example:
@@ -1319,13 +1419,15 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "dtype",
-      [](const Self& self) -> std::optional<DataType> {
-        if (self.dtype().valid()) return self.dtype();
-        return std::nullopt;
-      },
-      R"(
+  struct GetDtype {
+    std::optional<DataType> operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      if (self.value.dtype().valid()) return self.value.dtype();
+      return std::nullopt;
+    }
+  };
+  cls.def_property_readonly("dtype", GetDtype{},
+                            R"(
 Data type, or :python:`None` if unspecified.
 
 Example:
@@ -1342,14 +1444,16 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "domain",
-      [](const Self& self) -> std::optional<IndexDomain<>> {
-        auto domain = self.domain();
-        if (!domain.valid()) return std::nullopt;
-        return domain;
-      },
-      R"(
+  struct GetDomain {
+    std::optional<IndexDomain<>> operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      auto domain = self.value.domain();
+      if (!domain.valid()) return std::nullopt;
+      return domain;
+    }
+  };
+  cls.def_property_readonly("domain", GetDomain{},
+                            R"(
 Domain of the schema, or `None` if unspecified.
 
 Example:
@@ -1366,10 +1470,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "chunk_layout",
-      [](const Self& self) -> ChunkLayout { return self.chunk_layout(); },
-      R"(
+  struct GetChunkLayout {
+    ChunkLayout operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.chunk_layout();
+    }
+  };
+  cls.def_property_readonly("chunk_layout", GetChunkLayout{},
+                            R"(
 Chunk layout constraints specified by the schema.
 
 Example:
@@ -1390,17 +1498,18 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "codec",
-      [](const Self& self)
-          -> std::optional<
-              internal::IntrusivePtr<const internal::CodecDriverSpec>> {
-        auto codec = self.codec();
-        if (!codec.valid()) return std::nullopt;
-        return internal::IntrusivePtr<const internal::CodecDriverSpec>(
-            std::move(codec));
-      },
-      R"(
+  struct GetCodec {
+    std::optional<internal::IntrusivePtr<const internal::CodecDriverSpec>>
+    operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      auto codec = self.value.codec();
+      if (!codec.valid()) return std::nullopt;
+      return internal::IntrusivePtr<const internal::CodecDriverSpec>(
+          std::move(codec));
+    }
+  };
+  cls.def_property_readonly("codec", GetCodec{},
+                            R"(
 Codec constraints specified by the schema.
 
 Example:
@@ -1420,15 +1529,17 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "fill_value",
-      [](const Self& self) -> std::optional<SharedArray<const void>> {
-        auto fill_value = self.fill_value();
-        if (!fill_value.valid()) return std::nullopt;
-        return SharedArray<const void>(
-            static_cast<SharedArrayView<const void>&&>(fill_value));
-      },
-      R"(
+  struct GetFillValue {
+    std::optional<SharedArray<const void>> operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      auto fill_value = self.value.fill_value();
+      if (!fill_value.valid()) return std::nullopt;
+      return SharedArray<const void>(
+          static_cast<SharedArrayView<const void>&&>(fill_value));
+    }
+  };
+  cls.def_property_readonly("fill_value", GetFillValue{},
+                            R"(
 Fill value specified by the schema.
 
 Example:
@@ -1444,14 +1555,16 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "dimension_units",
-      [](const Self& self)
-          -> std::optional<HomogeneousTuple<std::optional<Unit>>> {
-        return internal_python::GetDimensionUnits(self.rank(),
-                                                  self.dimension_units());
-      },
-      R"(
+  struct GetDimensionUnits {
+    std::optional<HomogeneousTuple<std::optional<Unit>>> operator()(
+        ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return internal_python::GetDimensionUnits(self.value.rank(),
+                                                self.value.dimension_units());
+    }
+  };
+  cls.def_property_readonly("dimension_units", GetDimensionUnits{},
+                            R"(
 Physical units of each dimension of the domain.
 
 The *physical unit* for a dimension is the physical quantity corresponding to a
@@ -1488,12 +1601,14 @@ Group:
   Accessors
 )");
 
-  cls.def(
-      "to_json",
-      [](const Self& self, bool include_defaults) {
-        return ValueOrThrow(self.ToJson(IncludeDefaults{include_defaults}));
-      },
-      R"(
+  struct ToJson {
+    ::nlohmann::json operator()(ConstSelf self, bool include_defaults) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return ValueOrThrow(self.value.ToJson(IncludeDefaults{include_defaults}));
+    }
+  };
+  cls.def("to_json", ToJson{},
+          R"(
 Converts to the :json:schema:`JSON representation<Schema>`.
 
 Example:
@@ -1509,9 +1624,16 @@ Example:
 Group:
   Accessors
 )",
-      py::arg("include_defaults") = false);
+          py::arg("include_defaults") = false);
 
-  cls.def("copy", [](const Self& self) { return self; }, R"(
+  struct Copy {
+    Schema operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value;
+    }
+  };
+  cls.def("copy", Copy{},
+          R"(
 Returns a copy of the schema.
 
 Example:
@@ -1529,19 +1651,25 @@ Group:
   Accessors
 )");
 
-  cls.def("__copy__", [](const Self& self) { return self; });
+  cls.def("__copy__", Copy{});
 
-  cls.def(
-      "__deepcopy__", [](const Self& self, py::dict memo) { return self; },
-      py::arg("memo"));
+  struct DeepCopyFunctor {
+    Schema operator()(ConstSelf self, py::dict memo) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value;
+    }
+  };
+  cls.def("__deepcopy__", DeepCopyFunctor{}, py::arg("memo"));
 
-  cls.def(
-      "__repr__",
-      [](const Self& self) {
-        return internal_python::PrettyPrintJsonAsPythonRepr(
-            self.ToJson(IncludeDefaults{false}), "Schema(", ")");
-      },
-      R"(
+  struct Repr {
+    std::string operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return internal_python::PrettyPrintJsonAsPythonRepr(
+          self.value.ToJson(IncludeDefaults{false}), "Schema(", ")");
+    }
+  };
+  cls.def("__repr__", Repr{},
+          R"(
 Returns a string representation based on the  :json:schema:`JSON representation<Schema>`.
 
 Example:
@@ -1552,7 +1680,30 @@ Example:
 
 )");
 
-  DefineIndexTransformOperations(
+  struct Eq {
+    bool operator()(ConstSelf self, ConstSelf other) const {
+      ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+      return self.value == other.value;
+    }
+  };
+  cls.def("__eq__", Eq{}, py::arg("other"),
+          R"(
+Compares with another :py:obj:`Schema` for equality based on the :json:schema:`JSON representation<Schema>`.
+
+The comparison is based on the JSON representation.
+
+Example:
+
+  >>> schema = ts.Schema(dtype=ts.int32, rank=3)
+  >>> assert schema == schema
+  >>> a, b = spec.copy(), spec.copy()
+  >>> a.update(fill_value=42)
+  >>> assert a == a
+  >>> assert a != b
+
+)");
+
+  DefineIndexTransformOperations</*WithLocking=*/true>(
       &cls,
       /*doc_strings=*/
       {
@@ -1826,36 +1977,16 @@ See also:
 )"},
       },
       /*get_transform=*/
-      [](const Self& self) {
+      [](const Schema& self) {
         return ValueOrThrow(self.GetTransformForIndexingOperation());
       },
       /*apply_transform=*/
-      [](Self self, IndexTransform<> new_transform) {
+      [](Schema self, IndexTransform<> new_transform) {
         return ValueOrThrow(
             ApplyIndexTransform(std::move(new_transform), std::move(self)));
       });
 
-  cls.def(
-      "__eq__",
-      [](const Self& self, const Self& other) { return self == other; },
-      py::arg("other"),
-      R"(
-Compares with another :py:obj:`Schema` for equality based on the :json:schema:`JSON representation<Schema>`.
-
-The comparison is based on the JSON representation.
-
-Example:
-
-  >>> schema = ts.Schema(dtype=ts.int32, rank=3)
-  >>> assert schema == schema
-  >>> a, b = spec.copy(), spec.copy()
-  >>> a.update(fill_value=42)
-  >>> assert a == a
-  >>> assert a != b
-
-)");
-
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 }
 
 using ClsCodecSpec =
@@ -1899,7 +2030,7 @@ Converts to the :json:schema:`JSON representation<Codec>`.
 )",
       py::arg("include_defaults") = false);
 
-  EnablePicklingFromSerialization<Self>(
+  EnablePicklingFromSerialization</*WithLocking=*/false, Self>(
       cls, internal::CodecSpecNonNullDirectSerializer{});
 }
 
@@ -1958,7 +2089,9 @@ Skip reading the metadata when opening.
 
 template <typename ModeDef>
 void DefineOpenModeAccessor(ClsOpenMode& cls) {
-  using Self = PythonOpenMode;
+  using ConstHandle = with_handle<const PythonOpenMode&>;
+  using MutableHandle = with_handle<PythonOpenMode&>;
+
   std::string doc_str = ModeDef::doc;
   doc_str += R"(
 
@@ -1967,10 +2100,14 @@ Group:
 )";
   cls.def_property(
       ModeDef::name,
-      [](Self self) -> bool { return !!(self.value & ModeDef::mode); },
-      [](Self& self, bool value) {
-        self.value = value ? (self.value | ModeDef::mode)
-                           : (self.value & ~ModeDef::mode);
+      [](ConstHandle self) -> bool {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return !!(self.value.value & ModeDef::mode);
+      },
+      [](MutableHandle self, bool value) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.value = value ? (self.value.value | ModeDef::mode)
+                                 : (self.value.value & ~ModeDef::mode);
       },
       doc_str.c_str());
 }
@@ -1983,7 +2120,7 @@ constexpr auto WithOpenModes = [](auto callback, auto... other_params) {
 };
 
 void DefineOpenModeAttributes(ClsOpenMode& cls) {
-  using Self = PythonOpenMode;
+  using ConstHandle = with_handle<const PythonOpenMode&>;
 
   WithOpenModes([&](auto... mode_info) {
     std::string doc = R"(
@@ -2001,9 +2138,8 @@ Args:
                 // To avoid
                 // https://developercommunity.visualstudio.com/t/Argument-pack-incorrectly-expanded-when/10375693
                 // this parameter must not have the same name as the member.
-                internal::FirstType<bool, decltype(mode_info)>... mode_arg)
-                -> Self {
-              return Self{(
+                internal::FirstType<bool, decltype(mode_info)>... mode_arg) {
+              return PythonOpenMode{(
                   // Binary OR together all open modes corresponding to
                   // `true` arguments.
                   (mode_arg ? decltype(mode_info)::mode : OpenMode{}) | ...)};
@@ -2015,11 +2151,12 @@ Args:
     // Define read-write property for each open mode.
     (DefineOpenModeAccessor<decltype(mode_info)>(cls), ...);
 
-    cls.def("__repr__", [](Self self) {
+    cls.def("__repr__", [](ConstHandle self) {
+      ScopedPyCriticalSection cs(self.handle.ptr());
       std::string repr = "OpenMode(";
       // Comma-separated list of open modes that are `true`.
       bool first = true;
-      ((!!(self.value & decltype(mode_info)::mode)
+      ((!!(self.value.value & decltype(mode_info)::mode)
             ? (tensorstore::StrAppend(&repr, first ? "" : ", ",
                                       decltype(mode_info)::name, "=True"),
                (first = false))
@@ -2030,10 +2167,12 @@ Args:
     });
   });
 
-  cls.def("__eq__",
-          [](Self self, Self other) { return self.value == other.value; });
+  cls.def("__eq__", [](ConstHandle self, ConstHandle other) {
+    ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+    return self.value.value == other.value.value;
+  });
 
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 }
 
 void RegisterSpecBindings(pybind11::module m, Executor defer) {

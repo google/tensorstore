@@ -21,6 +21,7 @@
 
 #include <optional>
 
+#include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "tensorstore/batch.h"
 
 namespace tensorstore {

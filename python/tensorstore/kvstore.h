@@ -25,9 +25,11 @@
 #include <string>
 #include <vector>
 
+#include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 
 namespace tensorstore {

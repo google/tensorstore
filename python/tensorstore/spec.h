@@ -32,14 +32,15 @@
 #include "absl/status/status.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/garbage_collection.h"
-#include "python/tensorstore/index.h"
-#include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/kvstore.h"
+#include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/unit.h"
+#include "python/tensorstore/with_handle.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
@@ -52,7 +53,6 @@
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/staleness_bound.h"
-#include "tensorstore/util/option.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {
@@ -492,6 +492,7 @@ key-value store.
 )";
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
+    ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(value));
     return self.Set(value->value);
   }
 };
@@ -605,6 +606,11 @@ struct type_caster<tensorstore::RecheckCacheOption> {
 
   bool load(handle src, bool convert);
 };
+
+template <>
+struct type_caster<tensorstore::internal_python::PythonOpenMode>
+    : public ::tensorstore::internal_python::locking_type_caster<
+          tensorstore::internal_python::PythonOpenMode> {};
 
 }  // namespace detail
 }  // namespace pybind11

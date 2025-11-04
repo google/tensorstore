@@ -22,11 +22,13 @@
 // Other headers
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <nlohmann/json.hpp>
+#include "python/tensorstore/critical_section.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -128,19 +130,11 @@ namespace {
   if (py::isinstance<py::str>(h)) {
     return h.cast<std::string>();
   }
-  if (py::isinstance<py::tuple>(h) || py::isinstance<py::list>(h)) {
-    ::nlohmann::json::array_t arr;
-    // Check size on every iteration of loop because size may change during loop
-    // due to possible calls back to Python code.
-    for (Py_ssize_t i = 0; i < PySequence_Fast_GET_SIZE(h.ptr()); ++i) {
-      arr.push_back(PyObjectToJson(py::reinterpret_borrow<py::object>(
-                                       PySequence_Fast_GET_ITEM(h.ptr(), i)),
-                                   max_depth - 1));
-    }
-    return arr;
-  }
+
   if (py::isinstance<py::dict>(h)) {
-    ::nlohmann::json::object_t obj;
+    std::optional<ScopedPyCriticalSection> cs(h.ptr());
+    std::vector<std::pair<std::string, py::object>> tmp;
+    tmp.reserve(PyDict_Size(h.ptr()));
     Py_ssize_t pos = 0;
     PyObject* key;
     PyObject* value;
@@ -148,30 +142,43 @@ namespace {
       // Create temporary references to ensure objects remain alive during
       // conversion, as calls back to Python code may cause the dict to change.
       py::object key_obj = py::reinterpret_borrow<py::object>(key);
-      py::object value_obj = py::reinterpret_borrow<py::object>(value);
-      obj.emplace(py::cast<std::string>(py::cast<py::str>(key_obj)),
-                  PyObjectToJson(value_obj, max_depth - 1));
+      tmp.emplace_back(py::cast<std::string>(py::cast<py::str>(key_obj)),
+                       py::reinterpret_borrow<py::object>(value));
     }
+    cs = std::nullopt;
+
+    ::nlohmann::json::object_t obj;
+    for (auto& [key, value] : tmp) {
+      obj.emplace(std::move(key), PyObjectToJson(value, max_depth - 1));
+    }
+    tmp.clear();
     return obj;
   }
 
-  // Handle numpy array.
-  if (py::isinstance<py::array>(h)) {
-    ::nlohmann::json::array_t arr;
+  if (py::isinstance<py::tuple>(h) || py::isinstance<py::list>(h) ||
+      py::isinstance<py::array>(h) || py::isinstance<py::sequence>(h)) {
+    // Collect the elements of the sequence or array. Concurrent
+    // modification of the sequence will result in inconsistent behavior.
     Py_ssize_t size = PySequence_Size(h.ptr());
     if (size == -1) throw py::error_already_set();
+    ::nlohmann::json::array_t arr;
+    arr.reserve(size);
     for (Py_ssize_t i = 0; i < size; ++i) {
-      arr.push_back(PyObjectToJson(
-          py::reinterpret_steal<py::object>(PySequence_GetItem(h.ptr(), i)),
-          max_depth - 1));
+      PyObject* item = PySequence_GetItem(h.ptr(), i);
+      if (!item) {
+        throw py::error_already_set();
+      }
+      arr.push_back(PyObjectToJson(py::reinterpret_steal<py::object>(item),
+                                   max_depth - 1));
     }
     return arr;
   }
 
   // Check for any integer type.  This must be done after the check for a numpy
   // array, as numpy arrays define an `__int__` type.
-  if (PyIndex_Check(h.ptr())) return PyObjectToJsonInteger(h);
-
+  if (PyIndex_Check(h.ptr())) {
+    return PyObjectToJsonInteger(h);
+  }
   // Check for any floating-point type.
   if (double v = PyFloat_AsDouble(h.ptr()); v != -1 || !PyErr_Occurred()) {
     return v;

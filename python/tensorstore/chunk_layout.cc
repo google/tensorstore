@@ -26,14 +26,18 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/chunk_layout_keyword_arguments.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
+#include "python/tensorstore/with_handle.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain.h"
@@ -116,9 +120,15 @@ Comparison operators
 }
 
 void DefineChunkLayoutAttributes(py::class_<ChunkLayout>& cls) {
-  cls.def(py::init([](::nlohmann::json json) {
-            return ValueOrThrow(ChunkLayout::FromJson(std::move(json)));
-          }),
+  using Self = with_handle<ChunkLayout&>;
+  using ConstSelf = with_handle<const ChunkLayout&>;
+
+  struct InitJson {
+    ChunkLayout operator()(::nlohmann::json json) const {
+      return ValueOrThrow(ChunkLayout::FromJson(std::move(json)));
+    }
+  };
+  cls.def(py::init(InitJson{}),
           R"(
 Constructs from the :json:schema:`JSON representation<ChunkLayout>`.
 
@@ -144,15 +154,18 @@ Args:
 Overload:
   components
 )";
-      cls.def(
-          py::init(
-              [](KeywordArgument<decltype(param_def)>... kwarg) -> ChunkLayout {
-                ChunkLayout self;
-                ApplyKeywordArguments<decltype(param_def)...>(self, kwarg...);
-                return self;
-              }),
-          doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
+      struct InitComponents {
+        ChunkLayout operator()(
+            KeywordArgument<decltype(param_def)>... kwarg) const {
+          ChunkLayout self;
+          ApplyKeywordArguments<decltype(param_def)...>(self, kwarg...);
+          return self;
+        }
+      };
+      cls.def(py::init(InitComponents{}), doc.c_str(), py::kw_only(),
+              MakeKeywordArgumentPyArg(param_def)...);
     }
+
     {
       std::string doc = R"(
 Adds additional constraints.
@@ -165,23 +178,35 @@ Args:
 Group:
   Setters
 )";
-      cls.def(
-          "update",
-          [](ChunkLayout& self, KeywordArgument<decltype(param_def)>... kwarg) {
-            ApplyKeywordArguments<decltype(param_def)...>(self, kwarg...);
-          },
-          doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
+      struct Update {
+        void operator()(Self self,
+                        KeywordArgument<decltype(param_def)>... kwarg) const {
+          ScopedPyCriticalSection cs(self.handle.ptr());
+          ApplyKeywordArguments<decltype(param_def)...>(self.value, kwarg...);
+        }
+      };
+      cls.def("update", Update{}, doc.c_str(), py::kw_only(),
+              MakeKeywordArgumentPyArg(param_def)...);
     }
   });
 
-  cls.def("__repr__", [](const ChunkLayout& self) {
-    return internal_python::PrettyPrintJsonAsPythonRepr(
-        self.ToJson(IncludeDefaults{false}), "ChunkLayout(", ")");
-  });
+  struct Repr {
+    std::string operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return internal_python::PrettyPrintJsonAsPythonRepr(
+          self.value.ToJson(IncludeDefaults{false}), "ChunkLayout(", ")");
+    }
+  };
+  cls.def("__repr__", Repr{});
 
-  cls.def(
-      "to_json", [](const ChunkLayout& self) { return self.ToJson(); },
-      R"(
+  struct ToJson {
+    Result<::nlohmann::json> operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.ToJson();
+    }
+  };
+  cls.def("to_json", ToJson{},
+          R"(
 Converts to the :json:schema:`JSON representation<ChunkLayout>`.
 
 Example:
@@ -199,10 +224,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "rank",
-      [](const ChunkLayout& self) -> DimensionIndex { return self.rank(); },
-      R"(
+  struct GetRank {
+    DimensionIndex operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.rank();
+    }
+  };
+  cls.def_property_readonly("rank", GetRank{},
+                            R"(
 Number of dimensions in the index space.
 
 Example:
@@ -215,10 +244,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "ndim",
-      [](const ChunkLayout& self) -> DimensionIndex { return self.rank(); },
-      R"(
+  struct GetNdim {
+    DimensionIndex operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.rank();
+    }
+  };
+  cls.def_property_readonly("ndim", GetNdim{},
+                            R"(
 Alias for :py:obj:`.rank`.
 
 Example:
@@ -231,19 +264,21 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "inner_order",
-      [](const ChunkLayout& self)
-          -> std::optional<HomogeneousTuple<DimensionIndex>> {
-        const DimensionIndex rank = self.rank();
-        if (rank == dynamic_rank) return std::nullopt;
-        auto inner_order = self.inner_order();
-        if (!inner_order.hard_constraint || inner_order.size() != rank) {
-          return std::nullopt;
-        }
-        return SpanToHomogeneousTuple(inner_order);
-      },
-      R"(
+  struct GetInnerOrder {
+    std::optional<HomogeneousTuple<DimensionIndex>> operator()(
+        ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      const DimensionIndex rank = self.value.rank();
+      if (rank == dynamic_rank) return std::nullopt;
+      auto inner_order = self.value.inner_order();
+      if (!inner_order.hard_constraint || inner_order.size() != rank) {
+        return std::nullopt;
+      }
+      return SpanToHomogeneousTuple(inner_order);
+    }
+  };
+  cls.def_property_readonly("inner_order", GetInnerOrder{},
+                            R"(
 Permutation specifying the element storage order within the innermost chunks.
 
 If the inner order is specified as a soft constraint rather than a hard
@@ -262,19 +297,22 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "inner_order_soft_constraint",
-      [](const ChunkLayout& self)
-          -> std::optional<HomogeneousTuple<DimensionIndex>> {
-        const DimensionIndex rank = self.rank();
-        if (rank == dynamic_rank) return std::nullopt;
-        auto inner_order = self.inner_order();
-        if (inner_order.hard_constraint || inner_order.size() != rank) {
-          return std::nullopt;
-        }
-        return SpanToHomogeneousTuple(inner_order);
-      },
-      R"(
+  struct GetInnerOrderSoftConstraint {
+    std::optional<HomogeneousTuple<DimensionIndex>> operator()(
+        ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      const DimensionIndex rank = self.value.rank();
+      if (rank == dynamic_rank) return std::nullopt;
+      auto inner_order = self.value.inner_order();
+      if (inner_order.hard_constraint || inner_order.size() != rank) {
+        return std::nullopt;
+      }
+      return SpanToHomogeneousTuple(inner_order);
+    }
+  };
+  cls.def_property_readonly("inner_order_soft_constraint",
+                            GetInnerOrderSoftConstraint{},
+                            R"(
 Permutation specifying soft constraint on the element storage order.
 
 If the inner order is specified as a hard constraint rather than a soft
@@ -289,16 +327,19 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "grid_origin",
-      [](const ChunkLayout& self)
-          -> std::optional<HomogeneousTuple<std::optional<Index>>> {
-        if (self.rank() == dynamic_rank) return std::nullopt;
-        return MaybeHardConstraintSpanToHomogeneousTuple<Index>(
-            self.grid_origin(), /*hard_constraint=*/true,
-            /*default_value=*/kImplicit);
-      },
-      R"(
+  struct GetGridOrigin {
+    bool hard_constraint;
+    std::optional<HomogeneousTuple<std::optional<Index>>> operator()(
+        ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      if (self.value.rank() == dynamic_rank) return std::nullopt;
+      return MaybeHardConstraintSpanToHomogeneousTuple<Index>(
+          self.value.grid_origin(), hard_constraint,
+          /*default_value=*/kImplicit);
+    }
+  };
+  cls.def_property_readonly("grid_origin", GetGridOrigin{true},
+                            R"(
 Hard constraints on the grid origin.
 
 See also:
@@ -308,16 +349,8 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "grid_origin_soft_constraint",
-      [](const ChunkLayout& self)
-          -> std::optional<HomogeneousTuple<std::optional<Index>>> {
-        if (self.rank() == dynamic_rank) return std::nullopt;
-        return MaybeHardConstraintSpanToHomogeneousTuple<Index>(
-            self.grid_origin(), /*hard_constraint=*/false,
-            /*default_value=*/kImplicit);
-      },
-      R"(
+  cls.def_property_readonly("grid_origin_soft_constraint", GetGridOrigin{false},
+                            R"(
 Soft constraints on the grid origin.
 
 See also:
@@ -328,14 +361,16 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "write_chunk",
-      [](const ChunkLayout& self) -> ChunkLayout::Grid {
-        ChunkLayout::Grid grid;
-        ThrowStatusException(grid.Set(self.write_chunk()));
-        return grid;
-      },
-      R"(
+  struct GetWriteChunk {
+    ChunkLayout::Grid operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      ChunkLayout::Grid grid;
+      ThrowStatusException(grid.Set(self.value.write_chunk()));
+      return grid;
+    }
+  };
+  cls.def_property_readonly("write_chunk", GetWriteChunk{},
+                            R"(
 Chunk grid for efficient writes.
 
 See also:
@@ -345,14 +380,16 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "read_chunk",
-      [](const ChunkLayout& self) -> ChunkLayout::Grid {
-        ChunkLayout::Grid grid;
-        ThrowStatusException(grid.Set(self.read_chunk()));
-        return grid;
-      },
-      R"(
+  struct GetReadChunk {
+    ChunkLayout::Grid operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      ChunkLayout::Grid grid;
+      ThrowStatusException(grid.Set(self.value.read_chunk()));
+      return grid;
+    }
+  };
+  cls.def_property_readonly("read_chunk", GetReadChunk{},
+                            R"(
 Chunk grid for efficient reads.
 
 See also:
@@ -362,14 +399,16 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "codec_chunk",
-      [](const ChunkLayout& self) -> ChunkLayout::Grid {
-        ChunkLayout::Grid grid;
-        ThrowStatusException(grid.Set(self.codec_chunk()));
-        return grid;
-      },
-      R"(
+  struct GetCodecChunk {
+    ChunkLayout::Grid operator()(ConstSelf self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      ChunkLayout::Grid grid;
+      ThrowStatusException(grid.Set(self.value.codec_chunk()));
+      return grid;
+    }
+  };
+  cls.def_property_readonly("codec_chunk", GetCodecChunk{},
+                            R"(
 Chunk grid used by the codec.
 
 See also:
@@ -381,9 +420,10 @@ Group:
 
   cls.def_property_readonly(
       "write_chunk_template",
-      [](const ChunkLayout& self) -> IndexDomain<> {
+      [](ConstSelf self) -> IndexDomain<> {
+        ScopedPyCriticalSection cs(self.handle.ptr());
         return ValueOrThrow(
-            GetChunkTemplateAsIndexDomain(self, ChunkLayout::kWrite));
+            GetChunkTemplateAsIndexDomain(self.value, ChunkLayout::kWrite));
       },
       R"(
 Chunk offset and shape for efficient writes.
@@ -426,9 +466,10 @@ Group:
 
   cls.def_property_readonly(
       "read_chunk_template",
-      [](const ChunkLayout& self) -> IndexDomain<> {
+      [](ConstSelf self) -> IndexDomain<> {
+        ScopedPyCriticalSection cs(self.handle.ptr());
         return ValueOrThrow(
-            GetChunkTemplateAsIndexDomain(self, ChunkLayout::kRead));
+            GetChunkTemplateAsIndexDomain(self.value, ChunkLayout::kRead));
       },
       R"(
 Chunk offset and shape for efficient reads.
@@ -471,11 +512,13 @@ Group:
 
   cls.def(
       "__eq__",
-      [](const ChunkLayout& self, const ChunkLayout& other) {
-        return self == other;
+      [](ConstSelf self, ConstSelf other) {
+        ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+        return self.value == other.value;
       },
       "Compares two chunk layouts for equality.", py::arg("other"));
-  EnablePicklingFromSerialization(cls);
+
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 }
 
 auto MakeChunkLayoutGridClass(py::class_<ChunkLayout>& cls_chunk_layout) {
@@ -485,6 +528,9 @@ Describes a regular grid layout for write/read/codec chunks.
 }
 
 void DefineChunkLayoutGridAttributes(py::class_<ChunkLayout::Grid>& cls) {
+  using ConstHandle = with_handle<const ChunkLayout::Grid&>;
+  using MutableHandle = with_handle<ChunkLayout::Grid&>;
+
   // Define `__init__` and `update` methods that accept any of the
   // ChunkLayout.Grid keyword arguments.
   //
@@ -520,9 +566,10 @@ Args:
       AppendKeywordArgumentDocs(doc, param_def...);
       cls.def(
           "update",
-          [](ChunkLayout::Grid& self,
+          [](MutableHandle self,
              KeywordArgument<decltype(param_def)>... kwarg) {
-            ApplyKeywordArguments<decltype(param_def)...>(self, kwarg...);
+            ScopedPyCriticalSection cs(self.handle.ptr());
+            ApplyKeywordArguments<decltype(param_def)...>(self.value, kwarg...);
           },
           doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
     }
@@ -541,16 +588,18 @@ Overload:
 
   cls.def(
       "to_json",
-      [](const ChunkLayout::Grid& self, bool include_defaults) {
-        return self.ToJson(IncludeDefaults{include_defaults});
+      [](ConstHandle self, bool include_defaults) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value.ToJson(IncludeDefaults{include_defaults});
       },
       "Converts to the :json:schema:`JSON representation<ChunkLayout/Grid>`.",
       py::arg("include_defaults") = false);
 
   cls.def_property_readonly(
       "rank",
-      [](const ChunkLayout::Grid& self) -> std::optional<DimensionIndex> {
-        return RankOrNone(self.rank());
+      [](ConstHandle self) -> std::optional<DimensionIndex> {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return RankOrNone(self.value.rank());
       },
       R"(
 Number of dimensions, or :py:obj:`None` if unspecified.
@@ -558,8 +607,9 @@ Number of dimensions, or :py:obj:`None` if unspecified.
 
   cls.def_property_readonly(
       "ndim",
-      [](const ChunkLayout::Grid& self) -> std::optional<DimensionIndex> {
-        return RankOrNone(self.rank());
+      [](ConstHandle self) -> std::optional<DimensionIndex> {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return RankOrNone(self.value.rank());
       },
       R"(
 Alias for :py:obj:`.rank`.
@@ -567,51 +617,57 @@ Alias for :py:obj:`.rank`.
 
   cls.def_property_readonly(
       "shape",
-      [](const ChunkLayout::Grid& self)
+      [](ConstHandle self)
           -> std::optional<HomogeneousTuple<std::optional<Index>>> {
-        if (self.rank() == dynamic_rank) return std::nullopt;
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        if (self.value.rank() == dynamic_rank) return std::nullopt;
         return MaybeHardConstraintSpanToHomogeneousTuple<Index>(
-            self.shape(), /*hard_constraint=*/true, /*default_value=*/0);
+            self.value.shape(), /*hard_constraint=*/true, /*default_value=*/0);
       },
       "Hard constraints on chunk shape.");
 
   cls.def_property_readonly(
       "shape_soft_constraint",
-      [](const ChunkLayout::Grid& self)
+      [](ConstHandle self)
           -> std::optional<HomogeneousTuple<std::optional<Index>>> {
-        if (self.rank() == dynamic_rank) return std::nullopt;
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        if (self.value.rank() == dynamic_rank) return std::nullopt;
         return MaybeHardConstraintSpanToHomogeneousTuple<Index>(
-            self.shape(), /*hard_constraint=*/false, /*default_value=*/0);
+            self.value.shape(), /*hard_constraint=*/false, /*default_value=*/0);
       },
       "Soft constraints on chunk shape.");
 
   cls.def_property_readonly(
       "aspect_ratio",
-      [](const ChunkLayout::Grid& self)
+      [](ConstHandle self)
           -> std::optional<HomogeneousTuple<std::optional<double>>> {
-        if (self.rank() == dynamic_rank) return std::nullopt;
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        if (self.value.rank() == dynamic_rank) return std::nullopt;
         return MaybeHardConstraintSpanToHomogeneousTuple<double>(
-            self.aspect_ratio(), /*hard_constraint=*/true,
+            self.value.aspect_ratio(), /*hard_constraint=*/true,
             /*default_value=*/0.0);
       },
       "Chunk shape aspect ratio.");
 
   cls.def_property_readonly(
       "aspect_ratio_soft_constraint",
-      [](const ChunkLayout::Grid& self)
+      [](ConstHandle self)
           -> std::optional<HomogeneousTuple<std::optional<double>>> {
-        if (self.rank() == dynamic_rank) return std::nullopt;
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        if (self.value.rank() == dynamic_rank) return std::nullopt;
         return MaybeHardConstraintSpanToHomogeneousTuple<double>(
-            self.aspect_ratio(), /*hard_constraint=*/false,
+            self.value.aspect_ratio(), /*hard_constraint=*/false,
             /*default_value=*/0.0);
       },
       "Soft constraints on chunk shape aspect ratio.");
 
   cls.def_property_readonly(
       "elements",
-      [](const ChunkLayout::Grid& self) -> std::optional<Index> {
-        if (self.elements().hard_constraint && self.elements().valid()) {
-          return self.elements().value;
+      [](ConstHandle self) -> std::optional<Index> {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        if (self.value.elements().hard_constraint &&
+            self.value.elements().valid()) {
+          return self.value.elements().value;
         }
         return std::nullopt;
       },
@@ -619,9 +675,11 @@ Alias for :py:obj:`.rank`.
 
   cls.def_property_readonly(
       "elements_soft_constraint",
-      [](const ChunkLayout::Grid& self) -> std::optional<Index> {
-        if (!self.elements().hard_constraint && self.elements().valid()) {
-          return self.elements().value;
+      [](ConstHandle self) -> std::optional<Index> {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        if (!self.value.elements().hard_constraint &&
+            self.value.elements().valid()) {
+          return self.value.elements().value;
         }
         return std::nullopt;
       },
@@ -629,11 +687,13 @@ Alias for :py:obj:`.rank`.
 
   cls.def(
       "__eq__",
-      [](const ChunkLayout::Grid& self, const ChunkLayout::Grid& other) {
-        return self == other;
+      [](ConstHandle self, ConstHandle other) {
+        ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+        return self.value == other.value;
       },
       "Compares two chunk grids for equality.", py::arg("other"));
-  EnablePicklingFromSerialization(cls);
+
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 }
 
 void RegisterChunkLayoutBindings(pybind11::module m, Executor defer) {

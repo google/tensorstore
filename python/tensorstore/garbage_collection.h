@@ -46,9 +46,13 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <optional>
+#include <type_traits>
+#include <typeinfo>
 #include <utility>
 
 #include "absl/container/flat_hash_set.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/define_heap_type.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/tagged_ptr.h"
@@ -304,7 +308,11 @@ struct GarbageCollectedPythonObject {
 
   static int Clear(PyObject* self) {
     auto& obj = *reinterpret_cast<GarbageCollectedPythonObject*>(self);
-    obj.reference_manager().Clear();
+    std::optional<ScopedPyCriticalSection> cs(self);
+    PythonObjectReferenceManager manager_copy =
+        std::move(obj.reference_manager());
+    cs = std::nullopt;
+    manager_copy.Clear();
     return 0;
   }
 };

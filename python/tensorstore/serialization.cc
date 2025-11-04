@@ -21,14 +21,19 @@
 // Other headers
 #include <stddef.h>
 
+#include <cstring>
 #include <memory>
 #include <string_view>
 #include <typeinfo>
 #include <utility>
 
 #include "absl/base/no_destructor.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/synchronization/mutex.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/result_type_caster.h"
@@ -56,7 +61,10 @@ namespace internal_python {
 
 namespace {
 
-using PickleObjectRegistry = absl::flat_hash_map<void*, PyObject*>;
+struct PickleObjectRegistry final {
+  absl::Mutex mutex;
+  absl::flat_hash_map<void*, PyObject*> map ABSL_GUARDED_BY(mutex);
+};
 
 /// Global mapping from C++ pointer value to corresponding Python wrapper object
 /// of type `tensorstore._Encodable`.
@@ -75,7 +83,10 @@ using PickleObjectRegistry = absl::flat_hash_map<void*, PyObject*>;
 /// destroyed, which typically happens at the end of the pickling operation.
 ///
 /// \threadsafety Must only be accessed while holding the GIL.
-absl::NoDestructor<PickleObjectRegistry> pickle_object_registry;
+PickleObjectRegistry& pickle_object_registry() {
+  static absl::NoDestructor<PickleObjectRegistry> registry;
+  return *registry;
+}
 
 /// Python object representation for `tensorstore._Encodable` wrapper objects.
 ///
@@ -216,7 +227,15 @@ PyTypeObject EncodableObjectType = [] {
   t.tp_flags = Py_TPFLAGS_DEFAULT;
   t.tp_dealloc = [](PyObject* self) {
     auto& data = reinterpret_cast<EncodableObject*>(self)->cpp_data;
-    pickle_object_registry->erase(data.cpp_object.get());
+    {
+      auto& registry = pickle_object_registry();
+      // Remove the registry entry if it is the same as the C++ object.
+      absl::MutexLock lock(registry.mutex);
+      if (auto it = registry.map.find(data.cpp_object.get());
+          it != registry.map.end() && it->second == self) {
+        registry.map.erase(it);
+      }
+    }
     data.~CppData();
     Py_TYPE(self)->tp_free(self);
   };
@@ -224,8 +243,8 @@ PyTypeObject EncodableObjectType = [] {
   return t;
 }();
 
-/// Python object representation used by `GlobalPicklableFunction`.  Refer to
-/// the documentation of that function for details.
+/// Python object representation used by `GlobalPicklableFunction`.  Refer
+/// to the documentation of that function for details.
 struct GlobalPicklableFunctionObject {
   // clang-format off
   PyObject_HEAD
@@ -296,26 +315,30 @@ class PickleEncodeSink final : public serialization::EncodeSink {
     GilScopedAcquire gil_acquire;
     py::object python_object;
     if (type == typeid(PythonWeakRef)) {
-      // Special case: reference to actual Python object.  Just store the Python
-      // object directly.
+      // Special case: reference to actual Python object.  Just store the
+      // Python object directly.
       python_object = py::reinterpret_borrow<py::object>(
           static_cast<PyObject*>(object.get()));
-    } else if (auto it = pickle_object_registry->find(object.get());
-               it != pickle_object_registry->end()) {
-      // Python wrapper object already exists.  Just return it.
-      python_object = py::reinterpret_borrow<py::object>(it->second);
     } else {
-      // Create a new Python wrapper object corresponding to `object`.
-      auto* python_type = &EncodableObjectType;
-      python_object = py::reinterpret_steal<py::object>(
-          python_type->tp_alloc(python_type, 0));
-      if (!python_object) goto error_indicator_set;
-      auto& data =
-          reinterpret_cast<EncodableObject*>(python_object.ptr())->cpp_data;
-      new (&data) EncodableObject::CppData;
-      pickle_object_registry->emplace(object.get(), python_object.ptr());
-      data.cpp_object = std::move(object);
-      data.encode = std::move(encode);
+      auto& registry = pickle_object_registry();
+      absl::MutexLock lock(registry.mutex);
+      auto it = registry.map.find(object.get());
+      if (it != registry.map.end() && Py_REFCNT(it->second) > 0) {
+        // Python wrapper object already exists and is not racing with deletion.
+        python_object = py::reinterpret_borrow<py::object>(it->second);
+      } else {
+        // Create a new Python wrapper object corresponding to `object`.
+        auto* python_type = &EncodableObjectType;
+        python_object = py::reinterpret_steal<py::object>(
+            python_type->tp_alloc(python_type, 0));
+        if (!python_object) goto error_indicator_set;
+        auto& data =
+            reinterpret_cast<EncodableObject*>(python_object.ptr())->cpp_data;
+        new (&data) EncodableObject::CppData;
+        registry.map.emplace(object.get(), python_object.ptr());
+        data.cpp_object = std::move(object);
+        data.encode = std::move(encode);
+      }
     }
     if (PyList_Append(rep_.ptr(), python_object.ptr()) != 0) {
       goto error_indicator_set;
@@ -328,8 +351,8 @@ class PickleEncodeSink final : public serialization::EncodeSink {
   }
 
  private:
-  // PyList of indirect objects.  The first entry is reserved for the PyBytes
-  // object that will contain the contents of `owned_buffer_`.
+  // PyList of indirect objects.  The first entry is reserved for the
+  // PyBytes object that will contain the contents of `owned_buffer_`.
   pybind11::handle rep_;
 };
 

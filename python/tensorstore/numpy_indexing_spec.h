@@ -21,21 +21,21 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <stddef.h>
+
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
-#include <variant>
-#include <vector>
 
+#include "absl/meta/type_traits.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/subscript_method.h"
 #include "python/tensorstore/type_name_override.h"
+#include "python/tensorstore/with_handle.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
-#include "tensorstore/index_space/dimension_identifier.h"
-#include "tensorstore/index_space/dimension_index_buffer.h"
-#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/numpy_indexing_spec.h"
-#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -110,29 +110,32 @@ void DefineNumpyIndexingMethodsForMode(
     Cls* cls, IndexingOperationDocstrings<sizeof...(Assign)> doc_strings,
     Func func, Assign... assign) {
   namespace py = ::pybind11;
-  using Self = typename FunctionArgType<
+  using GetHandle = typename FunctionArgType<
       0, pybind11::detail::function_signature_t<Func>>::type;
+
   cls->def(
       "__getitem__",
-      [func](Self self, NumpyIndexingSpecPlaceholder indices) {
+      [func](GetHandle self, NumpyIndexingSpecPlaceholder indices) {
         indices.mode = Mode;
-        return func(std::forward<Self>(self), std::move(indices));
+        return func(self, std::move(indices));
       },
       doc_strings[0], pybind11::arg("indices"));
   // Defined as separate function, rather than expanded inline within `,` fold
   // expression to work around MSVC 2019 ICE.
   size_t doc_string_index = 1;
   [[maybe_unused]] const auto DefineAssignMethod = [&](auto assign) {
+    using SetHandle = typename FunctionArgType<
+        0, pybind11::detail::function_signature_t<decltype(assign)>>::type;
     cls->def(
         "__setitem__",
         [assign](
-            Self self, NumpyIndexingSpecPlaceholder indices,
+            SetHandle self, NumpyIndexingSpecPlaceholder indices,
             typename FunctionArgType<2, pybind11::detail::function_signature_t<
                                             decltype(assign)>>::type source
 
         ) {
           indices.mode = Mode;
-          return assign(std::forward<Self>(self), std::move(indices), source);
+          return assign(self, std::move(indices), source);
         },
         doc_strings[doc_string_index++], pybind11::arg("indices"),
         pybind11::arg("source"));
@@ -161,17 +164,16 @@ void DefineNumpyIndexingMethods(
     NumpyIndexingMethodDocstrings<sizeof...(Assign)> doc_strings, Func func,
     Assign... assign) {
   using Mode = NumpyIndexingSpec::Mode;
-  using Self = typename FunctionArgType<
-      0, pybind11::detail::function_signature_t<Func>>::type;
+
   DefineNumpyIndexingMethodsForMode<Mode::kDefault>(
       cls, doc_strings[static_cast<int>(Mode::kDefault)], func, assign...);
   auto oindex_helper =
-      DefineSubscriptMethod<Self, struct Oindex>(cls, "oindex", "_Oindex");
+      DefineSubscriptMethod<T, struct Oindex>(cls, "oindex", "_Oindex");
   DefineNumpyIndexingMethodsForMode<Mode::kOindex>(
       &oindex_helper, doc_strings[static_cast<int>(Mode::kOindex)], func,
       assign...);
   auto vindex_helper =
-      DefineSubscriptMethod<Self, struct Vindex>(cls, "vindex", "_Vindex");
+      DefineSubscriptMethod<T, struct Vindex>(cls, "vindex", "_Vindex");
   DefineNumpyIndexingMethodsForMode<Mode::kVindex>(
       &vindex_helper, doc_strings[static_cast<int>(Mode::kVindex)], func,
       assign...);

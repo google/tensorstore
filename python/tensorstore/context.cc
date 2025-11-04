@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 
+#include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
@@ -247,7 +248,7 @@ Group:
 )",
       py::arg("key"));
 
-  EnablePicklingFromSerialization<ContextImplPtr>(
+  EnablePicklingFromSerialization</*WithLocking=*/false, ContextImplPtr>(
       cls, serialization::NonNullIndirectPointerSerializer<
                ContextImplPtr,
                internal_context::ContextImplPtrNonNullDirectSerializer>{});
@@ -291,7 +292,8 @@ Group:
         "Context.Spec(", ")");
   });
 
-  EnablePicklingFromSerialization<ContextSpecImplPtr>(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/false, ContextSpecImplPtr>(
+      cls);
 }
 
 ContextResourceCls MakeContextResourceClass(ContextCls& cls_context) {
@@ -329,7 +331,7 @@ Group:
         self->spec_->ToJson(IncludeDefaults{false}), "Context.Resource(", ")");
   });
 
-  EnablePicklingFromSerialization<ResourceImplWeakPtr>(
+  EnablePicklingFromSerialization</*WithLocking=*/false, ResourceImplWeakPtr>(
       cls, serialization::NonNullIndirectPointerSerializer<
                ResourceImplWeakPtr,
                internal_context::

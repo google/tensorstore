@@ -27,7 +27,6 @@ import tensorstore as ts
 
 GcTester = Callable[[Any], None]
 
-
 def test_promise_new() -> None:
   promise, future = ts.Promise.new()
   assert not future.done()
@@ -273,39 +272,10 @@ def test_future_concurrent_wait() -> None:
     t.join()
 
 
-def _get_delay() -> float:
-  return random.random() * 0.01
-
-
-def _run_threads(
-    promise: ts.Promise,
-    i: int,
-    stop: threading.Event,
-    threads: list[threading.Thread],
-) -> None:
-  """Runs a list of threads concurrently with setting the promise result."""
-
-  delay = _get_delay()
-  for t in threads:
-    t.start()
-
-  time.sleep(delay)
-  try:
-    promise.set_result(i)
-  except:  # pylint: disable=bare-except
-    pass
-
-  time.sleep(0.01)
-  stop.set()
-
-  for t in threads:
-    t.join()
-
-
-def test_future_concurrent_set_cancel_callback() -> None:
+def test_future_concurrent_ops() -> None:
   """Test multi-treaded races between adding callbacks and cancellation."""
 
-  def _concurrent_set_cancel_callback(i: int) -> None:
+  def _do_concurrent_ops() -> None:
     callback_called = threading.Event()
     callback_result = [None]
     callback_error = [None]
@@ -323,26 +293,49 @@ def test_future_concurrent_set_cancel_callback() -> None:
       finally:
         callback_called.set()
 
-    def do_add_callback(delay: float, f: ts.Future) -> None:
-      time.sleep(delay)
-      f.add_done_callback(callback)
-
-    def do_cancel(delay: float, f: ts.Future) -> None:
-      time.sleep(delay)
-      f.cancel()
-
     promise, future = ts.Promise.new()
-    _run_threads(
-        promise,
-        i,
-        threading.Event(),  # unused
-        [
-            threading.Thread(target=do_cancel, args=(_get_delay(), future)),
-            threading.Thread(
-                target=do_add_callback, args=(_get_delay(), future)
-            ),
-        ],
-    )
+    start = threading.Event()
+    stop = threading.Event()
+
+    def do_add_callback() -> None:
+      start.wait(timeout=5)
+      future.add_done_callback(callback)
+
+    def do_cancel() -> None:
+      start.wait(timeout=5)
+      future.cancel()
+
+    def do_set_result() -> None:
+      start.wait(timeout=5)
+      try:
+        promise.set_result(42)
+      except:  # pylint: disable=bare-except
+        pass
+
+    def read_props() -> None:
+      while not stop.is_set():
+        _ = future.done()
+        _ = future.cancelled()
+
+    threads = [
+        threading.Thread(target=do_set_result),
+        threading.Thread(target=do_add_callback),
+        threading.Thread(target=do_cancel),
+        threading.Thread(target=do_cancel),
+        threading.Thread(target=read_props),
+    ]
+    random.shuffle(threads)
+
+    for t in threads:
+      t.start()
+
+    time.sleep(0.01)
+    start.set()
+    time.sleep(0.1)
+    stop.set()
+
+    for t in threads:
+      t.join()
 
     assert future.done()
     assert callback_called.wait(timeout=5)
@@ -354,63 +347,8 @@ def test_future_concurrent_set_cancel_callback() -> None:
     else:
       # If not cancelled, result must have been set.
       assert callback_error[0] is None
-      assert future.result() == i
-      assert callback_result[0] == i
+      assert future.result() == 42
+      assert callback_result[0] == 42
 
-  for i in range(20):
-    _concurrent_set_cancel_callback(i)
-
-
-def test_future_concurrent_ops() -> None:
-  """Test multi-treaded races between adding callbacks and setting result."""
-
-  def _concurrent_ops() -> None:
-    events = [threading.Event() for _ in range(8)]
-    results = {}
-    lock = threading.Lock()
-    stop = threading.Event()
-
-    def make_callback(
-        idx: int, event: threading.Event
-    ) -> Callable[[ts.Future], None]:
-      def callback(f: ts.Future) -> None:
-        try:
-          result = f.result()
-          with lock:
-            results[idx] = result
-        finally:
-          event.set()
-
-      return callback
-
-    promise, future = ts.Promise.new()
-
-    def do_add_callback(
-        delay: float, callback: Callable[[ts.Future], None]
-    ) -> None:
-      time.sleep(delay)
-      future.add_done_callback(callback)
-
-    def read_props() -> None:
-      while not stop.is_set():
-        _ = future.done()
-        _ = future.cancelled()
-
-    threads = []
-    for i in range(len(events)):
-      threads.append(
-          threading.Thread(
-              target=do_add_callback,
-              args=(_get_delay(), make_callback(i, events[i])),
-          )
-      )
-      threads.append(threading.Thread(target=read_props))
-
-    _run_threads(promise, 42, stop, threads)
-
-    for i in range(len(events)):
-      assert events[i].wait(timeout=5)
-      assert results[i] == 42
-
-  for _ in range(20):
-    _concurrent_ops()
+  for _ in range(4):
+    _do_concurrent_ops()

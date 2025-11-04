@@ -25,14 +25,18 @@
 // Other headers
 #include <cassert>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "absl/base/optimization.h"
+#include "absl/meta/type_traits.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
@@ -46,6 +50,7 @@
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/typed_slice.h"
+#include "python/tensorstore/with_handle.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
@@ -1113,7 +1118,8 @@ Group:
     return std::move(transform).domain();
   };
 
-  DefineIndexTransformOrDomainOperations</*DomainOnly=*/true>(
+  DefineIndexTransformOrDomainOperations</*WithLocking=*/false,
+                                         /*DomainOnly=*/true>(
       &cls, get_transform, apply_transform);
 
   cls.def("__eq__", [](const Self& self, const IndexDomain<>& other) {
@@ -1126,7 +1132,7 @@ Group:
       "__deepcopy__", [](const Self& self, py::dict memo) { return self; },
       py::arg("memo"));
 
-  EnablePicklingFromSerialization(
+  EnablePicklingFromSerialization</*WithLocking=*/false>(
       cls, internal_index_space::IndexDomainNonNullSerializer{});
 }
 
@@ -1731,12 +1737,12 @@ Group:
       [](const IndexTransform<>& self, py::dict memo) { return self; },
       py::arg("memo"));
 
-  EnablePicklingFromSerialization(
+  EnablePicklingFromSerialization</*WithLocking=*/false>(
       cls, internal_index_space::IndexTransformNonNullSerializer{});
 
   cls.attr("__iter__") = py::none();
 
-  DefineIndexTransformOperations(
+  DefineIndexTransformOperations</*WithLocking=*/false>(
       &cls,
       /*doc_strings=*/
       {
@@ -2034,13 +2040,21 @@ Group:
 }
 
 void DefineDimAttributes(py::class_<IndexDomainDimension<>>& cls) {
-  cls.def(py::init([](std::optional<std::string> label, bool implicit_lower,
-                      bool implicit_upper) {
-            return IndexDomainDimension<>(
-                OptionallyImplicitIndexInterval{IndexInterval(), implicit_lower,
-                                                implicit_upper},
-                label.value_or(""));
-          }),
+  using ConstHandle = with_handle<const IndexDomainDimension<>&>;
+  using MutableHandle = with_handle<IndexDomainDimension<>&>;
+
+  struct InitUnbounded {
+    IndexDomainDimension<> operator()(std::optional<std::string> label,
+                                      bool implicit_lower,
+                                      bool implicit_upper) const {
+      return IndexDomainDimension<>(
+          OptionallyImplicitIndexInterval{IndexInterval(), implicit_lower,
+                                          implicit_upper},
+          label.value_or(""));
+    }
+  };
+
+  cls.def(py::init(InitUnbounded{}),
           R"(
 Constructs an unbounded interval ``(-inf, +inf)``.
 
@@ -2071,23 +2085,26 @@ Overload:
           py::arg("label") = std::nullopt, py::kw_only(),
           py::arg("implicit_lower") = true, py::arg("implicit_upper") = true);
 
-  cls.def(py::init([](OptionallyImplicitIndex size,
-                      std::optional<std::string> label,
-                      OptionallyImplicitIndex inclusive_min,
-                      bool implicit_lower, std::optional<bool> implicit_upper) {
-            Index inclusive_min_value = inclusive_min.value_or(0);
-            Index size_value = size.value_or(kInfSize);
-            return IndexDomainDimension<>(
-                OptionallyImplicitIndexInterval{
-                    ValueOrThrow(size_value == kInfSize
-                                     ? IndexInterval::HalfOpen(
-                                           inclusive_min_value, kInfIndex + 1)
-                                     : IndexInterval::Sized(inclusive_min_value,
-                                                            size_value)),
-                    implicit_lower,
-                    implicit_upper.value_or(size.value == kImplicit)},
-                label.value_or(""));
-          }),
+  struct InitSized {
+    IndexDomainDimension<> operator()(
+        OptionallyImplicitIndex size, std::optional<std::string> label,
+        OptionallyImplicitIndex inclusive_min, bool implicit_lower,
+        std::optional<bool> implicit_upper) const {
+      Index inclusive_min_value = inclusive_min.value_or(0);
+      Index size_value = size.value_or(kInfSize);
+      return IndexDomainDimension<>(
+          OptionallyImplicitIndexInterval{
+              ValueOrThrow(
+                  size_value == kInfSize
+                      ? IndexInterval::HalfOpen(inclusive_min_value,
+                                                kInfIndex + 1)
+                      : IndexInterval::Sized(inclusive_min_value, size_value)),
+              implicit_lower, implicit_upper.value_or(size.value == kImplicit)},
+          label.value_or(""));
+    }
+  };
+
+  cls.def(py::init(InitSized{}),
           R"(
 Constructs a sized interval ``[inclusive_min, inclusive_min+size)``.
 
@@ -2117,20 +2134,24 @@ Overload:
           py::arg("implicit_lower") = false,
           py::arg("implicit_upper") = std::nullopt);
 
-  cls.def(py::init([](OptionallyImplicitIndex inclusive_min,
-                      OptionallyImplicitIndex exclusive_max,
-                      std::optional<std::string> label,
-                      std::optional<bool> implicit_lower,
-                      std::optional<bool> implicit_upper) {
-            return IndexDomainDimension<>(
-                OptionallyImplicitIndexInterval{
-                    ValueOrThrow(IndexInterval::HalfOpen(
-                        inclusive_min.value_or(-kInfIndex),
-                        exclusive_max.value_or(kInfIndex + 1))),
-                    implicit_lower.value_or(inclusive_min.value == kImplicit),
-                    implicit_upper.value_or(exclusive_max.value == kImplicit)},
-                label.value_or(""));
-          }),
+  struct InitHalfOpen {
+    IndexDomainDimension<> operator()(
+        OptionallyImplicitIndex inclusive_min,
+        OptionallyImplicitIndex exclusive_max, std::optional<std::string> label,
+        std::optional<bool> implicit_lower,
+        std::optional<bool> implicit_upper) const {
+      return IndexDomainDimension<>(
+          OptionallyImplicitIndexInterval{
+              ValueOrThrow(IndexInterval::HalfOpen(
+                  inclusive_min.value_or(-kInfIndex),
+                  exclusive_max.value_or(kInfIndex + 1))),
+              implicit_lower.value_or(inclusive_min.value == kImplicit),
+              implicit_upper.value_or(exclusive_max.value == kImplicit)},
+          label.value_or(""));
+    }
+  };
+
+  cls.def(py::init(InitHalfOpen{}),
           R"(
 Constructs a half-open interval ``[inclusive_min, exclusive_max)``.
 
@@ -2162,20 +2183,24 @@ Overload:
           py::arg("implicit_lower") = std::nullopt,
           py::arg("implicit_upper") = std::nullopt);
 
-  cls.def(py::init([](OptionallyImplicitIndex inclusive_min,
-                      OptionallyImplicitIndex inclusive_max,
-                      std::optional<std::string> label,
-                      std::optional<bool> implicit_lower,
-                      std::optional<bool> implicit_upper) {
-            return IndexDomainDimension<>(
-                OptionallyImplicitIndexInterval{
-                    ValueOrThrow(IndexInterval::Closed(
-                        inclusive_min.value_or(-kInfIndex),
-                        inclusive_max.value_or(kInfIndex))),
-                    implicit_lower.value_or(inclusive_min.value == kImplicit),
-                    implicit_upper.value_or(inclusive_max.value == kImplicit)},
-                label.value_or(""));
-          }),
+  struct InitClosed {
+    IndexDomainDimension<> operator()(
+        OptionallyImplicitIndex inclusive_min,
+        OptionallyImplicitIndex inclusive_max, std::optional<std::string> label,
+        std::optional<bool> implicit_lower,
+        std::optional<bool> implicit_upper) const {
+      return IndexDomainDimension<>(
+          OptionallyImplicitIndexInterval{
+              ValueOrThrow(
+                  IndexInterval::Closed(inclusive_min.value_or(-kInfIndex),
+                                        inclusive_max.value_or(kInfIndex))),
+              implicit_lower.value_or(inclusive_min.value == kImplicit),
+              implicit_upper.value_or(inclusive_max.value == kImplicit)},
+          label.value_or(""));
+    }
+  };
+
+  cls.def(py::init(InitClosed{}),
           R"(
 Constructs a closed interval ``[inclusive_min, inclusive_max]``.
 
@@ -2208,19 +2233,23 @@ Overload:
           py::arg("implicit_lower") = std::nullopt,
           py::arg("implicit_upper") = std::nullopt);
 
-  cls.def(
-      "intersect",
-      [](const IndexDomainDimension<>& self,
-         const IndexDomainDimension<>& b) -> Result<IndexDomainDimension<>> {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto merged_label, MergeDimensionLabels(self.label(), b.label()));
+  struct IntersectFunctor {
+    Result<IndexDomainDimension<>> operator()(ConstHandle self,
+                                              ConstHandle other) const {
+      ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto merged_label,
+          MergeDimensionLabels(self.value.label(), other.value.label()));
 
-        return IndexDomainDimension<>(
-            Intersect(self.optionally_implicit_interval(),
-                      b.optionally_implicit_interval()),
-            std::string(merged_label));
-      },
-      R"(
+      return IndexDomainDimension<>(
+          Intersect(self.value.optionally_implicit_interval(),
+                    other.value.optionally_implicit_interval()),
+          std::string(merged_label));
+    }
+  };
+
+  cls.def("intersect", IntersectFunctor{},
+          R"(
 Intersect with another Dim.
 
 The ``implicit`` flag that corresponds to the selected bound is propagated.
@@ -2236,20 +2265,25 @@ Example:
     Dim(inclusive_min=1, exclusive_max=3, label="x")
 
 )",
-      py::arg("other"));
+          py::arg("other"));
 
-  cls.def(
-      "hull",
-      [](const IndexDomainDimension<>& self,
-         const IndexDomainDimension<>& b) -> Result<IndexDomainDimension<>> {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto merged_label, MergeDimensionLabels(self.label(), b.label()));
+  struct HullFunctor {
+    Result<IndexDomainDimension<>> operator()(
+        ConstHandle self, const IndexDomainDimension<>& b) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto merged_label,
+          MergeDimensionLabels(self.value.label(), b.label()));
 
-        return IndexDomainDimension<>(Hull(self.optionally_implicit_interval(),
-                                           b.optionally_implicit_interval()),
-                                      std::string(merged_label));
-      },
-      R"(
+      return IndexDomainDimension<>(
+          Hull(self.value.optionally_implicit_interval(),
+               b.optionally_implicit_interval()),
+          std::string(merged_label));
+    }
+  };
+
+  cls.def("hull", HullFunctor{},
+          R"(
 Hull with another Dim.
 
 The ``implicit`` flag that corresponds to the selected bound is propagated.
@@ -2265,9 +2299,16 @@ Example:
     Dim(inclusive_min=0, exclusive_max=5, label="x")
 
 )",
-      py::arg("other"));
+          py::arg("other"));
 
-  cls.def_property_readonly("inclusive_min", &IndexInterval::inclusive_min,
+  struct GetInclusiveMin {
+    Index operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.inclusive_min();
+    }
+  };
+
+  cls.def_property_readonly("inclusive_min", GetInclusiveMin{},
                             R"(
 Inclusive lower bound of the interval.
 
@@ -2287,7 +2328,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("inclusive_max", &IndexInterval::inclusive_max,
+  struct GetInclusiveMax {
+    Index operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.inclusive_max();
+    }
+  };
+
+  cls.def_property_readonly("inclusive_max", GetInclusiveMax{},
                             R"(
 Inclusive upper bound of the interval.
 
@@ -2307,7 +2355,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("exclusive_min", &IndexInterval::exclusive_min,
+  struct GetExclusiveMin {
+    Index operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.exclusive_min();
+    }
+  };
+
+  cls.def_property_readonly("exclusive_min", GetExclusiveMin{},
                             R"(
 Exclusive lower bound of the interval.
 
@@ -2329,7 +2384,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("exclusive_max", &IndexInterval::exclusive_max,
+  struct GetExclusiveMax {
+    Index operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.exclusive_max();
+    }
+  };
+
+  cls.def_property_readonly("exclusive_max", GetExclusiveMax{},
                             R"(
 Exclusive upper bound of the interval.
 
@@ -2349,7 +2411,13 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("size", &IndexInterval::size,
+  struct GetSize {
+    Index operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.size();
+    }
+  };
+  cls.def_property_readonly("size", GetSize{},
                             R"(
 Size of the interval.
 
@@ -2374,11 +2442,21 @@ Group:
   Accessors
 )");
 
-  cls.def_property(
-      "implicit_lower",
-      [](const IndexDomainDimension<>& x) { return x.implicit_lower(); },
-      [](IndexDomainDimension<>& x, bool value) { x.implicit_lower() = value; },
-      R"(
+  struct GetImplicitLower {
+    bool operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.implicit_lower();
+    }
+  };
+  struct SetImplicitLower {
+    void operator()(MutableHandle self, bool value) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      self.value.implicit_lower() = value;
+    }
+  };
+
+  cls.def_property("implicit_lower", GetImplicitLower{}, SetImplicitLower{},
+                   R"(
 Indicates if the lower bound is :ref:`implicit/resizeable<implicit-bounds>`.
 
 Example:
@@ -2400,11 +2478,21 @@ Group:
   Accessors
 )");
 
-  cls.def_property(
-      "implicit_upper",
-      [](const IndexDomainDimension<>& x) { return x.implicit_upper(); },
-      [](IndexDomainDimension<>& x, bool value) { x.implicit_upper() = value; },
-      R"(
+  struct GetImplicitUpper {
+    bool operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.implicit_upper();
+    }
+  };
+  struct SetImplicitUpper {
+    void operator()(MutableHandle self, bool value) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      self.value.implicit_upper() = value;
+    }
+  };
+
+  cls.def_property("implicit_upper", GetImplicitUpper{}, SetImplicitUpper{},
+                   R"(
 Indicates if the upper bound is :ref:`implicit/resizeable<implicit-bounds>`.
 
 Example:
@@ -2426,13 +2514,24 @@ Group:
   Accessors
 )");
 
-  cls.def_property(
-      "label",
-      [](const IndexDomainDimension<>& x) { return std::string(x.label()); },
-      [](IndexDomainDimension<>& x, const std::string& label) {
-        x.label() = label;
-      },
-      R"(
+  struct GetLabel {
+    std::string operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return std::string(self.value.label());
+    }
+  };
+  struct SetLabel {
+    void operator()(MutableHandle self, std::string_view label) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      static_assert(
+          std::is_same_v<std::string,
+                         absl::remove_cvref_t<decltype(self.value.label())>>);
+      self.value.label() = label;
+    }
+  };
+
+  cls.def_property("label", GetLabel{}, SetLabel{},
+                   R"(
 Dimension label, or the empty string to indicate an unlabeled dimension.
 
 Example:
@@ -2446,7 +2545,14 @@ Group:
   Accessors
 )");
 
-  cls.def("__len__", &IndexInterval::size,
+  struct LenFunctor {
+    Index operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.size();
+    }
+  };
+
+  cls.def("__len__", LenFunctor{},
           R"(
 Size of the interval, equivalent to :py:obj:`.size`.
 
@@ -2454,7 +2560,14 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("empty", &IndexInterval::empty,
+  struct EmptyFunctor {
+    bool operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value.empty();
+    }
+  };
+
+  cls.def_property_readonly("empty", EmptyFunctor{},
                             R"(
 Returns `True` if `size` is zero.
 
@@ -2462,9 +2575,15 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly(
-      "finite", [](const IndexDomainDimension<>& x) { return IsFinite(x); },
-      R"(
+  struct FiniteFunctor {
+    bool operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return IsFinite(self.value);
+    }
+  };
+
+  cls.def_property_readonly("finite", FiniteFunctor{},
+                            R"(
 Indicates if the interval is finite.
 
 Example:
@@ -2484,10 +2603,15 @@ Group:
   Accessors
 )");
 
-  cls.def(
-      "__contains__",
-      [](const IndexDomainDimension<>& x, Index i) { return Contains(x, i); },
-      R"(
+  struct ContainsIndexFunctor {
+    bool operator()(ConstHandle self, Index i) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return Contains(self.value, i);
+    }
+  };
+
+  cls.def("__contains__", ContainsIndexFunctor{},
+          R"(
 Checks if the interval contains a given index.
 
 Examples:
@@ -2505,15 +2629,17 @@ Overload:
 Group:
   Operations
 )",
-      py::arg("other"));
+          py::arg("other"));
 
-  cls.def(
-      "__contains__",
-      [](const IndexDomainDimension<>& outer,
-         const IndexDomainDimension<>& inner) {
-        return Contains(outer, inner);
-      },
-      R"(
+  struct ContainsDimFunctor {
+    bool operator()(ConstHandle outer, ConstHandle inner) const {
+      ScopedPyCriticalSection2 cs(outer.handle.ptr(), inner.handle.ptr());
+      return Contains(outer.value, inner.value);
+    }
+  };
+
+  cls.def("__contains__", ContainsDimFunctor{},
+          R"(
 Checks if the interval contains another interval.
 
 Examples:
@@ -2529,18 +2655,21 @@ Overload:
 Group:
   Operations
 )",
-      py::arg("inner"));
+          py::arg("inner"));
 
-  cls.def(
-      "__iter__",
-      [](const IndexDomainDimension<>& self) {
-        if (!IsFinite(self)) {
-          throw py::value_error("Cannot iterate over infinite interval");
-        }
-        return py::iter(python_imports.builtins_range_function(
-            self.inclusive_min(), self.exclusive_max()));
-      },
-      R"(
+  struct IterFunctor {
+    py::iterator operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      if (!IsFinite(self.value)) {
+        throw py::value_error("Cannot iterate over infinite interval");
+      }
+      return py::iter(python_imports.builtins_range_function(
+          self.value.inclusive_min(), self.value.exclusive_max()));
+    }
+  };
+
+  cls.def("__iter__", IterFunctor{},
+          R"(
 Enables iteration over the indices contained in the interval.
 
 Raises:
@@ -2555,10 +2684,15 @@ Group:
   Operations
 )");
 
-  cls.def(
-      "__str__",
-      [](const IndexDomainDimension<>& x) { return tensorstore::StrCat(x); },
-      R"(
+  struct StrFunctor {
+    std::string operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return tensorstore::StrCat(self.value);
+    }
+  };
+
+  cls.def("__str__", StrFunctor{},
+          R"(
 Returns the string representation of the interval.
 
     >>> print(ts.Dim(inclusive_min=5, exclusive_max=10))
@@ -2570,38 +2704,41 @@ Returns the string representation of the interval.
 
 )");
 
-  cls.def(
-      "__repr__",
-      [](const IndexDomainDimension<>& x) {
-        std::string repr = "Dim(";
-        bool need_comma = false;
-        const auto append = [&](auto&&... terms) {
-          tensorstore::StrAppend(&repr, need_comma ? ", " : "", terms...);
-          need_comma = true;
-        };
-        if (x.inclusive_min() != -kInfIndex) {
-          append("inclusive_min=", x.inclusive_min());
-          if (x.implicit_lower()) {
-            append("implicit_lower=True");
-          }
-        } else if (!x.implicit_lower()) {
-          append("implicit_lower=False");
+  struct ReprFunctor {
+    std::string operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      std::string repr = "Dim(";
+      bool need_comma = false;
+      const auto append = [&](auto&&... terms) {
+        tensorstore::StrAppend(&repr, need_comma ? ", " : "", terms...);
+        need_comma = true;
+      };
+      if (self.value.inclusive_min() != -kInfIndex) {
+        append("inclusive_min=", self.value.inclusive_min());
+        if (self.value.implicit_lower()) {
+          append("implicit_lower=True");
         }
-        if (x.inclusive_max() != kInfIndex) {
-          append("exclusive_max=", x.exclusive_max());
-          if (x.implicit_upper()) {
-            append("implicit_upper=True");
-          }
-        } else if (!x.implicit_upper()) {
-          append("implicit_upper=False");
+      } else if (!self.value.implicit_lower()) {
+        append("implicit_lower=False");
+      }
+      if (self.value.inclusive_max() != kInfIndex) {
+        append("exclusive_max=", self.value.exclusive_max());
+        if (self.value.implicit_upper()) {
+          append("implicit_upper=True");
         }
-        if (!x.label().empty()) {
-          append("label=", QuoteString(x.label()));
-        }
-        repr += ")";
-        return repr;
-      },
-      R"(
+      } else if (!self.value.implicit_upper()) {
+        append("implicit_upper=False");
+      }
+      if (!self.value.label().empty()) {
+        append("label=", QuoteString(self.value.label()));
+      }
+      repr += ")";
+      return repr;
+    }
+  };
+
+  cls.def("__repr__", ReprFunctor{},
+          R"(
 Returns the string representation as a Python expression.
 
     >>> ts.Dim(size=5, label='x', implicit_upper=True)
@@ -2609,12 +2746,15 @@ Returns the string representation as a Python expression.
 
 )");
 
-  cls.def(
-      "__eq__",
-      [](const IndexDomainDimension<>& self,
-         const IndexDomainDimension<>& other) { return self == other; },
-      py::arg("other"),
-      R"(
+  struct EqFunctor {
+    bool operator()(ConstHandle self, ConstHandle other) const {
+      ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+      return self.value == other.value;
+    }
+  };
+
+  cls.def("__eq__", EqFunctor{}, py::arg("other"),
+          R"(
 Compares for equality with another interval.
 
 In addition to the bounds, the values of :py:obj:`.label`,
@@ -2630,13 +2770,24 @@ Group:
   Operations
 )");
 
-  cls.def("__copy__", [](const IndexDomainDimension<>& self) { return self; });
-  cls.def(
-      "__deepcopy__",
-      [](const IndexDomainDimension<>& self, py::dict memo) { return self; },
-      py::arg("memo"));
+  struct CopyFunctor {
+    IndexDomainDimension<> operator()(ConstHandle self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value;
+    }
+  };
 
-  EnablePicklingFromSerialization(cls);
+  struct DeepCopyFunctor {
+    IndexDomainDimension<> operator()(ConstHandle self, py::dict memo) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return self.value;
+    }
+  };
+
+  cls.def("__copy__", CopyFunctor{});
+  cls.def("__deepcopy__", DeepCopyFunctor{}, py::arg("memo"));
+
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 }
 
 auto MakeOutputIndexMapClass(py::module m) {

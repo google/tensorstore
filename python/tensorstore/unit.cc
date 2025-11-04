@@ -268,7 +268,7 @@ Group:
 
 )");
 
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
 }
 
 void RegisterUnitBindings(pybind11::module m, Executor defer) {

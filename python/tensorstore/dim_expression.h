@@ -24,19 +24,31 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <cstddef>
+#include <optional>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 
 #include "absl/meta/type_traits.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/index.h"
+#include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/subscript_method.h"
 #include "python/tensorstore/typed_slice.h"
+#include "python/tensorstore/with_handle.h"
+#include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/numpy_indexing_spec.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -112,52 +124,65 @@ struct PythonTranslateOp {
 };
 
 struct TranslateToOpTag;
-template <typename Self, typename Cls, typename ApplyOp>
+template <bool WithLocking, typename Self, typename Cls, typename ApplyOp>
 void DefineTranslateToOp(Cls& cls, ApplyOp apply_op, const char* doc) {
   namespace py = ::pybind11;
+
+  using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
+
   DefineSubscriptMethod<Self, TranslateToOpTag>(&cls, "translate_to",
                                                 "_TranslateTo")
       .def(
           "__getitem__",
-          [apply_op](const Self& self,
+          [apply_op](ConstHandle self,
                      OptionallyImplicitIndexVectorOrScalarContainer indices) {
-            return apply_op(self, PythonTranslateOp{
-                                      ToIndexVectorOrScalarContainer(indices),
-                                      /*kind=*/TranslateOpKind::kTranslateTo});
+            MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
+            return apply_op(
+                self.value,
+                PythonTranslateOp{ToIndexVectorOrScalarContainer(indices),
+                                  /*kind=*/TranslateOpKind::kTranslateTo});
           },
           doc, py::arg("origins"));
 }
 
 struct TranslateByOpTag;
-template <typename Self, typename Cls, typename ApplyOp>
+template <bool WithLocking, typename Self, typename Cls, typename ApplyOp>
 void DefineTranslateByOp(Cls& cls, ApplyOp apply_op, const char* doc) {
   namespace py = ::pybind11;
+  using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
+
   DefineSubscriptMethod<Self, TranslateByOpTag>(&cls, "translate_by",
                                                 "_TranslateBy")
       .def(
           "__getitem__",
-          [apply_op](const Self& self,
+          [apply_op](ConstHandle self,
                      OptionallyImplicitIndexVectorOrScalarContainer offsets) {
+            MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
             return apply_op(
-                self, PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
-                                        TranslateOpKind::kTranslateBy});
+                self.value,
+                PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
+                                  TranslateOpKind::kTranslateBy});
           },
           doc, py::arg("offsets"));
 }
 
 struct TranslateBackwardByOpTag;
-template <typename Self, typename Cls, typename ApplyOp>
+template <bool WithLocking, typename Self, typename Cls, typename ApplyOp>
 void DefineTranslateBackwardByOp(Cls& cls, ApplyOp apply_op, const char* doc) {
   namespace py = ::pybind11;
+  using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
+
   DefineSubscriptMethod<Self, TranslateBackwardByOpTag>(
       &cls, "translate_backward_by", "_TranslateBackwardBy")
       .def(
           "__getitem__",
-          [apply_op](const Self& self,
+          [apply_op](ConstHandle self,
                      OptionallyImplicitIndexVectorOrScalarContainer offsets) {
+            MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
             return apply_op(
-                self, PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
-                                        TranslateOpKind::kTranslateBackwardBy});
+                self.value,
+                PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
+                                  TranslateOpKind::kTranslateBackwardBy});
           },
           doc, py::arg("offsets"));
 }
@@ -203,15 +228,18 @@ struct PythonLabelOp {
 };
 
 struct LabelOpTag;
-template <typename Self, typename Cls, typename ApplyOp>
+template <bool WithLocking, typename Self, typename Cls, typename ApplyOp>
 void DefineLabelOp(Cls& cls, ApplyOp apply_op, const char* doc) {
   namespace py = ::pybind11;
+  using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
+
   DefineSubscriptMethod<Self, LabelOpTag>(&cls, "label", "_Label")
       .def(
           "__getitem__",
-          [apply_op](const Self& self,
+          [apply_op](ConstHandle self,
                      std::variant<std::string, SequenceParameter<std::string>>
                          labels_variant) {
+            MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
             std::vector<std::string> labels;
             if (auto* label = std::get_if<std::string>(&labels_variant)) {
               labels.push_back(std::move(*label));
@@ -220,7 +248,7 @@ void DefineLabelOp(Cls& cls, ApplyOp apply_op, const char* doc) {
                                      labels_variant))
                            .value;
             }
-            return apply_op(self, PythonLabelOp{std::move(labels)});
+            return apply_op(self.value, PythonLabelOp{std::move(labels)});
           },
           doc, py::arg("labels"));
 }
@@ -285,19 +313,22 @@ struct PythonChangeImplicitStateOp {
 };
 
 struct MarkBoundsImplicitOpTag;
-template <typename Self, typename Cls, typename ApplyOp>
+template <bool WithLocking, typename Self, typename Cls, typename ApplyOp>
 void DefineMarkBoundsImplicitOp(Cls& cls, ApplyOp apply_op, const char* doc) {
   namespace py = ::pybind11;
+  using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
+
   DefineSubscriptMethod<Self, MarkBoundsImplicitOpTag>(
       &cls, "mark_bounds_implicit", "_MarkBoundsImplicit")
       .def(
           "__getitem__",
           [apply_op](
-              const Self& self,
+              ConstHandle self,
               std::variant<std::optional<bool>,
                            TypedSlice<std::optional<bool>, std::optional<bool>,
                                       std::nullptr_t>>
                   bounds) {
+            MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
             struct Visitor {
               std::optional<bool>& lower_implicit;
               std::optional<bool>& upper_implicit;
@@ -316,8 +347,8 @@ void DefineMarkBoundsImplicitOp(Cls& cls, ApplyOp apply_op, const char* doc) {
             std::optional<bool> lower_implicit;
             std::optional<bool> upper_implicit;
             std::visit(Visitor{lower_implicit, upper_implicit}, bounds);
-            return apply_op(self, PythonChangeImplicitStateOp{lower_implicit,
-                                                              upper_implicit});
+            return apply_op(self.value, PythonChangeImplicitStateOp{
+                                            lower_implicit, upper_implicit});
           },
           doc, py::arg("implicit"));
 }

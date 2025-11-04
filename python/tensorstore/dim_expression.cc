@@ -51,14 +51,16 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/serialization/std_optional.h"
-#include "tensorstore/serialization/std_variant.h"
-#include "tensorstore/serialization/std_vector.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
+
+// specializations
+#include "tensorstore/serialization/std_optional.h"
+#include "tensorstore/serialization/std_variant.h"
+#include "tensorstore/serialization/std_vector.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -386,6 +388,7 @@ Operations
 
 void DefineDimExpressionAttributes(ClsDimExpression& cls) {
   using Self = PythonDimExpression;
+
   DefineNumpyIndexingMethods(
       &cls,
       /*doc_strings=*/
@@ -838,8 +841,8 @@ Group:
     return self.Extend(std::forward<decltype(op)>(op));
   };
 
-  DefineTranslateToOp<Self>(cls, apply_op,
-                            R"(
+  DefineTranslateToOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                                   R"(
 Translates the domains of the selected input dimensions to the specified
 origins without affecting the output range.
 
@@ -902,8 +905,8 @@ Group:
   Operations
 )");
 
-  DefineTranslateByOp<Self>(cls, apply_op,
-                            R"(
+  DefineTranslateByOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                                   R"(
 Translates (shifts) the domains of the selected input dimensions by the
 specified offsets, without affecting the output range.
 
@@ -966,8 +969,8 @@ Group:
 
 )");
 
-  DefineTranslateBackwardByOp<Self>(cls, apply_op,
-                                    R"(
+  DefineTranslateBackwardByOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                                           R"(
 Translates (shifts) the domains of the selected input dimensions backward by the
 specified offsets, without affecting the output range.
 
@@ -1195,8 +1198,8 @@ Group:
 )",
           py::arg("target"));
 
-  DefineLabelOp<Self>(cls, apply_op,
-                      R"(
+  DefineLabelOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                             R"(
 Sets (or changes) the :ref:`labels<dimension-labels>` of the selected dimensions.
 
 Examples:
@@ -1329,8 +1332,8 @@ Group:
 
 )");
 
-  DefineMarkBoundsImplicitOp<Self>(cls, apply_op,
-                                   R"(
+  DefineMarkBoundsImplicitOp</*WithLocking=*/false, Self>(cls, apply_op,
+                                                          R"(
 Marks the lower/upper bounds of the selected dimensions as
 :ref:`implicit/explicit<implicit-bounds>`.
 
@@ -1432,7 +1435,7 @@ Group:
   cls.def("__repr__", &PythonDimExpression::repr);
 
   cls.def("__eq__", [](const Self& a, const Self& b) { return a == b; });
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
 }
 
 ClsDimensionSelection MakeDimensionSelectionClass(py::module m) {
@@ -1477,7 +1480,7 @@ void DefineDimensionSelectionAttributes(ClsDimensionSelection& cls) {
       },
       py::arg("other"));
   cls.attr("__iter__") = py::none();
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
 }
 
 struct DimensionSelectionSubscriptHelper {};
@@ -1519,7 +1522,7 @@ Group:
 )",
       py::arg("selection"));
   cls.attr("__iter__") = py::none();
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
 }
 
 void RegisterDimExpressionBindings(pybind11::module m, Executor defer) {

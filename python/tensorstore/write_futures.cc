@@ -20,6 +20,8 @@
 #include "python/tensorstore/write_futures.h"
 
 // Other headers
+#include <stddef.h>
+
 #include <optional>
 #include <utility>
 

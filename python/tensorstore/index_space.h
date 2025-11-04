@@ -31,16 +31,20 @@
 #include <stdint.h>
 
 #include <optional>
+#include <type_traits>
 #include <utility>
 
 #include "absl/meta/type_traits.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
+#include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/subscript_method.h"
+#include "python/tensorstore/with_handle.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
@@ -117,9 +121,9 @@ struct IndexTransformOperationDocstrings {
 
 /// \param modify_transform Function with signature
 ///     `IndexTransform<> (IndexTransform<> orig, SubscriptType subscript)`.
-template <typename SubscriptType, typename T, typename... ClassOptions,
-          typename GetTransform, typename ModifyTransform,
-          typename ApplyTransform, typename... Assign>
+template <bool WithLocking, typename SubscriptType, typename T,
+          typename... ClassOptions, typename GetTransform,
+          typename ModifyTransform, typename ApplyTransform, typename... Assign>
 void DefineIndexingMethods(
     pybind11::class_<T, ClassOptions...>* cls, const char* subscript_name,
     IndexingOperationDocstrings<sizeof...(Assign)> doc_strings,
@@ -129,13 +133,17 @@ void DefineIndexingMethods(
   using Self = typename FunctionArgType<
       0, py::detail::function_signature_t<ApplyTransform>>::type;
 
+  using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
+  using MutableHandle = with_handle<absl::remove_cvref_t<Self>&>;
+
   cls->def(
       "__getitem__",
       [get_transform, modify_transform, apply_transform](
-          Self self, SubscriptType subscript) {
+          ConstHandle self, SubscriptType subscript) {
+        MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
         auto transform =
-            modify_transform(get_transform(self), std::move(subscript));
-        return apply_transform(std::forward<Self>(self), std::move(transform));
+            modify_transform(get_transform(self.value), std::move(subscript));
+        return apply_transform(self.value, std::move(transform));
       },
       doc_strings[0], py::arg(subscript_name));
 
@@ -147,14 +155,14 @@ void DefineIndexingMethods(
     cls->def(
         "__setitem__",
         [get_transform, modify_transform, apply_transform, assign](
-            Self self, SubscriptType subscript,
+            MutableHandle self, SubscriptType subscript,
             typename FunctionArgType<1, py::detail::function_signature_t<
                                             decltype(assign)>>::type source) {
+          MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
           auto transform =
-              modify_transform(get_transform(self), std::move(subscript));
-          return assign(
-              apply_transform(std::forward<Self>(self), std::move(transform)),
-              source);
+              modify_transform(get_transform(self.value), std::move(subscript));
+          return assign(apply_transform(self.value, std::move(transform)),
+                        source);
         },
         doc_strings[doc_string_index++], py::arg("transform"),
         py::arg("source"));
@@ -163,14 +171,17 @@ void DefineIndexingMethods(
   (DefineAssignMethod(assign), ...);
 }
 
-template <bool DomainOnly, typename T, typename... ClassOptions,
-          typename GetTransform, typename ApplyTransform>
+template <bool WithLocking, bool DomainOnly, typename T,
+          typename... ClassOptions, typename GetTransform,
+          typename ApplyTransform>
 void DefineIndexTransformOrDomainOperations(
     pybind11::class_<T, ClassOptions...>* cls, GetTransform get_transform,
     ApplyTransform apply_transform) {
   namespace py = ::pybind11;
   using Self = absl::remove_cvref_t<typename FunctionArgType<
       0, py::detail::function_signature_t<ApplyTransform>>::type>;
+
+  using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
 
   auto apply_op = [get_transform, apply_transform](const Self& self,
                                                    auto&& op) {
@@ -185,7 +196,7 @@ void DefineIndexTransformOrDomainOperations(
                                                  /*domain_only=*/DomainOnly)));
   };
 
-  DefineTranslateToOp<Self>(*cls, apply_op, R"(
+  DefineTranslateToOp<WithLocking, Self>(*cls, apply_op, R"(
 Returns a new view with `.origin` translated to the specified origin.
 
 This is equivalent to :python:`self[ts.d[:].translate_to[origins]]`.
@@ -212,7 +223,7 @@ Group:
   Indexing
 )");
 
-  DefineTranslateByOp<Self>(*cls, apply_op, R"(
+  DefineTranslateByOp<WithLocking, Self>(*cls, apply_op, R"(
 Returns a new view with the `.origin` translated by the specified offsets.
 
 This is equivalent to :python:`self[ts.d[:].translate_by[offsets]]`.
@@ -231,7 +242,7 @@ Group:
   Indexing
 )");
 
-  DefineTranslateBackwardByOp<Self>(*cls, apply_op, R"(
+  DefineTranslateBackwardByOp<WithLocking, Self>(*cls, apply_op, R"(
 Returns a new view with the `.origin` translated backward by the specified offsets.
 
 This is equivalent to :python:`self[ts.d[:].translate_backward_by[offsets]]`.
@@ -250,7 +261,7 @@ Group:
   Indexing
 )");
 
-  DefineLabelOp<Self>(*cls, apply_op, R"(
+  DefineLabelOp<WithLocking, Self>(*cls, apply_op, R"(
 Returns a new view with the :ref:`dimension labels<dimension-labels>` changed.
 
 This is equivalent to :python:`self[ts.d[:].label[labels]]`.
@@ -270,7 +281,7 @@ Group:
   Indexing
 )");
 
-  DefineMarkBoundsImplicitOp<Self>(*cls, apply_op, R"(
+  DefineMarkBoundsImplicitOp<WithLocking, Self>(*cls, apply_op, R"(
 Returns a new view with the lower/upper bounds changed to
 :ref:`implicit/explicit<implicit-bounds>`.
 
@@ -303,8 +314,9 @@ Group:
   cls->def(
       "transpose",
       [get_transform, apply_transform](
-          const Self& self, std::optional<DimensionSelectionLike> axes) {
-        IndexTransform<> transform = get_transform(self);
+          ConstHandle self, std::optional<DimensionSelectionLike> axes) {
+        MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
+        IndexTransform<> transform = get_transform(self.value);
         if (!axes.has_value()) {
           transform =
               internal_index_space::TransformAccess::Make<IndexTransform<>>(
@@ -317,7 +329,7 @@ Group:
               std::move(transform), axes->value.dims(),
               /*domain_only=*/DomainOnly));
         }
-        return apply_transform(self, std::move(transform));
+        return apply_transform(self.value, std::move(transform));
       },
       R"(
 Returns a view with a transposed domain.
@@ -357,8 +369,8 @@ Group:
 /// \param assign... Zero or more functions with signatures
 ///     `(Self self, IndexTransform<> new_transform, Source source)` to be
 ///     exposed as `__setitem__` overloads.
-template <typename T, typename... ClassOptions, typename GetTransform,
-          typename ApplyTransform, typename... Assign>
+template <bool WithLocking, typename T, typename... ClassOptions,
+          typename GetTransform, typename ApplyTransform, typename... Assign>
 void DefineIndexTransformOperations(
     pybind11::class_<T, ClassOptions...>* cls,
     IndexTransformOperationDocstrings<sizeof...(Assign)> doc_strings,
@@ -368,7 +380,10 @@ void DefineIndexTransformOperations(
   using Self = typename FunctionArgType<
       0, py::detail::function_signature_t<ApplyTransform>>::type;
 
-  DefineIndexingMethods<IndexTransform<>>(
+  using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
+  using MutableHandle = with_handle<absl::remove_cvref_t<Self>&>;
+
+  DefineIndexingMethods<WithLocking, IndexTransform<>>(
       cls, "transform", doc_strings.index_transform,
       get_transform, /*modify_transform=*/
       [](IndexTransform<> transform, IndexTransform<> other_transform) {
@@ -380,7 +395,8 @@ void DefineIndexTransformOperations(
             StatusExceptionPolicy::kIndexError);
       },
       apply_transform, assign...);
-  DefineIndexingMethods<IndexDomain<>>(
+
+  DefineIndexingMethods<WithLocking, IndexDomain<>>(
       cls, "domain", doc_strings.index_domain,
       get_transform, /*modify_transform=*/
       [](IndexTransform<> transform, IndexDomain<> other_domain) {
@@ -389,7 +405,7 @@ void DefineIndexTransformOperations(
       },
       apply_transform, assign...);
 
-  DefineIndexingMethods<const PythonDimExpression&>(
+  DefineIndexingMethods<WithLocking, const PythonDimExpression&>(
       cls, "expr", doc_strings.dim_expression,
       get_transform, /*modify_transform=*/
       [](IndexTransform<> transform, const PythonDimExpression& expr) {
@@ -406,41 +422,40 @@ void DefineIndexTransformOperations(
 
   // Defined as separate function rather than expanded inline within parameter
   // list below to work around MSVC 2019 ICE.
-  [[maybe_unused]] const auto DirectAssignMethod = [get_transform,
-                                                    apply_transform](
-                                                       auto assign) {
-    return [get_transform, apply_transform, assign](
-               Self self, NumpyIndexingSpecPlaceholder spec_placeholder,
-               typename FunctionArgType<
-                   1, py::detail::function_signature_t<decltype(assign)>>::type
-                   source) {
-      IndexTransform<> transform = get_transform(self);
-      transform = ValueOrThrow(
-          [&]() -> Result<IndexTransform<>> {
-            auto spec =
-                spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
-            GilScopedRelease gil_release;
-            TENSORSTORE_ASSIGN_OR_RETURN(
-                auto spec_transform,
-                ToIndexTransform(spec, transform.domain()));
-            return ComposeTransforms(std::move(transform),
-                                     std::move(spec_transform));
-          }(),
-          StatusExceptionPolicy::kIndexError);
-      return assign(
-          apply_transform(std::forward<Self>(self), std::move(transform)),
-          source);
-    };
-  };
+  [[maybe_unused]] const auto DirectAssignMethod =
+      [get_transform, apply_transform](auto assign) {
+        using SourceType = typename FunctionArgType<
+            1, py::detail::function_signature_t<decltype(assign)>>::type;
+        return [get_transform, apply_transform, assign](
+                   MutableHandle self,
+                   NumpyIndexingSpecPlaceholder spec_placeholder,
+                   SourceType source) {
+          auto spec = spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
+          MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
+          IndexTransform<> transform = get_transform(self.value);
+          transform = ValueOrThrow(
+              [&]() -> Result<IndexTransform<>> {
+                GilScopedRelease gil_release;
+                TENSORSTORE_ASSIGN_OR_RETURN(
+                    auto spec_transform,
+                    ToIndexTransform(spec, transform.domain()));
+                return ComposeTransforms(std::move(transform),
+                                         std::move(spec_transform));
+              }(),
+              StatusExceptionPolicy::kIndexError);
+          return assign(apply_transform(self.value, std::move(transform)),
+                        source);
+        };
+      };
   DefineNumpyIndexingMethods(
       cls, doc_strings.numpy_indexing,
       [get_transform, apply_transform](
-          Self self, NumpyIndexingSpecPlaceholder spec_placeholder) {
-        IndexTransform<> transform = get_transform(self);
+          ConstHandle self, NumpyIndexingSpecPlaceholder spec_placeholder) {
+        auto spec = spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
+        MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
+        IndexTransform<> transform = get_transform(self.value);
         transform = ValueOrThrow(
             [&]() -> Result<IndexTransform<>> {
-              auto spec =
-                  spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
               GilScopedRelease gil_release;
               TENSORSTORE_ASSIGN_OR_RETURN(
                   auto spec_transform,
@@ -449,16 +464,16 @@ void DefineIndexTransformOperations(
                                        std::move(spec_transform));
             }(),
             StatusExceptionPolicy::kIndexError);
-        return apply_transform(std::forward<Self>(self), std::move(transform));
+        return apply_transform(self.value, std::move(transform));
       },
       DirectAssignMethod(assign)...);
 
   cls->def_property_readonly(
       "T",
-      [get_transform, apply_transform](Self self) {
-        auto new_transform = get_transform(self).Transpose();
-        return apply_transform(std::forward<Self>(self),
-                               std::move(new_transform));
+      [get_transform, apply_transform](ConstHandle self) {
+        MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
+        auto new_transform = get_transform(self.value).Transpose();
+        return apply_transform(self.value, std::move(new_transform));
       },
       R"(View with transposed domain (reversed dimension order).
 
@@ -474,9 +489,10 @@ Group:
 
   cls->def_property_readonly(
       "origin",
-      [get_transform](const Self& self) {
+      [get_transform](ConstHandle self) {
+        MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
         return SpanToHomogeneousTuple<Index>(
-            get_transform(self).input_origin());
+            get_transform(self.value).input_origin());
       },
       R"(Inclusive lower bound of the domain.
 
@@ -489,8 +505,10 @@ Group:
 
   cls->def_property_readonly(
       "shape",
-      [get_transform](const Self& self) {
-        return SpanToHomogeneousTuple<Index>(get_transform(self).input_shape());
+      [get_transform](ConstHandle self) {
+        MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
+        return SpanToHomogeneousTuple<Index>(
+            get_transform(self.value).input_shape());
       },
       R"(Shape of the domain.
 
@@ -503,8 +521,9 @@ Group:
 
   cls->def_property_readonly(
       "size",
-      [get_transform](const Self& self) {
-        return get_transform(self).domain().num_elements();
+      [get_transform](ConstHandle self) {
+        MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
+        return get_transform(self.value).domain().num_elements();
       },
       R"(Total number of elements in the domain.
 
@@ -515,7 +534,7 @@ Group:
 
 )");
 
-  DefineIndexTransformOrDomainOperations</*DomainOnly=*/false>(
+  DefineIndexTransformOrDomainOperations<WithLocking, /*DomainOnly=*/false>(
       cls, get_transform, apply_transform);
 }
 

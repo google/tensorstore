@@ -22,7 +22,6 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include "python/tensorstore/data_type.h"
 
 // Other headers
 #include <stddef.h>
@@ -36,6 +35,7 @@
 #include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
+#include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/tensorstore_module_components.h"
@@ -242,7 +242,7 @@ Group:
     return tensorstore::StrCat("dtype(", QuoteString(self.name()), ")");
   });
 
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
 
   cls.def(
       "to_json", [](DataType self) { return std::string(self.name()); },

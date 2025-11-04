@@ -54,13 +54,17 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
-#include <cstddef>
+#include <memory>
 #include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "absl/base/thread_annotations.h"
+#include "absl/functional/function_ref.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/garbage_collection.h"
@@ -69,6 +73,7 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/executor.h"
@@ -272,8 +277,41 @@ struct PythonFutureObject {
     CancelCallbackBase* prev;
   };
 
+  /// Weak pointer to a PythonFutureObject.
+  ///
+  /// This structure is shared via `std::shared_ptr` between a
+  /// `PythonFutureObject` and potentially a `PythonPromiseObject`. It allows
+  /// communication between them, and effectively behaves like a weak reference
+  /// to the `PythonFutureObject` (but does not use the normal Python weak
+  /// reference mechanism): `WeakFuturePtr::future` will be set to `nullptr`
+  /// when the `PythonFutureObject` is deallocated or the promise/future is
+  /// cancelled or fulfilled.
+  ///
+  /// Reference counting:
+  ///
+  /// An additional Python reference to `future` is held as long as
+  /// `future->cpp_data.callbacks` is non-empty, to ensure `future` remains
+  /// alive until callbacks can be run.
+  ///
+  /// If there is an associated `PythonPromiseObject`, it does not directly hold
+  /// a reference to the `PythonFutureObject`, but Python's garbage collector
+  /// is made aware of the logical reference in order to detect
+  /// reference cycles involving the promise and future.
+  ///
+  /// The `PythonPromiseObject` indirectly keeps the `PythonFutureObject`
+  /// alive: if the `PythonPromiseObject` is destroyed before the future is
+  /// ready, the future is cancelled, which causes any done callbacks to be
+  /// invoked. Once all callbacks are run, `future->cpp_data.callbacks` becomes
+  /// empty, and the additional Python reference to `future` is released,
+  /// allowing it to be garbage collected if there are no other references.
+  struct WeakFuturePtr {
+    WeakFuturePtr(PythonFutureObject* future) : future(future) {}
+    PythonFutureObject* future ABSL_GUARDED_BY(mutex);
+    absl::Mutex mutex ABSL_ACQUIRED_BEFORE(future->cpp_data.mutex);
+  };
+
   struct CppData {
-    internal_future::FutureStatePointer state;
+    internal_future::FutureStatePointer state ABSL_GUARDED_BY(mutex);
     /// Callbacks to be invoked when the future becomes ready.  Guarded by the
     /// GIL.  When non-empty, the Python reference count of the
     /// `PythonFutureObject` is incremented.  If there is an associated
@@ -282,25 +320,24 @@ struct PythonFutureObject {
     /// collection.  Otherwise, it is considered to be owned by the associated
     /// C++ future state, and will *not* participate in cyclic garbage
     /// collection.
-    std::vector<pybind11::object> callbacks;
+    std::vector<pybind11::object> callbacks ABSL_GUARDED_BY(mutex);
     /// Registration of `ExecuteWhenReady` callback used when `callbacks_` is
     /// non-empty.  Guarded by the GIL.
-    FutureCallbackRegistration registration;
+    FutureCallbackRegistration registration ABSL_GUARDED_BY(mutex);
     /// Linked list of callbacks to be invoked when cancelled.  Guarded by the
     /// GIL.
-    CancelCallbackBase cancel_callbacks;
+    CancelCallbackBase cancel_callbacks ABSL_GUARDED_BY(mutex);
     /// Holds strong references to objects weakly referenced by either the value
     /// that has been set (if done), or by the asynchronous operation
     /// responsible for setting the value (if not yet done).
-    PythonObjectReferenceManager reference_manager;
+    PythonObjectReferenceManager reference_manager ABSL_GUARDED_BY(mutex);
 
-    /// Pointer to promise object, if this Future corresponds to a
-    /// `PythonPromiseObject`.
-    ///
-    /// This effectively behaves like a weak reference (but does not use the
-    /// normal Python weak reference mechanism): it will be set to `nullptr`
-    /// automatically by `PromiseDealloc`.
-    PythonPromiseObject* python_promise_object = nullptr;
+    /// Holds a weak pointer to the python future object.
+    std::shared_ptr<WeakFuturePtr> weak_future_pointer;
+
+    /// Guards access to shared state between Python and C++.
+    /// NOTE: Consider using ScopedPyCriticalSection instead.
+    absl::Mutex mutex;
   };
 
   // clang-format off
@@ -329,14 +366,20 @@ struct PythonFutureObject {
   size_t RemoveDoneCallback(pybind11::handle callback);
 
   /// Runs the Done callbacks.
-  void RunCallbacks();
+  void RunCallbacks(std::vector<pybind11::object> done_callbacks);
 
   /// Returns `true` if the Future was cancelled.
-  bool cancelled() { return !cpp_data.state; }
+  bool cancelled() {
+    absl::MutexLock lock(cpp_data.mutex);
+    return !cpp_data.state;
+  }
 
   /// Returns `true` if the underlying Future is ready (either with a value or
   /// an error) or already cancelled.
-  bool done() const { return !cpp_data.state || cpp_data.state->ready(); }
+  bool done() {
+    absl::MutexLock lock(cpp_data.mutex);
+    return !cpp_data.state || cpp_data.state->ready();
+  }
 
   /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
   /// Returns the value if the Future completed successfully, otherwise throws
@@ -367,6 +410,33 @@ struct PythonFutureObject {
                                              std::move(manager));
   }
 
+  // Invoked when the underlying tensorstore::Future becomes ready.
+  template <typename T>
+  struct OnReadyCallback {
+    PythonFutureObject* self;
+
+    void operator()(ReadyFuture<const T> future) {
+      ExitSafeGilScopedAcquire gil;
+      if (!gil.acquired()) return;
+      auto* py_obj = reinterpret_cast<PyObject*>(self);
+      if (Py_REFCNT(py_obj) == 0) return;  // implicitly cancelled
+      absl::ReleasableMutexLock lock(self->cpp_data.mutex);
+      if (!self->cpp_data.state) return;  // cancelled
+      auto keep_alive = pybind11::reinterpret_borrow<pybind11::object>(py_obj);
+      auto& r = future.result();
+      if constexpr (!std::is_void_v<T>) {
+        if (r.ok()) {
+          self->cpp_data.reference_manager.Update(*r);
+        }
+      }
+      auto callbacks = std::move(self->cpp_data.callbacks);
+      lock.Release();
+      self->RunCallbacks(std::move(callbacks));
+    }
+  };
+
+  // Implementation of `Make` for a particular Future<T> type.
+  // `T` is guaranteed to be non-const.
   template <typename T>
   static pybind11::object MakeInternal(
       Future<const T> future, PythonObjectReferenceManager manager = {}) {
@@ -379,23 +449,8 @@ struct PythonFutureObject {
     auto& cpp_data = obj.cpp_data;
     cpp_data.state = internal_future::FutureAccess::rep_pointer(future);
     cpp_data.reference_manager = std::move(manager);
-    cpp_data.registration = std::move(future).ExecuteWhenReady(
-        [&obj](ReadyFuture<const T> future) mutable {
-          ExitSafeGilScopedAcquire gil;
-          if (!gil.acquired()) return;
-          auto* py_obj = reinterpret_cast<PyObject*>(&obj);
-          if (Py_REFCNT(py_obj) == 0) return;  // implicitly cancelled
-          if (!obj.cpp_data.state) return;     // cancelled
-          auto keep_alive =
-              pybind11::reinterpret_borrow<pybind11::object>(py_obj);
-          auto& r = future.result();
-          if constexpr (!std::is_void_v<T>) {
-            if (r.ok()) {
-              obj.cpp_data.reference_manager.Update(*r);
-            }
-          }
-          obj.RunCallbacks();
-        });
+    cpp_data.registration =
+        std::move(future).ExecuteWhenReady(OnReadyCallback<T>{&obj});
     PyObject_GC_Track(self.ptr());
     return self;
   }
@@ -411,6 +466,8 @@ struct PythonPromiseObject {
 
   constexpr static const char python_type_name[] = "tensorstore.Promise";
 
+  using WeakFuturePtr = PythonFutureObject::WeakFuturePtr;
+
   struct CppData {
     Promise<GilSafePythonValueOrExceptionWeakRef> promise;
 
@@ -418,19 +475,8 @@ struct PythonPromiseObject {
     /// has been set (if done).
     PythonObjectReferenceManager reference_manager;
 
-    /// Pointer to corresponding `PythonFutureObject`.
-    ///
-    /// This will be set to `nullptr` automatically by `FutureDealloc`.
-    ///
-    /// The ownership semantics of this pointer are as follows:
-    ///
-    /// - If `python_future_object->cpp_data.callbacks.empty()`, this behaves
-    ///   like a weak pointer (but not using the normal Python weak reference
-    ///   mechanism).
-    ///
-    /// - Otherwise, this `PythonPromiseObject` owns a reference to the
-    ///   `python_future_object`.
-    PythonFutureObject* python_future_object = nullptr;
+    /// Holds a weak pointer to the python future object.
+    std::shared_ptr<WeakFuturePtr> weak_future_pointer;
   };
 
   // clang-format off
@@ -487,7 +533,7 @@ template <typename T>
 typename Future<T>::result_type& InterruptibleWait(
     const Future<T>& future, absl::Time deadline = absl::InfiniteFuture(),
     PythonFutureObject* python_future = nullptr) {
-  internal_python::InterruptibleWaitImpl(future, deadline, python_future);
+  InterruptibleWaitImpl(future, deadline, python_future);
   return future.result();
 }
 

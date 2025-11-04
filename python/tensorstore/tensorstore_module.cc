@@ -66,7 +66,12 @@ void InitializeAbslLogging() {
   absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfo);
 }
 
+// clang-format off
+#if defined(Py_GIL_DISABLED)
+PYBIND11_MODULE(_tensorstore, m, py::mod_gil_not_used()) {
+#else
 PYBIND11_MODULE(_tensorstore, m) {
+#endif
   // clang-format on
   absl::LeakCheckDisabler disabler;
 

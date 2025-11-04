@@ -22,7 +22,9 @@
 #include <optional>
 #include <utility>
 
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/tensorstore_module_components.h"
+#include "python/tensorstore/with_handle.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/util/executor.h"
@@ -135,12 +137,15 @@ Operations
 }
 
 void DefineBatchAttributes(BatchCls& cls) {
-  using Self = Batch;
   cls.def(py::init([]() { return Batch::New(); }), R"(
 Creates a new batch.
 )");
   cls.def(
-      "submit", [](Self& self) { self.Release(); },
+      "submit",
+      [](with_handle<Batch&> self) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.Release();
+      },
       R"(
 Submits the batch.
 
@@ -153,9 +158,15 @@ Raises:
 Group:
   Operations
 )");
-  cls.def("__enter__", [](const Self& self) { return &self; });
-  cls.def("__exit__", [](Self& self, py::object exc_type, py::object exc_value,
-                         py::object traceback) { self.Release(); });
+  cls.def("__enter__", [](with_handle<const Batch&> self) {
+    ScopedPyCriticalSection cs(self.handle.ptr());
+    return &self.value;
+  });
+  cls.def("__exit__", [](with_handle<Batch&> self, py::object exc_type,
+                         py::object exc_value, py::object traceback) {
+    ScopedPyCriticalSection cs(self.handle.ptr());
+    self.value.Release();
+  });
 }
 
 void RegisterBatchBindings(pybind11::module m, Executor defer) {
