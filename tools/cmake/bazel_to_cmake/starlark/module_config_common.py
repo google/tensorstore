@@ -17,8 +17,19 @@ from .struct import Struct
 
 
 class FeatureFlagInfo(Provider):
-
   pass
+
+
+class LateBoundDefault(Provider):
+  __slots__ = ("fragment", "name")
+
+  def __init__(self, fragment, name):
+    self.fragment = fragment
+    self.name = name
+
+  def __call__(self, ctx: "RuleCtx"):
+    # This isn't implemented.
+    assert False, "Unimplemented LateBoundDefault"
 
 
 class BazelModuleConfigCommon:
@@ -26,4 +37,10 @@ class BazelModuleConfigCommon:
   FeatureFlagInfo = staticmethod(FeatureFlagInfo)  # type: ignore[not-callable]
 
   def toolchain_type(self, name, *, mandatory=True, visibility=None):
+    del visibility
     return Struct(toolchain_type=name, mandatory=mandatory)
+
+  LateBoundDefault = staticmethod(LateBoundDefault)  # type: ignore[not-callable]
+
+  def configuration_field(self, *, fragment, name):
+    return LateBoundDefault(fragment=fragment, name=name)

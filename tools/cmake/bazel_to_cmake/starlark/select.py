@@ -16,7 +16,7 @@
 # pylint: disable=missing-function-docstring,relative-beyond-top-level
 
 import operator
-from typing import Callable, Dict, Generic, List, TypeVar, Union, cast
+from typing import Callable, Generic, TypeVar, Union, cast
 
 from .bazel_target import TargetId
 
@@ -36,22 +36,22 @@ class _ConfigurableBase(Generic[T]):
 
   def __add__(self, other: "Configurable[T]") -> "Configurable[T]":
     return SelectExpression(
-        operator.add, cast(List[Configurable[T]], [self, other])
+        operator.add, cast(list[Configurable[T]], [self, other])
     )
 
   def __radd__(self, other: "Configurable[T]") -> "Configurable[T]":
     return SelectExpression(
-        operator.add, cast(List[Configurable[T]], [other, self])
+        operator.add, cast(list[Configurable[T]], [other, self])
     )
 
   def __or__(self, other: "Configurable[T]") -> "Configurable[T]":
     return SelectExpression(
-        operator.or_, cast(List[Configurable[T]], [self, other])
+        operator.or_, cast(list[Configurable[T]], [self, other])
     )
 
   def __ror__(self, other: "Configurable[T]") -> "Configurable[T]":
     return SelectExpression(
-        operator.or_, cast(List[Configurable[T]], [other, self])
+        operator.or_, cast(list[Configurable[T]], [other, self])
     )
 
   def evaluate(self, test_condition: TestCondition) -> T:
@@ -61,7 +61,7 @@ class _ConfigurableBase(Generic[T]):
 class Select(_ConfigurableBase[T]):
   """Represents a parsed (but not evaluated) `select` expression."""
 
-  def __init__(self, conditions: Dict[TargetId, T]):
+  def __init__(self, conditions: dict[TargetId, T]):
     self.conditions = conditions
 
   def __repr__(self):
@@ -79,9 +79,13 @@ class Select(_ConfigurableBase[T]):
       if test_condition(condition):
         matches.append((condition, value))
     if len(matches) > 1:
-      raise ValueError(
-          f"More than one matching condition in {repr(self)}: {matches!r}"
-      )
+      print(f"""
+*********************************************************
+More than one matching condition in {repr(self)}
+{matches!r}
+*********************************************************
+""")
+      raise ValueError(f"More than one matching condition in {repr(self)}")
     if len(matches) == 1:
       return matches[0][1]
     if has_default:
@@ -95,7 +99,7 @@ class SelectExpression(_ConfigurableBase[T]):
   def __init__(
       self,
       op: Callable[["Configurable[T]", "Configurable[T]"], T],
-      operands: List["Configurable[T]"],
+      operands: list["Configurable[T]"],
   ):
     self.op = op
     self.operands = operands
@@ -104,7 +108,7 @@ class SelectExpression(_ConfigurableBase[T]):
     return f"SelectExpression({repr(self.op), repr(self.operands)})"
 
   def evaluate(self, test_condition: TestCondition) -> T:
-    def _try_evaluate(t: Union[T, Configurable[T]]) -> T:
+    def _try_evaluate(t: T| Configurable[T]) -> T:
       if isinstance(t, _ConfigurableBase):
         return t.evaluate(test_condition)
       else:

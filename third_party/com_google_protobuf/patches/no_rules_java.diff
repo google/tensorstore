@@ -1,12 +1,12 @@
-diff -Nur a/bazel/java_lite_proto_library.bzl b/bazel/java_lite_proto_library.bzl
---- a/bazel/java_lite_proto_library.bzl	2025-03-26 15:20:57.000000000 +0000
-+++ b/bazel/java_lite_proto_library.bzl	2025-05-03 05:57:24.806626544 +0000
-@@ -6,11 +6,6 @@
+diff -Nur b/bazel/java_lite_proto_library.bzl a/bazel/java_lite_proto_library.bzl
+--- b/bazel/java_lite_proto_library.bzl	2025-10-15 18:33:29.000000000 +0000
++++ a/bazel/java_lite_proto_library.bzl	2025-11-03 16:28:32.702575230 +0000
+@@ -6,11 +6,5 @@
  # https://developers.google.com/open-source/licenses/bsd
  """java_lite_proto_library rule"""
  
 -load("//bazel/private:java_lite_proto_library.bzl", _java_lite_proto_library = "java_lite_proto_library")  # buildifier: disable=bzl-visibility
- 
+-
  def java_lite_proto_library(**kwattrs):
 -    # Only use Starlark rules when they are removed from Bazel
 -    if not hasattr(native, "java_lite_proto_library"):
@@ -14,9 +14,9 @@ diff -Nur a/bazel/java_lite_proto_library.bzl b/bazel/java_lite_proto_library.bz
 -    else:
 -        native.java_lite_proto_library(**kwattrs)  # buildifier: disable=native-java-lite-proto
 +    pass
-diff -Nur a/bazel/java_proto_library.bzl b/bazel/java_proto_library.bzl
---- a/bazel/java_proto_library.bzl	2025-03-26 15:20:57.000000000 +0000
-+++ b/bazel/java_proto_library.bzl	2025-05-03 05:57:29.382622478 +0000
+diff -Nur b/bazel/java_proto_library.bzl a/bazel/java_proto_library.bzl
+--- b/bazel/java_proto_library.bzl	2025-10-15 18:33:29.000000000 +0000
++++ a/bazel/java_proto_library.bzl	2025-11-03 16:28:25.458581961 +0000
 @@ -6,11 +6,5 @@
  # https://developers.google.com/open-source/licenses/bsd
  """java_proto_library rule"""

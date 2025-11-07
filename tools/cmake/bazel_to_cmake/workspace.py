@@ -15,17 +15,16 @@
 
 # pylint: disable=missing-function-docstring,relative-beyond-top-level,g-doc-args
 
-import argparse
 import importlib
 import json
 import pathlib
 import platform
-import re
 import shlex
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Union
 
 from .cmake_repository import CMakeRepository
 from .cmake_target import CMakeTargetPair
+from .parse_bazelrc import ParsedBazelrc
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
@@ -45,7 +44,7 @@ _PLATFORM_NAME_TO_BAZEL_PLATFORM = {
 
 
 def _parse_bazelrc(path: str):
-  options: Dict[str, List[str]] = {}
+  options: dict[str, list[str]] = {}
   for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
     line = line.strip()
     if not line or line.startswith("#"):
@@ -69,32 +68,36 @@ class Workspace:
   def __init__(
       self,
       root_repository_id: RepositoryId,
-      cmake_vars: Dict[str, str],
-      save_workspace: Optional[str] = None,
+      cmake_vars: dict[str, str],
+      save_workspace: str | None = None,
   ):
     # Known repositories.
     self.root_repository_id: RepositoryId = root_repository_id
-    self.all_repositories: Dict[RepositoryId, CMakeRepository] = {}
+    self.all_repositories: dict[RepositoryId, CMakeRepository] = {}
 
     # Variables provided by CMake.
-    self.cmake_vars: Dict[str, str] = cmake_vars
+    self.cmake_vars: dict[str, str] = cmake_vars
     self.save_workspace = save_workspace
 
     # Maps bazel repo names to CMake project name/prefix.
     self.host_platform_name = _PLATFORM_NAME_TO_BAZEL_PLATFORM.get(
         platform.system()
     )
-    self.values: Set[Tuple[str, str]] = set()
-    self.copts: List[str] = []
-    self.cxxopts: List[str] = []
-    self.cdefines: List[str] = []
-    self._modules: Set[str] = set()
+    self._modules: set[str] = set()
 
-    self.global_ignored_libraries: Set[TargetId] = set()
+    # Create a parser for the .bazelrc files
+    host_platform_name = self.host_platform_name
+    if host_platform_name == "windows" and cmake_is_true(
+        self.cmake_vars.get("MINGW")
+    ):
+      host_platform_name = "windows_x86_64_mingw"
+    self._parsed_bazelrc = ParsedBazelrc(host_platform_name)
+
+    self.global_ignored_libraries: set[TargetId] = set()
 
     # _persisted_targets persist TargetInfo; these are resolved through
     # EvaluationState.get_optional_target_info() and provide a TargetInfo.
-    self._persisted_target_info: Dict[TargetId, TargetInfo] = {}
+    self._persisted_target_info: dict[TargetId, TargetInfo] = {}
 
     # Log level
     self._verbose: int = cmake_logging_verbose_level(
@@ -103,9 +106,43 @@ class Workspace:
     if self._verbose > 1:
       print(json.dumps(cmake_vars, sort_keys=True, indent="  "))
 
+  def __repr__(self) -> str:
+    return (
+        "Workspace\n# {\n"
+        + "\n".join(f"#   {k}={repr(v)}" for k, v in self.__dict__.items())
+        + "\n# }\n"
+    )
+
   @property
   def verbose(self) -> int:
     return self._verbose
+
+  @property
+  def values(self) -> set[tuple[str, str]]:
+    return self._parsed_bazelrc.values
+
+  @property
+  def copts(self) -> list[str]:
+    return self._parsed_bazelrc.copts
+
+  @property
+  def conlyopts(self) -> list[str]:
+    return self._parsed_bazelrc.conlyopts
+
+  @property
+  def cxxopts(self) -> list[str]:
+    return self._parsed_bazelrc.cxxopts
+
+  @property
+  def cdefines(self) -> list[str]:
+    return self._parsed_bazelrc.cdefines
+
+  @property
+  def linkopts(self) -> list[str]:
+    return self._parsed_bazelrc.linkopts
+
+  def get_per_file_copts(self, target: TargetId, src: str) -> list[str]:
+    return self._parsed_bazelrc.get_per_file_copts(target, src)
 
   @property
   def root_repository(self) -> CMakeRepository:
@@ -135,14 +172,14 @@ class Workspace:
 
   def get_cmake_package_name(
       self, target: Union[RepositoryId, PackageId, TargetId]
-  ) -> Optional[str]:
+  ) -> str | None:
     repo = self.all_repositories.get(target.repository_id, None)
     if repo:
       return repo.cmake_project_name
 
   def get_persisted_canonical_name(
       self, target: TargetId
-  ) -> Optional[CMakeTargetPair]:
+  ) -> CMakeTargetPair | None:
     repo = self.all_repositories.get(target.repository_id, None)
     if repo:
       return repo.get_persisted_canonical_name(target)
@@ -165,76 +202,18 @@ class Workspace:
 
     This currently only uses `--define` options.
     """
-    self.add_bazelrc(_parse_bazelrc(path))
+    self._parsed_bazelrc.load_bazelrc(path)
+    if self._verbose:
+      print(f"Current bazelrc options:\n{self._parsed_bazelrc}")
 
-  def add_bazelrc(self, options: Dict[str, List[str]]) -> None:
+  def add_bazelrc(self, options: dict[str, list[str]]) -> None:
     """Updates options based on a parsed `.bazelrc` file.
 
     This currently only uses `--define`, `--copt`, and `--cxxopt` options.
     """
-    build_options = []
-    build_options.extend(options.get("build", []))
-    host_platform_name = self.host_platform_name
-    if host_platform_name == "windows" and cmake_is_true(
-        self.cmake_vars.get("MINGW")
-    ):
-      host_platform_name = "windows_x86_64_mingw"
-    if host_platform_name is not None:
-      build_options.extend(options.get(f"build:{host_platform_name}", []))
-
-    class ConfigAction(argparse.Action):
-
-      def __call__(
-          self,  # type: ignore[override]
-          parser: argparse.ArgumentParser,
-          namespace: argparse.Namespace,
-          values: str,
-          option_string: Optional[str] = None,
-      ):
-        parser.parse_known_args(
-            options.get(f"build:{values}", []), namespace=namespace
-        )
-
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--copt", action="append", default=[])
-    ap.add_argument("--cxxopt", action="append", default=[])
-    ap.add_argument("--per_file_copt", action="append", default=[])
-    ap.add_argument("--define", action="append", default=[])
-    ap.add_argument("--config", action=ConfigAction)
-    args, _ = ap.parse_known_args(build_options)
-
-    def translate_per_file_copt_to_cxxopt():
-      # Translate `per_file_copt` options, which are used to workaround
-      # https://github.com/bazelbuild/bazel/issues/15550, back to `cxxopt`.
-      cxxopt_prefix = r".*\.cc$,.*\.cpp$@"
-
-      for value in args.per_file_copt:
-        if value.startswith(cxxopt_prefix):
-          args.cxxopt.extend(value[len(cxxopt_prefix) :].split(","))
-
-    translate_per_file_copt_to_cxxopt()
-
-    self.values.update(("define", x) for x in args.define)
-
-    def filter_copts(opts):
-      return [
-          opt
-          for opt in opts
-          if re.match("^(?:[-/]std|-fdiagnostics-color=|[-/]D)", opt) is None
-      ]
-
-    copts = filter_copts(args.copt)
-    cxxopts = filter_copts(args.cxxopt)
-    self.copts.extend(copts)
-    self.cxxopts.extend(cxxopts)
-
-    seen = set(self.cdefines)
-    for opt in args.copt + args.cxxopt:
-      if re.match("^(?:[-/]D)", opt) is not None:
-        x = opt[2:]
-        if x not in seen:
-          seen.add(x)
-          self.cdefines.append(x)
+    self._parsed_bazelrc.add_bazelrc(options)
+    if self._verbose:
+      print(f"Current bazelrc options:\n{self._parsed_bazelrc}")
 
   def add_module(self, module_name: str):
     self._modules.add(module_name)

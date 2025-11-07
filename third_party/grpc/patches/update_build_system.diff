@@ -1,6 +1,6 @@
 diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
---- a/bazel/grpc_build_system.bzl	2025-04-21 22:04:38.000000000 +0000
-+++ b/bazel/grpc_build_system.bzl	2025-05-02 02:33:14.030596215 +0000
+--- a/bazel/grpc_build_system.bzl	2025-10-18 02:30:24.000000000 +0000
++++ b/bazel/grpc_build_system.bzl	2025-11-03 16:40:43.369920060 +0000
 @@ -27,9 +27,9 @@
  Contains macros used throughout the repo.
  """
@@ -14,7 +14,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
  load("@com_google_protobuf//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
  load("@rules_proto//proto:defs.bzl", "proto_library")
-@@ -44,6 +44,14 @@
+@@ -45,6 +45,14 @@
  # The set of known EventEngines to test
  EVENT_ENGINES = {"default": {"tags": []}}
  
@@ -29,7 +29,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  def if_not_windows(a):
      return select({
          "//:windows": [],
-@@ -58,6 +66,12 @@
+@@ -59,6 +67,12 @@
          "//conditions:default": [],
      })
  
@@ -42,7 +42,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  def _get_external_deps(external_deps):
      ret = []
      for dep in external_deps:
-@@ -143,7 +157,7 @@
+@@ -144,7 +158,7 @@
      """
      visibility = _update_visibility(visibility)
      copts = []
@@ -51,7 +51,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
      if select_deps:
          for select_deps_entry in select_deps:
              deps += select(select_deps_entry)
-@@ -179,8 +193,8 @@
+@@ -180,8 +194,8 @@
          linkopts = linkopts,
          includes = [
              include_prefix + "include",
@@ -62,12 +62,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
          ],
          alwayslink = alwayslink,
          data = data,
-@@ -190,24 +204,10 @@
- 
- def grpc_proto_plugin(name, srcs = [], deps = []):
-     native.cc_binary(
--        name = name + "_native",
-+        name = name,
+@@ -195,22 +209,7 @@
          srcs = srcs,
          deps = deps,
      )
@@ -75,20 +70,23 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
 -        name = name + "_universal",
 -        binary = name + "_native",
 -    )
+-
+-    # In order to avoid warnings from Bazel, names of the rule and its output file must differ.
 -    native.genrule(
 -        name = name,
 -        srcs = select({
 -            "@platforms//os:macos": [name + "_universal"],
 -            "//conditions:default": [name + "_native"],
 -        }),
--        outs = [name],
+-        outs = [name + "_binary"],
 -        cmd = "cp $< $@",
 -        executable = True,
 -    )
++    native.alias(name = name, actual = ":" + name + "_native")
  
  def grpc_internal_proto_library(
          name,
-@@ -563,7 +563,7 @@
+@@ -566,7 +565,7 @@
      test_args = {
          "data": data,
          "copts": GRPC_DEFAULT_COPTS + copts,
@@ -98,9 +96,9 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
          "timeout": timeout,
          "exec_compatible_with": exec_compatible_with,
 diff -Nur a/BUILD b/BUILD
---- a/BUILD	2025-04-21 22:04:38.000000000 +0000
-+++ b/BUILD	2025-05-02 00:49:56.698609080 +0000
-@@ -25,6 +25,8 @@
+--- a/BUILD	2025-10-18 02:30:24.000000000 +0000
++++ b/BUILD	2025-11-03 16:32:32.746355607 +0000
+@@ -26,6 +26,8 @@
      "grpc_upb_proto_library",
      "grpc_upb_proto_reflection_library",
      "python_config_settings",
@@ -109,7 +107,7 @@ diff -Nur a/BUILD b/BUILD
  )
  
  licenses(["reciprocal"])
-@@ -194,6 +196,13 @@
+@@ -260,6 +262,13 @@
      values = {"define": "use_strict_warning_windows=true"},
  )
  
@@ -123,7 +121,7 @@ diff -Nur a/BUILD b/BUILD
  python_config_settings()
  
  # This should be updated along with build_handwritten.yaml
-@@ -3210,6 +3219,7 @@
+@@ -3485,6 +3494,7 @@
          "absl/log:log",
          "absl/strings",
          "absl/strings:str_format",
@@ -131,7 +129,7 @@ diff -Nur a/BUILD b/BUILD
      ],
      tags = ["nofixdeps"],
      deps = [
-@@ -3979,6 +3989,7 @@
+@@ -4264,6 +4274,7 @@
          "absl/log:log",
          "absl/strings",
      ],
@@ -139,18 +137,18 @@ diff -Nur a/BUILD b/BUILD
      visibility = ["//visibility:public"],
      deps = [
          "config_vars",
-@@ -4302,6 +4313,7 @@
+@@ -4589,6 +4600,7 @@
          "protobuf_struct_upb",
          "protobuf_timestamp_upb",
          "ref_counted_ptr",
 +        "server_address",  # xds_client
          "uri",
          "work_serializer",
-         "//src/core:default_event_engine",
+         "//src/core:down_cast",
 diff -Nur a/src/core/BUILD b/src/core/BUILD
---- a/src/core/BUILD	2025-04-21 22:04:38.000000000 +0000
-+++ b/src/core/BUILD	2025-05-02 00:48:04.294884931 +0000
-@@ -2627,6 +2627,7 @@
+--- a/src/core/BUILD	2025-10-18 02:30:24.000000000 +0000
++++ b/src/core/BUILD	2025-11-03 16:32:32.750355604 +0000
+@@ -2949,6 +2949,7 @@
      external_deps = [
          "absl/strings",
          "absl/strings:str_format",

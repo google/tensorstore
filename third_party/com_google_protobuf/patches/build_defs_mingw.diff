@@ -1,0 +1,38 @@
+diff -Nur protobuf-33.0/build_defs/BUILD.bazel b/build_defs/BUILD.bazel
+--- protobuf-33.0/build_defs/BUILD.bazel	2025-10-15 18:33:29.000000000 +0000
++++ b/build_defs/BUILD.bazel	2025-11-04 07:22:18.190353255 +0000
+@@ -23,6 +23,11 @@
+     value = "clang-cl",
+ )
+ 
++create_compiler_config_setting(
++   name = "config_mingw",
++   value = "mingw-gcc",
++)
++
+ platform(
+     name = "x64_windows-clang-cl",
+     constraint_values = [
+diff -Nur protobuf-33.0/build_defs/cpp_opts.bzl b/build_defs/cpp_opts.bzl
+--- protobuf-33.0/build_defs/cpp_opts.bzl	2025-10-15 18:33:29.000000000 +0000
++++ b/build_defs/cpp_opts.bzl	2025-11-04 07:23:08.702309825 +0000
+@@ -35,15 +35,15 @@
+         "-ignore:4221",
+         "Shell32.lib",
+     ],
+-    "@platforms//os:macos": [
++    "//build_defs:config_mingw": [
++        "-ldbghelp",
+         "-lpthread",
+         "-lm",
+-        "-framework CoreFoundation",
+     ],
+-    "@platforms//os:windows": [
+-        "-ldbghelp",
++    "@platforms//os:macos": [
+         "-lpthread",
+         "-lm",
++        "-framework CoreFoundation",
+     ],
+     "//conditions:default": [
+         "-lpthread",

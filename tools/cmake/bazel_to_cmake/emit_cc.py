@@ -18,7 +18,7 @@
 import io
 import itertools
 import pathlib
-from typing import Any, Collection, Dict, Iterable, List, NamedTuple, Optional, cast
+from typing import Any, Collection, Iterable, NamedTuple, cast
 
 from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_repository import PROJECT_SOURCE_DIR
@@ -63,21 +63,23 @@ def default_asm_dialect(workspace: Workspace) -> str:
 def _emit_cc_common_options(
     out: io.StringIO,
     target_name: str,
-    asm_dialect: Optional[str] = None,
-    link_libraries: Optional[Iterable[str]] = None,
-    private_link_libraries: Optional[Iterable[str]] = None,
-    copts: Optional[Iterable[str]] = None,
-    linkopts: Optional[Iterable[str]] = None,
-    defines: Optional[Iterable[str]] = None,
-    local_defines: Optional[Iterable[str]] = None,
-    includes: Optional[Iterable[str]] = None,
-    system_includes: Optional[Iterable[str]] = None,
-    private_includes: Optional[Iterable[str]] = None,
-    add_dependencies: Optional[Iterable[str]] = None,
-    extra_public_compile_options: Optional[Iterable[str]] = None,
+    asm_dialect: str | None = None,
+    link_libraries: Iterable[str] | None = None,
+    private_link_libraries: Iterable[str] | None = None,
+    copts: Iterable[str] | None = None,
+    linkopts: Iterable[str] | None = None,
+    defines: Iterable[str] | None = None,
+    local_defines: Iterable[str] | None = None,
+    includes: Iterable[str] | None = None,
+    system_includes: Iterable[str] | None = None,
+    private_includes: Iterable[str] | None = None,
+    add_dependencies: Iterable[str] | None = None,
+    extra_public_compile_options: Iterable[str] | None = None,
+    extra_link_options: Iterable[str] | None = None,
+    per_file_copts: dict[str, list[str]] | None = None,
     interface_only: bool = False,
-    srcs: Optional[Iterable[str]] = None,
-    public_srcs: Optional[Iterable[str]] = None,
+    srcs: Iterable[str] | None = None,
+    public_srcs: Iterable[str] | None = None,
     **kwargs,
 ):
   """Emits CMake rules for common C++ target options."""
@@ -100,11 +102,11 @@ def _emit_cc_common_options(
     )
 
   if link_libraries or linkopts:
-    link_libs: List[str] = []
+    link_libs: list[str] = []
     if link_libraries:
       link_libs.extend(sorted(link_libraries))
 
-    link_options: List[str] = []
+    link_options: list[str] = []
     for x in linkopts or []:
       if x.startswith("-l") or x.startswith("-framework"):
         link_libs.append(x)
@@ -120,9 +122,14 @@ def _emit_cc_common_options(
           f"target_link_options({target_name} {public_context}{_SEP}"
           f"{quote_list(link_options, separator=_SEP)})\n"
       )
+  if extra_link_options:
+    out.write(
+        f"target_link_options({target_name} {public_context}{_SEP}"
+        f"{quote_list(extra_link_options, separator=_SEP)})\n"
+    )
 
   if private_link_libraries:
-    private_link_libs: List[str] = sorted(private_link_libraries)
+    private_link_libs: list[str] = sorted(private_link_libraries)
     assert not interface_only, (
         f"{target_name}: interface_only cannot be set with"
         " private_link_libraries"
@@ -135,7 +142,7 @@ def _emit_cc_common_options(
   # Only add the include dirs to one of SYSTEM, PUBLIC, or PRIVATE.
   seen_include_dirs = set()
 
-  def _make_include_dirs(includes: Iterable[str]) -> List[str]:
+  def _make_include_dirs(includes: Iterable[str]) -> list[str]:
     nonlocal seen_include_dirs
     for x in includes:
       if x not in seen_include_dirs:
@@ -176,9 +183,15 @@ def _emit_cc_common_options(
     )
   if extra_public_compile_options:
     out.write(
-        f"target_compile_options({target_name} {public_context} "
-        f"{quote_list(extra_public_compile_options)})\n"
+        f"target_compile_options({target_name} {public_context}{_SEP}"
+        f"{quote_list(extra_public_compile_options, separator=_SEP)})\n"
     )
+  if per_file_copts:
+    for file, copts in per_file_copts.items():
+      out.write(
+          f"set_source_files_properties({quote_path_list([file])} \n"
+          f"  PROPERTIES COMPILE_OPTIONS {quote_list(copts)})\n"
+      )
 
   if srcs or public_srcs:
     non_header_srcs = partition_by(srcs, pattern=_HEADER_SRC_PATTERN)[1]
@@ -212,10 +225,10 @@ def construct_cc_includes(
     *,
     source_directory: pathlib.PurePath,
     cmake_binary_dir: pathlib.PurePath,
-    includes: Optional[Collection[str]] = None,
-    include_prefix: Optional[str] = None,
-    strip_include_prefix: Optional[str] = None,
-    known_include_files: Optional[PathCollection] = None,
+    includes: Collection[str] | None = None,
+    include_prefix: str | None = None,
+    strip_include_prefix: str | None = None,
+    known_include_files: PathCollection | None = None,
 ) -> TargetIncludes:
   """Returns the set of system and public includes for the configuration.
 
@@ -348,19 +361,19 @@ def construct_cc_includes(
 def handle_cc_common_options(
     _context: InvocationContext,
     _src_required=False,
-    add_dependencies: Optional[Collection[CMakeTarget]] = None,
-    srcs: Optional[Collection[TargetId]] = None,
-    deps: Optional[Collection[TargetId]] = None,
-    implementation_deps: Optional[Collection[TargetId]] = None,
-    includes: Optional[Collection[str]] = None,
-    include_prefix: Optional[str] = None,
-    strip_include_prefix: Optional[str] = None,
-    hdrs_file_paths: Optional[Collection[str]] = None,
-    textual_hdrs_file_paths: Optional[Collection[str]] = None,
-    _source_directory: Optional[pathlib.PurePath] = None,
-    _cmake_binary_dir: Optional[pathlib.PurePath] = None,
+    add_dependencies: Collection[CMakeTarget] | None = None,
+    srcs: Collection[TargetId] | None = None,
+    deps: Collection[TargetId] | None = None,
+    implementation_deps: Collection[TargetId] | None = None,
+    includes: Collection[str] | None = None,
+    include_prefix: str | None = None,
+    strip_include_prefix: str | None = None,
+    hdrs_file_paths: Collection[str] | None = None,
+    textual_hdrs_file_paths: Collection[str] | None = None,
+    _source_directory: pathlib.PurePath | None = None,
+    _cmake_binary_dir: pathlib.PurePath | None = None,
     **kwargs,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
   state = _context.access(EvaluationState)
   repo = state.workspace.all_repositories.get(
       _context.caller_package_id.repository_id
@@ -387,6 +400,37 @@ def handle_cc_common_options(
     if not partition_by(srcs_file_paths, pattern=_OBJ_SRC_PATTERN)[1]:
       srcs_file_paths.append(state.get_placeholder_source())
 
+  copts: list[str] = []
+
+  # Collect per-file copts, which use the target name pf the source file
+  # or the generated file name as the key.
+  per_file_copts: dict[str, list[str]] = {}
+  if state.get_placeholder_source() not in srcs_file_paths:
+    all_srcs = set()
+    options_to_srcs: dict[str, set[str]] = {}
+    for t, srcs in srcs_collector.target_to_paths():
+      if t.repository_id == state.workspace.root_repository_id:
+        external_dir = ""
+      else:
+        external_dir = f"external/{t.repository_id.repository_name}"
+
+      srcs = partition_by(srcs, pattern=_HEADER_SRC_PATTERN)[1]
+      for src in repo.replace_with_cmake_macro_dirs(srcs):
+        all_srcs.add(src)
+        my_src = src.replace(PROJECT_SOURCE_DIR, external_dir)
+        my_src = my_src.replace(PROJECT_BINARY_DIR, external_dir)
+        my_copt = state.workspace.get_per_file_copts(t, my_src)
+        if my_copt:
+          per_file_copts.setdefault(src, []).extend(my_copt)
+          for o in my_copt:
+            options_to_srcs.setdefault(o, set()).add(src)
+
+    # Find all per-file which are present for all the source files and promote
+    # them to target copts.
+    copts = [
+        option for option, srcs in options_to_srcs.items() if srcs == all_srcs
+    ]
+
   deps_collector = state.collect_deps(deps)
 
   link_libraries = set(deps_collector.link_libraries())
@@ -406,14 +450,32 @@ def handle_cc_common_options(
 
   extra_public_compile_options = []
 
-  def add_compile_options(lang: str, options: List[str]):
+  def add_compile_options(lang: str, options: list[str]):
     for option in options:
       extra_public_compile_options.append(
           f"$<$<COMPILE_LANGUAGE:{lang}>:{option}>"
       )
 
-  add_compile_options("C,CXX", state.workspace.copts)
+  copts.extend(state.workspace.copts)
+
+  add_compile_options("C,CXX", copts)
   add_compile_options("CXX", state.workspace.cxxopts)
+  add_compile_options("C", state.workspace.conlyopts)
+
+  extra_link_options = []
+  for option in state.workspace.linkopts:
+    extra_link_options.append(f"$<$<LINK_LANGUAGE:C,CXX>:{option}>")
+
+  # Filter per_file_copts to only include options that are not already covered
+  # by copts.
+  result = {}
+  for k, v in per_file_copts.items():
+    seen = set(copts)
+    seen_add = seen.add
+    my_opt = [x for x in v if not (x in seen or seen_add(x))]
+    if my_opt:
+      result[k] = my_opt
+  per_file_copts = result
 
   # https://bazel.build/reference/be/make-variables
   # https://bazel.build/reference/be/c-cpp
@@ -432,7 +494,7 @@ def handle_cc_common_options(
       print(f"Substituted {k}: {value} to {new_value}")
     return new_value
 
-  result: Dict[str, Any] = {
+  result: dict[str, Any] = {
       "srcs": repo.replace_with_cmake_macro_dirs(sorted(set(srcs_file_paths))),
       "link_libraries": link_libraries,
       "private_link_libraries": private_link_libraries,
@@ -443,6 +505,8 @@ def handle_cc_common_options(
       ),
       "extra_public_compile_options": extra_public_compile_options,
       "asm_dialect": default_asm_dialect(state.workspace),
+      "extra_link_options": extra_link_options,
+      "per_file_copts": per_file_copts,
   }
   for k in ["copts", "linkopts", "defines", "local_defines"]:
     value = kwargs.get(k)
@@ -496,7 +560,7 @@ def emit_cc_library(
     srcs: Collection[str],
     hdrs: Iterable[str],
     alwayslink: bool = False,
-    header_only: Optional[bool] = None,
+    header_only: bool | None = None,
     **kwargs,
 ) -> ProviderTuple:
   """Generates a C++ library target."""
@@ -555,8 +619,8 @@ add_executable({_cmake_target_pair.alias} ALIAS {target_name})
 def emit_cc_test(
     out: io.StringIO,
     _cmake_target_pair: CMakeTargetPair,
-    args: Optional[List[str]] = None,
-    properties: Optional[Dict[str, str]] = None,
+    args: list[str] | None = None,
+    properties: dict[str, str] | None = None,
     **kwargs,
 ):
   emit_cc_binary(out, _cmake_target_pair, **kwargs)

@@ -14,7 +14,7 @@
 """Starlark globals for CMake."""
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
-from typing import Dict, TypeVar
+from typing import TypeVar
 
 from .ignored import IgnoredObject
 from .invocation_context import InvocationContext
@@ -78,7 +78,7 @@ class ScopeBuildBzlFile(ScopeCommon):
   def bazel_DebugPackageInfo(self):
     return IgnoredObject()
 
-  def bazel_select(self, conditions: Dict[RelativeLabel, T]) -> Select[T]:
+  def bazel_select(self, conditions: dict[RelativeLabel, T]) -> Select[T]:
     return Select({
         self._context.resolve_target_or_label(condition): value
         for condition, value in conditions.items()
@@ -128,6 +128,11 @@ class ScopeBuildBzlFile(ScopeCommon):
 
   def bazel_cc_libc_top_alias(self, **kwargs):
     del kwargs
+
+  def bazel_configuration_field(self, fragment, name):
+    return self.bazel_config_common.configuration_field(
+        fragment=fragment, name=name
+    )
 
 
 # Missing:

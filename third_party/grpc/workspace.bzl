@@ -21,19 +21,16 @@ load(
     "third_party_http_archive",
 )
 
-# NOTE: Switch back to a tagged release with darwin-arm64
-# NOTE: When updating grpc, also update:
-#   upb
 def repo():
     maybe(
         third_party_http_archive,
         name = "grpc",
-        sha256 = "4a8aa99d5e24f80ea6b7ec95463e16af5bd91aa805e26c661ef6491ae3d2d23c",
-        strip_prefix = "grpc-1.72.0",
-        urls = mirror_url("https://github.com/grpc/grpc/archive/v1.72.0.tar.gz"),
+        sha256 = "0af37b800953130b47c075b56683ee60bdc3eda3c37fc6004193f5b569758204",
+        strip_prefix = "grpc-1.76.0",
+        urls = mirror_url("https://github.com/grpc/grpc/archive/v1.76.0.tar.gz"),
         patches = [
-            # Adds #include <grpcpp/support/ports_def.inc> to the generated .cc files
-            Label("//third_party:grpc/patches/add_ports_def.diff"),
+            # Fixes -trigraph warning
+            Label("//third_party:grpc/patches/fix_trigraph.diff"),
             # Fixes, including https://github.com/grpc/grpc/issues/34482
             Label("//third_party:grpc/patches/update_build_system.diff"),
         ],

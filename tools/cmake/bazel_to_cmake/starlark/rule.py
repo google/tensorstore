@@ -19,62 +19,19 @@ Currently this just supports a very limited set of functionality.
 """
 
 # pylint: disable=relative-beyond-top-level,missing-function-docstring,protected-access,invalid-name,g-importing-member,g-short-docstring-punctuation
-import pathlib
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, cast
+from typing import Any, Callable
 
-from ..util import write_file_if_not_already_equal
 from .bazel_target import TargetId
-from .common_providers import ConditionProvider
 from .common_providers import FilesProvider
 from .ignored import IgnoredObject
 from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
 from .provider import TargetInfo
+from .rule_ctx import RuleCtx
+from .rule_ctx import RuleFile
 from .scope_build_file import ScopeBuildBzlFile
 from .select import Configurable
-
-
-class File(NamedTuple):
-  """Represents a file for use by rule implementations."""
-
-  path: str
-
-
-class RuleCtxAttr:
-  pass
-
-
-class RuleCtxActions:
-  """https://bazel.build/rules/lib/builtins/actions"""
-
-  def __init__(self, ctx: "RuleCtx"):
-    self._ctx = ctx
-
-  def write(
-      self,
-      output: File,
-      content: str,
-      is_executable: bool = False,
-      *,
-      mnemonic: Optional[str] = None,
-  ):
-    write_file_if_not_already_equal(
-        pathlib.PurePath(output.path), content.encode("utf-8")
-    )
-
-
-class RuleCtx:
-
-  def __init__(self, context: InvocationContext, label: Label):
-    self._context: InvocationContext = context
-    self.label = label
-    self.attr = RuleCtxAttr()
-    self.outputs = RuleCtxAttr()
-    self.actions = RuleCtxActions(self)
-
-  def target_platform_has_constraint(self, constraint: ConditionProvider):
-    return constraint.value
 
 
 class Attr:
@@ -92,7 +49,7 @@ class AttrModule:
       default: str = "",
       doc: str = "",
       mandatory: bool = False,
-      values: Optional[List[str]] = None,
+      values: list[str] | None = None,
   ):
     # https://bazel.build/rules/lib/attr#string
     del doc
@@ -101,8 +58,8 @@ class AttrModule:
     def handle(
         context: InvocationContext,
         name: str,
-        value: Optional[str],
-        outs: List[TargetId],
+        value: str | None,
+        outs: list[TargetId],
     ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
@@ -124,7 +81,7 @@ class AttrModule:
       mandatory: bool = False,
       allow_empty: bool = True,
       *,
-      default: Optional[List[str]] = None,
+      default: list[str] | None = None,
       doc: str = "",
   ):
     """https://bazel.build/rules/lib/attr#string_list"""
@@ -136,8 +93,8 @@ class AttrModule:
     def handle(
         context: InvocationContext,
         name: str,
-        value: Optional[List[str]],
-        outs: List[TargetId],
+        value: list[str] | None,
+        outs: list[TargetId],
     ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
@@ -162,7 +119,7 @@ class AttrModule:
 
   @staticmethod
   def label(
-      default: Optional[Configurable[RelativeLabel]] = None,
+      default: RelativeLabel | Callable[[RuleCtx], RelativeLabel] | None = None,
       doc: str = "",
       executable: bool = False,
       allow_files: Any = None,
@@ -180,25 +137,28 @@ class AttrModule:
     def handle(
         context: InvocationContext,
         name: str,
-        value: Optional[Configurable[RelativeLabel]],
-        outs: List[TargetId],
+        value: RelativeLabel | Callable[[RuleCtx], RelativeLabel] | None,
+        outs: list[TargetId],
     ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
-      if value is None:
-        value = default
 
       del outs
       del context
 
       def impl(ctx: RuleCtx):
+        nonlocal value
+        if value is None:
+          if callable(default):
+            value = default(ctx)
+            assert value is not None  # default cannot return None.
+          else:
+            value = default
+
         if value is None:
           setattr(ctx.attr, name, None)
           return
-        relative = cast(
-            RelativeLabel, ctx._context.evaluate_configurable(value)
-        )
-        target_id = ctx._context.resolve_target_or_label(relative)
+        target_id = ctx._context.resolve_target_or_label(value)
         setattr(ctx.attr, name, ctx._context.get_target_info(target_id))
 
       return impl
@@ -209,7 +169,9 @@ class AttrModule:
   def label_list(
       allow_empty=True,
       *,
-      default: Optional[Configurable[List[RelativeLabel]]] = None,
+      default: (
+          list[RelativeLabel | Callable[[RuleCtx], RelativeLabel]] | None
+      ) = None,
       mandatory: bool = False,
       **kwargs,
   ):
@@ -220,21 +182,28 @@ class AttrModule:
     def handle(
         context: InvocationContext,
         name: str,
-        value: Optional[Configurable[List[RelativeLabel]]],
-        outs: List[TargetId],
+        value: list[RelativeLabel] | None,
+        outs: list[TargetId],
     ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
-      if value is None:
-        value = default
 
       del outs
       del context
 
       def impl(ctx: RuleCtx):
-        targets = ctx._context.resolve_target_or_label_list(
-            ctx._context.evaluate_configurable_list(value)
-        )
+        nonlocal value
+        if not value:
+          value = []
+          if default:
+            for x in default:
+              if callable(x):
+                v = x(ctx)
+                assert v is not None  # default cannot return None.
+                value.append(v)
+              else:
+                value.append(x)
+        targets = ctx._context.resolve_target_or_label_list(value)
 
         setattr(
             ctx.attr,
@@ -254,8 +223,8 @@ class AttrModule:
     def handle(
         context: InvocationContext,
         name: str,
-        value: Optional[RelativeLabel],
-        outs: List[TargetId],
+        value: RelativeLabel | None,
+        outs: list[TargetId],
     ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
@@ -278,7 +247,7 @@ class AttrModule:
         ctx._context.add_analyzed_target(
             target, TargetInfo(FilesProvider([path]))
         )
-        setattr(ctx.outputs, name, File(path))
+        setattr(ctx.outputs, name, RuleFile(path))
 
       return impl
 
@@ -298,8 +267,8 @@ class AttrModule:
     def handle(
         context: InvocationContext,
         name: str,
-        value: Optional[Configurable[List[RelativeLabel]]],
-        outs: List[TargetId],
+        value: Configurable[list[RelativeLabel]] | None,
+        outs: list[TargetId],
     ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
@@ -318,7 +287,7 @@ class AttrModule:
           p = str(ctx._context.get_generated_file_path(x))
           ctx._context.add_analyzed_target(x, TargetInfo(FilesProvider([p])))
           paths.append(p)
-        setattr(ctx.outputs, name, [File(p) for p in paths])
+        setattr(ctx.outputs, name, [RuleFile(p) for p in paths])
 
       return impl
 
@@ -332,8 +301,8 @@ class AttrModule:
     def handle(
         context: InvocationContext,
         name: str,
-        value: Optional[bool],
-        outs: List[TargetId],
+        value: bool | None,
+        outs: list[TargetId],
     ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
@@ -354,7 +323,7 @@ class AttrModule:
 def _rule_impl(
     _context: InvocationContext,
     target: TargetId,
-    attr_impls: List[Callable[[RuleCtx], None]],
+    attr_impls: list[Callable[[RuleCtx], None]],
     implementation: Callable[[RuleCtx], Any],
 ):
   ctx = RuleCtx(_context, Label(target, _context.workspace_root_for_label))
@@ -372,7 +341,7 @@ def rule(
     self: ScopeBuildBzlFile,
     implementation: Callable[[RuleCtx], Any],
     *,
-    attrs: Optional[Dict[str, Attr]] = None,
+    attrs: dict[str, Attr] | None = None,
     executable: bool = False,
     output_to_genfiles: bool = False,
     doc: str = "",
@@ -384,13 +353,13 @@ def rule(
   del doc
 
   def rule_func(
-      name: str, visibility: Optional[List[RelativeLabel]] = None, **kwargs
+      name: str, visibility: list[RelativeLabel] | None = None, **kwargs
   ):
     # snaptshot the invocation context.
     context = self._context.snapshot()
     target = context.resolve_target(name)
 
-    outs: List[TargetId] = []
+    outs: list[TargetId] = []
 
     if attrs is not None:
       attr_impls = [

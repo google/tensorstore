@@ -90,7 +90,7 @@ def create_root_workspace(
   assert args.cmake_vars is not None
   try:
     with open(args.cmake_vars, "r", encoding="utf-8") as f:
-      cmake_vars = json.load(f)
+      cmake_vars = {k: v for k, v in json.load(f).items() if k}
   except Exception as e:
     raise ValueError(
         f"Failed to decode cmake_vars as JSON: {args.cmake_vars}"
@@ -240,6 +240,9 @@ def run_main(args: argparse.Namespace):
     print(f"Loading workspace {repository_id}")
 
   workspace.load_modules()
+
+  if workspace.verbose:
+    print(repr(workspace))
 
   active_repo = Repository(
       workspace=workspace,

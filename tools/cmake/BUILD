@@ -48,6 +48,7 @@ SRCS = [
     "bazel_to_cmake/native_rules_platform.py",
     "bazel_to_cmake/native_rules_proto.py",
     "bazel_to_cmake/native_rules.py",
+    "bazel_to_cmake/parse_bazelrc.py",
     "bazel_to_cmake/package.py",
     "bazel_to_cmake/platforms.py",
     "bazel_to_cmake/provider_util.py",
@@ -66,6 +67,7 @@ SRCS = [
     "bazel_to_cmake/starlark/module_config_common.py",
     "bazel_to_cmake/starlark/module_platform_common.py",
     "bazel_to_cmake/starlark/provider.py",
+    "bazel_to_cmake/starlark/rule_ctx.py",
     "bazel_to_cmake/starlark/rule.py",
     "bazel_to_cmake/starlark/scope_build_file.py",
     "bazel_to_cmake/starlark/scope_bzlmod_file.py",
@@ -173,6 +175,7 @@ TESTDATA = [
 TESTS = [
     "bazel_to_cmake/cmake_repository_test.py",
     "bazel_to_cmake/emit_cc_test.py",
+    "bazel_to_cmake/parse_bazelrc_test.py",
     # "bazel_to_cmake/golden_test.py"
     "bazel_to_cmake/starlark/bazel_glob_test.py",
     "bazel_to_cmake/starlark/bazel_target_test.py",

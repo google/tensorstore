@@ -8,17 +8,17 @@ unset(_nasm_compiler_barename)
 
 # nasm_library(@rules_nasm_test_repo//:asm_library)
 add_custom_command(
-  OUTPUT "${TEST_BINDIR}/_nasm/asm_library/2cbd9ef8/a.asm.o"
+  OUTPUT "${TEST_BINDIR}/_nasm/asm_library/38192f0a/a.asm.o"
   DEPENDS "${TEST_SRCDIR}/a.asm"
   COMMAND ${CMAKE_ASM_NASM_COMPILER}
           -f ${CMAKE_ASM_NASM_OBJECT_FORMAT}
           ${CMAKE_ASM_NASM_FLAGS}
           "-I${TEST_SRCDIR}" "-I${TEST_BINDIR}" "-I${TEST_SRCDIR}/include" "-I${TEST_BINDIR}/include" "-w+all" "-D__x86_64__" "-DELF" "-DPIC"
-          -o "${TEST_BINDIR}/_nasm/asm_library/2cbd9ef8/a.asm.o"
+          -o "${TEST_BINDIR}/_nasm/asm_library/38192f0a/a.asm.o"
           "${TEST_SRCDIR}/a.asm"
   COMMENT "Assembling NASM source ${TEST_SRCDIR}/a.asm"
 )
-set_source_files_properties("${TEST_BINDIR}/_nasm/asm_library/2cbd9ef8/a.asm.o"
+set_source_files_properties("${TEST_BINDIR}/_nasm/asm_library/38192f0a/a.asm.o"
   PROPERTIES GENERATED TRUE)
 
 # cc_library(@rules_nasm_test_repo//:a)
@@ -31,7 +31,7 @@ target_include_directories(CMakeProject_a PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 target_sources(CMakeProject_a PRIVATE
-        "${PROJECT_BINARY_DIR}/_nasm/asm_library/2cbd9ef8/a.asm.o"
+        "${PROJECT_BINARY_DIR}/_nasm/asm_library/38192f0a/a.asm.o"
         "${PROJECT_SOURCE_DIR}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 

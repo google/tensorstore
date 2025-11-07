@@ -115,6 +115,7 @@ ABSL_CMAKE_MAPPING = {
     "//absl/strings:str_format": "absl::str_format",
     "//absl/strings:string_view": "absl::string_view",
     "//absl/strings:strings": "absl::strings",
+    "//absl/strings:charset": "absl::charset",
     "//absl/synchronization:synchronization": "absl::synchronization",
     "//absl/time:civil_time": "absl::civil_time",
     "//absl/time:time_zone": "absl::time_zone",

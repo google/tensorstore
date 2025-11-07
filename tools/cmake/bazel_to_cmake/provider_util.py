@@ -87,6 +87,12 @@ class ProviderCollection:
     for files_provider in self.items(FilesProvider):
       yield from files_provider.paths
 
+  def target_to_paths(self) -> Iterator[tuple[TargetId, list[str]]]:
+    for k, x in self._providers.items():
+      provider = x.get(FilesProvider)
+      if provider is not None:
+          yield k, provider.paths
+
   def add_dependencies(self) -> Iterator[CMakeTarget]:
     for add_dependencies_provider in self.items(CMakeAddDependenciesProvider):
       yield add_dependencies_provider.target

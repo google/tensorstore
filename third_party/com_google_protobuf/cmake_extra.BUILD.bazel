@@ -17,18 +17,19 @@ WELL_KNOWN_TYPES = [
 ]
 
 _SUFFIXES = [
-    "__cpp_library",
-    "__upb_library",
-    "__upbdefs_library",
-    "__minitable_library",
+    "_proto__cpp_library",
+    "_proto__upb_library",
+    "_proto__upbdefs_library",
+    "_proto__minitable_library",
 ]
 
+# For CMake, bazel_to_cmake needs to expose the internal generated targets.
 [
     alias(
-        name = x + "_proto" + y,
-        actual = "//src/google/protobuf:" + x + "_proto" + y,
+        name = "//:" + x + y,
+        actual = "//src/google/protobuf:" + x + y,
     )
-    for x in WELL_KNOWN_TYPES
+    for x in WELL_KNOWN_TYPES + ["descriptor"]
     for y in _SUFFIXES
 ]
 
@@ -40,20 +41,11 @@ _SUFFIXES = [
     for x in WELL_KNOWN_TYPES
 ]
 
-# Aliases for :descriptor_proto
-[
-    alias(
-        name = "descriptor_proto" + y,
-        actual = "//src/google/protobuf:descriptor_proto" + y,
-    )
-    for y in _SUFFIXES
-]
-
 # Aliases for :compiler_plugin_proto
 [
     alias(
-        name = "compiler_plugin_proto" + y,
-        actual = "//src/google/protobuf/compiler:plugin_proto" + y,
+        name = "compiler_plugin" + y,
+        actual = "//src/google/protobuf/compiler:plugin" + y,
     )
     for y in _SUFFIXES
 ]

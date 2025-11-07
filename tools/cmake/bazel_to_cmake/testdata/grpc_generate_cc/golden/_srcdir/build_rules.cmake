@@ -147,9 +147,9 @@ add_custom_target(CMakeProject_aspect_upb_minitable__71950a86 DEPENDS
 add_library(CMakeProject_c_proto__minitable_library)
 set_property(TARGET CMakeProject_c_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__minitable_library PUBLIC
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_c_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
 target_compile_features(CMakeProject_c_proto__minitable_library PUBLIC cxx_std_17)
@@ -195,9 +195,9 @@ add_library(CMakeProject_c_proto__upb_library)
 set_property(TARGET CMakeProject_c_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__upb_library PUBLIC
         "CMakeProject::c_proto__minitable_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_c_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
 target_compile_features(CMakeProject_c_proto__upb_library PUBLIC cxx_std_17)
@@ -243,8 +243,8 @@ add_library(CMakeProject_c_proto__upbdefs_library)
 set_property(TARGET CMakeProject_c_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__upbdefs_library PUBLIC
         "CMakeProject::c_proto__minitable_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "Protobuf::upb_port"
+        "Protobuf::upb_reflection_generated_reflection_support"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_c_proto__upbdefs_library PUBLIC

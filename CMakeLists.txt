@@ -38,6 +38,17 @@ set(CMAKE_CXX_STANDARD 17)
 if(PROJECT_IS_TOP_LEVEL)
   include(CTest)
   enable_testing()
+
+  # Use lld if it is available.
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+      find_program(LLD_EXECUTABLE lld)
+      if (LLD_EXECUTABLE)
+          set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
+          set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
+          set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fuse-ld=lld")
+      endif()
+  endif()
+
 else()
   # Exclude targets from ALL when built as a sub-project.
   set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL TRUE)
@@ -76,6 +87,13 @@ if(MSVC AND CMAKE_CXX_COMPILER_LAUNCHER MATCHES "sccache")
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
   endif()
 endif()
+
+# See bazelrc for this
+if(MINGW)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wa,-mbig-obj")
+endif()
+
 
 include(bazel_to_cmake)
 

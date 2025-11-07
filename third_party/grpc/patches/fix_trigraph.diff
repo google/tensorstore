@@ -1,0 +1,12 @@
+diff -Nur a/src/core/util/function_signature.h b/src/core/util/function_signature.h
+--- a/src/core/util/function_signature.h	2025-10-18 02:30:24.000000000 +0000
++++ b/src/core/util/function_signature.h	2025-11-03 17:03:01.540983129 +0000
+@@ -31,7 +31,7 @@
+ #elif defined(__GNUC__)
+ #define GRPC_FUNCTION_SIGNATURE __PRETTY_FUNCTION__
+ #else
+-#define GRPC_FUNCTION_SIGNATURE "???()"
++#define GRPC_FUNCTION_SIGNATURE "??""?()"
+ #endif
+ 
+ namespace grpc_core {

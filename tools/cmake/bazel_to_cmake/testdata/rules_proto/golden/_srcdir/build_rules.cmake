@@ -87,9 +87,9 @@ add_custom_target(CMakeProject_aspect_upb_minitable__43b0bcf1 DEPENDS
 add_library(CMakeProject_a_proto__minitable_library)
 set_property(TARGET CMakeProject_a_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_proto__minitable_library PUBLIC
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_a_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
 target_compile_features(CMakeProject_a_proto__minitable_library PUBLIC cxx_std_17)
@@ -135,9 +135,9 @@ add_library(CMakeProject_a_proto__upb_library)
 set_property(TARGET CMakeProject_a_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_proto__upb_library PUBLIC
         "CMakeProject::a_proto__minitable_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_a_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
 target_compile_features(CMakeProject_a_proto__upb_library PUBLIC cxx_std_17)
@@ -183,8 +183,8 @@ add_library(CMakeProject_a_proto__upbdefs_library)
 set_property(TARGET CMakeProject_a_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_proto__upbdefs_library PUBLIC
         "CMakeProject::a_proto__minitable_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "Protobuf::upb_port"
+        "Protobuf::upb_reflection_generated_reflection_support"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_proto__upbdefs_library PUBLIC
@@ -316,9 +316,9 @@ add_custom_target(CMakeProject_aspect_upb_minitable__3daadd2b DEPENDS
 add_library(CMakeProject_ab_proto__minitable_library)
 set_property(TARGET CMakeProject_ab_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_ab_proto__minitable_library PUBLIC
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_ab_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
 target_compile_features(CMakeProject_ab_proto__minitable_library PUBLIC cxx_std_17)
@@ -337,9 +337,9 @@ add_library(CMakeProject_ab_proto__upb_library)
 set_property(TARGET CMakeProject_ab_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_ab_proto__upb_library PUBLIC
         "CMakeProject::ab_proto__minitable_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_ab_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
 target_compile_features(CMakeProject_ab_proto__upb_library PUBLIC cxx_std_17)
@@ -387,8 +387,8 @@ add_library(CMakeProject_ab_proto__upbdefs_library)
 set_property(TARGET CMakeProject_ab_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_ab_proto__upbdefs_library PUBLIC
         "CMakeProject::ab_proto__minitable_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "Protobuf::upb_port"
+        "Protobuf::upb_reflection_generated_reflection_support"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_ab_proto__upbdefs_library PUBLIC
@@ -562,34 +562,36 @@ add_custom_target(CMakeProject_aspect_upb__84819b61 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.h"
     "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.c")
 
-# @rules_proto_test_repo//:aspect_upb__ae7c401d
-# genproto upb @rules_proto_test_repo//:d.proto
-file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
+# @rules_proto_test_repo//:aspect_upb_minitable__84819b61
+# genproto upb_minitable @rules_proto_test_repo//:c.proto
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb_minitable")
 add_custom_command(
 OUTPUT
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c"
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
-    "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
-    "${TEST_SRCDIR}/d.proto"
+    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1>
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_abcd_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
+    "${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 DEPENDS
-    "${TEST_SRCDIR}/d.proto"
-    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "${TEST_SRCDIR}/c.proto"
+    "Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1"
     "protobuf::protoc"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/d.proto"
+COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/c.proto"
 )
 set_source_files_properties(
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c"
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
 PROPERTIES GENERATED TRUE)
-add_custom_target(CMakeProject_aspect_upb__ae7c401d DEPENDS
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
+add_custom_target(CMakeProject_aspect_upb_minitable__84819b61 DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c")
 
 # @rules_proto_test_repo//:aspect_upb_minitable__ae7c401d
 # genproto upb_minitable @rules_proto_test_repo//:d.proto
@@ -625,9 +627,9 @@ add_custom_target(CMakeProject_aspect_upb_minitable__ae7c401d DEPENDS
 add_library(CMakeProject_d_proto__minitable_library)
 set_property(TARGET CMakeProject_d_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_d_proto__minitable_library PUBLIC
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_d_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
 target_compile_features(CMakeProject_d_proto__minitable_library PUBLIC cxx_std_17)
@@ -638,56 +640,6 @@ target_sources(CMakeProject_d_proto__minitable_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.c")
 add_library(CMakeProject::d_proto__minitable_library ALIAS CMakeProject_d_proto__minitable_library)
 
-# @rules_proto_test_repo//:d_proto__upb_library
-# aspect upb @rules_proto_test_repo//:d_proto
-add_library(CMakeProject_d_proto__upb_library)
-set_property(TARGET CMakeProject_d_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_d_proto__upb_library PUBLIC
-        "CMakeProject::d_proto__minitable_library"
-        "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_include_directories(CMakeProject_d_proto__upb_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_d_proto__upb_library PUBLIC cxx_std_17)
-add_dependencies(CMakeProject_d_proto__upb_library "CMakeProject_aspect_upb__ae7c401d")
-target_sources(CMakeProject_d_proto__upb_library PUBLIC
-        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h")
-target_sources(CMakeProject_d_proto__upb_library PRIVATE
-        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
-add_library(CMakeProject::d_proto__upb_library ALIAS CMakeProject_d_proto__upb_library)
-
-# @rules_proto_test_repo//:aspect_upb_minitable__84819b61
-# genproto upb_minitable @rules_proto_test_repo//:c.proto
-file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb_minitable")
-add_custom_command(
-OUTPUT
-    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c"
-    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
-COMMAND $<TARGET_FILE:protobuf::protoc>
-    --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1>
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_abcd_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
-    "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
-    "${TEST_SRCDIR}/c.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
-DEPENDS
-    "${TEST_SRCDIR}/c.proto"
-    "Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1"
-    "protobuf::protoc"
-COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/c.proto"
-)
-set_source_files_properties(
-    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c"
-    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
-PROPERTIES GENERATED TRUE)
-add_custom_target(CMakeProject_aspect_upb_minitable__84819b61 DEPENDS
-    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
-    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c")
-
 # @rules_proto_test_repo//:abcd_proto__minitable_library
 # aspect upb_minitable @rules_proto_test_repo//:abcd_proto
 add_library(CMakeProject_abcd_proto__minitable_library)
@@ -695,9 +647,9 @@ set_property(TARGET CMakeProject_abcd_proto__minitable_library PROPERTY LINKER_L
 target_link_libraries(CMakeProject_abcd_proto__minitable_library PUBLIC
         "CMakeProject::ab_proto__minitable_library"
         "CMakeProject::d_proto__minitable_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_abcd_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
 target_compile_features(CMakeProject_abcd_proto__minitable_library PUBLIC cxx_std_17)
@@ -707,6 +659,54 @@ target_sources(CMakeProject_abcd_proto__minitable_library PUBLIC
 target_sources(CMakeProject_abcd_proto__minitable_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c")
 add_library(CMakeProject::abcd_proto__minitable_library ALIAS CMakeProject_abcd_proto__minitable_library)
+
+# @rules_proto_test_repo//:aspect_upb__ae7c401d
+# genproto upb @rules_proto_test_repo//:d.proto
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
+add_custom_command(
+OUTPUT
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
+COMMAND $<TARGET_FILE:protobuf::protoc>
+    --experimental_allow_proto3_optional
+    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
+    "${TEST_SRCDIR}/d.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/d.proto"
+    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "protobuf::protoc"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/d.proto"
+)
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
+PROPERTIES GENERATED TRUE)
+add_custom_target(CMakeProject_aspect_upb__ae7c401d DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
+
+# @rules_proto_test_repo//:d_proto__upb_library
+# aspect upb @rules_proto_test_repo//:d_proto
+add_library(CMakeProject_d_proto__upb_library)
+set_property(TARGET CMakeProject_d_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_d_proto__upb_library PUBLIC
+        "CMakeProject::d_proto__minitable_library"
+        "Protobuf::upb_generated_code_support"
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_d_proto__upb_library PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
+target_compile_features(CMakeProject_d_proto__upb_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_d_proto__upb_library "CMakeProject_aspect_upb__ae7c401d")
+target_sources(CMakeProject_d_proto__upb_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h")
+target_sources(CMakeProject_d_proto__upb_library PRIVATE
+        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
+add_library(CMakeProject::d_proto__upb_library ALIAS CMakeProject_d_proto__upb_library)
 
 # @rules_proto_test_repo//:abcd_proto__upb_library
 # aspect upb @rules_proto_test_repo//:abcd_proto
@@ -718,9 +718,9 @@ target_link_libraries(CMakeProject_abcd_proto__upb_library PUBLIC
         "CMakeProject::abcd_proto__minitable_library"
         "CMakeProject::d_proto__minitable_library"
         "CMakeProject::d_proto__upb_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_abcd_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
 target_compile_features(CMakeProject_abcd_proto__upb_library PUBLIC cxx_std_17)
@@ -797,8 +797,8 @@ add_library(CMakeProject_d_proto__upbdefs_library)
 set_property(TARGET CMakeProject_d_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_d_proto__upbdefs_library PUBLIC
         "CMakeProject::d_proto__minitable_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "Protobuf::upb_port"
+        "Protobuf::upb_reflection_generated_reflection_support"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_d_proto__upbdefs_library PUBLIC
@@ -821,8 +821,8 @@ target_link_libraries(CMakeProject_abcd_proto__upbdefs_library PUBLIC
         "CMakeProject::abcd_proto__minitable_library"
         "CMakeProject::d_proto__minitable_library"
         "CMakeProject::d_proto__upbdefs_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "Protobuf::upb_port"
+        "Protobuf::upb_reflection_generated_reflection_support"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abcd_proto__upbdefs_library PUBLIC
@@ -881,9 +881,9 @@ add_library(CMakeProject::b_proto__cpp_library ALIAS CMakeProject_b_proto__cpp_l
 add_library(CMakeProject_b_proto__minitable_library)
 set_property(TARGET CMakeProject_b_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_b_proto__minitable_library PUBLIC
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_b_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
 target_compile_features(CMakeProject_b_proto__minitable_library PUBLIC cxx_std_17)
@@ -900,9 +900,9 @@ add_library(CMakeProject_b_proto__upb_library)
 set_property(TARGET CMakeProject_b_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_b_proto__upb_library PUBLIC
         "CMakeProject::b_proto__minitable_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_b_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
 target_compile_features(CMakeProject_b_proto__upb_library PUBLIC cxx_std_17)
@@ -919,8 +919,8 @@ add_library(CMakeProject_b_proto__upbdefs_library)
 set_property(TARGET CMakeProject_b_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_b_proto__upbdefs_library PUBLIC
         "CMakeProject::b_proto__minitable_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "Protobuf::upb_port"
+        "Protobuf::upb_reflection_generated_reflection_support"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_b_proto__upbdefs_library PUBLIC
@@ -1009,9 +1009,9 @@ add_library(CMakeProject_x_proto__minitable_library)
 set_property(TARGET CMakeProject_x_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_x_proto__minitable_library PUBLIC
         "Protobuf::any_proto__minitable_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_x_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
 target_compile_features(CMakeProject_x_proto__minitable_library PUBLIC cxx_std_17)
@@ -1030,9 +1030,9 @@ target_link_libraries(CMakeProject_x_proto__upb_library PUBLIC
         "CMakeProject::x_proto__minitable_library"
         "Protobuf::any_proto__minitable_library"
         "Protobuf::any_proto__upb_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_x_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
 target_compile_features(CMakeProject_x_proto__upb_library PUBLIC cxx_std_17)
@@ -1081,8 +1081,8 @@ target_link_libraries(CMakeProject_x_proto__upbdefs_library PUBLIC
         "CMakeProject::x_proto__minitable_library"
         "Protobuf::any_proto__minitable_library"
         "Protobuf::any_proto__upbdefs_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "Protobuf::upb_port"
+        "Protobuf::upb_reflection_generated_reflection_support"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_x_proto__upbdefs_library PUBLIC
@@ -1273,9 +1273,9 @@ add_custom_target(CMakeProject_aspect_upb_minitable__9651e148 DEPENDS
 add_library(CMakeProject_y_proto__minitable_library)
 set_property(TARGET CMakeProject_y_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_y_proto__minitable_library PUBLIC
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_y_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable/src>")
 target_compile_features(CMakeProject_y_proto__minitable_library PUBLIC cxx_std_17)
@@ -1292,9 +1292,9 @@ add_library(CMakeProject_y_proto__upb_library)
 set_property(TARGET CMakeProject_y_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_y_proto__upb_library PUBLIC
         "CMakeProject::y_proto__minitable_library"
+        "Protobuf::upb_generated_code_support"
         "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+        "m")
 target_include_directories(CMakeProject_y_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb/src>")
 target_compile_features(CMakeProject_y_proto__upb_library PUBLIC cxx_std_17)

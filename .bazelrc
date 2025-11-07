@@ -15,15 +15,28 @@ build --platform_mappings=tools/bazel_platforms/platform_mappings
 build --define=absl=1
 build --define=protobuf_allow_msvc=true
 
+# ----------------------------------------
 # Configure C++17 mode
-#
-# Note: We can't use --cxxopt because of
-# https://github.com/bazelbuild/bazel/issues/15550
-build:gcc_or_clang --per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
-build:gcc_or_clang --host_per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
+# ----------------------------------------
 
-build:msvc --per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@/std:c++17
-build:msvc --host_per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@/std:c++17
+build:gcc_or_clang --cxxopt=-std=c++17
+build:gcc_or_clang --host_cxxopt=-std=c++17
+
+build:gcc_or_clang --cxxopt=-fsized-deallocation
+build:gcc_or_clang --host_cxxopt=-fsized-deallocation
+
+build:msvc --cxxopt=/std:c++17
+build:msvc --host_cxxopt=/std:c++17
+
+# Use sized deallocation for C++ objects
+build:msvc --cxxopt=/Zc:sizedDealloc
+build:msvc --host_cxxopt=/Zc:sizedDealloc
+
+# Make MSVC conform to the C++ standard regarding hidden friends
+build:msvc --cxxopt=/Zc:hiddenFriend
+build:msvc --host_cxxopt=/Zc:hiddenFriend
+
+# ----------------------------------------
 
 # protobuf/upb has some functions where errors are incorrectly raised:
 # https://github.com/protocolbuffers/upb/blob/main/upb/message/accessors_internal.h
@@ -56,7 +69,11 @@ build:msvc --host_per_file_copt=grpc/.*\\.cc$@/wd4244
 build:msvc --per_file_copt=external/xds/.*\\.cc$@/wd4244
 build:msvc --host_per_file_copt=external/xds/.*\\.cc$@/wd4244
 
-# Use colors
+# ----------------------------------------
+# Disable warnings
+# ----------------------------------------
+
+# Use colors for diagnostics
 build:gcc_or_clang --copt=-fdiagnostics-color=always
 build:gcc_or_clang --host_copt=-fdiagnostics-color=always
 
@@ -85,6 +102,10 @@ build:gcc_or_clang --host_copt='-Wno-unknown-warning-option'
 # disable warnings from clang about stringof-overflow
 build:gcc_or_clang --copt='-Wno-stringop-overflow'
 build:gcc_or_clang --host_copt='-Wno-stringop-overflow'
+
+# Disable warning regarding `msvc::no_unique_address`
+build:msvc --copt=/wd4848
+build:msvc --host_copt=/wd4848
 
 # ----------------------------------------
 # Linux and FreeBSD configuration settings
@@ -131,9 +152,13 @@ build:windows --config=windows_common
 build:windows_common --features=archive_param_file
 build:windows_common --features=linker_param_file
 build:windows_common --features=compiler_param_file
+build:windows_common --enable_runfiles=true
+build:windows_common --build_python_zip=false
 
-# Define mingw configuration.
-#
+# ------------------------------
+# MINGW settings
+# ------------------------------
+
 # Unfortunately, with `--incompatible_enable_cc_toolchain_resolution`
 # specified, it is inconvenient to use mingw.
 #
@@ -141,19 +166,16 @@ build:windows_common --features=compiler_param_file
 build:windows_x86_64_mingw --noenable_platform_specific_config --config=windows_common --config=gcc_or_clang
 build:windows_x86_64_mingw --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw
 build:windows_x86_64_mingw --extra_execution_platforms=//tools/bazel_platforms:windows_x86_64_mingw
+
 # Prevent "file too big" / "too many sections" errors.
-build:windows_x86_64_mingw --copt=-Wa,-mbig-obj
-build:windows_x86_64_mingw --host_copt=-Wa,-mbig-obj
+build:windows_x86_64_mingw --copt='-Wa,-mbig-obj'
+build:windows_x86_64_mingw --host_copt='-Wa,-mbig-obj'
+
 # mingw  https://sourceforge.net/p/mingw-w64/bugs/134/
 build:windows_x86_64_mingw --copt=-D_NO_W32_PSEUDO_MODIFIERS
 build:windows_x86_64_mingw --host_copt=-D_NO_W32_PSEUDO_MODIFIERS
 
-build:windows_common --enable_runfiles=true --build_python_zip=false
+# optimize chttp2 for "file too big" errors for grpc
+build:windows_x86_64_mingw --per_file_copt=grpc/src/core/.*\\.cc$@-O2
+build:windows_x86_64_mingw --host_per_file_copt=grpc/src/core/.*\\.cc$@-O2
 
-# Disable warning regarding `msvc::no_unique_address`
-build:msvc --copt=/wd4848
-build:msvc --host_copt=/wd4848
-
-# Make MSVC conform to the C++ standard regarding hidden friends
-build:msvc --copt=/Zc:hiddenFriend
-build:msvc --host_copt=/Zc:hiddenFriend

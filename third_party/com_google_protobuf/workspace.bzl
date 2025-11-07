@@ -27,10 +27,12 @@ def repo():
         name = "com_google_protobuf",
         doc_version = "30.2",
         doc_homepage = "https://protobuf.dev/",
-        strip_prefix = "protobuf-30.2",
-        urls = mirror_url("https://github.com/protocolbuffers/protobuf/archive/v30.2.tar.gz"),
-        sha256 = "07a43d88fe5a38e434c7f94129cad56a4c43a51f99336074d0799c2f7d4e44c5",
+        strip_prefix = "protobuf-33.0",
+        urls = mirror_url("https://github.com/protocolbuffers/protobuf/archive/v33.0.tar.gz"),
+        sha256 = "b6b03fbaa3a90f3d4f2a3fa4ecc41d7cd0326f92fcc920a7843f12206c8d52cd",
         patches = [
+            # Add mingw config properly
+            Label("//third_party:com_google_protobuf/patches/build_defs_mingw.diff"),
             # protobuf uses rules_java, but we don't want to import it.
             Label("//third_party:com_google_protobuf/patches/no_rules_java.diff"),
         ],
@@ -75,27 +77,33 @@ def repo():
                 "--target=//src/google/protobuf/compiler:code_generator",
                 "--target=//:descriptor_proto_srcs",
                 # upb
-                "--target=//upb:base",
-                "--target=//upb:json",
-                "--target=//upb:mem",
-                "--target=//upb:message_compare",
-                "--target=//upb:message_copy",
-                "--target=//upb:message",
-                "--target=//upb:port",
-                "--target=//upb:reflection",
-                "--target=//upb:text",
-                "--target=//upb:wire",
+                "--target=//upb/base",
+                "--target=//upb/json",
+                "--target=//upb/mem",
+                "--target=//upb/message:compare",
+                "--target=//upb/message:copy",
+                "--target=//upb/message",
+                "--target=//upb/port",
+                "--target=//upb/reflection",
+                "--target=//upb/text",
+                "--target=//upb/wire",
                 # upb support libraries
-                "--target=//upb:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
-                "--target=//upb:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
-                "--target=//upb:upb_proto_library_copts__for_generated_code_only_do_not_use",
+                "--target=//upb:generated_code_support",
+                "--target=//upb/reflection:generated_reflection_support",
+                "--target=//upb:upb_proto_library_copts",
                 # upb plugin
                 "--target=//upb_generator/c:protoc-gen-upb",
                 "--target=//upb_generator/c:protoc-gen-upb_stage1",
                 "--target=//upb_generator/minitable:protoc-gen-upb_minitable",
                 "--target=//upb_generator/minitable:protoc-gen-upb_minitable_stage1",
                 "--target=//upb_generator/reflection:protoc-gen-upbdefs",
-            ] + EXTRA_PROTO_TARGETS,
+            ] + [
+                "--target=" + x
+                for x in PROTO_TARGETS
+            ] + [
+                "--target=" + x
+                for x in CMAKE_LIBRARY_ALIASES
+            ],
             "exclude": [
                 "benchmarks/**",
                 "ci/**",
@@ -138,6 +146,54 @@ PROTOBUF_CMAKE_MAPPING = {
     "//:protoc_lib": "protobuf::libprotoc",
 }
 
+# bazelisk query "//:all" | grep "_proto$"
+PROTO_TARGETS = [
+    "//:any_cc_proto",
+    "//:any_proto",
+    "//:any_upb_proto",
+    "//:any_upb_reflection_proto",
+    "//:api_cc_proto",
+    "//:api_proto",
+    "//:api_upb_proto",
+    "//:api_upb_reflection_proto",
+    "//:compiler_plugin_proto",
+    "//:cpp_features_proto",
+    "//:descriptor_proto",
+    "//:duration_cc_proto",
+    "//:duration_proto",
+    "//:duration_upb_proto",
+    "//:duration_upb_reflection_proto",
+    "//:empty_cc_proto",
+    "//:empty_proto",
+    "//:empty_upb_proto",
+    "//:empty_upb_reflection_proto",
+    "//:field_mask_cc_proto",
+    "//:field_mask_proto",
+    # "//:field_mask_upb_proto", # alias target does not exist
+    # "//:field_mask_upb_reflection_proto", # alias target does not exist
+    "//:source_context_cc_proto",
+    "//:source_context_proto",
+    "//:source_context_upb_proto",
+    "//:source_context_upb_reflection_proto",
+    "//:struct_cc_proto",
+    "//:struct_proto",
+    "//:struct_upb_proto",
+    "//:struct_upb_reflection_proto",
+    "//:timestamp_cc_proto",
+    "//:timestamp_proto",
+    "//:timestamp_upb_proto",
+    "//:type_cc_proto",
+    "//:type_proto",
+    "//:type_upb_proto",
+    "//:type_upb_reflection_proto",
+    "//:wrappers_cc_proto",
+    "//:wrappers_proto",
+    "//:wrappers_upb_proto",
+    "//:wrappers_upb_reflection_proto",
+    "//src/google/protobuf/compiler:plugin_proto",
+]
+
+# For CMake, bazel_to_cmake needs to expose the internal generated targets.
 WELL_KNOWN_TYPES = [
     "any",
     "api",
@@ -149,20 +205,17 @@ WELL_KNOWN_TYPES = [
     "timestamp",
     "type",
     "wrappers",
-    # add descriptor
-    "descriptor",
 ]
 
-SUFFIXES = [
-    "",
-    "__cpp_library",
-    "__upb_library",
-    "__upbdefs_library",
-    "__minitable_library",
+_SUFFIXES = [
+    "_proto__cpp_library",
+    "_proto__upb_library",
+    "_proto__upbdefs_library",
+    "_proto__minitable_library",
 ]
 
-EXTRA_PROTO_TARGETS = [
-    "--target=//:" + x + "_proto" + y
-    for x in WELL_KNOWN_TYPES
-    for y in SUFFIXES
+CMAKE_LIBRARY_ALIASES = [
+    "//:" + x + s
+    for x in WELL_KNOWN_TYPES + ["descriptor"]
+    for s in _SUFFIXES
 ]

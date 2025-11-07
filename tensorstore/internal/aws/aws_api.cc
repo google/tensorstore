@@ -54,8 +54,8 @@ constexpr int kLogBufSize = 2000;
 // Hook AWS logging into absl logging.
 ABSL_CONST_INIT internal_log::VerboseFlag aws_logging("aws");
 
-int absl_log(aws_logger *logger, aws_log_level log_level,
-             aws_log_subject_t subject, const char *format, ...) {
+int absl_log(aws_logger* logger, aws_log_level log_level,
+             aws_log_subject_t subject, const char* format, ...) {
   absl::LogSeverity severity = absl::LogSeverity::kInfo;
   if (log_level <= AWS_LL_FATAL) {
     severity = absl::LogSeverity::kFatal;
@@ -74,12 +74,12 @@ int absl_log(aws_logger *logger, aws_log_level log_level,
   // AWS Logging doesn't provide a way to get the filename or line number,
   // instead use the aws subject name as the filename and the subject itself as
   // the line number.
-  const char *subject_name = aws_log_subject_name(subject);
+  const char* subject_name = aws_log_subject_name(subject);
   bool is_valid_subject =
       (subject_name != nullptr && strcmp(subject_name, "Unknown") != 0);
 
   char buffer[kLogBufSize];
-  char *buf = buffer;
+  char* buf = buffer;
   size_t size = sizeof(buffer);
 
   va_list argptr;
@@ -94,9 +94,10 @@ int absl_log(aws_logger *logger, aws_log_level log_level,
   return AWS_OP_SUCCESS;
 };
 
-enum aws_log_level absl_get_log_level(aws_logger *logger,
+enum aws_log_level absl_get_log_level(aws_logger* logger,
                                       aws_log_subject_t subject) {
-  uintptr_t lvl = reinterpret_cast<uintptr_t>(logger->p_impl);
+  uintptr_t lvl;
+  memcpy(&lvl, &logger->p_impl, sizeof(lvl));
   if (lvl != 0) {
     return static_cast<enum aws_log_level>(lvl - 1);
   }
@@ -110,28 +111,29 @@ enum aws_log_level absl_get_log_level(aws_logger *logger,
   return AWS_LL_INFO;
 }
 
-int absl_set_log_level(aws_logger *logger, aws_log_level lvl) {
-  if (lvl == AWS_LL_NONE) {
-    reinterpret_cast<uintptr_t &>(logger->p_impl) = 0;
-  } else {
-    reinterpret_cast<uintptr_t &>(logger->p_impl) =
-        1 + static_cast<uintptr_t>(lvl);
+int absl_set_log_level(aws_logger* logger, aws_log_level lvl) {
+  uintptr_t l = 0;
+  if (lvl != AWS_LL_NONE) {
+    l = 1 + static_cast<uintptr_t>(lvl);
   }
+  memcpy(&logger->p_impl, &l, sizeof(l));
   return AWS_OP_SUCCESS;
 }
 
-void absl_clean_up(aws_logger *logger) { (void)logger; }
+void absl_clean_up(aws_logger*) {
+  // noop
+}
 
 // Some C++ compiler targets don't like designated initializers in C++, until
 // they are supported static_assert() on the offsets
 static_assert(offsetof(aws_logger_vtable, log) == 0);
-static_assert(offsetof(aws_logger_vtable, get_log_level) == sizeof(void *));
-static_assert(offsetof(aws_logger_vtable, clean_up) == 2 * sizeof(void *));
-static_assert(offsetof(aws_logger_vtable, set_log_level) == 3 * sizeof(void *));
+static_assert(offsetof(aws_logger_vtable, get_log_level) == sizeof(void*));
+static_assert(offsetof(aws_logger_vtable, clean_up) == 2 * sizeof(void*));
+static_assert(offsetof(aws_logger_vtable, set_log_level) == 3 * sizeof(void*));
 
 static_assert(offsetof(aws_logger, vtable) == 0);
-static_assert(offsetof(aws_logger, allocator) == sizeof(void *));
-static_assert(offsetof(aws_logger, p_impl) == 2 * sizeof(void *));
+static_assert(offsetof(aws_logger, allocator) == sizeof(void*));
+static_assert(offsetof(aws_logger, p_impl) == 2 * sizeof(void*));
 
 ABSL_CONST_INIT aws_logger_vtable s_absl_vtable{
     /*.log=*/absl_log,
@@ -164,15 +166,15 @@ class AwsApi {
     aws_auth_library_init(allocator_);
   }
 
-  aws_allocator *allocator() { return allocator_; }
+  aws_allocator* allocator() { return allocator_; }
 
-  aws_client_bootstrap *client_bootstrap() ABSL_LOCKS_EXCLUDED(mutex_) {
+  aws_client_bootstrap* client_bootstrap() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock l(mutex_);
     init_client_bootstrap();
     return client_bootstrap_;
   }
 
-  aws_tls_ctx *tls_ctx() ABSL_LOCKS_EXCLUDED(mutex_) {
+  aws_tls_ctx* tls_ctx() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock l(mutex_);
     init_tls_ctx();
     return tls_ctx_;
@@ -224,27 +226,27 @@ class AwsApi {
   }
 
   absl::Mutex mutex_;
-  aws_allocator *allocator_ = nullptr;
-  aws_event_loop_group *event_loop_group_ ABSL_GUARDED_BY(mutex_) = nullptr;
-  aws_host_resolver *resolver_ ABSL_GUARDED_BY(mutex_) = nullptr;
-  aws_client_bootstrap *client_bootstrap_ ABSL_GUARDED_BY(mutex_) = nullptr;
-  aws_tls_ctx *tls_ctx_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  aws_allocator* allocator_ = nullptr;
+  aws_event_loop_group* event_loop_group_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  aws_host_resolver* resolver_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  aws_client_bootstrap* client_bootstrap_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  aws_tls_ctx* tls_ctx_ ABSL_GUARDED_BY(mutex_) = nullptr;
 };
 
-AwsApi &GetAwsApi() {
+AwsApi& GetAwsApi() {
   static absl::NoDestructor<AwsApi> aws_api;
   return *aws_api;
 }
 
 }  // namespace
 
-aws_allocator *GetAwsAllocator() { return GetAwsApi().allocator(); }
+aws_allocator* GetAwsAllocator() { return GetAwsApi().allocator(); }
 
-aws_client_bootstrap *GetAwsClientBootstrap() {
+aws_client_bootstrap* GetAwsClientBootstrap() {
   return GetAwsApi().client_bootstrap();
 }
 
-aws_tls_ctx *GetAwsTlsCtx() { return GetAwsApi().tls_ctx(); }
+aws_tls_ctx* GetAwsTlsCtx() { return GetAwsApi().tls_ctx(); }
 
 }  // namespace internal_aws
 }  // namespace tensorstore
