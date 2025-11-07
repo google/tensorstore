@@ -137,6 +137,7 @@ def run(args, extra_args):
   )
   env["CIBW_TEST_COMMAND"] = (
       "python -m pytest {project}/python/tensorstore/tests -vv -s"
+      " --asyncio-mode=auto"
   )
   env["CIBW_MANYLINUX_X86_64_IMAGE"] = "manylinux_2_28"
   env["CIBW_MANYLINUX_AARCH64_IMAGE"] = "manylinux_2_28"
