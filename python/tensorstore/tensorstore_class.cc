@@ -2889,13 +2889,6 @@ struct ArrayStorageStatisticsAccessor {
     if (self.mask & MaskEntry) return self.*Member;
     return {};
   };
-  constexpr static inline auto GetLocked =
-      [](with_handle<const ArrayStorageStatistics&> self)
-      -> std::optional<bool> {
-    ScopedPyCriticalSection cs(self.handle.ptr());
-    return Get(self.value);
-  };
-
   constexpr static inline auto Set = [](ArrayStorageStatistics& self,
                                         std::optional<bool> value) {
     if (value) {
@@ -2906,11 +2899,22 @@ struct ArrayStorageStatisticsAccessor {
       self.*Member = {};
     }
   };
-  constexpr static inline auto SetLocked =
-      [](with_handle<ArrayStorageStatistics&> self, std::optional<bool> value) {
-        ScopedPyCriticalSection cs(self.handle.ptr());
-        return Set(self.value, std::move(value));
-      };
+
+  struct GetLocked {
+    std::optional<bool> operator()(
+        with_handle<const ArrayStorageStatistics&> self) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return ArrayStorageStatisticsAccessor::Get(self.value);
+    }
+  };
+
+  struct SetLocked {
+    void operator()(with_handle<ArrayStorageStatistics&> self,
+                    std::optional<bool> value) const {
+      ScopedPyCriticalSection cs(self.handle.ptr());
+      return ArrayStorageStatisticsAccessor::Set(self.value, std::move(value));
+    }
+  };
 };
 
 void DefineArrayStorageStatisticsAttributes(ArrayStorageStatisticsCls& cls) {
@@ -2936,7 +2940,7 @@ Constructs from attribute values.
           py::kw_only(), py::arg("not_stored") = std::nullopt,
           py::arg("fully_stored") = std::nullopt);
 
-  cls.def_property("not_stored", NotStored::GetLocked, NotStored::SetLocked,
+  cls.def_property("not_stored", NotStored::GetLocked{}, NotStored::SetLocked{},
                    R"(
 Indicates whether *no* data is stored for the specified :py:obj:`~TensorStore.domain`.
 
@@ -2948,8 +2952,8 @@ If :python:`False`, it is guaranteed that all elements within the domain are equ
 to the :py:obj:`~TensorStore.fill_value`.
 )");
 
-  cls.def_property("fully_stored", FullyStored::GetLocked,
-                   FullyStored::SetLocked,
+  cls.def_property("fully_stored", FullyStored::GetLocked{},
+                   FullyStored::SetLocked{},
                    R"(
 Indicates whether data is stored for *all* elements of the specified :py:obj:`~TensorStore.domain`.
 
