@@ -78,7 +78,19 @@ def _search_directories(get_config, base_executable):
   return {k: None for k in lib_dirs}.keys()
 
 
-def _search_library_names(get_config):
+def _get_shlib_suffix(get_config) -> str:
+  """Returns the suffix for shared libraries."""
+  if _IS_DARWIN:
+    return ".dylib"
+  if _IS_WINDOWS:
+    return ".dll"
+  suffix = get_config("SHLIB_SUFFIX")
+  if not suffix:
+    suffix = ".so"
+  return suffix
+
+
+def _search_library_names(get_config, shlib_suffix):
   """Returns a list of library files to search for shared libraries."""
   # Quoting configure.ac in the cpython code base:
   # "INSTSONAME is the name of the shared library that will be use to install
@@ -106,26 +118,24 @@ def _search_library_names(get_config):
   # The suffix and version are set here to the default values for the OS,
   # since they are used below to construct "default" library names.
   if _IS_DARWIN:
-    suffix = ".dylib"
     prefix = "lib"
   elif _IS_WINDOWS:
-    suffix = ".dll"
     prefix = ""
   else:
-    suffix = get_config("SHLIB_SUFFIX")
     prefix = "lib"
-    if not suffix:
-      suffix = ".so"
 
   version = get_config("VERSION")
 
   # Ensure that the pythonXY.dll files are included in the search.
-  lib_names.append(f"{prefix}python{version}{suffix}")
+  lib_names.append(f"{prefix}python{version}{shlib_suffix}")
 
   # If there are ABIFLAGS, also add them to the python version lib search.
   abiflags = get_config("ABIFLAGS") or get_config("abiflags") or ""
   if abiflags:
-    lib_names.append(f"{prefix}python{version}{abiflags}{suffix}")
+    lib_names.append(f"{prefix}python{version}{abiflags}{shlib_suffix}")
+
+  # Add the abi-version includes to the search list.
+  lib_names.append(f"{prefix}python{sys.version_info.major}{shlib_suffix}")
 
   # Dedup and remove empty values, keeping the order.
   lib_names = [v for v in lib_names if v]
@@ -148,24 +158,25 @@ def _get_python_library_info(base_executable):
           f"{sys.version_info.major}.{sys.version_info.minor}"
       )
 
+  shlib_suffix = _get_shlib_suffix(config_vars.get)
   search_directories = _search_directories(config_vars.get, base_executable)
-  search_libnames = _search_library_names(config_vars.get)
-
-  def _add_if_exists(target, path):
-    if os.path.exists(path) or os.path.isdir(path):
-      target[path] = None
+  search_libnames = _search_library_names(config_vars.get, shlib_suffix)
 
   interface_libraries = {}
   dynamic_libraries = {}
   static_libraries = {}
+
   for root_dir in search_directories:
     for libname in search_libnames:
+      # Check whether the library exists.
       composed_path = os.path.join(root_dir, libname)
-      if libname.endswith(".a"):
-        _add_if_exists(static_libraries, composed_path)
-        continue
+      if os.path.exists(composed_path) or os.path.isdir(composed_path):
+        if libname.endswith(".a"):
+          static_libraries[composed_path] = None
+        else:
+          dynamic_libraries[composed_path] = None
 
-      _add_if_exists(dynamic_libraries, composed_path)
+      interface_path = None
       if libname.endswith(".dll"):
         # On windows a .lib file may be an "import library" or a static library.
         # The file could be inspected to determine which it is; typically python
@@ -176,14 +187,19 @@ def _get_python_library_info(base_executable):
         #
         # See: https://docs.python.org/3/extending/windows.html
         # https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-creation
-        _add_if_exists(
-            interface_libraries, os.path.join(root_dir, libname[:-3] + "lib")
-        )
+        interface_path = os.path.join(root_dir, libname[:-3] + "lib")
       elif libname.endswith(".so"):
         # It's possible, though unlikely, that interface stubs (.ifso) exist.
-        _add_if_exists(
-            interface_libraries, os.path.join(root_dir, libname[:-2] + "ifso")
-        )
+        interface_path = os.path.join(root_dir, libname[:-2] + "ifso")
+
+      # Check whether an interface library exists.
+      if interface_path and os.path.exists(interface_path):
+        interface_libraries[interface_path] = None
+
+  if hasattr(sys, "abiflags"):
+    abiflags = sys.abiflags
+  else:
+    abiflags = ""
 
   # When no libraries are found it's likely that the python interpreter is not
   # configured to use shared or static libraries (minilinux).  If this seems
@@ -192,6 +208,8 @@ def _get_python_library_info(base_executable):
       "dynamic_libraries": list(dynamic_libraries.keys()),
       "static_libraries": list(static_libraries.keys()),
       "interface_libraries": list(interface_libraries.keys()),
+      "shlib_suffix": "" if _IS_WINDOWS else shlib_suffix,
+      "abi_flags": abiflags,
   }
 
 

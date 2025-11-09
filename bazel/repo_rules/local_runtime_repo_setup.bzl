@@ -36,7 +36,8 @@ def define_local_runtime_toolchain_impl(
         interface_library,
         libraries,
         implementation_name,
-        os):
+        os,
+        abi_flags):
     """Defines a toolchain implementation for a local Python runtime.
 
     Generates public targets:
@@ -62,6 +63,7 @@ def define_local_runtime_toolchain_impl(
             `sys.implementation.name`.
         os: `str` A label to the OS constraint (e.g. `@platforms//os:linux`) for
             this runtime.
+        abi_flags: `str` The abi flags, as returned by `sys.abiflags`.
     """
     major_minor = "{}.{}".format(major, minor)
     major_minor_micro = "{}.{}".format(major_minor, micro)
@@ -70,25 +72,33 @@ def define_local_runtime_toolchain_impl(
     # See https://docs.python.org/3/extending/windows.html
     # However not all python installations (such as manylinux) include shared or static libraries,
     # so only create the import library when interface_library is set.
-    import_deps = []
+    full_abi_deps = []
+    abi3_deps = []
     if interface_library:
         cc_import(
             name = "_python_interface_library",
             interface_library = interface_library,
             system_provided = 1,
         )
-        import_deps = [":_python_interface_library"]
+        if interface_library.endswith("{}.lib".format(major)):
+            abi3_deps = [":_python_interface_library"]
+        else:
+            full_abi_deps = [":_python_interface_library"]
 
     cc_library(
-        name = "_python_headers",
+        name = "_python_headers_abi3",
         # NOTE: Keep in sync with watch_tree() called in local_runtime_repo
         srcs = native.glob(
             include = ["include/**/*.h"],
             exclude = ["include/numpy/**"],  # numpy headers are handled separately
             allow_empty = True,  # A Python install may not have C headers
         ),
-        deps = import_deps,
+        deps = abi3_deps,
         includes = ["include"],
+    )
+    cc_library(
+        name = "_python_headers",
+        deps = [":_python_headers_abi3"] + full_abi_deps,
     )
 
     cc_library(
@@ -108,6 +118,7 @@ def define_local_runtime_toolchain_impl(
             "minor": minor,
         },
         implementation_name = implementation_name,
+        abi_flags = abi_flags,
     )
 
     py_runtime_pair(
