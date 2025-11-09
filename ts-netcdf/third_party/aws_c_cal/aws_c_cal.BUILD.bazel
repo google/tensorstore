@@ -1,0 +1,60 @@
+# Description:
+#   AWS s2n tls
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+cc_library(
+    name = "aws_c_cal",
+    srcs = glob([
+        "source/*.c",
+        "source/shared/ed25519.c",
+        "source/shared/lccrypto_common.c",
+    ]) + select({
+        "@platforms//os:windows": glob([
+            "source/windows/*.c",
+        ]),
+        "@platforms//os:linux": glob([
+            "source/unix/*.c",
+        ]),
+        "@platforms//os:osx": glob([
+            "source/darwin/*.c",
+            "source/darwin/*.h",
+        ]),
+    }),
+    hdrs = glob([
+        "include/aws/cal/*.h",
+        "include/aws/cal/private/*.h",
+    ]),
+    includes = ["include"],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "-DEFAULTLIB:bcrypt.lib",
+        ],
+        "@platforms//os:macos": [
+            "-framework CoreFoundation",
+            "-framework Security",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "@rules_cc//cc/compiler:mingw-gcc": [
+            "-lbcrypt",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@aws_c_common",
+        "@boringssl//:crypto",
+        ":darwin_headers",
+    ],
+)
+
+cc_library(
+    name = "darwin_headers",
+    hdrs = glob([
+        "source/darwin/**/*.h",
+    ]),
+    strip_include_prefix = "source/darwin",
+    visibility = ["//visibility:private"],
+)

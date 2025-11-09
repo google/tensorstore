@@ -1,0 +1,160 @@
+diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+--- a/bazel/grpc_build_system.bzl	2025-04-21 22:04:38.000000000 +0000
++++ b/bazel/grpc_build_system.bzl	2025-05-02 02:33:14.030596215 +0000
+@@ -27,9 +27,9 @@
+ Contains macros used throughout the repo.
+ """
+ 
+-load("@build_bazel_apple_support//rules:universal_binary.bzl", "universal_binary")
+-load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
+-load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
++# load("@build_bazel_apple_support//rules:universal_binary.bzl", "universal_binary")
++# load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
++# load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
+ load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+ load("@com_google_protobuf//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+ load("@rules_proto//proto:defs.bzl", "proto_library")
+@@ -44,6 +44,14 @@
+ # The set of known EventEngines to test
+ EVENT_ENGINES = {"default": {"tags": []}}
+ 
++
++def ios_unit_test(**kwargs):
++    pass
++
++def ios_test_runner(**kwargs):
++    pass
++
++
+ def if_not_windows(a):
+     return select({
+         "//:windows": [],
+@@ -58,6 +66,12 @@
+         "//conditions:default": [],
+     })
+ 
++def if_mingw(a):
++    return select({
++        "//:mingw-gcc": a,
++        "//conditions:default": [],
++    })
++
+ def _get_external_deps(external_deps):
+     ret = []
+     for dep in external_deps:
+@@ -143,7 +157,7 @@
+     """
+     visibility = _update_visibility(visibility)
+     copts = []
+-    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"])
++    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) + if_mingw(["-lws2_32"])
+     if select_deps:
+         for select_deps_entry in select_deps:
+             deps += select(select_deps_entry)
+@@ -179,8 +193,8 @@
+         linkopts = linkopts,
+         includes = [
+             include_prefix + "include",
+-            include_prefix + "src/core/ext/upb-gen",  # Once upb code-gen issue is resolved, remove this.
+-            include_prefix + "src/core/ext/upbdefs-gen",  # Once upb code-gen issue is resolved, remove this.
++            # include_prefix + "src/core/ext/upb-gen",  # Once upb code-gen issue is resolved, remove this.
++            # include_prefix + "src/core/ext/upbdefs-gen",  # Once upb code-gen issue is resolved, remove this.
+         ],
+         alwayslink = alwayslink,
+         data = data,
+@@ -190,24 +204,10 @@
+ 
+ def grpc_proto_plugin(name, srcs = [], deps = []):
+     native.cc_binary(
+-        name = name + "_native",
++        name = name,
+         srcs = srcs,
+         deps = deps,
+     )
+-    universal_binary(
+-        name = name + "_universal",
+-        binary = name + "_native",
+-    )
+-    native.genrule(
+-        name = name,
+-        srcs = select({
+-            "@platforms//os:macos": [name + "_universal"],
+-            "//conditions:default": [name + "_native"],
+-        }),
+-        outs = [name],
+-        cmd = "cp $< $@",
+-        executable = True,
+-    )
+ 
+ def grpc_internal_proto_library(
+         name,
+@@ -563,7 +563,7 @@
+     test_args = {
+         "data": data,
+         "copts": GRPC_DEFAULT_COPTS + copts,
+-        "linkopts": if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]),
++        "linkopts": if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) + if_mingw(["-lws2_32"]),
+         "size": size,
+         "timeout": timeout,
+         "exec_compatible_with": exec_compatible_with,
+diff -Nur a/BUILD b/BUILD
+--- a/BUILD	2025-04-21 22:04:38.000000000 +0000
++++ b/BUILD	2025-05-02 00:49:56.698609080 +0000
+@@ -25,6 +25,8 @@
+     "grpc_upb_proto_library",
+     "grpc_upb_proto_reflection_library",
+     "python_config_settings",
++    "if_windows",
++    "if_mingw",
+ )
+ 
+ licenses(["reciprocal"])
+@@ -194,6 +196,13 @@
+     values = {"define": "use_strict_warning_windows=true"},
+ )
+ 
++config_setting(
++    name = "mingw-gcc",
++    flag_values = {
++        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
++    },
++)
++
+ python_config_settings()
+ 
+ # This should be updated along with build_handwritten.yaml
+@@ -3210,6 +3219,7 @@
+         "absl/log:log",
+         "absl/strings",
+         "absl/strings:str_format",
++        "absl/types:optional",  # iomgr_timer
+     ],
+     tags = ["nofixdeps"],
+     deps = [
+@@ -3979,6 +3989,7 @@
+         "absl/log:log",
+         "absl/strings",
+     ],
++    linkopts = if_windows(["-defaultlib:crypt32.lib"]) + if_mingw(["-lcrypt32"]),  # grpc_credentials_util
+     visibility = ["//visibility:public"],
+     deps = [
+         "config_vars",
+@@ -4302,6 +4313,7 @@
+         "protobuf_struct_upb",
+         "protobuf_timestamp_upb",
+         "ref_counted_ptr",
++        "server_address",  # xds_client
+         "uri",
+         "work_serializer",
+         "//src/core:default_event_engine",
+diff -Nur a/src/core/BUILD b/src/core/BUILD
+--- a/src/core/BUILD	2025-04-21 22:04:38.000000000 +0000
++++ b/src/core/BUILD	2025-05-02 00:48:04.294884931 +0000
+@@ -2627,6 +2627,7 @@
+     external_deps = [
+         "absl/strings",
+         "absl/strings:str_format",
++        "absl/status",
+     ],
+     deps = [
+         "error",

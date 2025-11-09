@@ -1,0 +1,64 @@
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+filegroup(
+    name = "license",
+    srcs = ["COPYING"],
+)
+
+cc_library(
+    name = "snappy",
+    srcs = [
+        "snappy.cc",
+        "snappy-internal.h",
+        "snappy-sinksource.cc",
+        "snappy-stubs-internal.cc",
+        "snappy-stubs-internal.h",
+        "config.h",
+    ],
+    hdrs = [
+        "snappy.h",
+        "snappy-sinksource.h",
+        "snappy-stubs-public.h",
+    ],
+    copts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            "-Wno-sign-compare",
+        ],
+    }),
+    local_defines = ["HAVE_CONFIG_H"],
+)
+
+cc_library(
+    name = "snappy-c",
+    srcs = ["snappy-c.cc"],
+    hdrs = ["snappy-c.h"],
+    deps = [":snappy"],
+    local_defines = ["HAVE_CONFIG_H"],
+)
+
+# Generate a config.h similar to what cmake would produce.
+copy_file(
+    name = "config_h",
+    src = "@tensorstore//third_party:snappy/config/config.h",
+    out = "config.h",
+)
+
+# Assume sys/uio.h is available on non-Windows.
+# Set the version numbers.
+expand_template(
+    name = "snappy_stubs_public_h",
+    out = "snappy-stubs-public.h",
+    substitutions = {
+        "${HAVE_SYS_UIO_H_01}": "!_WIN32",
+        "${PROJECT_VERSION_MAJOR}": "1",
+        "${PROJECT_VERSION_MINOR}": "2",
+        "${PROJECT_VERSION_PATCH}": "2",
+    },
+    template = "snappy-stubs-public.h.in",
+)

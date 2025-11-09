@@ -1,0 +1,29 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/tsgrpc_kvstore
+title: Read/write key-value store using the tensorstore-specific gRPC protocol.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: tsgrpc_kvstore
+    address:
+      type: string
+      title: gRPC Service Address.
+      description: |
+        An address of the grpc service.
+    timeout:
+      type: string
+      description: |-
+        Timeout for requests to the gRPC service.
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.  It is typically more
+        convenient to specify a default `~Context.data_copy_concurrency` in
+        the `.context`.
+      default: data_copy_concurrency
+  required:
+  - address

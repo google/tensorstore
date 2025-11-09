@@ -1,0 +1,59 @@
+# Additional targets for bazel_to_cmake to generate:
+#
+# bazel-to-cmake cannot generate appropriate aliases for aspect-generated
+# library names/targets, so add them explicitly:
+
+WELL_KNOWN_TYPES = [
+    "any",
+    "api",
+    "duration",
+    "empty",
+    "field_mask",
+    "source_context",
+    "struct",
+    "timestamp",
+    "type",
+    "wrappers",
+]
+
+_SUFFIXES = [
+    "__cpp_library",
+    "__upb_library",
+    "__upbdefs_library",
+    "__minitable_library",
+]
+
+[
+    alias(
+        name = x + "_proto" + y,
+        actual = "//src/google/protobuf:" + x + "_proto" + y,
+    )
+    for x in WELL_KNOWN_TYPES
+    for y in _SUFFIXES
+]
+
+[
+    alias(
+        name = "//src/google/protobuf:" + x + "_proto__cpp_library",
+        actual = "//src/google/protobuf:cmake_wkt_cc_proto",
+    )
+    for x in WELL_KNOWN_TYPES
+]
+
+# Aliases for :descriptor_proto
+[
+    alias(
+        name = "descriptor_proto" + y,
+        actual = "//src/google/protobuf:descriptor_proto" + y,
+    )
+    for y in _SUFFIXES
+]
+
+# Aliases for :compiler_plugin_proto
+[
+    alias(
+        name = "compiler_plugin_proto" + y,
+        actual = "//src/google/protobuf/compiler:plugin_proto" + y,
+    )
+    for y in _SUFFIXES
+]

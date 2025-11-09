@@ -1,0 +1,20 @@
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    python3 \
+    python3-pip \
+    libnetcdf-dev \
+    netcdf-bin \
+    clang \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Bazelisk
+RUN wget -q https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 \
+    && chmod +x bazelisk-linux-amd64 \
+    && mv bazelisk-linux-amd64 /usr/local/bin/bazel
+
+WORKDIR /workspace

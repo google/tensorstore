@@ -1,0 +1,264 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: TensorStore
+type: object
+title: Specifies a TensorStore to open/create.
+description: |
+  The following properties are supported by all TensorStore drivers.  Refer to
+  the :ref:`driver documentation<tensorstore-drivers>` for the supported
+  `.driver` identifiers and driver-specific properties.
+properties:
+  driver:
+    type: string
+    title: Driver identifier
+    description: Specifies the :ref:`TensorStore driver<tensorstore-drivers>`.
+  context:
+    $ref: Context
+    title: Specifies context resources that augment/override the parent context.
+  dtype:
+    $ref: dtype
+    title: Specifies the data type.
+  rank:
+    type: integer
+    minimum: 0
+    maximum: 32
+    title: |
+      Specifies the rank of the TensorStore.
+    description: |
+      If `.transform` is also specified, the input rank must match.  Otherwise,
+      the rank constraint applies to the driver directly.
+  transform:
+    $ref: IndexTransform
+    title: Specifies a transform.
+  schema:
+    $ref: Schema
+    title: Specifies constraints on the schema.
+    description: |
+      When opening an existing array, specifies constraints on the existing
+      schema; opening will fail if the constraints do not match.  Any soft
+      constraints specified in the :json:schema:`~Schema.chunk_layout` are
+      ignored.  When creating a new array, a suitable schema will be selected
+      automatically based on the specified schema constraints in combination
+      with any driver-specific constraints.
+required:
+  - driver
+definitions:
+  dtype:
+    $id: dtype
+    title: Specifies a TensorStore data type.
+    description: |
+      TensorStore data types correspond to the logical data representation, not
+      the precise encoding.  There are not separate data types for little endian
+      and big endian byte order.
+    oneOf:
+      - const: "bool"
+        title: Boolean value (0 or 1).
+        description: |
+          Each value occupies an entire byte in memory, but depending on the
+          format may be encoded more efficiently.
+      - const: "char"
+        title: |
+          Single byte, interpreted as an ASCII character.
+      - const: "byte"
+        title: |
+          Single byte.
+      - const: "int2"
+        title: |
+          2-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended).
+      - const: "int4"
+        title: |
+          4-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended).
+      - const: "int8"
+        title: |
+          8-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+      - const: "uint8"
+        title: |
+          8-bit unsigned integer.
+      - const: "int16"
+        title: |
+          16-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+      - const: "uint16"
+        title: |
+          16-bit unsigned integer.
+      - const: "int32"
+        title: |
+          32-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+      - const: "uint32"
+        title: |
+          32-bit unsigned integer.
+      - const: "int64"
+        title: |
+          64-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+      - const: "uint64"
+        title: |
+          64-bit unsigned integer.
+      - const: "float8_e3m4"
+        title: |
+          `8-bit floating point - Exponent: 3, Mantissa: 4, bias: 3, IEEE 754, with NaN,  with infinities
+          <https://github.com/jax-ml/ml_dtypes#float8_e3m4>`__ .
+      - const: "float8_e4m3fn"
+        title: |
+          `8-bit floating point - Exponent: 4, Mantissa: 3, bias: 7, with NaN,  without infinities
+          <https://github.com/jax-ml/ml_dtypes#float8_e4m3fn>`__ .
+      - const: "float8_e4m3fnuz"
+        title: |
+          `8-bit floating point - Exponent: 4, Mantissa: 3, bias: 8, with NaN,  without infinities
+          <https://github.com/jax-ml/ml_dtypes#float8_e4m3fnuz>`__ .
+      - const: "float8_e4m3b11fnuz"
+        title: |
+          `8-bit floating point - Exponent: 4, Mantissa: 3, bias: 11, with NaN,  without infinities
+          <https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz>`__ .
+      - const: "float8_e5m2"
+        title: |
+          `8-bit floating point - Exponent: 5, Mantissa: 2, bias: 15, IEEE 754, with NaN and infinities.
+          <https://github.com/jax-ml/ml_dtypes#float8_e5m2>`__ .
+      - const: "float8_e5m2fnuz"
+        title: |
+          `8-bit floating point - Exponent: 5, Mantissa: 2, bias: 16, with NaN, without infinities.
+          <https://github.com/jax-ml/ml_dtypes#float8_e5m2fnuz>`__ .
+      - const: "float16"
+        title: |
+          `IEEE 754 binary16
+          <https://en.wikipedia.org/wiki/Half-precision_floating-point_format>`__
+          half-precision floating-point number.
+      - const: "bfloat16"
+        title: |
+          `bfloat16 floating-point format <https://en.wikipedia.org/wiki/Bfloat16_floating-point_format>`__ number.
+      - const: "float32"
+        title: |
+          `IEEE 754 binary32
+          <https://en.wikipedia.org/wiki/Single-precision_floating-point_format>`__
+          single-precision floating-point number.
+      - const: "float64"
+        title: |
+          `IEEE 754 binary64
+          <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`__
+          double-precision floating-point number.
+      - const: "complex64"
+        title: |
+          Complex number, where the real and imaginary components are each
+          represented by a `.float32`.
+      - const: "complex128"
+        title: |
+          Complex number, where the real and imaginary components are each
+          represented by a `.float64`.
+      - const: "string"
+        title: |
+          Byte string.
+      - const: "ustring"
+        title: |
+          Unicode string (represented in memory as UTF-8).
+      - const: "json"
+        title: |
+          `JSON <https://en.wikipedia.org/wiki/JSON>`__ value.
+  url:
+    $id: TensorStoreUrl
+    type: string
+    title: URL representation of a TensorStore to open.
+    description: |
+      In addition to the `JSON object<TensorStore>` representation, a
+      TensorStore backed by a key-value store may be specified more
+      concisely by a *URL pipeline* consisting of one or more
+      :literal:`|`-separated *components*.
+
+      The start of the URL pipeline must be a valid
+      :json:schema:`KvStoreUrl`.  This may be followed by a component
+      specifying a key-value store-backed TensorStore, such as
+      :ref:`zarr3<driver/zarr3>`, and then finally zero or more
+      TensorStore adapters, such as :ref:`cast<driver/cast>`.
+
+      .. warning::
+
+         The URL representation of a TensorStore specification
+         excludes any index transform and parameters such as
+         concurrency limits, cache options, and metadata and schema
+         constraints.
+  TensorStoreKvStoreAdapter:
+    $id: TensorStoreKvStoreAdapter
+    title: |
+      Specifies a TensorStore stored using a base :ref:`key-value
+      store<key_value_store>`.
+    allOf:
+      - $ref: TensorStore
+      - type: object
+        properties:
+          kvstore:
+            oneOf:
+              - $ref: KvStore
+              - $ref: KvStoreUrl
+            title: Base key-value store for the TensorStore.
+          path:
+            type: string
+            default: ""
+            deprecated: true
+            title: Additional path relative to `.kvstore`.
+            description: |
+              This is joined as an additional ``"/"``-separated path
+              component after any `~KvStore.path` member directly
+              within `.kvstore`.  This is supported for backwards
+              compatibility only; the `KvStore.path` member should be
+              used instead.
+            examples:
+              - "path/to/data"
+          cache_pool:
+            $ref: ContextResource
+            title: Cache pool for data.
+            description: |-
+              Specifies or references a previously defined
+              `Context.cache_pool`.  It is normally more convenient to
+              specify a default `~Context.cache_pool` in the
+              `.context`.
+            default: cache_pool
+          data_copy_concurrency:
+            $ref: ContextResource
+            description: |-
+              Specifies or references a previously defined
+              `Context.data_copy_concurrency`.  It is normally more convenient to
+              specify a default `~Context.data_copy_concurrency` in the `.context`.
+            default: data_copy_concurrency
+          recheck_cached_data:
+            $ref: CacheRevalidationBound
+            default: "open"
+            title: |
+              Time after which cached data is assumed to be fresh.
+            description: |
+              Cached data older than the specified time is revalidated
+              prior to being returned from a read operation.  Writes
+              are always consistent regardless of the value of this
+              option.
+
+              Specifying :json:`true` means that the data will be
+              revalidated prior to every read operation.  With a value
+              of :json:`"open"`, any cached data is revalidated when
+              the TensorStore is opened but is not rechecked for each
+              read operation.
+
+              .. note::
+
+                 To enable in-memory data caching, you must both specify
+                 a `~Context.cache_pool` with a non-zero
+                 `~Context.cache_pool.total_bytes_limit` and also
+                 specify ``false``, ``"open"``, or an explicit time
+                 bound for `.recheck_cached_data`.
+
+        required:
+          - kvstore
+  TensorStoreAdapter:
+    $id: TensorStoreAdapter
+    title: |
+      Specifies a TensorStore that adapts a base TensorStore.
+    allOf:
+      - $ref: TensorStore
+      - type: object
+        properties:
+          base:
+            oneOf:
+              - $ref: TensorStore
+              - $ref: KvStore
+              - $ref: TensorStoreUrl
+            title: Base TensorStore to adapt.
+            description: |
+              If a `KvStore` or `KvStoreUrl` is specified, the :ref:`auto
+              driver<driver/auto>` is used implicitly to auto-detect the
+              format.
+        required:
+          - base

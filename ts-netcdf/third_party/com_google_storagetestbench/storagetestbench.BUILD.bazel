@@ -1,0 +1,48 @@
+exports_files(["LICENSE"])
+
+# These deps are included in pypa/cpp_test_requirements.txt
+PYPA_DEPS = [
+    "@pypa_flask//:flask",
+    "@pypa_scalpl//:scalpl",
+    "@pypa_crc32c//:crc32c",
+    "@pypa_werkzeug//:werkzeug",
+    "@pypa_requests_toolbelt//:requests_toolbelt",
+    "@pypa_grpcio//:grpcio",
+    "@pypa_googleapis_common_protos//:googleapis_common_protos",
+    "@pypa_protobuf//:protobuf",
+]
+
+py_library(
+    name = "google",
+    srcs = glob(["google/**/*.py"]),
+    deps = PYPA_DEPS,
+)
+
+py_library(
+    name = "gcs",
+    srcs = glob(["gcs/**/*.py"]),
+    deps = PYPA_DEPS,
+)
+
+py_library(
+    name = "testbench",
+    srcs = glob(
+        include = ["testbench/**/*.py"],
+        exclude = ["testbench/rest_server.py"],
+    ),
+    deps = [
+        ":gcs",
+        ":google",
+    ] + PYPA_DEPS,
+)
+
+py_binary(
+    name = "rest_server",
+    srcs = ["testbench/rest_server.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":gcs",
+        ":google",
+        ":testbench",
+    ] + PYPA_DEPS,
+)

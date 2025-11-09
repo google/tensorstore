@@ -1,0 +1,12 @@
+// c.proto
+
+syntax = "proto3";
+
+package test;
+
+message Empty {}
+
+service C {
+  // Do nothing.
+  rpc Call(Empty) returns (Empty) {}
+}

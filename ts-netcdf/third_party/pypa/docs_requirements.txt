@@ -1,0 +1,10 @@
+# Packages required to build the documentation.
+# Limit sphinx version due to https://github.com/jbms/sphinx-immaterial/pull/395
+sphinx<7.4
+sphinx-immaterial>=0.12.4
+libclang
+clang-format
+black
+jsonschema
+pyyaml
+markupsafe

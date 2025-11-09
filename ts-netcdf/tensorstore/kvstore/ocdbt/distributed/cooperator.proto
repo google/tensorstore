@@ -1,0 +1,65 @@
+// Copyright 2022 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// gRPC service definition for OCDBT Cooperator service.
+
+syntax = "proto2";
+
+// Note: This package name is unfortunately part of the gRPC service identifier
+// sent over the network.
+package tensorstore.internal_ocdbt.grpc_gen;
+
+service Cooperator {
+  rpc GetOrCreateManifest(GetOrCreateManifestRequest)
+      returns (GetOrCreateManifestResponse) {}
+  rpc Write(WriteRequest) returns (WriteResponse) {}
+}
+
+message GetOrCreateManifestRequest {}
+
+message GetOrCreateManifestResponse {
+  // New root generation number.
+  optional uint64 root_generation = 1;
+}
+
+message WriteRequest {
+  // Key (hash) corresponding to the existing node to be modified.
+  optional bytes lease_key = 1;
+
+  // Expected height of the existing node.  This is specified in addition to
+  // `lease_key` because for the root node, `lease_key` does not encode the
+  // height.
+  optional int32 node_height = 2;
+
+  // Most recent existing root generation known.
+  optional uint64 root_generation = 3;
+
+  // Generation of the B+tree node as of `root_generation`.
+  optional bytes node_generation = 4;
+
+  // Mutation requests.
+  repeated bytes mutations = 5;
+}
+
+message WriteResponse {
+  // New root generation number.
+  optional uint64 root_generation = 1;
+
+  // Indicates for each entry in `mutations` whether the condition was
+  // satisfied.
+  //
+  // Each entry is represented by one bit.  The total size is equal to
+  // `CeilOfRatio(mutations.size(), 8)`.
+  optional bytes conditions_matched = 2;
+}

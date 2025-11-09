@@ -1,0 +1,130 @@
+package(default_visibility = ["//visibility:public"])
+
+# NOTE: ":h_file" should work as well as "s.h", right?
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "b",
+    srcs = ["b.cc"],
+    hdrs = ["b.h"],
+    implementation_deps = [":a"],
+)
+
+cc_library(
+    name = "b_public",
+    hdrs = ["b.h"],
+    implementation_deps = [":a"],
+)
+
+cc_library(
+    name = "b_public_isystem",
+    hdrs = ["b.h"],
+    implementation_deps = [":a"],
+    includes = ["."],
+)
+
+cc_binary(
+    name = "bb",
+    srcs = ["a.cc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "h_file",
+    srcs = select({
+        "//conditions:default": ["x.h"],
+        "//:other": ["y.h"],
+    }),
+    outs = ["a.h"],
+    cmd = ("$(location :bb) $$(dirname $$(dirname $<)/a/b) $$(dirname $< ) " +
+           " -I$(GENDIR)/foo -I$$(dirname $(location :subdir_z))/../.. " +
+           " $< $@ "),
+    tools = [":bb"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "other",
+    values = {"cpu": "darwin_arm64"},
+)
+
+proto_library(
+    name = "c_proto",
+    srcs = ["c.proto"],
+    deps = [
+        "@com_google_protobuf//:timestamp_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "c_proto_cc",
+    deps = [
+        ":c_proto",
+    ],
+)
+
+cc_test(
+    name = "a_test",
+    srcs = ["a.cc"],
+    deps = [":c_proto_cc"],
+)
+
+proto_library(
+    name = "c_proto_2",
+    srcs = ["c.proto"],
+)
+
+alias(
+    name = "c_proto_alias",
+    actual = ":c_proto",
+)
+
+alias(
+    name = "c_proto_cc_alias",
+    actual = ":c_proto_cc",
+)
+
+alias(
+    name = "a_alias",
+    actual = ":a",
+)
+
+alias(
+    name = "y_alias",
+    actual = "//subdir:y",
+)
+
+filegroup(
+    name = "abc_filegroup",
+    srcs = [
+        "a.cc",
+        "x.h",
+        "y.h",
+    ],
+)
+
+# Subdir references
+
+cc_library(
+    name = "subdir_x",
+    srcs = ["subdir/x.cc"],
+)
+
+filegroup(
+    name = "subdir_z",
+    srcs = ["subdir/z.proto"],
+)
+
+cc_library(
+    name = "defines",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    defines = [
+        "VERSION=\\\"" + (module_version() if module_version() != None else "") + "\\\"",
+    ],
+)

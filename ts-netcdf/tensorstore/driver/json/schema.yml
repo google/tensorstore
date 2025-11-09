@@ -1,0 +1,73 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/json
+allOf:
+  - $ref: TensorStoreKvStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: json
+      dtype:
+        const: json
+        description: |
+          Optional.  If specified, must be :json:`"json"`.
+      rank:
+        const: 0
+        description: |
+          Optional.  If specified, must be :json:`0`.
+      json_pointer:
+        type: string
+        default: ""
+        description: |
+          JSON Pointer (:rfc:`6901`) specifying a path within the JSON file.  With
+          the default value of :json:`""`, read and write operations apply to the
+          entire JSON file.  Specifying a non-empty pointer permits
+          reading/writing a sub-value within the full JSON file.  For example, if
+          the full JSON file contains :json:`{"a": {"b": 42}}`, specifying a
+          `.json_pointer` of :json:`"/a/b"` refers to the value
+          :json:`42`.  If the pointer refers to a non-existent member, read
+          operations return an error.  Write operations attempt to create the
+          member (and any ancestor objects), and return an error if the pointer is
+          inconsistent with the existing value; for example, it is an error to
+          write to a pointer that references a member of a non-object, non-array
+          value.
+examples:
+  - driver: json
+    kvstore: "gs://my-bucket/path/to/attributes.json"
+    json_pointer: "/a/2/b"
+definitions:
+  url:
+    $id: TensorStoreUrl/json
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`json:` TensorStore URL scheme
+    description: |
+      JSON TensorStores may be specified using the :file:`json:{json_pointer}`
+      URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/file.json/|json:"``
+              - .. code-block:: json
+
+                   {"driver": "json",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/file.json"}
+                   }
+            * - ``"file:///tmp/file.json/|json:/path/within/json"``
+              - .. code-block:: json
+
+                   {"driver": "json",
+                    "json_pointer": "/path/within/json",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/file.json"}
+                   }

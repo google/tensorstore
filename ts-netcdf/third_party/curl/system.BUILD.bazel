@@ -1,0 +1,6 @@
+cc_library(
+    name = "curl",
+    defines = ["TENSORSTORE_SYSTEM_CURL"],
+    linkopts = ["-lcurl"],
+    visibility = ["//visibility:public"],
+)

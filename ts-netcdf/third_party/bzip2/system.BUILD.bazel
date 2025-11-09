@@ -1,0 +1,5 @@
+cc_library(
+    name = "bz2",
+    linkopts = ["-lbz2"],
+    visibility = ["//visibility:public"],
+)

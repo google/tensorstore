@@ -1,0 +1,138 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: ChunkedTensorStoreKvStoreAdapter
+description: |-
+  Common options supported by all chunked storage drivers.
+allOf:
+  - $ref: TensorStoreKvStoreAdapter
+  - type: object
+    properties:
+      open:
+        type: boolean
+        description: |-
+          Open an existing TensorStore.  If neither `.open` nor
+          `.create` is specified, defaults to ``true``.
+      create:
+        type: boolean
+        description: |-
+          Create a new TensorStore.  Specify ``true`` for both `.open`
+          and `.create` to permit either opening an existing TensorStore
+          or creating a new TensorStore if it does not already exist.
+        default: false
+      delete_existing:
+        type: boolean
+        description: |-
+          Delete any existing data at the specified path before creating
+          a new TensorStore.  Requires that `.create` is
+          ``true``, and that `.open` is ``false``.
+        default: false
+      assume_metadata:
+        type: boolean
+        description: |-
+          Neither read nor write stored metadata.  Instead, just assume any
+          necessary metadata based on constraints in the spec, using the same
+          defaults for any unspecified metadata as when creating a new
+          TensorStore.  The stored metadata need not even exist.  Operations such
+          as resizing that modify the stored metadata are not supported.  Requires
+          that `.open` is ``true`` and `.delete_existing` is ``false``.  This
+          option takes precedence over `.assume_cached_metadata` if that option is
+          also specified.
+
+          .. warning::
+
+             This option can lead to data corruption if the assumed metadata does
+             not match the stored metadata, or multiple concurrent writers use
+             different assumed metadata.
+        default: false
+      assume_cached_metadata:
+        type: boolean
+        description: |-
+          Skip reading the metadata when opening.  Instead, just assume any
+          necessary metadata based on constraints in the spec, using the same
+          defaults for any unspecified metadata as when creating a new
+          TensorStore.  The stored metadata may still be accessed by subsequent
+          operations that need to re-validate or modify the metadata.  Requires
+          that `.open` is ``true`` and `.delete_existing` is ``false``.  The
+          `.assume_metadata` option takes precedence if also specified.
+
+          .. note::
+
+             Unlike the `.assume_metadata` option, operations such as resizing
+             that modify the stored metadata are supported (and access the stored
+             metadata).
+
+          .. warning::
+
+             This option can lead to data corruption if the assumed metadata does
+             not match the stored metadata, or multiple concurrent writers use
+             different assumed metadata.
+        default: false
+      metadata_cache_pool:
+        $ref: ContextResource
+        title: Cache pool for metadata only.
+        description: |-
+          Specifies or references a previously defined
+          `Context.cache_pool`.  If not specified, defaults to the value of
+          `.cache_pool`.
+      recheck_cached_metadata:
+        $ref: CacheRevalidationBound
+        default: open
+        description: |
+          Time after which cached metadata is assumed to be fresh.  Cached
+          metadata older than the specified time is revalidated prior to use.  The
+          metadata is used to check the bounds of every read or write operation.
+
+          Specifying ``true`` means that the metadata will be revalidated
+          prior to every read or write operation.  With the default value of
+          ``"open"``, any cached metadata is revalidated when the TensorStore
+          is opened but is not rechecked for each read or write operation.
+      recheck_cached_data:
+        default: true
+        description: |
+          Time after which cached data is assumed to be fresh.  Cached data older
+          than the specified time is revalidated prior to being returned from a
+          read operation.  Partial chunk writes are always consistent regardless
+          of the value of this option.
+
+          The default value of ``true`` means that cached data is revalidated
+          on every read.  To enable in-memory data caching, you must both specify
+          a `~Context.cache_pool` with a non-zero
+          `~Context.cache_pool.total_bytes_limit` and also specify ``false``,
+          ``"open"``, or an explicit time bound for `.recheck_cached_data`.
+      fill_missing_data_reads:
+        default: true
+        title: Replace missing chunks with the fill value when reading.
+        description: |
+          If disabled, reading a missing chunk will result in an error. Note
+          that the fill value may still be used when writing a partial chunk.
+          Typically this should only be set to ``false`` in the case that
+          `.store_data_equal_to_fill_value` was enabled when writing.
+      store_data_equal_to_fill_value:
+        default: false
+        title: |
+          Store all explicitly written data, even if it is equal to the fill
+          value.
+        description: |
+          This ensures that explicitly written data, even if it is equal to the
+          fill value, can be distinguished from missing data. If disabled,
+          chunks equal to the fill value may be represented as missing chunks.
+    required:
+      - kvstore
+definitions:
+  cache-revalidation-bound:
+    $id: CacheRevalidationBound
+    description: Determines under what circumstances cached data is revalidated.
+    oneOf:
+      - const: true
+        description: |-
+          Revalidate cached data at every operation.
+      - const: false
+        description: |-
+          Assume cached data is always fresh and never revalidate.
+      - const: open
+        description: |-
+          Revalidate cached data older than the time at which the TensorStore was
+          opened.
+      - type: number
+        description: |-
+          Revalidate cached data older than the specified time in seconds since
+          the unix epoch.

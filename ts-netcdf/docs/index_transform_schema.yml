@@ -1,0 +1,198 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: IndexTransform
+description: |
+  :ref:`Index transforms<index-transform>` may be serialized to/from JSON using
+  the following schema.
+
+  The input domain is specified by `.input_rank`,
+  `.input_inclusive_min`, `.input_exclusive_max`,
+  `.input_inclusive_max`, `.input_shape`, and
+  `.input_labels`, while the output index maps are specified by
+  `.output`.
+
+  If neither `.input_inclusive_min` nor `.input_shape`
+  is specified, all dimensions receive an implicit lower bound of
+  :math:`-\infty`.  If `.input_shape` is specified but
+  `.input_inclusive_min` is not specified, all dimensions receive an
+  explicit lower bound of 0.
+
+  At most one of `.input_exclusive_max`,
+  `.input_inclusive_max`, and `.input_shape` may be
+  specified.  If none are specified, all dimensions receive an implicit upper
+  bound of :math:`+\infty`.
+
+type: object
+properties:
+  input_rank:
+    type: integer
+    minimum: 0
+    maximum: 32
+    title: Number of input dimensions.
+    description: |
+      The input rank must be specified either directly, or implicitly by the
+      number of dimensions specified for `.input_inclusive_min`,
+      `.input_inclusive_max`, `.input_exclusive_max`,
+      `.input_shape`, or `.input_labels`.
+  input_inclusive_min:
+    type: array
+    items:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            - type: integer
+    title: |
+      Inclusive lower bounds of the input domain.
+    description: |
+      Length must equal the `.input_rank`.  Bounds specified as
+      :samp:`{n}` indicate normal, explicit bounds, while bounds specified as
+      :samp:`[{n}]` indicate :ref:`implicit bounds<implicit-bounds>`.  For example,
+      :json:`[1, [2]]` specifies an explicit bound of :math:`1 \leq x` for the
+      first dimension and an implicit bound of :math:`2 \leq x` for the second
+      dimension.
+  input_exclusive_max:
+    type: array
+    items:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            - type: integer
+    title: |
+      Exclusive upper bounds of the input domain.
+    description: |
+      Length must equal the `.input_rank`.  As for
+      `.input_inclusive_min`, bounds specified as :samp:`{n}`
+      indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, :json:`[5,
+      [7]]` specifies an explicit bound of :math:`x < 5` for the first dimension
+      and an implicit bound of :math:`x < 7` for the second dimension.
+  input_inclusive_max:
+    type: array
+    items:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            - type: integer
+    title: |
+      Inclusive upper bounds of the input domain.
+    description: |
+      Length must equal the `.input_rank`.  As for
+      `.input_inclusive_min`, bounds specified as :samp:`{n}`
+      indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, :json:`[5,
+      [7]]` specifies an explicit bound of :math:`x \leq 5` for the first
+      dimension and an implicit bound of :math:`x \leq 7` for the second
+      dimension.
+  input_shape:
+    type: array
+    items:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            - type: integer
+    title: |
+      Extent of each dimension of the input domain.
+    description: |
+      Length must equal the `.input_rank`.  As for
+      `.input_inclusive_min`, bounds specified as :samp:`{n}`
+      indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, assuming an
+      `.input_inclusive_min` of :json:`[1, 2]`, an
+      `.input_shape` of :json:`[5, [7]]` specifies an explicit bound
+      of :math:`x < 6` for the first dimension and an implicit bound of :math:`x
+      < 9` for the second dimension.
+  input_labels:
+    type: array
+    items:
+      type: string
+    title: |
+      :ref:`Dimension labels<dimension-labels>` for each input domain dimension.
+    description: |
+      Length must equal the `.input_rank`.  An empty string
+      indicates an unlabeled dimension.  Non-empty strings must not occur more
+      than once.  By default, all dimensions are unlabeled.
+  output:
+    type: array
+    title: |
+      Specifies the output index map for each output dimension.
+    description: |
+      If not specified, defaults to an identity transform over the input domain.
+      Otherwise, the length determines the output rank of the transform.
+    items:
+      $ref: OutputIndexMap
+definitions:
+  output-index-map:
+    $id: OutputIndexMap
+    title: Specifies a transform from an input space to a single output index.
+    description: |
+      Logically, an output index map is a function that maps ``n``-dimensional
+      input index vectors to a single output index, using one of the supported
+      :ref:`output index methods<output-index-methods>`.  This is used to
+      represent the :json:schema:`IndexTransform.output` mapping for each output
+      dimension of an `IndexTransform`.
+    type: object
+    properties:
+      offset:
+        type: integer
+        title: |
+          Specifies an offset for this output dimension.  If neither
+          `.input_dimension` nor `.index_array` is
+          specified, this specifies the **constant** value to which this output
+          dimension maps.
+      stride:
+        type: integer
+        title: |
+          Multiplier for the input index specified by
+          `.input_dimension` or the index array value specified by
+          `.index_array`.
+        description: |
+          Only valid to specify in conjunction with
+          `.input_dimension` or `.index_array`.
+      input_dimension:
+        type: integer
+        minimum: 0
+        title: |
+          If present, indicates that this output dimension uses a **single
+          input dimension** map with the specified input dimension.  Must not
+          be specified in conjunction with `.index_array`.
+      index_array:
+        oneOf:
+          - type: array
+          - type: integer
+        title: |
+          If present, indicates that this output dimension uses an **index
+          array** map, with the index array specified as a nested list of rank
+          equal to the `~IndexTransform.input_rank`.
+        description: |
+          If the `~IndexTransform.input_rank` is 0, must be a numeric value.
+      index_array_bounds:
+        $ref: IndexInterval
+        description: |
+          If present, specifies constraints on the values within
+          `.index_array` (which must also be specified).  If
+          `.index_array` contains an out-of-bounds index, an error
+          may not be returned immediately but will be returned if the
+          corresponding position within the domain is accessed.  If the
+          indices in `.index_array` have already been validated,
+          this need not be specified.  This allows transforms containing
+          out-of-bounds index array indices to correctly round trip through
+          JSON, but normally need not be specified manually.
+        default: ["-inf", "+inf"]
+        examples:
+          - [5, 100]
+          - ["-inf", 10]
+          - [-20, "+inf"]
+  index-interval:
+    $id: IndexInterval
+    title: Specifies a closed interval of integer index values.
+    type: array
+    items:
+      - oneOf:
+          - type: integer
+          - const: "-inf"
+      - oneOf:
+          - type: integer
+          - const: "+inf"

@@ -1,0 +1,198 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])
+
+exports_files(["COPYING"])
+
+# To enable curl debug output, specify:
+# bazel build --@curl//:debug
+bool_flag(
+    name = "debug",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "debug_setting",
+    flag_values = {
+        ":debug": "True",
+    },
+)
+
+LOCAL_DEFINES = (
+    [
+        "BUILDING_LIBCURL",
+        "HTTP_ONLY",
+        "HAVE_CONFIG_H",
+        "HAVE_LIBZ",
+        "HAVE_ZLIB_H",
+        "HAVE_ZSTD_H",
+        "HAVE_BROTLI",
+        "ENABLE_IPV6",
+        # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
+    ] + select(
+        {
+            "@platforms//os:windows": [],
+            "//conditions:default": ["_GNU_SOURCE"],
+        },
+    ) + select(
+        {
+            "@platforms//os:osx": [],
+            "@platforms//os:windows": [
+                # See curl.h for discussion of write size and Windows
+                "CURL_MAX_WRITE_SIZE=16384",
+                "USE_IPV6",
+            ],
+            "//conditions:default": [
+                "CURL_MAX_WRITE_SIZE=65536",
+            ],
+        },
+    ) + select(
+        {
+            ":debug_setting": ["DEBUGBUILD"],
+            "//conditions:default": [],
+        },
+    )
+)
+
+cc_library(
+    name = "curl",
+    srcs = glob(
+               include = [
+                   "lib/**/*.c",
+               ],
+               exclude = [
+                   "lib/socks_sspi.c",
+                   "lib/system_win32.c",
+                   "lib/vauth/spnego_sspi.c",
+                   "lib/vtls/openssl.c",
+                   "lib/vtls/schannel.c",
+                   "lib/vtls/schannel_verify.c",
+                   "lib/vtls/sectransp.c",
+               ],
+           ) +
+           select(
+               {
+                   "@platforms//os:osx": [
+                       "lib/vtls/sectransp.c",
+                   ],
+                   "@platforms//os:ios": [
+                       "lib/vtls/sectransp.c",
+                   ],
+                   "@platforms//os:windows": [
+                       "lib/socks_sspi.c",
+                       "lib/system_win32.c",
+                       "lib/vauth/spnego_sspi.c",
+                       "lib/vtls/schannel.c",
+                       "lib/vtls/schannel_verify.c",
+                   ],
+                   "//conditions:default": [
+                       "lib/vtls/openssl.c",
+                   ],
+               },
+           ),
+    hdrs = glob(
+        [
+            "include/curl/*.h",
+        ],
+    ) + [
+        "include/curl_config.h",
+    ],
+    copts = select(
+        {
+            ":compiler_msvc": [],
+            "//conditions:default": [
+                "-Wno-string-plus-int",
+                "-Wno-pointer-bool-conversion",
+            ],
+        },
+    ) + select(
+        {
+            "@platforms//os:osx": [
+                "-fno-constant-cfstrings",
+            ],
+            "//conditions:default": [],
+        },
+    ),
+    defines = ["CURL_STATICLIB"],
+    implementation_deps = [
+        ":curl_lib_includes",
+        "@zlib//:zlib",
+        "@zstd//:zstd",
+        "@brotli//:brotlidec",
+        # "@c-ares//:ares",
+        "@org_nghttp2//:nghttp2",
+    ] + select(
+        {
+            "@platforms//os:ios": [],
+            "@platforms//os:windows": [],
+            "//conditions:default": [
+                "@boringssl//:ssl",
+            ],
+        },
+    ),
+    includes = ["include"],
+    linkopts = select(
+                   {
+                       "@platforms//os:android": [
+                           "-pie",
+                       ],
+                       "@platforms//os:osx": [
+                           "-Wl,-framework,CoreFoundation",
+                           "-Wl,-framework,SystemConfiguration",
+                           "-Wl,-framework,Security",
+                       ],
+                       "@platforms//os:ios": [],
+                       "@platforms//os:windows": [
+                           "-DEFAULTLIB:ws2_32.lib",
+                           "-DEFAULTLIB:advapi32.lib",
+                           "-DEFAULTLIB:crypt32.lib",
+                           "-DEFAULTLIB:Normaliz.lib",
+                           "-DEFAULTLIB:bcrypt.lib",
+                       ],
+                       "//conditions:default": [
+                           "-lrt",
+                       ],
+                   },
+               ) +
+               select(
+                   {
+                       ":compiler_mingw_gcc": [
+                           "-lws2_32",
+                           "-ladvapi32",
+                           "-lcrypt32",
+                           "-lNormaliz",
+                           "-lbcrypt",
+                       ],
+                       "//conditions:default": [],
+                   },
+               ),
+    local_defines = LOCAL_DEFINES,
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "curl_lib_includes",
+    hdrs = glob([
+        "lib/**/*.h",
+    ]),
+    strip_include_prefix = "lib",
+)
+
+copy_file(
+    name = "curl_config_h",
+    src = "@tensorstore//third_party:curl/config/curl_config.h",
+    out = "include/curl_config.h",
+)
+
+alias(
+    name = "compiler_mingw_gcc",
+    actual = "@rules_cc//cc/compiler:mingw-gcc",
+)
+
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
+)

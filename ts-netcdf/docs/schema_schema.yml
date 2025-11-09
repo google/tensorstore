@@ -1,0 +1,126 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: Schema
+type: object
+properties:
+  rank:
+    type: integer
+    minimum: 0
+    maximum: 32
+    title: Number of dimensions.
+    description: |
+      The rank is always a hard constraint.
+  dtype:
+    $ref: dtype
+    title: Specifies the data type of the TensorStore.
+    description: |
+      The data type is always a hard constraint.
+  domain:
+    $ref: IndexDomain
+    title: |
+      Domain of the TensorStore, including bounds and optional dimension labels.
+    description: |
+      The domain is always a hard constraint, except that a labeled dimension is
+      allowed to match an unlabeled dimension, and an implicit, infinite bound
+      is considered an unspecified bound and does not impose any constraints.
+      When merging two schema constraint objects that both specify domains, any
+      dimensions that are labeled in both domains must have the same label, and
+      any explicit or finite bounds specified in both domains must be equal.  If
+      a dimension is labeled in one domain and unlabeled in the other, the label
+      is retained.  If a bound is implicit and infinite in one domain, the bound
+      from the other domain is used.
+  chunk_layout:
+    $ref: ChunkLayout
+    title: Data storage layout constraints.
+    description: |
+      The rank of the chunk layout must match the `.rank` of the schema.  When
+      merging schema constraints objects, the chunk layout constraints are
+      merged recursively.
+  codec:
+    $ref: Codec
+    description: |
+      Driver-specific compression and other parameters for encoding/decoding
+      data.  When merging schema constraints objects, the codec constraints are
+      merged recursively.
+  fill_value:
+    title: Fill value to use for missing data.
+    description: |
+      Must be :ref:`broadcast-compatible<index-domain-alignment>` with the
+      `.domain`.
+  dimension_units:
+    title: Physical units of each dimension.
+    type: array
+    items:
+      oneOf:
+      - $ref: Unit
+      - type: 'null'
+    description: |
+      Specifies the physical quantity corresponding to an increment of 1 index
+      along each dimension, i.e. the *resolution*.  The length must match the
+      `.rank` of the schema.  Specifying :json:`null` for a dimension indicates
+      that the unit is unknown.
+
+      .. admonition:: Example
+         class: example
+
+         :json:`["4nm", "4nm", null]` specifies that the voxel size is 4nm along
+         the first two dimensions, and unknown along the third dimension.
+
+      .. note::
+
+         :json:`null` is not equivalent to specifying :json:`""` (or
+         equivalently, :json:`[1, ""]`), which indicates a dimensionless unit of
+         :json:`1`.
+definitions:
+  unit:
+    $id: 'Unit'
+    title: Specifies a physical quantity/unit.
+    description: |
+      The quantity is specified as the combination of:
+
+      - A numerical :literal:`multiplier`, represented as a `double-precision
+        floating-point number
+        <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`_.
+        A multiplier of ``1`` may be used to indicate a quantity equal to a
+        single base unit.
+
+      - A :literal:`base_unit`, represented as a string.  An empty string may be used
+        to indicate a dimensionless quantity.  In general, TensorStore does not
+        interpret the base unit string; some drivers impose additional
+        constraints on the base unit, while other drivers may store the
+        specified unit directly.  It is recommended to follow the `udunits2
+        syntax
+        <https://www.unidata.ucar.edu/software/udunits/udunits-2.0.4/udunits2lib.html#Syntax>`_
+        unless there is a specific need to deviate.
+
+      Three JSON formats are supported:
+
+      - The canonical format, as a two-element :python:`[multiplier, base_unit]`
+        array.  This format is always used by TensorStore when returning the
+        JSON representation of a unit.
+
+      - A single string.  If the string contains a leading number, it is parsed
+        as the :literal:`multiplier` and the remaining portion, after stripping leading
+        and trailing whitespace, is used as the :literal:`base_unit`.  If there is no
+        leading number, the :literal:`multiplier` is 1 and the entire string, after
+        stripping leading and trailing whitespace, is used as the :literal:`base_unit`.
+
+      - A single number, to indicate a dimension-less unit with the specified
+        multiplier.
+
+      .. admonition:: Example
+         class: example
+
+         - :json:`"4.5e-9m"`, :json:`"4.5e-9 m"`, and :json:`[4.5e-9, "m"]` are
+           all equivalent.
+
+         - :json:`"1nm"`, :json:`"nm"`, and :json:`[1, "nm"]` are all
+           equivalent.
+
+         - :json:`5`, :json:`"5"`, and :json:`[5, ""]` are all equivalent.
+    oneOf:
+    - type: array
+      items:
+      - type: number
+      - type: string
+    - type: string
+    - type: number

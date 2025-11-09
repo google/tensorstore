@@ -1,0 +1,81 @@
+# Description:
+#   AWS s2n tls
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+cc_library(
+    name = "aws_c_io",
+    srcs = glob([
+        "source/*.h",
+        "source/*.c",
+        "source/pkcs11/**/*.h",
+    ]) + select({
+        "@platforms//os:windows": glob([
+            "source/windows/*.c",
+            "source/windows/iocp/*.c",
+        ]),
+        "@platforms//os:osx": glob([
+            "source/bsd/*.c",
+            "source/darwin/*.c",
+            "source/darwin/*.h",
+            "source/posix/*.c",
+        ]),
+        "//conditions:default": glob([
+            "source/linux/*.c",
+            "source/posix/*.c",
+            "source/s2n/*.h",
+            "source/s2n/*.c",
+        ]),
+    }),
+    hdrs = glob([
+        "include/aws/io/**/*.h",
+    ]),
+    includes = ["include"],
+    linkopts = select({
+        "@rules_cc//cc/compiler:msvc-cl": [
+            "-DEFAULTLIB:ncrypt.lib",
+            "-DEFAULTLIB:ws2_32.lib",
+            "-DEFAULTLIB:secur32.lib",
+            "-DEFAULTLIB:crypt32.lib",
+            "-DEFAULTLIB:kernel32.lib",
+        ],
+        "@rules_cc//cc/compiler:mingw-gcc": [
+            "-lncrypt",
+            "-lws2_32",
+            "-lsecur32",
+            "-lcrypt32",
+            "-lkernel32",
+            "-ldl",
+            "-lpthread",
+        ],
+        "//conditions:default": [
+            "-ldl",
+            "-lpthread",
+        ],
+    }),
+    local_defines = ["AWS_S2N_INSOURCE_PATH"] + select({
+        "@platforms//os:windows": [
+            "AWS_ENABLE_IO_COMPLETION_PORTS",
+        ],
+        "@platforms//os:osx": [
+            "AWS_ENABLE_KQUEUE",
+        ],
+        "//conditions:default": [
+            "AWS_ENABLE_EPOLL",
+            "USE_S2N",
+        ],
+    }),
+    deps = [
+        "@aws_c_cal",
+        "@aws_c_common",
+        "@boringssl//:crypto",
+    ] + select({
+        "@platforms//os:windows": [],
+        "@platforms//os:osx": [],
+        "//conditions:default": [
+            "@aws_s2n_tls//:s2n_tls",
+        ],
+    }),
+)

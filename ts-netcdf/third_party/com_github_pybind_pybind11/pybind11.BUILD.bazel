@@ -1,0 +1,14 @@
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "pybind11",
+    hdrs = glob(include = ["include/pybind11/**/*.h"]),
+    includes = ["include"],
+    deps = [
+        "@rules_python//python/cc:current_py_cc_headers",
+    ],
+)

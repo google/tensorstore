@@ -1,0 +1,49 @@
+package(default_visibility = ["//visibility:private"])
+
+proto_library(
+    name = "z_proto",
+    srcs = ["z.proto"],
+)
+
+genrule(
+    name = "make_y",
+    outs = ["y.h"],
+    cmd = "$(location //:bb) $@ ",
+    tools = ["//:bb"],
+)
+
+genrule(
+    name = "make_ycc",
+    outs = ["y.cc"],
+    cmd = "$(location //:bb) $@ ",
+    tools = ["//:bb"],
+)
+
+cc_library(
+    name = "y",
+    srcs = [
+        "y.cc",
+        "y.h",
+    ],
+)
+
+cc_library(
+    name = "y_strip_include_prefix",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+    strip_include_prefix = "/subdir",
+)
+
+cc_library(
+    name = "y_include_prefix",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+    include_prefix = "subdir",
+)
+
+cc_library(
+    name = "y_includes",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+    includes = ["."],
+)

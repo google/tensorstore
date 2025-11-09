@@ -1,0 +1,55 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/memory
+title: Read/write, non-persistent in-memory storage.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: memory
+    memory_key_value_store:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.memory_key_value_store`.
+    atomic:
+      type: boolean
+      default: true
+      description: |-
+        Support atomic multi-key transactions.  If set to ``false``, the
+        transaction behavior matches that of the `kvstore/file` and
+        `kvstore/gcs` drivers, which may be useful for testing purposes.
+definitions:
+  memory_key_value_store:
+    $id: Context.memory_key_value_store
+    description: |-
+      Represents the in-memory key-value store.  If multiple `kvstore/memory`
+      specifications reference the same `Context.memory_key_value_store`, they
+      all refer to the same in-memory set of key/value pairs.
+    type: object
+  url:
+    $id: KvStoreUrl/memory
+    allOf:
+    - $ref: KvStoreUrl
+    - type: string
+    type: string
+    title: |
+      :literal:`memory://` KvStore URL scheme
+    description: |
+      In-memory key-value stores may be specified using the custom
+      :file:`memory://{path}` URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"memory://"``
+              - ``{"driver": "memory"}``
+            * - ``"memory://path/to/dataset"``
+              - ``{"driver": "memory", "path": "path/to/dataset"}``

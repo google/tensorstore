@@ -1,0 +1,23 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/array
+allOf:
+- $ref: TensorStore
+- type: object
+  properties:
+    driver:
+      const: array
+    array:
+      title: |
+        Nested array of rank equal to `.rank` specifying the initial value.
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.  It is normally more convenient to
+        specify a default `~Context.data_copy_concurrency` in the `.context`.
+      default: data_copy_concurrency
+  required:
+    - array
+    - dtype
+examples:
+  - {"driver": "array", "array": [[1, 2, 3], [4, 5, 6]], "dtype": "int32"}

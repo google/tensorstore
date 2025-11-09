@@ -1,0 +1,363 @@
+# Bazel BUILD file for dav1d.
+#
+# Canonical location for dav1d codec is https://code.videolan.org/videolan/dav1d
+#
+
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_nasm//nasm:nasm_cc_library.bzl", "nasm_cc_library")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])  # BSD license
+
+exports_files(["COPYING"])
+
+cc_library(
+    name = "dav1d",
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-ldl"],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":dav1d_core",
+        ":dav1d_16bit",
+        ":dav1d_8bit",
+        ":headers",
+    ] + select({
+        "@platforms//cpu:arm64": [],
+        "@platforms//cpu:ppc": [],
+        "@platforms//cpu:x86_64": [":dav1d_asm_x86"],
+    }),
+)
+
+ARM_ASM_SRCS = glob(
+    [
+        "src/arm/*.c",
+        "src/arm/64/*.S",
+    ],
+    exclude = [
+        "src/arm/64/util.S",
+        "src/arm/64/*_tmpl.S",
+    ],
+)
+
+PPC_ASM_SRCS = glob(
+    [
+        "src/ppc/*.c",
+    ],
+    exclude = [
+        "src/ppc/*_tmpl.c",
+    ],
+)
+
+# TMPL_SRCS are compiled for BITDEPTH=8 and BITDEPTH=16
+TMPL_SRCS = glob(["src/*_tmpl.c"]) + select({
+    "@platforms//cpu:arm64": glob(["src/arm/*_tmpl.c"], allow_empty = True),
+    "@platforms//cpu:ppc": glob(["src/ppc/*_tmpl.c"], allow_empty = True),
+    "@platforms//cpu:x86_64": glob(["src/x86/*_tmpl.c"], allow_empty = True),
+})
+
+DAV1D_SRCS = glob(
+    include = ["src/*.c"],
+    exclude = ["src/*_tmpl.c"],
+) + select({
+    "@platforms//os:windows": glob(["src/win32/*.c"]),
+    "//conditions:default": [],
+}) + select({
+    "@platforms//cpu:arm64": ARM_ASM_SRCS,
+    "@platforms//cpu:ppc": PPC_ASM_SRCS,
+    "@platforms//cpu:x86_64": glob(
+        ["src/x86/*.c"],
+        exclude = ["src/x86/*_tmpl.c"],
+    ),
+})
+
+TEXTUAL_HDRS = select({
+    "@platforms//cpu:arm64": glob([
+        "src/*.h",
+        "src/arm/*.h",
+        "src/arm/asm.S",
+        "src/arm/64/*_tmpl.S",
+        "src/arm/64/util.S",
+    ]),
+    "@platforms//cpu:ppc": glob([
+        "src/*.h",
+        "src/ppc/*.h",
+    ]),
+    "@platforms//cpu:x86_64": glob([
+        "src/*.h",
+        "src/x86/*.h",
+    ]),
+})
+
+# Notes on copts/defines for x86:
+#
+# -fvisibility=hidden: The NASM function symbols are marked .hidden, so the
+# other libraries should be built with this flag and `linkstatic = 1` in order to
+# resolve symbols properly. When the hidden symbols are not found the linker
+# may present an error like "requires dynamic R_X86_64_PC32 reloc against
+# 'dav1d_filter_intra_taps' which may overflow at runtime".
+# Try to `objdump -x` the object files to determine if that's happening.
+#
+
+MSVC_COPTS = [
+    "/W3",
+    "/wd4028",
+    "/wd4090",
+    "/wd4996",
+    "-D_POSIX_C_SOURCE=200112L",
+]
+
+GCC_CLANG_COPTS = [
+    "-std=c11",
+    "-fomit-frame-pointer",
+    "-ffast-math",
+    "-fPIC",
+    "-fvisibility=hidden",
+]
+
+COPTS = select({
+    ":compiler_msvc": MSVC_COPTS,
+    "//conditions:default": GCC_CLANG_COPTS,
+}) + select({
+    "@platforms//cpu:arm64": ["-DNEON_INTRINSICS"],
+    "//conditions:default": [],
+}) + select({
+    "@platforms//os:linux": [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_GNU_SOURCE",
+    ],
+    "@platforms//os:macos": [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_DARWIN_C_SOURCE",
+    ],
+    "//conditions:default": [],
+})
+
+cc_library(
+    name = "dav1d_core",
+    srcs = DAV1D_SRCS,
+    copts = COPTS,
+    linkstatic = 1,
+    textual_hdrs = TEXTUAL_HDRS,
+    deps = [
+        ":headers",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "dav1d_8bit",
+    srcs = TMPL_SRCS,
+    copts = COPTS + [
+        "-DBITDEPTH=8",
+    ],
+    linkstatic = 1,
+    textual_hdrs = TEXTUAL_HDRS,
+    deps = [":headers"],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "dav1d_16bit",
+    srcs = TMPL_SRCS,
+    copts = COPTS + [
+        "-DBITDEPTH=16",
+    ],
+    linkstatic = 1,
+    textual_hdrs = TEXTUAL_HDRS,
+    deps = [":headers"],
+    alwayslink = 1,
+)
+
+nasm_cc_library(
+    name = "dav1d_asm_x86",
+    srcs = glob(
+        include = ["src/x86/*.asm"],
+        exclude = ["src/x86/filmgrain_common.asm"],
+    ),
+    copts = [
+        "-s",
+        "-w-macro-params-legacy",
+        "-w-orphan-labels",
+    ],
+    includes = ["src", "build"],
+    hdrs = [
+        "build/config.asm",
+        "src/ext/x86/x86inc.asm",
+        "src/x86/filmgrain_common.asm",
+    ],
+    linkstatic = 1,
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "headers",
+    hdrs = [
+        "build/config.h",
+        "build/vcs_version.h",
+        "include/dav1d/version.h",
+        "include/dav1d/common.h",
+        "include/dav1d/data.h",
+        "include/dav1d/dav1d.h",
+        "include/dav1d/headers.h",
+        "include/dav1d/picture.h",
+        "include/common/attributes.h",
+        "include/common/intops.h",
+        "include/common/frame.h",
+        "include/common/validate.h",
+        # "include/compat/getopt.h",
+        "include/common/bitdepth.h",
+        "include/common/dump.h",
+        "include/compat/msvc/stdatomic.h",
+        # "include/compat/gcc/stdatomic.h",
+    ],
+    copts = COPTS,
+    includes = [
+        "build",
+        "include",
+        "include/dav1d",
+    ] + select({
+        ":compiler_msvc": ["include/compat/msvc"],
+        "//conditions:default": [],
+    }),
+)
+
+expand_template(
+    name = "build_vcs_version_h",
+    out = "build/vcs_version.h",
+    substitutions = {
+        "@VCS_TAG@": "1.1.0",
+    },
+    template = "include/vcs_version.h.in",
+)
+
+X86_64_CONFIG_ASM = [
+    "; Generated by dav1d.BUILD.bazel",
+    "%define ARCH_X86_32 0",
+    "%define ARCH_X86_64 1",
+    "%define HAVE_AVX512ICL 0",
+    "%define PIC 1",
+    "%define private_prefix dav1d",
+    "",
+]
+
+DARWIN_CONFIG_ASM = [
+    "%define PREFIX 1",
+    "",
+]
+
+CONFIG_ASM = select({
+    "@platforms//os:windows": X86_64_CONFIG_ASM,
+    "@platforms//os:macos": X86_64_CONFIG_ASM + DARWIN_CONFIG_ASM,
+    "//conditions:default": X86_64_CONFIG_ASM,
+})
+
+write_file(
+    name = "config_asm",
+    out = "build/config.asm",
+    content = CONFIG_ASM,
+    newline = "unix",
+)
+
+CONFIG_START_H = [
+    "// Autogenerated by dav1d.BUILD.bazel",
+    "#ifndef _DAV1D_CONFIG_H_",
+    "#define _DAV1D_CONFIG_H_",
+    "#pragma once",
+    "",
+]
+
+X86_64_CONFIG_H = [
+    "#define ARCH_AARCH64 0",
+    "#define ARCH_ARM 0",
+    "#define ARCH_X86 1",
+    "#define ARCH_X86_32 0",
+    "#define ARCH_X86_64 1",
+    "#define HAVE_AVX512ICL 0",
+    "#define ARCH_PPC64LE 0",
+    "",
+    "#define HAVE_ASM 1",
+    "",
+]
+
+DARWIN_CONFIG_H = ["#define PREFIX 1"]
+
+ARM64_CONFIG_H = [
+    "#pragma once",
+    "",
+    "#define ARCH_AARCH64 1",
+    "#define ARCH_ARM 0",
+    "#define ARCH_X86 0",
+    "#define ARCH_X86_32 0",
+    "#define ARCH_X86_64 0",
+    "#define ARCH_PPC64LE 0",
+    "",
+    "#define HAVE_ASM 1",
+    "#define HAVE_AS_FUNC 0",
+    "",
+]
+
+PPC_CONFIG_H = [
+    "#define ARCH_AARCH64 0",
+    "#define ARCH_ARM 0",
+    "#define ARCH_X86 0",
+    "#define ARCH_X86_32 0",
+    "#define ARCH_X86_64 0",
+    "#define ARCH_PPC64LE 1",
+    "",
+    "#define HAVE_ASM 1",
+    "#define HAVE_AS_FUNC 0",
+    "",
+]
+
+CONFIG_END_H = [
+    "",
+    "#define CONFIG_16BPC 1",
+    "#define CONFIG_8BPC 1",
+    "#define CONFIG_LOG 0",
+    "#define ENDIANNESS_BIG 0",
+    "",
+    "#if defined(_WIN32)",
+    "#  define HAVE_ALIGNED_MALLOC 1",
+    "#  define HAVE_IO_H 1",
+    "#  define UNICODE 1",
+    "#  define _CRT_DECLARE_NONSTDC_NAMES 1",
+    "#  define _UNICODE 1",
+    "#if !defined(__MINGW32__)",
+    "#  define fseeko _fseeki64",
+    "#  define ftello _ftelli64",
+    "#endif /* !defined(__MINGW32__) */",
+    "#else",
+    "#  define HAVE_CLOCK_GETTIME 1",
+    "#  define HAVE_DLSYM 1",
+    "#  define HAVE_POSIX_MEMALIGN 1",
+    "#  define HAVE_UNISTD_H 1",
+    "#endif",
+    "",
+    "#endif  // _DAV1D_CONFIG_H_",
+    "",
+]
+
+CONFIG_H = CONFIG_START_H + select({
+    "@platforms//cpu:x86_64": X86_64_CONFIG_H,
+    "@platforms//cpu:arm64": ARM64_CONFIG_H,
+    "@platforms//cpu:ppc": PPC_CONFIG_H,
+}) + select({
+    "@platforms//os:macos": DARWIN_CONFIG_H,
+    "//conditions:default": [],
+}) + CONFIG_END_H
+
+write_file(
+    name = "config_h",
+    out = "build/config.h",
+    content = CONFIG_H,
+    newline = "unix",
+)
+
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
+)

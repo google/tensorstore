@@ -1,0 +1,34 @@
+diff -Nur a/c/common/platform.h b/c/common/platform.h
+--- a/c/common/platform.h	2024-07-15 11:27:36
++++ b/c/common/platform.h	2024-09-11 21:48:42
+@@ -496,20 +496,21 @@
+ 
+ /* Circular logical rotates. */
+ static BROTLI_INLINE uint16_t BrotliRotateRight16(uint16_t const value,
+-                                             size_t count) {
+-  count &= 0x0F; /* for fickle pattern recognition */
+-  return (value >> count) | (uint16_t)(value << ((0U - count) & 0x0F));
++                                                  size_t count) {
++ return (uint16_t)(value >> (count & 15)) |
++        (uint16_t)(value << ((0u - count) & 15));
+ }
+ static BROTLI_INLINE uint32_t BrotliRotateRight32(uint32_t const value,
+-                                             size_t count) {
+-  count &= 0x1F; /* for fickle pattern recognition */
+-  return (value >> count) | (uint32_t)(value << ((0U - count) & 0x1F));
++                                                  size_t count) {
++ return (uint32_t)(value >> (count & 31)) |
++        (uint32_t)(value << ((0u - count) & 31));
+ }
+ static BROTLI_INLINE uint64_t BrotliRotateRight64(uint64_t const value,
+-                                             size_t count) {
+-  count &= 0x3F; /* for fickle pattern recognition */
+-  return (value >> count) | (uint64_t)(value << ((0U - count) & 0x3F));
++                                                  size_t count) {
++ return (uint64_t)(value >> (count & 63)) |
++        (uint64_t)(value << ((0u - count) & 63));
+ }
++
+ 
+ BROTLI_UNUSED_FUNCTION void BrotliSuppressUnusedFunctions(void) {
+   BROTLI_UNUSED(&BrotliSuppressUnusedFunctions);

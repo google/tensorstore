@@ -1,0 +1,11 @@
+cc_library(
+    name = "lz4",
+    linkopts = ["-llz4"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "lzma",
+    linkopts = ["-llzma"],
+    visibility = ["//visibility:public"],
+)

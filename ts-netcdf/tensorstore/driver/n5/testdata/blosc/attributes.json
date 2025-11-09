@@ -1,0 +1,18 @@
+{
+    "blockSize": [
+        3,
+        2
+    ],
+    "compression": {
+        "blocksize": 0,
+        "clevel": 5,
+        "cname": "lz4",
+        "shuffle": 1,
+        "type": "blosc"
+    },
+    "dataType": "uint16",
+    "dimensions": [
+        5,
+        4
+    ]
+}

@@ -1,0 +1,232 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/ocdbt
+title: Read/write adapter for the OCDBT format.
+allOf:
+  - $ref: KvStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: ocdbt
+      manifest:
+        oneOf:
+          - $ref: KvStore
+          - $ref: KvStoreUrl
+        title: |
+          Optional key-value store used instead of `.base` only for accessing the manifest file or files.
+        description: |
+          This should normally be left unspecified; it is intended only for specialized use cases.
+      coordinator:
+        $ref: ContextResource
+        description: |
+          Specifies or references a previously defined
+          `Context.ocdbt_coordinator`.
+      config:
+        type: object
+        title: "Constrains the database configuration."
+        description: |
+          When creating a new database, a configuration is chosen subject to any
+          constraints specified, using the default values indicated below for any
+          unspecified options.  When opening an existing database, the
+          configuration must match any specified constraints.
+        properties:
+          uuid:
+            type: string
+            title: "Unique 128-bit identifier for the database, specified as 32 hex digits."
+            description: |
+              If not specified, it is randomly generated when the database is first created.
+          manifest_kind:
+            title: "Manifest format to use."
+            oneOf:
+              - const: "single"
+                title: |
+                  :ref:`Single-file manifest format<ocdbt-manifest-kind-single>`
+              - const: "numbered"
+                title: |
+                  :ref:`Numbered-file manifest format<ocdbt-manifest-kind-numbered>`
+            description: |
+              If not specified, the format is chosen automatically when creating
+              the database based on the capabilities of the underlying kvstore.
+              If the capabilities of the underlying kvstore are such that no
+              format safely supports concurrent writes, then it is an error not to
+              specify a value when creating the database.
+          max_inline_value_bytes:
+            type: integer
+            minimum: 0
+            maximum: 1048576
+            default: 100
+            title: "Maximum number of value bytes to store inline in a B+tree leaf node."
+            description: |
+              Values larger than the specified limit are stored out-of-line in a
+              data file.
+          max_decoded_node_bytes:
+            type: integer
+            minimum: 0
+            maximum: 4294967295
+            default: 83951616
+            title: "Maximum size of an (uncompressed) B+tree node."
+            description: |
+              Nodes are split to ensure they do not exceed this limit.
+          version_tree_arity_log2:
+            type: integer
+            minimum: 1
+            maximum: 16
+            default: 4
+            title: "Base-2 logarithm of the arity of the tree of versions."
+            description: |
+              The list of database versions is stored as a tree data structure of
+              the specified arity.
+          compression:
+            oneOf:
+              - $ref: kvstore/ocdbt/Compression/zstd
+              - const: null
+            default: { "id": "zstd", "level": 0 }
+            title: "Compression method used to encode the manifest and B+Tree nodes."
+      assume_config:
+        type: boolean
+        title: "Permits data files to be written before the initial manifest."
+        description: |
+          Normally, even when performing unconditional writes to an OCDBT
+          database, the existing manifest is first read before writing any data
+          files, in order to determine the configuration (as this affects how
+          data files are written).
+
+          If there is no existing manifest, an initial manifest containing the
+          configuration but no B+tree versions is written before any data files
+          are written. This ensures that, in the case of multiple concurrent
+          writers attempting to create the OCDBT database with inconsistent
+          configurations, the correct configuration is used to write any data
+          files.
+
+          For many applications, the additional one-time latency from reading or
+          writing the initial manifest is negligible, but for applications
+          sensitive to the latency of initially writing and/or creating an OCDBT
+          database, `.assume_config` may be specified.
+
+          In this case, data files may be written before confirming the
+          configuration in the manifest. Instead, an assumed configuration,
+          equal to the configuration that would be used for a new OCDBT database
+          according to the constraints specified in `.config`, is used.
+
+          If this option is specified and the assumed configuration does not
+          match the actual, existing configuration, reading and writing will
+          fail with an error. In the case of writes, the OCDBT database will
+          remain unmodified, but unreferenced garbage data files may be left
+          behind.
+      value_data_prefix:
+        type: string
+        title: "Prefix for writing data files containing indirect values."
+        default: "d/"
+        description: |
+          Values that are not stored inline within B+tree nodes are written to
+          data files under this prefix. This option has no effect when reading,
+          and different (even concurrent) writers to the same OCDBT database can
+          safely use different values of `.value_data_prefix`.
+
+          Shared data files are used if `.value_data_prefix` is equal to
+          `.btree_node_data_prefix` or `.version_tree_node_data_prefix`.
+      btree_node_data_prefix:
+        type: string
+        title: "Prefix for writing data files containing B+tree nodes."
+        default: "d/"
+      version_tree_node_data_prefix:
+        type: string
+        title: "Prefix for writing data files containing version tree nodes."
+        default: "d/"
+      target_data_file_size:
+        type: integer
+        default: 2147483648
+        title: "Target size of each ocdbt data file."
+        description: |
+          OCDBT will flush data files to the base key-value store once they reach the target size.
+          When set to 0, data flles may be an arbitrary size.
+      cache_pool:
+        $ref: ContextResource
+        description: |-
+          Specifies or references a previously defined `Context.cache_pool`.  It
+          is typically more convenient to specify a default `~Context.cache_pool`
+          in the `.context`.
+        default: cache_pool
+      data_copy_concurrency:
+        $ref: ContextResource
+        description: |-
+          Specifies or references a previously defined
+          `Context.data_copy_concurrency`.  It is typically more
+          convenient to specify a default `~Context.data_copy_concurrency` in
+          the `.context`.
+        default: data_copy_concurrency
+    required:
+      - base
+definitions:
+  zstd_compression:
+    $id: kvstore/ocdbt/Compression/zstd
+    type: object
+    title: "Specifies `Zstandard <https://www.zstd.net>`__ compression."
+    properties:
+      id:
+        const: "zstd"
+      level:
+        type: integer
+        title: "Compression level."
+    required:
+      - id
+  ocdbt_coordinator:
+    $id: Context.ocdbt_coordinator
+    title: Enables distributed coordination for OCDBT.
+    type: object
+    properties:
+      address:
+        type: string
+        title: Address of gRPC coordinator server.
+        description: Must be specified to use distributed coordination.
+      lease_duration:
+        type: string
+        title: |
+          Duration of lease to request from coordinator for B+tree key ranges.
+        default: "10s"
+  url:
+    $id: KvStoreUrl/ocdbt
+    type: string
+    allOf:
+      - $ref: KvStoreUrl
+      - type: string
+    title: |
+      :literal:`ocdbt:` KvStore URL scheme
+    description: |
+      OCDBT key-value store adapters may be specified using the
+      :file:`ocdbt:{path}` or :file:`ocdbt:@{version}/{path}` URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/db.ocdbt/|ocdbt:path/within/database"``
+              - .. code-block:: json
+
+                   {"driver": "ocdbt",
+                    "path": "path/within/database",
+                    "base": {"driver": "file",
+                             "path": "/tmp/db.ocdbt/"}
+                   }
+            * - ``"file:///tmp/db.ocdbt/|ocdbt:@v1/path/within/database"``
+              - .. code-block:: json
+
+                   {"driver": "ocdbt",
+                    "path": "path/within/database",
+                    "version": 1,
+                    "base": {"driver": "file",
+                             "path": "/tmp/db.ocdbt/"}
+                   }
+            * - ``"file:///tmp/db.ocdbt/|ocdbt:@2025-01-01T01:23:45.678Z/path/within/database"``
+              - .. code-block:: json
+
+                   {"driver": "ocdbt",
+                    "path": "path/within/database",
+                    "version": "2025-01-01T01:23:45.678Z",
+                    "base": {"driver": "file",
+                             "path": "/tmp/db.ocdbt/"}
+                   }

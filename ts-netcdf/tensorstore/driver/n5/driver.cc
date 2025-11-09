@@ -1,0 +1,520 @@
+// Copyright 2020 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "tensorstore/driver/driver.h"
+
+#include <stddef.h>
+
+#include <algorithm>
+#include <cassert>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk_cache_driver.h"
+#include "tensorstore/driver/driver_spec.h"
+#include "tensorstore/driver/kvs_backed_chunk_driver.h"
+#include "tensorstore/driver/n5/metadata.h"
+#include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/url_registry.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/async_write_array.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
+#include "tensorstore/internal/grid_storage_statistics.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
+
+namespace tensorstore {
+namespace internal_n5 {
+
+// Avoid anonymous namespace to workaround MSVC bug.
+//
+// https://developercommunity.visualstudio.com/t/Bug-involving-virtual-functions-templat/10424129
+#ifndef _MSC_VER
+namespace {
+#endif
+
+namespace jb = tensorstore::internal_json_binding;
+
+using ::tensorstore::internal_kvs_backed_chunk_driver::KvsDriverSpec;
+
+constexpr const char kMetadataKey[] = "attributes.json";
+
+class N5DriverSpec
+    : public internal::RegisteredDriverSpec<N5DriverSpec,
+                                            /*Parent=*/KvsDriverSpec> {
+ public:
+  constexpr static char id[] = "n5";
+
+  using Base = internal::RegisteredDriverSpec<N5DriverSpec,
+                                              /*Parent=*/KvsDriverSpec>;
+
+  N5MetadataConstraints metadata_constraints;
+
+  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata_constraints);
+  };
+
+  static inline const auto default_json_binder = jb::Sequence(
+      jb::Validate(
+          [](const auto& options, auto* obj) {
+            if (obj->schema.dtype().valid()) {
+              return ValidateDataType(obj->schema.dtype());
+            }
+            return absl::OkStatus();
+          },
+          internal_kvs_backed_chunk_driver::SpecJsonBinder),
+      jb::Member(
+          "metadata",
+          jb::Validate(
+              [](const auto& options, auto* obj) {
+                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                    obj->metadata_constraints.dtype.value_or(DataType())));
+                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                    RankConstraint{obj->metadata_constraints.rank}));
+                return absl::OkStatus();
+              },
+              jb::Projection<&N5DriverSpec::metadata_constraints>(
+                  jb::DefaultInitializedValue()))));
+
+  absl::Status ApplyOptions(SpecOptions&& options) override {
+    if (options.minimal_spec) {
+      metadata_constraints = N5MetadataConstraints{};
+    }
+    return Base::ApplyOptions(std::move(options));
+  }
+
+  Result<IndexDomain<>> GetDomain() const override {
+    return GetEffectiveDomain(metadata_constraints, schema);
+  }
+
+  Result<CodecSpec> GetCodec() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto codec, GetEffectiveCodec(metadata_constraints, schema));
+    return CodecSpec(std::move(codec));
+  }
+
+  Result<ChunkLayout> GetChunkLayout() const override {
+    return GetEffectiveChunkLayout(metadata_constraints, schema);
+  }
+
+  Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) const override {
+    return {std::in_place};
+  }
+
+  Result<DimensionUnitsVector> GetDimensionUnits() const override {
+    return GetEffectiveDimensionUnits(metadata_constraints.rank,
+                                      metadata_constraints.units_and_resolution,
+                                      schema.dimension_units());
+  }
+
+  Result<std::string> ToUrl() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
+    return tensorstore::StrCat(base_url, "|", id, ":");
+  }
+
+  Future<internal::Driver::Handle> Open(
+      internal::DriverOpenRequest request) const override;
+};
+
+Result<std::shared_ptr<const N5Metadata>> ParseEncodedMetadata(
+    std::string_view encoded_value) {
+  nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
+                                                  /*allow_exceptions=*/false);
+  if (raw_data.is_discarded()) {
+    return absl::FailedPreconditionError("Invalid JSON");
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(auto metadata,
+                               N5Metadata::FromJson(std::move(raw_data)));
+  return std::make_shared<N5Metadata>(std::move(metadata));
+}
+
+class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
+  using Base = internal_kvs_backed_chunk_driver::MetadataCache;
+
+ public:
+  using Base::Base;
+
+  // Metadata is stored as JSON under the `attributes.json` key.
+  std::string GetMetadataStorageKey(std::string_view entry_key) override {
+    return tensorstore::StrCat(entry_key, kMetadataKey);
+  }
+
+  Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
+                                     absl::Cord encoded_metadata) override {
+    return ParseEncodedMetadata(encoded_metadata.Flatten());
+  }
+
+  Result<absl::Cord> EncodeMetadata(std::string_view entry_key,
+                                    const void* metadata) override {
+    return absl::Cord(
+        ::nlohmann::json(*static_cast<const N5Metadata*>(metadata)).dump());
+  }
+};
+
+class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
+  using Base = internal_kvs_backed_chunk_driver::DataCache;
+
+ public:
+  explicit DataCache(Initializer&& initializer, std::string key_prefix)
+      : Base(std::move(initializer),
+             GetChunkGridSpecification(
+                 *static_cast<const N5Metadata*>(initializer.metadata.get()))),
+        key_prefix_(std::move(key_prefix)) {}
+
+  absl::Status ValidateMetadataCompatibility(
+      const void* existing_metadata_ptr,
+      const void* new_metadata_ptr) override {
+    const auto& existing_metadata =
+        *static_cast<const N5Metadata*>(existing_metadata_ptr);
+    const auto& new_metadata =
+        *static_cast<const N5Metadata*>(new_metadata_ptr);
+    auto existing_key = existing_metadata.GetCompatibilityKey();
+    auto new_key = new_metadata.GetCompatibilityKey();
+    if (existing_key == new_key) return absl::OkStatus();
+    return absl::FailedPreconditionError(tensorstore::StrCat(
+        "Updated N5 metadata ", new_key,
+        " is incompatible with existing metadata ", existing_key));
+  }
+
+  void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
+                          DimensionSet& implicit_lower_bounds,
+                          DimensionSet& implicit_upper_bounds) override {
+    const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
+    assert(bounds.rank() == static_cast<DimensionIndex>(metadata.shape.size()));
+    std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
+    std::copy(metadata.shape.begin(), metadata.shape.end(),
+              bounds.shape().begin());
+    implicit_lower_bounds = false;
+    implicit_upper_bounds = true;
+  }
+
+  Result<std::shared_ptr<const void>> GetResizedMetadata(
+      const void* existing_metadata, span<const Index> new_inclusive_min,
+      span<const Index> new_exclusive_max) override {
+    auto new_metadata = std::make_shared<N5Metadata>(
+        *static_cast<const N5Metadata*>(existing_metadata));
+    const DimensionIndex rank = new_metadata->shape.size();
+    assert(rank == new_inclusive_min.size());
+    assert(rank == new_exclusive_max.size());
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      assert(ExplicitIndexOr(new_inclusive_min[i], 0) == 0);
+      const Index new_size = new_exclusive_max[i];
+      if (new_size == kImplicit) continue;
+      new_metadata->shape[i] = new_size;
+    }
+    return new_metadata;
+  }
+
+  static internal::ChunkGridSpecification GetChunkGridSpecification(
+      const N5Metadata& metadata) {
+    auto fill_value = BroadcastArray(AllocateArray(
+                                         /*shape=*/span<const Index>{}, c_order,
+                                         value_init, metadata.dtype),
+                                     BoxView<>(metadata.rank))
+                          .value();
+    internal::ChunkGridSpecification::ComponentList components;
+    components.emplace_back(
+        internal::AsyncWriteArray::Spec{
+            std::move(fill_value),
+            // Since all dimensions are resizable, just specify
+            // unbounded `component_bounds`.
+            Box<>(metadata.rank), fortran_order},
+        metadata.chunk_shape);
+    return internal::ChunkGridSpecification(std::move(components));
+  }
+
+  const N5Metadata& metadata() {
+    return *static_cast<const N5Metadata*>(initial_metadata().get());
+  }
+
+  Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
+      span<const Index> chunk_indices, absl::Cord data) override {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto array, internal_n5::DecodeChunk(metadata(), std::move(data)));
+    absl::InlinedVector<SharedArray<const void>, 1> components;
+    components.emplace_back(std::move(array));
+    return components;
+  }
+
+  Result<absl::Cord> EncodeChunk(
+      span<const Index> chunk_indices,
+      span<const SharedArray<const void>> component_arrays) override {
+    assert(component_arrays.size() == 1);
+    return internal_n5::EncodeChunk(metadata(), component_arrays[0]);
+  }
+
+  std::string GetChunkStorageKey(span<const Index> cell_indices) override {
+    // Use "0" for rank 0 as a special case.
+    std::string key = tensorstore::StrCat(
+        key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
+    for (DimensionIndex i = 1; i < cell_indices.size(); ++i) {
+      tensorstore::StrAppend(&key, "/", cell_indices[i]);
+    }
+    return key;
+  }
+
+  Result<IndexTransform<>> GetExternalToInternalTransform(
+      const void* metadata_ptr, size_t component_index) override {
+    assert(component_index == 0);
+    const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
+    const auto& axes = metadata.axes;
+    const DimensionIndex rank = metadata.axes.size();
+    auto builder = tensorstore::IndexTransformBuilder<>(rank, rank)
+                       .input_shape(metadata.shape)
+                       .input_labels(axes);
+    builder.implicit_upper_bounds(true);
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      builder.output_single_input_dimension(i, i);
+    }
+    return builder.Finalize();
+  }
+
+  absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
+                                const void* metadata_ptr,
+                                size_t component_index) override {
+    assert(component_index == 0);
+    auto& spec = static_cast<N5DriverSpec&>(spec_base);
+    const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
+    auto& constraints = spec.metadata_constraints;
+    constraints.shape = metadata.shape;
+    constraints.axes = metadata.axes;
+    constraints.dtype = metadata.dtype;
+    constraints.compressor = metadata.compressor;
+    constraints.units_and_resolution = metadata.units_and_resolution;
+    constraints.extra_attributes = metadata.extra_attributes;
+    constraints.chunk_shape = metadata.chunk_shape;
+    return absl::OkStatus();
+  }
+
+  Result<ChunkLayout> GetChunkLayoutFromMetadata(
+      const void* metadata_ptr, size_t component_index) override {
+    const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
+    ChunkLayout chunk_layout;
+    TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
+        metadata.rank, metadata.chunk_shape, chunk_layout));
+    TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Finalize());
+    return chunk_layout;
+  }
+
+  std::string GetBaseKvstorePath() override { return key_prefix_; }
+
+  std::string key_prefix_;
+};
+
+class N5Driver;
+using N5DriverBase = internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
+    N5Driver, N5DriverSpec, DataCache,
+    internal::ChunkCacheReadWriteDriverMixin<
+        N5Driver, internal_kvs_backed_chunk_driver::KvsChunkedDriverBase>>;
+
+class N5Driver : public N5DriverBase {
+  using Base = N5DriverBase;
+
+ public:
+  using Base::Base;
+
+  class OpenState;
+
+  const N5Metadata& metadata() const {
+    return *static_cast<const N5Metadata*>(cache()->initial_metadata().get());
+  }
+
+  Result<CodecSpec> GetCodec() override {
+    return GetCodecFromMetadata(metadata());
+  }
+
+  Result<DimensionUnitsVector> GetDimensionUnits() override {
+    const auto& metadata = this->metadata();
+    return internal_n5::GetDimensionUnits(metadata.rank,
+                                          metadata.units_and_resolution);
+  }
+
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      GetStorageStatisticsRequest request) override {
+    auto* cache = static_cast<DataCache*>(this->cache());
+    auto [promise, future] = PromiseFuturePair<ArrayStorageStatistics>::Make();
+    auto transaction = request.transaction;
+    LinkValue(
+        WithExecutor(
+            cache->executor(),
+            [cache = internal::CachePtr<DataCache>(cache),
+             request = std::move(request),
+             staleness_bound = this->data_staleness_bound().time](
+                Promise<ArrayStorageStatistics> promise,
+                ReadyFuture<MetadataCache::MetadataPtr> future) {
+              auto* metadata =
+                  static_cast<const N5Metadata*>(future.value().get());
+              auto& grid = cache->grid();
+              auto& component = grid.components[0];
+              LinkResult(
+                  std::move(promise),
+                  internal::GetStorageStatisticsForRegularGridWithBase10Keys(
+                      KvStore{kvstore::DriverPtr(cache->kvstore_driver()),
+                              cache->GetBaseKvstorePath(),
+                              internal::TransactionState::ToTransaction(
+                                  std::move(request.transaction))},
+                      request.transform, /*grid_output_dimensions=*/
+                      component.chunked_to_cell_dimensions,
+                      /*chunk_shape=*/grid.chunk_shape,
+                      /*shape=*/metadata->shape,
+                      /*dimension_separator=*/'/', staleness_bound,
+                      request.options));
+            }),
+        std::move(promise),
+        ResolveMetadata(std::move(transaction),
+                        metadata_staleness_bound_.time));
+    return std::move(future);
+  }
+};
+
+class N5Driver::OpenState : public N5Driver::OpenStateBase {
+ public:
+  using N5Driver::OpenStateBase::OpenStateBase;
+
+  std::string GetPrefixForDeleteExisting() override {
+    return spec().store.path;
+  }
+
+  std::string GetMetadataCacheEntryKey() override { return spec().store.path; }
+
+  // The metadata cache isn't parameterized by anything other than the
+  // KeyValueStore; therefore, we don't need to override `GetMetadataCacheKey`
+  // to encode the state.
+  std::unique_ptr<internal_kvs_backed_chunk_driver::MetadataCache>
+  GetMetadataCache(MetadataCache::Initializer initializer) override {
+    return std::make_unique<MetadataCache>(std::move(initializer));
+  }
+
+  std::string GetDataCacheKey(const void* metadata) override {
+    std::string result;
+    internal::EncodeCacheKey(
+        &result, spec().store.path,
+        static_cast<const N5Metadata*>(metadata)->GetCompatibilityKey());
+    return result;
+  }
+
+  Result<std::shared_ptr<const void>> Create(const void* existing_metadata,
+                                             CreateOptions options) override {
+    if (existing_metadata) {
+      return absl::AlreadyExistsError("");
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto metadata,
+        internal_n5::GetNewMetadata(spec().metadata_constraints, spec().schema),
+        tensorstore::MaybeAnnotateStatus(
+            _, "Cannot create using specified \"metadata\" and schema"));
+    return metadata;
+  }
+
+  std::unique_ptr<internal_kvs_backed_chunk_driver::DataCacheBase> GetDataCache(
+      DataCache::Initializer&& initializer) override {
+    return std::make_unique<DataCache>(std::move(initializer),
+                                       spec().store.path);
+  }
+
+  Result<size_t> GetComponentIndex(const void* metadata_ptr,
+                                   OpenMode open_mode) override {
+    const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateMetadata(metadata, spec().metadata_constraints));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateMetadataSchema(metadata, spec().schema));
+    return 0;
+  }
+};
+
+Future<internal::Driver::Handle> N5DriverSpec::Open(
+    internal::DriverOpenRequest request) const {
+  return N5Driver::Open(this, std::move(request));
+}
+
+Result<internal::TransformedDriverSpec> ParseN5Url(std::string_view url,
+                                                   kvstore::Spec&& base) {
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, N5DriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto driver_spec = internal::MakeIntrusivePtr<N5DriverSpec>();
+  driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
+  return internal::TransformedDriverSpec{std::move(driver_spec)};
+}
+
+#ifndef _MSC_VER
+}  // namespace
+#endif
+
+}  // namespace internal_n5
+}  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal_n5::N5Driver)
+// Use default garbage collection implementation provided by
+// kvs_backed_chunk_driver (just handles the kvstore)
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal_n5::N5Driver,
+    tensorstore::internal_n5::N5Driver::GarbageCollectionBase)
+
+namespace {
+const tensorstore::internal::DriverRegistration<
+    tensorstore::internal_n5::N5DriverSpec>
+    registration;
+
+const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
+    tensorstore::internal_n5::N5DriverSpec::id,
+    tensorstore::internal_n5::ParseN5Url);
+
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_kvstore::AutoDetectDirectorySpec::SingleFile(
+            tensorstore::internal_n5::N5DriverSpec::id,
+            tensorstore::internal_n5::kMetadataKey)};
+
+}  // namespace

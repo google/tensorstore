@@ -1,0 +1,19 @@
+{
+  "build_files": ["BUILD.bazel", "parent/BUILD.bazel"],
+  "targets": [
+    "//parent:a",
+    "//parent:a_dot",
+    "//parent:a_child",
+    "//parent:a_parent",
+    "//parent:a_strip_child",
+    "//parent:a_strip_parent",
+    "//parent:a_prefix_child",
+    "//:a",
+    "//:a_dot",
+    "//:a_child",
+    "//:a_parent",
+    "//:a_strip_child",
+    "//:a_strip_parent",
+    "//:a_prefix_child"
+  ]
+}

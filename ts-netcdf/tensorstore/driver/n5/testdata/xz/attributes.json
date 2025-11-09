@@ -1,0 +1,15 @@
+{
+    "blockSize": [
+        3,
+        2
+    ],
+    "compression": {
+        "preset": 4,
+        "type": "xz"
+    },
+    "dataType": "uint16",
+    "dimensions": [
+        5,
+        4
+    ]
+}

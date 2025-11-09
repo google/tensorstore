@@ -1,0 +1,22 @@
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+
+tensorstore_cc_binary(
+    name = "write_n5_seed",
+    srcs = ["write_n5_seed.cc"],
+    deps = [
+        "//tensorstore",
+        "//tensorstore:all_drivers",   # registers N5 driver
+        "//tensorstore:array",
+        "//tensorstore:context",
+        "//tensorstore:index",
+        "//tensorstore:open",
+        "//tensorstore:open_mode",
+        "//tensorstore:spec",
+        "//tensorstore/util:status",
+    ],
+)

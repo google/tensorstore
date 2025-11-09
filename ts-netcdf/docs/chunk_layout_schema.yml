@@ -1,0 +1,185 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: ChunkLayout
+type: object
+properties:
+  rank:
+    type: integer
+    minimum: 0
+    maximum: 32
+    title: Number of dimensions.
+    description: |
+      The rank is always a hard constraint.  It is redundant to specify the rank
+      if any other field that implicitly specifies the rank is included.
+  grid_origin:
+    type: array
+    items:
+      oneOf:
+      - type: integer
+      - type: 'null'
+    title: Specifies hard constraints on the origin of the chunk grid.
+    description: |
+      The length must equal the rank of the index space.  Each element
+      constrains the grid origin for the corresponding dimension.  A value of
+      ``null`` (or, equivalently, ``-9223372036854775808``) indicates no
+      constraint.
+  grid_origin_soft_constraint:
+    type: array
+    items:
+      oneOf:
+      - type: integer
+      - type: 'null'
+    title: |
+      Specifies preferred values for the origin of the chunk grid rather than
+      hard constraints.
+    description: |
+      If a non-``null`` value is specified for a given dimension in both
+      `grid_origin_soft_constraint` and `grid_origin`, the
+      value in `grid_origin` takes precedence.
+  inner_order:
+    type: array
+    items:
+      type: integer
+    title: |
+      Permutation specifying the element storage order within the innermost
+      chunks.
+    description: |
+      This must be a permutation of :python:`[0, 1, ..., rank-1]`.  Lexicographic
+      order (i.e. C order/row-major order) is specified as :python:`[0, 1, ...,
+      rank-1]`, while colexicographic order (i.e. Fortran order/column-major
+      order) is specified as :python:`[rank-1, ..., 1, 0]`.
+  inner_order_soft_constraint:
+    type: array
+    items:
+      type: integer
+    title: |
+      Specifies a preferred value for `inner_order` rather than a
+      hard constraint.  If `inner_order` is also specified, it
+      takes precedence.
+  write_chunk:
+    $ref: "ChunkLayout/Grid"
+    title: |
+      Constraints on the chunk grid over which writes may be efficiently
+      partitioned.
+  read_chunk:
+    $ref: "ChunkLayout/Grid"
+    title: |
+      Constraints on the chunk grid over which reads may be efficiently
+      partitioned.
+  codec_chunk:
+    $ref: "ChunkLayout/Grid"
+    title: |
+      Constraints on the chunk grid used by the codec, if applicable.
+  chunk:
+    $ref: "ChunkLayout/Grid"
+    title: |
+      Combined constraints on write/read/codec chunks.
+    description: |
+      If `~ChunkLayout/Grid.aspect_ratio` is specified, it
+      applies to `write_chunk`, `read_chunk`, and `codec_chunk`.  If
+      `~ChunkLayout/Grid.aspect_ratio_soft_constraint` is
+      specified, it also applies to `write_chunk`, `read_chunk`, and
+      `codec_chunk`, but with lower precedence than any
+      write/read/codec-specific value that is also specified.
+
+      If `~ChunkLayout/Grid.shape` or
+      `~ChunkLayout/Grid.elements` is specified, it
+      applies to `write_chunk` and `read_chunk` (but not `codec_chunk`).  If
+      `~ChunkLayout/Grid.shape_soft_constraint` or
+      `~ChunkLayout/Grid.elements_soft_constraint` is specified,
+      it also applies to `write_chunk` and `read_chunk`, but with lower
+      precedence than any write/read-specific value that is also specified.
+definitions:
+  grid:
+    $id: 'ChunkLayout/Grid'
+    title: Constraints on the write/read/codec chunk grids.
+    description: |
+      When creating a new TensorStore, the chunk shape can be specified directly
+      using the `shape` and `shape_soft_constraint` members,
+      or indirectly by specifying the `aspect_ratio` and target
+      number of `elements`.
+
+      When opening an existing TensorStore, the preferences indicated by
+      `shape_soft_constraint`, `aspect_ratio`,
+      `aspect_ratio_soft_constraint`, `elements`, and
+      `elements_soft_constraint` are ignored; only `shape`
+      serves as a constraint.
+    type: object
+    properties:
+      shape:
+        type: array
+        items:
+          oneOf:
+          - type: integer
+            minimum: 0
+          - const: -1
+          - type: 'null'
+        title: Hard constraints on the chunk size for each dimension.
+        description: |
+          The length must equal the rank of the index space.  Each element
+          constrains the chunk size for the corresponding dimension, and must be
+          a non-negative integer.  The special value of ``0`` (or,
+          equivalently, ``null``)for a given dimension indicates no
+          constraint.  The special value of ``-1`` for a given dimension
+          indicates that the chunk size should equal the full extent of the
+          domain, and is always treated as a soft constraint.
+      shape_soft_constraint:
+        type: array
+        items:
+          oneOf:
+          - type: integer
+            minimum: 0
+          - const: -1
+          - type: 'null'
+        title: Preferred chunk sizes for each dimension.
+        description: |
+          If a non-zero, non-``null`` size for a given dimension is
+          specified in both `shape` and `shape_soft_constraint`, `shape` takes
+          precedence.
+      aspect_ratio:
+        type: array
+        items:
+          oneOf:
+          - type: number
+            minimum: 0
+          - type: 'null'
+        title: Aspect ratio of the chunk shape.
+        description: |
+          Specifies the relative chunk size along each dimension.  The special
+          value of ``0`` (or, equivalently, ``null``) indicates no
+          preference (which results in the default aspect ratio of ``1`` if
+          not otherwise specified).  The aspect ratio preference is only taken
+          into account if the chunk size along a given dimension is not
+          specified by `shape` or `shape_soft_constraint`, or otherwise
+          constrained.  For example, an `aspect_ratio` of ``[1, 1.5, 1.5]``
+          indicates that the chunk size along dimensions 1 and 2 should be 1.5
+          times the chunk size along dimension 0.  If the target number of
+          `elements` is ``486000``, then the resultant chunk size will be
+          ``[60, 90, 90]`` (assuming it is not otherwise constrained).
+      aspect_ratio_soft_constraint:
+        type: array
+        items:
+          oneOf:
+          - type: number
+            minimum: 0
+          - type: 'null'
+        title: |
+          Soft constraint on aspect ratio, lower precedence than `aspect_ratio`.
+      elements:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - type: 'null'
+        title: Preferred number of elements per chunk.
+        description: |
+          Used in conjunction with `aspect_ratio` to determine the
+          chunk size for dimensions that are not otherwise constrained.  The
+          special value of ``null`` indicates no preference, in which case a
+          driver-specific default may be used.
+      elements_soft_constraint:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - type: 'null'
+        title: |
+          Preferred number of elements per chunk, lower precedence than
+          `elements`.

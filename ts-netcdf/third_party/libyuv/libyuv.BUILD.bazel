@@ -1,0 +1,47 @@
+# Description:
+#   The libyuv package provides implementation yuv image conversion, rotation
+#   and scaling.
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+# See https://chromium.googlesource.com/libyuv/libyuv/+/refs/heads/main/BUILD.gn
+
+cc_library(
+    name = "libyuv",
+    srcs = glob(
+        include = ["source/*.cc"],
+        exclude = [
+            "source/*_lasx.cc",  # loong64
+            "source/*_lsx.cc",  # loong64
+            "source/*_msa.cc",  # mips
+            "source/*_neon.cc",  # aarch
+            "source/*_neon64.cc",  # aarch64
+            "source/*_sme.cc",  # arm9 sme
+            "source/*_sve.cc",  # arm9 sve
+        ],
+    ),
+    local_defines = [
+        "LIBYUV_DISABLE_SVE",
+        "LIBYUV_DISABLE_SME",
+        "LIBYUV_DISABLE_NEON",
+    ],
+    deps = [":libyuv_headers"],
+)
+
+cc_library(
+    name = "libyuv_headers",
+    hdrs = ["include/libyuv.h"] + glob(
+        [
+            "include/libyuv/*.h",
+        ],
+    ),
+    includes = ["include"],
+    visibility = ["//visibility:private"],
+)
+
+# TODO: Once the compiler supports dotprod, add neon/neon64.
+# TODO: Once the compiler supports arm9, add sme and sve., add arm9_sme.

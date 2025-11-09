@@ -1,0 +1,23 @@
+# Description:
+#   AWS C Auth
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "aws_c_auth",
+    srcs = glob([
+        "source/*.c",
+    ]),
+    hdrs = glob([
+        "include/aws/auth/**/*.h",
+    ]),
+    includes = ["include"],
+    deps = [
+        "@aws_c_http",
+        "@aws_c_sdkutils",
+    ],
+)

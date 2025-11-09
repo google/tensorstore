@@ -1,0 +1,43 @@
+# Additional targets for bazel_to_cmake to generate:
+#
+# bazel_to_cmake doesn't have a global view of targets, it cannot lazy load
+# dependencies or apply aspects to, for example, collect the proto_library()
+# targets that are referenced by other reposotories.
+#
+# Therefore some targets (particularly protos) must exist in each reposoitory
+# where they might be referenced.
+#
+# Also, bazel_to_cmake target rule generation *does not enforce* that rule
+# names must be in the same package, so we can add them all here without
+# patching the repository.
+
+load(
+    "@com_google_protobuf//bazel:upb_proto_library.bzl",
+    "upb_proto_library",
+    "upb_proto_reflection_library",
+)
+
+_PACKAGES = [
+    "//udpa/annotations",
+    "//xds/data/orca/v3",
+    "//xds/service/orca/v3",
+    "//xds/type/v3",
+    "//xds/type/matcher/v3",
+    "//xds/core/v3",
+]
+
+[
+    upb_proto_library(
+        name = x + ":pkg_upb_proto",
+        deps = [x + ":pkg"],
+    )
+    for x in _PACKAGES
+]
+
+[
+    upb_proto_reflection_library(
+        name = x + ":pkg_upb_proto_reflection",
+        deps = [x + ":pkg"],
+    )
+    for x in _PACKAGES
+]

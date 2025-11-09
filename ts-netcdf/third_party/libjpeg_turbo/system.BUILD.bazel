@@ -1,0 +1,5 @@
+cc_library(
+    name = "jpeg",
+    linkopts = ["-ljpeg"],
+    visibility = ["//visibility:public"],
+)

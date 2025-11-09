@@ -1,0 +1,26 @@
+# macOS-specific fixes for LC_UUID error with Bazel 8.x and Command Line Tools
+
+# Use system clang instead of wrapped clang
+build:macos --action_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
+
+# Specify the C++ compiler explicitly
+build:macos --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
+
+# Use Full Xcode toolchain
+build:macos --action_env=DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+build:macos --action_env=CC=/usr/bin/clang
+build:macos --action_env=CXX=/usr/bin/clang++
+build:macos --action_env=LD=/usr/bin/ld
+
+# Force proper linking to avoid LC_UUID issues
+build:macos --linkopt=-headerpad_max_install_names
+build:macos --features=-supports_dynamic_linker
+
+# Disable sandboxing completely to avoid wrapper issues
+build:macos --spawn_strategy=local
+build:macos --strategy=CppCompile=local
+build:macos --strategy=CppLink=local
+build:macos --strategy=CppArchive=local
+
+# Additional flags for compatibility
+build:macos --host_action_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1

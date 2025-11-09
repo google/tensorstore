@@ -1,0 +1,33 @@
+FROM --platform=linux/arm64 ubuntu:22.04
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    python3 \
+    python3-pip \
+    libnetcdf-dev \
+    netcdf-bin \
+    clang \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Bazelisk for ARM64
+RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-arm64 \
+    && chmod +x bazelisk-linux-arm64 \
+    && mv bazelisk-linux-arm64 /usr/local/bin/bazel
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy source code
+COPY ts-netcdf /workspace/ts-netcdf
+
+# Set environment
+ENV CC=clang
+ENV CXX=clang++
+
+CMD ["/bin/bash"]

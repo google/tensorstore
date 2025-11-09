@@ -1,0 +1,292 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/s3
+title: Read/write access to Amazon S3-compatible object stores.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: s3
+    bucket:
+      type: string
+      title: AWS S3 Storage bucket.
+    requester_pays:
+      type: boolean
+      title: Permit requester-pays requests.
+      description: |-
+        This option must be enabled in order for any operations to succeed if the bucket has
+        Requester Pays enabled and the supplied credentials are not for an owner of the bucket.
+      default: false
+    aws_region:
+      type: string
+      title: AWS region identifier to use in signatures.
+      description: |-
+        If :json:schema:`.endpoint` is not specified, the region of the :json:schema:`.bucket` is
+        determined automatically.
+    endpoint:
+      type: string
+      title: S3 server endpoint to use in place of the public Amazon S3 endpoints.
+      description: |-
+        Must be an http or https URL.
+      examples:
+      - "http://localhost:1234"
+    host_header:
+      type: string
+      title: Override HTTP host header to send in requests.
+      description: |-
+        May only be specified in conjunction with :json:schema:`.endpoint`, to send a different host
+        than specified in :json:schema:`.endpoint`.  This may be useful for testing with
+        `localstack <https://localstack.cloud/>`__."
+      examples:
+      - "mybucket.s3.af-south-1.localstack.localhost.com"
+    use_conditional_write:
+      type: boolean
+      title: Override S3 conditional write default behavior.
+      description: |-
+        Allows setting conditional writes to enabled or disabled. Unless detected or set, the
+        default conditional write behavior is to use non-atomic HEAD requests for version checks,
+        but to also add conditional write headers for the actual write requests.
+    aws_credentials:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.aws_credentials`.
+    s3_request_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.s3_request_concurrency`.
+    s3_request_retries:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.s3_request_retries`.
+    experimental_s3_rate_limiter:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.experimental_s3_rate_limiter`.
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.data_copy_concurrency`.
+      default: data_copy_concurrency
+  required:
+  - bucket
+definitions:
+  s3_request_concurrency:
+    $id: Context.s3_request_concurrency
+    description: |-
+      Specifies a limit on the number of concurrent requests to S3.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: |-
+          The maximum number of concurrent requests.  If the special value of
+          :json:"shared" is specified, a shared global limit specified by
+          environment variable :envvar:`TENSORSTORE_S3_REQUEST_CONCURRENCY`,
+          which defaults to 32.
+        default: "shared"
+  s3_request_retries:
+    $id: Context.s3_request_retries
+    description: |-
+      Specifies retry parameters for handling transient network errors.
+      An exponential delay is added between consecutive retry attempts. The
+      default values are appropriate for S3.
+    type: object
+    properties:
+      max_retries:
+        type: integer
+        minimum: 1
+        description: |-
+          Maximum number of attempts in the case of transient errors.
+        default: 32
+      initial_delay:
+        type: string
+        description: |-
+          Initial backoff delay for transient errors.
+        default: "1s"
+      max_delay:
+        type: string
+        description: |-
+          Maximum backoff delay for transient errors.
+        default: "32s"
+  experimental_s3_rate_limiter:
+    $id: Context.experimental_s3_rate_limiter
+    description: |-
+      Experimental rate limiter configuration for S3 reads and writes.
+    type: object
+    properties:
+      read_rate:
+        type: number
+        description: |-
+          The maximum rate or read and/or list calls issued per second.
+      write_rate:
+        type: number
+        description: |-
+          The maximum rate of write and/or delete calls issued per second.
+      doubling_time:
+        type: string
+        description: |-
+          The time interval over which the initial rates scale to 2x. The cases
+          where this setting is useful depend on details to the storage buckets.
+        default: "0"
+  url:
+    $id: KvStoreUrl/s3
+    allOf:
+    - $ref: KvStoreUrl
+    - type: string
+    title: :literal:`s3://` KvStore URL scheme
+    description: |
+      AWS S3 key-value stores may be specified using the
+      :file:`s3://{bucket}/{path}` URL syntax, as supported by
+      `aws s3 <https://docs.aws.amazon.com/cli/latest/reference/s3/>`__.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"s3://my-bucket"``
+              - .. code-block:: json
+
+                   {"driver": "s3",
+                    "bucket": "my-bucket"}
+            * - ``"s3://bucket/path/to/dataset"``
+              - .. code-block:: json
+
+                   {"driver": "s3",
+                    "bucket": "my-bucket",
+                    "path": "path/to/dataset"}
+  aws_credentials:
+    $id: Context.aws_credentials
+    type: object
+    description: |
+      The `.type` member identifies the credentials provider.
+      The remaining members are specific to the credentials provider.
+    required:
+    - type
+    properties:
+      type:
+        type: string
+        description: Specifies the credentials provider.
+  aws_credentials-anonymous:
+    $id: Context.aws_credentials/anonymous
+    description: Uses anonymous credentials.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      required:
+      - type
+      properties:
+        type:
+          const: anonymous
+  aws_credentials-environment:
+    $id: Context.aws_credentials/environment
+    description: |-
+      Source credentials from the Environment variables:
+        * :envvar:`AWS_ACCESS_KEY_ID` for the access key ID.
+        * :envvar:`AWS_SECRET_ACCESS_KEY` for the secret access key.
+        * :envvar:`AWS_SESSION_TOKEN` for the session token.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      required:
+      - type
+      properties:
+        type:
+          const: environment
+  aws_credentials-imds:
+    $id: Context.aws_credentials/imds
+    description: Source credentials from the EC2 instance metadata service (IMDS).
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      required:
+      - type
+      properties:
+        type:
+          const: imds
+  aws_credentials-default:
+    $id: Context.aws_credentials/default
+    description: |-
+      Source credentials using the `default AWS credentials chain
+      <https://github.com/aws/aws-sdk-cpp/blob/main/docs/Credentials_Providers.md>`__.
+      If the default credentials chain cannot resolve credentials then anonymous credentials
+      will be used.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      required:
+      - type
+      properties:
+        type:
+          const: default
+        profile:
+          type: string
+          title: |-
+            The profile name in the :file:`~/.aws/credentials` file.
+          description: |-
+            When unset, AWS credentials also examines the :envvar:`AWS_PROFILE` environment variable.
+          default: "default"
+  aws_credentials-profile:
+    $id: Context.aws_credentials/profile
+    description: Sources credentials from the AWS config and credentials files.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      required:
+      - type
+      properties:
+        type:
+          const: profile
+        profile:
+          type: string
+          title: |-
+            The profile name in the :file:`~/.aws/credentials` file.
+          description: |-
+            When unset, AWS credentials also examines the :envvar:`AWS_PROFILE` environment variable.
+          default: "default"
+        config_file:
+          type: string
+          title: The path to the AWS config file.
+          description: |-
+            When unset, AWS credentials also examines the :envvar:`AWS_CONFIG_FILE` environment
+            variable.
+          default: "${HOME}/.aws/config"
+        credentials_file:
+          type: string
+          title: The path to the AWS credentials file.
+          description: |-
+            When unset, AWS credentials also examines the :envvar:`AWS_SHARED_CREDENTIALS_FILE`
+            environment variable.
+          default: "${HOME}/.aws/credentials"
+  aws_credentials-ecs:
+    $id: Context.aws_credentials/ecs
+    description: Sources credentials from ECS container metadata.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      required:
+      - type
+      properties:
+        type:
+          const: ecs
+        endpoint:
+          type: string
+          title: |-
+            URL used to request credentials from the ECS container metadata service.
+          description: |-
+            When unset, ECS credentials are sourced from the environment.
+        auth_token_file:
+          type: string
+          title: |-
+            File path containing the Authorization token to include in an ECS credentials query.
+          description: |-
+            This file contains an authorization token to include in an ECS credentials query. The
+            file will be read each time the credentials are requested.

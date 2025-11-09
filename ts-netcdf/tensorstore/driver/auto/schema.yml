@@ -1,0 +1,77 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/auto
+allOf:
+  - $ref: TensorStore
+  - type: object
+    properties:
+      driver:
+        const: auto
+      kvstore:
+        oneOf:
+          - $ref: KvStore
+          - $ref: KvStoreUrl
+        description: |-
+          Specifies the underlying storage mechanism.
+      <resource-type>:
+        $ref: ContextResource
+        title: |-
+          Specifies a context resource for use by the detected format drivers.
+        description: |-
+          Unlike `.context`, these resources do not also apply to
+          `.kvstore`.  In almost all cases, `.context` can be used
+          instead.  This additional override is needed solely to allow
+          certain edge cases to be correctly represented as JSON.
+    required:
+      - kvstore
+examples:
+  - {
+      "driver": "auto",
+      "kvstore":
+        {
+          "driver": "gcs",
+          "bucket": "my-bucket",
+          "path": "path/to/dataset.zarr/",
+        },
+    }
+definitions:
+  url:
+    $id: TensorStoreUrl/auto
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`auto:` TensorStore URL scheme
+    description: |
+      Automatic format detection may be specified using the :file:`auto:`
+      URL syntax.
+
+      This URL scheme is used implicitly if a KvStore URL is specified
+      when a TensorStore URL is required, and does not normally need
+      to be included explicitly.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/dataset.zarr/|auto:"``
+              - .. code-block:: json
+
+                   {"driver": "auto",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset.zarr/"}
+                   }
+            * - ``"file:///tmp/dataset.zarr/|auto:|cast:uint32"``
+              - .. code-block:: json
+
+                   {"driver": "cast",
+                    "dtype": "uint32",
+                    "base": {"driver": "auto",
+                             "kvstore": {"driver": "file",
+                                         "path": "/tmp/dataset.zarr/"}}
+                   }

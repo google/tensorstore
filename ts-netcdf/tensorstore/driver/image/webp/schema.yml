@@ -1,0 +1,57 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/webp
+allOf:
+  - $ref: TensorStoreKvStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: webp
+      dtype:
+        const: uint8
+        description: |
+          Optional.  If specified, must be :json:`"uint8"`.
+      lossless:
+        type: boolean
+        default: "true"
+        description: |
+          Unused. AVIF lossless encoding setting.
+      quality:
+        type: number
+        default: "95"
+        description: |
+          Unused. WebP quality between 0 and 100. Higher values are better quality.
+    required:
+      - kvstore
+examples:
+  - driver: webp
+    "kvstore": "gs://my-bucket/path-to-image.webp"
+definitions:
+  url:
+    $id: TensorStoreUrl/webp
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`webp:` TensorStore URL scheme
+    description: |
+      WebP TensorStores may be specified using the :file:`webp:`
+      URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"gs://my-bucket/path-to-image.webp/|webp:"``
+              - .. code-block:: json
+
+                   {"driver": "webp",
+                    "kvstore": {"driver": "gcs",
+                                "bucket": "my-bucket",
+                                "path": "path-to-image.webp"}
+                   }

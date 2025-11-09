@@ -1,0 +1,45 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/bmp
+allOf:
+  - $ref: TensorStoreKvStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: bmp
+      dtype:
+        const: uint8
+        description: |
+          Optional.  If specified, must be :json:`"uint8"`.
+examples:
+  - driver: bmp
+    "kvstore": "gs://my-bucket/path-to-image.bmp"
+definitions:
+  url:
+    $id: TensorStoreUrl/bmp
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`bmp:` TensorStore URL scheme
+    description: |
+      BMP TensorStores may be specified using the :file:`bmp:`
+      URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"gs://my-bucket/path-to-image.bmp/|bmp:"``
+              - .. code-block:: json
+
+                   {"driver": "bmp",
+                    "kvstore": {"driver": "gcs",
+                                "bucket": "my-bucket",
+                                "path": "path-to-image.bmp"}
+                   }

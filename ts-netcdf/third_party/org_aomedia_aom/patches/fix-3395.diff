@@ -1,0 +1,26 @@
+diff --git a/av1/common/cdef_block_simd.h b/av1/common/cdef_block_simd.h
+index ed960650e..62d0b6218 100644
+--- a/av1/common/cdef_block_simd.h
++++ b/av1/common/cdef_block_simd.h
+@@ -262,6 +262,11 @@ SIMD_INLINE v256 get_max_secondary(const int is_lowbd, v256 *tap, v256 max,
+   return max;
+ }
+ 
++#ifdef _MSC_VER
++// Workaround extremely slow compilation on MSVC
++// https://bugs.chromium.org/p/aomedia/issues/detail?id=3395
++#pragma optimize("", off)
++#endif
+ SIMD_INLINE void filter_block_4x4(const int is_lowbd, void *dest, int dstride,
+                                   const uint16_t *in, int pri_strength,
+                                   int sec_strength, int dir, int pri_damping,
+@@ -608,6 +613,9 @@ SIMD_INLINE void filter_block_8x8(const int is_lowbd, void *dest, int dstride,
+     }
+   }
+ }
++#ifdef _MSC_VER
++#pragma optimize("", on)
++#endif
+ 
+ SIMD_INLINE void copy_block_4xh(const int is_lowbd, void *dest, int dstride,
+                                 const uint16_t *in, int height) {

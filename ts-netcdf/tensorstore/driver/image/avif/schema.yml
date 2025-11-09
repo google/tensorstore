@@ -1,0 +1,57 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/avif
+allOf:
+  - $ref: TensorStoreKvStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: avif
+      dtype:
+        const: uint8
+        description: |
+          Optional.  If specified, must be :json:`"uint8"`.
+      quantizer:
+        type: number
+        default: "0"
+        description: |
+          Unused. AVIF quantization. Lower values are higher quality.
+      speed:
+        type: number
+        default: "6"
+        description: |
+          Unused. AVIF speed setting.
+    required:
+      - kvstore
+examples:
+  - driver: avif
+    "kvstore": "gs://my-bucket/path-to-image.avif"
+definitions:
+  url:
+    $id: TensorStoreUrl/avif
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`avif:` TensorStore URL scheme
+    description: |
+      AVIF TensorStores may be specified using the :file:`avif:`
+      URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"gs://my-bucket/path-to-image.avif/|avif:"``
+              - .. code-block:: json
+
+                   {"driver": "avif",
+                    "kvstore": {"driver": "gcs",
+                                "bucket": "my-bucket",
+                                "path": "path-to-image.avif"}
+                   }

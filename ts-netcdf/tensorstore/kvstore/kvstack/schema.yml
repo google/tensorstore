@@ -1,0 +1,55 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/kvstack
+title: Stack (overlay) driver for key value store mapping.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: kvstack
+    layers:
+      title: Array of KvStore layer mappings
+      description: |
+        An ordered list of mappings from a key or range to a base kvstore driver.
+      type: array
+      items:
+        type: object
+        properties:
+          base:
+            $ref: KvStore
+            title: Underlying key-value store.
+          prefix:
+            type: string
+            description: |
+              Specifies a prefix mapping onto the base kvstore.
+          exact:
+            type: string
+            description: |
+              Specifies an exact mapping onto the base kvstore.
+          inclusive_min:
+            type: string
+            description: |
+              Specifies an inclusive lower bound of a range mapping onto the base kvstore.
+          exclusive_max:
+            type: string
+            description: |
+              Specifies an exclusive upper bound of a range mapping onto the base kvstore.
+          strip_prefix:
+            type: integer
+            description: |
+              Prefix to remove from the key mapping. Defaults to the common prefix of the range.
+        required:
+          - base
+  required:
+    - layers
+  examples:
+    - {
+        "driver": "kvstack",
+        "layers": [
+            {"base": "memory://base/"},
+            {"base": "memory://prefix/a", "prefix": "a", "strip_prefix": 0},
+            {"base": "memory://exact.json", "exact": "metadata.json"},
+            {"base": "memory://range", "inclusive_min": "d", "exclusive_max": "z"}
+        ]
+      }

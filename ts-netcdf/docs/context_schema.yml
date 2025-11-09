@@ -1,0 +1,80 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: Context
+description: |-
+  A context JSON object is a mapping of resource identifiers to
+  `ContextResource` specifications.
+type: object
+properties:
+  <resource-type>:
+    $ref: ContextResource
+    description: |-
+      Overrides the default resource for the given
+      :literal:`<resource-type>`, which must be a supported resource type.
+  <resource-type>#<id>:
+    $ref: ContextResource
+    description: |-
+      Defines a resource with identifier :literal:`<id>` of the given
+      :literal:`<resource-type>`.  The resource specification must be compatible with
+      :literal:`<resource-type>`.
+examples:
+- "cache_pool":
+    total_bytes_limit: 10000000
+  "cache_pool#remote":
+    total_bytes_limit: 100000000
+  "data_copy_concurrency":
+    limit: 8
+definitions:
+  resource:
+    $id: ContextResource
+    description: |-
+      Specifies a context resource of a particular :literal:`<resource-type>`.
+    oneOf:
+    - oneOf:
+      - type: object
+      - type: boolean
+      - type: number
+      description: |-
+        Specifies the resource directly.  Any constraints on the value are
+        determined by the particular :literal:`<resource-type>`.
+    - type: string
+      description: |-
+        References another resource of the same type in the current or parent
+        context using the syntax ``"<resource-type>"`` or
+        ``"<resource-type>#<id>"``, where :literal:`<resource-type>`
+        matches the type of this resource.
+    - type: 'null'
+      description: |-
+        Specifies a new instance of the default resource of the given
+        :literal:`<resource-type>`.  Only valid within a `Context` specification.
+  cache_pool:
+    $id: Context.cache_pool
+    description: |-
+      Specifies the size of an in-memory Least Recently Used (LRU) cache.  Each
+      :literal:`cache_pool` resource specifies a separate memory pool.
+    type: object
+    properties:
+      total_bytes_limit:
+        type: integer
+        minimum: 0
+        description: |-
+          Soft limit on the total number of bytes in the cache.  The
+          least-recently used data that is not in use is evicted from the cache
+          when this limit is reached.
+        default: 0
+  data_copy_concurrency:
+    $id: Context.data_copy_concurrency
+    description: |-
+      Specifies a limit on the number of CPU cores used concurrently for data
+      copying/encoding/decoding.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: |-
+          The maximum number of CPU cores that may be used.  If the special
+          value of ``"shared"`` is specified, a shared global limit equal to the
+          number of CPU cores/threads available applies.
+        default: "shared"

@@ -1,0 +1,259 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/neuroglancer_precomputed
+allOf:
+- $ref: ChunkedTensorStoreKvStoreAdapter
+- type: object
+  properties:
+    driver:
+      const: neuroglancer_precomputed
+    scale_index:
+      type: integer
+      minimum: 0
+      title: Zero-based index of the scale to open or create.
+      description: |-
+        When opening an existing volume, this member may be specified to
+        explicitly indicate the scale to open.  Otherwise, the first scale
+        matching the
+        `~driver/neuroglancer_precomputed.scale_metadata.resolution`
+        constraint, is chosen.  To create a new scale, this must either be left
+        unspecified or equal the number of existing scales (which is also the
+        index that will be assigned to the new scale).
+    multiscale_metadata:
+      type: object
+      title: Scale-independent metadata.
+      description: |-
+        Specifies the scale-independent metadata of a new volume exactly as in
+        the `info file
+        <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#info-json-file-specification>`_,
+        except that not all members are required.  Required when creating a new
+        multiscale volume.  When opening an existing volume or creating a new
+        scale within an existing multiscale volume, specifies constraints on the
+        existing metadata.
+      properties:
+        type:
+          enum:
+          - image
+          - segmentation
+          title: Specifying the type of volume.
+          description: |-
+            This has no bearing on TensorStore, but is used by Neuroglancer to
+            pick the default layer type to use.  Required when creating a new
+            multiscale volume.
+        data_type:
+          enum:
+          - uint8
+          - uint16
+          - uint32
+          - uint64
+          - float32
+          title: Specifies the data type.
+          description: |-
+            Required when creating a new multiscale volume.
+        num_channels:
+          type: integer
+          title: Number of channels.
+          description: |-
+            Required when creating a new volume.
+    scale_metadata:
+      title: Per-scale metadata.
+      description: |-
+        Specifies the per-scale metadata of a new volume as in the `info file
+        <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#info-json-file-specification>`_,
+        except that not all members are required, and the `.chunk_size` member
+        for specifying a single chunk size takes the place of the
+        :literal:`chunk_sizes` member in the :file:`info` file.  Required when creating a
+        new scale.  When opening an existing scale, serves to select the scale
+        to open and constrains the existing metadata.
+      allOf:
+      - type: object
+        properties:
+          key:
+            type: string
+            title: |-
+              Specifies the scale key (relative to `.path`).
+            description: |-
+              When opening an existing scale, may be specified to select the
+              scale by `.key`.  When creating a new scale, if not specified,
+              defaults to ``"<xres>_<yres>_<zres>"``, where :python:`[xres, yres,
+              zres]` is the `.resolution`.
+          size:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: integer
+              minimum: 0
+            title: |-
+              Voxel dimensions of the volume (XYZ order).
+            description: |-
+              Required when creating a new scale if `~Schema.domain` is not
+              specified.
+            examples:
+            - - 500
+              - 500
+              - 500
+          voxel_offset:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: integer
+            title: |-
+              Voxel origin of the volume (XYZ order).
+            description: |-
+              If specified, `.size` must also be specified.
+            default:
+            - 0
+            - 0
+            - 0
+          chunk_size:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: integer
+              minimum: 1
+            title: |-
+              Chunk dimensions (XYZ order).
+            description: |-
+              When creating a new scale, if not specified explicitly, will be
+              chosen automatically based on the `~Schema.chunk_layout`.  When
+              opening an existing scale with multiple supported :literal:`chunk_sizes`,
+              may be specified to select the chunk size to use.  Otherwise, the
+              first supported chunk size is used.
+            examples:
+            - - 500
+              - 500
+              - 500
+          resolution:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: number
+            title: |-
+              Voxel size in nanometers (XYZ order).
+            description: |-
+              When opening an existing scale, may be specified to select the
+              scale by `.resolution`.
+      - $ref: "#codec-properties"
+      - type: object
+        properties:
+          compressed_segmentation_block_size:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: number
+            title: |-
+              Block size for compressed segmentation encoding.
+            description: |-
+              If `.encoding` is ``"compressed_segmentation"``,
+              required when creating a new scale, and serves as a constraint when
+              opening an existing scale.  Otherwise, must not be specified.
+          sharding:
+            oneOf:
+            - $ref: 'kvstore/neuroglancer_uint64_sharded/ShardingSpec'
+            - type: 'null'
+            description: |-
+              Specifies to use the `unsharded
+              <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#unsharded-chunk-storage>`_
+              (indicated by ``null``) or `sharded
+              <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#sharded-chunk-storage>`_
+              format.  When creating a new scale, if not specified, the unsharded
+              format is used.
+definitions:
+  codec-properties:
+    $id: "#codec-properties"
+    type: object
+    properties:
+      encoding:
+        enum:
+        - raw
+        - jpeg
+        - png
+        - compressed_segmentation
+        title: |-
+          Specifies the chunk encoding.
+        description: |-
+          Required when creating a new scale.
+      jpeg_quality:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 75
+        title: |-
+          JPEG encoding quality.
+        description: |-
+          Only applies if `.encoding` is ``"jpeg"``.  The
+          quality is specified using the IJG (Independent JPEG Group) [0, 100]
+          recommended scale, with 0 having the worst quality (smallest file
+          size) and 100 the best quality (largest file size).
+      png_level:
+        type: integer
+        minimum: 0
+        maximum: 9
+        title: |-
+          PNG compression level.
+        description: |-
+          Only applies if `.encoding` is ``"png"``.  Specifies the zlib compression level
+          between [0, 9], where 0 is uncompressed, with 1 having the fastest compression
+          (largest file size), and 9 the slowest compression (smallest file size).
+          When unset, the library default compression level is used.
+  codec:
+    $id: "driver/neuroglancer_precomputed/Codec"
+    title: Neuroglancer Precomputed Codec
+    allOf:
+      - $ref: Codec
+      - type: object
+        properties:
+          driver:
+            const: "neuroglancer_precomputed"
+      - $ref: "#codec-properties"
+      - type: object
+        properties:
+          shard_data_encoding:
+            title: Additional data compression when using the sharded format.
+            description: |
+              This specifies the value of
+              `kvstore/neuroglancer_uint64_sharded/ShardingSpec.data_encoding`. If
+              not specified, defaults to ``"gzip"`` if the `.encoding` is
+              equal to ``"raw"`` or ``"compressed_segmentation"``, and
+              to ``"raw"`` if `.encoding` is equal to ``"jpeg"``.
+            enum:
+            - raw
+            - gzip
+  url:
+    $id: TensorStoreUrl/neuroglancer-precomputed
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`neuroglancer-precomputed:` TensorStore URL scheme
+    description: |
+      Neuroglancer Precomputed-format arrays may be specified using
+      the :file:`neuroglancer-precomputed:` URL syntax.
+
+      .. note::
+
+         Currently, only the base scale level (with
+         `~driver/neuroglancer_precomputed.scale_index` of 0) may be
+         specified using the URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/dataset/|neuroglancer-precomputed:"``
+              - .. code-block:: json
+
+                   {"driver": "neuroglancer-precomputed",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset/"}
+                   }

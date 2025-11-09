@@ -1,0 +1,162 @@
+# Transparently attempt to use the tensorstore mirror for bazel downloads
+common  --experimental_downloader_config=bazel/rewrite.config
+
+# Import local macOS-specific configuration if it exists
+try-import %workspace%/.bazelrc.local
+
+# Enable using platform specific build settings
+build --enable_platform_specific_config
+
+# Disable bzlmod to suppress a warning since we don't yet support it.
+build --noenable_bzlmod --enable_workspace
+
+# Specify platform mapping to ensure "platforms" and --cpu flags are
+# in sync.
+build --platform_mappings=tools/bazel_platforms/platform_mappings
+
+# Use absl with googletest
+build --define=absl=1
+build --define=protobuf_allow_msvc=true
+
+# Configure C++17 mode
+#
+# Note: We can't use --cxxopt because of
+# https://github.com/bazelbuild/bazel/issues/15550
+build:gcc_or_clang --per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
+build:gcc_or_clang --host_per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
+
+build:msvc --per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@/std:c++17
+build:msvc --host_per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@/std:c++17
+
+# protobuf/upb has some functions where errors are incorrectly raised:
+# https://github.com/protocolbuffers/upb/blob/main/upb/message/accessors_internal.h
+
+build:gcc_or_clang --per_file_copt=upb/.*\\.c$@-Wno-array-bounds,-Wno-stringop-overread
+build:gcc_or_clang --host_per_file_copt=upb/.*\\.c$@-Wno-array-bounds,-Wno-stringop-overread
+
+build:gcc_or_clang --per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overread
+build:gcc_or_clang --host_per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overread
+
+build:gcc_or_clang --per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
+build:gcc_or_clang --host_per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
+
+build:msvc --per_file_copt=upb/.*\\.c$@/wd5287
+build:msvc --host_per_file_copt=upb/.*\\.c$@/wd5287
+
+build:msvc --per_file_copt=.*\\.upb\\.c$@/wd5287
+build:msvc --host_per_file_copt=.*\\.upb\\.c@/wd5287
+build:msvc --per_file_copt=.*\\.upbdefs\\.c$@/wd5287
+build:msvc --host_per_file_copt=.*\\.upbdefs\\.c$@/wd5287
+build:msvc --per_file_copt=.*\\.upb_minitable\\.c$@/wd5287
+build:msvc --host_per_file_copt=.*\\.upb_minitable\\.c@/wd5287
+
+# gRPC has some errors on windows as well
+
+build:msvc --per_file_copt=grpc/.*\\.cc$@/wd4624
+build:msvc --host_per_file_copt=grpc/.*\\.cc$@/wd4624
+build:msvc --per_file_copt=grpc/.*\\.cc$@/wd4244
+build:msvc --host_per_file_copt=grpc/.*\\.cc$@/wd4244
+build:msvc --per_file_copt=external/xds/.*\\.cc$@/wd4244
+build:msvc --host_per_file_copt=external/xds/.*\\.cc$@/wd4244
+
+# Use colors
+build:gcc_or_clang --copt=-fdiagnostics-color=always
+build:gcc_or_clang --host_copt=-fdiagnostics-color=always
+
+# disable deprecated-declarations warnings
+build:gcc_or_clang --copt='-Wno-deprecated-declarations'
+build:gcc_or_clang --host_copt='-Wno-deprecated-declarations'
+
+# disable mixed sign comparison warnings
+build:gcc_or_clang --copt='-Wno-sign-compare'
+build:gcc_or_clang --host_copt='-Wno-sign-compare'
+
+# disable spurious warnings from gcc
+build:gcc_or_clang --copt='-Wno-unused-but-set-parameter'
+build:gcc_or_clang --host_copt='-Wno-unused-but-set-parameter'
+build:gcc_or_clang --copt='-Wno-maybe-uninitialized'
+build:gcc_or_clang --host_copt='-Wno-maybe-uninitialized'
+
+# Not applicable in C++17 but still warned about.
+build:gcc_or_clang --copt='-Wno-sequence-point'
+build:gcc_or_clang --host_copt='-Wno-sequence-point'
+
+# disable warnings from clang about unknown warnings
+build:gcc_or_clang --copt='-Wno-unknown-warning-option'
+build:gcc_or_clang --host_copt='-Wno-unknown-warning-option'
+
+# disable warnings from clang about stringof-overflow
+build:gcc_or_clang --copt='-Wno-stringop-overflow'
+build:gcc_or_clang --host_copt='-Wno-stringop-overflow'
+
+# ----------------------------------------
+# Linux and FreeBSD configuration settings
+# ----------------------------------------
+
+# Assume GCC or Clang on Linux
+build:linux --config=gcc_or_clang
+build:freebsd --config=gcc_or_clang
+
+# ------------------------------
+# MacOS configuration settings
+# ------------------------------
+
+# We can safely assume Clang or GCC on macOS (almost surely Clang).
+build:macos --config=gcc_or_clang
+
+# Workaround for https://github.com/abseil/abseil-cpp/issues/848
+# Root cause: https://github.com/bazelbuild/bazel/issues/4341
+build:macos --features=-supports_dynamic_linker
+
+# ------------------------------
+# Windows configuration settings
+# ------------------------------
+
+# Significantly speeds up Python test execution.  Requires Windows
+# developer mode enabled in order for non-admin users to create
+# symlinks.
+startup --windows_enable_symlinks
+
+# https://github.com/protocolbuffers/protobuf/issues/12947
+# Windows has path-length limits of 260 characters leading to errors which
+# may require a shorter filenames. If encountered, uncomment and adjust:
+#
+# startup --output_base=C:\\Out
+
+# By default assume MSVC on Windows.
+build:windows --config=msvc
+build:windows --config=windows_common
+
+# Fix https://github.com/bazelbuild/bazel/issues/17068
+#
+# In Bazel 6.0.0, `archive_param_file` was accidentally disabled by
+# default for Windows.
+build:windows_common --features=archive_param_file
+build:windows_common --features=linker_param_file
+build:windows_common --features=compiler_param_file
+
+# Define mingw configuration.
+#
+# Unfortunately, with `--incompatible_enable_cc_toolchain_resolution`
+# specified, it is inconvenient to use mingw.
+#
+# https://bazel.build/configure/windows#clang
+build:windows_x86_64_mingw --noenable_platform_specific_config --config=windows_common --config=gcc_or_clang
+build:windows_x86_64_mingw --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw
+build:windows_x86_64_mingw --extra_execution_platforms=//tools/bazel_platforms:windows_x86_64_mingw
+# Prevent "file too big" / "too many sections" errors.
+build:windows_x86_64_mingw --copt=-Wa,-mbig-obj
+build:windows_x86_64_mingw --host_copt=-Wa,-mbig-obj
+# mingw  https://sourceforge.net/p/mingw-w64/bugs/134/
+build:windows_x86_64_mingw --copt=-D_NO_W32_PSEUDO_MODIFIERS
+build:windows_x86_64_mingw --host_copt=-D_NO_W32_PSEUDO_MODIFIERS
+
+build:windows_common --enable_runfiles=true --build_python_zip=false
+
+# Disable warning regarding `msvc::no_unique_address`
+build:msvc --copt=/wd4848
+build:msvc --host_copt=/wd4848
+
+# Make MSVC conform to the C++ standard regarding hidden friends
+build:msvc --copt=/Zc:hiddenFriend
+build:msvc --host_copt=/Zc:hiddenFriend

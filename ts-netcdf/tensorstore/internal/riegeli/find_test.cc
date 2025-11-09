@@ -1,0 +1,95 @@
+// Copyright 2023 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "tensorstore/internal/riegeli/find.h"
+
+#include <stddef.h>
+
+#include <string_view>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include "riegeli/bytes/string_reader.h"
+
+namespace {
+
+using ::tensorstore::internal::FindFirst;
+using ::tensorstore::internal::FindLast;
+using ::tensorstore::internal::StartsWith;
+
+static constexpr unsigned char kData[] = {
+    0x17, 0x16, 0xa1, 0xcb, 0xff, 0xff, 0xef, 0xff, 0xff, 0xff, 0xfe, 0xff,
+    0x03, 0x04, 0xbb, 0xcc, 0xc7, 0xb6, 0xbe, 0x5d, 0x7c, 0x2d, 0x23, 0x44,
+    0xa0, 0xbe, 0x13, 0x1b, 0x9a, 0x2d, 0xf2, 0x13, 0x6a, 0xfb, 0xad, 0xdb,
+    0x73, 0xf9, 0x3d, 0xbc, 0x5d, 0x7c, 0x6f, 0x41, 0xc0, 0xad, 0xf3, 0x31,
+    0x79, 0x7f, 0x89, 0xb2, 0xe4, 0xa9, 0xf5, 0x9d, 0xc0, 0x30, 0x23, 0x32,
+    0x99, 0x2c, 0x16, 0x42, 0xf5, 0x48, 0xd1, 0x79, 0xdb, 0x98, 0xb9, 0xc3,
+    0x6c, 0xa6, 0x50, 0xcd, 0x86, 0xb6, 0xd3, 0xa7, 0x57, 0x3b, 0xe6, 0x1d,
+    0xa5, 0xe2, 0x79, 0xe9, 0x2d, 0x19, 0xec, 0xa6, 0xf3, 0xa3, 0x50, 0x65,
+    0x03, 0x04, 0xbb, 0xcc, 0x1a, 0xc9, 0xec, 0xb2, 0xa6, 0x3e, 0xe0, 0x49,
+    0x6a, 0x30, 0xd7, 0x1f, 0x90, 0x08, 0x1c, 0x2a, 0x6b, 0xbd, 0x06, 0x9c,
+    0xef, 0xd2, 0x79, 0x20, 0x64, 0xbc, 0xb7, 0x75, 0xbb, 0xcd, 0xcc, 0xa8,
+    0x49, 0x8b, 0x30, 0x4f, 0x73, 0x7c, 0xb5, 0x6e, 0x08, 0x1b, 0xc2, 0x7f,
+    0xfb, 0xb1, 0xc4, 0x49, 0x89, 0x74, 0xe7, 0x8e, 0x9d, 0x6f, 0x44, 0x14,
+    0xbd, 0xdc, 0x6a, 0xd9, 0xcb, 0x53, 0x2b, 0xdc, 0x48, 0x6c, 0xa3, 0x14,
+    0x4e, 0xc0, 0x3b, 0x6b, 0x47, 0x50, 0xd5, 0x97, 0x84, 0x30, 0xd5, 0x28,
+    0x03, 0x04, 0xbb, 0xcc, 0xff, 0xff, 0xef, 0xff, 0xff, 0xff, 0xfe, 0xff,
+};
+
+constexpr const unsigned char kLiteral1[4] = {0x03, 0x04, 0xbb, 0xcc};
+constexpr const unsigned char kLiteral2[3] = {0xff, 0xfe, 0xff};
+
+TEST(FindTest, FindFirst) {
+  const std::string_view literal1(reinterpret_cast<const char*>(kLiteral1),
+                                  sizeof(kLiteral1));
+  const std::string_view literal2(reinterpret_cast<const char*>(kLiteral2),
+                                  sizeof(kLiteral2));
+
+  riegeli::StringReader string_reader(reinterpret_cast<const char*>(kData),
+                                      sizeof(kData));
+  size_t positions[3] = {0, 0, 0};
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_TRUE(FindFirst(string_reader, literal1));
+    EXPECT_TRUE(StartsWith(string_reader, literal1));
+    positions[i] = string_reader.pos();
+    string_reader.Skip(sizeof(kLiteral1));
+  }
+
+  EXPECT_FALSE(FindFirst(string_reader, literal1));
+  EXPECT_THAT(positions, ::testing::ElementsAre(12, 96, 180));
+
+  string_reader.Seek(0);
+  EXPECT_TRUE(FindFirst(string_reader, literal2));
+  EXPECT_THAT(string_reader.pos(), 9);
+}
+
+TEST(FindTest, FindLast) {
+  const std::string_view literal1(reinterpret_cast<const char*>(kLiteral1),
+                                  sizeof(kLiteral1));
+  const std::string_view literal2(reinterpret_cast<const char*>(kLiteral2),
+                                  sizeof(kLiteral2));
+
+  riegeli::StringReader string_reader(reinterpret_cast<const char*>(kData),
+                                      sizeof(kData));
+
+  EXPECT_TRUE(FindLast(string_reader, literal1));
+  EXPECT_TRUE(StartsWith(string_reader, literal1));
+  EXPECT_THAT(string_reader.pos(), 180);
+
+  string_reader.Seek(0);
+  EXPECT_TRUE(FindLast(string_reader, literal2));
+  EXPECT_THAT(string_reader.pos(), 189);
+}
+
+}  // namespace

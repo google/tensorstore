@@ -1,0 +1,166 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/file
+title: Read/write access to the local filesystem.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: file
+    path:
+      type: string
+      title: Path to root directory on local filesystem.
+    file_io_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.file_io_concurrency`.
+    file_io_sync:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.file_io_sync`.
+    file_io_mode:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.file_io_mode`.
+    file_io_locking:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.file_io_locking`.
+  required:
+  - path
+definitions:
+  url:
+    $id: KvStoreUrl/file
+    type: string
+    allOf:
+    - $ref: KvStoreUrl
+    - type: string
+    title: |
+      :literal:`file://` KvStore URL scheme
+    description: |
+      File-based key-value stores may be specified using the widely-supported
+      :file:`file://{path}` URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/dataset/"``
+              - .. code-block:: json
+
+                   {"driver": "file",
+                    "path": "/tmp/dataset/"}
+            * - ``"file://C:/Users/abc/dataset/"``
+              - .. code-block:: json
+
+                   {"driver": "file",
+                    "path": "C:/Users/abc/dataset/"}
+  file_io_concurrency:
+    $id: Context.file_io_concurrency
+    description: |-
+      Specifies a limit on the number of concurrently local filesystem I/O
+      operations.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: |-
+          The maximum number of concurrent operations.  If the special value of
+          ``"shared"`` is specified, a shared global limit equal to the number
+          of CPU cores/threads available (or 4 if there are fewer than 4
+          cores/threads available) applies.
+        default: "shared"
+  file_io_sync:
+    $id: Context.file_io_sync
+    title: |
+      Specifies durability of writes.
+    description: |-
+      If ``true``, durability is ensured for local file writes (e.g. by calling
+      :literal:`fsync`).  If ``false``, durability is not guaranteed, and data
+      may be lost in the event of a crash.
+
+      In cases where durability is not required, setting this to ``false`` may
+      make write operations faster.
+    type: boolean
+    default: true
+  file_io_mode:
+    $id: Context.file_io_mode
+    title: |
+      Specifies alternative modes for reading such as memory-mapped I/O or direct I/O.
+    type: object
+    properties:
+      mode:
+        type: string
+        enum:
+        - "default"
+        - "memmap"
+        - "direct"
+        default: "default"
+        title: Selects the file io mode.
+        description: |-
+          When set to ``"default"``, no special options are used for reads.
+          
+          When set to ``"memmap"``, the file system uses memory-mapped io on reads. Experimental.
+          Using ``"memmap"`` may improve performance for large read with the following caveats:
+
+          * TensorStore may retain references to memory-mapped buffers, which due to batching may cover
+            a larger region of the file than an individual read request, even after the read competes,
+            depending on the cache and codec configuration, leading to higher-than-expected virtual
+            memory usage.
+
+          * If a file is truncated or otherwise modified in-place by a non-TensorStore process while
+            it is memory-mapped, the TensorStore process may crash, or some combination of the old
+            and new data may be observed by TensorStore.  Overwriting the entire file via rename, as
+            TenosrStore itself does, is safe.
+
+          When set to ``"direct"``, the file system uses direct I/O on reads. Experimental.
+          Using ``"direct"`` may improve performance for large read with the following caveats:
+
+          * Performance properties of direct mode depend on the operating sytem, filesystem, and
+            data layout.  For some workloads this may result in higher latency.
+
+  file_io_locking:
+    $id: Context.file_io_locking
+    title: |
+      Specifies locking strategy to use for file writes.
+    type: object
+    properties:
+      mode:
+        type: string
+        enum:
+        - "os"
+        - "none"
+        - "lockfile"
+        default: "os"
+        title: Selects the locking mode.
+        description: |
+          When set to ``"os"``, os locking such as :literal:`flock` is used.  Stale lock files with
+          the suffix ``".__lock"`` may remain if a failure occurs while a write is in progress, but
+          these files will be cleaned up automatically by any subsequent write to the same key.
+
+          When set to ``"lockfile"``, lockfiles are used. Stale lock files with the suffix 
+          ``".__lock"`` may remain if a failure occurs while a write is in progress, and these files
+          will need to be deleted manually to unblock any subsequent writes.
+
+          When set to ``"none"``, no locking is used. Conditional writes, as used for 
+          read-modify-write operations, such as partial array chunk writes, are not atomic. In the 
+          case of concurrent writes to the same key, the conditions may not be respected and updates
+          may be lost. Partial writes will not be observed; unconditional writes are still atomic.
+          If a failure occurs while a write is in progress, stale temporary files with the suffix
+          ``".__lock"`` may remain. These files will not impact subsequent operations but will need
+          to be cleaned up manually to reclaim space.
+      acquire_timeout:
+        type: duration
+        default: 60s
+        description: |
+          Timeout for acquiring a lock when using ``"lockfile"`` locking.
+

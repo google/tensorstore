@@ -1,0 +1,108 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: IndexDomain
+description: |
+  :ref:`Index domains<index-domain>` may be serialized to/from JSON using
+  the following schema.
+
+  If neither `.inclusive_min` nor `.shape` is specified,
+  all dimensions receive an implicit lower bound of :math:`-\infty`.  If
+  `.shape` is specified but `.inclusive_min` is not
+  specified, all dimensions receive an explicit lower bound of 0.
+
+  At most one of `.exclusive_max`, `.inclusive_max`, and
+  `.shape` may be specified.  If none are specified, all dimensions
+  receive an implicit upper bound of :math:`+\infty`.
+
+type: object
+properties:
+  rank:
+    type: integer
+    minimum: 0
+    maximum: 32
+    title: Number of dimensions.
+    description: |
+      The rank must be specified either directly, or implicitly by the number of
+      dimensions specified for `.inclusive_min`,
+      `.inclusive_max`, `.exclusive_max`,
+      `.shape`, or `.labels`.
+  inclusive_min:
+    type: array
+    items:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            - type: integer
+    title: |
+      Inclusive lower bounds of the domain.
+    description: |
+      Length must equal the `.rank`.  Bounds specified as
+      :samp:`{n}` indicate normal, explicit bounds, while bounds specified as
+      :samp:`[{n}]` indicate :ref:`implicit bounds<implicit-bounds>`.  For example,
+      :json:`[1, [2]]` specifies an explicit bound of :math:`1 \leq x` for the
+      first dimension and an implicit bound of :math:`2 \leq x` for the second
+      dimension.
+  exclusive_max:
+    type: array
+    items:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            - type: integer
+    title: |
+      Exclusive upper bounds of the domain.
+    description: |
+      Length must equal the `.rank`.  As for
+      `.inclusive_min`, bounds specified as :samp:`{n}`
+      indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, :json:`[5,
+      [7]]` specifies an explicit bound of :math:`x < 5` for the first dimension
+      and an implicit bound of :math:`x < 7` for the second dimension.
+  inclusive_max:
+    type: array
+    items:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            - type: integer
+    title: |
+      Inclusive upper bounds of the domain.
+    description: |
+      Length must equal the `.rank`.  As for
+      `.inclusive_min`, bounds specified as :samp:`{n}`
+      indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, :json:`[5,
+      [7]]` specifies an explicit bound of :math:`x \leq 5` for the first
+      dimension and an implicit bound of :math:`x \leq 7` for the second
+      dimension.
+  shape:
+    type: array
+    items:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            - type: integer
+    title: |
+      Extent of each dimension of the domain.
+    description: |
+      Length must equal the `.rank`.  As for
+      `.inclusive_min`, bounds specified as :samp:`{n}`
+      indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, assuming an
+      `.inclusive_min` of :json:`[1, 2]`, an
+      `.shape` of :json:`[5, [7]]` specifies an explicit bound
+      of :math:`x < 6` for the first dimension and an implicit bound of :math:`x
+      < 9` for the second dimension.
+  labels:
+    type: array
+    items:
+      type: string
+    title: |
+      :ref:`Dimension labels<dimension-labels>` for each dimension.
+    description: |
+      Length must equal the `.rank`.  An empty string
+      indicates an unlabeled dimension.  Non-empty strings must not occur more
+      than once.  By default, all dimensions are unlabeled.

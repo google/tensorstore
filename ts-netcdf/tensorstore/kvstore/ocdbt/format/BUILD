@@ -1,0 +1,180 @@
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+
+package(default_visibility = ["//tensorstore:internal_packages"])
+
+licenses(["notice"])
+
+tensorstore_cc_library(
+    name = "format",
+    srcs = [
+        "btree.cc",
+        "btree_node_encoder.cc",
+        "codec_util.cc",
+        "config.cc",
+        "config_codec.cc",
+        "data_file_id.cc",
+        "data_file_id_codec.cc",
+        "indirect_data_reference.cc",
+        "manifest.cc",
+        "version_tree.cc",
+    ],
+    hdrs = [
+        "btree.h",
+        "btree_codec.h",
+        "btree_node_encoder.h",
+        "codec_util.h",
+        "config.h",
+        "config_codec.h",
+        "data_file_id.h",
+        "data_file_id_codec.h",
+        "indirect_data_reference.h",
+        "indirect_data_reference_codec.h",
+        "manifest.h",
+        "version_tree.h",
+        "version_tree_codec.h",
+    ],
+    deps = [
+        "//tensorstore/internal:integer_overflow",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:ref_counted_string",
+        "//tensorstore/internal/estimate_heap_usage",
+        "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/internal/meta:type_traits",
+        "//tensorstore/kvstore/ocdbt:debug_defines",
+        "//tensorstore/util:division",
+        "//tensorstore/util:endian",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "//tensorstore/util/apply_members",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/crc:crc32c",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@boringssl//:crypto",
+        "@riegeli//riegeli/base:byte_fill",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:limiting_reader",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
+        "@riegeli//riegeli/digests:crc32c_digester",
+        "@riegeli//riegeli/digests:digesting_reader",
+        "@riegeli//riegeli/digests:digesting_writer",
+        "@riegeli//riegeli/endian:endian_reading",
+        "@riegeli//riegeli/endian:endian_writing",
+        "@riegeli//riegeli/varint:varint_reading",
+        "@riegeli//riegeli/varint:varint_writing",
+        "@riegeli//riegeli/zstd:zstd_reader",
+        "@riegeli//riegeli/zstd:zstd_writer",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "manifest_test",
+    size = "small",
+    srcs = ["manifest_test.cc"],
+    deps = [
+        ":format",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/strings:str_format",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "btree_test",
+    size = "small",
+    srcs = ["btree_test.cc"],
+    deps = [
+        ":format",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@googletest//:gtest_main",
+        "@riegeli//riegeli/bytes:writer",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "dump",
+    srcs = ["dump.cc"],
+    hdrs = ["dump.h"],
+    deps = [
+        ":format",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/json:value_as",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/kvstore/ocdbt:config",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@nlohmann_json//:json",
+        "@re2",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "dump_test",
+    size = "small",
+    srcs = ["dump_test.cc"],
+    deps = [
+        ":dump",
+        ":format",
+        "//tensorstore/internal/testing:json_gtest",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "data_file_id_codec_test",
+    size = "small",
+    srcs = ["data_file_id_codec_test.cc"],
+    deps = [
+        ":format",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/varint:varint_writing",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "version_tree_test",
+    size = "small",
+    srcs = ["version_tree_test.cc"],
+    deps = [
+        ":format",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+    ],
+)

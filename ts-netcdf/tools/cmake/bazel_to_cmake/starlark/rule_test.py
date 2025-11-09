@@ -1,0 +1,136 @@
+# Copyright 2022 The TensorStore Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# pylint: disable=g-importing-member,wildcard-import
+
+from typing import Any, Dict, List, Optional
+
+from .bazel_target import RepositoryId
+from .bazel_target import TargetId
+from .exec import compile_and_exec
+from .ignored import IgnoredLibrary
+from .invocation_context import InvocationContext
+from .invocation_context import RuleImpl
+from .provider import TargetInfo
+from .rule import *
+from .scope_build_file import ScopeBuildBzlFile
+from .scope_build_file import ScopeBuildFile
+
+RULE_BZL = """
+
+def _empty_rule_impl(ctx):
+  print("empty_rule", ctx.label)
+
+empty_rule = rule(
+    implementation = _empty_rule_impl,
+    attrs = {
+        "a_string": attr.string(default = "b"),
+        "a_stringlist": attr.string_list(),
+        "a_label": attr.label(allow_files = [".header"]),
+        "a_labellist": attr.label_list(),
+        "a_bool": attr.bool(default = False),
+        "out": attr.output(),
+        "outs": attr.output_list(),
+    },
+)
+
+"""
+
+BUILD_BAZEL = """
+
+load("@foo//:rule.bzl", "empty_rule")
+
+empty_rule(name = "nothing",
+           a_string = "c",
+           a_label = Label("//:nothing"),
+           a_labellist = [])
+
+"""
+
+OUTPUT = """
+'empty_rule'
+Label("@bar//:nothing")
+"""
+
+
+class MyRuleContext(InvocationContext):
+
+  def __init__(self):
+    self.output = []
+    self.rule_target = TargetId.parse("@foo//:rule.bzl")
+    self.rule_scope = ScopeBuildBzlFile(self, self.rule_target, "")
+    self.rule_scope["print"] = self._my_print
+    self.build_target = TargetId.parse("@bar//:BUILD.bazel")
+    self.build_scope = ScopeBuildFile(self, self.build_target, "")
+    self.build_scope["print"] = self._my_print
+    self.rules: Dict[TargetId, RuleImpl] = {}
+
+  def _my_print(self, *args):
+    for x in args:
+      self.output.append(x)
+
+  @property
+  def joined_output(self):
+    return "\n" + "\n".join(repr(x) for x in self.output) + "\n"
+
+  def snapshot(self) -> "MyRuleContext":
+    return self
+
+  @property
+  def caller_package_id(self):
+    return self.build_target.package_id
+
+  def apply_repo_mapping(
+      self, target: TargetId, mapping_repository_id: Optional[RepositoryId]
+  ) -> TargetId:
+    return target
+
+  def resolve_workspace_root(self, repository_id: RepositoryId) -> str:
+    return f"external/{repository_id.repository_name}"
+
+  def load_library(self, target: TargetId) -> Dict[str, Any]:
+    if target == self.rule_target:
+      return self.rule_scope
+    else:
+      return IgnoredLibrary()
+
+  def add_rule(
+      self,
+      rule_id: TargetId,
+      impl: RuleImpl,
+      outs: Optional[List[TargetId]] = None,
+      **kwargs,
+  ) -> None:
+    self.rules[rule_id] = impl
+
+  def add_analyzed_target(self, target_id: TargetId, info: TargetInfo) -> None:
+    pass
+
+  def get_target_info(self, target_id: TargetId) -> TargetInfo:
+    return TargetInfo()
+
+
+def test_rule():
+  ctx = MyRuleContext()
+
+  # Compile the .bzl library
+  compile_and_exec(RULE_BZL, "rule", ctx.rule_scope)
+
+  # Compile the BUILD file.
+  compile_and_exec(BUILD_BAZEL, "build", ctx.build_scope)
+
+  for _, impl in ctx.rules.items():
+    impl()
+
+  assert ctx.joined_output == OUTPUT

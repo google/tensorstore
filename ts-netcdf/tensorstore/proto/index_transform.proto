@@ -1,0 +1,92 @@
+// Copyright 2021 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package tensorstore.proto;
+
+// NOTE: Could be replaced with tensorstore.proto.Array.
+message IndexArray {
+  repeated int64 shape = 1 [packed = true];
+  repeated int64 data = 2 [packed = true];
+}
+
+message IndexDomain {
+  // If present, must be a a non-negative integer specifying `rank`.
+  // If not present, the rank is inferred from the other members.
+  optional int64 rank = 1;
+
+  // A list of length `rank` specifying the inclusive lower bounds of
+  // the domain. Infinite bounds are encoded using the tensorstore
+  // representation of infinity.
+  repeated int64 origin = 2 [packed = true];
+
+  // Optional. A list of length `rank` encoding implicit lower
+  // bounds. When not present, all bounds are assumed to be explicit.
+  repeated bool implicit_lower_bound = 3 [packed = true];
+
+  // A list of length `rank` specifying the extent of the domain. Infinite
+  // bounds are encoded using the tensorstore representation of infinity.
+  repeated int64 shape = 4 [packed = true];
+
+  // Optional. A list of length `rank` encoding implicit upper
+  // bounds. When not present, all bounds are assumed to be explicit.
+  repeated bool implicit_upper_bound = 5 [packed = true];
+
+  // Optional. A list of length `rank` specifying the dimension labels as
+  // strings.  When not present, all labels are set to the empty string.
+  repeated bytes labels = 6;
+}
+
+message OutputIndexMap {
+  // Optional.  Specifies the output offset value as an integer.
+  optional int64 offset = 1;
+
+  // Optional.  Specifies the output stride as an integer.
+  // Only valid to specify in conjunction with an `input_dimension` or
+  // `index_array` member.
+  optional int64 stride = 2;
+
+  // Optional.  If present, indicates that the output index map is a
+  // single_input_dimension map.  The value must be an integer specifying the
+  // input dimension.  Must not be specified in conjunction with an
+  // `index_array` member.
+  optional int64 input_dimension = 3;
+
+  // Optional.  If present, indicates that the output index map is an array map.
+  // The value must be a nested list of integers specifying the index array of
+  // rank `input_rank`. The extent of each dimension of the index array must
+  // either equal the extent of the corresponding input dimension, or equal `1`
+  // for broadcasting.
+  optional IndexArray index_array = 4;
+
+  // Optional. If present, specifying inclusive bounds on values in
+  // `index_array`. Infinite bounds are encoded using the tensorstore
+  // representation of infinity.
+  optional int64 index_array_inclusive_min = 5;
+  optional int64 index_array_exclusive_max = 6;
+}
+
+message IndexTransform {
+  // Domain of the transform.
+  // members.
+  optional IndexDomain input_domain = 1;
+
+  // An explicit output_rank.
+  optional uint32 output_rank = 7;
+
+  // A list of output index maps.When not present, indicates an identity
+  // mapping.
+  repeated OutputIndexMap output = 8;
+}

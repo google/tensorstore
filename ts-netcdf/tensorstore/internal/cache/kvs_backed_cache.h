@@ -1,0 +1,568 @@
+// Copyright 2020 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef TENSORSTORE_INTERNAL_CACHE_KVS_BACKED_CACHE_H_
+#define TENSORSTORE_INTERNAL_CACHE_KVS_BACKED_CACHE_H_
+
+/// \file
+///
+/// Integrates `AsyncCache` with `kvstore::Driver`.
+
+#include <stddef.h>
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <type_traits>
+#include <utility>
+
+#include "absl/base/optimization.h"
+#include "absl/log/absl_log.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_modify_write.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/status.h"
+
+namespace tensorstore {
+namespace internal {
+
+/// KvsBackedCache metric increment functions.
+void KvsBackedCache_IncrementReadUnchangedMetric();
+void KvsBackedCache_IncrementReadChangedMetric();
+void KvsBackedCache_IncrementReadErrorMetric();
+
+/// Base class that integrates an `AsyncCache` with a `kvstore::Driver`.
+///
+/// Each cache entry is assumed to correspond one-to-one with a key in a
+/// `kvstore::Driver`, defined by the `GetKeyValueStoreKey` method.
+///
+/// To use this class, define a `Derived` class that inherits from
+/// `KvsBackedCache<Parent>`, where `Parent` is the desired base class.  The
+/// derived class is responsible for defining:
+///
+/// 1. `DoDecode`, which decodes an `std::optional<absl::Cord>` read from
+///    the `kvstore::Driver` into an `std::shared_ptr<const ReadData>` object
+///    (see `DoDecode`);
+///
+/// 2. (if writing is supported) `DoEncode`, which encodes an
+///    `std::shared_ptr<const ReadData>` object into an
+///    `std::optional<absl::Cord>` to write it back to the
+///    `kvstore::Driver`.
+///
+/// 3. overrides `GetKeyValueStoreKey` if necessary.
+///
+/// This class takes care of reading from and writing to the
+/// `kvstore::Driver`, and handling the timestamps and `StorageGeneration`
+/// values.
+///
+/// \tparam Parent Parent class, must inherit from (or equal) `AsyncCache`.
+template <typename Derived, typename Parent>
+class KvsBackedCache : public Parent {
+  static_assert(std::is_base_of_v<AsyncCache, Parent>);
+
+ public:
+  /// Constructs a `KvsBackedCache`.
+  ///
+  /// \param kvstore The `kvstore::Driver` to use.  If `nullptr`,
+  ///     `SetKvStoreDriver` must be called before any read or write operations
+  ///     are performed.
+  /// \param args Arguments to forward to the `Parent` constructor.
+  template <typename... U>
+  explicit KvsBackedCache(kvstore::DriverPtr kvstore_driver, U&&... args)
+      : Parent(std::forward<U>(args)...) {
+    SetKvStoreDriver(std::move(kvstore_driver));
+  }
+
+  class TransactionNode;
+
+  struct EncodeOptions {
+    enum EncodeMode {
+      // Normal encoding.
+      kNormal,
+      // The content of the returned `absl::Cord` is ignored, only whether it
+      // is `std::nullopt` is relevant.
+      kValueDiscarded
+    };
+    EncodeMode encode_mode = kNormal;
+  };
+
+  class Entry : public Parent::Entry {
+   public:
+    using OwningCache = KvsBackedCache;
+
+    /// Defines the mapping from a cache entry to a kvstore key.
+    ///
+    /// By default the cache entry key is used, but derived classes may override
+    /// this behavior.
+    virtual std::string GetKeyValueStoreKey() {
+      return std::string{this->key()};
+    }
+
+    template <typename EntryOrNode>
+    struct DecodeReceiverImpl {
+      EntryOrNode* self_;
+      TimestampedStorageGeneration stamp_;
+      void set_error(absl::Status error) {
+        self_->ReadError(
+            GetOwningEntry(*self_).AnnotateError(error,
+                                                 /*reading=*/true));
+      }
+      void set_cancel() { set_error(absl::CancelledError("")); }
+      void set_value(std::shared_ptr<const void> data) {
+        AsyncCache::ReadState read_state;
+        read_state.stamp = std::move(stamp_);
+        read_state.data = std::move(data);
+        self_->ReadSuccess(std::move(read_state));
+      }
+    };
+
+    template <typename EntryOrNode>
+    struct ReadReceiverImpl {
+      EntryOrNode* entry_or_node_;
+      std::shared_ptr<const void> existing_read_data_;
+      void set_value(kvstore::ReadResult read_result) {
+        if (read_result.aborted()) {
+          ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+              << *entry_or_node_
+              << "Value has not changed, stamp=" << read_result.stamp;
+          KvsBackedCache_IncrementReadUnchangedMetric();
+          // Value has not changed.
+          entry_or_node_->ReadSuccess(AsyncCache::ReadState{
+              std::move(existing_read_data_), std::move(read_result.stamp)});
+          return;
+        }
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << *entry_or_node_ << "DoDecode: " << read_result.stamp;
+        KvsBackedCache_IncrementReadChangedMetric();
+        GetOwningEntry(*entry_or_node_)
+            .DoDecode(std::move(read_result).optional_value(),
+                      DecodeReceiverImpl<EntryOrNode>{
+                          entry_or_node_, std::move(read_result.stamp)});
+      }
+      void set_error(absl::Status error) {
+        KvsBackedCache_IncrementReadErrorMetric();
+        entry_or_node_->ReadError(GetOwningEntry(*entry_or_node_)
+                                      .AnnotateError(error, /*reading=*/true));
+      }
+      void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
+    };
+
+    /// Implements reading for the `AsyncCache` interface.
+    ///
+    /// Reads from the `kvstore::Driver` and invokes `DoDecode` with the result.
+    ///
+    /// If an error occurs, calls `ReadError` directly without invoking
+    /// `DoDecode`.
+    void DoRead(AsyncCache::AsyncCacheReadRequest request) final {
+      kvstore::ReadOptions kvstore_options;
+      kvstore_options.staleness_bound = request.staleness_bound;
+      auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
+      kvstore_options.generation_conditions.if_not_equal =
+          std::move(read_state.stamp.generation);
+      kvstore_options.batch = request.batch;
+      auto& cache = GetOwningCache(*this);
+      auto future = cache.kvstore_driver_->Read(this->GetKeyValueStoreKey(),
+                                                std::move(kvstore_options));
+      execution::submit(
+          std::move(future),
+          ReadReceiverImpl<Entry>{this, std::move(read_state.data)});
+    }
+
+    using DecodeReceiver =
+        AnyReceiver<absl::Status,
+                    std::shared_ptr<const typename Derived::ReadData>>;
+
+    /// Decodes a value from the kvstore into a `ReadData` object.
+    ///
+    /// The derived class implementation should use a separate executor to
+    /// complete any expensive computations.
+    virtual void DoDecode(std::optional<absl::Cord> value,
+                          DecodeReceiver receiver) = 0;
+
+    using EncodeReceiver = AnyReceiver<absl::Status, std::optional<absl::Cord>>;
+
+    /// Encodes a `ReadData` object into a value to write back to the
+    /// kvstore.
+    ///
+    /// The derived class implementation should use a separate executor for any
+    /// expensive computations.
+    virtual void DoEncode(
+        EncodeOptions options,
+        std::shared_ptr<const typename Derived::ReadData> read_data,
+        EncodeReceiver receiver) {
+      ABSL_UNREACHABLE();  // COV_NF_LINE
+    }
+
+    absl::Status AnnotateError(const absl::Status& error, bool reading) {
+      return GetOwningCache(*this).kvstore_driver_->AnnotateError(
+          this->GetKeyValueStoreKey(), reading ? "reading" : "writing", error);
+    }
+  };
+
+  class TransactionNode : public Parent::TransactionNode,
+                          public kvstore::ReadModifyWriteSource {
+   public:
+    using OwningCache = KvsBackedCache;
+    using Parent::TransactionNode::TransactionNode;
+
+    absl::Status DoInitialize(
+        internal::OpenTransactionPtr& transaction) override {
+      TENSORSTORE_RETURN_IF_ERROR(
+          Parent::TransactionNode::DoInitialize(transaction));
+      size_t phase;
+      TENSORSTORE_RETURN_IF_ERROR(
+          GetOwningCache(*this).kvstore_driver()->ReadModifyWrite(
+              transaction, phase, GetOwningEntry(*this).GetKeyValueStoreKey(),
+              std::ref(*this)));
+      this->SetPhase(phase);
+      if (this->target_->KvsReadsCommitted()) {
+        this->SetReadsCommitted();
+      }
+      return absl::OkStatus();
+    }
+
+    void DoRead(AsyncCache::AsyncCacheReadRequest request) final {
+      auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
+      ReadModifyWriteTarget::ReadModifyWriteReadOptions kvstore_options;
+      kvstore_options.generation_conditions.if_not_equal =
+          std::move(read_state.stamp.generation);
+      kvstore_options.staleness_bound = request.staleness_bound;
+      kvstore_options.batch = request.batch;
+      target_->KvsRead(
+          std::move(kvstore_options),
+          typename Entry::template ReadReceiverImpl<TransactionNode>{
+              this, std::move(read_state.data)});
+    }
+
+    using ReadModifyWriteSource = kvstore::ReadModifyWriteSource;
+    using ReadModifyWriteTarget = kvstore::ReadModifyWriteTarget;
+
+    // Implementation of the `ReadModifyWriteSource` interface:
+
+    void KvsSetTarget(ReadModifyWriteTarget& target) override {
+      target_ = &target;
+    }
+
+    void KvsInvalidateReadState() override {
+      if (this->target_->KvsReadsCommitted()) {
+        this->SetReadsCommitted();
+      }
+      this->InvalidateReadState();
+    }
+
+    void KvsWriteback(
+        ReadModifyWriteSource::WritebackOptions options,
+        ReadModifyWriteSource::WritebackReceiver receiver) override {
+      ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+          << *this << "KvsWriteback: if_not_equal="
+          << options.generation_conditions.if_not_equal
+          << ", staleness_bound=" << options.staleness_bound
+          << ", mode=" << options.writeback_mode;
+      AsyncCache::ReadState read_state;
+      StorageGeneration new_data_generation;
+      {
+        AsyncCache::ReadLock<void> lock(*this);
+        read_state = lock.read_state();
+        new_data_generation = this->new_data_generation_;
+      }
+      // If `if_not_equal` is specified, skip computing the result if its
+      // generation is known to be equal (subject to `options.staleness_bound`).
+      //
+      // The generation from the previous writeback request, if any, is stored
+      // in `new_data_generation`, while `read_state` holds the current cached
+      // read state, if any.
+      //
+      // If `new_data_generation` does NOT match `if_not_equal`, then a new
+      // writeback result must necessarily be computed. Even if it does match,
+      // however, there are still some constraints depending on what the
+      // generation is:
+      //
+      // - If `new_data_generation` is unconditional, then a new writeback
+      //   result is NOT needed.
+      //
+      // - Otherwise, `read_state.stamp.time` must satisfy
+      //   `options.staleness_bound` and `new_data_generation` must be
+      //   *compatible* with `read_state.stamp.generation`. Specifically,
+      //   `new_data_generation` must match either:
+      //
+      //   - `read_state.stamp.generation` (meaning this transaction node
+      //     left the state unmodified); or
+      //
+      //   - `Dirty(read_state.stamp.generation, mutation_id_)` (meaning this
+      //     transaction node modified the state).
+      if (!StorageGeneration::IsUnknown(
+              options.generation_conditions.if_not_equal) &&
+          options.generation_conditions.if_not_equal == new_data_generation &&
+          (!StorageGeneration::IsConditional(new_data_generation) ||
+           ((new_data_generation == read_state.stamp.generation ||
+             StorageGeneration::IsDirtyOf(new_data_generation,
+                                          read_state.stamp.generation,
+                                          this->mutation_id_)) &&
+            read_state.stamp.time >= options.staleness_bound))) {
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << *this << "KvsWriteback: skipping because condition is satisfied";
+        return execution::set_value(
+            receiver,
+            kvstore::ReadResult::Unspecified(TimestampedStorageGeneration(
+                std::move(new_data_generation), read_state.stamp.time)));
+      }
+      if (!StorageGeneration::IsUnknown(require_repeatable_read_) &&
+          read_state.stamp.time < options.staleness_bound &&
+          this->transaction()->commit_started()) {
+        // Read required to validate repeatable read.
+        auto read_future = this->Read({options.staleness_bound});
+        read_future.Force();
+        read_future.ExecuteWhenReady(
+            [this, options = std::move(options),
+             receiver =
+                 std::move(receiver)](ReadyFuture<const void> future) mutable {
+              this->KvsWriteback(std::move(options), std::move(receiver));
+            });
+        return;
+      }
+      struct EncodeReceiverImpl {
+        TransactionNode* self_;
+        TimestampedStorageGeneration update_stamp_;
+        ReadModifyWriteSource::WritebackReceiver receiver_;
+        void set_error(absl::Status error) {
+          error = GetOwningEntry(*self_).AnnotateError(std::move(error),
+                                                       /*reading=*/false);
+          execution::set_error(receiver_, std::move(error));
+        }
+        void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
+        void set_value(std::optional<absl::Cord> value) {
+          kvstore::ReadResult read_result =
+              value ? kvstore::ReadResult::Value(*std::move(value),
+                                                 std::move(update_stamp_))
+                    : kvstore::ReadResult::Missing(std::move(update_stamp_));
+          execution::set_value(receiver_, std::move(read_result));
+        }
+      };
+      struct ApplyReceiverImpl {
+        TransactionNode* self_;
+        StorageGeneration if_not_equal_;
+        absl::Time staleness_bound_;
+        ReadModifyWriteSource::WritebackMode writeback_mode_;
+        ReadModifyWriteSource::WritebackReceiver receiver_;
+        void set_error(absl::Status error) {
+          execution::set_error(receiver_, std::move(error));
+        }
+        void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
+        void set_value(AsyncCache::ReadState update) {
+          if ((writeback_mode_ ==
+                   ReadModifyWriteSource::kSpecifyUnchangedWriteback ||
+               writeback_mode_ ==
+                   ReadModifyWriteSource::kValueDiscardedSpecifyUnchanged) &&
+              StorageGeneration::IsUnknown(update.stamp.generation)) {
+            auto read_future = self_->Read({staleness_bound_});
+            read_future.Force();
+            read_future.ExecuteWhenReady(
+                [receiver_impl =
+                     std::move(*this)](Future<const void> future) mutable {
+                  TENSORSTORE_RETURN_IF_ERROR(
+                      future.status(),
+                      execution::set_error(receiver_impl, std::move(_)));
+                  auto update = AsyncCache::ReadLock<void>{*receiver_impl.self_}
+                                    .read_state();
+                  execution::set_value(receiver_impl, std::move(update));
+                });
+            return;
+          }
+
+          if (writeback_mode_ != ReadModifyWriteSource::kValueDiscarded &&
+              writeback_mode_ !=
+                  ReadModifyWriteSource::kValueDiscardedSpecifyUnchanged &&
+              !StorageGeneration::IsUnknown(self_->require_repeatable_read_)) {
+            if (!StorageGeneration::IsConditional(update.stamp.generation)) {
+              update.stamp.generation = StorageGeneration::Condition(
+                  update.stamp.generation, self_->require_repeatable_read_);
+              auto read_stamp = AsyncCache::ReadLock<void>(*self_).stamp();
+              if (!StorageGeneration::IsUnknown(read_stamp.generation) &&
+                  read_stamp.generation != self_->require_repeatable_read_) {
+                execution::set_error(receiver_, GetGenerationMismatchError());
+                return;
+              }
+              update.stamp.time = read_stamp.time;
+            } else if (!StorageGeneration::IsDirtyOf(
+                           update.stamp.generation,
+                           self_->require_repeatable_read_,
+                           self_->mutation_id_)) {
+              execution::set_error(receiver_, GetGenerationMismatchError());
+              return;
+            }
+          }
+          if (!StorageGeneration::NotEqualOrUnspecified(update.stamp.generation,
+                                                        if_not_equal_)) {
+            return execution::set_value(
+                receiver_,
+                kvstore::ReadResult::Unspecified(std::move(update.stamp)));
+          }
+          if (!StorageGeneration::IsInnerLayerDirty(update.stamp.generation) &&
+              writeback_mode_ !=
+                  ReadModifyWriteSource::kSpecifyUnchangedWriteback) {
+            ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+                << *self_ << "DoApply: if_not_equal=" << if_not_equal_
+                << ", mode=" << writeback_mode_
+                << ", unmodified: " << update.stamp;
+            {
+              absl::MutexLock lock(&self_->mutex());
+              self_->new_data_generation_ = update.stamp.generation;
+              self_->new_data_ = std::move(update.data);
+            }
+            return execution::set_value(
+                receiver_,
+                kvstore::ReadResult::Unspecified(std::move(update.stamp)));
+          }
+          ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+              << *self_ << "DoApply: if_not_equal=" << if_not_equal_
+              << ", mode=" << writeback_mode_ << ", encoding: " << update.stamp
+              << ", commit_started=" << self_->transaction()->commit_started();
+          {
+            absl::MutexLock lock(&self_->mutex());
+            self_->new_data_ = update.data;
+            self_->new_data_generation_ = update.stamp.generation;
+          }
+          ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+              << *self_ << "DoEncode";
+          auto update_data =
+              std::static_pointer_cast<const typename Derived::ReadData>(
+                  std::move(update.data));
+          EncodeOptions encode_options;
+          if (writeback_mode_ == ReadModifyWriteSource::kValueDiscarded ||
+              writeback_mode_ ==
+                  ReadModifyWriteSource::kValueDiscardedSpecifyUnchanged) {
+            encode_options.encode_mode = EncodeOptions::kValueDiscarded;
+          }
+          GetOwningEntry(*self_).DoEncode(
+              encode_options, std::move(update_data),
+              EncodeReceiverImpl{self_, std::move(update.stamp),
+                                 std::move(receiver_)});
+        }
+      };
+      AsyncCache::TransactionNode::ApplyOptions apply_options;
+      apply_options.staleness_bound = options.staleness_bound;
+      switch (options.writeback_mode) {
+        case ReadModifyWriteSource::kValidateOnly:
+          apply_options.apply_mode =
+              AsyncCache::TransactionNode::ApplyOptions::kValidateOnly;
+          break;
+        case ReadModifyWriteSource::kSpecifyUnchangedWriteback:
+        case ReadModifyWriteSource::kNormalWriteback:
+          apply_options.apply_mode =
+              AsyncCache::TransactionNode::ApplyOptions::kNormal;
+          break;
+        case ReadModifyWriteSource::kValueDiscarded:
+        case ReadModifyWriteSource::kValueDiscardedSpecifyUnchanged:
+          apply_options.apply_mode =
+              AsyncCache::TransactionNode::ApplyOptions::kValueDiscarded;
+          break;
+      }
+      this->DoApply(
+          std::move(apply_options),
+          ApplyReceiverImpl{
+              this, std::move(options.generation_conditions.if_not_equal),
+              options.staleness_bound, options.writeback_mode,
+              std::move(receiver)});
+    }
+
+    void KvsWritebackSuccess(
+        TimestampedStorageGeneration new_stamp,
+        const StorageGeneration& orig_generation) override {
+      if (orig_generation.LastMutatedBy(this->mutation_id_) ||
+          (!StorageGeneration::IsUnknown(new_data_generation_) &&
+           StorageGeneration::Condition(new_data_generation_,
+                                        orig_generation) == orig_generation)) {
+        this->WritebackSuccess(
+            AsyncCache::ReadState{std::move(new_data_), std::move(new_stamp)});
+      } else {
+        // Umodified or overwritten during commit.
+        this->WritebackSuccess(AsyncCache::ReadState{});
+      }
+    }
+    void KvsWritebackError() override { this->WritebackError(); }
+
+    void KvsRevoke() override { this->Revoke(); }
+
+    // Must be called with `mutex()` held.
+    virtual absl::Status RequireRepeatableRead(
+        const StorageGeneration& generation) {
+      this->DebugAssertMutexHeld();
+      if (!StorageGeneration::IsUnknown(require_repeatable_read_)) {
+        if (require_repeatable_read_ != generation) {
+          return GetOwningEntry(*this).AnnotateError(
+              GetGenerationMismatchError(),
+              /*reading=*/true);
+        }
+      } else {
+        require_repeatable_read_ = generation;
+      }
+      return absl::OkStatus();
+    }
+
+    static absl::Status GetGenerationMismatchError() {
+      return absl::AbortedError("Generation mismatch");
+    }
+
+   private:
+    friend class KvsBackedCache;
+
+    // Target to which this `ReadModifyWriteSource` is bound.
+    ReadModifyWriteTarget* target_;
+
+    // New data for the cache if the writeback completes successfully.
+    //
+    // Protected by `mutex()`.
+    std::shared_ptr<const void> new_data_;
+    StorageGeneration new_data_generation_;
+
+    // If not `StorageGeneration::Unknown()`, requires that the prior
+    // generation match this generation when the transaction is committed.
+    //
+    // Note: Before `Revoke()` is called, this must only be accessed with
+    // `mutex()` held, and may be written. After `Revoke()` is called, this must
+    // not be modified, and may be safely read without holding `mutex()`.
+    StorageGeneration require_repeatable_read_;
+  };
+
+  /// Returns the associated `kvstore::Driver`.
+  kvstore::Driver* kvstore_driver() { return kvstore_driver_.get(); }
+
+  /// Sets the `kvstore::Driver`.  The caller is responsible for ensuring
+  /// there are no concurrent read or write operations.
+  void SetKvStoreDriver(kvstore::DriverPtr driver) {
+    if (driver) {
+      this->SetBatchNestingDepth(driver->BatchNestingDepth() + 1);
+    }
+    kvstore_driver_ = std::move(driver);
+  }
+
+  kvstore::DriverPtr kvstore_driver_;
+};
+
+}  // namespace internal
+}  // namespace tensorstore
+
+#endif  // TENSORSTORE_INTERNAL_CACHE_KVS_BACKED_CACHE_H_

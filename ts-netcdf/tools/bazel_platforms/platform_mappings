@@ -1,0 +1,26 @@
+# Bidirectional mapping between Bazel platforms and command-line flags
+# to ensure they are sync.
+#
+# Otherwise, cross-compilation does not work correctly.
+#
+# This file is enabled automatically by our `.bazelrc`.
+
+# Define mapping from platforms to "legacy" flags
+platforms:
+  @build_bazel_apple_support//platforms:macos_x86_64
+    --apple_platform_type=macos
+    --cpu=darwin_x86_64
+
+  @build_bazel_apple_support//platforms:macos_arm64
+    --apple_platform_type=macos
+    --cpu=darwin_arm64
+
+# Define mapping from "legacy" flags to platforms
+flags:
+  --cpu=darwin_x86_64
+  --apple_platform_type=macos
+    @build_bazel_apple_support//platforms:macos_x86_64
+
+  --cpu=darwin_arm64
+  --apple_platform_type=macos
+    @build_bazel_apple_support//platforms:macos_arm64

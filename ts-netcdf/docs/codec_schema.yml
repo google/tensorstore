@@ -1,0 +1,20 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: Codec
+type: object
+description: |
+  Codecs are specified by a required `.driver` property that
+  identifies the driver.  All other properties are driver-specific.  Refer to
+  the driver documentation for the supported codec drivers and the
+  driver-specific properties.
+properties:
+  driver:
+    type: string
+    title: Driver identifier
+    description: |
+      Specifies the :ref:`TensorStore driver<tensorstore-drivers>` to which this
+      codec is applicable.
+required:
+  - driver
+examples:
+  - {"driver": "zarr", "compressor": {"id": "blosc", "cname": "lz4", "clevel", 5, "shuffle": 1}, "filters": null}
+  - {"driver": "n5", "compression": {"type": "gzip", "level": "6", "useZlib": false}}

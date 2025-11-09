@@ -1,0 +1,8 @@
+{
+    "modules": [
+        ".bzl_library.local_mirror"
+    ],
+    "excludes": [
+        "_bindir/_local_mirror/lpm-src/a.cc"
+    ]
+}

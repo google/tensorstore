@@ -1,0 +1,174 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@tensorstore//bazel:utils.bzl", "emit_os_cpu_compiler_group")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(glob(["*"]))
+
+# Config settings. Aliases can be imported into a BUILD file via a list
+# comprehension like:
+#
+#[
+#    alias(
+#        name = name,
+#        actual = "//:{target}".format(target = name),
+#    )
+#    for name in [
+#        "arm64_clang",
+#        "arm64_gcc_or_clang",
+#        "arm64_gcc",
+#        "arm64_mingw_gcc",
+#        "arm64_msvc",
+#
+#        "linux_arm64_clang",
+#        "linux_arm64_gcc_or_clang",
+#        "linux_arm64_gcc",
+#        "linux_clang",
+#        "linux_gcc_or_clang",
+#        "linux_gcc",
+#        "linux_x86_64_clang",
+#        "linux_x86_64_gcc_or_clang",
+#        "linux_x86_64_gcc",
+#
+#        "macos_arm64_clang",
+#        "macos_clang",
+#        "macos_x86_64_clang",
+#
+#        "windows_arm64_mingw_gcc",
+#        "windows_arm64_msvc",
+#        "windows_mingw_gcc",
+#        "windows_msvc",
+#        "windows_x86_64_mingw_gcc",
+#        "windows_x86_64_msvc",
+#
+#        "x86_64_clang",
+#        "x86_64_gcc_or_clang",
+#        "x86_64_gcc",
+#        "x86_64_mingw_gcc",
+#        "x86_64_msvc",
+#
+#        "compiler_msvc",
+#        "compiler_clang",
+#        "compiler_regular_gcc",
+#        "compiler_mingw_gcc",
+#        "compiler_unknown",
+#        "compiler_gcc",
+#        "compiler_gcc_or_clang",
+#    ]
+#]
+#
+
+[
+    emit_os_cpu_compiler_group(os, cpu, compiler)
+    for os in [
+        "macos",
+        None,
+    ]
+    for cpu in [
+        "x86_64",
+        "arm64",
+        None,
+    ]
+    for compiler in [
+        "clang",
+        None,
+    ]
+]
+
+[
+    emit_os_cpu_compiler_group(os, cpu, compiler)
+    for os in [
+        "linux",
+        None,
+    ]
+    for cpu in [
+        "x86_64",
+        "arm64",
+        None,
+    ]
+    for compiler in [
+        "clang",
+        "gcc",
+        "gcc_or_clang",
+        None,
+    ]
+]
+
+[
+    emit_os_cpu_compiler_group(os, cpu, compiler)
+    for os in [
+        "windows",
+        None,
+    ]
+    for cpu in [
+        "x86_64",
+        "arm64",
+        None,
+    ]
+    for compiler in [
+        "msvc",
+        "mingw_gcc",
+        None,
+    ]
+]
+
+# Compiler selection
+#
+# :compiler_msvc
+# :compiler_clang
+# :compiler_regular_gcc
+# :compiler_mingw_gcc
+# :compiler_gcc
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)
+
+config_setting(
+    name = "compiler_clang",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "clang",
+    },
+)
+
+config_setting(
+    name = "compiler_regular_gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "gcc",
+    },
+)
+
+config_setting(
+    name = "compiler_mingw_gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
+    },
+)
+
+config_setting(
+    name = "compiler_unknown",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "compiler",
+    },
+)
+
+selects.config_setting_group(
+    name = "compiler_gcc",
+    match_any = [
+        ":compiler_regular_gcc",
+        ":compiler_mingw_gcc",
+        # To workaround https://github.com/bazelbuild/bazel/issues/17794, assume
+        # any unknown compiler is GCC.
+        ":compiler_unknown",
+    ],
+)
+
+selects.config_setting_group(
+    name = "compiler_gcc_or_clang",
+    match_any = [
+        ":compiler_gcc",
+        ":compiler_clang",
+    ],
+)

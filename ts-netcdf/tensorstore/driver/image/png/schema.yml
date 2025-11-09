@@ -1,0 +1,50 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/png
+allOf:
+  - $ref: TensorStoreKvStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: png
+      dtype:
+        const: uint8
+        description: |
+          Optional.  If specified, must be :json:`"uint8"`.
+      compression_level:
+        type: number
+        default: ""
+        description: |
+          Unused. PNG compression level.
+examples:
+  - driver: png
+    "kvstore": "gs://my-bucket/path-to-image.png"
+definitions:
+  url:
+    $id: TensorStoreUrl/png
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`png:` TensorStore URL scheme
+    description: |
+      PNG TensorStores may be specified using the :file:`png:`
+      URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"gs://my-bucket/path-to-image.png/|png:"``
+              - .. code-block:: json
+
+                   {"driver": "png",
+                    "kvstore": {"driver": "gcs",
+                                "bucket": "my-bucket",
+                                "path": "path-to-image.png"}
+                   }

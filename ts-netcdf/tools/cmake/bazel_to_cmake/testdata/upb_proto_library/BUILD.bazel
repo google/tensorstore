@@ -1,0 +1,69 @@
+load(
+    "@com_google_protobuf//bazel:upb_proto_library.bzl",
+    "upb_proto_library",
+    "upb_proto_reflection_library",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+proto_library(
+    name = "a_proto",
+    srcs = ["a.proto"],
+)
+
+proto_library(
+    name = "b_proto",
+    srcs = ["b.proto"],
+)
+
+proto_library(
+    name = "ab_proto",
+    srcs = [
+        "a.proto",
+        "b.proto",
+    ],
+)
+
+proto_library(
+    name = "abc_proto",
+    srcs = ["c.proto"],
+    deps = [
+        ":ab_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "a_cc_proto",
+    deps = [":a_proto"],
+)
+
+upb_proto_library(
+    name = "a_upb_proto",
+    deps = [":a_proto"],
+)
+
+upb_proto_reflection_library(
+    name = "a_upb_proto_reflection",
+    deps = [":a_proto"],
+)
+
+# ...
+
+upb_proto_library(
+    name = "abc_upb_proto",
+    deps = [":abc_protos"],
+)
+
+upb_proto_reflection_library(
+    name = "abc_upb_proto_reflection",
+    deps = [":abc_protos"],
+)
+
+cc_library(
+    name = "x",
+    srcs = ["x.cc"],
+    deps = [
+        ":abc_upb_proto",
+        ":abc_upb_proto_reflection",
+    ],
+)

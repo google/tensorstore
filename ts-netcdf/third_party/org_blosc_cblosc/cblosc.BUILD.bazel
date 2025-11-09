@@ -1,0 +1,142 @@
+package(default_visibility = ["//visibility:private"])
+
+_BLOSC_LOCAL_DEFINES = [
+    # This makes the BLOSC_NO_EXPORT macro, which would otherwise make internal
+    # functions have hidden visibility, a no-op.  Hidden visibility isn't
+    # compatible with using multiple cc_library rules to compile this library,
+    # which is done in order to compile the AVX2 code with different compiler
+    # options.
+    "BLOSC_TESTING=1",
+]
+
+cc_library(
+    name = "blosc",
+    srcs = [
+        "blosc/blosc.c",
+        "blosc/blosclz.c",
+        "blosc/blosclz.h",
+        "blosc/fastcopy.c",
+        "blosc/fastcopy.h",
+        "blosc/shuffle.c",
+        "blosc/shuffle.h",
+    ],
+    hdrs = [
+        "blosc/blosc.h",
+        "blosc/blosc-export.h",
+    ],
+    copts = select({
+        "@rules_cc//cc/compiler:msvc-cl": [],
+        "//conditions:default": [
+            "-Wno-unused-but-set-variable",
+            "-Wno-unused-function",
+        ],
+    }),
+    strip_include_prefix = "blosc",
+    local_defines = _BLOSC_LOCAL_DEFINES + [
+        "HAVE_ZLIB",
+        "HAVE_LZ4",
+        "HAVE_ZSTD",
+        "HAVE_SNAPPY",
+    ] + select({
+        "@platforms//cpu:x86_64": [
+            "SHUFFLE_SSE2_ENABLED",
+            # Always build AVX2 support.  It is only used at runtime if the CPU
+            # supports it.
+            "SHUFFLE_AVX2_ENABLED",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    implementation_deps = [
+        ":shuffle_common",
+        "@snappy//:snappy-c",
+        "@zlib//:zlib",
+        "@zstd//:zstd",
+        "@lz4//:lz4",
+    ] + select(
+        {
+            "@platforms//os:windows": [":win32"],
+            "//conditions:default": [],
+        },
+    ) + select({
+        "@platforms//cpu:x86_64": [
+            ":shuffle_sse2",
+            ":shuffle_avx2",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "shuffle_common",
+    hdrs = [
+        "blosc/blosc-common.h",
+        "blosc/blosc-comp-features.h",
+        "blosc/blosc-export.h",
+        "blosc/bitshuffle-generic.h",
+        "blosc/shuffle-generic.h",
+    ],
+    srcs = [
+        "blosc/bitshuffle-generic.c",
+        "blosc/shuffle-generic.c",
+    ],
+    local_defines = _BLOSC_LOCAL_DEFINES,
+    strip_include_prefix = "blosc",
+)
+
+cc_library(
+    name = "shuffle_sse2",
+    srcs = [
+        "blosc/bitshuffle-sse2.c",
+        "blosc/shuffle-sse2.c",
+    ],
+    hdrs = [
+        "blosc/bitshuffle-sse2.h",
+        "blosc/shuffle-sse2.h",
+    ],
+    local_defines = _BLOSC_LOCAL_DEFINES,
+    includes = ["blosc"],
+    target_compatible_with = ["@platforms//cpu:x86_64"],
+    copts = select({
+        "@rules_cc//cc/compiler:msvc-cl": ["/arch:SSE2"],
+        "//conditions:default": ["-msse2"],
+    }),
+    deps = [
+        ":shuffle_common",
+    ],
+)
+
+cc_library(
+    name = "shuffle_avx2",
+    srcs = [
+        "blosc/bitshuffle-avx2.c",
+        "blosc/shuffle-avx2.c",
+    ],
+    hdrs = [
+        "blosc/bitshuffle-avx2.h",
+        "blosc/shuffle-avx2.h",
+    ],
+    local_defines = _BLOSC_LOCAL_DEFINES,
+    includes = ["blosc"],
+    copts = select({
+        "@rules_cc//cc/compiler:msvc-cl": ["/arch:AVX2"],
+        "//conditions:default": ["-mavx2"],
+    }),
+    target_compatible_with = ["@platforms//cpu:x86_64"],
+    deps = [
+        ":shuffle_common",
+        ":shuffle_sse2",
+    ],
+)
+
+cc_library(
+    name = "win32",
+    hdrs = [
+        "blosc/win32/pthread.h",
+        "blosc/win32/stdint-windows.h",
+    ],
+    srcs = [
+        "blosc/win32/pthread.c",
+    ],
+    target_compatible_with = ["@platforms//os:windows"],
+)

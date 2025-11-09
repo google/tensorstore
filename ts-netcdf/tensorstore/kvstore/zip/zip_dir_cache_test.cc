@@ -1,0 +1,198 @@
+// Copyright 2023 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "tensorstore/kvstore/zip/zip_dir_cache.h"
+
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include "absl/flags/flag.h"
+#include "absl/log/absl_check.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/time.h"
+#include "riegeli/bytes/fd_reader.h"
+#include "riegeli/bytes/read_all.h"
+#include "tensorstore/context.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/status_testutil.h"
+
+using ::tensorstore::Context;
+using ::tensorstore::InlineExecutor;
+using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::GetCache;
+using ::tensorstore::internal_zip_kvstore::Directory;
+using ::tensorstore::internal_zip_kvstore::ZipDirectoryCache;
+using ::tensorstore::kvstore::DriverPtr;
+
+ABSL_FLAG(std::string, tensorstore_test_data, "",
+          "Path to internal/compression/testdata/data.zip");
+
+namespace {
+
+absl::Cord GetTestZipFileData() {
+  ABSL_CHECK(!absl::GetFlag(FLAGS_tensorstore_test_data).empty());
+  absl::Cord filedata;
+  TENSORSTORE_CHECK_OK(riegeli::ReadAll(
+      riegeli::FdReader(absl::GetFlag(FLAGS_tensorstore_test_data)), filedata));
+  ABSL_CHECK_EQ(filedata.size(), 319482);
+  return filedata;
+}
+
+TEST(ZipDirectoryKvsTest, Basic) {
+  auto context = Context::Default();
+  auto pool = CachePool::Make(CachePool::Limits{});
+
+  // Prepare the kvstore zip file.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      tensorstore::KvStore memory,
+      tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
+
+  ASSERT_THAT(
+      tensorstore::kvstore::Write(memory, "data.zip", GetTestZipFileData())
+          .result(),
+      ::tensorstore::IsOk());
+
+  auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
+    return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
+  });
+
+  auto entry = GetCacheEntry(cache, "data.zip");
+  auto status = entry->Read({absl::InfinitePast()}).status();
+  ASSERT_THAT(status, ::tensorstore::IsOk());
+
+  ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
+  auto* dir = lock.data();
+  ASSERT_THAT(dir, ::testing::NotNull());
+
+  ASSERT_THAT(dir->entries, ::testing::SizeIs(3));
+
+  EXPECT_THAT(dir->entries[0].filename, "data/a.png");
+  EXPECT_THAT(dir->entries[1].filename, "data/bb.png");
+  EXPECT_THAT(dir->entries[2].filename, "data/c.png");
+}
+
+TEST(ZipDirectoryKvsTest, MissingEntry) {
+  auto context = Context::Default();
+  auto pool = CachePool::Make(CachePool::Limits{});
+
+  // Prepare the kvstore zip file.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      tensorstore::KvStore memory,
+      tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
+
+  auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
+    return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
+  });
+
+  auto entry = GetCacheEntry(cache, "data.zip");
+  auto status = entry->Read({absl::InfinitePast()}).status();
+  EXPECT_THAT(status, ::tensorstore::StatusIs(absl::StatusCode::kNotFound));
+}
+
+// clang-format off
+static constexpr unsigned char kZipTest2[] = {
+    // local header + data
+    0x50, 0x4b, 0x03, 0x04, 0x0a, 0x00, 0x02, 0x00, 0x00, 0x00, 0xd5, 0x7d,
+    0x46, 0x2f, 0xc6, 0x35, 0xb9, 0x3b, 0x05, 0x00, 0x00, 0x00, 0x05, 0x00,
+    0x00, 0x00, 0x04, 0x00, 0x15, 0x00, 0x74, 0x65, 0x73, 0x74, 0x55, 0x54,
+    0x09, 0x00, 0x03, 0x41, 0x72, 0x81, 0x3f, 0x41, 0x72, 0x81, 0x3f, 0x55,
+    0x78, 0x04, 0x00, 0x64, 0x00, 0x14, 0x00, 0x74, 0x65, 0x73, 0x74, 0x0a,
+    // local header + data
+    0x50, 0x4b, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7b, 0x98,
+    0x2b, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x08, 0x00, 0x15, 0x00, 0x74, 0x65, 0x73, 0x74, 0x64, 0x69,
+    0x72, 0x2f, 0x55, 0x54, 0x09, 0x00, 0x03, 0x09, 0x15, 0xe4, 0x41, 0x9a,
+    0x15, 0xe4, 0x41, 0x55, 0x78, 0x04, 0x00, 0xe8, 0x03, 0x64, 0x00,
+    // local header + data
+    0x50, 0x4b, 0x03, 0x04, 0x0a, 0x00, 0x02, 0x00, 0x00, 0x00, 0xd5, 0x7d,
+    0x46, 0x2f, 0xc6, 0x35, 0xb9, 0x3b, 0x05, 0x00, 0x00, 0x00, 0x05, 0x00,
+    0x00, 0x00, 0x0d, 0x00, 0x15, 0x00, 0x74, 0x65, 0x73, 0x74, 0x64, 0x69,
+    0x72, 0x2f, 0x74, 0x65, 0x73, 0x74, 0x32, 0x55, 0x54, 0x09, 0x00, 0x03,
+    0x41, 0x72, 0x81, 0x3f, 0x41, 0x72, 0x81, 0x3f, 0x55, 0x78, 0x04, 0x00,
+    0xe8, 0x03, 0x64, 0x00, 0x74, 0x65, 0x73, 0x74, 0x0a,
+    // central header
+    0x50, 0x4b, 0x01, 0x02, 0x17, 0x03, 0x0a, 0x00, 0x02, 0x00, 0x00, 0x00,
+    0xd5, 0x7d, 0x46, 0x2f, 0xc6, 0x35, 0xb9, 0x3b, 0x05, 0x00, 0x00, 0x00,
+    0x05, 0x00, 0x00, 0x00, 0x04, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x01, 0x00, 0x00, 0x00, 0xb4, 0x81, 0x00, 0x00, 0x00, 0x00, 0x74, 0x65,
+    0x73, 0x74, 0x55, 0x54, 0x05, 0x00, 0x03, 0x41, 0x72, 0x81, 0x3f, 0x55,
+    0x78, 0x00, 0x00,
+    // central header
+    0x50, 0x4b, 0x01, 0x02, 0x17, 0x03, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x7b, 0x98, 0x2b, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x10, 0x00, 0xed, 0x41, 0x3c, 0x00, 0x00, 0x00, 0x74, 0x65,
+    0x73, 0x74, 0x64, 0x69, 0x72, 0x2f, 0x55, 0x54, 0x05, 0x00, 0x03, 0x09,
+    0x15, 0xe4, 0x41, 0x55, 0x78, 0x00, 0x00,
+    // central header
+    0x50, 0x4b, 0x01, 0x02, 0x17, 0x03, 0x0a, 0x00, 0x02, 0x00, 0x00, 0x00,
+    0xd5, 0x7d, 0x46, 0x2f, 0xc6, 0x35, 0xb9, 0x3b, 0x05, 0x00, 0x00, 0x00,
+    0x05, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x01, 0x00, 0x00, 0x00, 0xb4, 0x81, 0x77, 0x00, 0x00, 0x00, 0x74, 0x65,
+    0x73, 0x74, 0x64, 0x69, 0x72, 0x2f, 0x74, 0x65, 0x73, 0x74, 0x32, 0x55,
+    0x54, 0x05, 0x00, 0x03, 0x41, 0x72, 0x81, 0x3f, 0x55, 0x78, 0x00, 0x00,
+    // eocd
+    0x50, 0x4b, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x03, 0x00,
+    0xca, 0x00, 0x00, 0x00, 0xbc, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+// clang-format on
+
+TEST(ZipDirectoryKvsTest, MinimalZip) {
+  auto context = Context::Default();
+  auto pool = CachePool::Make(CachePool::Limits{});
+
+  // Prepare the kvstore zip file.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      tensorstore::KvStore memory,
+      tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
+
+  ASSERT_THAT(tensorstore::kvstore::Write(
+                  memory, "data.zip",
+                  absl::MakeCordFromExternal(
+                      std::string_view(reinterpret_cast<const char*>(kZipTest2),
+                                       sizeof(kZipTest2)),
+                      [](auto) {}))
+                  .result(),
+              ::tensorstore::IsOk());
+
+  auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
+    return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
+  });
+
+  auto entry = GetCacheEntry(cache, "data.zip");
+  auto status = entry->Read({absl::InfinitePast()}).status();
+  ASSERT_THAT(status, ::tensorstore::IsOk());
+
+  ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
+  auto* dir = lock.data();
+  ASSERT_THAT(dir, ::testing::NotNull());
+
+  ASSERT_THAT(dir->entries, ::testing::SizeIs(2));
+
+  EXPECT_THAT(dir->entries[0].filename, "test");
+  EXPECT_THAT(dir->entries[1].filename, "testdir/test2");
+}
+
+}  // namespace

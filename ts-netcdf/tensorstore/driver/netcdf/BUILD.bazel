@@ -1,10 +1,62 @@
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
 cc_library(
     name = "minidriver_lib",
     srcs = ["minidriver.cc"],
     hdrs = ["minidriver.h"],
-    visibility = ["//visibility:public"],
     copts = ["-std=gnu++17"],
-    linkopts = ["-lnetcdf"],
+    deps = ["@netcdf//:netcdf"],
+)
+
+tensorstore_cc_library(
+    name = "netcdf_driver_full",
+    srcs = [
+        "netcdf_driver_full.cc",
+        "netcdf_driver_registration.cc",
+    ],
+    hdrs = [
+        "netcdf_driver_full.h",
+        "netcdf_json_binding.h",
+    ],
+    deps = [
+        ":minidriver_lib",
+        "//tensorstore:array",
+        "//tensorstore:array_storage_statistics",
+        "//tensorstore:box",
+        "//tensorstore:chunk_layout",
+        "//tensorstore:codec_spec",
+        "//tensorstore:context",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore:rank",
+        "//tensorstore/driver",
+        "//tensorstore/driver:chunk",
+        "//tensorstore/index_space:dimension_units",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:arena",
+        "//tensorstore/internal:data_copy_concurrency_resource",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:lock_collection",
+        "//tensorstore/internal:nditerable",
+        "//tensorstore/internal:nditerable_data_type_conversion",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/util:constant_vector",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "//tensorstore/util/execution",
+        "//tensorstore/util/garbage_collection",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/synchronization",
+    ],
+    alwayslink = 1,
 )
 
 cc_library(
@@ -19,13 +71,12 @@ cc_library(
     ],
     deps = [
         ":minidriver_lib",
-        "//tensorstore/driver:registry",
+        "//tensorstore/driver",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
     ],
     visibility = ["//visibility:public"],
-    linkopts = ["-lnetcdf"],
 )
 
 cc_binary(
@@ -34,7 +85,71 @@ cc_binary(
     deps = [
         ":netcdf_driver",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
     ],
-    linkopts = ["-lnetcdf"],
+)
+
+tensorstore_cc_test(
+    name = "netcdf_integration_test",
+    size = "small",
+    srcs = ["netcdf_integration_test.cc"],
+    deps = [
+        ":minidriver_lib",
+        ":netcdf_driver_full",
+        "//tensorstore",
+        "//tensorstore:context",
+        "//tensorstore:open",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/util:status_testutil",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_binary(
+    name = "runtime_test",
+    srcs = ["runtime_test.cc"],
+    deps = [
+        ":minidriver_lib",
+        ":netcdf_driver_full",
+        "//tensorstore",
+        "//tensorstore:array",
+        "//tensorstore:context",
+        "//tensorstore:open",
+        "@abseil-cpp//absl/status",
+        "@nlohmann_json//:json",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "netcdf_simple_test",
+    size = "small",
+    srcs = ["netcdf_simple_test.cc"],
+    deps = [
+        ":minidriver_lib",
+        ":netcdf_driver_full",
+        "//tensorstore",
+        "//tensorstore:context",
+        "//tensorstore:open",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "netcdf_integration_test_simple",
+    size = "small",
+    srcs = ["netcdf_integration_test_simple.cc"],
+    deps = [
+        ":minidriver_lib",
+        ":netcdf_driver_full",
+        "//tensorstore",
+        "//tensorstore:context",
+        "//tensorstore:data_type",
+        "//tensorstore:open",
+        "//tensorstore:static_cast",
+        "//tensorstore/util:status_testutil",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
 )

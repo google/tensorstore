@@ -1,0 +1,50 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/jpeg
+allOf:
+  - $ref: TensorStoreKvStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: jpeg
+      dtype:
+        const: uint8
+        description: |
+          Optional.  If specified, must be :json:`"uint8"`.
+      quality:
+        type: number
+        default: 75
+        description: |
+          Unused. JPEG Encoding quality in the range 0..100.
+examples:
+  - driver: jpeg
+    "kvstore": "gs://my-bucket/path-to-image.jpg"
+definitions:
+  url:
+    $id: TensorStoreUrl/jpeg
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`jpeg:` TensorStore URL scheme
+    description: |
+      JPEG TensorStores may be specified using the :file:`jpeg:`
+      URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"gs://my-bucket/path-to-image.jpg/|jpeg:"``
+              - .. code-block:: json
+
+                   {"driver": "jpeg",
+                    "kvstore": {"driver": "gcs",
+                                "bucket": "my-bucket",
+                                "path": "path-to-image.jpg"}
+                   }

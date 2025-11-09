@@ -1,0 +1,155 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/http
+title: Read-only access to arbitrary HTTP servers.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: http
+    base_url:
+      type: string
+      title: Base URL.
+      description: |
+        Must have a scheme of :literal:`http` or :literal:`https`.  May include a query
+        string, which will be included in all requests.  Must not include a
+        fragment.  Any characters not allowed in a URL must be
+        :wikipedia:`percent encoded<Percent-encoding>`.
+      examples:
+        - "https://example.com"
+        - "https://example.com:8000/path/to/data"
+        - "https://example.com:8000/path/to/data?query=value"
+    path:
+      type: string
+      title: Path relative to :json:schema:`.base_url`.
+      description: |
+        If the path begins with a :json:`"/"`, then it is treated as an absolute
+        path, and :json:schema:`.base_url` must not specify a path component.
+        Otherwise, it is interpreted as a relative path and appended as an
+        *additional* path component to any path specified in
+        :json:schema:`.base_url`.
+
+        Unlike :json:schema:`.base_url`, which must be a valid URL, there are no
+        restrictions on the valid characters in :json:schema:`.path`.  Any
+        special characters will be :wikipedia:`percent encoded<Percent-encoding>`.
+
+        .. note::
+
+           The treatment of relative paths differs slightly from web browsers in
+           that any path specified by :json:schema:`.base_url` is treated as a
+           directory even if it does not end in :json:`"/"`.
+
+           The following key-value store specs are all equivalent:
+
+           .. code-block:: json
+
+              {"driver": "http",
+               "base_url": "https://example.com/my/path/?query=value",
+               "path": "to/my data"}
+              {"driver": "http",
+               "base_url": "https://example.com/my/path?query=value",
+               "path": "to/my data"}
+              {"driver": "http",
+               "base_url": "https://example.com/my/path/to/my%20data?query-value"}
+              {"driver": "http",
+               "base_url": "https://example.com?query=value",
+               "path": "/my/path/to/my data"}
+              "https://example.com/my/path/to/my%20data?query-value"
+
+    headers:
+      type: array
+      items:
+        type: array
+      title: Additional HTTP headers to send with every request.
+      description: |
+        Each header should be specified using the normal HTTP header
+        :json:`"name: value"` syntax.  The header name is case-insensitive while
+        the header value is case-sensitive.  Refer to :rfc:`7230#section-3.2`
+        for details.  The obsolete line folding syntax :literal:`CRLF 1*( SP / HTAB )`
+        is not supported.  Multiple headers with the same :literal:`name` are allowed.
+      examples:
+        - ["Authorization: Bearer XXXXX"]
+    http_request_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.http_request_concurrency`.
+    http_request_retries:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.http_request_retries`.
+  required:
+  - base_url
+  examples:
+  - {"driver": "http", "base_url": "https://example.com:8000?query=value", "path": "/path/to/data"}
+definitions:
+  http_request_concurrency:
+    $id: Context.http_request_concurrency
+    description: |-
+      Specifies a limit on the number of concurrent HTTP requests.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: |-
+          The maximum number of concurrent requests.  If the special value of
+          :json:`"shared"` is specified, a shared global limit of 32 applies.
+        default: "shared"
+  http_request_retries:
+    $id: Context.http_request_retries
+    description: |
+      Specifies retry parameters for handling transient network errors.
+    type: object
+    properties:
+      max_retries:
+        type: integer
+        minimum: 1
+        description: |-
+          Maximum number of attempts in the case of transient errors.
+        default: 32
+      initial_delay:
+        type: string
+        description: |-
+          Initial backoff delay for transient errors.
+        default: "1s"
+      max_delay:
+        type: string
+        description: |-
+          Maximum backoff delay for transient errors.
+        default: "32s"
+  url:
+    $id: KvStoreUrl/http
+    allOf:
+    - $ref: KvStoreUrl
+    - type: string
+    title: |
+      :literal:`http://` and :literal:`https://` KvStore URL scheme
+    description: |
+      HTTP key-value stores may be specified using regular HTTP URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"http://example.com"``
+              - .. code-block:: json
+
+                   {"driver": "http",
+                    "base_url": "http://example.com",
+                    "path": "/"}
+            * - ``"https://example.com:8080/path/to/data%20base?query=value"``
+              - .. code-block:: json
+
+                   {"driver": "http",
+                    "base_url": "https://example.com:8080?query=value",
+                    "path": "/path/to/data base"}

@@ -1,0 +1,44 @@
+# Description:
+#   AWS s2n tls
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])  # Apache 2.0
+
+cc_library(
+    name = "s2n_tls",
+    hdrs = glob(["api/**/*.h"]),
+    includes = ["api"],
+    deps = [":s2n_tls_impl"],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["utils/s2n_prelude.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "s2n_tls_impl",
+    srcs = glob([
+        "crypto/*.h",
+        "crypto/*.c",
+        "error/*.h",
+        "error/*.c",
+        "stuffer/*.h",
+        "stuffer/*.c",
+        "tls/**/*.h",
+        "tls/**/*.c",
+        "utils/*.h",
+        "utils/*.c",
+    ]),
+    hdrs = glob(["api/**/*.h"]),
+    includes = ["api", "."],
+    copts = select({
+        "@rules_cc//cc/compiler:msvc-cl": ["/FI$(location :utils/s2n_prelude.h)"],
+        "//conditions:default": [
+            "-include$(location :utils/s2n_prelude.h)",
+        ],
+    }),
+    deps = ["@boringssl//:crypto"],
+)

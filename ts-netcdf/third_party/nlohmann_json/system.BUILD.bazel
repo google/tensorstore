@@ -1,0 +1,4 @@
+cc_library(
+    name = "json",
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,1 @@
+workspace(name = "grpc_generate_cc_test_repo")

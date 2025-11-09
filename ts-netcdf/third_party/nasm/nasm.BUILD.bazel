@@ -1,0 +1,100 @@
+# Description:
+#   NASM is a portable assembler in the Intel/Microsoft tradition.
+
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+
+package(
+    default_visibility = ["//visibility:private"],
+)
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+INCLUDES = [
+    "asm",
+    "include",
+    "output",
+    "x86",
+]
+
+COPTS = select({
+    "@rules_cc//cc/compiler:msvc-cl": [],
+    "//conditions:default": [
+        "-std=c17",
+        "-fno-common",
+        "-W",
+        "-Wno-long-long",
+        "-Wno-shift-negative-value",
+        "-Wno-variadic-macros",
+        "-Wno-stringop-truncation",
+    ],
+}) + select({
+    "@rules_cc//cc/compiler:mingw-gcc": ["-DHAVE_CONFIG_H"],
+    "//conditions:default": [],
+}) + select({
+    "@platforms//os:macos": ["-DHAVE_CONFIG_H"],
+    "@platforms//os:linux": ["-DHAVE_CONFIG_H"],
+    "//conditions:default": [],
+})
+
+copy_file(
+    name = "config_hdr",
+    src = select({
+        "@platforms//os:windows": "@tensorstore//third_party:nasm/config/config_mingw.h",
+        "@platforms//os:macos": "@tensorstore//third_party:nasm/config/config_macos.h",
+        "//conditions:default": "@tensorstore//third_party:nasm/config/config_linux.h",
+    }),
+    out = "config/config.h",
+)
+
+cc_library(
+    name = "nasmlib",
+    srcs = glob(
+        include = [
+            "asm/*.c",
+            "common/*.c",
+            "disasm/*.c",
+            "macros/*.c",
+            "nasmlib/*.c",
+            "output/*.c",
+            "stdlib/*.c",
+            "x86/*.c",
+        ],
+        exclude = [
+            "asm/nasm.c",
+        ],
+    ),
+    hdrs = glob([
+        "*.h",
+        "asm/*.h",
+        "autoconf/*.h",
+        "config/*.h",
+        "disasm/*.h",
+        "include/*.h",
+        "nasmlib/*.h",
+        "output/*.h",
+        "x86/*.h",
+    ]) + select({
+        "@rules_cc//cc/compiler:mingw-gcc": [":config_hdr"],
+        "//conditions:default": [],
+    }) + select({
+        "@platforms//os:macos": [":config_hdr"],
+        "@platforms//os:linux": [":config_hdr"],
+        "//conditions:default": [],
+    }),
+    copts = COPTS,
+    includes = INCLUDES,
+)
+
+cc_binary(
+    name = "nasm",
+    srcs = ["asm/nasm.c"],
+    copts = COPTS,
+    includes = INCLUDES,
+    deps = [
+        ":nasmlib",
+    ],
+    visibility = ["//visibility:public"],
+)

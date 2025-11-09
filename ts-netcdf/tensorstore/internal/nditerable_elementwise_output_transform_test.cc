@@ -1,0 +1,100 @@
+// Copyright 2020 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "tensorstore/internal/nditerable_elementwise_output_transform.h"
+
+#include <new>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/arena.h"
+#include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/nditerable_copy.h"
+#include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/internal/nditerable_util.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/status_testutil.h"
+
+namespace {
+
+using ::tensorstore::Index;
+using ::tensorstore::internal::NDIterableCopier;
+using ::testing::_;
+using ::testing::Pair;
+
+/// Returns the `absl::Status` returned by `Copy()`.
+template <typename Func, typename SourceArray, typename DestArray>
+absl::Status TestCopy(Func func, tensorstore::IterationConstraints constraints,
+                      SourceArray source_array, DestArray dest_array) {
+  tensorstore::internal::Arena arena;
+  tensorstore::internal::ElementwiseClosure<2, void*> closure =
+      tensorstore::internal::SimpleElementwiseFunction<
+          Func(typename SourceArray::Element, typename DestArray::Element),
+          void*>::Closure(&func);
+  auto iterable =
+      tensorstore::internal::GetElementwiseOutputTransformNDIterable(
+          tensorstore::internal::GetTransformedArrayNDIterable(dest_array,
+                                                               &arena)
+              .value(),
+          tensorstore::dtype_v<typename SourceArray::Element>, closure, &arena);
+  return tensorstore::internal::NDIterableCopier(
+             *tensorstore::internal::GetTransformedArrayNDIterable(source_array,
+                                                                   &arena)
+                  .value(),
+             *iterable, dest_array.shape(), constraints, &arena)
+      .Copy();
+}
+
+TEST(NDIterableElementwiseOutputTransformTest, Basic) {
+  auto source = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
+  auto dest = tensorstore::AllocateArray<double>(source.shape());
+  TENSORSTORE_EXPECT_OK(TestCopy(
+      [](const int* source, double* dest, void* status) { *dest = -*source; },
+      /*constraints=*/{}, source, dest));
+  EXPECT_EQ(
+      tensorstore::MakeArray<double>({{-1.0, -2.0, -3.0}, {-4.0, -5.0, -6.0}}),
+      dest);
+}
+
+TEST(NDIterableElementwiseOutputTransformTest, PartialCopy) {
+  auto source = tensorstore::MakeArray<int>({1, 2, 3, 0, 5, 6});
+  auto dest = tensorstore::AllocateArray<double>(
+      source.shape(), tensorstore::c_order, tensorstore::value_init);
+  EXPECT_THAT(TestCopy(
+                  [](const int* source, double* dest, void* arg) {
+                    auto* status = static_cast<absl::Status*>(arg);
+                    if (*source == 0) {
+                      *status = absl::UnknownError("zero");
+                      return false;
+                    }
+                    *dest = -*source;
+                    return true;
+                  },
+                  /*constraints=*/tensorstore::c_order, source, dest),
+              absl::UnknownError("zero"));
+  EXPECT_EQ(tensorstore::MakeArray<double>({-1.0, -2.0, -3.0, 0.0, 0.0, 0.0}),
+            dest);
+}
+
+}  // namespace

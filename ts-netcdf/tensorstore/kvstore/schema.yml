@@ -1,0 +1,60 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: KvStore
+title: Key-value store specification.
+description: |
+  This describes the common properties supported by all key-value stores.  Refer
+  to the :ref:`driver documentation<key-value-store-drivers>` for the supported
+  `.driver` identifiers and driver-specific properties.
+type: object
+properties:
+  driver:
+    type: string
+    title: |
+      Key-value store :ref:`driver identifier<key-value-store-drivers>`
+  path:
+    type: string
+    title: |
+      Key prefix within the key-value store.
+    description: |
+      If the prefix is intended to correspond to a Unix-style directory path, it
+      should end with :json:`"/"`.
+  context:
+    $ref: Context
+    description: Specifies context resources that augment/override the parent context.
+required:
+  - driver
+definitions:
+  url:
+    $id: KvStoreUrl
+    type: string
+    title: URL representation of a key-value store.
+    description: |
+      In addition to the `JSON object<KvStore>` representation, a
+      key-value store may be specified more concisely by a *URL
+      pipeline* consisting of one or more :literal:`|`-separated
+      *components*.
+
+      The first component specifies a root key-value store (such as
+      :ref:`file<kvstore/file>`) that directly accesses
+      storage.  Subsequent components, if any, must be :json:schema:`key-value store
+      adapters<KvStoreAdapter>` such as :ref:`zip<kvstore/zip>` or
+      :ref:`ocdbt<kvstore/ocdbt>`.
+
+      .. warning::
+
+         The URL representation of a key-value store specification may exclude
+         certain parameters, such as concurrency limits.
+  KvStoreAdapter:
+    $id: KvStoreAdapter
+    title: Key-value store adapter that adapts a single base key-value store.
+    allOf:
+      - $ref: KvStore
+      - type: object
+        properties:
+          base:
+            oneOf:
+              - $ref: KvStore
+              - $ref: KvStoreUrl
+            title: Base key-value store to adapt.
+        required:
+          - "base"

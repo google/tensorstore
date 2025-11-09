@@ -1,0 +1,70 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+package(default_visibility = ["//visibility:public"])
+
+proto_library(
+    name = "a_proto",
+    srcs = ["a.proto"],
+)
+
+proto_library(
+    name = "b_proto",
+    srcs = ["b.proto"],
+)
+
+proto_library(
+    name = "ab_proto",
+    srcs = [
+        "a.proto",
+        "b.proto",
+    ],
+)
+
+filegroup(
+    name = "d_proto_srcs",
+    srcs = [
+        "d.proto",
+    ],
+)
+
+proto_library(
+    name = "d_proto",
+    srcs = ["d.proto"],
+    # TODO: srcs = [":d_proto_srcs"],
+)
+
+proto_library(
+    name = "abcd_proto",
+    srcs = ["c.proto"],
+    deps = [
+        ":ab_proto",
+        ":d_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "ab_protos_cc",
+    deps = [":ab_proto"],
+)
+
+cc_proto_library(
+    name = "abcd_protos_cc",
+    deps = [":abcd_proto"],
+)
+
+proto_library(
+    name = "x_proto",
+    srcs = ["x.proto"],
+    deps = ["@com_google_protobuf//:any_proto"],
+)
+
+cc_proto_library(
+    name = "x_proto_cc",
+    deps = [":x_proto"],
+)
+
+proto_library(
+    name = "y_proto",
+    srcs = ["src/subdir/y.proto"],
+    strip_import_prefix = "src",
+)
