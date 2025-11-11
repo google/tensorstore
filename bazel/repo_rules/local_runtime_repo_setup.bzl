@@ -32,12 +32,15 @@ def define_local_runtime_toolchain_impl(
         major,
         minor,
         micro,
+        abi_flags,
+        os,
+        implementation_name,
         interpreter_path,
         interface_library,
         libraries,
-        implementation_name,
-        os,
-        abi_flags):
+        abi3_interface_library,
+        abi3_libraries,
+        additional_dlls):
     """Defines a toolchain implementation for a local Python runtime.
 
     Generates public targets:
@@ -54,16 +57,22 @@ def define_local_runtime_toolchain_impl(
         major: `str` The major Python version, e.g. `3` of `3.9.1`.
         minor: `str` The minor Python version, e.g. `9` of `3.9.1`.
         micro: `str` The micro Python version, e.g. "1" of `3.9.1`.
+        abi_flags: `str` The abi flags, as returned by `sys.abiflags`.
+        os: `str` A label to the OS constraint (e.g. `@platforms//os:linux`) for
+            this runtime.
+        implementation_name: `str` The implementation name, as returned by
+            `sys.implementation.name`.
         interpreter_path: `str` Absolute path to the interpreter.
         interface_library: `str` Path to the interface library.
             e.g. "lib/python312.lib"
         libraries: `list[str]` Path[s] to the python libraries.
             e.g. ["lib/python312.dll"] or ["lib/python312.so"]
-        implementation_name: `str` The implementation name, as returned by
-            `sys.implementation.name`.
-        os: `str` A label to the OS constraint (e.g. `@platforms//os:linux`) for
-            this runtime.
-        abi_flags: `str` The abi flags, as returned by `sys.abiflags`.
+        abi3_interface_library: `str` Path to the interface library.
+            e.g. "lib/python3.lib"
+        abi3_libraries: `list[str]` Path[s] to the python libraries.
+            e.g. ["lib/python3.dll"] or ["lib/python3.so"]
+        additional_dlls: `list[str]` Path[s] to additional DLLs.
+            e.g. ["lib/msvcrt123.dll"]
     """
     major_minor = "{}.{}".format(major, minor)
     major_minor_micro = "{}.{}".format(major_minor, micro)
@@ -72,44 +81,66 @@ def define_local_runtime_toolchain_impl(
     # See https://docs.python.org/3/extending/windows.html
     # However not all python installations (such as manylinux) include shared or static libraries,
     # so only create the import library when interface_library is set.
-    full_abi_deps = []
-    abi3_deps = []
     if interface_library:
         cc_import(
-            name = "_python_interface_library",
+            name = "interface",
             interface_library = interface_library,
-            system_provided = 1,
+            system_provided = True,
         )
-        if interface_library.endswith("{}.lib".format(major)):
-            abi3_deps = [":_python_interface_library"]
-        else:
-            full_abi_deps = [":_python_interface_library"]
 
-    cc_library(
-        name = "_python_headers_abi3",
-        # NOTE: Keep in sync with watch_tree() called in local_runtime_repo
+    if abi3_interface_library:
+        cc_import(
+            name = "abi3_interface",
+            interface_library = abi3_interface_library,
+            system_provided = True,
+        )
+
+    native.filegroup(
+        name = "includes",
         srcs = native.glob(
             include = ["include/**/*.h"],
             exclude = ["include/numpy/**"],  # numpy headers are handled separately
             allow_empty = True,  # A Python install may not have C headers
         ),
-        deps = abi3_deps,
+    )
+
+    # header libraries.
+    cc_library(
+        name = "python_headers_abi3",
+        hdrs = [":includes"],
         includes = ["include"],
+        deps = select({
+            "@bazel_tools//src/conditions:windows": [":abi3_interface"],
+            "//conditions:default": [],
+        }),
     )
+
     cc_library(
-        name = "_python_headers",
-        deps = [":_python_headers_abi3"] + full_abi_deps,
+        name = "python_headers",
+        hdrs = [":includes"],
+        includes = ["include"],
+        deps = select({
+            "@bazel_tools//src/conditions:windows": [":interface"],
+            "//conditions:default": [],
+        }),
+    )
+
+    # python libraries
+    cc_library(
+        name = "libpython_abi3",
+        hdrs = [":includes"],
+        srcs = abi3_libraries + additional_dlls,
     )
 
     cc_library(
-        name = "_libpython",
-        hdrs = [":_python_headers"],
-        srcs = libraries,
-        deps = [],
+        name = "libpython",
+        hdrs = [":includes"],
+        srcs = libraries + additional_dlls,
     )
 
+    # runtime configuration
     py_runtime(
-        name = "_py3_runtime",
+        name = "py3_runtime",
         interpreter_path = interpreter_path,
         python_version = "PY3",
         interpreter_version_info = {
@@ -119,12 +150,13 @@ def define_local_runtime_toolchain_impl(
         },
         implementation_name = implementation_name,
         abi_flags = abi_flags,
+        pyc_tag = "{}-{}{}{}".format(implementation_name, major, minor, abi_flags),
     )
 
     py_runtime_pair(
         name = "python_runtimes",
         py2_runtime = None,
-        py3_runtime = ":_py3_runtime",
+        py3_runtime = ":py3_runtime",
         visibility = ["//visibility:public"],
     )
 
@@ -136,8 +168,9 @@ def define_local_runtime_toolchain_impl(
 
     py_cc_toolchain(
         name = "py_cc_toolchain",
-        headers = ":_python_headers",
-        libs = ":_libpython",
+        headers = ":python_headers",
+        # headers_abi3 = ":python_headers_abi3",
+        libs = ":libpython",
         python_version = major_minor_micro,
         visibility = ["//visibility:public"],
     )

@@ -18,6 +18,7 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:py_library.bzl", "py_library")
 load(
     "//bazel:pybind11_cc_test.bzl",
     _pybind11_cc_googletest_test = "pybind11_cc_googletest_test",
@@ -144,7 +145,7 @@ def py_extension(
         testonly = testonly,
     )
 
-    native.py_library(
+    py_library(
         name = name,
         data = [":" + shared_objects_name],
         imports = imports,
