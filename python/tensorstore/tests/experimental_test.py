@@ -13,6 +13,8 @@
 # limitations under the License.
 """Tests for tensorstore.experimental methods."""
 
+import sys
+import sysconfig
 import tensorstore as ts
 
 
@@ -56,3 +58,12 @@ def test_experimental_update_verbose_logging() -> None:
   # check that the function exists.
   assert hasattr(ts, 'experimental_update_verbose_logging')
   ts.experimental_update_verbose_logging('')
+
+
+def test_gil_state() -> None:
+  # Skip the test if the system doesn't have _is_gil_enabled.
+  if (
+      hasattr(sys, '_is_gil_enabled')
+      and sysconfig.get_config_vars().get('Py_GIL_DISABLED', '0') == '1'
+  ):
+    assert not sys._is_gil_enabled()

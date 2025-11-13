@@ -31,6 +31,7 @@ def py_extension(
         hdrs = None,
         data = None,
         local_defines = None,
+        defines = None,
         visibility = None,
         linkopts = None,
         deps = None,
@@ -51,6 +52,8 @@ def py_extension(
     """
     if not linkopts:
         linkopts = []
+    if not defines:
+        defines = []
 
     cc_library_name = name + "_cc"
     cc_binary_so_name = name + ".so"
@@ -119,6 +122,7 @@ def py_extension(
             linkshared = True,
             #linkstatic = True,
             visibility = ["//visibility:private"],
+            defines = defines,
             deps = cur_deps,
             tags = ["manual"],
             testonly = testonly,
@@ -153,8 +157,14 @@ def py_extension(
         visibility = visibility,
     )
 
-def _get_pybind11_build_options(local_defines = None, **kwargs):
+def _get_pybind11_build_options(local_defines = None, defines = None, **kwargs):
     return dict(
+        # Ensure that the GIL is disabled when building the Python extension and setting
+        # the flag --@rules_python//python/config_settings:py_freethreaded=yes
+        defines = (defines or []) + select({
+            "@rules_python//python/config_settings:is_py_freethreaded": ["Py_GIL_DISABLED=1"],
+            "//conditions:default": [],
+        }),
         # Disable -fvisibility=hidden directive on pybind11 namespace by
         # default.  We instead specify `--copt=-fvisibility=hidden` in setup.py
         # to enable hidden visibility globally when building the Python
