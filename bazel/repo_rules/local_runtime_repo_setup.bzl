@@ -38,6 +38,7 @@ def define_local_runtime_toolchain_impl(
         interpreter_path,
         interface_library,
         libraries,
+        defines,
         abi3_interface_library,
         abi3_libraries,
         additional_dlls):
@@ -67,6 +68,7 @@ def define_local_runtime_toolchain_impl(
             e.g. "lib/python312.lib"
         libraries: `list[str]` Path[s] to the python libraries.
             e.g. ["lib/python312.dll"] or ["lib/python312.so"]
+        defines: `list[str]` List of additional defines.
         abi3_interface_library: `str` Path to the interface library.
             e.g. "lib/python3.lib"
         abi3_libraries: `list[str]` Path[s] to the python libraries.
@@ -109,6 +111,7 @@ def define_local_runtime_toolchain_impl(
         name = "python_headers_abi3",
         hdrs = [":includes"],
         includes = ["include"],
+        defines = defines,  # NOTE: Users should define Py_LIMITED_API=3
         deps = select({
             "@bazel_tools//src/conditions:windows": [":abi3_interface"],
             "//conditions:default": [],
@@ -119,6 +122,7 @@ def define_local_runtime_toolchain_impl(
         name = "python_headers",
         hdrs = [":includes"],
         includes = ["include"],
+        defines = defines,
         deps = select({
             "@bazel_tools//src/conditions:windows": [":interface"],
             "//conditions:default": [],
@@ -129,12 +133,14 @@ def define_local_runtime_toolchain_impl(
     cc_library(
         name = "libpython_abi3",
         hdrs = [":includes"],
+        defines = defines,  # NOTE: Users should define Py_LIMITED_API=3
         srcs = abi3_libraries + additional_dlls,
     )
 
     cc_library(
         name = "libpython",
         hdrs = [":includes"],
+        defines = defines,
         srcs = libraries + additional_dlls,
     )
 

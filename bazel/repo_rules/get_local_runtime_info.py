@@ -154,6 +154,15 @@ def _get_python_library_info(base_executable) -> dict[str, Any]:
     else:
       version = f"{sys.version_info.major}.{sys.version_info.minor}"
 
+  defines = []
+  if config_vars.get("Py_GIL_DISABLED", "0") == "1":
+    defines.append("Py_GIL_DISABLED")
+
+  # Avoid automatically linking the libraries on windows via pydefine.h
+  # pragma comment(lib ...)
+  if _IS_WINDOWS:
+    defines.append("Py_NO_LINK_LIB")
+
   # sys.abiflags may not exist, but it still may be set in the config.
   abi_flags = _get_abi_flags(config_vars.get)
 
@@ -243,6 +252,7 @@ def _get_python_library_info(base_executable) -> dict[str, Any]:
       "abi_flags": abi_flags,
       "shlib_suffix": ".dylib" if _IS_DARWIN else "",
       "additional_dlls": dlls,
+      "defines": defines,
   }
 
 

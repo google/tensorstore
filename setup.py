@@ -250,137 +250,148 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
   """Overrides default build_ext command to invoke bazel."""
 
   def run(self):
-    if not self.dry_run:
-      ext = self.extensions[0]
-      ext_full_path = self.get_ext_fullpath(ext.name)
+    ext = self.extensions[0]
+    ext_full_path = self.get_ext_fullpath(ext.name)
 
-      prebuilt_path = os.getenv('TENSORSTORE_PREBUILT_DIR')
-      if not prebuilt_path:
+    prebuilt_path = os.getenv('TENSORSTORE_PREBUILT_DIR')
+    if not prebuilt_path:
 
-        env = os.environ.copy()
+      env = os.environ.copy()
 
-        # Bazel cache includes PATH; attempt to remove the pip build-env
-        # from the PATH as bazel is already hermetic to improve cache use.
-        if 'PATH' in env:
-          env['PATH'] = _normalize_path(env['PATH'])
+      # Bazel cache includes PATH; attempt to remove the pip build-env
+      # from the PATH as bazel is already hermetic to improve cache use.
+      if 'PATH' in env:
+        env['PATH'] = _normalize_path(env['PATH'])
 
-        # Ensure python_configure.bzl finds the correct Python version.
-        env['PYTHON_BIN_PATH'] = sys.executable
+      # Ensure python_configure.bzl finds the correct Python version.
+      env['PYTHON_BIN_PATH'] = sys.executable
 
-        bazelisk = os.getenv('TENSORSTORE_BAZELISK', 'bazelisk.py')
-        # Controlled via `setup.py build_ext --debug` flag.
-        default_compilation_mode = 'dbg' if self.debug else 'opt'
-        startup_options = shlex.split(
-            os.getenv('TENSORSTORE_BAZEL_STARTUP_OPTIONS', '')
-        )
-        build_options = shlex.split(
-            os.getenv('TENSORSTORE_BAZEL_BUILD_OPTIONS', '')
-        )
-
-        # Build with a specific compilation mode.
-        # When in opt mode also set -O3 optimizations to override bazel -O2.
-        compilation_mode = os.getenv(
-            'TENSORSTORE_BAZEL_COMPILATION_MODE', default_compilation_mode
-        )
-        build_flags = ['build', '-c', compilation_mode]
-        if compilation_mode == 'opt':
-          if 'win32' in sys.platform:
-            # Assumes MSVC compiler.
-            build_flags.append('--copt=/Ox')
-          else:
-            build_flags.append('--copt=-O3')
-
-        version_stamp = self.distribution.get_version()
-        if version_stamp:
-          build_flags.append(
-              '--//tensorstore/internal/version=%s' % version_stamp
-          )
-
-        build_command = (
-            [sys.executable, '-u', bazelisk]
-            + startup_options
-            + build_flags
-            + [
-                '//python/tensorstore:_tensorstore__shared_objects',
-                '--verbose_failures',
-                # Bazel does not seem to download these files by default when
-                # using remote caching.
-                r'--remote_download_regex=.*/(_tensorstore\.(so|pyd))',
-            ]
-            + build_options
-        )
-        if 'darwin' in sys.platform:
-          # Note: Bazel does not use the MACOSX_DEPLOYMENT_TARGET environment
-          # variable.
-          build_command += ['--macos_minimum_os=%s' % _macos_deployment_target]
-          # Support cross-compilation on macOS
-          # https://github.com/pypa/cibuildwheel/discussions/997#discussioncomment-2045760
-          darwin_cpus = [
-              x for x in os.getenv('ARCHFLAGS', '').split() if x != '-arch'
-          ]
-          # cibuildwheel sets `ARCHFLAGS` to one of:
-          #     '-arch x86_64'
-          #     '-arch arm64'
-          #     '-arch arm64 -arch x86_64'
-          if darwin_cpus:
-            if len(darwin_cpus) > 1:
-              raise ValueError(
-                  'Fat/universal %r build not supported' % (darwin_cpus,)
-              )
-            darwin_cpu = darwin_cpus[0]
-            build_command += [
-                f'--cpu=darwin_{darwin_cpu}',
-                f'--macos_cpus={darwin_cpu}',
-            ]
-        if sys.platform == 'win32':
-          # Disable the constexpr mutex constructor which is incompatible with
-          # older versions of msvcp140.dll.
-          #
-          # https://developercommunity.visualstudio.com/t/Access-violation-with-std::mutex::lock-a/10664660#T-N10668856
-          build_command += ['--copt=/D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR']
-
-          # Disable newer exception handling from Visual Studio 2019, since it
-          # requires a newer C++ runtime than shipped with Python.
-          #
-          # https://cibuildwheel.readthedocs.io/en/stable/faq/#importerror-dll-load-failed-the-specific-module-could-not-be-found-error-on-windows
-          build_command += ['--copt=/d2FH4-']
-        else:
-          # Build with hidden visibility for more efficient code generation.
-          # Note that this also hides most symbols, but ultimately has no effect
-          # on symbol visibility because a separate linker option is already
-          # used to hide all extraneous symbols anyway.
-          build_command += ['--copt=-fvisibility=hidden']
-
-        print(f'Executing {shlex.join(build_command)} with env {env}')
-        subprocess.check_call(build_command, env=env)
-        suffix = '.pyd' if os.name == 'nt' else '.so'
-        built_ext_path = os.path.join(
-            'bazel-bin/python/tensorstore/_tensorstore' + suffix
-        )
-      else:
-        # If `TENSORSTORE_PREBUILT_DIR` is set, the extension module is assumed
-        # to have already been built a prior call to `build_ext -b
-        # $TENSORSTORE_PREBUILT_DIR`.
-        #
-        # This is used in conjunction with cibuildwheel to first perform an
-        # in-tree build of the extension module in order to take advantage of
-        # Bazel caching:
-        #
-        # https://github.com/pypa/pip/pull/9091
-        # https://github.com/joerick/cibuildwheel/issues/486
-        built_ext_path = os.path.join(
-            prebuilt_path, 'tensorstore', os.path.basename(ext_full_path)
-        )
-
-      os.makedirs(os.path.dirname(ext_full_path), exist_ok=True)
-      print(
-          'Copying extension %s -> %s'
-          % (
-              built_ext_path,
-              ext_full_path,
-          )
+      bazelisk = os.getenv('TENSORSTORE_BAZELISK', 'bazelisk.py')
+      # Controlled via `setup.py build_ext --debug` flag.
+      default_compilation_mode = 'dbg' if self.debug else 'opt'
+      startup_options = shlex.split(
+          os.getenv('TENSORSTORE_BAZEL_STARTUP_OPTIONS', '')
       )
-      shutil.copyfile(built_ext_path, ext_full_path)
+      build_options = shlex.split(
+          os.getenv('TENSORSTORE_BAZEL_BUILD_OPTIONS', '')
+      )
+
+      # Build with a specific compilation mode.
+      # When in opt mode also set -O3 optimizations to override bazel -O2.
+      compilation_mode = os.getenv(
+          'TENSORSTORE_BAZEL_COMPILATION_MODE', default_compilation_mode
+      )
+      build_flags = ['build', '-c', compilation_mode]
+      if compilation_mode == 'opt':
+        if 'win32' in sys.platform:
+          # Assumes MSVC compiler.
+          build_flags.append('--copt=/Ox')
+        else:
+          build_flags.append('--copt=-O3')
+
+      version_stamp = self.distribution.get_version()
+      if version_stamp:
+        build_flags.append(
+            '--//tensorstore/internal/version=%s' % version_stamp
+        )
+
+      if sysconfig.get_config_var('Py_GIL_DISABLED') == '1':
+        build_flags.append(
+            '--@rules_python//python/config_settings:py_freethreaded=yes'
+        )
+
+      build_command = (
+          [sys.executable, '-u', bazelisk]
+          + startup_options
+          + build_flags
+          + [
+              '//python/tensorstore:_tensorstore__shared_objects',
+              '--verbose_failures',
+              # Bazel does not seem to download these files by default when
+              # using remote caching.
+              r'--remote_download_regex=.*/(_tensorstore\.(so|pyd))',
+          ]
+          + build_options
+      )
+      if 'darwin' in sys.platform:
+        # Note: Bazel does not use the MACOSX_DEPLOYMENT_TARGET environment
+        # variable.
+        build_command += ['--macos_minimum_os=%s' % _macos_deployment_target]
+        # Support cross-compilation on macOS
+        # https://github.com/pypa/cibuildwheel/discussions/997#discussioncomment-2045760
+        darwin_cpus = [
+            x for x in os.getenv('ARCHFLAGS', '').split() if x != '-arch'
+        ]
+        # cibuildwheel sets `ARCHFLAGS` to one of:
+        #     '-arch x86_64'
+        #     '-arch arm64'
+        #     '-arch arm64 -arch x86_64'
+        if darwin_cpus:
+          if len(darwin_cpus) > 1:
+            raise ValueError(
+                'Fat/universal %r build not supported' % (darwin_cpus,)
+            )
+          darwin_cpu = darwin_cpus[0]
+          build_command += [
+              f'--cpu=darwin_{darwin_cpu}',
+              f'--macos_cpus={darwin_cpu}',
+          ]
+      if sys.platform == 'win32':
+        # Disable the constexpr mutex constructor which is incompatible with
+        # older versions of msvcp140.dll.
+        #
+        # https://developercommunity.visualstudio.com/t/Access-violation-with-std::mutex::lock-a/10664660#T-N10668856
+        build_command += ['--copt=/D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR']
+
+        # Disable newer exception handling from Visual Studio 2019, since it
+        # requires a newer C++ runtime than shipped with Python.
+        #
+        # https://cibuildwheel.readthedocs.io/en/stable/faq/#importerror-dll-load-failed-the-specific-module-could-not-be-found-error-on-windows
+        build_command += ['--copt=/d2FH4-']
+      else:
+        # Build with hidden visibility for more efficient code generation.
+        # Note that this also hides most symbols, but ultimately has no effect
+        # on symbol visibility because a separate linker option is already
+        # used to hide all extraneous symbols anyway.
+        build_command += ['--copt=-fvisibility=hidden']
+
+      print(f'Executing {shlex.join(build_command)} with env {env}')
+
+      if not self.dry_run:
+        subprocess.check_call(build_command, env=env)
+
+      suffix = '.pyd' if os.name == 'nt' else '.so'
+      built_ext_path = os.path.join(
+          'bazel-bin/python/tensorstore/_tensorstore' + suffix
+      )
+    else:
+      # If `TENSORSTORE_PREBUILT_DIR` is set, the extension module is assumed
+      # to have already been built a prior call to `build_ext -b
+      # $TENSORSTORE_PREBUILT_DIR`.
+      #
+      # This is used in conjunction with cibuildwheel to first perform an
+      # in-tree build of the extension module in order to take advantage of
+      # Bazel caching:
+      #
+      # https://github.com/pypa/pip/pull/9091
+      # https://github.com/joerick/cibuildwheel/issues/486
+      built_ext_path = os.path.join(
+          prebuilt_path, 'tensorstore', os.path.basename(ext_full_path)
+      )
+
+    if self.dry_run:
+      print('Dry run, skipping build')
+      return
+
+    os.makedirs(os.path.dirname(ext_full_path), exist_ok=True)
+    print(
+        'Copying extension %s -> %s'
+        % (
+            built_ext_path,
+            ext_full_path,
+        )
+    )
+    shutil.copyfile(built_ext_path, ext_full_path)
 
 
 class InstallCommand(setuptools.command.install.install):
