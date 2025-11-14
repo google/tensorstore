@@ -91,6 +91,7 @@ tensorstore_cc_library(
         "@googleapis//google/storage/v2:storage_cc_grpc",
         "@googleapis//google/storage/v2:storage_cc_proto",
         "@grpc//:grpc++",
+        "@nlohmann_json//:json",
     ],
 )
 

@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/flags/flag.h"
@@ -32,6 +33,7 @@
 #include "grpcpp/create_channel.h"  // third_party
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -94,7 +96,7 @@ void StorageTestbench::SpawnProcess() {
   // Wait for the process to fully start.
   for (auto deadline = absl::Now() + absl::Seconds(30);;) {
     // Once the process is running, start a gRPC server on the provided port.
-    absl::SleepFor(absl::Milliseconds(200));
+    absl::SleepFor(absl::Milliseconds(250));
     if (!absl::IsUnavailable(child->Join(/*block=*/false).status())) {
       // Child is not running.  Assume that it failed due to the port being in
       // use.
@@ -144,6 +146,41 @@ StorageTestbench::~StorageTestbench() {
                       << join_result.status();
     }
   }
+}
+
+std::string StorageTestbench::CreateRetryTest(std::string_view instructions) {
+  if (instructions.empty()) {
+    return {};
+  }
+
+  // x-retry-test-id
+  auto response =
+      GetDefaultHttpTransport()
+          ->IssueRequest(
+              HttpRequestBuilder(
+                  "POST",
+                  absl::StrFormat("http://localhost:%d/retry_test", http_port))
+                  .AddHeader("content-type", "application/json")
+                  .BuildRequest(),
+              IssueRequestOptions()
+                  .SetRequestTimeout(absl::Seconds(1))
+                  .SetConnectTimeout(absl::Seconds(1))
+                  .SetPayload(absl::Cord(instructions)))
+          .result();
+  if (!response.ok()) {
+    ABSL_LOG(WARNING) << "Failed to create retry test: " << response.status();
+    return {};
+  } else if (response->status_code != 200) {
+    ABSL_LOG(WARNING) << "Failed to create retry test: " << *response;
+    return {};
+  }
+  ::nlohmann::json json = ::nlohmann::json::parse(response->payload.Flatten());
+  if (json.is_discarded()) {
+    ABSL_LOG(WARNING) << "Failed to parse JSON response from retry test: "
+                      << *response;
+    return {};
+  }
+  return json["id"].get<std::string>();
 }
 
 /* static */

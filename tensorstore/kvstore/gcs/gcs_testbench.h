@@ -17,6 +17,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "absl/status/status.h"
 #include "tensorstore/internal/os/subprocess.h"
@@ -38,6 +39,11 @@ class StorageTestbench {
 
   std::string http_address();
   std::string grpc_address();
+
+  // Issues a POST request against the testbench's retry_test endpoint
+  // to create a retry test which is then passed via the x-retry-test-id header.
+  // https://github.com/googleapis/storage-testbench?tab=readme-ov-file#retry-test-api
+  std::string CreateRetryTest(std::string_view instructions);
 
   int http_port;
   int grpc_port;

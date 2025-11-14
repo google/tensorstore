@@ -396,6 +396,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
     ],

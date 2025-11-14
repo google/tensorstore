@@ -28,6 +28,7 @@
 #include <utility>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
@@ -237,7 +238,7 @@ void SortRequestsByStartByte(span<Request> requests) {
       });
 }
 
-// Resolves coalescsed requests with the appropriate cord subranges.
+// Resolves coalesced requests with the appropriate cord subranges.
 template <typename Request>
 void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
                               span<Request> coalesced_requests,
@@ -248,7 +249,7 @@ void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
     sub_read_result.stamp = read_result.stamp;
     sub_read_result.state = read_result.state;
     if (read_result.state == kvstore::ReadResult::kValue) {
-      assert(coalesced_byte_range.size() == read_result.value.size());
+      ABSL_DCHECK_EQ(coalesced_byte_range.size(), read_result.value.size());
       int64_t request_start = byte_range_request.byte_range.inclusive_min -
                               coalesced_byte_range.inclusive_min;
       int64_t request_size = byte_range_request.byte_range.size();
