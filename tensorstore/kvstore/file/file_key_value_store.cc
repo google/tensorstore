@@ -364,7 +364,7 @@ Result<UniqueFileDescriptor> OpenValueFile(const std::string& path,
 class BatchReadTask;
 using BatchReadTaskBase = internal_kvstore_batch::BatchReadEntry<
     FileKeyValueStore,
-    internal_kvstore_batch::ReadRequest<kvstore::ReadGenerationConditions>,
+    /*ReadRequest=*/internal_kvstore_batch::ByteRangeGenerationReadRequest,
     // BatchEntryKey members:
     std::string /* file_path*/>;
 
@@ -448,12 +448,9 @@ class BatchReadTask final
     }
 
     if (requests.size() == 1) {
-      auto& byte_range_request =
-          std::get<internal_kvstore_batch::ByteRangeReadRequest>(requests[0]);
       // Perform single read immediately.
-      byte_range_request.promise.SetResult(
-          DoByteRangeRead(byte_range_request.byte_range.AsByteRange()));
-
+      requests[0].promise.SetResult(
+          DoByteRangeRead(requests[0].byte_range.AsByteRange()));
       return;
     }
 
@@ -480,9 +477,7 @@ class BatchReadTask final
     int64_t inclusive_min = std::numeric_limits<int64_t>::max();
     int64_t total_size = 0;
     for (const auto& req : requests) {
-      const auto byte_range =
-          std::get<internal_kvstore_batch::ByteRangeReadRequest>(req)
-              .byte_range.AsByteRange();
+      const auto byte_range = req.byte_range.AsByteRange();
       inclusive_min = std::min(inclusive_min, byte_range.inclusive_min);
       exclusive_max = std::max(exclusive_max, byte_range.exclusive_max);
       total_size += byte_range.size();
@@ -503,13 +498,11 @@ class BatchReadTask final
       } else if (mapped_result.ok()) {
         absl::Cord file_contents = std::move(mapped_result).value().as_cord();
         for (const auto& req : requests) {
-          auto& byte_range_request =
-              std::get<internal_kvstore_batch::ByteRangeReadRequest>(req);
-          ByteRange byte_range = byte_range_request.byte_range.AsByteRange();
+          ByteRange byte_range = req.byte_range.AsByteRange();
           assert(byte_range.inclusive_min >= inclusive_min);
           absl::Cord subcord = file_contents.Subcord(
               byte_range.inclusive_min - inclusive_min, byte_range.size());
-          byte_range_request.promise.SetResult(
+          req.promise.SetResult(
               kvstore::ReadResult::Value(std::move(subcord), stamp_));
         }
         return true;
@@ -530,9 +523,7 @@ class BatchReadTask final
     // Determine if it's possible to read entire blocks.
     int64_t exclusive_max = 0;
     for (const auto& req : requests) {
-      const auto byte_range =
-          std::get<internal_kvstore_batch::ByteRangeReadRequest>(req)
-              .byte_range.AsByteRange();
+      const auto byte_range = req.byte_range.AsByteRange();
       exclusive_max = std::max(exclusive_max, byte_range.exclusive_max);
     }
     exclusive_max = RoundUpTo(exclusive_max, block_alignment);
@@ -565,7 +556,7 @@ Future<ReadResult> FileKeyValueStore::Read(Key key, ReadOptions options) {
   auto [promise, future] = PromiseFuturePair<kvstore::ReadResult>::Make();
   BatchReadTask::MakeRequest<BatchReadTask>(
       *this, {std::move(key)}, options.batch, options.staleness_bound,
-      BatchReadTask::Request{{std::move(promise), options.byte_range},
+      BatchReadTask::Request{std::move(promise), options.byte_range,
                              std::move(options.generation_conditions)});
   return std::move(future);
 }

@@ -89,13 +89,9 @@ void MockKeyValueStore::BatchReadRequest::operator()(
     kvstore::ReadOptions options;
     options.staleness_bound = request_batch.staleness_bound;
     options.batch = batch;
-    options.generation_conditions =
-        std::get<kvstore::ReadGenerationConditions>(request);
-    auto& byte_range_request =
-        std::get<internal_kvstore_batch::ByteRangeReadRequest>(request);
-    options.byte_range = byte_range_request.byte_range;
-    LinkResult(byte_range_request.promise,
-               target->Read(key, std::move(options)));
+    options.generation_conditions = request.generation_conditions;
+    options.byte_range = request.byte_range;
+    LinkResult(request.promise, target->Read(key, std::move(options)));
   }
 }
 
@@ -104,7 +100,9 @@ Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
   if (handle_batch_requests && options.batch) {
     class BatchEntry;
     using BatchEntryBase = internal_kvstore_batch::BatchReadEntry<
-        MockKeyValueStore, BatchReadRequest::Request, kvstore::Key>;
+        MockKeyValueStore, /*ReadRequest=*/BatchReadRequest::Request,
+        // BatchEntryKey members:
+        kvstore::Key>;
     class BatchEntry : public BatchEntryBase {
      public:
       using BatchEntryBase::BatchEntryBase;
@@ -120,13 +118,9 @@ Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
           ::nlohmann::json::array_t requests_log;
           for (const auto& request : request_batch.requests) {
             ::nlohmann::json::object_t request_log;
-            AddByteRangeToLogEntry(
-                request_log,
-                std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
-                    .byte_range);
-            AddGenerationConditionsToLogEntry(
-                request_log,
-                std::get<kvstore::ReadGenerationConditions>(request));
+            AddByteRangeToLogEntry(request_log, request.byte_range);
+            AddGenerationConditionsToLogEntry(request_log,
+                                              request.generation_conditions);
             requests_log.push_back(std::move(request_log));
           }
           log_entry.emplace("requests", std::move(requests_log));
@@ -147,7 +141,7 @@ Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
     auto [promise, future] = PromiseFuturePair<kvstore::ReadResult>::Make();
     BatchEntry::MakeRequest<BatchEntry>(
         *this, std::move(key), options.batch, options.staleness_bound,
-        BatchEntry::Request{{std::move(promise), options.byte_range},
+        BatchEntry::Request{std::move(promise), options.byte_range,
                             std::move(options.generation_conditions)});
     return std::move(future);
   }

@@ -170,11 +170,17 @@ using MinishardIndex = uint64_t;
 //       the case of concurrent modification of the shard).  Done.
 //
 //    c.  Otherwise, return the encoded minishard index.
+
+struct MinishardIndexBatchReadRequest
+    : public internal_kvstore_batch::ByteRangeReadRequest {
+  MinishardIndex minishard_index;
+};
+
 class MinishardIndexReadOperationState;
 using MinishardIndexReadOperationStateBase =
-    internal_kvstore_batch::BatchReadEntry<
+    internal_kvstore_batch::BatchReadEntry<  //
         MinishardIndexKeyValueStore,
-        internal_kvstore_batch::ReadRequest<MinishardIndex>,
+        /*ReadRequest=*/MinishardIndexBatchReadRequest,
         // BatchEntryKey members:
         ShardIndex, kvstore::ReadGenerationConditions>;
 ;
@@ -226,7 +232,7 @@ class MinishardIndexReadOperationState
     kvstore_read_options.generation_conditions =
         std::get<kvstore::ReadGenerationConditions>(this->batch_entry_key);
     kvstore_read_options.staleness_bound = this->request_batch.staleness_bound;
-    auto key = std::get<MinishardIndex>(request);
+    auto key = request.minishard_index;
     kvstore_read_options.byte_range = OptionalByteRangeRequest{
         static_cast<int64_t>(key * 16), static_cast<int64_t>((key + 1) * 16)};
     kvstore_read_options.batch = batch;
@@ -252,10 +258,8 @@ class MinishardIndexReadOperationState
       internal::IntrusivePtr<MinishardIndexReadOperationState> self,
       Request& request, Batch minishard_fetch_batch,
       Result<kvstore::ReadResult>&& result) {
-    auto& byte_range_request =
-        std::get<internal_kvstore_batch::ByteRangeReadRequest>(request);
     const auto set_error = [&](absl::Status status) {
-      byte_range_request.promise.SetResult(MaybeAnnotateStatus(
+      request.promise.SetResult(MaybeAnnotateStatus(
           ConvertInvalidArgumentToFailedPrecondition(std::move(status)),
           "Error retrieving shard index entry"));
     };
@@ -265,7 +269,7 @@ class MinishardIndexReadOperationState
         read_result.aborted() ||
         // Existing data is up to date (case 1b above).
         read_result.not_found()) {
-      byte_range_request.promise.SetResult(std::move(read_result));
+      request.promise.SetResult(std::move(read_result));
       return;
     }
     // Read was successful (case 1c above).
@@ -280,7 +284,7 @@ class MinishardIndexReadOperationState
       // Minishard index is 0 bytes, which means the minishard is empty.
       read_result.value.Clear();
       read_result.state = kvstore::ReadResult::kMissing;
-      byte_range_request.promise.SetResult(std::move(read_result));
+      request.promise.SetResult(std::move(read_result));
       return;
     }
     kvstore::ReadOptions kvstore_read_options;
@@ -308,11 +312,9 @@ class MinishardIndexReadOperationState
 
   void OnMinishardIndexReadReady(Request& request,
                                  Result<kvstore::ReadResult>&& result) {
-    auto& byte_range_request =
-        std::get<internal_kvstore_batch::ByteRangeReadRequest>(request);
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto&& read_result, result,
-        static_cast<void>(byte_range_request.promise.SetResult(
+        static_cast<void>(request.promise.SetResult(
             internal::ConvertInvalidArgumentToFailedPrecondition(
                 std::move(_)))));
     if (read_result.aborted()) {
@@ -332,7 +334,7 @@ class MinishardIndexReadOperationState
     // or
     //
     // read was successful (case 2c above).
-    byte_range_request.promise.SetResult(std::move(read_result));
+    request.promise.SetResult(std::move(read_result));
   }
 };
 }  // namespace
@@ -1206,11 +1208,15 @@ class ShardedKeyValueStore
 };
 
 namespace {
+struct ReadOperationBatchReadRequest
+    : public internal_kvstore_batch::ByteRangeReadRequest {
+  MinishardAndChunkId minishard_and_chunk_id;
+  kvstore::ReadGenerationConditions generation_conditions;
+};
+
 class ReadOperationState;
-using ReadOperationStateBase = internal_kvstore_batch::BatchReadEntry<
-    ShardedKeyValueStore,
-    internal_kvstore_batch::ReadRequest<MinishardAndChunkId,
-                                        kvstore::ReadGenerationConditions>,
+using ReadOperationStateBase = internal_kvstore_batch::BatchReadEntry<  //
+    ShardedKeyValueStore, ReadOperationBatchReadRequest,
     // BatchEntryKey members:
     ShardIndex>;
 class ReadOperationState
@@ -1242,8 +1248,7 @@ class ReadOperationState
     span<Request> requests = request_batch.requests;
     std::sort(request_batch.requests.begin(), request_batch.requests.end(),
               [](const Request& a, const Request& b) {
-                return std::get<MinishardAndChunkId>(a) <
-                       std::get<MinishardAndChunkId>(b);
+                return a.minishard_and_chunk_id < b.minishard_and_chunk_id;
               });
 
     if (ShouldReadEntireShard()) {
@@ -1258,11 +1263,10 @@ class ReadOperationState
     for (size_t minishard_start_i = 0; minishard_start_i < requests.size();) {
       size_t minishard_end_i = minishard_start_i + 1;
       auto minishard =
-          std::get<MinishardAndChunkId>(requests[minishard_start_i]).minishard;
-      while (
-          minishard_end_i < requests.size() &&
-          std::get<MinishardAndChunkId>(requests[minishard_end_i]).minishard ==
-              minishard) {
+          requests[minishard_start_i].minishard_and_chunk_id.minishard;
+      while (minishard_end_i < requests.size() &&
+             requests[minishard_end_i].minishard_and_chunk_id.minishard ==
+                 minishard) {
         ++minishard_end_i;
       }
       ProcessMinishard(batch, minishard,
@@ -1288,15 +1292,13 @@ class ReadOperationState
     uint64_t num_chunks_covered = 0;
     std::optional<uint64_t> prev_chunk_covered;
     for (const auto& request : request_batch.requests) {
-      if (std::get<kvstore::ReadGenerationConditions>(request) !=
-          std::get<kvstore::ReadGenerationConditions>(first_request)) {
+      if (request.generation_conditions !=
+          first_request.generation_conditions) {
         // Generation constraints are not all the same.
         return false;
       }
-      if (std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
-              .byte_range.IsFull()) {
-        uint64_t chunk_id =
-            std::get<MinishardAndChunkId>(request).chunk_id.value;
+      if (request.byte_range.IsFull()) {
+        uint64_t chunk_id = request.minishard_and_chunk_id.chunk_id.value;
         if (chunk_id != prev_chunk_covered) {
           prev_chunk_covered = chunk_id;
           ++num_chunks_covered;
@@ -1318,7 +1320,7 @@ class ReadOperationState
     kvstore::ReadOptions read_options;
     read_options.batch = std::move(batch);
     read_options.generation_conditions =
-        std::move(std::get<kvstore::ReadGenerationConditions>(first_request));
+        std::move(first_request.generation_conditions);
     read_options.staleness_bound = self->request_batch.staleness_bound;
     auto& driver = self->driver();
     auto read_future = driver.base_kvstore_driver()->Read(
@@ -1354,8 +1356,8 @@ class ReadOperationState
     size_t request_i = 0;
 
     const auto complete_not_found = [&](Request& request) {
-      std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
-          .promise.SetResult(kvstore::ReadResult::Missing(read_result.stamp));
+      request.promise.SetResult(
+          kvstore::ReadResult::Missing(read_result.stamp));
     };
 
     for (const auto& encoded_chunk : encoded_chunks) {
@@ -1369,8 +1371,7 @@ class ReadOperationState
             internal::ConvertInvalidArgumentToFailedPrecondition(_));
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto validated_byte_range,
-            std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
-                .byte_range.Validate(decoded_data.size()));
+            request.byte_range.Validate(decoded_data.size()));
         kvstore::ReadResult request_read_result;
         request_read_result.stamp = read_result.stamp;
         request_read_result.state = kvstore::ReadResult::kValue;
@@ -1382,12 +1383,11 @@ class ReadOperationState
       auto decoded_key = encoded_chunk.minishard_and_chunk_id;
       for (; request_i < requests.size(); ++request_i) {
         auto& request = requests[request_i];
-        auto request_key = std::get<MinishardAndChunkId>(request);
+        auto request_key = request.minishard_and_chunk_id;
         if (request_key < decoded_key) {
           complete_not_found(request);
         } else if (request_key == decoded_key) {
-          std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
-              .promise.SetResult(complete_request(request));
+          request.promise.SetResult(complete_request(request));
         } else {
           break;
         }
@@ -1491,16 +1491,14 @@ class ReadOperationState
       if (sharding_spec.data_encoding == ShardingSpec::DataEncoding::raw) {
         // Can apply requested byte range directly.
         const auto process_request = [&](Request& request) {
-          auto& byte_range_request =
-              std::get<internal_kvstore_batch::ByteRangeReadRequest>(request);
           // Note: We can't use
           // `internal_kvstore_batch::ValidateRequestGenerationAndByteRange`
           // because that mutates `request.byte_range` and the resolved byte
           // range should not be used in the event of a retry due to generation
           // mismatch.
           TENSORSTORE_ASSIGN_OR_RETURN(
-              auto sub_byte_range, byte_range_request.byte_range.Validate(size),
-              static_cast<void>(byte_range_request.promise.SetResult(_)));
+              auto sub_byte_range, request.byte_range.Validate(size),
+              static_cast<void>(request.promise.SetResult(_)));
           kvstore::ReadOptions kvstore_read_options;
           kvstore_read_options.generation_conditions.if_equal =
               stamp.generation;
@@ -1514,17 +1512,14 @@ class ReadOperationState
               self->ShardKey(), std::move(kvstore_read_options));
           value_read_future.Force();
           std::move(value_read_future)
-              .ExecuteWhenReady([self,
-                                 &request](ReadyFuture<kvstore::ReadResult>
-                                               future) mutable {
-                TENSORSTORE_ASSIGN_OR_RETURN(
-                    auto&& read_result, std::move(future.result()),
-                    static_cast<void>(
-                        std::get<internal_kvstore_batch::ByteRangeReadRequest>(
-                            request)
-                            .promise.SetResult(_)));
-                self->OnRawValueReady(request, std::move(read_result));
-              });
+              .ExecuteWhenReady(
+                  [self,
+                   &request](ReadyFuture<kvstore::ReadResult> future) mutable {
+                    TENSORSTORE_ASSIGN_OR_RETURN(
+                        auto&& read_result, std::move(future.result()),
+                        static_cast<void>(request.promise.SetResult(_)));
+                    self->OnRawValueReady(request, std::move(read_result));
+                  });
         };
         for (auto& request : chunk_requests) {
           process_request(request);
@@ -1558,13 +1553,11 @@ class ReadOperationState
     };
 
     for (size_t request_i = 0; request_i < requests.size();) {
-      ChunkId chunk_id =
-          std::get<MinishardAndChunkId>(requests[request_i]).chunk_id;
+      ChunkId chunk_id = requests[request_i].minishard_and_chunk_id.chunk_id;
       size_t end_request_i;
       for (end_request_i = request_i + 1; end_request_i < requests.size();
            ++end_request_i) {
-        if (std::get<MinishardAndChunkId>(requests[end_request_i]).chunk_id !=
-            chunk_id)
+        if (requests[end_request_i].minishard_and_chunk_id.chunk_id != chunk_id)
           break;
       }
       process_chunk(chunk_id,
@@ -1581,8 +1574,7 @@ class ReadOperationState
           read_result.stamp.time, std::move(request));
       return;
     }
-    std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
-        .promise.SetResult(std::move(read_result));
+    request.promise.SetResult(std::move(read_result));
   }
 
   void OnEncodedValueReady(span<Request> chunk_requests,
@@ -1612,18 +1604,14 @@ class ReadOperationState
 
     const auto process_request =
         [&](Request& request) -> Result<kvstore::ReadResult> {
-      auto& byte_range_request =
-          std::get<internal_kvstore_batch::ByteRangeReadRequest>(request);
       TENSORSTORE_ASSIGN_OR_RETURN(
-          auto byte_range,
-          byte_range_request.byte_range.Validate(decoded_value.size()));
+          auto byte_range, request.byte_range.Validate(decoded_value.size()));
       return kvstore::ReadResult::Value(
           internal::GetSubCord(decoded_value, byte_range), read_result.stamp);
     };
 
     for (auto& request : chunk_requests) {
-      std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
-          .promise.SetResult(process_request(request));
+      request.promise.SetResult(process_request(request));
     }
   }
 };

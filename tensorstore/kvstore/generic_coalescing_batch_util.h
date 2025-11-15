@@ -36,7 +36,7 @@ namespace internal_kvstore_batch {
 
 template <typename DerivedDriver>
 using GenericCoalescingBatchReadEntryBase =
-    BatchReadEntry<DerivedDriver, ReadRequest<>,
+    BatchReadEntry<DerivedDriver, /*ReadRequest=*/ByteRangeReadRequest,
                    // BatchEntryKey members:
                    kvstore::Key, kvstore::ReadGenerationConditions>;
 
@@ -135,7 +135,7 @@ Future<kvstore::ReadResult> HandleBatchRequestByGenericByteRangeCoalescing(
   Entry::template MakeRequest<Entry>(
       driver, std::move(key), std::move(options.generation_conditions),
       options.batch, options.staleness_bound,
-      typename Entry::Request{{std::move(promise), options.byte_range}});
+      typename Entry::Request{std::move(promise), options.byte_range});
   return std::move(future);
 }
 

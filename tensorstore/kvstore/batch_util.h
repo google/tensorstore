@@ -50,33 +50,65 @@
 namespace tensorstore {
 namespace internal_kvstore_batch {
 
-// Common portion of read request used with `BatchReadEntry`.
+// Type trait that checks if a type is a valid `ReadRequest` type as required
+// by `BatchReadEntry`.  Valid types include any structs with the following
+// members:
 //
-// This is combined in `ReadRequest` with additional fields only used for some
-// kvstore implementations.
+//    Promise<kvstore::ReadResult> promise;
+//    OptionalByteRangeRequest byte_range;
+//
+// Additional members may be present, such as
+// `kvstore::ReadGenerationConditions` or `kvstore::Key`, but at least those two
+// members must be present.
+//
+// See `ByteRangeReadRequest` and `ByteRangeGenerationReadRequest` below for
+// specific types that satisfy this requirement.
+template <typename T, typename = void>
+struct IsByteRangeReadRequestLike : std::false_type {};
+
+template <typename T>
+struct IsByteRangeReadRequestLike<
+    T, std::void_t<decltype(std::declval<T&>().promise),
+                   decltype(std::declval<T&>().byte_range)>>
+    : public std::conjunction<
+          std::is_same<decltype(std::declval<T&>().promise),
+                       Promise<kvstore::ReadResult>>,
+          std::is_same<decltype(std::declval<T&>().byte_range),
+                       OptionalByteRangeRequest>> {};
+
+template <typename T>
+constexpr bool IsByteRangeReadRequestLikeV =
+    IsByteRangeReadRequestLike<T>::value;
+
+// Common `BatchReadEntry` ReadRequest type.
 struct ByteRangeReadRequest {
   Promise<kvstore::ReadResult> promise;
   OptionalByteRangeRequest byte_range;
 };
 
-// Individual read request (entry in batch) used with `BatchReadEntry`.
+// Common `BatchReadEntry` ReadRequest type request with generation conditions.
 //
-// Possibly `Member` types include:
-//
-// - `kvstore::ReadGenerationConditions`
-// - `kvstore::Key`
-// - some derived key type, like `uint64_t`.
-template <typename... Member>
-using ReadRequest = std::tuple<ByteRangeReadRequest, Member...>;
+// This is used when generation conditions are not included in the batch entry
+// key.
+struct ByteRangeGenerationReadRequest {
+  Promise<kvstore::ReadResult> promise;
+  OptionalByteRangeRequest byte_range;
+  kvstore::ReadGenerationConditions generation_conditions;
+};
 
 // Batch of read requests with an aggregate staleness bound, used by
 // `BatchReadEntry`.
 //
 // The aggregate staleness bound is set to the maximum staleness bound of all
 // individual requests.
+//
+// \tparam RequestType Must satisfy `IsByteRangeReadRequestLikeV`.
 template <typename RequestType>
 struct RequestBatch {
+  static_assert(IsByteRangeReadRequestLikeV<RequestType>);
+
   using Request = RequestType;
+
   absl::Time staleness_bound = absl::InfinitePast();
   absl::InlinedVector<Request, 1> requests;
 
@@ -123,10 +155,13 @@ template <typename DerivedDriver, typename RequestType,
           typename... BatchEntryKeyMember>
 class BatchReadEntry : public Batch::Impl::Entry {
  public:
+  static_assert(IsByteRangeReadRequestLikeV<RequestType>);
+
   using Driver = DerivedDriver;
   using BatchEntryKey =
       std::tuple<internal::IntrusivePtr<DerivedDriver>, BatchEntryKeyMember...>;
   using Request = RequestType;
+
   using KeyParam =
       std::tuple<DerivedDriver*, KeyParamType<BatchEntryKeyMember>...>;
 
@@ -204,7 +239,7 @@ class BatchReadEntry : public Batch::Impl::Entry {
   absl::Mutex mutex_;
 
   void AddRequest(absl::Time staleness_bound, Request&& request) {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     request_batch.AddRequest(staleness_bound, std::move(request));
   }
 };
@@ -217,10 +252,13 @@ void SetCommonResult(span<const Request> requests,
                      Result<kvstore::ReadResult>&& result) {
   if (requests.empty()) return;
   for (size_t i = 1; i < requests.size(); ++i) {
-    std::get<ByteRangeReadRequest>(requests[i]).promise.SetResult(result);
+    if (requests[i].promise.result_needed()) {
+      requests[i].promise.SetResult(result);
+    }
   }
-  std::get<ByteRangeReadRequest>(requests[0])
-      .promise.SetResult(std::move(result));
+  if (requests[0].promise.result_needed()) {
+    requests[0].promise.SetResult(std::move(result));
+  }
 }
 template <typename Requests>
 void SetCommonResult(const Requests& requests,
@@ -231,11 +269,10 @@ void SetCommonResult(const Requests& requests,
 
 template <typename Request>
 void SortRequestsByStartByte(span<Request> requests) {
-  std::sort(
-      requests.begin(), requests.end(), [](const Request& a, const Request& b) {
-        return std::get<ByteRangeReadRequest>(a).byte_range.inclusive_min <
-               std::get<ByteRangeReadRequest>(b).byte_range.inclusive_min;
-      });
+  std::sort(requests.begin(), requests.end(),
+            [](const Request& a, const Request& b) {
+              return a.byte_range.inclusive_min < b.byte_range.inclusive_min;
+            });
 }
 
 // Resolves coalesced requests with the appropriate cord subranges.
@@ -244,19 +281,18 @@ void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
                               span<Request> coalesced_requests,
                               kvstore::ReadResult&& read_result) {
   for (auto& request : coalesced_requests) {
-    auto& byte_range_request = std::get<ByteRangeReadRequest>(request);
     kvstore::ReadResult sub_read_result;
     sub_read_result.stamp = read_result.stamp;
     sub_read_result.state = read_result.state;
     if (read_result.state == kvstore::ReadResult::kValue) {
       ABSL_DCHECK_EQ(coalesced_byte_range.size(), read_result.value.size());
-      int64_t request_start = byte_range_request.byte_range.inclusive_min -
-                              coalesced_byte_range.inclusive_min;
-      int64_t request_size = byte_range_request.byte_range.size();
+      int64_t request_start =
+          request.byte_range.inclusive_min - coalesced_byte_range.inclusive_min;
+      int64_t request_size = request.byte_range.size();
       sub_read_result.value =
           read_result.value.Subcord(request_start, request_size);
     }
-    byte_range_request.promise.SetResult(std::move(sub_read_result));
+    request.promise.SetResult(std::move(sub_read_result));
   }
 }
 
@@ -277,19 +313,17 @@ void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
 template <typename Request, typename Predicate, typename Callback>
 void ForEachCoalescedRequest(span<Request> requests, Predicate predicate,
                              Callback callback) {
+  static_assert(IsByteRangeReadRequestLikeV<Request>);
+
   SortRequestsByStartByte(requests);
 
   size_t request_i = 0;
   while (request_i < requests.size()) {
-    auto coalesced_byte_range =
-        std::get<ByteRangeReadRequest>(requests[request_i])
-            .byte_range.AsByteRange();
+    auto coalesced_byte_range = requests[request_i].byte_range.AsByteRange();
     size_t end_request_i;
     for (end_request_i = request_i + 1; end_request_i < requests.size();
          ++end_request_i) {
-      auto next_byte_range =
-          std::get<ByteRangeReadRequest>(requests[end_request_i])
-              .byte_range.AsByteRange();
+      auto next_byte_range = requests[end_request_i].byte_range.AsByteRange();
       if (next_byte_range.inclusive_min < coalesced_byte_range.exclusive_max ||
           predicate(coalesced_byte_range, next_byte_range.inclusive_min)) {
         coalesced_byte_range.exclusive_max = std::max(
@@ -314,12 +348,9 @@ void ForEachCoalescedRequest(span<Request> requests, Predicate predicate,
 template <typename Request>
 bool ValidateRequestGeneration(Request& request,
                                const TimestampedStorageGeneration& stamp) {
-  auto& byte_range_request = std::get<ByteRangeReadRequest>(request);
-  if (!byte_range_request.promise.result_needed()) return false;
-  if (!std::get<kvstore::ReadGenerationConditions>(request).Matches(
-          stamp.generation)) {
-    byte_range_request.promise.SetResult(
-        kvstore::ReadResult::Unspecified(stamp));
+  if (!request.promise.result_needed()) return false;
+  if (!request.generation_conditions.Matches(stamp.generation)) {
+    request.promise.SetResult(kvstore::ReadResult::Unspecified(stamp));
     return false;
   }
   return true;
@@ -334,14 +365,15 @@ bool ValidateRequestGeneration(Request& request,
 template <typename Request>
 bool ValidateRequestGenerationAndByteRange(
     Request& request, const TimestampedStorageGeneration& stamp, int64_t size) {
+  static_assert(IsByteRangeReadRequestLikeV<Request>);
+  static_assert(
+      std::is_member_pointer<decltype(&Request::generation_conditions)>::value);
   if (!ValidateRequestGeneration(request, stamp)) {
     return false;
   }
-  auto& byte_range_request = std::get<ByteRangeReadRequest>(request);
   TENSORSTORE_ASSIGN_OR_RETURN(
-      byte_range_request.byte_range,
-      byte_range_request.byte_range.Validate(size),
-      (byte_range_request.promise.SetResult(std::move(_)), false));
+      request.byte_range, request.byte_range.Validate(size),
+      (request.promise.SetResult(std::move(_)), false));
   return true;
 }
 

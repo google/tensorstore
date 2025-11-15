@@ -26,7 +26,6 @@
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/util/future.h"
@@ -58,9 +57,9 @@ class MockKeyValueStore : public kvstore::Driver {
   };
 
   struct BatchReadRequest {
+    using Request = internal_kvstore_batch::ByteRangeGenerationReadRequest;
+
     Key key;
-    using Request =
-        internal_kvstore_batch::ReadRequest<kvstore::ReadGenerationConditions>;
     using RequestBatch = internal_kvstore_batch::RequestBatch<Request>;
     RequestBatch request_batch;
     void operator()(kvstore::DriverPtr target) const;
