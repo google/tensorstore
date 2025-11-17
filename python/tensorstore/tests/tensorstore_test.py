@@ -713,3 +713,43 @@ async def test_open_with_open_kvstore() -> None:
       create=True,
   )
   assert "zarr.json" in kvstore
+
+
+async def test_spec_to_json():
+  store = await ts.open({
+      "driver": "array",
+      "array": [[1, 2, 3], [4, 5, 6]],
+      "dtype": "int32",
+  })
+
+  border_size = (10, 10)
+  new_min = store.domain.inclusive_min
+  new_max = tuple([x + 20 for x in store.domain.exclusive_max])
+
+  ts.Spec({
+      "driver": "stack",
+      "dtype": store.dtype,
+      "layers": [
+          {
+              "array": 0,
+              "driver": "array",
+              "transform": {
+                  "input_inclusive_min": new_min,
+                  "input_exclusive_max": new_max,
+                  "output": [],
+              },
+              "dtype": store.dtype,
+          },
+          store.translate_to[border_size].spec(minimal_spec=False),
+      ],
+      "schema": {
+          "domain": {
+              "exclusive_max": new_max,
+              "inclusive_min": new_min,
+          }
+      },
+      "transform": {
+          "input_exclusive_max": new_max,
+          "input_inclusive_min": new_min,
+      },
+  })

@@ -112,6 +112,25 @@ namespace {
   }
   throw py::error_already_set();
 }
+
+::nlohmann::json::array_t PyObjectToJsonArray(py::handle h, int max_depth) {
+  // Collect the elements of the sequence or array. Concurrent
+  // modification of the sequence will result in inconsistent behavior.
+  Py_ssize_t size = PySequence_Size(h.ptr());
+  if (size == -1) throw py::error_already_set();
+  ::nlohmann::json::array_t arr;
+  arr.reserve(size);
+  for (Py_ssize_t i = 0; i < size; ++i) {
+    PyObject* item = PySequence_GetItem(h.ptr(), i);
+    if (!item) {
+      throw py::error_already_set();
+    }
+    arr.push_back(
+        PyObjectToJson(py::reinterpret_steal<py::object>(item), max_depth - 1));
+  }
+  return arr;
+}
+
 }  // namespace
 
 ::nlohmann::json PyObjectToJson(py::handle h, int max_depth) {
@@ -120,6 +139,7 @@ namespace {
   }
 
   if (h.is_none()) return nullptr;
+
   if (py::isinstance<py::bool_>(h)) return h.cast<bool>();
   if (py::isinstance<py::int_>(h)) return PyObjectToJsonInteger(h);
   if (py::isinstance<py::float_>(h)) {
@@ -129,6 +149,13 @@ namespace {
   }
   if (py::isinstance<py::str>(h)) {
     return h.cast<std::string>();
+  }
+
+  // Check for a `to_json` method before checking for container types,
+  // custom types may define `to_json` but also be sequences.
+  if (py::hasattr(h, "to_json")) {
+    py::object to_json_method = h.attr("to_json");
+    return PyObjectToJson(to_json_method(), max_depth - 1);
   }
 
   if (py::isinstance<py::dict>(h)) {
@@ -157,25 +184,11 @@ namespace {
 
   if (py::isinstance<py::tuple>(h) || py::isinstance<py::list>(h) ||
       py::isinstance<py::array>(h) || py::isinstance<py::sequence>(h)) {
-    // Collect the elements of the sequence or array. Concurrent
-    // modification of the sequence will result in inconsistent behavior.
-    Py_ssize_t size = PySequence_Size(h.ptr());
-    if (size == -1) throw py::error_already_set();
-    ::nlohmann::json::array_t arr;
-    arr.reserve(size);
-    for (Py_ssize_t i = 0; i < size; ++i) {
-      PyObject* item = PySequence_GetItem(h.ptr(), i);
-      if (!item) {
-        throw py::error_already_set();
-      }
-      arr.push_back(PyObjectToJson(py::reinterpret_steal<py::object>(item),
-                                   max_depth - 1));
-    }
-    return arr;
+    return PyObjectToJsonArray(h, max_depth);
   }
 
-  // Check for any integer type.  This must be done after the check for a numpy
-  // array, as numpy arrays define an `__int__` type.
+  // Check for any integer type.  This must be done after the check for a
+  // numpy array, as numpy arrays define an `__int__` type.
   if (PyIndex_Check(h.ptr())) {
     return PyObjectToJsonInteger(h);
   }
@@ -185,13 +198,11 @@ namespace {
   }
   PyErr_Clear();
 
-  py::object to_json_method;
-  try {
-    to_json_method = h.attr("to_json");
-  } catch (...) {
-    throw py::type_error("Object does not support conversion to JSON");
-  }
-  return PyObjectToJson(to_json_method(), max_depth - 1);
+  // Raise an error if the object does not support conversion to JSON.
+  py::type type_obj = py::type::of(h);
+  std::string name = py::cast<std::string>(type_obj.attr("__name__"));
+  throw py::type_error("Object '" + name +
+                       "' does not support conversion to JSON");
 }
 
 }  // namespace internal_python
