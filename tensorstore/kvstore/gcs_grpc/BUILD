@@ -94,6 +94,7 @@ tensorstore_cc_test(
     deps = [
         ":gcs_grpc",
         ":mock_storage_service",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal/grpc:grpc_mock",

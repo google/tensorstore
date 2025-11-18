@@ -96,7 +96,6 @@
 
 // protos
 #include "google/protobuf/empty.pb.h"
-#include "google/storage/v2/storage.grpc.pb.h"
 #include "google/storage/v2/storage.pb.h"
 
 namespace jb = tensorstore::internal_json_binding;
@@ -114,7 +113,6 @@ using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::SupportedFeatures;
 
-using ::google::storage::v2::Storage;
 
 namespace tensorstore {
 namespace internal_gcs_grpc {

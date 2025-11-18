@@ -63,14 +63,14 @@ StorageTestbench& GetTestBench();
 
 struct Instructions {
   absl::Mutex mutex;
+  absl::BitGen rng ABSL_GUARDED_BY(mutex);
   std::vector<std::string> test_ids ABSL_GUARDED_BY(mutex);
 
   size_t CreateInstructions(absl::BitGen& rng, StorageTestbench& testbench,
                             std::string_view format) ABSL_LOCKS_EXCLUDED(mutex);
 
   void ApplyInstructions(grpc::ClientContext* context)
-      ABSL_LOCKS_EXCLUDED(mutex) {
-    absl::MutexLock lock(mutex);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex) {
     if (test_ids.empty()) {
       return;
     }
@@ -118,12 +118,13 @@ const char* kInsertTemplate =
     R"({"instructions":{"storage.objects.insert": ["$0"]}, "transport": "GRPC"})";
 
 struct ReadTestHook {
-  absl::BitGen rng;
   double error_injection_probability =
       absl::GetFlag(FLAGS_error_injection_probability);
 
   void operator()(grpc::ClientContext* context,
                   google::storage::v2::ReadObjectRequest& request) {
+    absl::MutexLock lock(get_instructions->mutex);
+    auto& rng = get_instructions->rng;
     if (!absl::Bernoulli(rng, error_injection_probability)) {
       return;
     }
@@ -140,12 +141,13 @@ struct ReadTestHook {
 };
 
 struct WriteTestHook {
-  absl::BitGen rng;
   double error_injection_probability =
       absl::GetFlag(FLAGS_error_injection_probability);
 
   void operator()(grpc::ClientContext* context,
                   google::storage::v2::WriteObjectRequest& request) {
+    absl::MutexLock lock(insert_instructions->mutex);
+    auto& rng = insert_instructions->rng;
     if (!absl::Bernoulli(rng, error_injection_probability)) {
       return;
     }

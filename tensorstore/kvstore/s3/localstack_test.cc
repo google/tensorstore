@@ -152,7 +152,15 @@ SubprocessOptions SetupMotoOptions(int http_port) {
   return options;
 }
 
-// NOTE: Support minio as well, which needs temporary directories.
+// TODO: Consider allowing alternatives to moto/localstack, such as:
+//
+// https://github.com/rustfs/rustfs
+// https://github.com/versity/versitygw
+// https://github.com/seaweedfs/seaweedfs
+// https://git.deuxfleurs.fr/Deuxfleurs/garage
+//
+// Supporting minio, which is has license issues and needs temporary
+// directories, is unlikely to be worth the effort.
 // https://min.io/docs/minio/linux/reference/minio-server/minio-server.html
 // minio server --address :12123  /tmp/minio
 

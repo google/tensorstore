@@ -25,7 +25,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "grpc/grpc_security_constants.h"
-#include "grpc/support/log.h"
+#include "grpc/support/log.h"  // IWYU pragma: keep
 #include "grpcpp/channel.h"  // third_party
 #include "grpcpp/completion_queue.h"  // third_party
 #include "grpcpp/create_channel.h"  // third_party
@@ -35,6 +35,7 @@
 #include "grpcpp/server.h"  // third_party
 #include "grpcpp/server_builder.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
+#include "grpcpp/support/status.h"  // third_party  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace grpc_mocker {
@@ -117,7 +118,7 @@ class MockGrpcServer {
     builder.SetSyncServerOption(::grpc::ServerBuilder::NUM_CQS, 2)
         .SetSyncServerOption(::grpc::ServerBuilder::MIN_POLLERS, 1)
         .SetSyncServerOption(::grpc::ServerBuilder::MAX_POLLERS, 2)
-        .SetSyncServerOption(::grpc::ServerBuilder::CQ_TIMEOUT_MSEC, 10000);
+        .SetSyncServerOption(::grpc::ServerBuilder::CQ_TIMEOUT_MSEC, 1000);
 
     builder.AddListeningPort(
         "localhost:0", grpc::experimental::LocalServerCredentials(LOCAL_TCP),

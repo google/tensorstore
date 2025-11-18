@@ -221,7 +221,7 @@ class BatchReadEntry : public Batch::Impl::Entry {
   // This may be useful for implementing retry logic.
   template <typename DerivedEntry>
   std::unique_ptr<DerivedEntry> MigrateExistingRequestsToNewEntry(
-      span<Request> existing_requests) {
+      tensorstore::span<Request> existing_requests) {
     using Self =
         BatchReadEntry<DerivedDriver, RequestType, BatchEntryKeyMember...>;
     static_assert(std::is_base_of_v<Self, DerivedEntry>);
@@ -248,7 +248,7 @@ class BatchReadEntry : public Batch::Impl::Entry {
 //
 // This may be useful for setting error results.
 template <typename Request>
-void SetCommonResult(span<const Request> requests,
+void SetCommonResult(tensorstore::span<const Request> requests,
                      Result<kvstore::ReadResult>&& result) {
   if (requests.empty()) return;
   for (size_t i = 1; i < requests.size(); ++i) {
@@ -263,12 +263,13 @@ void SetCommonResult(span<const Request> requests,
 template <typename Requests>
 void SetCommonResult(const Requests& requests,
                      Result<kvstore::ReadResult>&& result) {
-  SetCommonResult(span<const typename Requests::value_type>(requests),
-                  std::move(result));
+  SetCommonResult(
+      tensorstore::span<const typename Requests::value_type>(requests),
+      std::move(result));
 }
 
 template <typename Request>
-void SortRequestsByStartByte(span<Request> requests) {
+void SortRequestsByStartByte(tensorstore::span<Request> requests) {
   std::sort(requests.begin(), requests.end(),
             [](const Request& a, const Request& b) {
               return a.byte_range.inclusive_min < b.byte_range.inclusive_min;
@@ -278,7 +279,7 @@ void SortRequestsByStartByte(span<Request> requests) {
 // Resolves coalesced requests with the appropriate cord subranges.
 template <typename Request>
 void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
-                              span<Request> coalesced_requests,
+                              tensorstore::span<Request> coalesced_requests,
                               kvstore::ReadResult&& read_result) {
   for (auto& request : coalesced_requests) {
     kvstore::ReadResult sub_read_result;
@@ -311,8 +312,8 @@ void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
 //     coalesced_byte_range, span<Request> coalesced_requests)` to be invoked
 //     for each coalesced set of requests.
 template <typename Request, typename Predicate, typename Callback>
-void ForEachCoalescedRequest(span<Request> requests, Predicate predicate,
-                             Callback callback) {
+void ForEachCoalescedRequest(tensorstore::span<Request> requests,
+                             Predicate predicate, Callback callback) {
   static_assert(IsByteRangeReadRequestLikeV<Request>);
 
   SortRequestsByStartByte(requests);

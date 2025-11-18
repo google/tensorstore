@@ -40,7 +40,6 @@
 #include "grpc/grpc.h"
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "grpcpp/support/client_interceptor.h"  // third_party
-#include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/clientauth/create_channel.h"
@@ -91,6 +90,14 @@ uint32_t ChannelsForAddress(std::string_view address, uint32_t num_channels) {
                                "TENSORSTORE_GCS_GRPC_CHANNELS");
   if (opt && *opt > 0) {
     return *opt;
+  }
+
+  // "localhost" can only be used with tests, so limit to a small number of
+  // channels to aid debugging, as the hardware_concurrency may be large.
+  if (absl::StartsWith(address, "localhost:") ||
+      absl::StartsWith(address, "127.0.0.1") ||
+      absl::StartsWith(address, "[::1]")) {
+    return 4;
   }
 
   // Otherwise multiplex over a multiple channels.

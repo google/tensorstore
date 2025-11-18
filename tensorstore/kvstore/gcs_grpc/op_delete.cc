@@ -40,11 +40,13 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 
 // proto
 #include "google/protobuf/empty.pb.h"
+#include "google/storage/v2/storage.grpc.pb.h"
 #include "google/storage/v2/storage.pb.h"
 
 using ::tensorstore::internal::GrpcStatusToAbslStatus;
@@ -77,28 +79,25 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
              Promise<TimestampedStorageGeneration> promise)
       : driver_(std::move(driver)),
         options_(std::move(options)),
-        promise_(std::move(promise)) {}
+        promise_(std::move(promise)) {
+    promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<DeleteTask>(
+                                       this)] { self->TryCancel(); });
+  }
 
   void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(mutex_);
     if (context_) context_->TryCancel();
   }
-
-  void Start(std::string_view bucket_name, std::string_view object_name)
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  void SetupRequest(std::string_view bucket_name, std::string_view object_name);
+  void Start() ABSL_LOCKS_EXCLUDED(mutex_);
   void Retry() ABSL_LOCKS_EXCLUDED(mutex_);
   void RetryWithContext(std::shared_ptr<grpc::ClientContext> context)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void DeleteFinished(absl::Status status) ABSL_LOCKS_EXCLUDED(mutex_);
 };
 
-void DeleteTask::Start(std::string_view bucket_name,
-                       std::string_view object_name) {
-  ABSL_LOG_IF(INFO, gcs_grpc_logging) << "DeleteTask " << object_name;
-
-  promise_.ExecuteWhenNotNeeded(
-      [self = internal::IntrusivePtr<DeleteTask>(this)] { self->TryCancel(); });
-
+void DeleteTask::SetupRequest(std::string_view bucket_name,
+                              std::string_view object_name) {
   request_.set_bucket(bucket_name);
   request_.set_object(object_name);
   if (!StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
@@ -106,6 +105,10 @@ void DeleteTask::Start(std::string_view bucket_name,
         StorageGeneration::ToUint64(options_.generation_conditions.if_equal);
     request_.set_if_generation_match(gen);
   }
+}
+
+void DeleteTask::Start() {
+  ABSL_LOG_IF(INFO, gcs_grpc_logging) << "DeleteTask " << request_.object();
   Retry();
 }
 
@@ -126,24 +129,30 @@ void DeleteTask::Retry() {
 void DeleteTask::RetryWithContext(
     std::shared_ptr<grpc::ClientContext> context) {
   start_time_ = absl::Now();
+
+  ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2))
+      << this << " " << ConciseDebugString(request_);
+
   {
     absl::MutexLock lock(mutex_);
     assert(context_ == nullptr);
-    context_ = std::move(context);
-    auto stub = driver_->get_stub();
-
-    intrusive_ptr_increment(this);  // Adopted by OnDone
-    stub->async()->DeleteObject(
-        context_.get(), &request_, &response_,
-        WithExecutor(driver_->executor(), [this](::grpc::Status s) {
-          internal::IntrusivePtr<DeleteTask> self(this,
-                                                  internal::adopt_object_ref);
-          self->DeleteFinished(GrpcStatusToAbslStatus(s));
-        }));
+    context_ = context;
   }
+  auto stub = driver_->get_stub();
+
+  intrusive_ptr_increment(this);  // Adopted by OnDone
+  stub->async()->DeleteObject(
+      context.get(), &request_, &response_,
+      WithExecutor(driver_->executor(), [this](::grpc::Status s) {
+        internal::IntrusivePtr<DeleteTask> self(this,
+                                                internal::adopt_object_ref);
+        self->DeleteFinished(GrpcStatusToAbslStatus(s));
+      }));
 }
 
 void DeleteTask::DeleteFinished(absl::Status status) {
+  ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2)) << this << " " << status;
+
   if (!promise_.result_needed()) {
     return;
   }
@@ -197,7 +206,8 @@ Future<TimestampedStorageGeneration> InitiateDelete(
 
   auto task = internal::MakeIntrusivePtr<DeleteTask>(
       std::move(driver), std::move(options), std::move(op.promise));
-  task->Start(task->driver_->bucket_name(), key);
+  task->SetupRequest(task->driver_->bucket_name(), key);
+  task->Start();
   return std::move(op.future);
 }
 

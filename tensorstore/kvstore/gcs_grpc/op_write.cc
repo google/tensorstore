@@ -45,6 +45,7 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
@@ -107,7 +108,10 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
         value_(std::move(data)),
         value_offset_(0),
         crc32c_(absl::crc32c_t{0}),
-        promise_(std::move(promise)) {}
+        promise_(std::move(promise)) {
+    promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<WriteTask>(
+                                       this)] { self->TryCancel(); });
+  }
 
   void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(mutex_);
@@ -183,8 +187,6 @@ void WriteTask::UpdateRequestForNextWrite(WriteObjectRequest& request) {
 
 void WriteTask::Start() {
   ABSL_LOG_IF(INFO, gcs_grpc_logging) << "WriteTask " << object_name_;
-  promise_.ExecuteWhenNotNeeded(
-      [self = internal::IntrusivePtr<WriteTask>(this)] { self->TryCancel(); });
   Retry();
 }
 
@@ -219,15 +221,19 @@ void WriteTask::RetryWithContext(std::shared_ptr<grpc::ClientContext> context) {
     g_test_hook(context.get(), request_);
   }
 
+  ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2))
+      << this << " " << ConciseDebugString(request_);
+
   {
     absl::MutexLock lock(mutex_);
     assert(context_ == nullptr);
-    context_ = std::move(context);
-    auto stub = driver_->get_stub();
-    // Initiate the write.
-    intrusive_ptr_increment(this);
-    stub->async()->WriteObject(context_.get(), &response_, this);
+    context_ = context;
   }
+  auto stub = driver_->get_stub();
+
+  // Initiate the write.
+  intrusive_ptr_increment(this);
+  stub->async()->WriteObject(context.get(), &response_, this);
 
   UpdateRequestForNextWrite(request_);
 
@@ -262,6 +268,8 @@ void WriteTask::OnDone(const grpc::Status& s) {
 }
 
 void WriteTask::WriteFinished(absl::Status status) {
+  ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2)) << this << " " << status;
+
   if (!promise_.result_needed()) {
     return;
   }

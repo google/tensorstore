@@ -23,7 +23,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
@@ -89,7 +88,8 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   TimestampedStorageGeneration storage_generation_;
   std::optional<absl::crc32c_t> crc32c_;
   absl::crc32c_t combined_crc32c_ = absl::crc32c_t(0);
-  std::vector<absl::Cord> chunks_;
+  absl::Cord value_;
+  riegeli::CordWriter<> cord_writer_{&value_};
 
   ReadObjectRequest request_;
   ReadObjectResponse response_;
@@ -104,19 +104,21 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       : driver_(std::move(driver)),
         common_metrics_(common_metrics),
         promise_(std::move(promise)),
-        options_(std::move(options)) {}
+        options_(std::move(options)) {
+    promise_.ExecuteWhenNotNeeded(
+        [self = internal::IntrusivePtr<ReadTask>(this)] { self->TryCancel(); });
+  }
 
   void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(mutex_);
     if (context_) context_->TryCancel();
   }
 
-  void SetupRequest(ReadObjectRequest& request);
-  Result<kvstore::ReadResult> HandleFinalStatus(absl::Status status);
+  void SetupRequest(std::string_view bucket_name, std::string_view object_name);
   absl::Status HandleResponse(ReadObjectResponse& response);
+  Result<kvstore::ReadResult> HandleFinalStatus(absl::Status status);
 
-  void Start(std::string_view bucket_name, std::string_view object_name)
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  void Start() ABSL_LOCKS_EXCLUDED(mutex_);
   void Retry() ABSL_LOCKS_EXCLUDED(mutex_);
   void RetryWithContext(std::shared_ptr<grpc::ClientContext> context)
       ABSL_LOCKS_EXCLUDED(mutex_);
@@ -125,14 +127,18 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   void ReadFinished(absl::Status status);
 };
 
-void ReadTask::SetupRequest(ReadObjectRequest& request) {
+void ReadTask::SetupRequest(std::string_view bucket_name,
+                            std::string_view object_name) {
+  request_.set_bucket(bucket_name);
+  request_.set_object(object_name);
+
   if (!StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
     uint64_t gen =
         StorageGeneration::IsNoValue(options_.generation_conditions.if_equal)
             ? 0
             : StorageGeneration::ToUint64(
                   options_.generation_conditions.if_equal);
-    request.set_if_generation_match(gen);
+    request_.set_if_generation_match(gen);
   }
   if (!StorageGeneration::IsUnknown(
           options_.generation_conditions.if_not_equal)) {
@@ -141,18 +147,74 @@ void ReadTask::SetupRequest(ReadObjectRequest& request) {
                        ? 0
                        : StorageGeneration::ToUint64(
                              options_.generation_conditions.if_not_equal);
-    request.set_if_generation_not_match(gen);
+    request_.set_if_generation_not_match(gen);
   }
   if (options_.byte_range.inclusive_min != 0) {
-    request.set_read_offset(options_.byte_range.inclusive_min);
+    request_.set_read_offset(options_.byte_range.inclusive_min);
   }
   if (options_.byte_range.exclusive_max != -1) {
     auto target_size = options_.byte_range.size();
     assert(target_size >= 0);
-    // read_limit == 0 reads the entire object; instead just read a single
-    // byte.
-    request.set_read_limit(target_size == 0 ? 1 : target_size);
+    // read_limit == 0 reads the entire object; for a 0-byte read
+    // request 1 byte and we'll return an empty cord in HandleFinalStatus.
+    request_.set_read_limit(target_size == 0 ? 1 : target_size);
   }
+}
+
+absl::Status ReadTask::HandleResponse(ReadObjectResponse& response) {
+  if (response.has_metadata()) {
+    storage_generation_.generation =
+        StorageGeneration::FromUint64(response.metadata().generation());
+  }
+  if (response.has_object_checksums() &&
+      response.object_checksums().crc32c() != 0 &&
+      options_.byte_range.inclusive_min == 0 &&
+      !options_.byte_range.exclusive_max) {
+    // Do not validate byte-range requests.
+    crc32c_ = absl::crc32c_t(response.object_checksums().crc32c());
+  }
+  if (response.has_content_range()) {
+    // The content-range request indicates the expected data. If it does not
+    // satisfy the byte range request, cancel the read with an error. Allow
+    // the returned size to exceed the requested size.
+    auto returned_size =
+        response.content_range().end() - response.content_range().start();
+    if (auto size = options_.byte_range.size();
+        (size > 0 && size != returned_size) ||
+        (options_.byte_range.inclusive_min >= 0 &&
+         response.content_range().start() !=
+             options_.byte_range.inclusive_min)) {
+      return absl::OutOfRangeError(
+          tensorstore::StrCat("Requested byte range ", options_.byte_range,
+                              " was not satisfied by GCS object with size ",
+                              response.content_range().complete_length()));
+    }
+  }
+  if (response.has_checksummed_data() &&
+      !response.checksummed_data().content().empty()) {
+    const auto& content = response.checksummed_data().content();
+    // Validate the content checksum.
+    if (response.checksummed_data().has_crc32c()) {
+      absl::crc32c_t expected_crc32c =
+          absl::crc32c_t(response.checksummed_data().crc32c());
+      absl::crc32c_t chunk_crc32c = ComputeCrc32c(content);
+      if (chunk_crc32c != expected_crc32c) {
+        return absl::DataLossError(absl::StrFormat(
+            "Object fragment crc32c %08x does not match expected crc32c %08x",
+            static_cast<uint32_t>(chunk_crc32c),
+            static_cast<uint32_t>(expected_crc32c)));
+      }
+      combined_crc32c_ =
+          absl::ConcatCrc32c(combined_crc32c_, chunk_crc32c, content.size());
+    } else {
+      // This chunk missed crc32c data; clear the expected crc32c value.
+      crc32c_ = std::nullopt;
+    }
+    if (!cord_writer_.Write(content)) {
+      return cord_writer_.status();
+    }
+  }
+  return absl::OkStatus();
 }
 
 Result<kvstore::ReadResult> ReadTask::HandleFinalStatus(absl::Status status) {
@@ -188,105 +250,38 @@ Result<kvstore::ReadResult> ReadTask::HandleFinalStatus(absl::Status status) {
   }
 
   // Validate the content checksum.
-  absl::Cord combined_content;
-  riegeli::CordWriter writer(&combined_content);
-  for (auto& chunk : chunks_) {
-    if (!writer.Write(std::move(chunk))) {
-      return writer.status();
-    }
-  }
-  chunks_.clear();
-
-  // Validate the content checksum.
-  if (!writer.Close()) {
-    return writer.status();
+  if (!cord_writer_.Close()) {
+    return cord_writer_.status();
   }
   if (options_.byte_range.size() == 0) {
     return kvstore::ReadResult::Value({}, std::move(storage_generation_));
   }
-  return kvstore::ReadResult::Value(std::move(combined_content),
+  return kvstore::ReadResult::Value(std::move(value_),
                                     std::move(storage_generation_));
 }
 
-absl::Status ReadTask::HandleResponse(ReadObjectResponse& response) {
-  if (response.has_metadata()) {
-    storage_generation_.generation =
-        StorageGeneration::FromUint64(response.metadata().generation());
-  }
-  if (response.has_object_checksums() &&
-      response.object_checksums().crc32c() != 0 &&
-      options_.byte_range.inclusive_min == 0 &&
-      !options_.byte_range.exclusive_max) {
-    // Do not validate byte-range requests.
-    crc32c_ = absl::crc32c_t(response.object_checksums().crc32c());
-  }
-  if (response.has_content_range()) {
-    // The content-range request indicates the expected data. If it does not
-    // satisfy the byte range request, cancel the read with an error. Allow
-    // the returned size to exceed the requested size.
-    auto returned_size =
-        response.content_range().end() - response.content_range().start();
-    if (auto size = options_.byte_range.size();
-        (size > 0 && size != returned_size) ||
-        (options_.byte_range.inclusive_min >= 0 &&
-         response.content_range().start() !=
-             options_.byte_range.inclusive_min)) {
-      return absl::OutOfRangeError(
-          tensorstore::StrCat("Requested byte range ", options_.byte_range,
-                              " was not satisfied by GCS object with size ",
-                              response.content_range().complete_length()));
-    }
-  }
-  if (response.has_checksummed_data() &&
-      !response.checksummed_data().content().empty()) {
-    absl::Cord content = response.checksummed_data().content();
-    // Validate the content checksum.
-    if (response.checksummed_data().has_crc32c()) {
-      absl::crc32c_t expected_crc32c =
-          absl::crc32c_t(response.checksummed_data().crc32c());
-      absl::crc32c_t chunk_crc32c = ComputeCrc32c(content);
-      if (chunk_crc32c != expected_crc32c) {
-        return absl::DataLossError(absl::StrFormat(
-            "Object fragment crc32c %08x does not match expected crc32c %08x",
-            static_cast<uint32_t>(chunk_crc32c),
-            static_cast<uint32_t>(expected_crc32c)));
-      }
-      combined_crc32c_ =
-          absl::ConcatCrc32c(combined_crc32c_, chunk_crc32c, content.size());
-    } else {
-      // This chunk missed crc32c data; clear the expected crc32c value.
-      crc32c_ = std::nullopt;
-    }
-    chunks_.emplace_back(std::move(content));
-  }
-  return absl::OkStatus();
-}
+void ReadTask::Start() {
+  ABSL_LOG_IF(INFO, gcs_grpc_logging)
+      << this << " ReadTask " << request_.object();
 
-void ReadTask::Start(std::string_view bucket_name,
-                     std::string_view object_name) {
-  ABSL_LOG_IF(INFO, gcs_grpc_logging) << this << " ReadTask " << object_name;
-
-  promise_.ExecuteWhenNotNeeded(
-      [self = internal::IntrusivePtr<ReadTask>(this)] { self->TryCancel(); });
-
-  SetupRequest(request_);
-  request_.set_bucket(bucket_name);
-  request_.set_object(object_name);
-
-  Retry();
+  auto context_future = driver_->AllocateContext();
+  context_future.ExecuteWhenReady(
+      [self = internal::IntrusivePtr<ReadTask>(this),
+       context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+        self->RetryWithContext(std::move(f).value());
+      });
+  context_future.Force();
 }
 
 void ReadTask::Retry() ABSL_LOCKS_EXCLUDED(mutex_) {
   if (!promise_.result_needed()) {
     return;
   }
-
-  storage_generation_ =
-      TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
-
+  // Clear working state.
   crc32c_ = std::nullopt;
-  chunks_.clear();
   combined_crc32c_ = absl::crc32c_t(0);
+  value_.Clear();
+  cord_writer_ = riegeli::CordWriter<>(&value_);
 
   auto context_future = driver_->AllocateContext();
   context_future.ExecuteWhenReady(
@@ -301,35 +296,39 @@ void ReadTask::RetryWithContext(std::shared_ptr<grpc::ClientContext> context) {
   if (!promise_.result_needed()) {
     return;
   }
-
   if (g_test_hook) {
     g_test_hook(context.get(), request_);
   }
+
+  storage_generation_ =
+      TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
+
   ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2))
       << this << " " << ConciseDebugString(request_);
 
   {
     absl::MutexLock lock(mutex_);
     assert(context_ == nullptr);
-    context_ = std::move(context);
-    auto stub = driver_->get_stub();
-
-    // Start a call.
-    intrusive_ptr_increment(this);  // adopted in OnDone.
-    stub->async()->ReadObject(context_.get(), &request_, this);
+    context_ = context;
   }
+  auto stub = driver_->get_stub();
+
+  // Start a call.
+  intrusive_ptr_increment(this);  // adopted in OnDone.
+  stub->async()->ReadObject(context.get(), &request_, this);
 
   StartRead(&response_);
   StartCall();
 }
 
 void ReadTask::OnReadDone(bool ok) {
-  if (!ok) return;
+  if (!ok) return;  // Reading is complete. Not an error.
 
   if (!promise_.result_needed()) {
     TryCancel();
     return;
   }
+
   ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2))
       << this << " " << ConciseDebugString(response_);
 
@@ -409,7 +408,8 @@ Future<kvstore::ReadResult> InitiateRead(
   auto task = internal::MakeIntrusivePtr<ReadTask>(
       std::move(driver), common_metrics, std::move(options),
       std::move(op.promise));
-  task->Start(task->driver_->bucket_name(), key);
+  task->SetupRequest(task->driver_->bucket_name(), key);
+  task->Start();
   return std::move(op.future);
 }
 

@@ -17,6 +17,7 @@
 #include <cstring>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -30,7 +31,9 @@
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "grpcpp/support/status.h"  // third_party
 #include "grpcpp/support/sync_stream.h"  // third_party
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/grpc/grpc_mock.h"
@@ -59,9 +62,9 @@ namespace {
 
 namespace kvstore = ::tensorstore::kvstore;
 
-using ::protobuf_matchers::EqualsProto;
 using ::tensorstore::CompletionNotifyingReceiver;
 using ::tensorstore::Context;
+using ::tensorstore::Future;
 using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::OptionalByteRangeRequest;
@@ -72,6 +75,8 @@ using ::tensorstore::grpc_mocker::MockGrpcServer;
 using ::tensorstore::internal::AbslStatusToGrpcStatus;
 using ::tensorstore::internal::FlatCordBuilder;
 using ::tensorstore_grpc::MockStorage;
+
+using ::protobuf_matchers::EqualsProto;
 using ::testing::_;
 using ::testing::AtLeast;
 using ::testing::DoAll;
@@ -112,20 +117,18 @@ TEST_F(GcsGrpcTest, Read) {
     object: 'abc'
   )pb");
 
-  ReadObjectResponse response = ParseTextProtoOrDie(R"pb(
-    metadata { generation: 2 }
-    checksummed_data { content: '1234' }
-  )pb");
-
   // Set expectation and action on the mock stub.
   EXPECT_CALL(mock(), ReadObject(_, EqualsProto(expected_request), _))
       .Times(AtLeast(1))
-      .WillRepeatedly(testing::Invoke(
-          [&](auto*, auto*,
-              grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
-            resp->Write(response);
+      .WillRepeatedly(
+          [](auto*, auto*,
+             grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
+            resp->Write(ParseTextProtoOrDie(R"pb(
+              metadata { generation: 2 }
+              checksummed_data { content: '1234' }
+            )pb"));
             return grpc::Status::OK;
-          }));
+          });
 
   auto start = absl::Now();
   auto store = OpenStore();
@@ -145,11 +148,6 @@ TEST_F(GcsGrpcTest, ReadRetry) {
     object: 'abc'
   )pb");
 
-  ReadObjectResponse response = ParseTextProtoOrDie(R"pb(
-    metadata { generation: 2 }
-    checksummed_data { content: '1234' }
-  )pb");
-
   // Set expectation and action on the mock stub.
   ::testing::Sequence s1;
   EXPECT_CALL(mock(), ReadObject(_, EqualsProto(expected_request), _))
@@ -161,12 +159,15 @@ TEST_F(GcsGrpcTest, ReadRetry) {
   EXPECT_CALL(mock(), ReadObject(_, EqualsProto(expected_request), _))
       .Times(AtLeast(1))
       .InSequence(s1)
-      .WillRepeatedly(testing::Invoke(
-          [&](auto*, auto*,
-              grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
-            resp->Write(response);
+      .WillRepeatedly(
+          [](auto*, auto*,
+             grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
+            resp->Write(ParseTextProtoOrDie(R"pb(
+              metadata { generation: 2 }
+              checksummed_data { content: '1234' }
+            )pb"));
             return grpc::Status::OK;
-          }));
+          });
 
   auto start = absl::Now();
   auto store = OpenStore();
@@ -190,19 +191,17 @@ TEST_F(GcsGrpcTest, ReadWithOptions) {
     read_limit: 9
   )pb");
 
-  ReadObjectResponse response = ParseTextProtoOrDie(R"pb(
-    metadata { generation: 2 }
-    checksummed_data { content: '1234' }
-  )pb");
-
   EXPECT_CALL(mock(), ReadObject(_, EqualsProto(expected_request), _))
       .Times(AtLeast(1))
-      .WillRepeatedly(testing::Invoke(
-          [&](auto*, auto*,
-              grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
-            resp->Write(response);
+      .WillRepeatedly(
+          [](auto*, auto*,
+             grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
+            resp->Write(ParseTextProtoOrDie(R"pb(
+              metadata { generation: 2 }
+              checksummed_data { content: '1234' }
+            )pb"));
             return grpc::Status::OK;
-          }));
+          });
 
   kvstore::ReadOptions options;
   options.generation_conditions.if_not_equal = StorageGeneration::FromUint64(3);
@@ -212,35 +211,253 @@ TEST_F(GcsGrpcTest, ReadWithOptions) {
 
   auto store = OpenStore();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto result,
-      kvstore::Read(store, expected_request.object(), options).result());
+      auto result, kvstore::Read(store, "abc", options).result());
+}
+
+TEST_F(GcsGrpcTest, ReadMultipleMessages) {
+  ReadObjectRequest expected_request = ParseTextProtoOrDie(R"pb(
+    bucket: 'projects/_/buckets/bucket'
+    object: 'abc'
+  )pb");
+
+  EXPECT_CALL(mock(), ReadObject(_, EqualsProto(expected_request), _))
+      .Times(AtLeast(1))
+      .WillRepeatedly(
+          [](auto*, auto*,
+             grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
+            resp->Write(ParseTextProtoOrDie(R"pb(
+              checksummed_data { content: '123' }
+            )pb"));
+            resp->Write(ParseTextProtoOrDie(R"pb(
+              metadata { generation: 2 }
+              checksummed_data { content: '456' }
+            )pb"));
+            return grpc::Status::OK;
+          });
+
+  auto start = absl::Now();
+  auto store = OpenStore();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto result,
+                                   kvstore::Read(store, "abc").result());
+
+  // Individual result field verification.
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(result.value, "123456");
+  EXPECT_GT(result.stamp.time, start);
+  EXPECT_EQ(result.stamp.generation, StorageGeneration::FromUint64(2));
+}
+
+TEST_F(GcsGrpcTest, ReadInBatchAdjacent) {
+  ReadObjectRequest expected_request = ParseTextProtoOrDie(R"pb(
+    bucket: 'projects/_/buckets/bucket'
+    object: 'abc'
+    read_offset: 0
+    read_limit: 20
+  )pb");
+
+  EXPECT_CALL(mock(), ReadObject(_, EqualsProto(expected_request), _))
+      .Times(AtLeast(1))
+      .WillRepeatedly(
+          [](auto*, auto*,
+             grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
+            resp->Write(ParseTextProtoOrDie(R"pb(
+              metadata { generation: 2 }
+              checksummed_data { content: '0123456789abcdefghij' }
+            )pb"));
+            return grpc::Status::OK;
+          });
+
+  auto store = OpenStore();
+  Future<kvstore::ReadResult> read1;
+  Future<kvstore::ReadResult> read2;
+  {
+    auto batch = tensorstore::Batch::New();
+
+    kvstore::ReadOptions options;
+    options.batch = batch;
+    options.byte_range.inclusive_min = 0;
+    options.byte_range.exclusive_max = 10;
+    read1 = kvstore::Read(store, "abc", options);
+
+    options.byte_range.inclusive_min = 11;
+    options.byte_range.exclusive_max = 20;
+    read2 = kvstore::Read(store, "abc", options);
+
+    batch.Release();
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto result1, read1.result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto result2, read2.result());
+
+  // Individual result field verification.
+  EXPECT_TRUE(result1.has_value());
+  EXPECT_EQ(result1.value, "0123456789");
+  EXPECT_EQ(result1.stamp.generation, StorageGeneration::FromUint64(2));
+
+  EXPECT_TRUE(result2.has_value());
+  EXPECT_EQ(result2.value, "bcdefghij");
+  EXPECT_EQ(result2.stamp.generation, StorageGeneration::FromUint64(2));
+}
+
+TEST_F(GcsGrpcTest, ReadInBatchUnboundedOverlapping) {
+  // Only range requests are coalesced by the generic batch read handler.
+  std::string_view value = "0123456789abcdefghij";
+
+  EXPECT_CALL(mock(), ReadObject(_, _, _))
+      .Times(AtLeast(1))
+      .WillRepeatedly([value](auto* context, const ReadObjectRequest* request,
+                              grpc::ServerWriter<ReadObjectResponse>* resp)
+                          -> ::grpc::Status {
+        ABSL_LOG(INFO) << "ReadObject: " << request->ShortDebugString();
+        EXPECT_THAT(*request,
+                    testing::AnyOf(EqualsProto(
+                                       R"pb(bucket: "projects/_/buckets/bucket"
+                                            object: "abc"
+                                            read_offset: 5
+                                       )pb"),
+                                   EqualsProto(
+                                       R"pb(bucket: "projects/_/buckets/bucket"
+                                            object: "abc"
+                                            read_offset: 0
+                                            read_limit: 10
+                                       )pb")));
+        int n = request->read_limit()
+                    ? request->read_limit() - request->read_offset()
+                    : value.size() - request->read_offset();
+        ReadObjectResponse response;
+        response.mutable_metadata()->set_generation(2);
+        response.mutable_checksummed_data()->set_content(
+            value.substr(request->read_offset(), n));
+        resp->Write(response);
+        return grpc::Status::OK;
+      });
+
+  auto store = OpenStore();
+  Future<kvstore::ReadResult> read1;
+  Future<kvstore::ReadResult> read2;
+  {
+    auto batch = tensorstore::Batch::New();
+
+    kvstore::ReadOptions options;
+    options.batch = batch;
+    options.byte_range.inclusive_min = 5;
+    read1 = kvstore::Read(store, "abc", options);
+
+    options.byte_range.inclusive_min = 0;
+    options.byte_range.exclusive_max = 10;
+    read2 = kvstore::Read(store, "abc", options);
+    batch.Release();
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto result1, read1.result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto result2, read2.result());
+
+  // Individual result field verification.
+  EXPECT_TRUE(result1.has_value());
+  EXPECT_EQ(result1.value, "56789abcdefghij");
+  EXPECT_EQ(result1.stamp.generation, StorageGeneration::FromUint64(2));
+
+  EXPECT_TRUE(result2.has_value());
+  EXPECT_EQ(result2.value, "0123456789");
+  EXPECT_EQ(result2.stamp.generation, StorageGeneration::FromUint64(2));
+}
+
+TEST_F(GcsGrpcTest, ReadInBatchNonAdjacent) {
+  ReadObjectRequest request1 = ParseTextProtoOrDie(R"pb(
+    bucket: 'projects/_/buckets/bucket'
+    object: 'abc'
+    read_offset: 0
+    read_limit: 10
+  )pb");
+
+  ReadObjectRequest request2 = ParseTextProtoOrDie(R"pb(
+    bucket: 'projects/_/buckets/bucket'
+    object: 'abc'
+    read_offset: 100010
+    read_limit: 10
+  )pb");
+
+  EXPECT_CALL(mock(), ReadObject(_, EqualsProto(request1), _))
+      .Times(AtLeast(1))
+      .WillRepeatedly(
+          [](auto*, auto*,
+             grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
+            resp->Write(ParseTextProtoOrDie(R"pb(
+              metadata { generation: 2 }
+              checksummed_data { content: '0123456789' }
+            )pb"));
+            return grpc::Status::OK;
+          });
+
+  EXPECT_CALL(mock(), ReadObject(_, EqualsProto(request2), _))
+      .Times(AtLeast(1))
+      .WillRepeatedly(
+          [](auto*, auto*,
+             grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
+            resp->Write(ParseTextProtoOrDie(R"pb(
+              metadata { generation: 2 }
+              checksummed_data { content: 'abcdefghij' }
+            )pb"));
+            return grpc::Status::OK;
+          });
+
+  auto store = OpenStore();
+  Future<kvstore::ReadResult> read1;
+  Future<kvstore::ReadResult> read2;
+  {
+    auto batch = tensorstore::Batch::New();
+
+    kvstore::ReadOptions options;
+    options.batch = batch;
+
+    options.byte_range.inclusive_min = 0;
+    options.byte_range.exclusive_max = 10;
+    read1 = kvstore::Read(store, "abc", options);
+
+    options.byte_range.inclusive_min = 100010;
+    options.byte_range.exclusive_max = 100020;
+    read2 = kvstore::Read(store, "abc", options);
+    batch.Release();
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto result1, read1.result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto result2, read2.result());
+
+  // Individual result field verification.
+  EXPECT_TRUE(result1.has_value());
+  EXPECT_EQ(result1.value, "0123456789");
+  EXPECT_EQ(result1.stamp.generation, StorageGeneration::FromUint64(2));
+
+  EXPECT_TRUE(result2.has_value());
+  EXPECT_EQ(result2.value, "abcdefghij");
+  EXPECT_EQ(result2.stamp.generation, StorageGeneration::FromUint64(2));
 }
 
 TEST_F(GcsGrpcTest, Write) {
   std::vector<WriteObjectRequest> requests;
 
-  WriteObjectResponse response = ParseTextProtoOrDie(R"pb(
-    resource { name: 'abc' bucket: "projects/_/buckets/bucket" generation: 1 }
-  )pb");
-
   EXPECT_CALL(mock(), WriteObject(_, _, _))
       .Times(AtLeast(1))
-      .WillRepeatedly(testing::Invoke(
-          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
-              auto* resp) -> ::grpc::Status {
-            WriteObjectRequest req;
-            while (reader->Read(&req)) {
-              requests.push_back(std::move(req));
-            }
-            resp->CopyFrom(response);
-            return grpc::Status::OK;
-          }));
+      .WillRepeatedly([&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+                          auto* resp) -> ::grpc::Status {
+        WriteObjectRequest req;
+        while (reader->Read(&req)) {
+          requests.push_back(std::move(req));
+        }
+        *resp = ParseTextProtoOrDie(R"pb(
+          resource {
+            name: 'abc'
+            bucket: "projects/_/buckets/bucket"
+            generation: 1
+          }
+        )pb");
+        return grpc::Status::OK;
+      });
 
   auto store = OpenStore();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto generation,
-      kvstore::Write(store, response.resource().name(), absl::Cord("abcd"))
-          .result());
+      kvstore::Write(store, "abc", absl::Cord("abcd")).result());
 
   EXPECT_THAT(
       requests,
@@ -261,10 +478,6 @@ TEST_F(GcsGrpcTest, Write) {
 TEST_F(GcsGrpcTest, WriteRetry) {
   std::vector<WriteObjectRequest> requests;
 
-  WriteObjectResponse response = ParseTextProtoOrDie(R"pb(
-    resource { name: 'abc' bucket: 'bucket' generation: 1 }
-  )pb");
-
   ::testing::Sequence s1;
   EXPECT_CALL(mock(), WriteObject)
       .InSequence(s1)
@@ -273,35 +486,34 @@ TEST_F(GcsGrpcTest, WriteRetry) {
 
   EXPECT_CALL(mock(), WriteObject)
       .InSequence(s1)
-      .WillOnce(testing::Invoke(
-          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
-              auto* resp) -> ::grpc::Status {
-            WriteObjectRequest req;
-            if (reader->Read(&req)) {
-              requests.push_back(req);
-            }
-            return AbslStatusToGrpcStatus(absl::ResourceExhaustedError(""));
-          }));
+      .WillOnce([&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+                    auto* resp) -> ::grpc::Status {
+        WriteObjectRequest req;
+        if (reader->Read(&req)) {
+          requests.push_back(req);
+        }
+        return AbslStatusToGrpcStatus(absl::ResourceExhaustedError(""));
+      });
 
   EXPECT_CALL(mock(), WriteObject)
       .Times(AtLeast(1))
       .InSequence(s1)
-      .WillRepeatedly(testing::Invoke(
-          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
-              auto* resp) -> ::grpc::Status {
-            WriteObjectRequest req;
-            while (reader->Read(&req)) {
-              requests.push_back(std::move(req));
-            }
-            resp->CopyFrom(response);
-            return grpc::Status::OK;
-          }));
+      .WillRepeatedly([&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+                          auto* resp) -> ::grpc::Status {
+        WriteObjectRequest req;
+        while (reader->Read(&req)) {
+          requests.push_back(std::move(req));
+        }
+        *resp = ParseTextProtoOrDie(R"pb(
+          resource { name: 'abc' bucket: 'bucket' generation: 1 }
+        )pb");
+        return grpc::Status::OK;
+      });
 
   auto store = OpenStore();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto generation,
-      kvstore::Write(store, response.resource().name(), absl::Cord("abcd"))
-          .result());
+      kvstore::Write(store, "abc", absl::Cord("abcd")).result());
 
   EXPECT_THAT(
       requests,
@@ -322,27 +534,27 @@ TEST_F(GcsGrpcTest, WriteRetry) {
 TEST_F(GcsGrpcTest, WriteEmpty) {
   std::vector<WriteObjectRequest> requests;
 
-  WriteObjectResponse response = ParseTextProtoOrDie(R"pb(
-    resource { name: 'abc' bucket: 'projects/_/buckets/bucket' generation: 1 }
-  )pb");
-
   EXPECT_CALL(mock(), WriteObject)
       .Times(AtLeast(1))
-      .WillRepeatedly(testing::Invoke(
-          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
-              auto* resp) -> ::grpc::Status {
-            WriteObjectRequest req;
-            while (reader->Read(&req)) {
-              requests.push_back(std::move(req));
-            }
-            resp->CopyFrom(response);
-            return grpc::Status::OK;
-          }));
+      .WillRepeatedly([&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+                          auto* resp) -> ::grpc::Status {
+        WriteObjectRequest req;
+        while (reader->Read(&req)) {
+          requests.push_back(std::move(req));
+        }
+        *resp = ParseTextProtoOrDie(R"pb(
+          resource {
+            name: 'abc'
+            bucket: 'projects/_/buckets/bucket'
+            generation: 1
+          }
+        )pb");
+        return grpc::Status::OK;
+      });
 
   auto store = OpenStore();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto generation,
-      kvstore::Write(store, response.resource().name(), absl::Cord()).result());
+      auto generation, kvstore::Write(store, "abc", absl::Cord()).result());
 
   EXPECT_THAT(
       requests,
@@ -363,29 +575,29 @@ TEST_F(GcsGrpcTest, WriteEmpty) {
 TEST_F(GcsGrpcTest, WriteWithOptions) {
   std::vector<WriteObjectRequest> requests;
 
-  WriteObjectResponse response = ParseTextProtoOrDie(R"pb(
-    resource { name: 'abc' bucket: "projects/_/buckets/bucket" generation: 1 }
-  )pb");
-
   EXPECT_CALL(mock(), WriteObject)
       .Times(AtLeast(1))
-      .WillRepeatedly(testing::Invoke(
-          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
-              auto* resp) -> ::grpc::Status {
-            WriteObjectRequest req;
-            while (reader->Read(&req)) {
-              requests.push_back(std::move(req));
-            }
-            resp->CopyFrom(response);
-            return grpc::Status::OK;
-          }));
+      .WillRepeatedly([&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+                          auto* resp) -> ::grpc::Status {
+        WriteObjectRequest req;
+        while (reader->Read(&req)) {
+          requests.push_back(std::move(req));
+        }
+        *resp = ParseTextProtoOrDie(R"pb(
+          resource {
+            name: 'abc'
+            bucket: "projects/_/buckets/bucket"
+            generation: 1
+          }
+        )pb");
+        return grpc::Status::OK;
+      });
 
   auto store = OpenStore();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto generation,
-      kvstore::Write(store, response.resource().name(), absl::Cord("abcd"),
-                     {StorageGeneration::FromUint64(3)})
-          .result());
+      auto generation, kvstore::Write(store, "abc", absl::Cord("abcd"),
+                                      {StorageGeneration::FromUint64(3)})
+                           .result());
 
   EXPECT_THAT(
       requests,
@@ -405,26 +617,27 @@ TEST_F(GcsGrpcTest, WriteWithOptions) {
 }
 
 TEST_F(GcsGrpcTest, WriteMultipleRequests) {
-  WriteObjectResponse response = ParseTextProtoOrDie(R"pb(
-    resource { name: 'bigly' bucket: "projects/_/buckets/bucket" generation: 1 }
-  )pb");
-
   std::vector<WriteObjectRequest> requests;
   EXPECT_CALL(mock(), WriteObject)
       .Times(AtLeast(1))
-      .WillRepeatedly(testing::Invoke(
-          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
-              auto* resp) -> ::grpc::Status {
-            WriteObjectRequest req;
-            while (reader->Read(&req)) {
-              size_t len = req.checksummed_data().content().size();
-              req.mutable_checksummed_data()->set_content(
-                  absl::StrFormat("size: %d", len));
-              requests.push_back(std::move(req));
-            }
-            resp->CopyFrom(response);
-            return grpc::Status::OK;
-          }));
+      .WillRepeatedly([&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+                          auto* resp) -> ::grpc::Status {
+        WriteObjectRequest req;
+        while (reader->Read(&req)) {
+          size_t len = req.checksummed_data().content().size();
+          req.mutable_checksummed_data()->set_content(
+              absl::StrFormat("size: %d", len));
+          requests.push_back(std::move(req));
+        }
+        *resp = ParseTextProtoOrDie(R"pb(
+          resource {
+            name: 'bigly'
+            bucket: "projects/_/buckets/bucket"
+            generation: 1
+          }
+        )pb");
+        return grpc::Status::OK;
+      });
 
   FlatCordBuilder cord_builder(16 + 2 * 1048576);
   memset(cord_builder.data(), 0x37, cord_builder.size());
@@ -435,13 +648,12 @@ TEST_F(GcsGrpcTest, WriteMultipleRequests) {
 
   auto store = OpenStore();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto generation,
-      kvstore::Write(store, response.resource().name(), data).result());
+      auto generation, kvstore::Write(store, "bigly", data).result());
 
   ASSERT_THAT(requests, testing::SizeIs(testing::Ge(2)));
 
   // testing::Subsequence would be nice, instead assert that the last
-  // two requests are the correct sequencce.
+  // two requests are the correct sequence.
   EXPECT_THAT(
       tensorstore::span(&requests[requests.size() - 2], 2),
       testing::ElementsAre(
