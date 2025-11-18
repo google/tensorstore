@@ -602,6 +602,7 @@ class EvaluationState:
         library,
         f" loading library {target_id.as_label()}",
     )
+    library.__target__ = target_id.as_label()
 
     # Restore packages and save the library
     self._evaluation_context.update_current_package(*self._stack.pop())

@@ -49,6 +49,8 @@ class ScopeCommon(dict):
     func = getattr(self, f'bazel_{key}')
     if func is not None:
       return func
+    if hasattr(self, '__target__'):
+      raise KeyError(f'{key} not found in {self.__target__}')
     raise KeyError
 
   def bazel_Label(self, label_string: str) -> Label:

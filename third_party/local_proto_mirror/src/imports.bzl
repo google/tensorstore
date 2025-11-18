@@ -1,6 +1,7 @@
 # Rules used by googleapis to build additional targets.
+# Replaces "@com_google_googleapis_imports//:imports.bzl"
+#
 # See: https://github.com/googleapis/googleapis/blob/master/repository_rules.bzl
-
 load(
     "@com_google_protobuf//bazel:upb_proto_library.bzl",
     _upb_proto_library = "upb_proto_library",
@@ -14,6 +15,26 @@ load(
     "@tensorstore//bazel:tensorstore.bzl",
     _tensorstore_cc_proto_library = "tensorstore_cc_proto_library",
 )
+
+#
+# C++
+#
+def cc_proto_library(name, deps, **kwargs):
+    _tensorstore_cc_proto_library(name = name, deps = deps)
+    if name.endswith("_cc_proto"):
+        name = name[:-9]
+
+    # inject upb/upbdefs because CMake cannot use aspects to collect deps.
+    _upb_proto_library(name = name + "_upb_proto", deps = deps)
+    _upb_proto_reflection_library(name = name + "_upbdefs_proto", deps = deps)
+
+cc_grpc_library = _cc_grpc_library
+
+def cc_gapic_library(**kwargs):
+    pass
+
+def upb_c_proto_library(**kwargs):
+    pass
 
 #
 # Common
@@ -69,6 +90,9 @@ def py_import(**kwargs):
 def go_proto_library(**kwargs):
     pass
 
+def go_grpc_library(**kwargs):
+    pass
+
 def go_library(**kwargs):
     pass
 
@@ -79,23 +103,6 @@ def go_gapic_library(**kwargs):
     pass
 
 def go_gapic_assembly_pkg(**kwargs):
-    pass
-
-#
-# C++
-#
-def cc_proto_library(name, deps, **kwargs):
-    _tensorstore_cc_proto_library(name = name, deps = deps)
-    if name.endswith("_cc_proto"):
-        name = name[:-9]
-
-    # inject upb/upbdefs because CMake cannot use aspects to collect deps.
-    _upb_proto_library(name = name + "_upb_proto", deps = deps)
-    _upb_proto_reflection_library(name = name + "_upbdefs_proto", deps = deps)
-
-cc_grpc_library = _cc_grpc_library
-
-def cc_gapic_library(**kwargs):
     pass
 
 #
@@ -120,6 +127,9 @@ def nodejs_gapic_library(**kwargs):
     pass
 
 def nodejs_gapic_assembly_pkg(**kwargs):
+    pass
+
+def nodejs_gapic_combined_pkg(**kwargs):
     pass
 
 #
