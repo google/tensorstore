@@ -132,7 +132,7 @@ def run(args, extra_args):
   env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
   # https://cibuildwheel.pypa.io/en/stable/options/#build-skip
   env["CIBW_SKIP"] = (
-      "cp38-* cp39-* cp310-* cp314t-win* cp315-* cp315t-* "
+      "cp38-* cp39-* cp310-* cp315-* cp315t-* "
       "*_i686 *-win32 *-musllinux*"
   )
   env["CIBW_TEST_COMMAND"] = (
