@@ -194,7 +194,7 @@ def _write_repo_macro(pkg_list: list[Requirement], f: TextIO):
   deps = set()
   for p in pkg_list:
     deps.update(p.deps)
-  for c in deps:
+  for c in sorted(deps):
     f.write(f"    repo_{_get_repo_name(c)}()\n")
 
   req_terms = []
@@ -223,7 +223,9 @@ def _write_repo_macro(pkg_list: list[Requirement], f: TextIO):
   if deps:
     f.write(
         "deps=[\n"
-        + ",".join(json.dumps(_get_full_target_name(dep)) for dep in deps)
+        + ",".join(
+            json.dumps(_get_full_target_name(dep)) for dep in sorted(deps)
+        )
         + "],"
     )
 
