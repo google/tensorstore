@@ -164,7 +164,7 @@ def test_spec_concurrent_update_and_read() -> None:
   s = ts.Spec({
       "driver": "zarr",
       "kvstore": {"driver": "memory"},
-      "transform": {"input_rank": 2},
+      "schema": {"rank": 2, "dtype": "uint32"},
   })
 
   stop = threading.Event()
@@ -188,15 +188,15 @@ def test_spec_concurrent_update_and_read() -> None:
       _ = s.vindex[0]
       _ = s.T
       _ = s.transpose([1, 0])
-      _ = s.translate_to[1]
+      _ = s.translate_by[1]
 
   def update_props() -> None:
     i = 0
     while not stop.is_set():
       if (i % 2) == 0:
-        s.update(dtype=ts.uint32, shape=[10, 20])
+        s.update(shape=[10, 20], recheck_cached=False)
       else:
-        s.update(dtype=ts.int32, shape=[30, 40])
+        s.update(shape=[10, 20], recheck_cached=True)
       i += 1
 
   _run_threads(stop, read_props, update_props)
@@ -204,7 +204,7 @@ def test_spec_concurrent_update_and_read() -> None:
 
 def test_schema_concurrent_update_and_read() -> None:
   """Validates that concurrent updates and reads do not crash."""
-  s = ts.Schema(dtype=ts.int32, fill_value=42, rank=2)
+  s = ts.Schema(dtype=ts.int32, fill_value=42, shape=[10, 20])
 
   stop = threading.Event()
 
@@ -227,15 +227,15 @@ def test_schema_concurrent_update_and_read() -> None:
       _ = s.vindex[0]
       _ = s.T
       _ = s.transpose([1, 0])
-      _ = s.translate_to[1]
+      _ = s.translate_by[1]
 
   def update_props() -> None:
     i = 0
     while not stop.is_set():
       if (i % 2) == 0:
-        s.update(dtype=ts.uint32, fill_value=10)
+        s.update(fill_value=42)
       else:
-        s.update(dtype=ts.int32, fill_value=20)
+        s.update(shape=[10, 20])
       i += 1
 
   _run_threads(stop, read_props, update_props)

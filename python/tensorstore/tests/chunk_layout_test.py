@@ -176,7 +176,7 @@ def _run_threads(
 
 def test_chunk_layout_concurrent() -> None:
   """Tests concurrent access to ChunkLayout properties."""
-  layout = ts.ChunkLayout(rank=2)
+  layout = ts.ChunkLayout(chunk_shape=[10, 20], rank=2)
   stop = threading.Event()
 
   def read_props() -> None:
@@ -195,9 +195,9 @@ def test_chunk_layout_concurrent() -> None:
     i = 0
     while not stop.is_set():
       if (i % 2) == 0:
-        layout.update(inner_order=[0, 1], chunk_shape=[10, 20])
+        layout.update(chunk_shape=[10, 20])
       else:
-        layout.update(inner_order=[1, 0], chunk_shape=[None, None])
+        layout.update(rank=2)
       i += 1
 
   _run_threads(stop, read_props, update_props)
@@ -205,7 +205,7 @@ def test_chunk_layout_concurrent() -> None:
 
 def test_grid_concurrent() -> None:
   """Tests concurrent access to ChunkLayout.Grid properties."""
-  grid = ts.ChunkLayout.Grid(rank=2)
+  grid = ts.ChunkLayout.Grid(shape=[10, 10])
   stop = threading.Event()
 
   def read_props() -> None:
@@ -223,9 +223,9 @@ def test_grid_concurrent() -> None:
     i = 0
     while not stop.is_set():
       if (i % 2) == 0:
-        grid.update(shape=[1, 2], elements=10)
+        grid.update(shape=[10, 10])
       else:
-        grid.update(shape=[None, None], elements=None)
+        grid.update(rank=2, elements=100)
       i += 1
 
   _run_threads(stop, read_props, update_props)
