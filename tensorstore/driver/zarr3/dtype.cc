@@ -76,20 +76,12 @@ namespace {
 /// \param value The zarr metadata "dtype" JSON specification.
 /// \param out[out] Must be non-null.  Filled with the parsed dtype on success.
 /// \error `absl::StatusCode::kInvalidArgument' if `value` is invalid.
-Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
-  ZarrDType out;
-  if (value.is_string()) {
-    // Single field.
-    out.has_fields = false;
-    out.fields.resize(1);
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        static_cast<ZarrDType::BaseDType&>(out.fields[0]),
-        ParseBaseDType(value.get<std::string>()));
-    return out;
-  }
+// Helper to parse fields array (used by both array format and object format)
+absl::Status ParseFieldsArray(const nlohmann::json& fields_json,
+                               ZarrDType& out) {
   out.has_fields = true;
-  auto parse_result = internal_json::JsonParseArray(
-      value,
+  return internal_json::JsonParseArray(
+      fields_json,
       [&](ptrdiff_t size) {
         out.fields.resize(size);
         return absl::OkStatus();
@@ -140,7 +132,51 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
               }
             });
       });
-  if (!parse_result.ok()) return parse_result;
+}
+
+Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
+  ZarrDType out;
+  if (value.is_string()) {
+    // Single field.
+    out.has_fields = false;
+    out.fields.resize(1);
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        static_cast<ZarrDType::BaseDType&>(out.fields[0]),
+        ParseBaseDType(value.get<std::string>()));
+    return out;
+  }
+  // Handle extended object format:
+  // {"name": "structured", "configuration": {"fields": [...]}}
+  if (value.is_object()) {
+    if (value.contains("name") && value.contains("configuration")) {
+      std::string type_name;
+      TENSORSTORE_RETURN_IF_ERROR(
+          internal_json::JsonRequireValueAs(value["name"], &type_name));
+      if (type_name == "structured") {
+        const auto& config = value["configuration"];
+        if (!config.is_object() || !config.contains("fields")) {
+          return absl::InvalidArgumentError(
+              "Structured data type requires 'configuration' object with "
+              "'fields' array");
+        }
+        TENSORSTORE_RETURN_IF_ERROR(ParseFieldsArray(config["fields"], out));
+        return out;
+      }
+      // For other named types, try to parse as a base dtype
+      out.has_fields = false;
+      out.fields.resize(1);
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          static_cast<ZarrDType::BaseDType&>(out.fields[0]),
+          ParseBaseDType(type_name));
+      return out;
+    }
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Expected string, array, or object with 'name' and 'configuration', "
+        "but received: ",
+        value.dump()));
+  }
+  // Handle array format: [["field1", "type1"], ["field2", "type2"], ...]
+  TENSORSTORE_RETURN_IF_ERROR(ParseFieldsArray(value, out));
   return out;
 }
 

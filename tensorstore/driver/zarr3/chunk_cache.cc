@@ -18,6 +18,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <string>
@@ -73,15 +75,17 @@ ZarrChunkCache::~ZarrChunkCache() = default;
 
 ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
-    internal::CachePool::WeakPtr /*data_cache_pool*/)
-    : Base(std::move(store)), codec_state_(std::move(codec_state)) {}
+    ZarrDType dtype, internal::CachePool::WeakPtr /*data_cache_pool*/)
+    : Base(std::move(store)),
+      codec_state_(std::move(codec_state)),
+      dtype_(std::move(dtype)) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
                               AnyFlowReceiver<absl::Status, internal::ReadChunk,
                                               IndexTransform<>>&& receiver) {
   return internal::ChunkCache::Read(
       {static_cast<internal::DriverReadRequest&&>(request),
-       /*component_index=*/0, request.staleness_bound,
+       request.component_index, request.staleness_bound,
        request.fill_missing_data_reads},
       std::move(receiver));
 }
@@ -92,7 +96,7 @@ void ZarrLeafChunkCache::Write(
         receiver) {
   return internal::ChunkCache::Write(
       {static_cast<internal::DriverWriteRequest&&>(request),
-       /*component_index=*/0, request.store_data_equal_to_fill_value},
+       request.component_index, request.store_data_equal_to_fill_value},
       std::move(receiver));
 }
 
@@ -149,12 +153,52 @@ std::string ZarrLeafChunkCache::GetChunkStorageKey(
 Result<absl::InlinedVector<SharedArray<const void>, 1>>
 ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
                                 absl::Cord data) {
+  const size_t num_fields = dtype_.fields.size();
+  absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
+
+
+  // For single non-structured field, decode directly
+  if (num_fields == 1 && dtype_.fields[0].outer_shape.empty()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        field_arrays[0], codec_state_->DecodeArray(grid().components[0].shape(),
+                                                   std::move(data)));
+    return field_arrays;
+  }
+
+  // For structured types, decode byte array then extract fields
+  // Build decode shape: [chunk_dims..., bytes_per_outer_element]
+  const auto& chunk_shape = grid().chunk_shape;
+  std::vector<Index> decode_shape(chunk_shape.begin(), chunk_shape.end());
+  decode_shape.push_back(dtype_.bytes_per_outer_element);
+
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto array,
-      codec_state_->DecodeArray(grid().components[0].shape(), std::move(data)));
-  absl::InlinedVector<SharedArray<const void>, 1> components;
-  components.push_back(std::move(array));
-  return components;
+      auto byte_array, codec_state_->DecodeArray(decode_shape, std::move(data)));
+
+  // Extract each field from the byte array
+  const Index num_elements = byte_array.num_elements() /
+                             dtype_.bytes_per_outer_element;
+  const auto* src_bytes = static_cast<const std::byte*>(byte_array.data());
+
+  for (size_t field_i = 0; field_i < num_fields; ++field_i) {
+    const auto& field = dtype_.fields[field_i];
+    // Use the component's shape (from the grid) for the result array
+    const auto& component_shape = grid().components[field_i].shape();
+    auto result_array =
+        AllocateArray(component_shape, c_order, default_init, field.dtype);
+    auto* dst = static_cast<std::byte*>(result_array.data());
+    const Index field_size = field.dtype->size;
+
+    // Copy field data from each struct element
+    for (Index i = 0; i < num_elements; ++i) {
+      std::memcpy(dst + i * field_size,
+                  src_bytes + i * dtype_.bytes_per_outer_element +
+                      field.byte_offset,
+                  field_size);
+    }
+    field_arrays[field_i] = std::move(result_array);
+  }
+
+  return field_arrays;
 }
 
 Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
@@ -170,9 +214,10 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 
 ZarrShardedChunkCache::ZarrShardedChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
-    internal::CachePool::WeakPtr data_cache_pool)
+    ZarrDType dtype, internal::CachePool::WeakPtr data_cache_pool)
     : base_kvstore_(std::move(store)),
       codec_state_(std::move(codec_state)),
+      dtype_(std::move(dtype)),
       data_cache_pool_(std::move(data_cache_pool)) {}
 
 Result<IndexTransform<>> TranslateCellToSourceTransformForShard(
@@ -326,6 +371,7 @@ void ZarrShardedChunkCache::Read(
       *this, std::move(request.transform), std::move(receiver),
       [transaction = std::move(request.transaction),
        batch = std::move(request.batch),
+       component_index = request.component_index,
        staleness_bound = request.staleness_bound,
        fill_missing_data_reads = request.fill_missing_data_reads](auto entry) {
         Batch shard_batch = batch;
@@ -339,8 +385,7 @@ void ZarrShardedChunkCache::Read(
                                 IndexTransform<>>&& receiver) {
               entry->sub_chunk_cache.get()->Read(
                   {{transaction, std::move(transform), shard_batch},
-                   staleness_bound,
-                   fill_missing_data_reads},
+                   component_index, staleness_bound, fill_missing_data_reads},
                   std::move(receiver));
             };
       });
@@ -354,6 +399,7 @@ void ZarrShardedChunkCache::Write(
                      &ZarrArrayToArrayCodec::PreparedState::Write>(
       *this, std::move(request.transform), std::move(receiver),
       [transaction = std::move(request.transaction),
+       component_index = request.component_index,
        store_data_equal_to_fill_value =
            request.store_data_equal_to_fill_value](auto entry) {
         internal::OpenTransactionPtr shard_transaction = transaction;
@@ -366,7 +412,7 @@ void ZarrShardedChunkCache::Write(
                    AnyFlowReceiver<absl::Status, internal::WriteChunk,
                                    IndexTransform<>>&& receiver) {
           entry->sub_chunk_cache.get()->Write(
-              {{shard_transaction, std::move(transform)},
+              {{shard_transaction, std::move(transform)}, component_index,
                store_data_equal_to_fill_value},
               std::move(receiver));
         };
@@ -481,7 +527,7 @@ void ZarrShardedChunkCache::Entry::DoInitialize() {
                 *sharding_state.sub_chunk_codec_chain,
                 std::move(sharding_kvstore), cache.executor(),
                 ZarrShardingCodec::PreparedState::Ptr(&sharding_state),
-                cache.data_cache_pool_);
+                cache.dtype_, cache.data_cache_pool_);
         zarr_chunk_cache = new_cache.release();
         return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
       })

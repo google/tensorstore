@@ -31,7 +31,10 @@
 #include <utility>
 #include <vector>
 
+#include <cstring>
+
 #include "absl/algorithm/container.h"
+#include "absl/strings/escaping.h"
 #include "absl/base/casts.h"
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
@@ -282,16 +285,44 @@ absl::Status FillValueJsonBinder::operator()(
     TENSORSTORE_RETURN_IF_ERROR(
         DecodeSingle(*j, dtype.fields[0].dtype, (*obj)[0]));
   } else {
-    if (!j->is_array()) {
-      return internal_json::ExpectedError(*j, "array");
-    }
-    if (j->size() != dtype.fields.size()) {
-      return internal_json::ExpectedError(
-          *j, tensorstore::StrCat("array of size ", dtype.fields.size()));
-    }
-    for (size_t i = 0; i < dtype.fields.size(); ++i) {
-      TENSORSTORE_RETURN_IF_ERROR(
-          DecodeSingle((*j)[i], dtype.fields[i].dtype, (*obj)[i]));
+    // For structured types, handle both array format and base64-encoded string
+    if (j->is_string()) {
+      // Decode base64-encoded fill value for entire struct
+      std::string b64_decoded;
+      if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected valid base64-encoded fill value, but received: ",
+            j->dump()));
+      }
+      // Verify size matches expected struct size
+      if (static_cast<Index>(b64_decoded.size()) !=
+          dtype.bytes_per_outer_element) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected ", dtype.bytes_per_outer_element,
+            " base64-encoded bytes for fill_value, but received ",
+            b64_decoded.size(), " bytes"));
+      }
+      // Extract per-field fill values from decoded bytes
+      for (size_t i = 0; i < dtype.fields.size(); ++i) {
+        const auto& field = dtype.fields[i];
+        auto arr = AllocateArray(span<const Index, 0>{}, c_order, default_init,
+                                 field.dtype);
+        std::memcpy(arr.data(), b64_decoded.data() + field.byte_offset,
+                    field.dtype->size);
+        (*obj)[i] = std::move(arr);
+      }
+    } else if (j->is_array()) {
+      if (j->size() != dtype.fields.size()) {
+        return internal_json::ExpectedError(
+            *j, tensorstore::StrCat("array of size ", dtype.fields.size()));
+      }
+      for (size_t i = 0; i < dtype.fields.size(); ++i) {
+        TENSORSTORE_RETURN_IF_ERROR(
+            DecodeSingle((*j)[i], dtype.fields[i].dtype, (*obj)[i]));
+      }
+    } else {
+      return internal_json::ExpectedError(*j,
+                                          "array or base64-encoded string");
     }
   }
   return absl::OkStatus();
@@ -561,28 +592,33 @@ std::string ZarrMetadata::GetCompatibilityKey() const {
 }
 
 absl::Status ValidateMetadata(ZarrMetadata& metadata) {
+  // Determine if this is a structured type with multiple fields
+  const bool is_structured =
+      metadata.data_type.fields.size() > 1 ||
+      (metadata.data_type.fields.size() == 1 &&
+       !metadata.data_type.fields[0].outer_shape.empty());
+
+  // Build the codec shape - for structured types, include bytes dimension
+  std::vector<Index> codec_shape(metadata.chunk_shape.begin(),
+                                 metadata.chunk_shape.end());
+  if (is_structured) {
+    codec_shape.push_back(metadata.data_type.bytes_per_outer_element);
+  }
+
   if (!metadata.codecs) {
     ArrayCodecResolveParameters decoded;
-    if (metadata.data_type.fields.size() == 1 &&
-        metadata.data_type.fields[0].outer_shape.empty()) {
+    if (!is_structured) {
       decoded.dtype = metadata.data_type.fields[0].dtype;
+      decoded.rank = metadata.rank;
     } else {
+      // For structured types, use byte dtype with extra dimension
       decoded.dtype = dtype_v<std::byte>;
-      // TODO: Verify this works for structured types.
-      // Zarr2 uses a "scalar" array concept with byte storage for chunks.
+      decoded.rank = metadata.rank + 1;
     }
-    decoded.rank = metadata.rank;
     // Fill value for codec resolve might be complex.
-    // Zarr3 codecs usually don't depend on fill value except for some like
-    // "sharding_indexed"? Sharding uses fill_value for missing chunks.
-    if (metadata.fill_value.size() == 1) {
+    // For structured types, create a byte fill value
+    if (metadata.fill_value.size() == 1 && !is_structured) {
       decoded.fill_value = metadata.fill_value[0];
-    } else {
-      // How to represent structured fill value for codec?
-      // Sharding expects a single array.
-      // If we use structured type, the "array" is bytes.
-      // We might need to encode the fill value to bytes.
-      // For now, leave empty if multiple fields.
     }
 
     BytesCodecResolveParameters encoded;
@@ -593,17 +629,19 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
 
   // Get codec chunk layout info.
   ArrayDataTypeAndShapeInfo array_info;
-  // array_info.dtype used here to validate codec compatibility.
-  if (metadata.data_type.fields.size() == 1 &&
-      metadata.data_type.fields[0].outer_shape.empty()) {
+  if (!is_structured) {
     array_info.dtype = metadata.data_type.fields[0].dtype;
+    array_info.rank = metadata.rank;
+    std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
+                array_info.shape.emplace().begin());
   } else {
     array_info.dtype = dtype_v<std::byte>;
+    array_info.rank = metadata.rank + 1;
+    auto& shape = array_info.shape.emplace();
+    std::copy_n(metadata.chunk_shape.begin(), metadata.rank, shape.begin());
+    shape[metadata.rank] = metadata.data_type.bytes_per_outer_element;
   }
 
-  array_info.rank = metadata.rank;
-  std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
-              array_info.shape.emplace().begin());
   ArrayCodecChunkLayoutInfo layout_info;
   TENSORSTORE_RETURN_IF_ERROR(
       metadata.codec_specs.GetDecodedChunkLayout(array_info, layout_info));
@@ -617,7 +655,7 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   }
 
   TENSORSTORE_ASSIGN_OR_RETURN(metadata.codec_state,
-                               metadata.codecs->Prepare(metadata.chunk_shape));
+                               metadata.codecs->Prepare(codec_shape));
   return absl::OkStatus();
 }
 

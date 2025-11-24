@@ -103,9 +103,11 @@ class ZarrDriverSpec
                                               /*Parent=*/KvsDriverSpec>;
 
   ZarrMetadataConstraints metadata_constraints;
+  std::string selected_field;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata_constraints);
+    return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata_constraints,
+             x.selected_field);
   };
 
   static inline const auto default_json_binder = jb::Sequence(
@@ -139,7 +141,10 @@ class ZarrDriverSpec
                 return absl::OkStatus();
               },
               jb::Projection<&ZarrDriverSpec::metadata_constraints>(
-                  jb::DefaultInitializedValue()))));
+                  jb::DefaultInitializedValue()))),
+      jb::Member("field", jb::Projection<&ZarrDriverSpec::selected_field>(
+                              jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                                  [](auto* obj) { *obj = std::string{}; }))));
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.minimal_spec) {
@@ -286,21 +291,33 @@ class DataCacheBase
   static internal::ChunkGridSpecification GetChunkGridSpecification(
       const ZarrMetadata& metadata) {
     assert(!metadata.fill_value.empty());
-    auto fill_value = BroadcastArray(metadata.fill_value[0],
-                                     BoxView<>(metadata.rank))
-                          .value();
     internal::ChunkGridSpecification::ComponentList components;
-    auto& component = components.emplace_back(
-        internal::AsyncWriteArray::Spec{
-            std::move(fill_value),
-            // Since all dimensions are resizable, just
-            // specify unbounded `valid_data_bounds`.
-            Box<>(metadata.rank),
-            ContiguousLayoutPermutation<>(
-                span(metadata.inner_order.data(), metadata.rank))},
-        metadata.chunk_shape);
-    component.array_spec.fill_value_comparison_kind =
-        EqualityComparisonKind::identical;
+
+    // Create one component per field (like zarr v2)
+    for (size_t field_i = 0; field_i < metadata.data_type.fields.size();
+         ++field_i) {
+      const auto& field = metadata.data_type.fields[field_i];
+      auto fill_value = metadata.fill_value[field_i];
+      if (!fill_value.valid()) {
+        // Use value-initialized rank-0 fill value (like zarr v2)
+        fill_value = AllocateArray(span<const Index, 0>{}, c_order, value_init,
+                                   field.dtype);
+      }
+      auto chunk_fill_value =
+          BroadcastArray(fill_value, BoxView<>(metadata.rank)).value();
+
+      auto& component = components.emplace_back(
+          internal::AsyncWriteArray::Spec{
+              std::move(chunk_fill_value),
+              // Since all dimensions are resizable, just
+              // specify unbounded `valid_data_bounds`.
+              Box<>(metadata.rank),
+              ContiguousLayoutPermutation<>(
+                  span(metadata.inner_order.data(), metadata.rank))},
+          metadata.chunk_shape);
+      component.array_spec.fill_value_comparison_kind =
+          EqualityComparisonKind::identical;
+    }
     return internal::ChunkGridSpecification(std::move(components));
   }
 
@@ -381,7 +398,7 @@ class DataCacheBase
 
   Result<IndexTransform<>> GetExternalToInternalTransform(
       const void* metadata_ptr, size_t component_index) override {
-    assert(component_index == 0);
+    // component_index corresponds to the selected field index
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     const DimensionIndex rank = metadata.rank;
     std::string_view normalized_dimension_names[kMaxRank];
@@ -404,10 +421,16 @@ class DataCacheBase
   absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
                                 const void* metadata_ptr,
                                 size_t component_index) override {
-    assert(component_index == 0);
     auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     spec.metadata_constraints = ZarrMetadataConstraints(metadata);
+    // Encode selected_field from component_index
+    if (metadata.data_type.has_fields &&
+        component_index < metadata.data_type.fields.size()) {
+      spec.selected_field = metadata.data_type.fields[component_index].name;
+    } else {
+      spec.selected_field.clear();
+    }
     return absl::OkStatus();
   }
 
@@ -513,7 +536,8 @@ class ZarrDriver : public ZarrDriverBase {
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) override {
     return cache()->zarr_chunk_cache().Read(
-        {std::move(request), GetCurrentDataStalenessBound(),
+        {std::move(request), this->component_index(),
+         GetCurrentDataStalenessBound(),
          this->fill_value_mode_.fill_missing_data_reads},
         std::move(receiver));
   }
@@ -523,7 +547,7 @@ class ZarrDriver : public ZarrDriverBase {
       AnyFlowReceiver<absl::Status, internal::WriteChunk, IndexTransform<>>
           receiver) override {
     return cache()->zarr_chunk_cache().Write(
-        {std::move(request),
+        {std::move(request), this->component_index(),
          this->fill_value_mode_.store_data_equal_to_fill_value},
         std::move(receiver));
   }
@@ -621,7 +645,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
-        metadata.codec_state, /*data_cache_pool=*/*cache_pool());
+        metadata.codec_state, metadata.data_type,
+        /*data_cache_pool=*/*cache_pool());
   }
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
@@ -629,9 +654,12 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().metadata_constraints));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto field_index,
+        GetFieldIndex(metadata.data_type, spec().selected_field));
     TENSORSTORE_RETURN_IF_ERROR(
-        ValidateMetadataSchema(metadata, spec().schema));
-    return 0;
+        ValidateMetadataSchema(metadata, field_index, spec().schema));
+    return field_index;
   }
 };
 
