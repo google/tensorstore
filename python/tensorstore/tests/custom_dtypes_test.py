@@ -28,6 +28,7 @@ TESTING_DTYPES = [
     ml_dtypes.float8_e4m3b11fnuz.dtype,
     ml_dtypes.float8_e5m2.dtype,
     ml_dtypes.float8_e5m2fnuz.dtype,
+    ml_dtypes.float4_e2m1fn.dtype,
     ml_dtypes.bfloat16.dtype,
     ts.int4.numpy_dtype,
     ts.float8_e3m4.numpy_dtype,
@@ -36,6 +37,7 @@ TESTING_DTYPES = [
     ts.float8_e4m3b11fnuz.numpy_dtype,
     ts.float8_e5m2.numpy_dtype,
     ts.float8_e5m2fnuz.numpy_dtype,
+    ts.float4_e2m1fn.numpy_dtype,
     ts.bfloat16.numpy_dtype,
     np.dtype("int4"),
     np.dtype("float8_e3m4"),
@@ -44,6 +46,7 @@ TESTING_DTYPES = [
     np.dtype("float8_e4m3b11fnuz"),
     np.dtype("float8_e5m2"),
     np.dtype("float8_e5m2fnuz"),
+    np.dtype("float4_e2m1fn"),
     np.dtype("bfloat16"),
 ]
 

@@ -7,6 +7,8 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
+exports_files(["generate_data_type.py"])
+
 tensorstore_cc_library(
     name = "array",
     srcs = [
@@ -443,6 +445,7 @@ tensorstore_cc_library(
         "//tensorstore/util:float8",
         "//tensorstore/util:int2",
         "//tensorstore/util:int4",
+        "//tensorstore/util:mxfloat",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "//tensorstore/util:utf8_string",

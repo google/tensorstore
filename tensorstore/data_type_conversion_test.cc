@@ -597,6 +597,45 @@ TYPED_TEST(InternalFloat8Test, DataTypeConversionTest_InternalFloat8Types) {
   EXPECT_EQ(json_t(3.5), TestConversion<json_t>(pos, kSafeAndImplicit));
 }
 
+template <typename InternalFloat>
+class InternalMXFloatTest : public ::testing::Test {};
+
+using InternalMXFloatTypes = ::testing::Types<float4_e2m1fn_t>;
+
+TYPED_TEST_SUITE(InternalMXFloatTest, InternalMXFloatTypes);
+
+TYPED_TEST(InternalMXFloatTest, DataTypeConversionTest_InternalFloat8Types) {
+  using T = TypeParam;
+  const T pos(1.5);
+  EXPECT_EQ(false, TestConversion<bool_t>(T(0)));
+  EXPECT_EQ(true, TestConversion<bool_t>(pos));
+  EXPECT_EQ(int4_t(pos), TestConversion<int4_t>(pos));
+  EXPECT_EQ(int8_t(pos), TestConversion<int8_t>(pos));
+  EXPECT_EQ(int16_t(pos), TestConversion<int16_t>(pos));
+  EXPECT_EQ(int32_t(pos), TestConversion<int32_t>(pos));
+  EXPECT_EQ(int64_t(pos), TestConversion<int64_t>(pos));
+  EXPECT_EQ(uint8_t(pos), TestConversion<uint8_t>(pos));
+  EXPECT_EQ(uint16_t(pos), TestConversion<uint16_t>(pos));
+  EXPECT_EQ(uint32_t(pos), TestConversion<uint32_t>(pos));
+  EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
+  EXPECT_EQ(T(pos), TestConversion<T>(pos, kSafeAndImplicit | kIdentity |
+                                               kCanReinterpretCast));
+  if (!std::is_same_v<T, float4_e2m1fn_t>) {
+    EXPECT_EQ(float4_e2m1fn_t(pos), TestConversion<float4_e2m1fn_t>(pos));
+  }
+  EXPECT_EQ(float16_t(pos), TestConversion<float16_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(bfloat16_t(pos), TestConversion<bfloat16_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(float32_t(pos), TestConversion<float32_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(float64_t(pos), TestConversion<float64_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(complex64_t(float32_t(pos)),
+            TestConversion<complex64_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(complex128_t(float64_t(pos)),
+            TestConversion<complex128_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ("1.5", TestConversion<string_t>(pos));
+  EXPECT_EQ(ustring_t{"1.5"}, TestConversion<ustring_t>(pos));
+  EXPECT_EQ(json_t(1.5), TestConversion<json_t>(pos, kSafeAndImplicit));
+}
+
 TEST(DataTypeConversionTest, Bfloat16) {
   using T = bfloat16_t;
   const T pos(42.5);

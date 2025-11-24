@@ -76,6 +76,8 @@ float8_e5m2: dtype
 "8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e5m2\n\nGroup:\n  Data types\n"
 float8_e5m2fnuz: dtype
 "8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e5m2fnuz\n\nGroup:\n  Data types\n"
+float4_e2m1fn: dtype
+"8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float4_e2m1fn\n\nGroup:\n  Data types\n"
 float16: dtype
 ":wikipedia:`IEEE 754 binary16 <Half-precision_floating-point_format>` half-precision floating-point data type.  Correspond to ``numpy.float16``.\n\nGroup:\n  Data types\n"
 bfloat16: dtype
@@ -169,6 +171,7 @@ __all__ = [
     "experimental_update_verbose_logging",
     "float16",
     "float32",
+    "float4_e2m1fn",
     "float64",
     "float8_e3m4",
     "float8_e4m3b11fnuz",

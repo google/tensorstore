@@ -816,6 +816,15 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_library(
+    name = "mxfloat",
+    hdrs = ["mxfloat.h"],
+    deps = [
+        ":float8",
+        "@abseil-cpp//absl/base",
+    ],
+)
+
 tensorstore_cc_test(
     name = "float8_test",
     size = "small",

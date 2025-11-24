@@ -178,6 +178,9 @@ definitions:
     - const: "uint64"
       title: |
         64-bit unsigned integer.
+    - const: "float4_e2m1fn"
+      title: |
+        4-bit `MX floating-point number defined in OCP spec <https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf>`__ number
     - const: "float16"
       title: |
          `IEEE 754 binary16
