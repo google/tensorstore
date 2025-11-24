@@ -121,8 +121,19 @@ class ZarrDriverSpec
           "metadata",
           jb::Validate(
               [](const auto& options, auto* obj) {
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    obj->metadata_constraints.data_type.value_or(DataType())));
+                if (obj->metadata_constraints.data_type) {
+                  if (auto dtype = GetScalarDataType(
+                          *obj->metadata_constraints.data_type)) {
+                    TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(*dtype));
+                  } else if (obj->schema.dtype().valid()) {
+                    return absl::InvalidArgumentError(
+                        "schema dtype must be unspecified for structured "
+                        "zarr3 data types");
+                  } else {
+                    // Leave dtype unspecified; structured dtypes are handled
+                    // at metadata level only.
+                  }
+                }
                 TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
                     RankConstraint{obj->metadata_constraints.rank}));
                 return absl::OkStatus();
@@ -146,8 +157,8 @@ class ZarrDriverSpec
     SharedArray<const void> fill_value{schema.fill_value()};
 
     const auto& metadata = metadata_constraints;
-    if (metadata.fill_value) {
-      fill_value = *metadata.fill_value;
+    if (metadata.fill_value && !metadata.fill_value->empty()) {
+      fill_value = (*metadata.fill_value)[0];
     }
 
     return fill_value;
@@ -274,8 +285,10 @@ class DataCacheBase
 
   static internal::ChunkGridSpecification GetChunkGridSpecification(
       const ZarrMetadata& metadata) {
-    auto fill_value =
-        BroadcastArray(metadata.fill_value, BoxView<>(metadata.rank)).value();
+    assert(!metadata.fill_value.empty());
+    auto fill_value = BroadcastArray(metadata.fill_value[0],
+                                     BoxView<>(metadata.rank))
+                          .value();
     internal::ChunkGridSpecification::ComponentList components;
     auto& component = components.emplace_back(
         internal::AsyncWriteArray::Spec{
@@ -402,9 +415,16 @@ class DataCacheBase
       const void* metadata_ptr, size_t component_index) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     ChunkLayout chunk_layout;
+    SpecRankAndFieldInfo info;
+    info.chunked_rank = metadata.rank;
+    if (!metadata.data_type.fields.empty()) {
+      info.field = &metadata.data_type.fields[0];
+    }
+    std::optional<span<const Index>> chunk_shape_span;
+    chunk_shape_span.emplace(metadata.chunk_shape.data(),
+                             metadata.chunk_shape.size());
     TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
-        metadata.data_type, metadata.rank, metadata.chunk_shape,
-        &metadata.codec_specs, chunk_layout));
+        info, chunk_shape_span, &metadata.codec_specs, chunk_layout));
     TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Finalize());
     return chunk_layout;
   }
@@ -470,7 +490,10 @@ class ZarrDriver : public ZarrDriverBase {
   Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) override {
     const auto& metadata = this->metadata();
-    return metadata.fill_value;
+    if (metadata.fill_value.empty()) {
+      return SharedArray<const void>();
+    }
+    return metadata.fill_value[0];
   }
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
