@@ -115,6 +115,10 @@ definitions:
         title: |
           `8-bit floating point - Exponent: 5, Mantissa: 2, bias: 16, with NaN, without infinities.
           <https://github.com/jax-ml/ml_dtypes#float8_e5m2fnuz>`__ .
+      - const: "float4_e2m1fn"
+        title: |
+          `4-bit floating point - Exponent: 2, Mantissa: 1, bias: 1, without NaN and infinities.
+          <https://github.com/jax-ml/ml_dtypes#float4_e2m1fn>`__ .
       - const: "float16"
         title: |
           `IEEE 754 binary16

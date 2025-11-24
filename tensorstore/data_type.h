@@ -83,6 +83,7 @@
 #include "tensorstore/util/float8.h"
 #include "tensorstore/util/int2.h"
 #include "tensorstore/util/int4.h"
+#include "tensorstore/util/mxfloat.h"
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
@@ -171,6 +172,9 @@ using float8_e5m2_t = ::tensorstore::Float8e5m2;
 using float8_e5m2fnuz_t = ::tensorstore::Float8e5m2fnuz;
 ///
 /// \ingroup data types
+using float4_e2m1fn_t = ::tensorstore::Float4e2m1fn;
+///
+/// \ingroup data types
 using bfloat16_t = ::tensorstore::BFloat16;
 
 /// :wikipedia:`IEEE 754 binary16<Half-precision_floating-point_format>`
@@ -243,6 +247,7 @@ enum class DataTypeId {
   float8_e4m3b11fnuz_t,
   float8_e5m2_t,
   float8_e5m2fnuz_t,
+  float4_e2m1fn_t,
   float16_t,
   bfloat16_t,
   float32_t,
@@ -295,8 +300,13 @@ inline constexpr size_t kNumDataTypeIds =
   X(float8_e5m2fnuz_t, ##__VA_ARGS__)                 \
   /**/
 
+#define TENSORSTORE_FOR_EACH_MXFLOAT_DATA_TYPE(X, ...) \
+  X(float4_e2m1fn_t, ##__VA_ARGS__)                    \
+  /**/
+
 #define TENSORSTORE_FOR_EACH_LOW_PRECISION_FLOAT_DATA_TYPE(X, ...) \
   TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(X, ##__VA_ARGS__)          \
+  TENSORSTORE_FOR_EACH_MXFLOAT_DATA_TYPE(X, ##__VA_ARGS__)         \
   X(float16_t, ##__VA_ARGS__)                                      \
   X(bfloat16_t, ##__VA_ARGS__)                                     \
   /**/

@@ -42,6 +42,7 @@ MAP = {
         'float8_e4m3b11fnuz_t',
         'float8_e5m2_t',
         'float8_e5m2fnuz_t',
+        'float4_e2m1fn_t',
         'float16_t',
         'bfloat16_t',
         'float32_t',

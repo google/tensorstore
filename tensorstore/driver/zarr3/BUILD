@@ -353,6 +353,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:data_type",
         "//tensorstore/util:float8",
+        "//tensorstore/util:mxfloat",
         "@abseil-cpp//absl/base",
     ],
 )

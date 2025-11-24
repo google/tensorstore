@@ -22,6 +22,7 @@
 #include "absl/base/casts.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/util/float8.h"
+#include "tensorstore/util/mxfloat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -83,6 +84,12 @@ template <>
 inline dtypes::float8_e5m2fnuz_t GetDefaultNaN<dtypes::float8_e5m2fnuz_t>() {
   // only a single Nan representation is supported
   return std::numeric_limits<Float8e5m2fnuz>::quiet_NaN();
+}
+
+template <>
+inline dtypes::float4_e2m1fn_t GetDefaultNaN<dtypes::float4_e2m1fn_t>() {
+  // only a single Nan representation is supported
+  return std::numeric_limits<Float4e2m1fn>::quiet_NaN();
 }
 
 }  // namespace internal_zarr3

@@ -874,19 +874,20 @@ TEST(ZarrDriverTest, CreateRank0) {
 }
 
 template <typename InternalFloat>
-class InternalFloat8Test : public ::testing::Test {};
+class InternalLowPrecisionFloatTest : public ::testing::Test {};
 
-using InternalFloat8Types =
+using InternalLowPrecisionFloatTypes =
     ::testing::Types<::tensorstore::dtypes::float8_e3m4_t,
                      ::tensorstore::dtypes::float8_e4m3fn_t,
                      ::tensorstore::dtypes::float8_e4m3fnuz_t,
                      ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
                      ::tensorstore::dtypes::float8_e5m2_t,
-                     ::tensorstore::dtypes::float8_e5m2fnuz_t>;
+                     ::tensorstore::dtypes::float8_e5m2fnuz_t,
+                     ::tensorstore::dtypes::float4_e2m1fn_t>;
 
-TYPED_TEST_SUITE(InternalFloat8Test, InternalFloat8Types);
+TYPED_TEST_SUITE(InternalLowPrecisionFloatTest, InternalLowPrecisionFloatTypes);
 
-TYPED_TEST(InternalFloat8Test, ZarrDriverTest_Create) {
+TYPED_TEST(InternalLowPrecisionFloatTest, ZarrDriverTest_Create) {
   using FloatType = TypeParam;
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
