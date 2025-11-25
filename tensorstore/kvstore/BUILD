@@ -397,8 +397,27 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "@abseil-cpp//absl/container:inlined_vector",
         "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "batch_util_test",
+    srcs = ["batch_util_test.cc"],
+    deps = [
+        ":batch_util",
+        ":byte_range",
+        ":kvstore",
+        "//tensorstore/util:future",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )
 

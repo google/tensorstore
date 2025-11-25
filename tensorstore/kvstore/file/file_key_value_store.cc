@@ -431,6 +431,7 @@ class BatchReadTask final
       return;
     }
 
+    // Resolves all unbounded requests to the file bounds.
     internal_kvstore_batch::ValidateGenerationsAndByteRanges(requests, stamp_,
                                                              size_);
 
@@ -460,12 +461,12 @@ class BatchReadTask final
     coalescing_options.max_extra_read_bytes = 255;
     internal_kvstore_batch::ForEachCoalescedRequest<Request>(
         requests, coalescing_options,
-        [&](ByteRange coalesced_byte_range,
+        [&](OptionalByteRangeRequest coalesced_byte_range,
             tensorstore::span<Request> coalesced_requests) {
           auto self = internal::IntrusivePtr<BatchReadTask>(this);
           executor([self = std::move(self), coalesced_byte_range,
                     coalesced_requests] {
-            self->ProcessCoalescedRead(coalesced_byte_range,
+            self->ProcessCoalescedRead(coalesced_byte_range.AsByteRange(),
                                        coalesced_requests);
           });
         });

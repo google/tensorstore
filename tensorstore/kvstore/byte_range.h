@@ -86,9 +86,11 @@ struct OptionalByteRangeRequest {
   /// the end of the value.
   ///
   /// \id inclusive_min, exclusive_max
-  explicit constexpr OptionalByteRangeRequest(int64_t inclusive_min,
-                                              int64_t exclusive_max = -1)
+  constexpr OptionalByteRangeRequest(int64_t inclusive_min,
+                                     int64_t exclusive_max)
       : inclusive_min(inclusive_min), exclusive_max(exclusive_max) {}
+  explicit constexpr OptionalByteRangeRequest(int64_t inclusive_min)
+      : inclusive_min(inclusive_min), exclusive_max(-1) {}
 
   /// Constructs from an existing byte range.
   ///
