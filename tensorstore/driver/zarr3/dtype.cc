@@ -75,6 +75,13 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
                                  {num_bytes}};
   }
 
+  // Handle bare "r" - must have a number after it
+  if (dtype.size() >= 1 && dtype[0] == 'r') {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        dtype, " data type is invalid; expected r<N> where N is a positive "
+               "multiple of 8"));
+  }
+
   constexpr std::string_view kSupported =
       "bool, uint8, uint16, uint32, uint64, int8, int16, int32, int64, "
       "bfloat16, float16, float32, float64, complex64, complex128, r<N>";
@@ -372,10 +379,21 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
     return MakeBaseDType("complex64", dtype);
   if (dtype == dtype_v<::tensorstore::dtypes::complex128_t>)
     return MakeBaseDType("complex128", dtype);
-  if (dtype == dtype_v<::tensorstore::dtypes::byte_t>)
-    return MakeBaseDType("r8", dtype);
-  if (dtype == dtype_v<::tensorstore::dtypes::char_t>)
-    return MakeBaseDType("r8", dtype);
+  if (dtype == dtype_v<::tensorstore::dtypes::byte_t>) {
+    ZarrDType::BaseDType base_dtype;
+    base_dtype.dtype = dtype;
+    base_dtype.encoded_dtype = "r8";
+    base_dtype.flexible_shape = {1};
+    return base_dtype;
+  }
+  if (dtype == dtype_v<::tensorstore::dtypes::char_t>) {
+    // char_t encodes as r8, which parses back to byte_t
+    ZarrDType::BaseDType base_dtype;
+    base_dtype.dtype = dtype_v<::tensorstore::dtypes::byte_t>;
+    base_dtype.encoded_dtype = "r8";
+    base_dtype.flexible_shape = {1};
+    return base_dtype;
+  }
   return absl::InvalidArgumentError(
       tensorstore::StrCat("Data type not supported: ", dtype));
 }

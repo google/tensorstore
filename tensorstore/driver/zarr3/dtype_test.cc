@@ -285,10 +285,15 @@ TEST(ChooseBaseDTypeTest, RoundTrip) {
     SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_zarr_dtype,
                                      ChooseBaseDType(dtype));
-    EXPECT_EQ(dtype, base_zarr_dtype.dtype);
+    // byte_t and char_t both encode as r8, which parses back to byte_t
+    DataType expected_dtype = dtype;
+    if (dtype == dtype_v<tensorstore::dtypes::char_t>) {
+      expected_dtype = dtype_v<tensorstore::dtypes::byte_t>;
+    }
+    EXPECT_EQ(expected_dtype, base_zarr_dtype.dtype);
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto parsed, ParseBaseDType(base_zarr_dtype.encoded_dtype));
-    EXPECT_EQ(dtype, parsed.dtype);
+    EXPECT_EQ(expected_dtype, parsed.dtype);
     EXPECT_EQ(base_zarr_dtype.flexible_shape, parsed.flexible_shape);
     EXPECT_EQ(base_zarr_dtype.encoded_dtype, parsed.encoded_dtype);
   }
