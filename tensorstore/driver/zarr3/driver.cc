@@ -315,26 +315,27 @@ class DataCacheBase
 
     // Special case: void access - create single component for entire struct
     if (field_index == kVoidFieldIndex) {
-      // For void access, use the fill_value from the single raw_bytes field
-      auto& fill_value = metadata.fill_value[0];
-      std::cout << "[DEBUG] Void access fill_value: shape=" << fill_value.shape()
-                << ", dtype=" << fill_value.dtype() << std::endl;
+      // For void access, create a zero-filled byte array as the fill value
+      const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
+      auto base_fill_value = AllocateArray(
+          span<const Index, 1>({bytes_per_element}), c_order, value_init,
+          dtype_v<tensorstore::dtypes::byte_t>);
 
       // Broadcast to shape [unbounded, unbounded, ..., struct_size]
       std::vector<Index> target_shape(metadata.rank, kInfIndex);
-      target_shape.push_back(metadata.data_type.bytes_per_outer_element);
-      std::cout << "[DEBUG] Void access target_shape: [";
-      for (size_t i = 0; i < target_shape.size(); ++i) {
-        if (i > 0) std::cout << ", ";
-        std::cout << target_shape[i];
-      }
-      std::cout << "]" << std::endl;
+      target_shape.push_back(bytes_per_element);
       auto chunk_fill_value =
-          BroadcastArray(fill_value, BoxView<>(target_shape)).value();
+          BroadcastArray(base_fill_value, BoxView<>(target_shape)).value();
 
       // Add extra dimension for struct size in bytes
       std::vector<Index> chunk_shape_with_bytes = metadata.chunk_shape;
-      chunk_shape_with_bytes.push_back(metadata.data_type.bytes_per_outer_element);
+      chunk_shape_with_bytes.push_back(bytes_per_element);
+
+      // Create permutation: copy existing inner_order and add the new dimension
+      std::vector<DimensionIndex> void_permutation(metadata.rank + 1);
+      std::copy_n(metadata.inner_order.data(), metadata.rank,
+                  void_permutation.begin());
+      void_permutation[metadata.rank] = metadata.rank;  // Add the bytes dimension
 
       auto& component = components.emplace_back(
           internal::AsyncWriteArray::Spec{
@@ -343,7 +344,7 @@ class DataCacheBase
               // specify unbounded `valid_data_bounds`.
               Box<>(metadata.rank + 1),
               ContiguousLayoutPermutation<>(
-                  span(metadata.inner_order.data(), metadata.rank + 1))},
+                  span(void_permutation.data(), metadata.rank + 1))},
           chunk_shape_with_bytes);
       component.array_spec.fill_value_comparison_kind =
           EqualityComparisonKind::identical;
@@ -570,7 +571,13 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
                          std::string key_prefix, U&&... arg)
       : ChunkCacheImpl(std::move(initializer.store), std::forward<U>(arg)...),
         DataCacheBase(std::move(initializer), std::move(key_prefix)),
-        grid_(DataCacheBase::GetChunkGridSpecification(metadata())) {}
+        grid_(DataCacheBase::GetChunkGridSpecification(
+            metadata(),
+            // Check if this is void access by examining the dtype
+            (ChunkCacheImpl::dtype_.fields.size() == 1 &&
+             ChunkCacheImpl::dtype_.fields[0].name == "<void>")
+                ? kVoidFieldIndex
+                : 0)) {}
 
   const internal::LexicographicalGridIndexKeyParser& GetChunkStorageKeyParser()
       final {
@@ -594,6 +601,52 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
 
   const Executor& executor() const override {
     return DataCacheBase::executor();
+  }
+
+  // Override to handle void access - check the dtype to see if this is void
+  Result<IndexTransform<>> GetExternalToInternalTransform(
+      const void* metadata_ptr, size_t component_index) override {
+    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+    
+    // Check if this is void access by examining the cache's dtype
+    const bool is_void_access = (ChunkCacheImpl::dtype_.fields.size() == 1 &&
+                                 ChunkCacheImpl::dtype_.fields[0].name == "<void>");
+    
+    if (is_void_access) {
+      // For void access, create transform with extra bytes dimension
+      const DimensionIndex rank = metadata.rank;
+      const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
+      const DimensionIndex total_rank = rank + 1;
+      
+      std::string_view normalized_dimension_names[kMaxRank];
+      for (DimensionIndex i = 0; i < rank; ++i) {
+        if (const auto& name = metadata.dimension_names[i]; name.has_value()) {
+          normalized_dimension_names[i] = *name;
+        }
+      }
+      
+      auto builder =
+          tensorstore::IndexTransformBuilder<>(total_rank, total_rank);
+      std::vector<Index> full_shape = metadata.shape;
+      full_shape.push_back(bytes_per_element);
+      builder.input_shape(full_shape);
+      builder.input_labels(span(&normalized_dimension_names[0], total_rank));
+      
+      DimensionSet implicit_upper_bounds(false);
+      for (DimensionIndex i = 0; i < rank; ++i) {
+        implicit_upper_bounds[i] = true;
+      }
+      builder.implicit_upper_bounds(implicit_upper_bounds);
+      
+      for (DimensionIndex i = 0; i < total_rank; ++i) {
+        builder.output_single_input_dimension(i, i);
+      }
+      return builder.Finalize();
+    }
+    
+    // Not void access - delegate to base implementation
+    return DataCacheBase::GetExternalToInternalTransform(metadata_ptr,
+                                                         component_index);
   }
 
   internal::ChunkGridSpecification grid_;
