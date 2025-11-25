@@ -19,6 +19,7 @@
 #include <string>
 
 #include "absl/base/optimization.h"
+#include "absl/strings/ascii.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/endian.h"
@@ -57,9 +58,26 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   if (dtype == "complex128")
     return make_dtype(dtype_v<::tensorstore::dtypes::complex128_t>);
 
+  // Handle r<N> raw bits type where N is number of bits (must be multiple of 8)
+  if (dtype.size() > 1 && dtype[0] == 'r' && absl::ascii_isdigit(dtype[1])) {
+    std::string_view suffix = dtype.substr(1);
+    Index num_bits = 0;
+    if (!absl::SimpleAtoi(suffix, &num_bits) ||
+        num_bits == 0 ||
+        num_bits % 8 != 0) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          dtype, " data type is invalid; expected r<N> where N is a positive "
+                 "multiple of 8"));
+    }
+    Index num_bytes = num_bits / 8;
+    return ZarrDType::BaseDType{std::string(dtype),
+                                 dtype_v<::tensorstore::dtypes::byte_t>,
+                                 {num_bytes}};
+  }
+
   constexpr std::string_view kSupported =
       "bool, uint8, uint16, uint32, uint64, int8, int16, int32, int64, "
-      "bfloat16, float16, float32, float64, complex64, complex128";
+      "bfloat16, float16, float32, float64, complex64, complex128, r<N>";
   return absl::InvalidArgumentError(
       tensorstore::StrCat(dtype, " data type is not one of the supported "
                                  "data types: ",
@@ -160,6 +178,34 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
               "'fields' array");
         }
         TENSORSTORE_RETURN_IF_ERROR(ParseFieldsArray(config["fields"], out));
+        return out;
+      }
+      if (type_name == "raw_bytes") {
+        const auto& config = value["configuration"];
+        if (!config.is_object() || !config.contains("length_bytes")) {
+          return absl::InvalidArgumentError(
+              "raw_bytes data type requires 'configuration' object with "
+              "'length_bytes' field");
+        }
+        Index length_bytes;
+        TENSORSTORE_RETURN_IF_ERROR(
+            internal_json::JsonRequireValueAs(config["length_bytes"], &length_bytes));
+        if (length_bytes <= 0) {
+          return absl::InvalidArgumentError(
+              "raw_bytes length_bytes must be positive");
+        }
+        out.has_fields = false;
+        out.fields.resize(1);
+        out.fields[0].encoded_dtype = "raw_bytes";
+        out.fields[0].dtype = dtype_v<tensorstore::dtypes::byte_t>;
+        out.fields[0].flexible_shape = {length_bytes};
+        out.fields[0].outer_shape = {};
+        out.fields[0].name = "";
+        out.fields[0].field_shape = {length_bytes};
+        out.fields[0].num_inner_elements = length_bytes;
+        out.fields[0].byte_offset = 0;
+        out.fields[0].num_bytes = length_bytes;
+        out.bytes_per_outer_element = length_bytes;
         return out;
       }
       // For other named types, try to parse as a base dtype
@@ -326,6 +372,10 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
     return MakeBaseDType("complex64", dtype);
   if (dtype == dtype_v<::tensorstore::dtypes::complex128_t>)
     return MakeBaseDType("complex128", dtype);
+  if (dtype == dtype_v<::tensorstore::dtypes::byte_t>)
+    return MakeBaseDType("r8", dtype);
+  if (dtype == dtype_v<::tensorstore::dtypes::char_t>)
+    return MakeBaseDType("r8", dtype);
   return absl::InvalidArgumentError(
       tensorstore::StrCat("Data type not supported: ", dtype));
 }

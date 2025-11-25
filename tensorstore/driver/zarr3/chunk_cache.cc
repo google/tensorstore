@@ -156,6 +156,13 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   const size_t num_fields = dtype_.fields.size();
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
+  // Special case: void access - return raw bytes directly
+  if (num_fields == 1 && dtype_.fields[0].name == "<void>") {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        field_arrays[0], codec_state_->DecodeArray(grid().components[0].shape(),
+                                                   std::move(data)));
+    return field_arrays;
+  }
 
   // For single non-structured field, decode directly
   if (num_fields == 1 && dtype_.fields[0].outer_shape.empty()) {

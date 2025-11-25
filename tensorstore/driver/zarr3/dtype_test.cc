@@ -68,6 +68,9 @@ TEST(ParseBaseDType, Success) {
   CheckBaseDType("float64", dtype_v<tensorstore::dtypes::float64_t>, {});
   CheckBaseDType("complex64", dtype_v<tensorstore::dtypes::complex64_t>, {});
   CheckBaseDType("complex128", dtype_v<tensorstore::dtypes::complex128_t>, {});
+  CheckBaseDType("r8", dtype_v<tensorstore::dtypes::byte_t>, {1});
+  CheckBaseDType("r16", dtype_v<tensorstore::dtypes::byte_t>, {2});
+  CheckBaseDType("r64", dtype_v<tensorstore::dtypes::byte_t>, {8});
 }
 
 TEST(ParseBaseDType, Failure) {
@@ -81,6 +84,15 @@ TEST(ParseBaseDType, Failure) {
               StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<i4"),
               StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(ParseBaseDType("r"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("data type is invalid; expected r<N>")));
+  EXPECT_THAT(ParseBaseDType("r7"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("data type is invalid; expected r<N>")));
+  EXPECT_THAT(ParseBaseDType("r0"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("data type is invalid; expected r<N>")));
 }
 
 void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {
@@ -266,6 +278,8 @@ TEST(ChooseBaseDTypeTest, RoundTrip) {
       dtype_v<tensorstore::dtypes::float64_t>,
       dtype_v<tensorstore::dtypes::complex64_t>,
       dtype_v<tensorstore::dtypes::complex128_t>,
+      dtype_v<tensorstore::dtypes::byte_t>,
+      dtype_v<tensorstore::dtypes::char_t>,
   };
   for (auto dtype : kSupportedDataTypes) {
     SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype));

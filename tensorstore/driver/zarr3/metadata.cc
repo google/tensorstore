@@ -250,6 +250,10 @@ constexpr std::array<FillValueDataTypeFunctions, kNumDataTypeIds>
       FillValueDataTypeFunctions::Make<::tensorstore::dtypes::T>(); \
   /**/
       TENSORSTORE_ZARR3_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DEF)
+      // Add char_t support for string data types
+      functions[static_cast<size_t>(DataTypeId::char_t)] =
+          FillValueDataTypeFunctions::Make<::tensorstore::dtypes::char_t>();
+      // byte_t is handled specially to use uint8_t functions
 #undef TENSORSTORE_INTERNAL_DO_DEF
       return functions;
     }();
@@ -282,8 +286,39 @@ absl::Status FillValueJsonBinder::operator()(
     std::vector<SharedArray<const void>>* obj, ::nlohmann::json* j) const {
   obj->resize(dtype.fields.size());
   if (dtype.fields.size() == 1) {
-    TENSORSTORE_RETURN_IF_ERROR(
-        DecodeSingle(*j, dtype.fields[0].dtype, (*obj)[0]));
+    // Special case: raw_bytes (single field with byte_t and flexible shape)
+    if (dtype.fields[0].dtype.id() == DataTypeId::byte_t &&
+        !dtype.fields[0].flexible_shape.empty()) {
+      // Handle base64-encoded fill value for raw_bytes
+      if (!j->is_string()) {
+        return absl::InvalidArgumentError(
+            "Expected base64-encoded string for raw_bytes fill_value");
+      }
+      std::string b64_decoded;
+      if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected valid base64-encoded fill value, but received: ",
+            j->dump()));
+      }
+      // Verify size matches expected byte array size
+      Index expected_size = dtype.fields[0].num_inner_elements;
+      if (static_cast<Index>(b64_decoded.size()) != expected_size) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected ", expected_size,
+            " base64-encoded bytes for fill_value, but received ",
+            b64_decoded.size(), " bytes"));
+      }
+      // Create fill value array
+      auto fill_arr = AllocateArray(dtype.fields[0].field_shape, c_order,
+                                   default_init, dtype.fields[0].dtype);
+      std::memcpy(fill_arr.data(), b64_decoded.data(), b64_decoded.size());
+      std::cout << "[DEBUG] Raw bytes fill_value parsed: shape=" << fill_arr.shape()
+                << ", dtype=" << dtype.fields[0].dtype << std::endl;
+      (*obj)[0] = std::move(fill_arr);
+    } else {
+      TENSORSTORE_RETURN_IF_ERROR(
+          DecodeSingle(*j, dtype.fields[0].dtype, (*obj)[0]));
+    }
   } else {
     // For structured types, handle both array format and base64-encoded string
     if (j->is_string()) {
@@ -361,8 +396,14 @@ absl::Status FillValueJsonBinder::DecodeSingle(::nlohmann::json& j,
       AllocateArray(span<const Index, 0>{}, c_order, default_init, data_type);
   void* data = arr.data();
   out = std::move(arr);
+  // Special handling for byte_t: use uint8_t functions since they're binary compatible
+  auto type_id = data_type.id();
+  if (type_id == DataTypeId::byte_t) {
+    type_id = DataTypeId::uint8_t;
+  }
+
   const auto& functions =
-      kFillValueDataTypeFunctions[static_cast<size_t>(data_type.id())];
+      kFillValueDataTypeFunctions[static_cast<size_t>(type_id)];
   if (!functions.decode) {
     if (allow_missing_dtype) {
       out = SharedArray<const void>();
@@ -381,8 +422,14 @@ absl::Status FillValueJsonBinder::EncodeSingle(
     return absl::InvalidArgumentError(
         "data_type must be specified before fill_value");
   }
+  // Special handling for byte_t: use uint8_t functions since they're binary compatible
+  auto type_id = data_type.id();
+  if (type_id == DataTypeId::byte_t) {
+    type_id = DataTypeId::uint8_t;
+  }
+
   const auto& functions =
-      kFillValueDataTypeFunctions[static_cast<size_t>(data_type.id())];
+      kFillValueDataTypeFunctions[static_cast<size_t>(type_id)];
   if (!functions.encode) {
     return absl::FailedPreconditionError(
         "fill_value unsupported for specified data_type");
@@ -751,8 +798,19 @@ std::string GetFieldNames(const ZarrDType& dtype) {
 }
 }  // namespace
 
+constexpr size_t kVoidFieldIndex = size_t(-1);
+
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
                              std::string_view selected_field) {
+  // Special case: "<void>" requests raw byte access (works for any dtype)
+  if (selected_field == "<void>") {
+    if (dtype.fields.empty()) {
+      return absl::FailedPreconditionError(
+          "Requested field \"<void>\" but dtype has no fields");
+    }
+    return kVoidFieldIndex;
+  }
+
   if (selected_field.empty()) {
     if (dtype.fields.size() != 1) {
       return absl::FailedPreconditionError(tensorstore::StrCat(
@@ -779,6 +837,9 @@ SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
   SpecRankAndFieldInfo info;
   info.chunked_rank = metadata.rank;
   info.field = &metadata.data_type.fields[field_index];
+  if (!info.field->field_shape.empty()) {
+    info.chunked_rank += info.field->field_shape.size();
+  }
   return info;
 }
 
@@ -798,8 +859,24 @@ Result<IndexDomain<>> GetEffectiveDomain(
   assert(RankConstraint::EqualOrUnspecified(schema.rank(), rank));
   IndexDomainBuilder builder(std::max(schema.rank().rank, rank));
   if (metadata_shape) {
-    builder.shape(*metadata_shape);
-    builder.implicit_upper_bounds(true);
+    if (static_cast<DimensionIndex>(metadata_shape->size()) < rank &&
+        info.field && !info.field->field_shape.empty() &&
+        static_cast<DimensionIndex>(metadata_shape->size() +
+                                    info.field->field_shape.size()) == rank) {
+      std::vector<Index> full_shape(metadata_shape->begin(),
+                                    metadata_shape->end());
+      full_shape.insert(full_shape.end(), info.field->field_shape.begin(),
+                        info.field->field_shape.end());
+      builder.shape(full_shape);
+      DimensionSet implicit_upper_bounds(false);
+      for (size_t i = 0; i < metadata_shape->size(); ++i) {
+        implicit_upper_bounds[i] = true;
+      }
+      builder.implicit_upper_bounds(implicit_upper_bounds);
+    } else {
+      builder.shape(*metadata_shape);
+      builder.implicit_upper_bounds(true);
+    }
   } else {
     builder.origin(GetConstantVector<Index, 0>(builder.rank()));
   }
