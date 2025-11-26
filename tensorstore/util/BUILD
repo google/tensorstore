@@ -838,3 +838,16 @@ tensorstore_cc_test(
         "@net_sourceforge_half//:half",
     ],
 )
+
+tensorstore_cc_test(
+    name = "mxfloat_test",
+    srcs = ["mxfloat_test.cc"],
+    deps = [
+        ":bfloat16",
+        ":mxfloat",
+        "@abseil-cpp//absl/base",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
+        "@net_sourceforge_half//:half",
+    ],
+)
