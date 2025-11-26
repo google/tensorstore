@@ -312,8 +312,6 @@ absl::Status FillValueJsonBinder::operator()(
       auto fill_arr = AllocateArray(dtype.fields[0].field_shape, c_order,
                                    default_init, dtype.fields[0].dtype);
       std::memcpy(fill_arr.data(), b64_decoded.data(), b64_decoded.size());
-      std::cout << "[DEBUG] Raw bytes fill_value parsed: shape=" << fill_arr.shape()
-                << ", dtype=" << dtype.fields[0].dtype << std::endl;
       (*obj)[0] = std::move(fill_arr);
     } else {
       TENSORSTORE_RETURN_IF_ERROR(
