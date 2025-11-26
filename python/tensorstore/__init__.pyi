@@ -5438,7 +5438,7 @@ class KvStore:
 
         __hash__: typing.ClassVar[None] = None
 
-        def __add__(self, suffix: str) -> KvStore.Spec:
+        def __add__(self, suffix: str | bytes) -> KvStore.Spec:
             """
             Returns a key-value store with the suffix appended to the path.
 
@@ -5507,7 +5507,7 @@ class KvStore:
                 KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
             """
 
-        def __truediv__(self, component: str) -> KvStore.Spec:
+        def __truediv__(self, component: str | bytes) -> KvStore.Spec:
             """
             Returns a key-value store with an additional path component joined to the path.
 
@@ -5674,7 +5674,7 @@ class KvStore:
             """
 
         @path.setter
-        def path(self, arg1: str) -> None: ...
+        def path(self, arg1: str | bytes) -> None: ...
 
         @property
         def url(self) -> str:
@@ -5839,7 +5839,7 @@ class KvStore:
           Operators
         """
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key: str | bytes) -> bool:
         """
         Synchronously checks if the given key is present.
 
@@ -5881,7 +5881,7 @@ class KvStore:
 
     def __copy__(self) -> KvStore: ...
 
-    def __delitem__(self, key: str) -> None:
+    def __delitem__(self, key: str | bytes) -> None:
         """
         Synchronously deletes a single key.
 

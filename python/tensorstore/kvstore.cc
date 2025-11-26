@@ -727,12 +727,12 @@ Group:
 
   cls.def(
       "__contains__",
-      [](const Self& self, std::string_view key) -> bool {
+      [](const Self& self, StrOrBytesView key) -> bool {
         kvstore::ReadOptions options;
         options.byte_range = OptionalByteRangeRequest::Stat();
         auto result = ValueOrThrow(InterruptibleWait([&]() {
           ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
-          return kvstore::Read(self.value, key, std::move(options));
+          return kvstore::Read(self.value, key.value, std::move(options));
         }()));
         return result.has_value();
       },
@@ -904,10 +904,10 @@ Group:
 
   cls.def(
       "__delitem__",
-      [](const Self& self, std::string_view key) {
+      [](const Self& self, StrOrBytesView key) {
         ValueOrThrow(InterruptibleWait([&]() {
           ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
-          return kvstore::Write(self.value, key, std::nullopt);
+          return kvstore::Write(self.value, key.value, std::nullopt);
         }()));
       },
       py::arg("key"), R"(
@@ -1353,9 +1353,9 @@ Group:
         ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         return self.value.path;
       },
-      [](Self& self, std::string_view path) {
+      [](Self& self, StrOrBytesView path) {
         ScopedPyCriticalSection cs(reinterpret_cast<PyObject*>(&self));
-        self.value.path = path;
+        self.value.path = path.value;
       },
       R"(
 Path prefix within the base key-value store.
@@ -1395,10 +1395,10 @@ Group:
 
   cls.def(
       "__add__",
-      [](const Self& self, std::string_view suffix) -> kvstore::Spec {
+      [](const Self& self, StrOrBytesView  suffix) -> kvstore::Spec {
         ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto new_spec = self.value;
-        new_spec.AppendSuffix(suffix);
+        new_spec.AppendSuffix(suffix.value);
         return new_spec;
       },
       py::arg("suffix"), R"(
@@ -1421,10 +1421,10 @@ Group:
 
   cls.def(
       "__truediv__",
-      [](const Self& self, std::string_view component) -> kvstore::Spec {
+      [](const Self& self, StrOrBytesView component) -> kvstore::Spec {
         ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto new_spec = self.value;
-        new_spec.AppendPathComponent(component);
+        new_spec.AppendPathComponent(component.value);
         return new_spec;
       },
       py::arg("component"), R"(
