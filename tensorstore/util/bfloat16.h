@@ -43,6 +43,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Strongly suggest to the compiler that these functions are inlined.
+#ifndef TENSORSTORE_BFLOATINLINE
+#if defined(_MSC_VER)
+#define TENSORSTORE_BFLOATINLINE __forceinline
+#else
+#define TENSORSTORE_BFLOATINLINE inline
+#endif
+#endif  // TENSORSTORE_BFLOATINLINE
+
 namespace tensorstore {
 class BFloat16;
 }  // namespace tensorstore
@@ -123,29 +132,34 @@ class BFloat16 {
   /// `BFloat16` parameter and one integer parameter, we provide an
   /// implementation that converts the result back to `BFloat16` for
   /// consistency with the builtin floating point operations.
-#define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(OP)                 \
-  friend BFloat16 operator OP(BFloat16 a, BFloat16 b) {                 \
-    return BFloat16(static_cast<float>(a) OP static_cast<float>(b));    \
-  }                                                                     \
-  template <typename T>                                                 \
-  friend std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16> \
-  operator OP(BFloat16 a, T b) {                                        \
-    return BFloat16(static_cast<float>(a) OP b);                        \
-  }                                                                     \
-  template <typename T>                                                 \
-  friend std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16> \
-  operator OP(T a, BFloat16 b) {                                        \
-    return BFloat16(a OP static_cast<float>(b));                        \
-  }                                                                     \
+#define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(OP)              \
+  friend TENSORSTORE_BFLOATINLINE BFloat16 operator OP(BFloat16 a,   \
+                                                       BFloat16 b) { \
+    return BFloat16(static_cast<float>(a) OP static_cast<float>(b)); \
+  }                                                                  \
+  template <typename T>                                              \
+  friend TENSORSTORE_BFLOATINLINE                                    \
+      std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16> \
+      operator OP(BFloat16 a, T b) {                                 \
+    return BFloat16(static_cast<float>(a) OP b);                     \
+  }                                                                  \
+  template <typename T>                                              \
+  friend TENSORSTORE_BFLOATINLINE                                    \
+      std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16> \
+      operator OP(T a, BFloat16 b) {                                 \
+    return BFloat16(a OP static_cast<float>(b));                     \
+  }                                                                  \
   /**/
 
 #define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(OP)           \
-  friend BFloat16& operator OP##=(BFloat16 & a, BFloat16 b) {            \
+  friend TENSORSTORE_BFLOATINLINE BFloat16& operator OP## =              \
+      (BFloat16 & a, BFloat16 b) {                                       \
     return a = BFloat16(static_cast<float>(a) OP static_cast<float>(b)); \
   }                                                                      \
   template <typename T>                                                  \
-  friend std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16&> \
-  operator OP##=(BFloat16 & a, T b) {                                    \
+  friend TENSORSTORE_BFLOATINLINE                                        \
+      std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16&>    \
+      operator OP## = (BFloat16 & a, T b) {                              \
     return a = BFloat16(static_cast<float>(a) OP b);                     \
   }                                                                      \
   /**/
@@ -199,7 +213,7 @@ class BFloat16 {
   ///
   /// \membergroup Arithmetic operators
   /// \id negate
-  friend BFloat16 operator-(BFloat16 a) {
+  TENSORSTORE_BFLOATINLINE friend BFloat16 operator-(BFloat16 a) {
     BFloat16 result;
     result.rep_ = a.rep_ ^ 0x8000;
     return result;
@@ -209,7 +223,7 @@ class BFloat16 {
   ///
   /// \membergroup Arithmetic operators
   /// \id unary
-  friend BFloat16 operator+(BFloat16 a) { return a; }
+  TENSORSTORE_BFLOATINLINE friend BFloat16 operator+(BFloat16 a) { return a; }
 
   /// Pre-increment.
   ///
@@ -829,8 +843,10 @@ struct numeric_limits<tensorstore::BFloat16> {
   static constexpr bool has_infinity = true;
   static constexpr bool has_quiet_NaN = true;
   static constexpr bool has_signaling_NaN = true;
+#if !defined(__cplusplus) || __cplusplus < 202302L
   static constexpr float_denorm_style has_denorm = std::denorm_present;
   static constexpr bool has_denorm_loss = false;
+#endif
   static constexpr std::float_round_style round_style =
       numeric_limits<float>::round_style;
   static constexpr bool is_iec559 = false;
