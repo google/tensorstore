@@ -107,10 +107,11 @@ class ZarrDriverSpec
 
   ZarrMetadataConstraints metadata_constraints;
   std::string selected_field;
+  bool open_as_void;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata_constraints,
-             x.selected_field);
+             x.selected_field, x.open_as_void);
   };
 
   static inline const auto default_json_binder = jb::Sequence(
@@ -145,9 +146,17 @@ class ZarrDriverSpec
               },
               jb::Projection<&ZarrDriverSpec::metadata_constraints>(
                   jb::DefaultInitializedValue()))),
-      jb::Member("field", jb::Projection<&ZarrDriverSpec::selected_field>(
-                              jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                                  [](auto* obj) { *obj = std::string{}; }))));
+      jb::Member(
+          "field",
+          jb::Projection<&ZarrDriverSpec::selected_field>(
+              jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                  [](auto* obj) { *obj = std::string{}; }))),
+      jb::Member(
+          "open_as_void",
+          jb::Projection<&ZarrDriverSpec::open_as_void>(
+              jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                  [](auto* v) { *v = false; /*selected_field = "<void>";*/ }))));
+
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.minimal_spec) {
@@ -607,43 +616,43 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
   Result<IndexTransform<>> GetExternalToInternalTransform(
       const void* metadata_ptr, size_t component_index) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-    
+
     // Check if this is void access by examining the cache's dtype
     const bool is_void_access = (ChunkCacheImpl::dtype_.fields.size() == 1 &&
                                  ChunkCacheImpl::dtype_.fields[0].name == "<void>");
-    
+
     if (is_void_access) {
       // For void access, create transform with extra bytes dimension
       const DimensionIndex rank = metadata.rank;
       const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
       const DimensionIndex total_rank = rank + 1;
-      
+
       std::string_view normalized_dimension_names[kMaxRank];
       for (DimensionIndex i = 0; i < rank; ++i) {
         if (const auto& name = metadata.dimension_names[i]; name.has_value()) {
           normalized_dimension_names[i] = *name;
         }
       }
-      
+
       auto builder =
           tensorstore::IndexTransformBuilder<>(total_rank, total_rank);
       std::vector<Index> full_shape = metadata.shape;
       full_shape.push_back(bytes_per_element);
       builder.input_shape(full_shape);
       builder.input_labels(span(&normalized_dimension_names[0], total_rank));
-      
+
       DimensionSet implicit_upper_bounds(false);
       for (DimensionIndex i = 0; i < rank; ++i) {
         implicit_upper_bounds[i] = true;
       }
       builder.implicit_upper_bounds(implicit_upper_bounds);
-      
+
       for (DimensionIndex i = 0; i < total_rank; ++i) {
         builder.output_single_input_dimension(i, i);
       }
       return builder.Finalize();
     }
-    
+
     // Not void access - delegate to base implementation
     return DataCacheBase::GetExternalToInternalTransform(metadata_ptr,
                                                          component_index);

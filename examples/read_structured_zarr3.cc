@@ -21,6 +21,7 @@
 // Both arrays should contain the same data, allowing comparison of:
 // - Field-based access vs manual byte extraction
 // - Structured dtype parsing vs raw byte handling
+// - New open_as_void option for raw byte access to structured data
 //
 // Usage:
 //   bazel run //examples:read_structured_zarr3 -- /path/to/parent/dir
@@ -422,10 +423,10 @@ absl::Status Run(const std::string& zarr_path) {
   auto raw_store = std::move(raw_open_result).value();
   TENSORSTORE_RETURN_IF_ERROR(ReadInlineField(raw_store, "raw_headers", /*is_raw_bytes=*/true));
 
-  // Test 3: Read from headers array as void (field="<void>")
+  // Test 3: Read from headers array as void (open_as_void=true)
   // Use a fresh context to avoid cache sharing with Test 1
   std::cout << "\n" << std::string(60, '=') << std::endl;
-  std::cout << "TEST 3: Reading from 'headers' array as void (field=\"<void>\")" << std::endl;
+  std::cout << "TEST 3: Reading from 'headers' array as void (open_as_void=true)" << std::endl;
   std::cout << std::string(60, '=') << std::endl;
 
   auto context_void = tensorstore::Context::Default();
@@ -435,7 +436,7 @@ absl::Status Run(const std::string& zarr_path) {
   headers_void_spec["kvstore"] = ::nlohmann::json::object();
   headers_void_spec["kvstore"]["driver"] = "file";
   headers_void_spec["kvstore"]["path"] = headers_path + "/";
-  headers_void_spec["field"] = "<void>";  // Special field for raw byte access
+  headers_void_spec["open_as_void"] = true;  // New option for raw byte access
 
   std::cout << "Spec: " << headers_void_spec.dump(2) << std::endl;
 
@@ -451,14 +452,14 @@ absl::Status Run(const std::string& zarr_path) {
   }
 
   auto headers_void_store = std::move(headers_void_open_result).value();
-  TENSORSTORE_RETURN_IF_ERROR(ReadInlineField(headers_void_store, "headers (void)", /*is_raw_bytes=*/true));
+  TENSORSTORE_RETURN_IF_ERROR(ReadInlineField(headers_void_store, "headers (open_as_void)", /*is_raw_bytes=*/true));
 
   std::cout << "\n" << std::string(60, '=') << std::endl;
   std::cout << "COMPARISON: All three methods should give identical inline field values" << std::endl;
   std::cout << std::string(60, '=') << std::endl;
   std::cout << "- Test 1: 'headers' with field=\"inline\" provides field access convenience\n"
             << "- Test 2: 'raw_headers' (raw_bytes type) provides direct byte access\n"
-            << "- Test 3: 'headers' with field=\"<void>\" provides raw byte access to structured data\n"
+            << "- Test 3: 'headers' with open_as_void=true provides raw byte access to structured data\n"
             << "All three extract the inline field from byte offset " << kInlineFieldOffset
             << " in " << kStructSize << "-byte structs." << std::endl;
 
