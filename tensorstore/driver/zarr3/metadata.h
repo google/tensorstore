@@ -230,12 +230,14 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
 ///     unspecified.
 Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
     const ZarrMetadataConstraints& metadata_constraints,
-    const Schema& schema, std::string_view selected_field = {});
+    const Schema& schema, std::string_view selected_field = {},
+    bool open_as_void = false);
 
 absl::Status ValidateDataType(DataType dtype);
 
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
-                             std::string_view selected_field);
+                             std::string_view selected_field,
+                             bool open_as_void = false);
 
 struct SpecRankAndFieldInfo {
   DimensionIndex chunked_rank = dynamic_rank;

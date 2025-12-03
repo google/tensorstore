@@ -438,7 +438,7 @@ Result<std::shared_ptr<const ZarrMetadata>> TestGetNewMetadata(
   TENSORSTORE_RETURN_IF_ERROR(status);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto constraints, ZarrMetadataConstraints::FromJson(constraints_json));
-  return GetNewMetadata(constraints, schema);
+  return GetNewMetadata(constraints, schema, /*selected_field=*/{}, /*open_as_void=*/false);
 }
 
 TEST(GetNewMetadataTest, DuplicateDimensionNames) {

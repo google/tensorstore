@@ -149,20 +149,9 @@ class ZarrDriverSpec
       jb::Member("field", jb::Projection<&ZarrDriverSpec::selected_field>(
               jb::DefaultValue<jb::kNeverIncludeDefaults>(
                   [](auto* obj) { *obj = std::string{}; }))),
-
-      // NEW: wrap the open_as_void projection in a Validate
-      jb::Member("open_as_void",
-          jb::Validate(
-              [](const auto& options, ZarrDriverSpec* obj) -> absl::Status {
-                // At this point, Projection has already set obj->open_as_void
-                if (obj->open_as_void) {
-                  obj->selected_field = "<void>";
-                }
-                return absl::OkStatus();
-              },
-              jb::Projection<&ZarrDriverSpec::open_as_void>(
+      jb::Member("open_as_void", jb::Projection<&ZarrDriverSpec::open_as_void>(
                   jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                      [](auto* v) { *v = false; })))));
+                      [](auto* v) { *v = false; }))));
 
 
 
@@ -592,10 +581,7 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
         grid_(DataCacheBase::GetChunkGridSpecification(
             metadata(),
             // Check if this is void access by examining the dtype
-            (ChunkCacheImpl::dtype_.fields.size() == 1 &&
-             ChunkCacheImpl::dtype_.fields[0].name == "<void>")
-                ? kVoidFieldIndex
-                : 0)) {}
+            ChunkCacheImpl::open_as_void_ ? kVoidFieldIndex : false)) {}
 
   const internal::LexicographicalGridIndexKeyParser& GetChunkStorageKeyParser()
       final {
@@ -626,9 +612,8 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
       const void* metadata_ptr, size_t component_index) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
 
-    // Check if this is void access by examining the cache's dtype
-    const bool is_void_access = (ChunkCacheImpl::dtype_.fields.size() == 1 &&
-                                 ChunkCacheImpl::dtype_.fields[0].name == "<void>");
+    // Check if this is void access by examining the stored flag
+    const bool is_void_access = ChunkCacheImpl::open_as_void_;
 
     if (is_void_access) {
       // For void access, create transform with extra bytes dimension
@@ -802,7 +787,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto metadata,
         internal_zarr3::GetNewMetadata(spec().metadata_constraints,
-                                       spec().schema),
+                                       spec().schema, spec().selected_field, spec().open_as_void),
         tensorstore::MaybeAnnotateStatus(
             _, "Cannot create using specified \"metadata\" and schema"));
     return metadata;
@@ -819,15 +804,15 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
     // For void access, modify the dtype to indicate special handling
     ZarrDType dtype = metadata.data_type;
-    if (spec().selected_field == "<void>") {
+    if (spec().open_as_void) {
       // Create a synthetic dtype for void access
       dtype = ZarrDType{
           /*.has_fields=*/false,
           /*.fields=*/{ZarrDType::Field{
-              ZarrDType::BaseDType{"<void>", dtype_v<tensorstore::dtypes::byte_t>,
+              ZarrDType::BaseDType{"", dtype_v<tensorstore::dtypes::byte_t>,
                                     {metadata.data_type.bytes_per_outer_element}},
               /*.outer_shape=*/{},
-              /*.name=*/"<void>",
+              /*.name=*/"",
               /*.field_shape=*/{metadata.data_type.bytes_per_outer_element},
               /*.num_inner_elements=*/metadata.data_type.bytes_per_outer_element,
               /*.byte_offset=*/0,
@@ -837,7 +822,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
         metadata.codec_state, dtype,
-        /*data_cache_pool=*/*cache_pool());
+        /*data_cache_pool=*/*cache_pool(),
+        spec().open_as_void);
   }
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
@@ -847,7 +833,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
         ValidateMetadata(metadata, spec().metadata_constraints));
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto field_index,
-        GetFieldIndex(metadata.data_type, spec().selected_field));
+        GetFieldIndex(metadata.data_type, spec().selected_field, spec().open_as_void));
     // For void access, map to component index 0
     if (field_index == kVoidFieldIndex) {
       field_index = 0;
