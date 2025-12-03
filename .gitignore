@@ -21,8 +21,3 @@ __pycache__
 *.pyc
 /python/tensorstore/*.so
 /python/tensorstore/*.pyd
-
-build/
-bootstrap.sh
-filt_mig.mdio
-generate_test.py
