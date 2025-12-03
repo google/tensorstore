@@ -140,22 +140,18 @@ class ZarrDriverSpec
                     // at metadata level only.
                   }
                 }
-                TENSORSTORE_RETURN_IF_ERROR(
-                    obj->schema.Set(
-                        RankConstraint{obj->metadata_constraints.rank}));
+                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                    RankConstraint{obj->metadata_constraints.rank}));
                 return absl::OkStatus();
               },
               jb::Projection<&ZarrDriverSpec::metadata_constraints>(
                   jb::DefaultInitializedValue()))),
-      jb::Member(
-          "field",
-          jb::Projection<&ZarrDriverSpec::selected_field>(
+      jb::Member("field", jb::Projection<&ZarrDriverSpec::selected_field>(
               jb::DefaultValue<jb::kNeverIncludeDefaults>(
                   [](auto* obj) { *obj = std::string{}; }))),
 
       // NEW: wrap the open_as_void projection in a Validate
-      jb::Member(
-          "open_as_void",
+      jb::Member("open_as_void",
           jb::Validate(
               [](const auto& options, ZarrDriverSpec* obj) -> absl::Status {
                 // At this point, Projection has already set obj->open_as_void
