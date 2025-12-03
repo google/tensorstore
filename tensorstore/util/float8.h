@@ -85,8 +85,7 @@ class Float8Base {
 
  public:
   static constexpr int kBits = 8;
-
-  constexpr Float8Base() : rep_(0) {}
+  Float8Base() = default;
 
   template <typename T>
   explicit Float8Base(T i,

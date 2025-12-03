@@ -79,10 +79,7 @@ float Bfloat16ToFloat(BFloat16 v);
 /// \ingroup Data types
 class BFloat16 {
  public:
-  /// Zero initialization.
-  ///
-  /// \id zero
-  constexpr BFloat16() : rep_(0) {}
+  BFloat16() = default;
 
   /// Possibly lossy conversion from any type convertible to `float`.
   ///
