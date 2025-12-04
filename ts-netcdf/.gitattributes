@@ -1,0 +1,5 @@
+# Prevent line ending conversions by default to avoid problems with binary files.
+#
+# Some of the patches in third_party/ don't work correctly with line
+# ending conversion.
+* -text

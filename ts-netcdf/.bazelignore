@@ -1,0 +1,15 @@
+# Ignore .git folders
+.git
+
+# See: https://github.com/bazelbuild/bazel/issues/7093
+tools/cmake/bazel_to_cmake
+tools/cmake/bazel_to_cmake/bzl_library
+tools/cmake/bazel_to_cmake/starlark
+tools/cmake/bazel_to_cmake/testdata
+tools/cmake/bazel_to_cmake/testdata/native_rules
+tools/cmake/bazel_to_cmake/testdata/rules_nasm
+tools/cmake/bazel_to_cmake/testdata/bazel_skylib
+tools/cmake/bazel_to_cmake/testdata/grpc_generate_cc
+tools/cmake/bazel_to_cmake/testdata/local_mirror
+tools/cmake/bazel_to_cmake/testdata/local_mirror/golden/_cmake_binary_dir_/local_mirror/lpm
+tools/cmake/bazel_to_cmake/testdata/third_party_http_archive

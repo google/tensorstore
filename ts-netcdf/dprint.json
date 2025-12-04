@@ -1,0 +1,6 @@
+{
+  "plugins": [
+    // specify plugin urls here
+    "https://plugins.dprint.dev/toml-0.6.3.wasm"
+  ]
+}

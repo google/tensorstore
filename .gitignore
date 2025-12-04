@@ -7,6 +7,9 @@
 # Build artifacts
 /bazel-*
 bazel-*
+build/
+build_*/
+bazel-work
 
 # VSCode artifacts
 .vscode
@@ -21,3 +24,67 @@ __pycache__
 *.pyc
 /python/tensorstore/*.so
 /python/tensorstore/*.pyd
+.venv_*/
+
+# Test outputs and data files
+*.nc
+!**/testdata/*.nc
+test_*
+real_datasets/
+benchmark_results/
+multifile_benchmark_results/
+experiments/
+
+# Executables and binaries
+comprehensive_write_test
+netcdf_async_benchmark
+netcdf_chunk_experiments
+netcdf_large_dataset_test
+tensorstore_demo
+test_driver_complete
+test_real_macos
+*.o
+*.so
+*.dylib
+*.a
+core
+
+# Documentation and presentation files (temporary/status)
+*_STATUS*.md
+*_COMPLETE*.md
+*_RESULTS*.md
+*_REPORT*.md
+*_GUIDE*.md
+*_LOG*.md
+*_CHECKLIST*.md
+*_SUMMARY*.md
+*_METHODOLOGY*.md
+*_ANALYSIS*.md
+*_VERIFICATION*.md
+PRESENTATION_*.md
+PRESENTATION_*.txt
+advisor_presentation*.md
+final_presentation.md
+*.pptx
+*.docx
+*.bak
+
+# Build and test scripts (temporary)
+build_netcdf_*.sh
+run_*.sh
+test_*.sh
+check_driver_syntax.sh
+show_*.sh
+verify_*.sh
+switch_to_xcode.sh
+build_integration_test.sh
+build_in_docker.sh
+
+# Python utility scripts (temporary)
+add_images_*.py
+
+# Temporary files
+*.txt
+!LICENSE
+!CMakeLists.txt
+MODULE.bazel.lock
