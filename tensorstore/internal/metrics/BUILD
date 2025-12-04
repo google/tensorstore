@@ -43,6 +43,7 @@ tensorstore_cc_library(
         ":metadata",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/types:compare",
         "@nlohmann_json//:json",
     ],
 )
@@ -54,6 +55,7 @@ tensorstore_cc_test(
         ":collect",
         ":metadata",
         "//tensorstore/internal/testing:json_gtest",
+        "@abseil-cpp//absl/types:compare",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
     ],

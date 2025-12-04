@@ -27,6 +27,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/types/compare.h"
 #include <nlohmann/json.hpp>
 
 namespace tensorstore {
@@ -62,7 +63,57 @@ struct VisitJsonDictify {
   void operator()(std::monostate) {}
 };
 
+// Helper to subtract variants for Value::value
+template <typename... Ts>
+std::variant<Ts...> SubtractVariants(const std::variant<Ts...>& before,
+                                     const std::variant<Ts...>& after) {
+  if (std::holds_alternative<std::monostate>(before)) {
+    return after;
+  }
+  if (std::holds_alternative<int64_t>(before)) {
+    if (std::holds_alternative<int64_t>(after)) {
+      return std::get<int64_t>(after) - std::get<int64_t>(before);
+    }
+    return -std::get<int64_t>(before);
+  }
+  if (std::holds_alternative<double>(before)) {
+    if (std::holds_alternative<double>(after)) {
+      return std::get<double>(after) - std::get<double>(before);
+    }
+    return -std::get<double>(before);
+  }
+  return std::monostate{};
+}
+
+template <typename T>
+inline absl::weak_ordering DoThreeWayCompare(const T& a, const T& b) {
+  if (a < b) return absl::weak_ordering::less;
+  if (b < a) return absl::weak_ordering::greater;
+  return absl::weak_ordering::equivalent;
+}
+
 }  // namespace
+
+/// Compares two collected metrics, a, and b.
+absl::weak_ordering CompareByName(const CollectedMetric& a,
+                                  const CollectedMetric& b) {
+  if (auto c = DoThreeWayCompare(a.metric_name, b.metric_name);
+      c != absl::weak_ordering::equivalent) {
+    return c;
+  }
+  if (auto c = DoThreeWayCompare(a.tag, b.tag);
+      c != absl::weak_ordering::equivalent) {
+    return c;
+  }
+  for (size_t i = 0; i < a.field_names.size() && i < b.field_names.size();
+       ++i) {
+    if (auto c = DoThreeWayCompare(a.field_names[i], b.field_names[i]);
+        c != absl::weak_ordering::equivalent) {
+      return c;
+    }
+  }
+  return DoThreeWayCompare(a.field_names.size(), b.field_names.size());
+}
 
 bool IsCollectedMetricNonZero(const CollectedMetric& metric) {
   if (!metric.values.empty()) {
@@ -77,6 +128,176 @@ bool IsCollectedMetricNonZero(const CollectedMetric& metric) {
     }
   }
   return false;
+}
+
+CollectedMetric CollectedMetricDelta(const CollectedMetric& before,
+                                     const CollectedMetric& after) {
+  assert(CompareByName(before, after) == 0);
+  // Return before - after for each value / histogram.
+  CollectedMetric result;
+  result.metric_name = before.metric_name;
+  result.field_names = before.field_names;
+  result.metadata = before.metadata;
+  result.tag = before.tag;
+  result.histogram_labels = before.histogram_labels;
+
+  // Construct ordered value deltas.
+  if (!before.values.empty() || !after.values.empty()) {
+    result.values.reserve(std::max(before.values.size(), after.values.size()));
+    std::vector<CollectedMetric::Value> before_values = before.values;
+    std::vector<CollectedMetric::Value> after_values = after.values;
+
+    // fields is only a partial order, so we need stable_sort.
+    std::stable_sort(
+        before_values.begin(), before_values.end(),
+        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+    std::stable_sort(
+        after_values.begin(), after_values.end(),
+        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+
+    const std::variant<std::monostate, int64_t, double, std::string> zero_value;
+    const std::variant<std::monostate, int64_t, double> zero_max_value;
+
+    auto before_it = before_values.begin();
+    auto after_it = after_values.begin();
+    while (before_it != before_values.end() && after_it != after_values.end()) {
+      absl::weak_ordering c =
+          DoThreeWayCompare(before_it->fields, after_it->fields);
+      if (c == absl::weak_ordering::greater) {
+        result.values.push_back(std::move(*after_it));
+        ++after_it;
+      } else if (c == absl::weak_ordering::less) {
+        // Negate the "before" value as it has been removed.
+        before_it->value = SubtractVariants(before_it->value, zero_value);
+        before_it->max_value =
+            SubtractVariants(before_it->max_value, zero_max_value);
+        result.values.push_back(std::move(*before_it));
+        ++before_it;
+      } else {
+        // combine.
+        CollectedMetric::Value v;
+        v.fields = std::move(before_it->fields);
+        v.value = SubtractVariants(before_it->value, after_it->value);
+        v.max_value =
+            SubtractVariants(before_it->max_value, after_it->max_value);
+        result.values.push_back(std::move(v));
+        ++before_it;
+        ++after_it;
+      }
+    }
+    for (; before_it != before_values.end(); ++before_it) {
+      before_it->value = SubtractVariants(before_it->value, zero_value);
+      before_it->max_value =
+          SubtractVariants(before_it->max_value, zero_max_value);
+      result.values.push_back(std::move(*before_it));
+    }
+    for (; after_it != after_values.end(); ++after_it) {
+      result.values.push_back(std::move(*after_it));
+    }
+  }
+
+  // Construct ordered histogram deltas.
+  if (!before.histograms.empty() || !after.histograms.empty()) {
+    result.histograms.reserve(
+        std::max(before.histograms.size(), after.histograms.size()));
+
+    std::vector<CollectedMetric::Histogram> before_values = before.histograms;
+    std::vector<CollectedMetric::Histogram> after_values = after.histograms;
+
+    // fields is only a partial order, so we need stable_sort.
+    std::stable_sort(
+        before_values.begin(), before_values.end(),
+        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+    std::stable_sort(
+        after_values.begin(), after_values.end(),
+        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+
+    auto before_it = before_values.begin();
+    auto after_it = after_values.begin();
+    while (before_it != before_values.end() && after_it != after_values.end()) {
+      absl::weak_ordering c =
+          DoThreeWayCompare(before_it->fields, after_it->fields);
+      if (c == absl::weak_ordering::less) {
+        // Negate the "before" histogram as it has been removed.
+        before_it->count = -before_it->count;
+        before_it->mean = -before_it->mean;
+        before_it->sum_of_squared_deviation =
+            -before_it->sum_of_squared_deviation;
+        for (size_t j = 0; j < before_it->buckets.size(); ++j) {
+          before_it->buckets[j] = -before_it->buckets[j];
+        }
+        result.histograms.push_back(std::move(*before_it));
+        ++before_it;
+      } else if (c == absl::weak_ordering::greater) {
+        result.histograms.push_back(std::move(*after_it));
+        ++after_it;
+      } else {
+        // combine.
+        CollectedMetric::Histogram h;
+        h.fields = std::move(before_it->fields);
+        h.count = after_it->count - before_it->count;
+        h.mean = after_it->mean - before_it->mean;
+        h.sum_of_squared_deviation = after_it->sum_of_squared_deviation -
+                                     before_it->sum_of_squared_deviation;
+        size_t end =
+            std::max(before_it->buckets.size(), after_it->buckets.size());
+        h.buckets.resize(end);
+        for (size_t j = 0; j < end; ++j) {
+          h.buckets[j] =
+              (j < after_it->buckets.size() ? after_it->buckets[j] : 0) -
+              (j < before_it->buckets.size() ? before_it->buckets[j] : 0);
+        }
+        result.histograms.push_back(std::move(h));
+        ++before_it;
+        ++after_it;
+      }
+    }
+    for (; before_it != before_values.end(); ++before_it) {
+      // Negate the "before" histogram as it has been removed.
+      before_it->count = -before_it->count;
+      before_it->mean = -before_it->mean;
+      before_it->sum_of_squared_deviation =
+          -before_it->sum_of_squared_deviation;
+      for (size_t j = 0; j < before_it->buckets.size(); ++j) {
+        before_it->buckets[j] = -before_it->buckets[j];
+      }
+      result.histograms.push_back(std::move(*before_it));
+    }
+    for (; after_it != after_values.end(); ++after_it) {
+      result.histograms.push_back(std::move(*after_it));
+    }
+  }
+  return result;
+}
+
+std::vector<CollectedMetric> CollectedMetricsDelta(
+    std::vector<CollectedMetric>& before, std::vector<CollectedMetric>& after) {
+  std::sort(before.begin(), before.end(), [](const auto& a, const auto& b) {
+    return CompareByName(a, b) == absl::weak_ordering::less;
+  });
+  std::sort(after.begin(), after.end(), [](const auto& a, const auto& b) {
+    return CompareByName(a, b) == absl::weak_ordering::less;
+  });
+
+  std::vector<CollectedMetric> result;
+
+  auto before_it = before.begin();
+  for (auto after_it = after.begin(); after_it != after.end(); ++after_it) {
+    if (before_it == before.end()) {
+      result.push_back(*after_it);
+      continue;
+    }
+
+    while (CompareByName(*before_it, *after_it) == absl::weak_ordering::less) {
+      ++before_it;
+    }
+    if (CompareByName(*before_it, *after_it) == absl::weak_ordering::greater) {
+      result.push_back(*after_it);
+      continue;
+    }
+    result.push_back(CollectedMetricDelta(*before_it, *after_it));
+  }
+  return result;
 }
 
 void FormatCollectedMetric(

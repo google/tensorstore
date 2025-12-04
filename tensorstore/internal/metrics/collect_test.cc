@@ -23,6 +23,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/types/compare.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/testing/json_gtest.h"
@@ -31,7 +32,9 @@ namespace {
 
 using ::tensorstore::MatchesJson;
 using ::tensorstore::internal_metrics::CollectedMetric;
+using ::tensorstore::internal_metrics::CollectedMetricDelta;
 using ::tensorstore::internal_metrics::CollectedMetricToJson;
+using ::tensorstore::internal_metrics::CompareByName;
 using ::tensorstore::internal_metrics::FormatCollectedMetric;
 using ::tensorstore::internal_metrics::IsCollectedMetricNonZero;
 using ::tensorstore::internal_metrics::Units;
@@ -168,6 +171,135 @@ TEST(CollectTest, CollectedMetricToJson) {
                                   {"3", 1},
                               }}}}));
   }
+}
+
+TEST(CollectTest, CompareCollectedMetricByName) {
+  CollectedMetric a, b;
+  EXPECT_THAT(CompareByName(a, b), absl::weak_ordering::equivalent);
+  a.metric_name = "a";
+  EXPECT_THAT(CompareByName(a, b), absl::weak_ordering::greater);
+  b.metric_name = "a";
+  EXPECT_THAT(CompareByName(a, b), absl::weak_ordering::equivalent);
+  b.tag = "a";
+  EXPECT_THAT(CompareByName(a, b), absl::weak_ordering::less);
+  a.tag = "a";
+  EXPECT_THAT(CompareByName(a, b), absl::weak_ordering::equivalent);
+  a.field_names.push_back("b");
+  EXPECT_THAT(CompareByName(a, b), absl::weak_ordering::greater);
+  b.field_names.push_back("a");
+  EXPECT_THAT(CompareByName(a, b), absl::weak_ordering::greater);
+}
+
+// TODO: Add tests for more complex CollectedMetricDelta cases.
+TEST(CollectTest, CollectedMetricDelta_Values) {
+  CollectedMetric a;
+  a.metric_name = "a";
+  a.field_names.push_back("fn");
+
+  CollectedMetric b = a;
+  a.values.push_back({{"a"}, int64_t{10}, int64_t{100}});
+  a.values.push_back({{"b"}, int64_t{1}, int64_t{20}});
+  a.values.push_back({{"c"}, int64_t{1}, int64_t{20}});
+  b.values.push_back({{"a"}, int64_t{12}, int64_t{110}});
+  b.values.push_back({{"b"}, int64_t{2}, int64_t{10}});
+  b.values.push_back({{"d"}, int64_t{2}, int64_t{10}});
+
+  CollectedMetric c = CollectedMetricDelta(a, b);
+
+  EXPECT_THAT(CollectedMetricToJson(c),
+              MatchesJson({{"name", "a"},
+                           {
+                               "values",
+                               {{
+                                    {"fn", "a"},
+                                    {"max_value", 10},
+                                    {"value", 2},
+                                },
+                                {
+                                    {"fn", "b"},
+                                    {"max_value", -10},
+                                    {"value", 1},
+                                },
+                                {
+                                    {"fn", "c"},
+                                    {"max_value", -20},
+                                    {"value", -1},
+                                },
+                                {
+                                    {"fn", "d"},
+                                    {"max_value", 10},
+                                    {"value", 2},
+                                }},
+                           }}));
+}
+
+TEST(CollectTest, CollectedMetricDelta_Histograms) {
+  CollectedMetric a;
+  a.metric_name = "a";
+  a.histogram_labels = {"0", "3", "Inf"};
+
+  CollectedMetric b = a;
+  a.histograms.push_back(CollectedMetric::Histogram{});
+  {
+    auto& h = a.histograms.back();
+    h.count = 2;
+    h.mean = 1;
+    h.sum_of_squared_deviation = 1;
+    h.buckets.push_back(0);
+    h.buckets.push_back(1);
+  }
+  b.histograms.push_back(a.histograms.back());
+  {
+    auto& h = a.histograms.back();
+    h.count = 2;
+    h.mean = 9;
+    h.sum_of_squared_deviation = 6;
+    h.buckets.clear();
+    h.buckets.push_back(6);
+    h.buckets.push_back(12);
+  }
+
+  CollectedMetric c = CollectedMetricDelta(a, b);
+
+  EXPECT_THAT(CollectedMetricToJson(c),
+              MatchesJson({{"name", "a"},
+                           {"values",
+                            {{
+                                {"count", 0},
+                                {"mean", -8.0},
+                                {"sum_of_squared_deviation", -5.0},
+                                {"0", -6},
+                                {"3", -11},
+                            }}}}));
+}
+
+TEST(CollectTest, CollectedMetricDeltaSizeMismatch) {
+  CollectedMetric a, b;
+  a.metric_name = "a";
+  b.metric_name = "a";
+  a.values.push_back({{}, int64_t{10}, int64_t{100}});
+  b.values.push_back({{}, int64_t{12}, int64_t{110}});
+  b.values.push_back({{}, int64_t{13}, int64_t{111}});
+  a.histograms.push_back({{}, 1, 2.0, 3.0, {4, 5}});
+  b.histograms.push_back({{}, 6, 8.0, 10.0, {11, 12, 13}});
+
+  CollectedMetric c = CollectedMetricDelta(a, b);
+  EXPECT_EQ("a", c.metric_name);
+
+  ASSERT_EQ(2, c.values.size());
+  EXPECT_THAT(c.values[0].value, 2);
+  EXPECT_THAT(c.values[0].max_value, 10);
+  EXPECT_THAT(c.values[1].value, 13);
+  EXPECT_THAT(c.values[1].max_value, 111);
+
+  ASSERT_EQ(1, c.histograms.size());
+  EXPECT_EQ(5, c.histograms[0].count);
+  EXPECT_EQ(6.0, c.histograms[0].mean);
+  EXPECT_EQ(7.0, c.histograms[0].sum_of_squared_deviation);
+  ASSERT_EQ(3, c.histograms[0].buckets.size());
+  EXPECT_EQ(7, c.histograms[0].buckets[0]);
+  EXPECT_EQ(7, c.histograms[0].buckets[1]);
+  EXPECT_EQ(13, c.histograms[0].buckets[2]);
 }
 
 }  // namespace

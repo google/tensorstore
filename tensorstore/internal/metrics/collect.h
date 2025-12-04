@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "absl/functional/function_ref.h"
+#include "absl/types/compare.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/metrics/metadata.h"
 
@@ -30,6 +31,12 @@ namespace tensorstore {
 namespace internal_metrics {
 
 /// CollectedMetric contains the data of a given metric at a point in time.
+///
+/// If field_names is non-empty, then for each Value or Histogram entry,
+/// `fields.size()` must equal `field_names.size()`.
+///
+/// Typically, either `values` or `histograms` will be populated, depending on
+/// the type of metric collected.
 struct CollectedMetric {
   std::string_view metric_name;
   std::vector<std::string_view> field_names;
@@ -50,11 +57,19 @@ struct CollectedMetric {
     int64_t count;
     double mean;
     double sum_of_squared_deviation;
+    // Buckets recorded by the histogram.
+    // `buckets.size()` must be <= `histogram_labels.size()`.
     std::vector<int64_t> buckets;
   };
   std::vector<Histogram> histograms;
+  // Labels for histogram buckets; used when converting to JSON.
   std::vector<std::string_view> histogram_labels;
 };
+
+/// Compares two collected metrics, a, and b, by metric_name, tag, and
+/// field_names.
+absl::weak_ordering CompareByName(const CollectedMetric& a,
+                                  const CollectedMetric& b);
 
 /// Returns whether a collected metric is non-zero
 bool IsCollectedMetricNonZero(const CollectedMetric& metric);
@@ -67,6 +82,17 @@ void FormatCollectedMetric(
 
 /// Converts a CollectedMetric to json.
 ::nlohmann::json CollectedMetricToJson(const CollectedMetric& metric);
+
+/// Returns a CollectedMetric representing the difference between `after` and
+/// `before`.
+CollectedMetric CollectedMetricDelta(const CollectedMetric& before,
+                                     const CollectedMetric& after);
+
+/// Returns a vector of CollectedMetrics representing the difference between
+/// `after` and `before`.
+std::vector<internal_metrics::CollectedMetric> CollectedMetricsDelta(
+    std::vector<internal_metrics::CollectedMetric>& before,
+    std::vector<internal_metrics::CollectedMetric>& after);
 
 }  // namespace internal_metrics
 }  // namespace tensorstore
