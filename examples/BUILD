@@ -122,26 +122,3 @@ tensorstore_cc_binary(
         "@riegeli//riegeli/bytes:writer",
     ],
 )
-
-tensorstore_cc_binary(
-    name = "read_structured_zarr3",
-    srcs = ["read_structured_zarr3.cc"],
-    deps = [
-        "//tensorstore",
-        "//tensorstore:array",
-        "//tensorstore:context",
-        "//tensorstore:data_type",
-        "//tensorstore:index",
-        "//tensorstore:open",
-        "//tensorstore:open_mode",
-        "//tensorstore:spec",
-        "//tensorstore/driver/zarr3",
-        "//tensorstore/kvstore/file",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@abseil-cpp//absl/flags:flag",
-        "@abseil-cpp//absl/flags:parse",
-        "@abseil-cpp//absl/status",
-        "@nlohmann_json//:json",
-    ],
-)
