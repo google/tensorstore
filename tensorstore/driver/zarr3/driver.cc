@@ -737,8 +737,6 @@ class ZarrDriver : public ZarrDriverBase {
     if (metadata.fill_value.empty()) {
       return SharedArray<const void>();
     }
-    // return metadata.fill_value[0];
-    // TODO: Doe we actually need to validate this or can we trust that component_index will return a valid index?
     size_t index = this->component_index();
     if (index >= metadata.fill_value.size()) {
         return absl::OutOfRangeError("Component index out of bounds");
