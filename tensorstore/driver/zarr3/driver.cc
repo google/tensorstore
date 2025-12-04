@@ -171,12 +171,74 @@ class ZarrDriverSpec
       IndexTransformView<> transform) const override {
     SharedArray<const void> fill_value{schema.fill_value()};
 
-    const auto& metadata = metadata_constraints;
-    if (metadata.fill_value && !metadata.fill_value->empty()) {
-      fill_value = (*metadata.fill_value)[0];
+    const auto& constraints = metadata_constraints;
+
+    // If constraints don't specify a fill value, just use the schema's.
+    if (!constraints.fill_value || constraints.fill_value->empty()) {
+      return fill_value;
     }
 
-    return fill_value;
+    const auto& vec = *constraints.fill_value;
+
+    // If we don't have dtype information, we can't do field-aware logic.
+    if (!constraints.data_type) {
+      if (!vec.empty()) return vec[0];
+      return fill_value;
+    }
+
+    const ZarrDType& dtype = *constraints.data_type;
+
+    // Determine which field this spec refers to (or void access).
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        size_t field_index,
+        GetFieldIndex(dtype, selected_field, open_as_void));
+
+    // ── Normal field access: just return that field's fill_value ───────────────
+    if (field_index != kVoidFieldIndex) {
+      if (field_index < vec.size()) {
+        return vec[field_index];
+      }
+      // Fallback to "no fill".
+      return SharedArray<const void>();
+    }
+
+    // ── Void access: synthesize a byte-level fill value ────────────────────────
+    //
+    // We want a 1D byte array of length bytes_per_outer_element whose contents
+    // are exactly the Zarr-defined struct layout built from per-field fills.
+
+    // Special case: "raw bytes" field (single byte_t field with flexible shape).
+    // In that case the existing fill array already has the correct bytes.
+    if (dtype.fields.size() == 1 &&
+        dtype.fields[0].dtype.id() == DataTypeId::byte_t &&
+        !dtype.fields[0].flexible_shape.empty()) {
+      // vec[0] should be a byte array of size bytes_per_outer_element.
+      return vec[0];
+    }
+
+    const Index nbytes = dtype.bytes_per_outer_element;
+
+    auto byte_arr = AllocateArray(
+        span<const Index, 1>({nbytes}), c_order, default_init,
+        dtype_v<tensorstore::dtypes::byte_t>);
+    auto* dst = static_cast<std::byte*>(byte_arr.data());
+    std::memset(dst, 0, static_cast<size_t>(nbytes));
+
+    // Pack each field's scalar fill into its byte_offset region.
+    for (size_t i = 0; i < dtype.fields.size() && i < vec.size(); ++i) {
+      const auto& field = dtype.fields[i];
+      const auto& field_fill = vec[i];
+      if (!field_fill.valid()) continue;
+
+      // We assume a single outer element per field here (which is exactly how
+      // FillValueJsonBinder constructs per-field fill values).
+      std::memcpy(
+          dst + field.byte_offset,
+          static_cast<const std::byte*>(field_fill.data()),
+          static_cast<size_t>(field.num_bytes));
+    }
+
+    return byte_arr;
   }
 
   Result<DimensionUnitsVector> GetDimensionUnits() const override {
