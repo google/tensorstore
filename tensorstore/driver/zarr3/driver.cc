@@ -779,11 +779,15 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 
   std::string GetDataCacheKey(const void* metadata) override {
     std::string result;
+    const auto& zarr_metadata = *static_cast<const ZarrMetadata*>(metadata);
     internal::EncodeCacheKey(
-        &result, spec().store.path,
-        static_cast<const ZarrMetadata*>(metadata)->GetCompatibilityKey());
+        &result,
+        spec().store.path,
+        zarr_metadata.GetCompatibilityKey(),
+        spec().open_as_void ? "void" : "normal");
     return result;
   }
+
 
   Result<std::shared_ptr<const void>> Create(const void* existing_metadata,
                                              CreateOptions options) override {
