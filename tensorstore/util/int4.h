@@ -49,10 +49,7 @@ constexpr int8_t SignedTrunc4(int8_t x) {
 /// \ingroup Data types
 class Int4Padded {
  public:
-  /// Zero initialization.
-  ///
-  /// \id zero
-  constexpr Int4Padded() : rep_(0) {}
+  Int4Padded() = default;
 
   /// Possibly lossy conversion from any type convertible to `int8_t`.
   ///

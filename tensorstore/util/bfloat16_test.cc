@@ -81,7 +81,13 @@ void TestTruncate(float input, float expected_truncation,
 }
 
 template <typename T>
-void TestRoundtrips() {
+class Bfloat16RoundtripTest : public ::testing::Test {};
+
+using RoundtripTypes = ::testing::Types<float, double, bfloat16_t>;
+TYPED_TEST_SUITE(Bfloat16RoundtripTest, RoundtripTypes);
+
+TYPED_TEST(Bfloat16RoundtripTest, Roundtrips) {
+  using T = TypeParam;
   for (T value : {
            -std::numeric_limits<T>::infinity(),
            std::numeric_limits<T>::infinity(),
@@ -96,11 +102,22 @@ void TestRoundtrips() {
   }
 }
 
-TEST(Bfloat16Test, FloatRoundtrips) { TestRoundtrips<float>(); }
+TEST(Bfloat16Test, DefaultConstruction) {
+  using Float = bfloat16_t;
+  const Float zero(0);
 
-TEST(Bfloat16Test, DoubleRoundtrips) { TestRoundtrips<double>(); }
+  // sd is static, so it must be zero initialized.
+  static Float sd;
+  EXPECT_EQ(sd, zero);
 
-TEST(Bfloat16Test, Float16Roundtrips) { TestRoundtrips<bfloat16_t>(); }
+  // z is zero initialized.
+  Float z{};
+  EXPECT_EQ(z, zero);
+
+  // v is value initialized to zero.
+  Float v = Float();
+  EXPECT_EQ(v, zero);
+}
 
 TEST(Bfloat16Test, ConversionFromFloat) {
   EXPECT_THAT(bfloat16_t(1.0f), MatchesBits(0x3f80));
@@ -367,6 +384,19 @@ TEST(Bfloat16Test, NumericLimits) {
   EXPECT_GT(std::numeric_limits<bfloat16_t>::denorm_min(), bfloat16_t(0.f));
   EXPECT_EQ(std::numeric_limits<bfloat16_t>::denorm_min() / bfloat16_t(2),
             bfloat16_t(0.f));
+  EXPECT_TRUE(isinf(std::numeric_limits<bfloat16_t>::infinity()));
+
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::digits, 8);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::digits10, 2);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::max_digits10, 4);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::min_exponent, -125);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::min_exponent10, -37);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::max_exponent, 128);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::max_exponent10, 38);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::is_iec559, false);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::has_infinity, true);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::has_quiet_NaN, true);
+  EXPECT_EQ(std::numeric_limits<bfloat16_t>::has_signaling_NaN, true);
 }
 
 TEST(Bfloat16Test, Arithmetic) {

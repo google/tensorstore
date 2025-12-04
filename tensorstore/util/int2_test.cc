@@ -54,16 +54,34 @@ TEST(Int2Test, Int2ToInt8) {
   }
 }
 
-template <typename X>
-void TestInt2ToXToInt2() {
+template <typename T>
+class Int2ToXToInt2Test : public ::testing::Test {};
+
+using ToXToInt2Types = ::testing::Types<int32_t, float, double>;
+TYPED_TEST_SUITE(Int2ToXToInt2Test, ToXToInt2Types);
+
+TYPED_TEST(Int2ToXToInt2Test, ToXToInt2) {
+  using T = TypeParam;
   for (const auto& [i4, i8] : kInt2ToInt8) {
-    EXPECT_EQ(static_cast<Int2>(static_cast<X>(i4)), i4);
+    EXPECT_EQ(static_cast<Int2>(static_cast<T>(i4)), i4);
   }
 }
 
-TEST(Int2Test, Int2ToInt32ToInt2) { TestInt2ToXToInt2<int32_t>(); }
-TEST(Int2Test, Int2ToFloatToInt2) { TestInt2ToXToInt2<float>(); }
-TEST(Int2Test, Int2ToDoubleToInt2) { TestInt2ToXToInt2<double>(); }
+TEST(Int2Test, DefaultConstruction) {
+  const Int2 zero(0);
+
+  // sd is static, so it must be zero initialized.
+  static Int2 sd;
+  EXPECT_EQ(sd, zero);
+
+  // z is zero initialized.
+  Int2 z{};
+  EXPECT_EQ(z, zero);
+
+  // v is value initialized to zero.
+  Int2 v = Int2();
+  EXPECT_EQ(v, zero);
+}
 
 TEST(Int2Test, Arithmetic) {
   EXPECT_EQ(Int2(1) + Int2(1), Int2(-2));

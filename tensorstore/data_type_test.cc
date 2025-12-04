@@ -20,6 +20,7 @@
 #include <stdint.h>
 
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -279,8 +280,18 @@ TEST(StaticElementRepresentationDeathTest, UnsignedInt) {
       "StaticCast is not valid");
 }
 
+using CompareFloatTestTypes =
+    ::testing::Types<float8_e3m4_t, float8_e4m3fn_t, float8_e4m3fnuz_t,
+                     float8_e4m3b11fnuz_t, float8_e5m2_t, float8_e5m2fnuz_t,
+                     float4_e2m1fn_t, bfloat16_t, float16_t, float32_t,
+                     float64_t>;
+
 template <typename T>
-void TestCompareIdenticalFloat() {
+class CompareFloatTest : public ::testing::Test {};
+TYPED_TEST_SUITE(CompareFloatTest, CompareFloatTestTypes);
+
+TYPED_TEST(CompareFloatTest, Identical) {
+  using T = TypeParam;
   const auto compare = [](auto a, auto b) {
     return tensorstore::internal_data_type::CompareIdentical(static_cast<T>(a),
                                                              static_cast<T>(b));
@@ -290,17 +301,30 @@ void TestCompareIdenticalFloat() {
   EXPECT_FALSE(compare(1.0, 2.0));
   EXPECT_TRUE(compare(+0.0, +0.0));
   EXPECT_TRUE(compare(-0.0, -0.0));
-  EXPECT_FALSE(compare(+0.0, -0.0));
-  EXPECT_TRUE(compare(NAN, NAN));
-  EXPECT_TRUE(compare(INFINITY, INFINITY));
-  EXPECT_TRUE(compare(-INFINITY, -INFINITY));
-  EXPECT_FALSE(compare(-INFINITY, INFINITY));
-  EXPECT_FALSE(compare(NAN, 1));
-  EXPECT_FALSE(compare(1, NAN));
+  if constexpr (std::numeric_limits<T>::is_iec559) {
+    EXPECT_FALSE(compare(+0.0, -0.0));
+  }
+  if constexpr (std::numeric_limits<T>::has_quiet_NaN) {
+    EXPECT_TRUE(compare(NAN, NAN));
+    EXPECT_FALSE(compare(NAN, 1));
+    EXPECT_FALSE(compare(1, NAN));
+  }
+  if constexpr (std::numeric_limits<T>::has_infinity) {
+    EXPECT_TRUE(compare(INFINITY, INFINITY));
+    EXPECT_TRUE(compare(-INFINITY, -INFINITY));
+    EXPECT_FALSE(compare(-INFINITY, INFINITY));
+  }
 }
 
+using CompareIdenticalComplexTestTypes =
+    ::testing::Types<tensorstore::dtypes::complex64_t,
+                     tensorstore::dtypes::complex128_t>;
 template <typename T>
-void TestCompareIdenticalComplex() {
+class CompareIdenticalComplexTest : public ::testing::Test {};
+TYPED_TEST_SUITE(CompareIdenticalComplexTest, CompareIdenticalComplexTestTypes);
+
+TYPED_TEST(CompareIdenticalComplexTest, Basic) {
+  using T = TypeParam;
   using value_type = typename T::value_type;
   const auto compare = [](auto ra, auto ia, auto rb, auto ib) {
     return tensorstore::internal_data_type::CompareIdentical(
@@ -316,30 +340,6 @@ void TestCompareIdenticalComplex() {
   EXPECT_TRUE(compare(1.0, NAN, 1.0, NAN));
   EXPECT_FALSE(compare(1.0, NAN, 2.0, NAN));
   EXPECT_FALSE(compare(1.0, NAN, 1.0, 2.0));
-}
-
-TEST(CompareIdenticalTest, Float32) {
-  TestCompareIdenticalFloat<tensorstore::dtypes::float32_t>();
-}
-
-TEST(CompareIdenticalTest, Float64) {
-  TestCompareIdenticalFloat<tensorstore::dtypes::float64_t>();
-}
-
-TEST(CompareIdenticalTest, Bfloat16) {
-  TestCompareIdenticalFloat<tensorstore::dtypes::bfloat16_t>();
-}
-
-TEST(CompareIdenticalTest, Float16) {
-  TestCompareIdenticalFloat<tensorstore::dtypes::float16_t>();
-}
-
-TEST(CompareIdenticalTest, Complex64) {
-  TestCompareIdenticalComplex<tensorstore::dtypes::complex64_t>();
-}
-
-TEST(CompareIdenticalTest, Complex128) {
-  TestCompareIdenticalComplex<tensorstore::dtypes::complex128_t>();
 }
 
 TEST(ElementOperationsTest, FloatCompareIdentical) {
@@ -455,6 +455,42 @@ TEST(AllocateAndConsructSharedTest, ValueInitialization) {
   EXPECT_EQ(0, ptr.get()[1]);
 }
 
+using AllocateAndConstructTestTypes =
+    ::testing::Types<int, float, complex128_t, std::string,
+                     std::shared_ptr<int>, int2_t, int4_t, bfloat16_t,
+                     float16_t, float8_e3m4_t, float4_e2m1fn_t, json_t>;
+
+template <typename T>
+class AllocateAndConstructTest : public ::testing::Test {
+ public:
+  T GetDefaultValue() {
+    if constexpr (std::is_same_v<T, std::shared_ptr<int>>) {
+      return std::make_shared<int>();
+    } else if constexpr (std::is_same_v<T, std::string>) {
+      return std::string(1000, 'a');
+    } else {
+      return T{};
+    }
+  }
+};
+TYPED_TEST_SUITE(AllocateAndConstructTest, AllocateAndConstructTestTypes);
+
+TYPED_TEST(AllocateAndConstructTest, DefaultInitialization) {
+  auto x = this->GetDefaultValue();
+  TypeParam* ptr = static_cast<TypeParam*>(tensorstore::AllocateAndConstruct(
+      1, tensorstore::default_init, tensorstore::dtype_v<TypeParam>));
+  ptr[0] = std::move(x);
+  tensorstore::DestroyAndFree(1, tensorstore::dtype_v<TypeParam>, ptr);
+}
+
+TYPED_TEST(AllocateAndConstructTest, ValueInitialization) {
+  TypeParam* ptr = static_cast<TypeParam*>(tensorstore::AllocateAndConstruct(
+      2, tensorstore::value_init, tensorstore::dtype_v<TypeParam>));
+  EXPECT_EQ(TypeParam(), ptr[0]);
+  EXPECT_EQ(TypeParam(), ptr[1]);
+  tensorstore::DestroyAndFree(2, tensorstore::dtype_v<TypeParam>, ptr);
+}
+
 // Thread sanitizer considers `operator new` allocation failure an error, and
 // prevents this death test from working.
 #if !defined(THREAD_SANITIZER)
@@ -486,6 +522,17 @@ TEST(DataTypeTest, Name) {
   EXPECT_EQ("uint32", DataType(dtype_v<uint32_t>).name());
   EXPECT_EQ("int64", DataType(dtype_v<int64_t>).name());
   EXPECT_EQ("uint64", DataType(dtype_v<uint64_t>).name());
+
+  EXPECT_EQ("float8_e3m4", DataType(dtype_v<float8_e3m4_t>).name());
+  EXPECT_EQ("float8_e4m3fn", DataType(dtype_v<float8_e4m3fn_t>).name());
+  EXPECT_EQ("float8_e4m3fnuz", DataType(dtype_v<float8_e4m3fnuz_t>).name());
+  EXPECT_EQ("float8_e4m3b11fnuz",
+            DataType(dtype_v<float8_e4m3b11fnuz_t>).name());
+  EXPECT_EQ("float8_e5m2", DataType(dtype_v<float8_e5m2_t>).name());
+  EXPECT_EQ("float8_e5m2fnuz", DataType(dtype_v<float8_e5m2fnuz_t>).name());
+  EXPECT_EQ("float4_e2m1fn", DataType(dtype_v<float4_e2m1fn_t>).name());
+
+  EXPECT_EQ("bfloat16", DataType(dtype_v<bfloat16_t>).name());
   EXPECT_EQ("float16", DataType(dtype_v<float16_t>).name());
   EXPECT_EQ("float32", DataType(dtype_v<float32_t>).name());
   EXPECT_EQ("float64", DataType(dtype_v<float64_t>).name());
@@ -514,6 +561,15 @@ TEST(DataTypeTest, GetDataType) {
   EXPECT_EQ(dtype_v<uint32_t>, GetDataType("uint32"));
   EXPECT_EQ(dtype_v<int64_t>, GetDataType("int64"));
   EXPECT_EQ(dtype_v<uint64_t>, GetDataType("uint64"));
+
+  EXPECT_EQ(dtype_v<float8_e3m4_t>, GetDataType("float8_e3m4"));
+  EXPECT_EQ(dtype_v<float8_e4m3fn_t>, GetDataType("float8_e4m3fn"));
+  EXPECT_EQ(dtype_v<float8_e4m3fnuz_t>, GetDataType("float8_e4m3fnuz"));
+  EXPECT_EQ(dtype_v<float8_e4m3b11fnuz_t>, GetDataType("float8_e4m3b11fnuz"));
+  EXPECT_EQ(dtype_v<float8_e5m2_t>, GetDataType("float8_e5m2"));
+  EXPECT_EQ(dtype_v<float8_e5m2fnuz_t>, GetDataType("float8_e5m2fnuz"));
+  EXPECT_EQ(dtype_v<float4_e2m1fn_t>, GetDataType("float4_e2m1fn"));
+
   EXPECT_EQ(dtype_v<bfloat16_t>, GetDataType("bfloat16"));
   EXPECT_EQ(dtype_v<float16_t>, GetDataType("float16"));
   EXPECT_EQ(dtype_v<float32_t>, GetDataType("float32"));
@@ -574,6 +630,15 @@ TEST(SerializationTest, Invalid) {
 static_assert(IsTrivial<bool>);
 static_assert(IsTrivial<int2_t>);
 static_assert(IsTrivial<int4_t>);
+
+static_assert(IsTrivial<float8_e3m4_t>);
+static_assert(IsTrivial<float8_e4m3fn_t>);
+static_assert(IsTrivial<float8_e4m3fnuz_t>);
+static_assert(IsTrivial<float8_e4m3b11fnuz_t>);
+static_assert(IsTrivial<float8_e5m2_t>);
+static_assert(IsTrivial<float8_e5m2fnuz_t>);
+static_assert(IsTrivial<float4_e2m1fn_t>);
+
 static_assert(IsTrivial<bfloat16_t>);
 static_assert(IsTrivial<float16_t>);
 static_assert(IsTrivial<float32_t>);

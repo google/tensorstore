@@ -19,6 +19,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <limits>
 #include <ostream>
@@ -55,6 +56,15 @@ limitations under the License.
 #include <bit>
 #endif
 
+// Strongly suggest to the compiler that these functions are inlined.
+#ifndef TENSORSTORE_FLOATINLINE
+#if defined(_MSC_VER)
+#define TENSORSTORE_FLOATINLINE __forceinline
+#else
+#define TENSORSTORE_FLOATINLINE inline
+#endif
+#endif  // TENSORSTORE_FLOATINLINE
+
 namespace tensorstore {
 namespace float8_internal {
 
@@ -74,7 +84,8 @@ class Float8Base {
   constexpr Float8Base(uint8_t rep, ConstructFromRepTag) : rep_{rep} {}
 
  public:
-  constexpr Float8Base() : rep_(0) {}
+  static constexpr int kBits = 8;
+  Float8Base() = default;
 
   template <typename T>
   explicit Float8Base(T i,
@@ -123,10 +134,10 @@ class Float8Base {
 
   // Conversions allowing saturation and truncation.
   template <bool kSaturate = false, bool kTruncate = false, typename From>
-  static Derived ConvertFrom(From from);
+  static inline Derived ConvertFrom(From from);
 
   template <typename To, bool kSaturate = false, bool kTruncate = false>
-  static To ConvertTo(const Derived& from);
+  static inline To ConvertTo(const Derived& from);
 
   // Operators via float32.
   Derived operator+(const Derived& other) const {
@@ -145,53 +156,53 @@ class Float8Base {
     return Derived{float{derived()} / float{other}};
   }
 
-  constexpr bool operator==(const Derived& other) const {
+  constexpr inline bool operator==(const Derived& other) const {
     return Compare(derived(), other) == Ordering::kEquivalent;
   }
 
-  constexpr bool operator!=(const Derived& other) const {
+  constexpr inline bool operator!=(const Derived& other) const {
     return Compare(derived(), other) != Ordering::kEquivalent;
   }
 
-  bool operator<(const Derived& other) const {
+  TENSORSTORE_FLOATINLINE bool operator<(const Derived& other) const {
     return Compare(derived(), other) == Ordering::kLess;
   }
 
-  bool operator<=(const Derived& other) const {
+  TENSORSTORE_FLOATINLINE bool operator<=(const Derived& other) const {
     return Compare(derived(), other) <= Ordering::kEquivalent;
   }
 
-  bool operator>(const Derived& other) const {
+  TENSORSTORE_FLOATINLINE bool operator>(const Derived& other) const {
     return Compare(derived(), other) == Ordering::kGreater;
   }
 
-  bool operator>=(const Derived& other) const {
+  TENSORSTORE_FLOATINLINE bool operator>=(const Derived& other) const {
     Ordering ordering = Compare(derived(), other);
     return ordering == Ordering::kGreater || ordering == Ordering::kEquivalent;
   }
 
   // Compound assignment.
-  Derived& operator+=(const Derived& other) {
+  TENSORSTORE_FLOATINLINE Derived& operator+=(const Derived& other) {
     derived() = derived() + other;
     return derived();
   }
 
   // for downsample_nditerable
-  friend float operator+=(const float& a, Derived b) {
+  friend TENSORSTORE_FLOATINLINE float operator+=(const float& a, Derived b) {
     return a + static_cast<float>(b);
   }
 
-  Derived& operator-=(const Derived& other) {
+  TENSORSTORE_FLOATINLINE Derived& operator-=(const Derived& other) {
     derived() = derived() - other;
     return derived();
   }
 
-  Derived& operator*=(const Derived& other) {
+  TENSORSTORE_FLOATINLINE Derived& operator*=(const Derived& other) {
     derived() = derived() * other;
     return derived();
   }
 
-  Derived& operator/=(const Derived& other) {
+  TENSORSTORE_FLOATINLINE Derived& operator/=(const Derived& other) {
     derived() = derived() / other;
     return derived();
   }
@@ -223,14 +234,15 @@ class Float8Base {
   }
 
  private:
-  static std::pair<uint8_t, uint8_t> SignAndMagnitude(Derived x) {
+  static TENSORSTORE_FLOATINLINE std::pair<uint8_t, uint8_t> SignAndMagnitude(
+      Derived x) {
     const uint8_t x_abs_bits = absl::bit_cast<uint8_t>(abs(x));
     const uint8_t x_bits = absl::bit_cast<uint8_t>(x);
-    const uint8_t x_sign = x_bits ^ x_abs_bits;
+    const uint8_t x_sign = (x_bits ^ x_abs_bits) << (CHAR_BIT - Derived::kBits);
     return {x_sign, x_abs_bits};
   }
-  static int8_t SignAndMagnitudeToTwosComplement(uint8_t sign,
-                                                 uint8_t magnitude) {
+  static TENSORSTORE_FLOATINLINE int8_t
+  SignAndMagnitudeToTwosComplement(uint8_t sign, uint8_t magnitude) {
     return magnitude ^ (static_cast<int8_t>(sign) < 0 ? -1 : 0);
   }
 
@@ -492,9 +504,12 @@ struct numeric_limits_float8_base {
   static inline constexpr const bool is_integer = false;
   static inline constexpr const bool is_exact = false;
   static inline constexpr const bool has_quiet_NaN = true;
+// has_denorm and has_denorm_loss are deprecated in C++23.
+#if !defined(__cplusplus) || __cplusplus < 202302L
   static inline constexpr const std::float_denorm_style has_denorm =
       std::denorm_present;
   static inline constexpr const bool has_denorm_loss = false;
+#endif
   static inline constexpr const std::float_round_style round_style =
       std::round_to_nearest;
   static inline constexpr const bool is_bounded = true;
@@ -731,7 +746,8 @@ struct numeric_limits_float8_e4m3fnuz : public numeric_limits_float8_base {
   }
   static constexpr Float8e4m3fnuz infinity() {
     return Float8e4m3fnuz::FromRep(0x80);
-  }  // NaN.
+  }
+  // NaN.
   static constexpr Float8e4m3fnuz quiet_NaN() {
     return Float8e4m3fnuz::FromRep(0x80);
   }
@@ -946,10 +962,13 @@ constexpr inline bool isnan(const Float8e5m2fnuz& a) { return a.rep() == 0x80; }
 
 template <typename Float8>
 constexpr inline bool(isinf)(const Float8Base<Float8>& a) {
-  return std::numeric_limits<Float8>::has_infinity
-             ? abs(a.derived()).rep() ==
-                   std::numeric_limits<Float8>::infinity().rep()
-             : false;  // No inf representation.
+  if constexpr (std::numeric_limits<Float8>::has_infinity) {
+    return abs(a.derived()).rep() ==
+           std::numeric_limits<Float8>::infinity().rep();
+  } else {
+    // No inf representation.
+    return false;
+  }
 }
 
 template <typename Float8>

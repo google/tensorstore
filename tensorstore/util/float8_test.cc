@@ -53,34 +53,33 @@ using std::isfinite;
 using std::isinf;  // NOLINT
 using std::isnan;  // NOLINT
 
-template <typename Float8_>
-class Float8Test : public ::testing::Test {};
-
 // Helper utility for prettier test names.
+template <typename T>
+std::string TypeToName() {
+  if constexpr (std::is_same_v<T, Float8e3m4>) return "Float8e3m4";
+  if constexpr (std::is_same_v<T, Float8e4m3fn>) return "Float8e4m3fn";
+  if constexpr (std::is_same_v<T, Float8e4m3b11fnuz>)
+    return "Float8e4m3b11fnuz";
+  if constexpr (std::is_same_v<T, Float8e5m2>) return "Float8e5m2";
+  if constexpr (std::is_same_v<T, Float8e4m3fnuz>) return "Float8e4m3fnuz";
+  if constexpr (std::is_same_v<T, Float8e5m2fnuz>) return "Float8e5m2fnuz";
+  if constexpr (std::is_same_v<T, long double>) return "long_double";
+  if constexpr (std::is_same_v<T, double>) return "double";
+  if constexpr (std::is_same_v<T, float>) return "float";
+  if constexpr (std::is_same_v<T, tensorstore::BFloat16>) return "BFloat16";
+  if constexpr (std::is_same_v<T, ::half_float::half>) return "float16";
+  if constexpr (std::is_same_v<T, bool>) return "bool";
+  if constexpr (std::is_same_v<T, int32_t>) return "int32_t";
+  if constexpr (std::is_same_v<T, int64_t>) return "int64_t";
+  return "unknown";
+}
+
 struct Float8TestParamNames {
   template <typename TypeParam>
   static std::string GetName(int idx) {
-    if constexpr (std::is_same_v<TypeParam, Float8e3m4>) {
-      return "Float8e3m4";
-    } else if constexpr (std::is_same_v<TypeParam, Float8e4m3fn>) {
-      return "Float8e4m3fn";
-    } else if constexpr (std::is_same_v<TypeParam, Float8e4m3b11fnuz>) {
-      return "Float8e4m3b11fnuz";
-    } else if constexpr (std::is_same_v<TypeParam, Float8e5m2>) {
-      return "Float8e5m2";
-    } else if constexpr (std::is_same_v<TypeParam, Float8e4m3fnuz>) {
-      return "Float8e4m3fnuz";
-    } else if constexpr (std::is_same_v<TypeParam, Float8e5m2fnuz>) {
-      return "Float8e5m2fnuz";
-    }
-    return absl::StrCat(idx);
+    return TypeToName<TypeParam>();
   }
 };
-
-using Float8Types =
-    ::testing::Types<Float8e3m4, Float8e4m3fn, Float8e5m2, Float8e4m3b11fnuz,
-                     Float8e4m3fnuz, Float8e5m2fnuz>;
-TYPED_TEST_SUITE(Float8Test, Float8Types, Float8TestParamNames);
 
 TEST(Float8E3m4Test, NumericLimits) {
   EXPECT_TRUE(isnan(std::numeric_limits<Float8e3m4>::quiet_NaN()));
@@ -258,6 +257,32 @@ TEST(Float8E5m2fnuzTest, NumericLimits) {
   EXPECT_EQ(std::numeric_limits<Float8e5m2fnuz>::is_iec559, false);
   EXPECT_EQ(std::numeric_limits<Float8e5m2fnuz>::has_infinity, false);
   EXPECT_EQ(std::numeric_limits<Float8e5m2fnuz>::has_signaling_NaN, false);
+}
+
+template <typename Float8_>
+class Float8Test : public ::testing::Test {};
+
+using Float8Types =
+    ::testing::Types<Float8e3m4, Float8e4m3fn, Float8e5m2, Float8e4m3b11fnuz,
+                     Float8e4m3fnuz, Float8e5m2fnuz>;
+
+TYPED_TEST_SUITE(Float8Test, Float8Types, Float8TestParamNames);
+
+TYPED_TEST(Float8Test, DefaultConstruction) {
+  using Float = TypeParam;
+  const Float zero(0);
+
+  // sd is static, so it must be zero initialized.
+  static Float sd;
+  EXPECT_EQ(sd, zero);
+
+  // z is zero initialized.
+  Float z{};
+  EXPECT_EQ(z, zero);
+
+  // v is value initialized to zero.
+  Float v = Float();
+  EXPECT_EQ(v, zero);
 }
 
 TYPED_TEST(Float8Test, FromRep) {
@@ -742,12 +767,17 @@ TYPED_TEST(Float8Test, CallTheOperator) {
       EXPECT_THAT((c = a, c /= b),
                   EqOrIsNan<Float8>(Float8{float{a} / float{b}}));
 
-      EXPECT_EQ(a == b, float{a} == float{b}) << float{a} << " vs " << float{b};
-      EXPECT_EQ(a != b, float{a} != float{b});
-      EXPECT_EQ(a < b, float{a} < float{b});
-      EXPECT_EQ(a <= b, float{a} <= float{b});
-      EXPECT_EQ(a > b, float{a} > float{b});
-      EXPECT_EQ(a >= b, float{a} >= float{b});
+#define COMP(x)                         \
+  EXPECT_EQ(a x b, float{a} x float{b}) \
+      << a << #x << b << " vs " << float{a} << #x << float{b}
+
+      COMP(==);
+      COMP(!=);
+      COMP(<);  // NOLINT
+      COMP(<=);
+      COMP(>);  // NOLINT
+      COMP(>=);
+#undef COMP
     }
   }
 }
@@ -775,12 +805,17 @@ TYPED_TEST(Float8Test, CallTheConstOperator) {
       EXPECT_THAT((c = a, c /= b),
                   EqOrIsNan<Float8>(Float8{float{a} / float{b}}));
 
-      EXPECT_EQ(a == b, float{a} == float{b}) << float{a} << " vs " << float{b};
-      EXPECT_EQ(a != b, float{a} != float{b});
-      EXPECT_EQ(a < b, float{a} < float{b}) << float{a} << " vs " << float{b};
-      EXPECT_EQ(a <= b, float{a} <= float{b});
-      EXPECT_EQ(a > b, float{a} > float{b}) << float{a} << " vs " << float{b};
-      EXPECT_EQ(a >= b, float{a} >= float{b});
+#define COMP(x)                         \
+  EXPECT_EQ(a x b, float{a} x float{b}) \
+      << a << #x << b << " vs " << float{a} << #x << float{b}
+
+      COMP(==);
+      COMP(!=);
+      COMP(<);
+      COMP(<=);
+      COMP(>);
+      COMP(>=);
+#undef COMP
     }
   }
 }
@@ -809,29 +844,36 @@ struct Float8CastTestParamNames {
   static std::string GetName(int idx) {
     using first_type = typename TypeParam::first_type;
     using second_type = typename TypeParam::second_type;
-    return absl::StrCat(::testing::internal::GetTypeName<first_type>(), "_",
-                        ::testing::internal::GetTypeName<second_type>());
+    return absl::StrCat(TypeToName<first_type>(), "_",
+                        TypeToName<second_type>());
   }
 };
 
-#define GEN_LONG_DOUBLE_PAIR(Type) std::pair<Type, long double>,
+// clang-format off
+#define GEN_TYPE_PAIRS(T) \
+    std::pair<T, long double>, \
+    std::pair<T, double>, \
+    std::pair<T, float>, \
+    std::pair<T, tensorstore::BFloat16>, \
+    std::pair<T, ::half_float::half>, \
+    std::pair<T, Float8e3m4>, \
+    std::pair<T, Float8e4m3fn>, \
+    std::pair<T, Float8e4m3b11fnuz>, \
+    std::pair<T, Float8e4m3fnuz>, \
+    std::pair<T, Float8e5m2fnuz>, \
+    std::pair<T, Float8e5m2>, \
+    std::pair<T, bool>, \
+    std::pair<T, int32_t>, \
+    std::pair<T, int64_t>
 
-#define GEN_DEST_TYPES(Type)                                             \
-  GEN_LONG_DOUBLE_PAIR(Type)                                             \
-  std::pair<Type, double>, std::pair<Type, float>,                       \
-      std::pair<Type, tensorstore::BFloat16>,                            \
-      std::pair<Type, ::half_float::half>, std::pair<Type, Float8e3m4>,  \
-      std::pair<Type, Float8e4m3fn>, std::pair<Type, Float8e4m3b11fnuz>, \
-      std::pair<Type, Float8e4m3fnuz>, std::pair<Type, Float8e5m2fnuz>,  \
-      std::pair<Type, Float8e5m2>, std::pair<Type, bool>,                \
-      std::pair<Type, int32_t>, std::pair<Type, int64_t>
-
-#define GEN_TYPE_PAIRS()                                             \
-  GEN_DEST_TYPES(Float8e3m4), GEN_DEST_TYPES(Float8e4m3fn),          \
-      GEN_DEST_TYPES(Float8e4m3b11fnuz), GEN_DEST_TYPES(Float8e5m2), \
-      GEN_DEST_TYPES(Float8e4m3fnuz), GEN_DEST_TYPES(Float8e5m2fnuz)
-
-using Float8CastTypePairs = ::testing::Types<GEN_TYPE_PAIRS()>;
+using Float8CastTypePairs = ::testing::Types<
+    GEN_TYPE_PAIRS(Float8e3m4),
+    GEN_TYPE_PAIRS(Float8e4m3fn),
+    GEN_TYPE_PAIRS(Float8e4m3b11fnuz),
+    GEN_TYPE_PAIRS(Float8e5m2),
+    GEN_TYPE_PAIRS(Float8e4m3fnuz),
+    GEN_TYPE_PAIRS(Float8e5m2fnuz)>;
+// clang-format on
 
 template <typename CastPair>
 class Float8CastTest : public ::testing::Test {};

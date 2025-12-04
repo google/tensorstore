@@ -29,6 +29,8 @@
 
 #include "absl/container/inlined_vector.h"
 #include "absl/log/absl_check.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
@@ -272,6 +274,9 @@ template <typename Request>
 void SortRequestsByStartByte(tensorstore::span<Request> requests) {
   std::sort(requests.begin(), requests.end(),
             [](const Request& a, const Request& b) {
+              if (a.byte_range.inclusive_min == b.byte_range.inclusive_min) {
+                return a.byte_range.exclusive_max < b.byte_range.exclusive_max;
+              }
               return a.byte_range.inclusive_min < b.byte_range.inclusive_min;
             });
 }
@@ -281,56 +286,116 @@ template <typename Request>
 void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
                               tensorstore::span<Request> coalesced_requests,
                               kvstore::ReadResult&& read_result) {
-  for (auto& request : coalesced_requests) {
+  static_assert(IsByteRangeReadRequestLikeV<Request>);
+  if (read_result.state == kvstore::ReadResult::kValue) {
+    ABSL_DCHECK_EQ(coalesced_byte_range.size(), read_result.value.size());
+  }
+
+  for (auto& r : coalesced_requests) {
     kvstore::ReadResult sub_read_result;
     sub_read_result.stamp = read_result.stamp;
     sub_read_result.state = read_result.state;
     if (read_result.state == kvstore::ReadResult::kValue) {
-      ABSL_DCHECK_EQ(coalesced_byte_range.size(), read_result.value.size());
-      int64_t request_start =
-          request.byte_range.inclusive_min - coalesced_byte_range.inclusive_min;
-      int64_t request_size = request.byte_range.size();
-      sub_read_result.value =
-          read_result.value.Subcord(request_start, request_size);
+      int64_t inclusive_min =
+          r.byte_range.inclusive_min >= 0
+              ? r.byte_range.inclusive_min
+              : coalesced_byte_range.exclusive_max + r.byte_range.inclusive_min;
+
+      int64_t exclusive_max = r.byte_range.exclusive_max == -1
+                                  ? coalesced_byte_range.exclusive_max
+                                  : r.byte_range.exclusive_max;
+      if (inclusive_min == exclusive_max) {
+        // Satisfy 0-size reads in all valid cases.
+        sub_read_result.value = absl::Cord();
+      } else if (inclusive_min < coalesced_byte_range.inclusive_min ||
+                 exclusive_max > coalesced_byte_range.exclusive_max ||
+                 inclusive_min >= coalesced_byte_range.exclusive_max) {
+        r.promise.SetResult(absl::OutOfRangeError(
+            tensorstore::StrCat("Requested byte range ", r.byte_range,
+                                " is not valid for returned value of size ",
+                                read_result.value.size(), " with byte range ",
+                                coalesced_byte_range)));
+        continue;
+      } else {
+        sub_read_result.value = read_result.value.Subcord(
+            inclusive_min - coalesced_byte_range.inclusive_min,
+            exclusive_max - inclusive_min);
+      }
     }
-    request.promise.SetResult(std::move(sub_read_result));
+    r.promise.SetResult(std::move(sub_read_result));
   }
 }
 
 // Determines a set of coalesced requests that will satisfy all requests in
 // `requests`.
 //
-// \param requests Requests to attempt to coalesce. All byte ranges must have
-//     already been resolved and satisfy `OptionalByteRangeRequest::IsRange()`.
+// \param requests Requests to attempt to coalesce. When the input ranges have
+//     already been resolved and satisfy `OptionalByteRangeRequest::IsRange()`,
+//     then the output ranges will also satisfy `IsRange()`.
 // \param predicate Function with signature `bool (ByteRange
 //     coalesced_byte_range, int64_t next_inclusive_min)` that determines
 //     whether an additional non-overlapping byte range starting at the
 //     specified offset should be coalesced with an existing (possibly
 //     coalesced) byte range. Overlapping byte ranges are always coalesced.
 //     Commonly a `CoalescingOptions` object may be specified as the predicate.
-// \param callback Callback with signature `void (ByteRange
-//     coalesced_byte_range, span<Request> coalesced_requests)` to be invoked
-//     for each coalesced set of requests.
+// \param callback Callback with signature `void (OptionalByteRangeRequest
+//     coalesced_byte_range, tensorstore::span<Request> coalesced_requests)` to
+//     be invoked for each coalesced set of requests.
 template <typename Request, typename Predicate, typename Callback>
 void ForEachCoalescedRequest(tensorstore::span<Request> requests,
                              Predicate predicate, Callback callback) {
-  static_assert(IsByteRangeReadRequestLikeV<Request>);
+  static_assert(std::is_invocable_v<Predicate, ByteRange, int64_t>);
+  static_assert(std::is_invocable_v<Callback, OptionalByteRangeRequest,
+                                    tensorstore::span<Request>>);
 
   SortRequestsByStartByte(requests);
 
+  // Find the first non-suffix request.
   size_t request_i = 0;
+  for (request_i = 0; request_i < requests.size(); ++request_i) {
+    if (!requests[request_i].byte_range.IsSuffixLength()) {
+      break;
+    }
+  }
+
+  // If the first request is a full request, then all requests may be issued
+  // as a combined request for the full range.
+  if (request_i < requests.size() && requests[request_i].byte_range.IsFull()) {
+    OptionalByteRangeRequest full_byte_range;
+    callback(full_byte_range, requests);
+    return;
+  }
+
+  // Otherwise all suffix requests can be issued together, but they cannot be
+  // coalesced with other requests.
+  if (request_i != 0) {
+    OptionalByteRangeRequest coalesced_byte_range = requests[0].byte_range;
+    callback(coalesced_byte_range, requests.subspan(0, request_i));
+  }
+
   while (request_i < requests.size()) {
-    auto coalesced_byte_range = requests[request_i].byte_range.AsByteRange();
+    // Coalesce overlapping requests.
+    OptionalByteRangeRequest coalesced_byte_range =
+        requests[request_i].byte_range;
+
     size_t end_request_i;
     for (end_request_i = request_i + 1; end_request_i < requests.size();
          ++end_request_i) {
-      auto next_byte_range = requests[end_request_i].byte_range.AsByteRange();
-      if (next_byte_range.inclusive_min < coalesced_byte_range.exclusive_max ||
-          predicate(coalesced_byte_range, next_byte_range.inclusive_min)) {
+      if (coalesced_byte_range.exclusive_max == -1) {
+        end_request_i = requests.size();
+        break;
+      }
+      auto next_byte_range = requests[end_request_i].byte_range;
+      if (next_byte_range.inclusive_min >= coalesced_byte_range.exclusive_max &&
+          !predicate(coalesced_byte_range.AsByteRange(),
+                     next_byte_range.inclusive_min)) {
+        break;
+      }
+      if (next_byte_range.IsRange()) {
         coalesced_byte_range.exclusive_max = std::max(
             coalesced_byte_range.exclusive_max, next_byte_range.exclusive_max);
       } else {
-        break;
+        coalesced_byte_range.exclusive_max = -1;
       }
     }
     callback(coalesced_byte_range,
@@ -406,9 +471,9 @@ struct CoalescingOptions {
   // Maximum target size for coalescing. Once this size limit is reached,
   // additional non-overlapping requests won't be added. However, this limit may
   // still be exceeded if an individual request, or set of overlapping requests,
-  // exceeds this size. This can be set to balance per-request overhead with
-  // additional parallelism that may be obtained from a greater number of
-  // requests.
+  // exceeds this size, or when reading to the end of a file.
+  // This can be set to balance per-request overhead with additional parallelism
+  // that may be obtained from a greater number of requests.
   int64_t target_coalesced_size = std::numeric_limits<int64_t>::max();
 
   // Checks if a new byte range starting at `next_inclusive_min` should be

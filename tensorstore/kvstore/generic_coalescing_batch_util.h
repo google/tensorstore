@@ -90,14 +90,18 @@ struct GenericCoalescingBatchReadEntry
     // all individual coalesced reads complete.
     internal::IntrusivePtr<GenericCoalescingBatchReadEntry> self(
         this, internal::adopt_object_ref);
+    // PRECONDITION: Each request's byte_range satisfies the IsRange()
+    // constraint. See `HandleBatchRequestByGenericByteRangeCoalescing`.
     ForEachCoalescedRequest<Request>(
         request_batch.requests, this->driver().GetBatchReadCoalescingOptions(),
-        [&](ByteRange coalesced_byte_range, span<Request> coalesced_requests) {
+        [&](OptionalByteRangeRequest coalesced_byte_range,
+            tensorstore::span<Request> coalesced_requests) {
+          auto current_range = coalesced_byte_range.AsByteRange();
           kvstore::ReadOptions options;
           options.generation_conditions =
               std::get<kvstore::ReadGenerationConditions>(batch_entry_key);
           options.staleness_bound = request_batch.staleness_bound;
-          options.byte_range = coalesced_byte_range;
+          options.byte_range = current_range;
           auto read_future = this->driver().ReadImpl(
               kvstore::Key(std::get<kvstore::Key>(batch_entry_key)),
               std::move(options));
@@ -105,14 +109,13 @@ struct GenericCoalescingBatchReadEntry
           std::move(read_future)
               .ExecuteWhenReady(WithExecutor(
                   this->driver().executor(),
-                  [self, coalesced_byte_range, coalesced_requests](
+                  [self, current_range, coalesced_requests](
                       ReadyFuture<kvstore::ReadResult> future) {
                     TENSORSTORE_ASSIGN_OR_RETURN(
                         auto&& read_result, future.result(),
                         internal_kvstore_batch::SetCommonResult(
                             coalesced_requests, _));
-                    ResolveCoalescedRequests(coalesced_byte_range,
-                                             coalesced_requests,
+                    ResolveCoalescedRequests(current_range, coalesced_requests,
                                              std::move(read_result));
                   }));
         });
