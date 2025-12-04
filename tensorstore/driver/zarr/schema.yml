@@ -17,6 +17,14 @@ allOf:
           Must be specified if the `.metadata.dtype` specified in the array
           metadata has more than one field.
         default: null
+      open_as_void:
+        type: boolean
+        default: false
+        title: Raw byte access mode.
+        description: |
+          When true, opens the array as raw bytes instead of interpreting it
+          as structured data. The resulting array will have an additional
+          dimension representing the byte layout of each element.
       metadata:
         title: Zarr array metadata.
         description: |
