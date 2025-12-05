@@ -151,7 +151,8 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
 
 Result<ZarrMetadataPtr> GetNewMetadata(
     const ZarrPartialMetadata& partial_metadata,
-    const SelectedField& selected_field, const Schema& schema) {
+    const SelectedField& selected_field, const Schema& schema,
+    bool open_as_void) {
   ZarrMetadataPtr metadata = std::make_shared<ZarrMetadata>();
   metadata->zarr_format = partial_metadata.zarr_format.value_or(2);
   metadata->dimension_separator = partial_metadata.dimension_separator.value_or(
@@ -172,7 +173,12 @@ Result<ZarrMetadataPtr> GetNewMetadata(
     // multi-field zarr dtype is desired, it must be specified explicitly.
     TENSORSTORE_ASSIGN_OR_RETURN(
         selected_field_index,
-        GetFieldIndex(*partial_metadata.dtype, selected_field));
+        GetFieldIndex(*partial_metadata.dtype, selected_field, open_as_void));
+    // For void access, use field 0 for metadata creation since we use all
+    // fields as raw bytes
+    if (selected_field_index == kVoidFieldIndex) {
+      selected_field_index = 0;
+    }
     metadata->dtype = *partial_metadata.dtype;
   } else {
     if (!selected_field.empty()) {
@@ -527,7 +533,17 @@ std::string GetFieldNames(const ZarrDType& dtype) {
 }  // namespace
 
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
-                             const SelectedField& selected_field) {
+                             const SelectedField& selected_field,
+                             bool open_as_void) {
+  // Special case: open_as_void requests raw byte access (works for any dtype)
+  if (open_as_void) {
+    if (dtype.fields.empty()) {
+      return absl::FailedPreconditionError(
+          "Requested void access but dtype has no fields");
+    }
+    return kVoidFieldIndex;
+  }
+
   if (selected_field.empty()) {
     if (dtype.fields.size() != 1) {
       return absl::FailedPreconditionError(tensorstore::StrCat(
