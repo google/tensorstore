@@ -128,7 +128,7 @@ present.
 Manifest format
 ^^^^^^^^^^^^^^^
 
-.. |varint| replace:: ``varint``
+.. |varint| replace:: ``uleb128``
 
 .. |header_magic_format| replace:: ``uint32be``
 
@@ -396,7 +396,7 @@ relative_path[i]``.
 ``path_suffix_length[i]``
   Length in bytes of ``path_suffix[i]``.  This is equal to ``length(path[i]) -
   path_prefix_length[i-1]``.
-  
+
 .. _ocdbt-data-file-table-base-path-length:
 
 ``base_path_length[i]``
