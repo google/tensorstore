@@ -39,7 +39,9 @@ using ::tensorstore::internal_metrics::FormatCollectedMetric;
 using ::tensorstore::internal_metrics::IsCollectedMetricNonZero;
 using ::tensorstore::internal_metrics::Units;
 using ::testing::ElementsAre;
+using ::testing::Eq;
 using ::testing::Pair;
+using ::testing::VariantWith;
 
 TEST(CollectTest, IsCollectedMetricNonZero) {
   CollectedMetric metric;
@@ -287,10 +289,10 @@ TEST(CollectTest, CollectedMetricDeltaSizeMismatch) {
   EXPECT_EQ("a", c.metric_name);
 
   ASSERT_EQ(2, c.values.size());
-  EXPECT_THAT(c.values[0].value, 2);
-  EXPECT_THAT(c.values[0].max_value, 10);
-  EXPECT_THAT(c.values[1].value, 13);
-  EXPECT_THAT(c.values[1].max_value, 111);
+  EXPECT_THAT(c.values[0].value, VariantWith<int64_t>(Eq(2)));
+  EXPECT_THAT(c.values[0].max_value, VariantWith<int64_t>(Eq(10)));
+  EXPECT_THAT(c.values[1].value, VariantWith<int64_t>(Eq(13)));
+  EXPECT_THAT(c.values[1].max_value, VariantWith<int64_t>(Eq(111)));
 
   ASSERT_EQ(1, c.histograms.size());
   EXPECT_EQ(5, c.histograms[0].count);
