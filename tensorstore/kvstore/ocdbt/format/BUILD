@@ -118,7 +118,7 @@ tensorstore_cc_library(
     deps = [
         ":format",
         "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:path",
+        "//tensorstore/internal:ascii_set",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/json:value_as",
         "//tensorstore/internal/json_binding",
@@ -129,7 +129,6 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@nlohmann_json//:json",
         "@re2",

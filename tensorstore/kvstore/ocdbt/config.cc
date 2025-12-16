@@ -18,6 +18,7 @@
 
 #include <atomic>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 
 #include "absl/status/status.h"
@@ -252,6 +253,15 @@ ConfigConstraints ConfigState::GetConstraints() const {
     return constraints_;
   }
   return constraints_;
+}
+
+bool operator==(const ConfigConstraints& lhs, const ConfigConstraints& rhs) {
+  return std::tie(lhs.uuid, lhs.manifest_kind, lhs.max_inline_value_bytes,
+                  lhs.max_decoded_node_bytes, lhs.version_tree_arity_log2,
+                  lhs.compression) ==
+         std::tie(rhs.uuid, rhs.manifest_kind, rhs.max_inline_value_bytes,
+                  rhs.max_decoded_node_bytes, rhs.version_tree_arity_log2,
+                  rhs.compression);
 }
 
 }  // namespace internal_ocdbt

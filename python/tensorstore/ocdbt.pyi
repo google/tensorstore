@@ -2,7 +2,12 @@ from __future__ import annotations
 import tensorstore
 import typing
 
-__all__ = ["DistributedCoordinatorServer", "dump"]
+__all__ = [
+    "DistributedCoordinatorServer",
+    "dump",
+    "undump_manifest",
+    "undump_version_tree_node",
+]
 
 
 class DistributedCoordinatorServer:
@@ -105,4 +110,91 @@ def dump(
       >>> ts.ocdbt.dump(store.base,
       ...               btree["entries"][1]["indirect_value"]).result()
       b'ce'
+    """
+
+
+def undump_manifest(dumped_manifest: typing.Any) -> bytes:
+    """
+    Converts a JSON manifest dump to the on-disk manifest format.
+
+    Args:
+      dumped_manifest: The JSON dump of the manifest in the format returned by
+        `.dump`.
+
+    Returns:
+      The on-disk representation of the manifest.
+
+    Group:
+      OCDBT
+
+    Examples:
+    ---------
+
+      >>> store = ts.KvStore.open({
+      ...     "driver": "ocdbt",
+      ...     "base": "memory://"
+      ... }).result()
+      >>> store["a"] = b"b"
+      >>> manifest = ts.ocdbt.dump(store.base).result()
+      >>> encoded = ts.ocdbt.undump_manifest(manifest)
+      >>> assert encoded == store.base["manifest.ocdbt"]
+    """
+
+
+def undump_version_tree_node(
+    dumped_config: typing.Any, dumped_node: typing.Any
+) -> bytes:
+    """
+    Converts a JSON version tree node dump to the on-disk version tree node
+    format.
+
+    Args:
+      dumped_config: The JSON dump of the version tree node's config in the format
+        returned by `.dump`.
+      dumped_node: The JSON dump of the version tree node in the format returned by
+        `.dump`.
+
+    Returns:
+      The on-disk representation of the version tree node.
+
+    Group:
+      OCDBT
+
+    Examples:
+    ---------
+
+      >>> store = ts.KvStore.open({
+      ...     "driver": "ocdbt",
+      ...     "config": {
+      ...         "version_tree_arity_log2": 1
+      ...     },
+      ...     "base": "memory://"
+      ... }).result()
+      >>> store["a"] = b"b"
+      >>> store["a"] = b"c"
+      >>> manifest = ts.ocdbt.dump(store.base).result()
+      >>> manifest
+      {'config': {'compression': {'id': 'zstd'},
+                  'max_decoded_node_bytes': 8388608,
+                  'max_inline_value_bytes': 100,
+                  'uuid': '...',
+                  'version_tree_arity_log2': 1},
+       'version_tree_nodes': [{'commit_time': ...,
+                               'generation_number': 2,
+                               'height': 1,
+                               'location': 'versionnode::d/...',
+                               'num_generations': 2}],
+       'versions': [{'commit_time': ...,
+                     'generation_number': 3,
+                     'root': {'location': 'btreenode::d/...',
+                              'statistics': {'num_indirect_value_bytes': 0,
+                                             'num_keys': 1,
+                                             'num_tree_bytes': 35}},
+                     'root_height': 0}]}
+      >>> version_tree_node_json = ts.ocdbt.dump(
+      ...     store.base, manifest["version_tree_nodes"][0]["location"]).result()
+      >>> encoded = ts.ocdbt.undump_version_tree_node(manifest["config"],
+      ...                                             version_tree_node_json)
+      >>> isinstance(encoded, bytes)
+      True
     """

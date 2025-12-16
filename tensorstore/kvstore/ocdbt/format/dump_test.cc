@@ -37,14 +37,20 @@ namespace {
 
 using ::tensorstore::MatchesJson;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal_ocdbt::BasePath;
 using ::tensorstore::internal_ocdbt::BtreeNode;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::DataFileId;
+using ::tensorstore::internal_ocdbt::DecodeManifest;
+using ::tensorstore::internal_ocdbt::DecodeVersionTreeNode;
 using ::tensorstore::internal_ocdbt::Dump;
 using ::tensorstore::internal_ocdbt::IndirectDataKind;
 using ::tensorstore::internal_ocdbt::IndirectDataReference;
 using ::tensorstore::internal_ocdbt::LabeledIndirectDataReference;
 using ::tensorstore::internal_ocdbt::Manifest;
+using ::tensorstore::internal_ocdbt::UndumpManifest;
+using ::tensorstore::internal_ocdbt::UndumpVersionTreeNode;
+using ::tensorstore::internal_ocdbt::VersionTreeNode;
 using ::testing::HasSubstr;
 
 TEST(LabeledIndirectDataReferenceTest, ParseBtreeNode) {
@@ -174,7 +180,8 @@ TEST(DumpTest, Manifest) {
     x.commit_time = CommitTime{8};
     x.num_generations = 2;
   }
-  EXPECT_THAT(Dump(manifest),
+  ::nlohmann::json dumped_manifest = Dump(manifest);
+  EXPECT_THAT(dumped_manifest,
               MatchesJson({
                   {"config",
                    {{"uuid", "000102030405060708090a0b0c0d0e0f"},
@@ -215,6 +222,12 @@ TEST(DumpTest, Manifest) {
                      {"generation_number", 15},
                      {"root_height", 0}}}},
               }));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
+                                   UndumpManifest(dumped_manifest));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_manifest,
+                                   DecodeManifest(encoded));
+  EXPECT_THAT(Dump(decoded_manifest), MatchesJson(dumped_manifest));
 }
 
 TEST(DumpTest, BtreeLeafNode) {
@@ -327,6 +340,72 @@ TEST(DumpTest, BtreeInteriorNode) {
            }},
           {"height", 2},
       }));
+}
+
+TEST(DumpTest, VersionTreeLeafNodeRoundTrip) {
+  tensorstore::internal_ocdbt::Config config;
+  config.version_tree_arity_log2 = 1;
+  VersionTreeNode node;
+  node.height = 0;
+  node.version_tree_arity_log2 = 1;
+  auto& entries = node.entries.emplace<VersionTreeNode::LeafNodeEntries>();
+  entries.push_back(
+      {/*.root=*/{/*.location=*/{{"a", "b"}, 1, 2},
+                  /*.statistics=*/{/*.num_indirect_value_bytes=*/10,
+                                   /*.num_tree_bytes=*/20,
+                                   /*.num_keys=*/3}},
+       /*.generation_number=*/1,
+       /*.root_height=*/0,
+       /*.commit_time=*/CommitTime{1}});
+  entries.push_back(
+      {/*.root=*/{/*.location=*/{{"c", "d"}, 3, 4},
+                  /*.statistics=*/{/*.num_indirect_value_bytes=*/11,
+                                   /*.num_tree_bytes=*/21,
+                                   /*.num_keys=*/4}},
+       /*.generation_number=*/2,
+       /*.root_height=*/0,
+       /*.commit_time=*/CommitTime{2}});
+  ::nlohmann::json dumped_node = Dump(node);
+  ::nlohmann::json config_json = {{"uuid", "000102030405060708090a0b0c0d0e0f"},
+                                  {"compression", {{"id", "zstd"}}},
+                                  {"max_decoded_node_bytes", 8388608},
+                                  {"max_inline_value_bytes", 100},
+                                  {"version_tree_arity_log2", 1}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded, UndumpVersionTreeNode(config_json, dumped_node));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_node,
+                                   DecodeVersionTreeNode(encoded, BasePath{}));
+  EXPECT_THAT(Dump(decoded_node), MatchesJson(dumped_node));
+}
+
+TEST(DumpTest, VersionTreeInteriorNodeRoundTrip) {
+  tensorstore::internal_ocdbt::Config config;
+  config.version_tree_arity_log2 = 1;
+  VersionTreeNode node;
+  node.height = 1;
+  node.version_tree_arity_log2 = 1;
+  auto& entries = node.entries.emplace<VersionTreeNode::InteriorNodeEntries>();
+  entries.push_back({/*.location=*/{{"a", "b"}, 1, 2},
+                     /*.generation_number=*/2,
+                     /*.height=*/0,
+                     /*.num_generations=*/2,
+                     /*.commit_time=*/CommitTime{1}});
+  entries.push_back({/*.location=*/{{"c", "d"}, 3, 4},
+                     /*.generation_number=*/4,
+                     /*.height=*/0,
+                     /*.num_generations=*/2,
+                     /*.commit_time=*/CommitTime{2}});
+  ::nlohmann::json dumped_node = Dump(node);
+  ::nlohmann::json config_json = {{"uuid", "000102030405060708090a0b0c0d0e0f"},
+                                  {"compression", {{"id", "zstd"}}},
+                                  {"max_decoded_node_bytes", 8388608},
+                                  {"max_inline_value_bytes", 100},
+                                  {"version_tree_arity_log2", 1}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded, UndumpVersionTreeNode(config_json, dumped_node));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_node,
+                                   DecodeVersionTreeNode(encoded, BasePath{}));
+  EXPECT_THAT(Dump(decoded_node), MatchesJson(dumped_node));
 }
 
 }  // namespace

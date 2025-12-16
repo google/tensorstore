@@ -62,6 +62,23 @@ struct LabeledIndirectDataReference {
 /// Dumps a manifest to a JSON representation.
 ::nlohmann::json Dump(const VersionTreeNode& node);
 
+/// Converts a JSON manifest dump to the on-disk manifest format.
+///
+/// \param dumped_manifest The JSON dump of the manifest.
+///
+/// \return The on-disk representation of the manifest.
+Result<absl::Cord> UndumpManifest(::nlohmann::json dumped_manifest);
+
+/// Converts a JSON version tree node dump to the on-disk version tree node
+/// format.
+///
+/// \param dumped_config The JSON dump of the version tree node's config.
+/// \param dumped_node The JSON dump of the version tree node.
+///
+/// \return The on-disk representation of the version tree node.
+Result<absl::Cord> UndumpVersionTreeNode(::nlohmann::json dumped_config,
+                                         ::nlohmann::json dumped_node);
+
 }  // namespace internal_ocdbt
 }  // namespace tensorstore
 
