@@ -2900,8 +2900,8 @@ in the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="k
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.data_copy_concurrency">
 <span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
-<a class="reference internal" href="../tsgrpc/index.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is typically more
-convenient to specify a default <a class="reference internal" href="../tsgrpc/index.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
+<a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is typically more
+convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
 the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvstore/ocdbt.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
 </dd></dl>
 
@@ -3127,10 +3127,10 @@ present.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">uint64le</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-version"><span class="std std-ref">version</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-manifest-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 </tbody>
 </table>
@@ -3162,19 +3162,19 @@ present.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-config-manifest-kind"><span class="std std-ref">manifest_kind</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-max-inline-value-bytes"><span class="std std-ref">max_inline_value_bytes</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-config-max-decoded-node-bytes"><span class="std std-ref">max_decoded_node_bytes</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-config-compression-method"><span class="std std-ref">compression_method</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-compression-configuration"><span class="std std-ref">Compression configuration</span></a></p></td>
 <td></td>
@@ -3323,19 +3323,19 @@ child nodes is equal to <code class="docutils literal notranslate"><span class="
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p>1</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-data-file-table-path-prefix-length"><span class="std std-ref">path_prefix_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a> - 1</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-data-file-table-path-suffix-length"><span class="std std-ref">path_suffix_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-data-file-table-base-path-length"><span class="std std-ref">base_path_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-data-file-table-path-suffix"><span class="std std-ref">path_suffix[i]</span></a></p></td>
@@ -3402,10 +3402,10 @@ depending on the <a class="reference internal" href="#ocdbt-version-tree-height"
 <td><p><code class="docutils literal notranslate"><span class="pre">uint64le</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-version"><span class="std std-ref">version</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 </tbody>
 </table>
@@ -3478,11 +3478,11 @@ specified in the manifest from which this node was reached.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p>1</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-generation-number"><span class="std std-ref">generation_number[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-root-height"><span class="std std-ref">root_height[i]</span></a></p></td>
@@ -3490,27 +3490,27 @@ specified in the manifest from which this node was reached.</p>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-length"><span class="std std-ref">data_file_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-keys"><span class="std std-ref">num_keys[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-tree-bytes"><span class="std std-ref">num_tree_bytes[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-indirect-value-bytes"><span class="std std-ref">num_indirect_value_bytes[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-commit-time"><span class="std std-ref">commit_time[i]</span></a></p></td>
@@ -3606,27 +3606,27 @@ differs, as described below.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p>1</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-generation-number"><span class="std std-ref">generation_number[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-data-file-length"><span class="std std-ref">data_file_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-generations"><span class="std std-ref">num_generations[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-commit-time"><span class="std std-ref">commit_time[i]</span></a></p></td>
@@ -3766,10 +3766,10 @@ depending on the <a class="reference internal" href="#ocdbt-btree-node-height"><
 <td><p><code class="docutils literal notranslate"><span class="pre">uint64le</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-version"><span class="std std-ref">version</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 </tbody>
 </table>
@@ -3806,7 +3806,7 @@ depending on the <a class="reference internal" href="#ocdbt-btree-node-height"><
 <td><p><a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">Data file table format</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 </tbody>
 </table>
@@ -3839,11 +3839,11 @@ prefix that must be prepended to this <code class="docutils literal notranslate"
 <td><p>Count</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-key-prefix-length"><span class="std std-ref">key_prefix_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a> - 1</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-key-suffix-length"><span class="std std-ref">key_suffix_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-key-suffix"><span class="std std-ref">key_suffix[i]</span></a></p></td>
@@ -3851,19 +3851,19 @@ prefix that must be prepended to this <code class="docutils literal notranslate"
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-value-length"><span class="std std-ref">value_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-value-kind"><span class="std std-ref">value_kind[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-id"><span class="std std-ref">data_file_id[k]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-indirect-entries"><span class="std std-ref">num_indirect_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-offset"><span class="std std-ref">data_file_offset[k]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-indirect-entries"><span class="std std-ref">num_indirect_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-value"><span class="std std-ref">value[j]</span></a></p></td>
@@ -3949,15 +3949,15 @@ the full <code class="docutils literal notranslate"><span class="pre">key</span>
 <td><p>Count</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-prefix-length"><span class="std std-ref">key_prefix_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a> - 1</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-suffix-length"><span class="std std-ref">key_suffix_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-subtree-common-prefix-length"><span class="std std-ref">subtree_common_prefix_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-suffix"><span class="std std-ref">key_suffix[i]</span></a></p></td>
@@ -3965,27 +3965,27 @@ the full <code class="docutils literal notranslate"><span class="pre">key</span>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-data-file-length"><span class="std std-ref">data_file_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-num-keys"><span class="std std-ref">num_keys[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-num-tree-bytes"><span class="std std-ref">num_tree_bytes[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-num-indirect-value-bytes"><span class="std std-ref">num_indirect_value_bytes[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">uleb128</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 </tbody>
