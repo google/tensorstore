@@ -472,3 +472,29 @@ tensorstore_cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_test(
+    name = "live_read_test",
+    srcs = ["live_read_test.cc"],
+    deps = [
+        ":all_drivers",  # buildcleaner: keep
+        ":byte_range",
+        ":generation",
+        ":kvstore",
+        ":test_util",
+        "//tensorstore:batch",
+        "//tensorstore:context",
+        "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:registry",
+        "//tensorstore/util:future",
+        "//tensorstore/util:json_absl_flag",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:string_view",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest",
+    ],
+)
