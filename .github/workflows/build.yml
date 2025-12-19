@@ -25,7 +25,7 @@ jobs:
             wheel_identifier: macos_arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Need full history to determine version number.
           fetch-depth: 0
@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
@@ -63,7 +63,7 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.cibw_build }}
       - name: Upload wheels as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-wheels-${{ matrix.wheel_identifier }}
           path: |
@@ -77,7 +77,7 @@ jobs:
     needs:
       - "python-build-package"
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: python-wheels-*
           path: dist
