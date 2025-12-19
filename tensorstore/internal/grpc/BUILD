@@ -44,6 +44,7 @@ tensorstore_cc_library(
         "//tensorstore/proto:proto_util",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/strings",
         "@com_google_protobuf//:protobuf",
         "@grpc//:grpc++",
     ],

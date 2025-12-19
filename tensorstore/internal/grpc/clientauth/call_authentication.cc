@@ -19,14 +19,22 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/base/attributes.h"
+#include "absl/log/absl_log.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_grpc {
+namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("grpc");
+
+}
 
 std::shared_ptr<grpc::ChannelCredentials>
 GrpcCallCredentialsAuthentication::GetChannelCredentials(
@@ -48,6 +56,7 @@ GrpcCallCredentialsAuthentication::ConfigureContext(
 std::shared_ptr<GrpcAuthenticationStrategy>
 CreateAccessTokenAuthenticationStrategy(const std::string& token,
                                         const CaInfo& ca_info) {
+  ABSL_LOG_IF(INFO, verbose_logging) << "Using access_token credentials";
   grpc::SslCredentialsOptions ssl_options;
   auto cainfo = LoadCAInfo(ca_info);
   if (cainfo) ssl_options.pem_root_certs = std::move(*cainfo);
@@ -58,6 +67,7 @@ CreateAccessTokenAuthenticationStrategy(const std::string& token,
 std::shared_ptr<GrpcAuthenticationStrategy>
 CreateServiceAccountAuthenticationStrategy(const std::string& json_object,
                                            const CaInfo& ca_info) {
+  ABSL_LOG_IF(INFO, verbose_logging) << "Using service_account credentials";
   grpc::SslCredentialsOptions ssl_options;
   auto cainfo = LoadCAInfo(ca_info);
   if (cainfo) ssl_options.pem_root_certs = std::move(*cainfo);

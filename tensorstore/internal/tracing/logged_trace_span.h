@@ -95,7 +95,7 @@ class LoggedTraceSpan : public LocalTraceSpan {
     if (id_) {
       EndLog(
           absl::LogInfoStreamer(location.file_name(), location.line()).stream())
-          << status;
+          << " " << status;
       id_ = 0;
     }
     return status;

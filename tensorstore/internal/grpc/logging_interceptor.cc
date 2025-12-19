@@ -14,10 +14,13 @@
 
 #include "tensorstore/internal/grpc/logging_interceptor.h"
 
+#include <map>
+#include <string>
 #include <string_view>
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
+#include "absl/strings/str_cat.h"
 #include "grpcpp/support/client_interceptor.h"  // third_party
 #include "grpcpp/support/interceptor.h"  // third_party
 #include "google/protobuf/message.h"
@@ -34,7 +37,7 @@ namespace tensorstore {
 namespace internal_grpc {
 namespace {
 
-ABSL_CONST_INIT internal_log::VerboseFlag grpc_logging("grpc_channel");
+ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("grpc_channel");
 
 // Implements detailed logging for gRPC calls to GCS.
 class LoggingInterceptor : public Interceptor {
@@ -44,46 +47,69 @@ class LoggingInterceptor : public Interceptor {
   std::string_view method_name() const { return info_->method(); }
 
   void Intercept(InterceptorBatchMethods* methods) override {
-    if (!grpc_logging) {
+    if (!verbose_logging) {
       methods->Proceed();
       return;
     }
+
+    std::string log;
+
+    std::multimap<std::string, std::string>* metadata = nullptr;
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
+      metadata = methods->GetSendInitialMetadata();
+    }
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::PRE_SEND_STATUS)) {
+      metadata = methods->GetSendTrailingMetadata();
+    }
+    if (metadata != nullptr) {
+      absl::StrAppend(&log, "Metadata:");
+      for (const auto& [key, value] : *metadata) {
+        absl::StrAppend(&log, " ", key, ": ", value);
+      }
+    }
+
     if (methods->QueryInterceptionHookPoint(
             InterceptionHookPoints::PRE_SEND_MESSAGE)) {
       auto* message =
           static_cast<const google::protobuf::Message*>(methods->GetSendMessage());
-      bool is_first_message = !started_;
-      started_ = true;
-      if (grpc_logging.Level(2)) {
-        ABSL_LOG(INFO) << "Begin: " << method_name() << " "
-                       << ConciseDebugString(*message);
-      } else if (is_first_message) {
-        ABSL_LOG(INFO) << "Begin: " << method_name();
+      if (verbose_logging.Level(2) && message != nullptr) {
+        absl::StrAppend(&log, log.empty() ? "" : "\n",
+                        "Request: ", ConciseDebugString(*message));
       }
-    }
-    if (grpc_logging.Level(2) &&
-        methods->QueryInterceptionHookPoint(
-            InterceptionHookPoints::POST_RECV_MESSAGE)) {
-      ABSL_LOG(INFO) << method_name() << " "
-                     << ConciseDebugString(*static_cast<const google::protobuf::Message*>(
-                            methods->GetRecvMessage()));
     }
     if (methods->QueryInterceptionHookPoint(
-            InterceptionHookPoints::POST_RECV_STATUS)) {
-      if (auto* status = methods->GetRecvStatus();
-          status != nullptr && !status->ok()) {
-        ABSL_LOG(INFO) << "Error: " << method_name() << " "
-                       << internal::GrpcStatusToAbslStatus(*status);
-      } else {
-        ABSL_LOG(INFO) << "End: " << method_name();
+            InterceptionHookPoints::POST_RECV_MESSAGE)) {
+      auto* message =
+          static_cast<const google::protobuf::Message*>(methods->GetRecvMessage());
+      if (verbose_logging.Level(2) && message != nullptr) {
+        absl::StrAppend(&log, log.empty() ? "" : "\n",
+                        "Response: ", ConciseDebugString(*message));
       }
     }
+
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::PRE_SEND_STATUS)) {
+      if (auto status = methods->GetSendStatus(); !status.ok()) {
+        absl::StrAppend(&log, log.empty() ? "" : "\n", "Send Status: ",
+                        internal::GrpcStatusToAbslStatus(status));
+      }
+    }
+
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::POST_RECV_STATUS)) {
+      if (auto* status = methods->GetRecvStatus(); status != nullptr) {
+        absl::StrAppend(&log, log.empty() ? "" : "\n", "Recv Status: ",
+                        internal::GrpcStatusToAbslStatus(*status));
+      }
+    }
+    ABSL_LOG_IF(INFO, !log.empty()) << method_name() << " " << log;
     methods->Proceed();
   }
 
  private:
   const ClientRpcInfo* info_;
-  bool started_ = false;
 };
 
 }  // namespace

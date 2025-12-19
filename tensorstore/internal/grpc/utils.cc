@@ -17,9 +17,12 @@
 #include <grpcpp/support/status.h>
 
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/status.h"
 
@@ -50,17 +53,42 @@ TENSORSTORE_STATUS_ASSERT(UNAUTHENTICATED, kUnauthenticated);
 
 namespace tensorstore {
 namespace internal {
+namespace {
 
-absl::Status GrpcStatusToAbslStatus(grpc::Status s, SourceLocation loc) {
-  if (s.ok()) return absl::OkStatus();
+template <typename T, typename = void>
+struct HasAbslStatusOperator : std::false_type {};
+
+template <typename T>
+struct HasAbslStatusOperator<
+    T, std::void_t<decltype(std::declval<const T&>().operator absl::Status())>>
+    : std::true_type {};
+
+// Overload for when operator exists
+template <typename T,
+          std::enable_if_t<HasAbslStatusOperator<T>::value, int> = 0>
+absl::Status ToAbslStatusImpl(const T& s) {
+  return s.operator absl::Status();
+}
+
+// Overload for when operator does not exist
+template <typename T,
+          std::enable_if_t<!HasAbslStatusOperator<T>::value, int> = 0>
+absl::Status ToAbslStatusImpl(const T& s) {
   auto absl_code = static_cast<absl::StatusCode>(s.error_code());
   absl::Status status(absl_code, s.error_message());
-  MaybeAddSourceLocation(status, loc);
-
   if (!s.error_details().empty()) {
     // NOTE: Is error_details() a serialized protobuf::Any?
     status.SetPayload("grpc.Status.details", absl::Cord(s.error_details()));
   }
+  return status;
+}
+
+}  // namespace
+
+absl::Status GrpcStatusToAbslStatus(grpc::Status s, SourceLocation loc) {
+  if (s.ok()) return absl::OkStatus();
+  absl::Status status = ToAbslStatusImpl(s);
+  MaybeAddSourceLocation(status, loc);
   return status;
 }
 

@@ -18,6 +18,7 @@
 #include <grpcpp/support/status.h>
 
 #include "absl/status/status.h"
+#include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {

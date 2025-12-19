@@ -21,6 +21,8 @@
 #include <utility>
 
 #include "google/iam/credentials/v1/common.pb.h"
+#include "absl/base/attributes.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -31,18 +33,26 @@
 #include "tensorstore/internal/grpc/clientauth/access_token_cache.h"
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/clientauth/iam_stub.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_grpc {
+namespace {
 
+ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("grpc");
+
+}
 /* static */
 std::shared_ptr<GrpcImpersonateServiceAccount>
 GrpcImpersonateServiceAccount::Create(
     const ImpersonateServiceAccountConfig& config, const CaInfo& ca_info,
     std::shared_ptr<GrpcAuthenticationStrategy> base_strategy) {
+  ABSL_LOG_IF(INFO, verbose_logging)
+      << "Using impersonate_service_account credentials";
+
   auto source = CreateIamCredentialsSource(
       base_strategy, /*endpoint=*/{}, config.target_service_account,
       config.lifetime, config.scopes, config.delegates);

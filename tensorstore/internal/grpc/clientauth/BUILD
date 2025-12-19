@@ -66,7 +66,10 @@ tensorstore_cc_library(
     hdrs = ["channel_authentication.h"],
     deps = [
         ":authentication_strategy",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/util:future",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_log",
         "@grpc//:grpc++",
     ],
 )
@@ -77,7 +80,10 @@ tensorstore_cc_library(
     hdrs = ["call_authentication.h"],
     deps = [
         ":authentication_strategy",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/util:future",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_log",
         "@grpc//:grpc++",
     ],
 )
@@ -91,9 +97,12 @@ tensorstore_cc_library(
         ":access_token_cache",
         ":authentication_strategy",
         ":iam_stub",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",

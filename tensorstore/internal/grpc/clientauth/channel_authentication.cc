@@ -20,14 +20,22 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
+#include "absl/log/absl_log.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_grpc {
+namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("grpc");
+
+}
 
 std::shared_ptr<grpc::ChannelCredentials>
 GrpcChannelCredentialsAuthentication::GetChannelCredentials(
@@ -48,6 +56,7 @@ GrpcChannelCredentialsAuthentication::ConfigureContext(
 /// Creates an "insecure" authentication strategy with the given token.
 std::shared_ptr<GrpcAuthenticationStrategy>
 CreateInsecureAuthenticationStrategy() {
+  ABSL_LOG_IF(INFO, verbose_logging) << "Using insecure credentials";
   return std::make_shared<GrpcChannelCredentialsAuthentication>(
       grpc::InsecureChannelCredentials());
 }
@@ -55,6 +64,7 @@ CreateInsecureAuthenticationStrategy() {
 /// Creates a "google_default" authentication strategy.
 std::shared_ptr<GrpcAuthenticationStrategy>
 CreateGoogleDefaultAuthenticationStrategy() {
+  ABSL_LOG_IF(INFO, verbose_logging) << "Using google_default credentials";
   return std::make_shared<GrpcChannelCredentialsAuthentication>(
       grpc::GoogleDefaultCredentials());
 }
@@ -63,6 +73,7 @@ std::shared_ptr<GrpcAuthenticationStrategy>
 CreateExternalAccountAuthenticationStrategy(
     const std::string& json_object, const std::vector<std::string>& scopes,
     const CaInfo& ca_info) {
+  ABSL_LOG_IF(INFO, verbose_logging) << "Using external_account credentials";
   grpc::SslCredentialsOptions ssl_options;
   auto cainfo = LoadCAInfo(ca_info);
   if (cainfo) ssl_options.pem_root_certs = std::move(*cainfo);
