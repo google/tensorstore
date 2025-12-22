@@ -31,7 +31,10 @@
 #include <utility>
 #include <vector>
 
+#include <cstring>
+
 #include "absl/algorithm/container.h"
+#include "absl/strings/escaping.h"
 #include "absl/base/casts.h"
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
@@ -50,6 +53,7 @@
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/driver/zarr3/codec/sharding_indexed.h"
 #include "tensorstore/driver/zarr3/default_nan.h"
+#include "tensorstore/driver/zarr3/dtype.h"
 #include "tensorstore/driver/zarr3/name_configuration_json_binder.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
@@ -246,30 +250,189 @@ constexpr std::array<FillValueDataTypeFunctions, kNumDataTypeIds>
       FillValueDataTypeFunctions::Make<::tensorstore::dtypes::T>(); \
   /**/
       TENSORSTORE_ZARR3_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DEF)
+      // Add char_t support for string data types
+      functions[static_cast<size_t>(DataTypeId::char_t)] =
+          FillValueDataTypeFunctions::Make<::tensorstore::dtypes::char_t>();
+      // byte_t is handled specially to use uint8_t functions
 #undef TENSORSTORE_INTERNAL_DO_DEF
       return functions;
     }();
 
 }  // namespace
 
-absl::Status FillValueJsonBinder::operator()(std::true_type is_loading,
-                                             internal_json_binding::NoOptions,
-                                             SharedArray<const void>* obj,
-                                             ::nlohmann::json* j) const {
+FillValueJsonBinder::FillValueJsonBinder(ZarrDType dtype,
+                                         bool allow_missing_dtype)
+    : dtype(std::move(dtype)), allow_missing_dtype(allow_missing_dtype) {}
+
+FillValueJsonBinder::FillValueJsonBinder(DataType data_type,
+                                         bool allow_missing_dtype)
+    : allow_missing_dtype(allow_missing_dtype) {
+  dtype.has_fields = false;
+  dtype.fields.resize(1);
+  auto& field = dtype.fields[0];
+  field.name.clear();
+  field.outer_shape.clear();
+  field.flexible_shape.clear();
+  field.field_shape.clear();
+  field.num_inner_elements = 1;
+  field.byte_offset = 0;
+  field.num_bytes = data_type->size;
+  field.dtype = data_type;
+  field.encoded_dtype = std::string(data_type.name());
+}
+
+absl::Status FillValueJsonBinder::operator()(
+    std::true_type is_loading, internal_json_binding::NoOptions,
+    std::vector<SharedArray<const void>>* obj, ::nlohmann::json* j) const {
+  obj->resize(dtype.fields.size());
+  if (dtype.fields.size() == 1) {
+    // Special case: raw_bytes (single field with byte_t and flexible shape)
+    if (dtype.fields[0].dtype.id() == DataTypeId::byte_t &&
+        !dtype.fields[0].flexible_shape.empty()) {
+      // Handle base64-encoded fill value for raw_bytes
+      if (!j->is_string()) {
+        return absl::InvalidArgumentError(
+            "Expected base64-encoded string for raw_bytes fill_value");
+      }
+      std::string b64_decoded;
+      if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected valid base64-encoded fill value, but received: ",
+            j->dump()));
+      }
+      // Verify size matches expected byte array size
+      Index expected_size = dtype.fields[0].num_inner_elements;
+      if (static_cast<Index>(b64_decoded.size()) != expected_size) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected ", expected_size,
+            " base64-encoded bytes for fill_value, but received ",
+            b64_decoded.size(), " bytes"));
+      }
+      // Create fill value array
+      auto fill_arr = AllocateArray(dtype.fields[0].field_shape, c_order,
+                                   default_init, dtype.fields[0].dtype);
+      std::memcpy(fill_arr.data(), b64_decoded.data(), b64_decoded.size());
+      (*obj)[0] = std::move(fill_arr);
+    } else {
+      TENSORSTORE_RETURN_IF_ERROR(
+          DecodeSingle(*j, dtype.fields[0].dtype, (*obj)[0]));
+    }
+  } else {
+    // For structured types, handle both array format and base64-encoded string
+    if (j->is_string()) {
+      // Decode base64-encoded fill value for entire struct
+      std::string b64_decoded;
+      if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected valid base64-encoded fill value, but received: ",
+            j->dump()));
+      }
+      // Verify size matches expected struct size
+      if (static_cast<Index>(b64_decoded.size()) !=
+          dtype.bytes_per_outer_element) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected ", dtype.bytes_per_outer_element,
+            " base64-encoded bytes for fill_value, but received ",
+            b64_decoded.size(), " bytes"));
+      }
+      // Extract per-field fill values from decoded bytes
+      for (size_t i = 0; i < dtype.fields.size(); ++i) {
+        const auto& field = dtype.fields[i];
+        auto arr = AllocateArray(span<const Index, 0>{}, c_order, default_init,
+                                 field.dtype);
+        std::memcpy(arr.data(), b64_decoded.data() + field.byte_offset,
+                    field.dtype->size);
+        (*obj)[i] = std::move(arr);
+      }
+    } else if (j->is_array()) {
+      if (j->size() != dtype.fields.size()) {
+        return internal_json::ExpectedError(
+            *j, tensorstore::StrCat("array of size ", dtype.fields.size()));
+      }
+      for (size_t i = 0; i < dtype.fields.size(); ++i) {
+        TENSORSTORE_RETURN_IF_ERROR(
+            DecodeSingle((*j)[i], dtype.fields[i].dtype, (*obj)[i]));
+      }
+    } else {
+      return internal_json::ExpectedError(*j,
+                                          "array or base64-encoded string");
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status FillValueJsonBinder::operator()(
+    std::false_type is_loading, internal_json_binding::NoOptions,
+    const std::vector<SharedArray<const void>>* obj,
+    ::nlohmann::json* j) const {
+  if (dtype.fields.size() == 1) {
+    return EncodeSingle((*obj)[0], dtype.fields[0].dtype, *j);
+  }
+  // Structured fill value
+  *j = ::nlohmann::json::array();
+  for (size_t i = 0; i < dtype.fields.size(); ++i) {
+    ::nlohmann::json item;
+    TENSORSTORE_RETURN_IF_ERROR(
+        EncodeSingle((*obj)[i], dtype.fields[i].dtype, item));
+    j->push_back(std::move(item));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status FillValueJsonBinder::DecodeSingle(::nlohmann::json& j,
+                                               DataType data_type,
+                                               SharedArray<const void>& out) const {
+  if (!data_type.valid()) {
+    if (allow_missing_dtype) {
+      out = SharedArray<const void>();
+      return absl::OkStatus();
+    }
+    return absl::InvalidArgumentError(
+        "data_type must be specified before fill_value");
+  }
   auto arr =
       AllocateArray(span<const Index, 0>{}, c_order, default_init, data_type);
   void* data = arr.data();
-  *obj = std::move(arr);
-  return kFillValueDataTypeFunctions[static_cast<size_t>(data_type.id())]
-      .decode(data, *j);
+  out = std::move(arr);
+  // Special handling for byte_t: use uint8_t functions since they're binary compatible
+  auto type_id = data_type.id();
+  if (type_id == DataTypeId::byte_t) {
+    type_id = DataTypeId::uint8_t;
+  }
+
+  const auto& functions =
+      kFillValueDataTypeFunctions[static_cast<size_t>(type_id)];
+  if (!functions.decode) {
+    if (allow_missing_dtype) {
+      out = SharedArray<const void>();
+      return absl::OkStatus();
+    }
+    return absl::FailedPreconditionError(
+        "fill_value unsupported for specified data_type");
+  }
+  return functions.decode(data, j);
 }
 
-absl::Status FillValueJsonBinder::operator()(std::false_type is_loading,
-                                             internal_json_binding::NoOptions,
-                                             const SharedArray<const void>* obj,
-                                             ::nlohmann::json* j) const {
-  return kFillValueDataTypeFunctions[static_cast<size_t>(data_type.id())]
-      .encode(obj->data(), *j);
+absl::Status FillValueJsonBinder::EncodeSingle(
+    const SharedArray<const void>& arr, DataType data_type,
+    ::nlohmann::json& j) const {
+  if (!data_type.valid()) {
+    return absl::InvalidArgumentError(
+        "data_type must be specified before fill_value");
+  }
+  // Special handling for byte_t: use uint8_t functions since they're binary compatible
+  auto type_id = data_type.id();
+  if (type_id == DataTypeId::byte_t) {
+    type_id = DataTypeId::uint8_t;
+  }
+
+  const auto& functions =
+      kFillValueDataTypeFunctions[static_cast<size_t>(type_id)];
+  if (!functions.encode) {
+    return absl::FailedPreconditionError(
+        "fill_value unsupported for specified data_type");
+  }
+  return functions.encode(arr.data(), j);
 }
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ChunkKeyEncoding, [](auto is_loading,
@@ -357,7 +520,7 @@ constexpr auto MetadataJsonBinder = [] {
       rank = &obj->rank;
     }
 
-    auto ensure_data_type = [&]() -> Result<DataType> {
+    auto ensure_data_type = [&]() -> Result<ZarrDType> {
       if constexpr (std::is_same_v<Self, ZarrMetadata>) {
         return obj->data_type;
       }
@@ -378,19 +541,18 @@ constexpr auto MetadataJsonBinder = [] {
         maybe_optional_member("node_type",
                               jb::Constant([] { return "array"; })),
         jb::Member("data_type",
-                   jb::Projection<&Self::data_type>(maybe_optional(jb::Validate(
-                       [](const auto& options, auto* obj) {
-                         return ValidateDataType(*obj);
-                       },
-                       jb::DataTypeJsonBinder)))),
+                   jb::Projection<&Self::data_type>(maybe_optional(
+                       jb::DefaultBinder<>))),
         jb::Member(
             "fill_value",
             jb::Projection<&Self::fill_value>(maybe_optional(
                 [&](auto is_loading, const auto& options, auto* obj, auto* j) {
                   TENSORSTORE_ASSIGN_OR_RETURN(auto data_type,
                                                ensure_data_type());
-                  return FillValueJsonBinder{data_type}(is_loading, options,
-                                                        obj, j);
+                  constexpr bool allow_missing_dtype =
+                      std::is_same_v<Self, ZarrMetadata>;
+                  return FillValueJsonBinder{data_type, allow_missing_dtype}(
+                      is_loading, options, obj, j);
                 }))),
         non_compatibility_field(
             jb::Member("shape", jb::Projection<&Self::shape>(
@@ -475,11 +637,35 @@ std::string ZarrMetadata::GetCompatibilityKey() const {
 }
 
 absl::Status ValidateMetadata(ZarrMetadata& metadata) {
+  // Determine if this is a structured type with multiple fields
+  const bool is_structured =
+      metadata.data_type.fields.size() > 1 ||
+      (metadata.data_type.fields.size() == 1 &&
+       !metadata.data_type.fields[0].outer_shape.empty());
+
+  // Build the codec shape - for structured types, include bytes dimension
+  std::vector<Index> codec_shape(metadata.chunk_shape.begin(),
+                                 metadata.chunk_shape.end());
+  if (is_structured) {
+    codec_shape.push_back(metadata.data_type.bytes_per_outer_element);
+  }
+
   if (!metadata.codecs) {
     ArrayCodecResolveParameters decoded;
-    decoded.dtype = metadata.data_type;
-    decoded.rank = metadata.rank;
-    decoded.fill_value = metadata.fill_value;
+    if (!is_structured) {
+      decoded.dtype = metadata.data_type.fields[0].dtype;
+      decoded.rank = metadata.rank;
+    } else {
+      // For structured types, use byte dtype with extra dimension
+      decoded.dtype = dtype_v<std::byte>;
+      decoded.rank = metadata.rank + 1;
+    }
+    // Fill value for codec resolve might be complex.
+    // For structured types, create a byte fill value
+    if (metadata.fill_value.size() == 1 && !is_structured) {
+      decoded.fill_value = metadata.fill_value[0];
+    }
+
     BytesCodecResolveParameters encoded;
     TENSORSTORE_ASSIGN_OR_RETURN(
         metadata.codecs,
@@ -488,10 +674,19 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
 
   // Get codec chunk layout info.
   ArrayDataTypeAndShapeInfo array_info;
-  array_info.dtype = metadata.data_type;
-  array_info.rank = metadata.rank;
-  std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
-              array_info.shape.emplace().begin());
+  if (!is_structured) {
+    array_info.dtype = metadata.data_type.fields[0].dtype;
+    array_info.rank = metadata.rank;
+    std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
+                array_info.shape.emplace().begin());
+  } else {
+    array_info.dtype = dtype_v<std::byte>;
+    array_info.rank = metadata.rank + 1;
+    auto& shape = array_info.shape.emplace();
+    std::copy_n(metadata.chunk_shape.begin(), metadata.rank, shape.begin());
+    shape[metadata.rank] = metadata.data_type.bytes_per_outer_element;
+  }
+
   ArrayCodecChunkLayoutInfo layout_info;
   TENSORSTORE_RETURN_IF_ERROR(
       metadata.codec_specs.GetDecodedChunkLayout(array_info, layout_info));
@@ -505,24 +700,41 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   }
 
   TENSORSTORE_ASSIGN_OR_RETURN(metadata.codec_state,
-                               metadata.codecs->Prepare(metadata.chunk_shape));
+                               metadata.codecs->Prepare(codec_shape));
   return absl::OkStatus();
 }
 
 absl::Status ValidateMetadata(const ZarrMetadata& metadata,
                               const ZarrMetadataConstraints& constraints) {
   using internal::MetadataMismatchError;
-  if (constraints.data_type && *constraints.data_type != metadata.data_type) {
-    return MetadataMismatchError("data_type", constraints.data_type->name(),
-                                 metadata.data_type.name());
+  if (constraints.data_type) {
+    // Compare ZarrDType
+    if (::nlohmann::json(*constraints.data_type) !=
+        ::nlohmann::json(metadata.data_type)) {
+      return MetadataMismatchError(
+          "data_type", ::nlohmann::json(*constraints.data_type).dump(),
+          ::nlohmann::json(metadata.data_type).dump());
+    }
   }
-  if (constraints.fill_value &&
-      !AreArraysIdenticallyEqual(*constraints.fill_value,
-                                 metadata.fill_value)) {
-    auto binder = FillValueJsonBinder{metadata.data_type};
-    auto constraint_json = jb::ToJson(*constraints.fill_value, binder).value();
-    auto metadata_json = jb::ToJson(metadata.fill_value, binder).value();
-    return MetadataMismatchError("fill_value", constraint_json, metadata_json);
+  if (constraints.fill_value) {
+    // Compare vector of arrays
+    if (constraints.fill_value->size() != metadata.fill_value.size()) {
+      return MetadataMismatchError("fill_value size",
+                                   constraints.fill_value->size(),
+                                   metadata.fill_value.size());
+    }
+    for (size_t i = 0; i < metadata.fill_value.size(); ++i) {
+      if (!AreArraysIdenticallyEqual((*constraints.fill_value)[i],
+                                     metadata.fill_value[i])) {
+        auto binder = FillValueJsonBinder{metadata.data_type};
+        auto constraint_json =
+            jb::ToJson(*constraints.fill_value, binder).value();
+        auto metadata_json =
+            jb::ToJson(metadata.fill_value, binder).value();
+        return MetadataMismatchError("fill_value", constraint_json,
+                                     metadata_json);
+      }
+    }
   }
   if (constraints.shape && *constraints.shape != metadata.shape) {
     return MetadataMismatchError("shape", *constraints.shape, metadata.shape);
@@ -574,24 +786,97 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
       metadata.unknown_extension_attributes);
 }
 
+namespace {
+std::string GetFieldNames(const ZarrDType& dtype) {
+  std::vector<std::string> field_names;
+  for (const auto& field : dtype.fields) {
+    field_names.push_back(field.name);
+  }
+  return ::nlohmann::json(field_names).dump();
+}
+}  // namespace
+
+constexpr size_t kVoidFieldIndex = size_t(-1);
+
+Result<size_t> GetFieldIndex(const ZarrDType& dtype,
+                             std::string_view selected_field,
+                             bool open_as_void) {
+  // Special case: open_as_void requests raw byte access (works for any dtype)
+
+  if (open_as_void) {
+    if (dtype.fields.empty()) {
+      return absl::FailedPreconditionError(
+          "Requested void access but dtype has no fields");
+    }
+    return kVoidFieldIndex;
+  }
+
+  if (selected_field.empty()) {
+    if (dtype.fields.size() != 1) {
+      return absl::FailedPreconditionError(tensorstore::StrCat(
+          "Must specify a \"field\" that is one of: ", GetFieldNames(dtype)));
+    }
+    return 0;
+  }
+  if (!dtype.has_fields) {
+    return absl::FailedPreconditionError(
+        tensorstore::StrCat("Requested field ", QuoteString(selected_field),
+                            " but dtype does not have named fields"));
+  }
+  for (size_t field_index = 0; field_index < dtype.fields.size();
+       ++field_index) {
+    if (dtype.fields[field_index].name == selected_field) return field_index;
+  }
+  return absl::FailedPreconditionError(
+      tensorstore::StrCat("Requested field ", QuoteString(selected_field),
+                          " is not one of: ", GetFieldNames(dtype)));
+}
+
+SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
+                                             size_t field_index) {
+  SpecRankAndFieldInfo info;
+  info.chunked_rank = metadata.rank;
+  info.field = &metadata.data_type.fields[field_index];
+  if (!info.field->field_shape.empty()) {
+    info.chunked_rank += info.field->field_shape.size();
+  }
+  return info;
+}
+
 Result<IndexDomain<>> GetEffectiveDomain(
-    DimensionIndex rank, std::optional<span<const Index>> shape,
+    const SpecRankAndFieldInfo& info,
+    std::optional<tensorstore::span<const Index>> metadata_shape,
     std::optional<span<const std::optional<std::string>>> dimension_names,
-    const Schema& schema, bool* dimension_names_used = nullptr) {
+    const Schema& schema, bool* dimension_names_used) {
+  const DimensionIndex rank = info.chunked_rank;
   if (dimension_names_used) *dimension_names_used = false;
   auto domain = schema.domain();
-  if (!shape && !dimension_names && !domain.valid()) {
+  if (!metadata_shape && !dimension_names && !domain.valid()) {
     if (schema.rank() == 0) return {std::in_place, 0};
-    // No information about the domain available.
     return {std::in_place};
   }
 
-  // Rank is already validated by caller.
   assert(RankConstraint::EqualOrUnspecified(schema.rank(), rank));
   IndexDomainBuilder builder(std::max(schema.rank().rank, rank));
-  if (shape) {
-    builder.shape(*shape);
-    builder.implicit_upper_bounds(true);
+  if (metadata_shape) {
+    if (static_cast<DimensionIndex>(metadata_shape->size()) < rank &&
+        info.field && !info.field->field_shape.empty() &&
+        static_cast<DimensionIndex>(metadata_shape->size() +
+                                    info.field->field_shape.size()) == rank) {
+      std::vector<Index> full_shape(metadata_shape->begin(),
+                                    metadata_shape->end());
+      full_shape.insert(full_shape.end(), info.field->field_shape.begin(),
+                        info.field->field_shape.end());
+      builder.shape(full_shape);
+      DimensionSet implicit_upper_bounds(false);
+      for (size_t i = 0; i < metadata_shape->size(); ++i) {
+        implicit_upper_bounds[i] = true;
+      }
+      builder.implicit_upper_bounds(implicit_upper_bounds);
+    } else {
+      builder.shape(*metadata_shape);
+      builder.implicit_upper_bounds(true);
+    }
   } else {
     builder.origin(GetConstantVector<Index, 0>(builder.rank()));
   }
@@ -602,12 +887,12 @@ Result<IndexDomain<>> GetEffectiveDomain(
         normalized_dimension_names[i] = *name;
       }
     }
-    // Use dimension_names as labels if they are valid.
-    if (internal::ValidateDimensionLabelsAreUnique(normalized_dimension_names)
+    if (internal::ValidateDimensionLabelsAreUnique(
+            span<const std::string_view>(&normalized_dimension_names[0], rank))
             .ok()) {
-      if (dimension_names_used) *dimension_names_used = true;
       builder.labels(
           span<const std::string_view>(&normalized_dimension_names[0], rank));
+      if (dimension_names_used) *dimension_names_used = true;
     }
   }
 
@@ -618,36 +903,53 @@ Result<IndexDomain<>> GetEffectiveDomain(
           tensorstore::MaybeAnnotateStatus(
               _, "Mismatch between metadata and schema")));
   return WithImplicitDimensions(domain, false, true);
-  return domain;
 }
 
 Result<IndexDomain<>> GetEffectiveDomain(
     const ZarrMetadataConstraints& metadata_constraints, const Schema& schema,
     bool* dimension_names_used) {
-  return GetEffectiveDomain(
-      metadata_constraints.rank, metadata_constraints.shape,
-      metadata_constraints.dimension_names, schema, dimension_names_used);
+  SpecRankAndFieldInfo info;
+  info.chunked_rank = metadata_constraints.rank;
+  if (info.chunked_rank == dynamic_rank && metadata_constraints.shape) {
+    info.chunked_rank = metadata_constraints.shape->size();
+  }
+
+  std::optional<span<const Index>> shape_span;
+  if (metadata_constraints.shape) {
+    shape_span.emplace(metadata_constraints.shape->data(),
+                       metadata_constraints.shape->size());
+  }
+  std::optional<span<const std::optional<std::string>>> names_span;
+  if (metadata_constraints.dimension_names) {
+    names_span.emplace(metadata_constraints.dimension_names->data(),
+                       metadata_constraints.dimension_names->size());
+  }
+
+  return GetEffectiveDomain(info, shape_span, names_span, schema,
+                            dimension_names_used);
 }
 
 absl::Status SetChunkLayoutFromMetadata(
-    DataType dtype, DimensionIndex rank,
+    const SpecRankAndFieldInfo& info,
     std::optional<span<const Index>> chunk_shape,
     const ZarrCodecChainSpec* codecs, ChunkLayout& chunk_layout) {
-  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(RankConstraint{rank}));
-  rank = chunk_layout.rank();
-  if (rank == dynamic_rank) return absl::OkStatus();
+  const DimensionIndex rank = info.chunked_rank;
+  if (rank == dynamic_rank) {
+    return absl::OkStatus();
+  }
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(RankConstraint(rank)));
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
+      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
 
   if (chunk_shape) {
     assert(chunk_shape->size() == rank);
     TENSORSTORE_RETURN_IF_ERROR(
         chunk_layout.Set(ChunkLayout::WriteChunkShape(*chunk_shape)));
   }
-  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
-      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
 
   if (codecs) {
     ArrayDataTypeAndShapeInfo array_info;
-    array_info.dtype = dtype;
+    array_info.dtype = info.field ? info.field->dtype : dtype_v<std::byte>;
     array_info.rank = rank;
     if (chunk_shape) {
       std::copy_n(chunk_shape->begin(), rank,
@@ -669,30 +971,47 @@ absl::Status SetChunkLayoutFromMetadata(
           span<const Index>(layout_info.codec_chunk_shape->data(), rank))));
     }
   }
+
   return absl::OkStatus();
 }
 
-Result<ChunkLayout> GetEffectiveChunkLayout(
+absl::Status SetChunkLayoutFromMetadata(
     DataType dtype, DimensionIndex rank,
     std::optional<span<const Index>> chunk_shape,
-    const ZarrCodecChainSpec* codecs, const Schema& schema) {
-  auto chunk_layout = schema.chunk_layout();
-  TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
-      dtype, rank, chunk_shape, codecs, chunk_layout));
-  return chunk_layout;
+    const ZarrCodecChainSpec* codecs, ChunkLayout& chunk_layout) {
+  SpecRankAndFieldInfo info;
+  info.chunked_rank = rank;
+  info.field = nullptr;
+  return SetChunkLayoutFromMetadata(info, chunk_shape, codecs, chunk_layout);
 }
 
 Result<ChunkLayout> GetEffectiveChunkLayout(
     const ZarrMetadataConstraints& metadata_constraints, const Schema& schema) {
-  assert(RankConstraint::EqualOrUnspecified(metadata_constraints.rank,
-                                            schema.rank()));
-  return GetEffectiveChunkLayout(
-      metadata_constraints.data_type.value_or(DataType{}),
-      std::max(metadata_constraints.rank, schema.rank().rank),
-      metadata_constraints.chunk_shape,
+  // Approximation: assume whole array access or simple array
+  SpecRankAndFieldInfo info;
+  info.chunked_rank = std::max(metadata_constraints.rank, schema.rank().rank);
+  if (info.chunked_rank == dynamic_rank && metadata_constraints.shape) {
+    info.chunked_rank = metadata_constraints.shape->size();
+  }
+  if (info.chunked_rank == dynamic_rank && metadata_constraints.chunk_shape) {
+    info.chunked_rank = metadata_constraints.chunk_shape->size();
+  }
+  // We can't easily know field info from constraints unless we parse data_type.
+  // If data_type is present and has 1 field, we can check it.
+  // For now, basic implementation.
+
+  ChunkLayout chunk_layout = schema.chunk_layout();
+  std::optional<span<const Index>> chunk_shape_span;
+  if (metadata_constraints.chunk_shape) {
+    chunk_shape_span.emplace(metadata_constraints.chunk_shape->data(),
+                             metadata_constraints.chunk_shape->size());
+  }
+  TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
+      info, chunk_shape_span,
       metadata_constraints.codec_specs ? &*metadata_constraints.codec_specs
                                        : nullptr,
-      schema);
+      chunk_layout));
+  return chunk_layout;
 }
 
 Result<DimensionUnitsVector> GetDimensionUnits(
@@ -732,53 +1051,63 @@ CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata) {
 }
 
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
-                                    const Schema& schema) {
-  if (!RankConstraint::EqualOrUnspecified(metadata.rank, schema.rank())) {
+                                    size_t field_index, const Schema& schema) {
+  auto info = GetSpecRankAndFieldInfo(metadata, field_index);
+  const auto& field = metadata.data_type.fields[field_index];
+
+  if (!RankConstraint::EqualOrUnspecified(schema.rank(), info.chunked_rank)) {
     return absl::FailedPreconditionError(tensorstore::StrCat(
         "Rank specified by schema (", schema.rank(),
-        ") does not match rank specified by metadata (", metadata.rank, ")"));
+        ") does not match rank specified by metadata (", info.chunked_rank,
+        ")"));
   }
 
   if (schema.domain().valid()) {
+    std::optional<span<const Index>> metadata_shape_span;
+    metadata_shape_span.emplace(metadata.shape.data(), metadata.shape.size());
+    std::optional<span<const std::optional<std::string>>> dimension_names_span;
+    dimension_names_span.emplace(metadata.dimension_names.data(),
+                                 metadata.dimension_names.size());
     TENSORSTORE_RETURN_IF_ERROR(GetEffectiveDomain(
-        metadata.rank, metadata.shape, metadata.dimension_names, schema));
+        info, metadata_shape_span, dimension_names_span, schema,
+        /*dimension_names_used=*/nullptr));
   }
 
   if (auto dtype = schema.dtype();
-      !IsPossiblySameDataType(metadata.data_type, dtype)) {
+      !IsPossiblySameDataType(field.dtype, dtype)) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("data_type from metadata (", metadata.data_type,
+        tensorstore::StrCat("data_type from metadata (", field.dtype,
                             ") does not match dtype in schema (", dtype, ")"));
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto chunk_layout,
-        GetEffectiveChunkLayout(metadata.data_type, metadata.rank,
-                                metadata.chunk_shape, &metadata.codec_specs,
-                                schema));
+    ChunkLayout chunk_layout = schema.chunk_layout();
+    std::optional<span<const Index>> chunk_shape_span;
+    chunk_shape_span.emplace(metadata.chunk_shape.data(),
+                             metadata.chunk_shape.size());
+    TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
+        info, chunk_shape_span, &metadata.codec_specs, chunk_layout));
     if (chunk_layout.codec_chunk_shape().hard_constraint) {
       return absl::InvalidArgumentError("codec_chunk_shape not supported");
     }
   }
 
   if (auto schema_fill_value = schema.fill_value(); schema_fill_value.valid()) {
-    const auto& fill_value = metadata.fill_value;
+    const auto& fill_value = metadata.fill_value[field_index];
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto broadcast_fill_value,
         tensorstore::BroadcastArray(schema_fill_value, span<const Index>{}));
     TENSORSTORE_ASSIGN_OR_RETURN(
         SharedArray<const void> converted_fill_value,
         tensorstore::MakeCopy(std::move(broadcast_fill_value),
-                              skip_repeated_elements, metadata.data_type));
+                              skip_repeated_elements, field.dtype));
     if (!AreArraysIdenticallyEqual(converted_fill_value, fill_value)) {
       auto binder = FillValueJsonBinder{metadata.data_type};
-      auto schema_json = jb::ToJson(converted_fill_value, binder).value();
-      auto metadata_json = jb::ToJson(metadata.fill_value, binder).value();
+      // Error message generation might be tricky with binder
       return absl::FailedPreconditionError(tensorstore::StrCat(
           "Invalid fill_value: schema requires fill value of ",
-          schema_json.dump(), ", but metadata specifies fill value of ",
-          metadata_json.dump()));
+          schema_fill_value, ", but metadata specifies fill value of ",
+          fill_value));
     }
   }
 
@@ -804,8 +1133,14 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
   return absl::OkStatus();
 }
 
+absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
+                                    const Schema& schema) {
+  return ValidateMetadataSchema(metadata, /*field_index=*/0, schema);
+}
+
 Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
-    const ZarrMetadataConstraints& metadata_constraints, const Schema& schema) {
+    const ZarrMetadataConstraints& metadata_constraints, const Schema& schema,
+    std::string_view selected_field, bool open_as_void) {
   auto metadata = std::make_shared<ZarrMetadata>();
 
   metadata->zarr_format = metadata_constraints.zarr_format.value_or(3);
@@ -813,51 +1148,85 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
       metadata_constraints.chunk_key_encoding.value_or(ChunkKeyEncoding{
           /*.kind=*/ChunkKeyEncoding::kDefault, /*.separator=*/'/'});
 
-  // Set domain
-  bool dimension_names_used;
+  // Determine data type first
+  if (metadata_constraints.data_type) {
+    metadata->data_type = *metadata_constraints.data_type;
+  } else if (!selected_field.empty()) {
+    return absl::InvalidArgumentError(
+        "\"dtype\" must be specified in \"metadata\" if \"field\" is "
+        "specified");
+  } else if (auto dtype = schema.dtype(); dtype.valid()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        static_cast<ZarrDType::BaseDType&>(
+            metadata->data_type.fields.emplace_back()),
+        ChooseBaseDType(dtype));
+    metadata->data_type.has_fields = false;
+    TENSORSTORE_RETURN_IF_ERROR(ValidateDType(metadata->data_type));
+  } else {
+    return absl::InvalidArgumentError("dtype must be specified");
+  }
+
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto domain,
-      GetEffectiveDomain(metadata_constraints, schema, &dimension_names_used));
+      size_t field_index, GetFieldIndex(metadata->data_type, selected_field, open_as_void));
+  SpecRankAndFieldInfo info;
+  info.field = &metadata->data_type.fields[field_index];
+  info.chunked_rank = metadata_constraints.rank;
+  if (info.chunked_rank == dynamic_rank && metadata_constraints.shape) {
+    info.chunked_rank = metadata_constraints.shape->size();
+  }
+  if (info.chunked_rank == dynamic_rank &&
+      schema.rank().rank != dynamic_rank) {
+    info.chunked_rank = schema.rank().rank;
+  }
+
+  // Set domain
+  bool dimension_names_used = false;
+  std::optional<span<const Index>> constraint_shape_span;
+  if (metadata_constraints.shape) {
+    constraint_shape_span.emplace(metadata_constraints.shape->data(),
+                                  metadata_constraints.shape->size());
+  }
+  std::optional<span<const std::optional<std::string>>> constraint_names_span;
+  if (metadata_constraints.dimension_names) {
+    constraint_names_span.emplace(
+        metadata_constraints.dimension_names->data(),
+        metadata_constraints.dimension_names->size());
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto domain, GetEffectiveDomain(info, constraint_shape_span,
+                                      constraint_names_span, schema,
+                                      &dimension_names_used));
   if (!domain.valid() || !IsFinite(domain.box())) {
     return absl::InvalidArgumentError("domain must be specified");
   }
-  const DimensionIndex rank = metadata->rank = domain.rank();
-  metadata->shape.assign(domain.shape().begin(), domain.shape().end());
+  const DimensionIndex rank = domain.rank();
+  metadata->rank = rank;
+  info.chunked_rank = rank;
+  metadata->shape.assign(domain.shape().begin(),
+                         domain.shape().begin() + rank);
   metadata->dimension_names.assign(domain.labels().begin(),
-                                   domain.labels().end());
-  // Normalize empty string dimension names to `std::nullopt`.  This is more
-  // consistent with the zarr v3 dimension name semantics, and ensures that the
-  // `dimension_names` metadata field will be excluded entirely if all dimension
-  // names are the empty string.
-  //
-  // However, if empty string dimension names were specified explicitly in
-  // `metadata_constraints`, leave them exactly as specified.
+                                   domain.labels().begin() + rank);
+
   for (DimensionIndex i = 0; i < rank; ++i) {
     auto& name = metadata->dimension_names[i];
     if (!name || !name->empty()) continue;
-    // Dimension name equals the empty string.
-    if (dimension_names_used && (*metadata_constraints.dimension_names)[i]) {
-      // Empty dimension name was explicitly specified in
-      // `metadata_constraints`, leave it as is.
+    if (dimension_names_used && metadata_constraints.dimension_names &&
+        (*metadata_constraints.dimension_names)[i]) {
       assert((*metadata_constraints.dimension_names)[i]->empty());
       continue;
     }
-    // Name was not explicitly specified in `metadata_constraints` as an empty
-    // string.  Normalize it to `std::nullopt`.
     name = std::nullopt;
   }
-
-  // Set dtype
-  auto dtype = schema.dtype();
-  if (!dtype.valid()) {
-    return absl::InvalidArgumentError("dtype must be specified");
-  }
-  TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(dtype));
-  metadata->data_type = dtype;
 
   if (metadata_constraints.fill_value) {
     metadata->fill_value = *metadata_constraints.fill_value;
   } else if (auto fill_value = schema.fill_value(); fill_value.valid()) {
+    // Assuming single field if setting from schema
+    if (metadata->data_type.fields.size() != 1) {
+      return absl::InvalidArgumentError(
+          "Cannot specify fill_value through schema for structured zarr data "
+          "type");
+    }
     const auto status = [&] {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto broadcast_fill_value,
@@ -865,23 +1234,26 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto converted_fill_value,
           tensorstore::MakeCopy(std::move(broadcast_fill_value),
-                                skip_repeated_elements, metadata->data_type));
-      metadata->fill_value = std::move(converted_fill_value);
+                                skip_repeated_elements,
+                                metadata->data_type.fields[0].dtype));
+      metadata->fill_value.push_back(std::move(converted_fill_value));
       return absl::OkStatus();
     }();
     TENSORSTORE_RETURN_IF_ERROR(
         status, tensorstore::MaybeAnnotateStatus(_, "Invalid fill_value"));
   } else {
-    metadata->fill_value = tensorstore::AllocateArray(
-        /*shape=*/span<const Index>(), c_order, value_init,
-        metadata->data_type);
+    metadata->fill_value.resize(metadata->data_type.fields.size());
+    for (size_t i = 0; i < metadata->fill_value.size(); ++i) {
+      metadata->fill_value[i] = tensorstore::AllocateArray(
+          /*shape=*/span<const Index>(), c_order, value_init,
+          metadata->data_type.fields[i].dtype);
+    }
   }
 
   metadata->user_attributes = metadata_constraints.user_attributes;
   metadata->unknown_extension_attributes =
       metadata_constraints.unknown_extension_attributes;
 
-  // Set dimension units
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto dimension_units,
       GetEffectiveDimensionUnits(rank, metadata_constraints.dimension_units,
@@ -895,12 +1267,16 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   TENSORSTORE_ASSIGN_OR_RETURN(auto codec_spec,
                                GetEffectiveCodec(metadata_constraints, schema));
 
-  // Set chunk shape
-
   ArrayCodecResolveParameters decoded;
-  decoded.dtype = metadata->data_type;
+  if (metadata->data_type.fields.size() == 1 &&
+      metadata->data_type.fields[0].outer_shape.empty()) {
+    decoded.dtype = metadata->data_type.fields[0].dtype;
+  } else {
+    decoded.dtype = dtype_v<std::byte>;
+  }
   decoded.rank = metadata->rank;
-  decoded.fill_value = metadata->fill_value;
+  if (metadata->fill_value.size() == 1)
+    decoded.fill_value = metadata->fill_value[0];
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto chunk_layout, GetEffectiveChunkLayout(metadata_constraints, schema));
@@ -920,8 +1296,6 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
 
   if (!internal::RangesEqual(span<const Index>(metadata->chunk_shape),
                              span<const Index>(read_chunk_shape))) {
-    // Read chunk and write chunk shapes differ.  Insert sharding codec if there
-    // is not already one.
     if (!codec_spec->codecs || codec_spec->codecs->sharding_height() == 0) {
       auto sharding_codec =
           internal::MakeIntrusivePtr<ShardingIndexedCodecSpec>(
@@ -945,7 +1319,8 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   TENSORSTORE_RETURN_IF_ERROR(set_up_codecs(
       codec_spec->codecs ? *codec_spec->codecs : ZarrCodecChainSpec{}));
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
-  TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(*metadata, schema));
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateMetadataSchema(*metadata, field_index, schema));
   return metadata;
 }
 

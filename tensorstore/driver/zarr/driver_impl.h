@@ -63,10 +63,11 @@ class ZarrDriverSpec
   ZarrPartialMetadata partial_metadata;
   SelectedField selected_field;
   std::string metadata_key;
+  bool open_as_void = false;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<KvsDriverSpec>(x), x.partial_metadata,
-             x.selected_field, x.metadata_key);
+             x.selected_field, x.metadata_key, x.open_as_void);
   };
   absl::Status ApplyOptions(SpecOptions&& options) override;
 
@@ -98,7 +99,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
  public:
   explicit DataCache(Initializer&& initializer, std::string key_prefix,
                      DimensionSeparator dimension_separator,
-                     std::string metadata_key);
+                     std::string metadata_key, bool open_as_void = false);
 
   const ZarrMetadata& metadata() {
     return *static_cast<const ZarrMetadata*>(initial_metadata().get());
@@ -117,7 +118,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   /// Returns the ChunkCache grid to use for the given metadata.
   static internal::ChunkGridSpecification GetChunkGridSpecification(
-      const ZarrMetadata& metadata);
+      const ZarrMetadata& metadata, bool open_as_void = false);
 
   Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       span<const Index> chunk_indices, absl::Cord data) override;
@@ -140,6 +141,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   std::string key_prefix_;
   DimensionSeparator dimension_separator_;
   std::string metadata_key_;
+  bool open_as_void_;
 };
 
 class ZarrDriver;
