@@ -24,14 +24,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/os/aligned_alloc.h"
 #include "tensorstore/internal/os/file_info.h"
+#include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
@@ -41,7 +40,7 @@ namespace {
 using ::tensorstore::IsOk;
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::StatusIs;
-using ::tensorstore::internal_os::AllocatePageAlignedRegion;
+using ::tensorstore::internal_os::AllocateAlignedRegion;
 using ::tensorstore::internal_os::DeleteFile;
 using ::tensorstore::internal_os::DeleteOpenFile;
 using ::tensorstore::internal_os::FileInfo;
@@ -299,7 +298,7 @@ TEST(FileUtilTest, OpenDirect) {
   if (alignment == 0) alignment = 512;
 
   // For direct IO, all reads and buffers must be aligned to the block size.
-  auto allocation = AllocatePageAlignedRegion(alignment, expected.size());
+  auto allocation = AllocateAlignedRegion(alignment, expected.size());
   tensorstore::span<char> buffer(allocation.data(), expected.size());
   std::string_view read_buffer(allocation.data(), expected.size());
   {

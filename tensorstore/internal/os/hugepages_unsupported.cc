@@ -1,4 +1,4 @@
-// Copyright 2020 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_OS_ALIGNED_ALLOC_H_
-#define TENSORSTORE_INTERNAL_OS_ALIGNED_ALLOC_H_
+#if defined(_WIN32)
+#error "Use hugepages_win.cc instead."
+#elif defined(__linux__)
+#error "Use hugepages_linux.cc instead."
+#endif
+
+#include "tensorstore/internal/os/hugepages.h"
+//
 
 #include <stddef.h>
-#include <stdint.h>
 
-#include <cstdio>
-#include <cstdlib>
-
+#include "absl/status/status.h"
 #include "tensorstore/internal/os/memory_region.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_os {
 
-/// Try to allocate a region of memory backed the heap, page aligned.
-MemoryRegion AllocatePageAlignedRegion(size_t alignment, size_t size);
+Result<bool> UseAllocateHugePageRegion() { return false; }
+
+Result<MemoryRegion> AllocateHugePageRegion(size_t alignment, size_t size) {
+  return absl::UnimplementedError(
+      "Transparent huge pages are not implemented on this platform");
+}
 
 }  // namespace internal_os
 }  // namespace tensorstore
-
-#endif  // TENSORSTORE_INTERNAL_OS_ALIGNED_ALLOC_H_

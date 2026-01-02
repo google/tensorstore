@@ -18,9 +18,11 @@
 
 #include <utility>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
 
+using ::tensorstore::internal_os::AllocateAlignedRegion;
 using ::tensorstore::internal_os::AllocateHeapRegion;
 
 namespace {
@@ -43,6 +45,17 @@ TEST(MemoryRegionTest, AllocateHeapRegion) {
   // Verify that assignment doesn't leak.
   region = AllocateHeapRegion(16);
   EXPECT_EQ(region.as_string_view().size(), 16);
+
+  absl::Cord a = std::move(region).as_cord();
+}
+
+TEST(AlignedAllocTest, AllocateAlignedRegion) {
+  auto region = AllocateAlignedRegion(1024, 16 * 1024 * 1024);
+  EXPECT_THAT(region.as_string_view().size(), testing::Ge(16 * 1024 * 1024));
+
+  // Verify that assignment doesn't leak.
+  region = AllocateAlignedRegion(1024, 16);
+  EXPECT_THAT(region.as_string_view().size(), testing::Ge(16));
 
   absl::Cord a = std::move(region).as_cord();
 }

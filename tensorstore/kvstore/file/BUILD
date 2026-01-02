@@ -125,10 +125,9 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:path",
-        "//tensorstore/internal/os:aligned_alloc",
         "//tensorstore/internal/os:file_descriptor",
         "//tensorstore/internal/os:file_util",
-        "//tensorstore/internal/os:memory_region",
+        "//tensorstore/internal/os:hugepages",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:division",

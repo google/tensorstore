@@ -73,15 +73,19 @@ class MemoryRegion {
   friend Result<MemoryRegion> MemmapFileReadOnly(void*, size_t, size_t);
   friend Result<MemoryRegion> MemmapFileReadOnly(int, size_t, size_t);
   friend MemoryRegion AllocateHeapRegion(size_t);
-  friend MemoryRegion AllocatePageAlignedRegion(size_t, size_t);
+  friend MemoryRegion AllocateAlignedRegion(size_t, size_t);
+  friend Result<MemoryRegion> AllocateHugePageRegion(size_t, size_t);
 
   char* data_;
   size_t size_;
   unmap_fn unmap_fn_;
 };
 
-/// Try to allocate a region of memory backed the heap.
+/// Allocate a region of memory backed the heap.
 MemoryRegion AllocateHeapRegion(size_t size);
+
+/// Allocate a region of memory backed the heap with the given alignment.
+MemoryRegion AllocateAlignedRegion(size_t alignment, size_t size);
 
 }  // namespace internal_os
 }  // namespace tensorstore

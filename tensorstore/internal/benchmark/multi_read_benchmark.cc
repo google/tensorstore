@@ -62,6 +62,7 @@ bazel run -c opt \
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/os/file_util.h"
+#include "tensorstore/internal/os/hugepages.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
@@ -308,21 +309,23 @@ void RunBenchmark(tensorstore::Context::Spec context_spec,
 }
 void CheckTransparentHugePages() {
 #if defined(__linux__)
-  auto hugepages = internal_os::ReadAllToString(
-      "/sys/kernel/mm/transparent_hugepage/enabled");
-  if (hugepages.ok() && absl::StrContains(hugepages.value(), "[always]")) {
-    return;
-  } else if (hugepages.ok()) {
-    ABSL_LOG(WARNING)
-        << "See https://docs.kernel.org/admin-guide/mm/transhuge.html\n"
-           "Transparent huge pages should be set to \"always\"; the current "
-           "setting of \""
-        << hugepages.value() << "\" may cause reduced read performance.";
-  } else {
+  using internal_os::HugePageMode;
+  auto hugepage_mode = internal_os::GetTransparentHugePageMode();
+  if (!hugepage_mode.ok()) {
     ABSL_LOG(INFO)
         << "See https://docs.kernel.org/admin-guide/mm/transhuge.html\n"
            "Transparent huge page settings are unknown; "
            "/sys/kernel/mm/transparent_hugepage/enabled is not readable.";
+    return;
+  }
+  if (*hugepage_mode != HugePageMode::kAlways) {
+    ABSL_LOG(WARNING)
+        << "See https://docs.kernel.org/admin-guide/mm/transhuge.html\n"
+           "Transparent huge pages should be set to \"always\"; the current "
+           "setting of "
+        << (*hugepage_mode == HugePageMode::kMadvise ? "madvise " : "never ")
+        << "may cause reduced read performance.";
+    return;
   }
 #endif
 }

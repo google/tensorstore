@@ -27,10 +27,9 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_split.h"
 #include "tensorstore/internal/flat_cord_builder.h"
-#include "tensorstore/internal/os/aligned_alloc.h"
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_util.h"
-#include "tensorstore/internal/os/memory_region.h"
+#include "tensorstore/internal/os/hugepages.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -162,12 +161,9 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
         RoundUpTo<int64_t>(byte_range.exclusive_max, block_alignment)};
   }
   internal::FlatCordBuilder buffer(
-      (block_alignment > 1)
-          ? internal_os::AllocatePageAlignedRegion(block_alignment,
-                                                   adjusted_byte_range.size())
-          : internal_os::AllocateHeapRegion(adjusted_byte_range.size()),
+      internal_os::AllocateHugePageRegionWithFallback(
+          block_alignment, adjusted_byte_range.size()),
       0);
-
   size_t offset = 0;
   while (!buffer.available_span().empty()) {
     auto n =

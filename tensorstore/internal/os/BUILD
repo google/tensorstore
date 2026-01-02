@@ -16,28 +16,6 @@ _LINKOPTS = select({
 })
 
 tensorstore_cc_library(
-    name = "aligned_alloc",
-    srcs = ["aligned_alloc.cc"],
-    hdrs = ["aligned_alloc.h"],
-    deps = [
-        ":include_windows",
-        ":memory_region",
-        "@abseil-cpp//absl/log:absl_log",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "aligned_alloc_test",
-    srcs = ["aligned_alloc_test.cc"],
-    deps = [
-        ":aligned_alloc",
-        ":memory_region",
-        "@abseil-cpp//absl/strings:cord",
-        "@googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "cwd",
     srcs = ["cwd.cc"],
     hdrs = ["cwd.h"],
@@ -185,12 +163,11 @@ tensorstore_cc_test(
     name = "file_util_test",
     srcs = ["file_util_test.cc"],
     deps = [
-        ":aligned_alloc",
         ":file_util",
+        ":memory_region",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
-        "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
@@ -360,6 +337,7 @@ tensorstore_cc_library(
     srcs = ["memory_region.cc"],
     hdrs = ["memory_region.h"],
     deps = [
+        "//tensorstore/util:division",
         "//tensorstore/util:result",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/log:absl_log",
@@ -389,6 +367,54 @@ tensorstore_cc_test(
     srcs = ["fork_detection_test.cc"],
     deps = [
         ":fork_detection",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "hugepages",
+    srcs = [
+        "hugepages.cc",
+    ] + select({
+        "@platforms//os:windows": [
+            "hugepages_win.cc",
+        ],
+        "@platforms//os:linux": [
+            "hugepages_linux.cc",
+        ],
+        "//conditions:default": [
+            "hugepages_unsupported.cc",
+        ],
+    }),
+    hdrs = ["hugepages.h"],
+    deps = [
+        ":error_code",
+        ":file_util",
+        ":memory_region",
+        ":potentially_blocking_region",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/internal/tracing",
+        "//tensorstore/util:division",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "hugepages_test",
+    srcs = ["hugepages_test.cc"],
+    deps = [
+        ":hugepages",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/flags:reflection",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
     ],
 )

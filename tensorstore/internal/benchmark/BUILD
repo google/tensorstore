@@ -149,6 +149,7 @@ tensorstore_cc_binary(
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
         "//tensorstore/internal/os:file_util",
+        "//tensorstore/internal/os:hugepages",
         "//tensorstore/util:future",
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:result",
