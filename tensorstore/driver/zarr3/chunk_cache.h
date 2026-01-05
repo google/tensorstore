@@ -159,7 +159,7 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
                               ZarrCodecChain::PreparedState::Ptr codec_state,
                               ZarrDType dtype,
                               internal::CachePool::WeakPtr data_cache_pool,
-                              bool open_as_void = false);
+                              bool open_as_void);
 
   void Read(ZarrChunkCache::ReadRequest request,
             AnyFlowReceiver<absl::Status, internal::ReadChunk,
@@ -199,7 +199,7 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
                                  ZarrCodecChain::PreparedState::Ptr codec_state,
                                  ZarrDType dtype,
                                  internal::CachePool::WeakPtr data_cache_pool,
-                                 bool open_as_void = false);
+                                 bool open_as_void);
 
   const ZarrShardingCodec::PreparedState& sharding_codec_state() const {
     return static_cast<const ZarrShardingCodec::PreparedState&>(
@@ -265,7 +265,7 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
       kvstore::DriverPtr store, Executor executor,
       ZarrShardingCodec::PreparedState::Ptr sharding_state,
       ZarrDType dtype, internal::CachePool::WeakPtr data_cache_pool,
-      bool open_as_void = false)
+      bool open_as_void)
       : ChunkCacheImpl(std::move(store),
                        ZarrCodecChain::PreparedState::Ptr(
                            sharding_state->sub_chunk_codec_state),
