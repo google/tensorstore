@@ -94,8 +94,8 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "metadata",
-    srcs = ["metadata.cc"],
-    hdrs = ["metadata.h"],
+    srcs = ["metadata.cc", "dtype.cc"],
+    hdrs = ["metadata.h", "dtype.h"],
     deps = [
         ":default_nan",
         ":name_configuration_json_binder",
@@ -141,6 +141,23 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
+        "@nlohmann_json//:json",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "dtype_test",
+    size = "small",
+    srcs = ["dtype_test.cc"],
+    deps = [
+        ":metadata",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/internal/testing:json_gtest",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
         "@nlohmann_json//:json",
     ],
 )
