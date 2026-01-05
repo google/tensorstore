@@ -346,7 +346,8 @@ Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
 
   if (metadata.dtype) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        size_t field_index, GetFieldIndex(*metadata.dtype, selected_field));
+        size_t field_index,
+        GetFieldIndex(*metadata.dtype, selected_field, /*open_as_void=*/false));
     info.field = &metadata.dtype->fields[field_index];
   }
 

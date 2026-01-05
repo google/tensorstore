@@ -138,10 +138,39 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   std::string GetBaseKvstorePath() override;
 
+  DimensionSeparator dimension_separator() const { return dimension_separator_; }
+
+ protected:
   std::string key_prefix_;
   DimensionSeparator dimension_separator_;
   std::string metadata_key_;
-  bool open_as_void_;
+};
+
+/// Derived DataCache for open_as_void mode that provides raw byte access.
+class VoidDataCache : public DataCache {
+ public:
+  explicit VoidDataCache(Initializer&& initializer, std::string key_prefix,
+                         DimensionSeparator dimension_separator,
+                         std::string metadata_key);
+
+  void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
+                          DimensionSet& implicit_lower_bounds,
+                          DimensionSet& implicit_upper_bounds) override;
+
+  /// Returns the ChunkCache grid for void (raw byte) access.
+  static internal::ChunkGridSpecification GetVoidChunkGridSpecification(
+      const ZarrMetadata& metadata);
+
+  Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
+      span<const Index> chunk_indices, absl::Cord data) override;
+
+  Result<absl::Cord> EncodeChunk(
+      span<const Index> chunk_indices,
+      span<const SharedArray<const void>> component_arrays) override;
+
+  absl::Status GetBoundSpecData(
+      internal_kvs_backed_chunk_driver::KvsDriverSpec& spec_base,
+      const void* metadata_ptr, size_t component_index) override;
 };
 
 class ZarrDriver;
