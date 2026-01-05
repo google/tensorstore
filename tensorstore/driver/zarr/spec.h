@@ -74,7 +74,7 @@ using SelectedField = std::string;
 Result<ZarrMetadataPtr> GetNewMetadata(
     const ZarrPartialMetadata& partial_metadata,
     const SelectedField& selected_field, const Schema& schema,
-    bool open_as_void = false);
+    bool open_as_void);
 
 struct SpecRankAndFieldInfo {
   /// Full rank of the TensorStore, if known.  Equal to the chunked rank plus
@@ -142,7 +142,7 @@ Result<SelectedField> ParseSelectedField(const ::nlohmann::json& value);
 ///     valid.
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
                              const SelectedField& selected_field,
-                             bool open_as_void = false);
+                             bool open_as_void);
 
 /// Special field index indicating void (raw byte) access.
 constexpr size_t kVoidFieldIndex = size_t(-1);

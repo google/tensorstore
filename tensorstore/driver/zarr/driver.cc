@@ -271,15 +271,13 @@ Result<SharedArray<const void>> ZarrDriverSpec::GetFillValue(
 
 DataCache::DataCache(Initializer&& initializer, std::string key_prefix,
                      DimensionSeparator dimension_separator,
-                     std::string metadata_key, bool open_as_void)
+                     std::string metadata_key)
     : Base(std::move(initializer),
            GetChunkGridSpecification(
-               *static_cast<const ZarrMetadata*>(initializer.metadata.get()),
-               open_as_void)),
+               *static_cast<const ZarrMetadata*>(initializer.metadata.get()))),
       key_prefix_(std::move(key_prefix)),
       dimension_separator_(dimension_separator),
-      metadata_key_(std::move(metadata_key)),
-      open_as_void_(open_as_void) {}
+      metadata_key_(std::move(metadata_key)) {}
 
 absl::Status DataCache::ValidateMetadataCompatibility(
     const void* existing_metadata_ptr, const void* new_metadata_ptr) {

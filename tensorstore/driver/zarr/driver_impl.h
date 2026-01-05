@@ -99,7 +99,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
  public:
   explicit DataCache(Initializer&& initializer, std::string key_prefix,
                      DimensionSeparator dimension_separator,
-                     std::string metadata_key, bool open_as_void = false);
+                     std::string metadata_key);
 
   const ZarrMetadata& metadata() {
     return *static_cast<const ZarrMetadata*>(initial_metadata().get());
@@ -118,7 +118,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   /// Returns the ChunkCache grid to use for the given metadata.
   static internal::ChunkGridSpecification GetChunkGridSpecification(
-      const ZarrMetadata& metadata, bool open_as_void = false);
+      const ZarrMetadata& metadata);
 
   Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       span<const Index> chunk_indices, absl::Cord data) override;
