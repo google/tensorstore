@@ -3698,6 +3698,56 @@ TEST(ZarrDriverTest, OpenAsVoidSpecRoundtrip) {
   EXPECT_EQ(true, json_result.value("open_as_void", false));
 }
 
+TEST(ZarrDriverTest, OpenAsVoidGetBoundSpecData) {
+  // Test that open_as_void is correctly preserved when getting spec from an
+  // opened void store. This tests VoidDataCache::GetBoundSpecData.
+  auto context = Context::Default();
+
+  // First create a normal array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Now open with open_as_void=true
+  ::nlohmann::json void_spec_json{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec_json, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Get the spec from the opened void store - this invokes GetBoundSpecData
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obtained_spec, void_store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obtained_json, obtained_spec.ToJson());
+
+  // Verify open_as_void is true in the obtained spec
+  EXPECT_EQ(true, obtained_json.value("open_as_void", false));
+
+  // Also verify metadata was correctly populated
+  EXPECT_TRUE(obtained_json.contains("metadata"));
+  auto& metadata = obtained_json["metadata"];
+  EXPECT_EQ("<i2", metadata.value("dtype", ""));
+}
+
 TEST(ZarrDriverTest, OpenAsVoidCannotUseWithField) {
   // Test that specifying both open_as_void and field is handled appropriately
   auto context = Context::Default();

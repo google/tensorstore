@@ -568,22 +568,10 @@ Result<absl::Cord> VoidDataCache::EncodeChunk(
 absl::Status VoidDataCache::GetBoundSpecData(
     internal_kvs_backed_chunk_driver::KvsDriverSpec& spec_base,
     const void* metadata_ptr, size_t component_index) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      DataCache::GetBoundSpecData(spec_base, metadata_ptr, component_index));
   auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
-  const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-  spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);
-  spec.metadata_key = metadata_key_;
   spec.open_as_void = true;
-  auto& pm = spec.partial_metadata;
-  pm.rank = metadata.rank;
-  pm.zarr_format = metadata.zarr_format;
-  pm.shape = metadata.shape;
-  pm.chunks = metadata.chunks;
-  pm.compressor = metadata.compressor;
-  pm.filters = metadata.filters;
-  pm.order = metadata.order;
-  pm.dtype = metadata.dtype;
-  pm.fill_value = metadata.fill_value;
-  pm.dimension_separator = dimension_separator_;
   return absl::OkStatus();
 }
 
