@@ -187,12 +187,12 @@ TEST(ParseSelectedFieldTest, InvalidType) {
 }
 
 TEST(GetFieldIndexTest, Null) {
-  EXPECT_EQ(0u, GetFieldIndex(ParseDType("<i4").value(), SelectedField()));
+  EXPECT_EQ(0u, GetFieldIndex(ParseDType("<i4").value(), SelectedField(), false));
   EXPECT_THAT(
       GetFieldIndex(
           ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
               .value(),
-          SelectedField()),
+          SelectedField(), false),
       StatusIs(
           absl::StatusCode::kFailedPrecondition,
           HasSubstr("Must specify a \"field\" that is one of: [\"x\",\"y\"]")));
@@ -200,7 +200,7 @@ TEST(GetFieldIndexTest, Null) {
 
 TEST(GetFieldIndexTest, String) {
   EXPECT_THAT(
-      GetFieldIndex(ParseDType("<i4").value(), "x"),
+      GetFieldIndex(ParseDType("<i4").value(), "x", true),
       StatusIs(
           absl::StatusCode::kFailedPrecondition,
           HasSubstr(
@@ -208,17 +208,17 @@ TEST(GetFieldIndexTest, String) {
   EXPECT_EQ(0u, GetFieldIndex(ParseDType(::nlohmann::json::array_t{
                                              {"x", "<i4"}, {"y", "<u2"}})
                                   .value(),
-                              "x"));
+                              "x", true));
   EXPECT_EQ(1u, GetFieldIndex(ParseDType(::nlohmann::json::array_t{
                                              {"x", "<i4"}, {"y", "<u2"}})
                                   .value(),
-                              "y"));
+                              "y", true));
 
   EXPECT_THAT(
       GetFieldIndex(
           ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
               .value(),
-          "z"),
+          "z", true),
       StatusIs(
           absl::StatusCode::kFailedPrecondition,
           HasSubstr("Requested field \"z\" is not one of: [\"x\",\"y\"]")));
@@ -252,7 +252,7 @@ tensorstore::Result<::nlohmann::json> GetNewMetadataFromOptions(
       ZarrPartialMetadata::FromJson(partial_metadata_json));
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_metadata,
-      GetNewMetadata(partial_metadata, selected_field, schema));
+      GetNewMetadata(partial_metadata, selected_field, schema, false));
   return new_metadata->ToJson();
 }
 
