@@ -59,6 +59,7 @@
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/riegeli/array_endian_codec.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -547,10 +548,8 @@ Result<absl::Cord> VoidDataCache::EncodeChunk(
     return absl::InvalidArgumentError(
         "Expected exactly one component array for void access");
   }
-  const auto& byte_array = component_arrays[0];
-  absl::Cord uncompressed(
-      std::string_view(static_cast<const char*>(byte_array.data()),
-                       byte_array.num_elements()));
+  absl::Cord uncompressed = internal::MakeCordFromSharedPtr(
+      component_arrays[0].pointer(), component_arrays[0].num_elements());
 
   // Compress if needed
   if (md.compressor) {

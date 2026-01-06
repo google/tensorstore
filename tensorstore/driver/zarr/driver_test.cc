@@ -3821,6 +3821,168 @@ TEST(ZarrDriverTest, OpenAsVoidReadWrite) {
   EXPECT_EQ(bytes_ptr[1], 0x01);
 }
 
+TEST(ZarrDriverTest, OpenAsVoidWriteRoundtrip) {
+  // Test that writing through open_as_void correctly encodes data
+  // and can be read back both through void access and normal typed access.
+  auto context = Context::Default();
+
+  // Create an array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<u2"},
+           {"shape", {2, 2}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Initialize with zeros
+  auto zeros = tensorstore::MakeArray<uint16_t>({{0, 0}, {0, 0}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(zeros, store).result());
+
+  // Open as void for writing
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Create raw bytes representing uint16 values in little endian:
+  // [0,0]: 0x1234 -> {0x34, 0x12}, [0,1]: 0x5678 -> {0x78, 0x56}
+  // [1,0]: 0x9ABC -> {0xBC, 0x9A}, [1,1]: 0xDEF0 -> {0xF0, 0xDE}
+  auto raw_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
+      {2, 2, 2}, tensorstore::c_order, tensorstore::value_init);
+  auto raw_bytes_ptr = static_cast<unsigned char*>(
+      const_cast<void*>(static_cast<const void*>(raw_bytes.data())));
+  // Element [0,0] = 0x1234
+  raw_bytes_ptr[0] = 0x34;
+  raw_bytes_ptr[1] = 0x12;
+  // Element [0,1] = 0x5678
+  raw_bytes_ptr[2] = 0x78;
+  raw_bytes_ptr[3] = 0x56;
+  // Element [1,0] = 0x9ABC
+  raw_bytes_ptr[4] = 0xBC;
+  raw_bytes_ptr[5] = 0x9A;
+  // Element [1,1] = 0xDEF0
+  raw_bytes_ptr[6] = 0xF0;
+  raw_bytes_ptr[7] = 0xDE;
+
+  // Write raw bytes through void access
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(raw_bytes, void_store).result());
+
+  // Read back through void access and verify
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bytes_read,
+                                   tensorstore::Read(void_store).result());
+  auto bytes_read_ptr = static_cast<const unsigned char*>(bytes_read.data());
+  EXPECT_EQ(bytes_read_ptr[0], 0x34);
+  EXPECT_EQ(bytes_read_ptr[1], 0x12);
+
+  // Read back through normal typed access and verify the values
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto typed_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto typed_read,
+                                   tensorstore::Read(typed_store).result());
+  auto typed_ptr = static_cast<const uint16_t*>(typed_read.data());
+  EXPECT_EQ(typed_ptr[0], 0x1234);
+  EXPECT_EQ(typed_ptr[1], 0x5678);
+  EXPECT_EQ(typed_ptr[2], 0x9ABC);
+  EXPECT_EQ(typed_ptr[3], 0xDEF0);
+}
+
+TEST(ZarrDriverTest, OpenAsVoidWriteWithCompression) {
+  // Test writing through open_as_void with compression enabled.
+  // Verifies that the EncodeChunk method correctly compresses data.
+  auto context = Context::Default();
+
+  // Create an array with blosc compression
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i4"},
+           {"shape", {4, 4}},
+           {"chunks", {4, 4}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Initialize with zeros
+  auto zeros = tensorstore::MakeArray<int32_t>(
+      {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(zeros, store).result());
+
+  // Open as void for writing
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Create raw bytes representing int32 values in little endian
+  // Using a simple pattern: 0x01020304 at position [0,0]
+  auto raw_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
+      {4, 4, 4}, tensorstore::c_order, tensorstore::value_init);
+
+  // Set first element to 0x01020304 (little endian: 04 03 02 01)
+  auto raw_bytes_ptr = static_cast<unsigned char*>(
+      const_cast<void*>(static_cast<const void*>(raw_bytes.data())));
+  raw_bytes_ptr[0] = 0x04;
+  raw_bytes_ptr[1] = 0x03;
+  raw_bytes_ptr[2] = 0x02;
+  raw_bytes_ptr[3] = 0x01;
+
+  // Write raw bytes through void access (triggers compression)
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(raw_bytes, void_store).result());
+
+  // Read back through normal typed access
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto typed_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto typed_read,
+                                   tensorstore::Read(typed_store).result());
+  auto typed_ptr = static_cast<const int32_t*>(typed_read.data());
+
+  // First element should be 0x01020304
+  EXPECT_EQ(typed_ptr[0], 0x01020304);
+  // Rest should be zeros
+  EXPECT_EQ(typed_ptr[1], 0);
+}
+
 // Tests for GetSpecInfo() with open_as_void
 
 TEST(ZarrDriverTest, GetSpecInfoOpenAsVoidWithKnownRank) {
