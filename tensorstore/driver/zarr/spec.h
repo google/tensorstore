@@ -97,6 +97,14 @@ Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
     const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
     const Schema& schema);
 
+/// Overload that supports open_as_void mode.
+///
+/// When `open_as_void` is true and `metadata.dtype` is specified, `info.field`
+/// points to the dtype's synthesized void field.
+Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
+    const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
+    const Schema& schema, bool open_as_void);
+
 SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
                                              size_t field_index);
 

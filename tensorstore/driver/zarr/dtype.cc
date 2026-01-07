@@ -336,6 +336,24 @@ char EndianIndicator(tensorstore::endian e) {
   return e == tensorstore::endian::little ? '<' : '>';
 }
 
+const ZarrDType::Field* ZarrDType::GetVoidField() const {
+  if (!void_field_cache_) {
+    const Index nbytes = bytes_per_outer_element;
+    void_field_cache_ = Field{
+        {/*encoded_dtype=*/tensorstore::StrCat("|V", nbytes),
+         /*dtype=*/dtype_v<::tensorstore::dtypes::byte_t>,
+         /*endian=*/endian::native,
+         /*flexible_shape=*/{}},
+        /*outer_shape=*/{},
+        /*name=*/{},
+        /*field_shape=*/{nbytes},
+        /*num_inner_elements=*/nbytes,
+        /*byte_offset=*/0,
+        /*num_bytes=*/nbytes};
+  }
+  return &*void_field_cache_;
+}
+
 Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
   ZarrDType::BaseDType base_dtype;
   base_dtype.endian = endian::native;

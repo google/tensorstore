@@ -339,6 +339,13 @@ absl::Status ValidateSpecRankAndFieldInfo(SpecRankAndFieldInfo& info) {
 Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
     const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
     const Schema& schema) {
+  return GetSpecRankAndFieldInfo(metadata, selected_field, schema,
+                                 /*open_as_void=*/false);
+}
+
+Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
+    const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
+    const Schema& schema, bool open_as_void) {
   SpecRankAndFieldInfo info;
 
   info.full_rank = schema.rank();
@@ -347,8 +354,12 @@ Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
   if (metadata.dtype) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         size_t field_index,
-        GetFieldIndex(*metadata.dtype, selected_field, /*open_as_void=*/false));
-    info.field = &metadata.dtype->fields[field_index];
+        GetFieldIndex(*metadata.dtype, selected_field, open_as_void));
+    if (field_index == kVoidFieldIndex) {
+      info.field = metadata.dtype->GetVoidField();
+    } else {
+      info.field = &metadata.dtype->fields[field_index];
+    }
   }
 
   TENSORSTORE_RETURN_IF_ERROR(ValidateSpecRankAndFieldInfo(info));

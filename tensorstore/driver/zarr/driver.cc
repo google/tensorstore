@@ -142,21 +142,8 @@ absl::Status ZarrDriverSpec::ApplyOptions(SpecOptions&& options) {
 }
 
 Result<SpecRankAndFieldInfo> ZarrDriverSpec::GetSpecInfo() const {
-  // For open_as_void, we don't use normal field resolution
-  // Note: When opening an existing array, dtype may not be known yet,
-  // so we can't determine the exact rank until metadata is loaded.
-  if (open_as_void && partial_metadata.dtype) {
-    SpecRankAndFieldInfo info;
-    info.full_rank = schema.rank();
-    info.chunked_rank = partial_metadata.rank;
-    // For void access, add one dimension for the bytes
-    info.field_rank = 1;  // The bytes dimension
-    if (info.chunked_rank != dynamic_rank) {
-      info.full_rank = info.chunked_rank + 1;
-    }
-    return info;
-  }
-  return GetSpecRankAndFieldInfo(partial_metadata, selected_field, schema);
+  return GetSpecRankAndFieldInfo(partial_metadata, selected_field, schema,
+                                 open_as_void);
 }
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(

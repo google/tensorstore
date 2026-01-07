@@ -114,11 +114,18 @@ struct ZarrDType {
   /// Bytes per "outer" element (derived value).
   Index bytes_per_outer_element;
 
+  /// Returns a synthesized field for raw byte access to the entire dtype.
+  /// The returned pointer is valid for the lifetime of this ZarrDType.
+  const Field* GetVoidField() const;
+
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrDType,
                                           internal_json_binding::NoOptions)
 
   friend void to_json(::nlohmann::json& out,  // NOLINT
                       const ZarrDType& dtype);
+
+  /// Lazily-computed cache for GetVoidField().
+  mutable std::optional<Field> void_field_cache_;
 };
 
 /// Parses a zarr metadata "dtype" JSON specification.
