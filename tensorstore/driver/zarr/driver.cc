@@ -195,6 +195,11 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                        jb::DefaultValue<jb::kNeverIncludeDefaults>(
                            [](auto* v) { *v = false; }))),
         jb::Initialize([](auto* obj) {
+          // Validate that field and open_as_void are mutually exclusive
+          if (obj->open_as_void && !obj->selected_field.empty()) {
+            return absl::InvalidArgumentError(
+                "\"field\" and \"open_as_void\" are mutually exclusive");
+          }
           TENSORSTORE_ASSIGN_OR_RETURN(auto info, obj->GetSpecInfo());
           if (info.full_rank != dynamic_rank) {
             TENSORSTORE_RETURN_IF_ERROR(

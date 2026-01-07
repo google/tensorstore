@@ -8,23 +8,28 @@ allOf:
         oneOf:
           - const: zarr2
           - const: zarr
-      field:
-        oneOf:
-          - type: string
-          - type: "null"
-        title: Name of field to open.
-        description: |
-          Must be specified if the `.metadata.dtype` specified in the array
-          metadata has more than one field.
-        default: null
-      open_as_void:
-        type: boolean
-        default: false
-        title: Raw byte access mode.
-        description: |
-          When true, opens the array as raw bytes instead of interpreting it
-          as structured data. The resulting array will have an additional
-          dimension representing the byte layout of each element.
+    oneOf:
+      - type: object
+        properties:
+          field:
+            oneOf:
+              - type: string
+              - type: "null"
+            title: Name of field to open.
+            description: |
+              Must be specified if the `.metadata.dtype` specified in the array
+              metadata has more than one field.
+            default: null
+      - type: object
+        properties:
+          open_as_void:
+            const: true
+            type: boolean
+            title: Raw byte access mode.
+            description: |
+              When true, opens the array as raw bytes instead of interpreting it
+              as structured data. The resulting array will have an additional
+              dimension representing the byte layout of each element.
       metadata:
         title: Zarr array metadata.
         description: |

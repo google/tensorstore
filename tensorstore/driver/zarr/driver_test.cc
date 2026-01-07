@@ -3749,11 +3749,9 @@ TEST(ZarrDriverTest, OpenAsVoidGetBoundSpecData) {
 }
 
 TEST(ZarrDriverTest, OpenAsVoidCannotUseWithField) {
-  // Test that specifying both open_as_void and field is handled appropriately
-  auto context = Context::Default();
-
-  // First create the array
-  ::nlohmann::json create_spec{
+  // Test that specifying both open_as_void and field is rejected as they are
+  // mutually exclusive options.
+  ::nlohmann::json spec_with_both{
       {"driver", "zarr"},
       {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
       {"metadata",
@@ -3764,33 +3762,24 @@ TEST(ZarrDriverTest, OpenAsVoidCannotUseWithField) {
            {"chunks", {2, 2}},
        }},
       {"field", "x"},
-  };
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
-                        tensorstore::ReadWriteMode::read_write)
-          .result());
-
-  // Using open_as_void takes precedence - it opens as raw bytes regardless of
-  // field selection. The field parameter should be ignored when open_as_void is
-  // true.
-  ::nlohmann::json void_spec{
-      {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
       {"open_as_void", true},
   };
 
-  // This should succeed - open_as_void gives raw byte access
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto void_store,
-      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
-                        tensorstore::ReadWriteMode::read)
-          .result());
+  // Specifying both field and open_as_void should fail
+  EXPECT_THAT(
+      tensorstore::Open(spec_with_both, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"field\" and \"open_as_void\" are mutually "
+                         "exclusive")));
 
-  EXPECT_EQ(3, void_store.rank());
-  EXPECT_EQ(tensorstore::dtype_v<tensorstore::dtypes::byte_t>,
-            void_store.dtype());
+  // Also test that Spec::FromJson rejects this combination
+  EXPECT_THAT(
+      tensorstore::Spec::FromJson(spec_with_both),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"field\" and \"open_as_void\" are mutually "
+                         "exclusive")));
 }
 
 TEST(ZarrDriverTest, OpenAsVoidUrlNotSupported) {
