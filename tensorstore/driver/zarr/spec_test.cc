@@ -638,6 +638,24 @@ TEST(GetNewMetadataTest, SelectedFieldDtypeNotSpecified) {
                          "\"field\" is specified")));
 }
 
+TEST(GetNewMetadataTest, OpenAsVoidDtypeNotSpecified) {
+  // When open_as_void=true, dtype must be specified in metadata because
+  // open_as_void is for accessing existing structured data as raw bytes.
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(Schema::Shape({100, 200})));
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<int32_t>));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto partial_metadata,
+      ZarrPartialMetadata::FromJson(::nlohmann::json::object_t()));
+  EXPECT_THAT(
+      tensorstore::internal_zarr::GetNewMetadata(partial_metadata,
+                                                 /*selected_field=*/{}, schema,
+                                                 /*open_as_void=*/true),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"dtype\" must be specified in \"metadata\" if "
+                         "\"open_as_void\" is specified")));
+}
+
 TEST(GetNewMetadataTest, SelectedFieldInvalid) {
   EXPECT_THAT(
       GetNewMetadataFromOptions({{"dtype", {{"x", "<u4", {2}}, {"y", "<i4"}}}},

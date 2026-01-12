@@ -186,6 +186,11 @@ Result<ZarrMetadataPtr> GetNewMetadata(
           "\"dtype\" must be specified in \"metadata\" if \"field\" is "
           "specified");
     }
+    if (open_as_void) {
+      return absl::InvalidArgumentError(
+          "\"dtype\" must be specified in \"metadata\" if \"open_as_void\" is "
+          "specified");
+    }
     if (!schema.dtype().valid()) {
       return absl::InvalidArgumentError("\"dtype\" must be specified");
     }
