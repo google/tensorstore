@@ -168,16 +168,16 @@ Result<ZarrMetadataPtr> GetNewMetadata(
   // before validating the domain.
 
   size_t selected_field_index = 0;
+  const ZarrDType::Field* field_ptr = nullptr;
   if (partial_metadata.dtype) {
-    // If a zarr dtype is specified explicitly, determine the field index.  If a
-    // multi-field zarr dtype is desired, it must be specified explicitly.
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        selected_field_index,
-        GetFieldIndex(*partial_metadata.dtype, selected_field, open_as_void));
-    // For void access, use field 0 for metadata creation since we use all
-    // fields as raw bytes
-    if (selected_field_index == kVoidFieldIndex) {
-      selected_field_index = 0;
+    if (open_as_void) {
+      field_ptr = partial_metadata.dtype->GetVoidField();
+    } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          size_t field_index,
+          GetFieldIndex(*partial_metadata.dtype, selected_field));
+      field_ptr = &partial_metadata.dtype->fields[field_index];
+      selected_field_index = field_index;
     }
     metadata->dtype = *partial_metadata.dtype;
   } else {
@@ -202,8 +202,9 @@ Result<ZarrMetadataPtr> GetNewMetadata(
         static_cast<ZarrDType::BaseDType&>(field),
         internal_zarr::ChooseBaseDType(schema.dtype()));
     TENSORSTORE_RETURN_IF_ERROR(ValidateDType(metadata->dtype));
+    field_ptr = &field;
   }
-  auto& field = metadata->dtype.fields[selected_field_index];
+  auto& field = *field_ptr;
 
   SpecRankAndFieldInfo info;
   info.full_rank = schema.rank();
@@ -357,12 +358,12 @@ Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
   info.chunked_rank = metadata.rank;
 
   if (metadata.dtype) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        size_t field_index,
-        GetFieldIndex(*metadata.dtype, selected_field, open_as_void));
-    if (field_index == kVoidFieldIndex) {
+    if (open_as_void) {
       info.field = metadata.dtype->GetVoidField();
     } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          size_t field_index,
+          GetFieldIndex(*metadata.dtype, selected_field));
       info.field = &metadata.dtype->fields[field_index];
     }
   }
@@ -550,17 +551,7 @@ std::string GetFieldNames(const ZarrDType& dtype) {
 }  // namespace
 
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
-                             const SelectedField& selected_field,
-                             bool open_as_void) {
-  // Special case: open_as_void requests raw byte access (works for any dtype)
-  if (open_as_void) {
-    if (dtype.fields.empty()) {
-      return absl::FailedPreconditionError(
-          "Requested void access but dtype has no fields");
-    }
-    return kVoidFieldIndex;
-  }
-
+                             const SelectedField& selected_field) {
   if (selected_field.empty()) {
     if (dtype.fields.size() != 1) {
       return absl::FailedPreconditionError(tensorstore::StrCat(

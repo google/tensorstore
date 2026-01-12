@@ -144,16 +144,11 @@ Result<SelectedField> ParseSelectedField(const ::nlohmann::json& value);
 /// \param dtype The parsed zarr "dtype" specification.
 /// \param selected_field The label of the field, or an empty string to indicate
 ///     that the zarr array must have only a single field.
-/// \param open_as_void If true, returns kVoidFieldIndex for raw byte access.
-/// \returns The field index, or kVoidFieldIndex if open_as_void is true.
+/// \returns The field index.
 /// \error `absl::StatusCode::kFailedPrecondition` if `selected_field` is not
 ///     valid.
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
-                             const SelectedField& selected_field,
-                             bool open_as_void);
-
-/// Special field index indicating void (raw byte) access.
-constexpr size_t kVoidFieldIndex = size_t(-1);
+                             const SelectedField& selected_field);
 
 /// Encodes a field index as a `SelectedField` JSON specification.
 ///

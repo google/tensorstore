@@ -224,18 +224,17 @@ Result<SharedArray<const void>> ZarrDriverSpec::GetFillValue(
 
   const auto& metadata = partial_metadata;
   if (metadata.dtype && metadata.fill_value) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        size_t field_index,
-        GetFieldIndex(*metadata.dtype, selected_field, open_as_void));
-
     // For void access, synthesize a byte-level fill value
-    if (field_index == kVoidFieldIndex) {
+    if (open_as_void) {
       const Index nbytes = metadata.dtype->bytes_per_outer_element;
       auto byte_arr = AllocateArray(
           span<const Index, 1>({nbytes}), c_order, value_init,
           dtype_v<tensorstore::dtypes::byte_t>);
       fill_value = byte_arr;
     } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          size_t field_index,
+          GetFieldIndex(*metadata.dtype, selected_field));
       fill_value = (*metadata.fill_value)[field_index];
     }
   }
@@ -610,14 +609,15 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().partial_metadata));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto field_index,
-        GetFieldIndex(metadata.dtype, spec().selected_field,
-                      spec().open_as_void));
-    // For void access, map to component index 0 since we create a special
+    // For void access, use component index 0 since we create a special
     // component for raw byte access
-    if (field_index == kVoidFieldIndex) {
+    size_t field_index;
+    if (spec().open_as_void) {
       field_index = 0;
+    } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          field_index,
+          GetFieldIndex(metadata.dtype, spec().selected_field));
     }
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadataSchema(metadata, field_index, spec().schema));

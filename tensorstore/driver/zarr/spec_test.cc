@@ -187,12 +187,12 @@ TEST(ParseSelectedFieldTest, InvalidType) {
 }
 
 TEST(GetFieldIndexTest, Null) {
-  EXPECT_EQ(0u, GetFieldIndex(ParseDType("<i4").value(), SelectedField(), /*open_as_void=*/false));
+  EXPECT_EQ(0u, GetFieldIndex(ParseDType("<i4").value(), SelectedField()));
   EXPECT_THAT(
       GetFieldIndex(
           ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
               .value(),
-          SelectedField(), /*open_as_void=*/false),
+          SelectedField()),
       StatusIs(
           absl::StatusCode::kFailedPrecondition,
           HasSubstr("Must specify a \"field\" that is one of: [\"x\",\"y\"]")));
@@ -200,7 +200,7 @@ TEST(GetFieldIndexTest, Null) {
 
 TEST(GetFieldIndexTest, String) {
   EXPECT_THAT(
-      GetFieldIndex(ParseDType("<i4").value(), "x", /*open_as_void=*/false),
+      GetFieldIndex(ParseDType("<i4").value(), "x"),
       StatusIs(
           absl::StatusCode::kFailedPrecondition,
           HasSubstr(
@@ -208,17 +208,17 @@ TEST(GetFieldIndexTest, String) {
   EXPECT_EQ(0u, GetFieldIndex(ParseDType(::nlohmann::json::array_t{
                                              {"x", "<i4"}, {"y", "<u2"}})
                                   .value(),
-                              "x", /*open_as_void=*/false));
+                              "x"));
   EXPECT_EQ(1u, GetFieldIndex(ParseDType(::nlohmann::json::array_t{
                                              {"x", "<i4"}, {"y", "<u2"}})
                                   .value(),
-                              "y", /*open_as_void=*/false));
+                              "y"));
 
   EXPECT_THAT(
       GetFieldIndex(
           ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
               .value(),
-          "z", /*open_as_void=*/false),
+          "z"),
       StatusIs(
           absl::StatusCode::kFailedPrecondition,
           HasSubstr("Requested field \"z\" is not one of: [\"x\",\"y\"]")));
