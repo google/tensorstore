@@ -411,150 +411,44 @@ Result<ChunkLayout> DataCache::GetChunkLayoutFromMetadata(
 std::string DataCache::GetBaseKvstorePath() { return key_prefix_; }
 
 // VoidDataCache implementation
-VoidDataCache::VoidDataCache(Initializer&& initializer, std::string key_prefix,
-                             DimensionSeparator dimension_separator,
-                             std::string metadata_key)
-    : DataCache(std::move(initializer), std::move(key_prefix),
-                dimension_separator, std::move(metadata_key)) {
-  // Replace the grid with the void-specific grid specification
-  grid_ = GetVoidChunkGridSpecification(metadata());
-}
+// Uses inherited DataCache constructor and encode/decode methods.
+// The void metadata (with dtype containing only the void field) is created
+// in GetDataCache and passed via the initializer, so standard encode/decode
+// paths work correctly.
 
-void VoidDataCache::GetChunkGridBounds(const void* metadata_ptr,
-                                       MutableBoxView<> bounds,
-                                       DimensionSet& implicit_lower_bounds,
-                                       DimensionSet& implicit_upper_bounds) {
-  const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-  // Use >= assertion to allow for extra dimensions (the bytes dimension)
-  assert(bounds.rank() >= static_cast<DimensionIndex>(metadata.shape.size()));
-  std::fill(bounds.origin().begin(),
-            bounds.origin().begin() + metadata.shape.size(), Index(0));
-  std::copy(metadata.shape.begin(), metadata.shape.end(),
-            bounds.shape().begin());
-  implicit_lower_bounds = false;
-  implicit_upper_bounds = false;
-  for (DimensionIndex i = 0;
-       i < static_cast<DimensionIndex>(metadata.shape.size()); ++i) {
-    implicit_upper_bounds[i] = true;
-  }
-  // For void access, the extra dimension is the bytes_per_outer_element
-  if (static_cast<DimensionIndex>(metadata.shape.size() + 1) == bounds.rank()) {
-    bounds.shape()[metadata.rank] = metadata.dtype.bytes_per_outer_element;
-    bounds.origin()[metadata.rank] = 0;
-  }
-}
+absl::Status VoidDataCache::ValidateMetadataCompatibility(
+    const void* existing_metadata_ptr, const void* new_metadata_ptr) {
+  assert(existing_metadata_ptr);
+  assert(new_metadata_ptr);
+  const auto& existing_metadata =
+      *static_cast<const ZarrMetadata*>(existing_metadata_ptr);
+  const auto& new_metadata =
+      *static_cast<const ZarrMetadata*>(new_metadata_ptr);
 
-internal::ChunkGridSpecification VoidDataCache::GetVoidChunkGridSpecification(
-    const ZarrMetadata& metadata) {
-  internal::ChunkGridSpecification::ComponentList components;
-  std::vector<DimensionIndex> chunked_to_cell_dimensions(
-      metadata.chunks.size());
-  std::iota(chunked_to_cell_dimensions.begin(),
-            chunked_to_cell_dimensions.end(), static_cast<DimensionIndex>(0));
-
-  const Index bytes_per_element = metadata.dtype.bytes_per_outer_element;
-
-  // Create a zero-filled byte array as the fill value
-  auto base_fill_value = AllocateArray(
-      span<const Index, 1>({bytes_per_element}), c_order, value_init,
-      dtype_v<tensorstore::dtypes::byte_t>);
-
-  // The full chunk shape includes the extra bytes dimension
-  std::vector<Index> chunk_shape_with_bytes = metadata.chunks;
-  chunk_shape_with_bytes.push_back(bytes_per_element);
-
-  const DimensionIndex cell_rank = metadata.rank + 1;
-
-  // Broadcast fill value to target shape [unbounded, ..., bytes_per_element]
-  // like zarr3 does
-  std::vector<Index> target_shape(metadata.rank, kInfIndex);
-  target_shape.push_back(bytes_per_element);
-  auto chunk_fill_value =
-      BroadcastArray(base_fill_value, BoxView<>(target_shape)).value();
-
-  // Create valid data bounds - unbounded for chunked dimensions,
-  // explicit for bytes dimension
-  Box<> valid_data_bounds(cell_rank);
-  for (DimensionIndex i = 0; i < metadata.rank; ++i) {
-    valid_data_bounds[i] = IndexInterval::Infinite();
-  }
-  valid_data_bounds[metadata.rank] =
-      IndexInterval::UncheckedSized(0, bytes_per_element);
-
-  // Create permutation: copy existing order and add the bytes dimension
-  DimensionIndex layout_order_buffer[kMaxRank];
-  GetChunkInnerOrder(metadata.rank, metadata.order,
-                     span(layout_order_buffer, metadata.rank));
-  layout_order_buffer[metadata.rank] = metadata.rank;  // Add bytes dimension
-
-  components.emplace_back(
-      internal::AsyncWriteArray::Spec{
-          std::move(chunk_fill_value), std::move(valid_data_bounds),
-          ContiguousLayoutPermutation<>(span(layout_order_buffer, cell_rank))},
-      std::move(chunk_shape_with_bytes), chunked_to_cell_dimensions);
-
-  return internal::ChunkGridSpecification{std::move(components)};
-}
-
-Result<absl::InlinedVector<SharedArray<const void>, 1>>
-VoidDataCache::DecodeChunk(span<const Index> chunk_indices, absl::Cord data) {
-  // For void access, return raw bytes as a single component
-  const auto& md = metadata();
-
-  // Decompress the data first (if compressed)
-  absl::Cord decompressed = std::move(data);
-  if (md.compressor) {
-    riegeli::CordReader<absl::Cord> base_reader(std::move(decompressed));
-    auto compressed_reader = md.compressor->GetReader(
-        base_reader, md.dtype.bytes_per_outer_element);
-    absl::Cord uncompressed;
-    TENSORSTORE_RETURN_IF_ERROR(
-        riegeli::ReadAll(std::move(compressed_reader), uncompressed));
-    if (!base_reader.VerifyEndAndClose()) return base_reader.status();
-    decompressed = std::move(uncompressed);
+  // For void access, we only require that bytes_per_outer_element matches,
+  // since we're treating the data as raw bytes regardless of the actual dtype.
+  // Shape is allowed to differ (handled by base class for resizing).
+  // Other fields like compressor, order, chunks must still match.
+  if (existing_metadata.dtype.bytes_per_outer_element !=
+      new_metadata.dtype.bytes_per_outer_element) {
+    return absl::FailedPreconditionError(tensorstore::StrCat(
+        "Void access metadata bytes_per_outer_element mismatch: existing=",
+        existing_metadata.dtype.bytes_per_outer_element,
+        ", new=", new_metadata.dtype.bytes_per_outer_element));
   }
 
-  // Build the shape: chunk_shape + bytes_per_element
-  std::vector<Index> shape = md.chunks;
-  shape.push_back(md.dtype.bytes_per_outer_element);
-
-  // Create a byte array from the decompressed data
-  auto flat_data = decompressed.Flatten();
-  auto byte_array = AllocateArray(shape, c_order, default_init,
-                                  dtype_v<tensorstore::dtypes::byte_t>);
-  std::memcpy(byte_array.data(), flat_data.data(),
-              std::min(static_cast<size_t>(byte_array.num_elements()),
-                       flat_data.size()));
-
-  absl::InlinedVector<SharedArray<const void>, 1> result;
-  result.push_back(std::move(byte_array));
-  return result;
-}
-
-Result<absl::Cord> VoidDataCache::EncodeChunk(
-    span<const Index> chunk_indices,
-    span<const SharedArray<const void>> component_arrays) {
-  // For void access, encode raw bytes directly
-  const auto& md = metadata();
-  if (component_arrays.size() != 1) {
-    return absl::InvalidArgumentError(
-        "Expected exactly one component array for void access");
+  // Check that other critical fields match (same as base, but ignoring dtype)
+  if (existing_metadata.chunks != new_metadata.chunks) {
+    return absl::FailedPreconditionError("Chunk shape mismatch");
   }
-  absl::Cord uncompressed = internal::MakeCordFromSharedPtr(
-      component_arrays[0].pointer(), component_arrays[0].num_elements());
-
-  // Compress if needed
-  if (md.compressor) {
-    absl::Cord encoded;
-    riegeli::CordWriter<absl::Cord*> base_writer(&encoded);
-    auto writer = md.compressor->GetWriter(base_writer,
-                                           md.dtype.bytes_per_outer_element);
-    TENSORSTORE_RETURN_IF_ERROR(
-        riegeli::Write(std::move(uncompressed), std::move(writer)));
-    if (!base_writer.Close()) return base_writer.status();
-    return encoded;
+  if (existing_metadata.order != new_metadata.order) {
+    return absl::FailedPreconditionError("Order mismatch");
   }
-  return uncompressed;
+  if (existing_metadata.compressor != new_metadata.compressor) {
+    return absl::FailedPreconditionError("Compressor mismatch");
+  }
+
+  return absl::OkStatus();
 }
 
 absl::Status VoidDataCache::GetBoundSpecData(
@@ -693,17 +587,21 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 
   std::unique_ptr<internal_kvs_backed_chunk_driver::DataCacheBase> GetDataCache(
       DataCache::Initializer&& initializer) override {
-    const auto& metadata =
+    const auto& original_metadata =
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
+    auto dim_sep = GetDimensionSeparator(spec().partial_metadata, original_metadata);
     if (spec().open_as_void) {
+      // Create void metadata from the original. This modifies the dtype to
+      // contain only the void field, allowing standard encode/decode to work.
+      // CreateVoidMetadata uses the same chunks and bytes_per_outer_element as
+      // the original validated metadata, so it should never fail.
+      initializer.metadata = CreateVoidMetadata(original_metadata).value();
       return std::make_unique<VoidDataCache>(
-          std::move(initializer), spec().store.path,
-          GetDimensionSeparator(spec().partial_metadata, metadata),
+          std::move(initializer), spec().store.path, dim_sep,
           spec().metadata_key);
     }
     return std::make_unique<DataCache>(
-        std::move(initializer), spec().store.path,
-        GetDimensionSeparator(spec().partial_metadata, metadata),
+        std::move(initializer), spec().store.path, dim_sep,
         spec().metadata_key);
   }
 

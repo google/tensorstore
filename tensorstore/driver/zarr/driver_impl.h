@@ -147,26 +147,21 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 };
 
 /// Derived DataCache for open_as_void mode that provides raw byte access.
+///
+/// The void metadata (created via CreateVoidMetadata) has dtype.fields
+/// containing only the void field, so inherited encode/decode methods
+/// work correctly for raw byte access. GetBoundSpecData is overridden
+/// to set open_as_void=true in the spec, and ValidateMetadataCompatibility
+/// is overridden to allow different dtypes with the same bytes_per_outer_element.
 class VoidDataCache : public DataCache {
  public:
-  explicit VoidDataCache(Initializer&& initializer, std::string key_prefix,
-                         DimensionSeparator dimension_separator,
-                         std::string metadata_key);
+  using DataCache::DataCache;
 
-  void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
-                          DimensionSet& implicit_lower_bounds,
-                          DimensionSet& implicit_upper_bounds) override;
-
-  /// Returns the ChunkCache grid for void (raw byte) access.
-  static internal::ChunkGridSpecification GetVoidChunkGridSpecification(
-      const ZarrMetadata& metadata);
-
-  Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
-      span<const Index> chunk_indices, absl::Cord data) override;
-
-  Result<absl::Cord> EncodeChunk(
-      span<const Index> chunk_indices,
-      span<const SharedArray<const void>> component_arrays) override;
+  /// For void access, metadata is compatible if bytes_per_outer_element matches,
+  /// regardless of the actual dtype (since we treat everything as raw bytes).
+  absl::Status ValidateMetadataCompatibility(
+      const void* existing_metadata_ptr,
+      const void* new_metadata_ptr) override;
 
   absl::Status GetBoundSpecData(
       internal_kvs_backed_chunk_driver::KvsDriverSpec& spec_base,

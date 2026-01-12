@@ -199,6 +199,16 @@ Result<ZarrChunkLayout> ComputeChunkLayout(
     const ZarrDType& dtype, ContiguousLayoutOrder order,
     tensorstore::span<const Index> chunk_shape);
 
+/// Creates a modified ZarrMetadata for void (raw byte) access.
+///
+/// The returned metadata has dtype.fields containing only the void field
+/// (from GetVoidField()), allowing standard encode/decode paths to work
+/// with raw bytes. The chunk_layout is recomputed accordingly.
+///
+/// \param original The original metadata to base the void metadata on.
+/// \returns A new metadata suitable for void access.
+Result<ZarrMetadataPtr> CreateVoidMetadata(const ZarrMetadata& original);
+
 /// Encodes the field fill values as a zarr metadata "fill_value" JSON
 /// specification.
 ///

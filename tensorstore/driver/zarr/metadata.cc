@@ -366,6 +366,28 @@ Result<ZarrChunkLayout> ComputeChunkLayout(
   return layout;
 }
 
+Result<ZarrMetadataPtr> CreateVoidMetadata(const ZarrMetadata& original) {
+  auto metadata = std::make_shared<ZarrMetadata>(original);
+
+  // Replace dtype with void dtype (single void field)
+  const auto* void_field = original.dtype.GetVoidField();
+  metadata->dtype.has_fields = false;
+  metadata->dtype.fields = {*void_field};
+  // bytes_per_outer_element stays the same (inherited from copy)
+
+  // Set fill_value for the single void field.
+  // Empty/null fill value is handled by GetChunkGridSpecification.
+  metadata->fill_value.resize(1);
+
+  // Recompute chunk_layout using existing ValidateMetadata.
+  // ComputeChunkLayout handles the void field correctly because
+  // void_field.num_bytes == bytes_per_outer_element, producing
+  // matching encoded/decoded layouts as required by DecodeChunk.
+  TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
+
+  return metadata;
+}
+
 constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
   return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
     using T = absl::remove_cvref_t<decltype(*obj)>;

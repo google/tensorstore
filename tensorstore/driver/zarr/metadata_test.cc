@@ -804,4 +804,92 @@ TEST(DimensionSeparatorTest, JsonBinderTestInvalid) {
       DimensionSeparatorJsonBinder);
 }
 
+using ::tensorstore::internal_zarr::CreateVoidMetadata;
+
+TEST(CreateVoidMetadataTest, SimpleType) {
+  // Create metadata for a simple int32 type
+  std::string_view metadata_text = R"({
+    "chunks": [10, 10],
+    "compressor": null,
+    "dtype": "<i4",
+    "fill_value": 42,
+    "filters": null,
+    "order": "C",
+    "shape": [100, 100],
+    "zarr_format": 2
+  })";
+  nlohmann::json j = nlohmann::json::parse(metadata_text);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto original, ZarrMetadata::FromJson(j));
+
+  // Create void metadata
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_metadata,
+                                   CreateVoidMetadata(original));
+
+  // Verify basic properties are preserved
+  EXPECT_EQ(void_metadata->rank, original.rank);
+  EXPECT_EQ(void_metadata->shape, original.shape);
+  EXPECT_EQ(void_metadata->chunks, original.chunks);
+  EXPECT_EQ(void_metadata->order, original.order);
+  EXPECT_EQ(void_metadata->zarr_format, original.zarr_format);
+
+  // Verify dtype is converted to void type
+  EXPECT_FALSE(void_metadata->dtype.has_fields);
+  EXPECT_EQ(1, void_metadata->dtype.fields.size());
+  EXPECT_EQ(dtype_v<std::byte>, void_metadata->dtype.fields[0].dtype);
+  EXPECT_EQ(original.dtype.bytes_per_outer_element,
+            void_metadata->dtype.bytes_per_outer_element);
+
+  // Verify field_shape is {bytes_per_outer_element}
+  EXPECT_THAT(void_metadata->dtype.fields[0].field_shape,
+              ElementsAre(original.dtype.bytes_per_outer_element));
+
+  // Verify chunk_layout is computed correctly
+  EXPECT_EQ(void_metadata->chunk_layout.num_outer_elements,
+            original.chunk_layout.num_outer_elements);
+  EXPECT_EQ(void_metadata->chunk_layout.bytes_per_chunk,
+            original.chunk_layout.bytes_per_chunk);
+  EXPECT_EQ(1, void_metadata->chunk_layout.fields.size());
+
+  // Verify encoded and decoded layouts are equal (required for single-field
+  // optimized decode path)
+  EXPECT_EQ(void_metadata->chunk_layout.fields[0].encoded_chunk_layout,
+            void_metadata->chunk_layout.fields[0].decoded_chunk_layout);
+}
+
+TEST(CreateVoidMetadataTest, StructuredType) {
+  // Create metadata for a structured dtype with multiple fields
+  std::string_view metadata_text = R"({
+    "chunks": [10],
+    "compressor": {"id": "zlib", "level": 1},
+    "dtype": [["a", "<i4"], ["b", "|S10"]],
+    "fill_value": "AAAAAAAAAAAAAAAAAAA=",
+    "filters": null,
+    "order": "F",
+    "shape": [100],
+    "zarr_format": 2
+  })";
+  nlohmann::json j = nlohmann::json::parse(metadata_text);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto original, ZarrMetadata::FromJson(j));
+
+  // Create void metadata
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_metadata,
+                                   CreateVoidMetadata(original));
+
+  // Verify dtype is converted to single void field
+  EXPECT_FALSE(void_metadata->dtype.has_fields);
+  EXPECT_EQ(1, void_metadata->dtype.fields.size());
+  EXPECT_EQ(dtype_v<std::byte>, void_metadata->dtype.fields[0].dtype);
+
+  // bytes_per_outer_element should be 4 + 10 = 14
+  EXPECT_EQ(14, original.dtype.bytes_per_outer_element);
+  EXPECT_EQ(14, void_metadata->dtype.bytes_per_outer_element);
+  EXPECT_THAT(void_metadata->dtype.fields[0].field_shape, ElementsAre(14));
+
+  // Verify compressor is preserved
+  EXPECT_EQ(void_metadata->compressor, original.compressor);
+
+  // Verify order is preserved
+  EXPECT_EQ(void_metadata->order, original.order);
+}
+
 }  // namespace
