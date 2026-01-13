@@ -224,19 +224,12 @@ Result<SharedArray<const void>> ZarrDriverSpec::GetFillValue(
 
   const auto& metadata = partial_metadata;
   if (metadata.dtype && metadata.fill_value) {
-    // For void access, synthesize a byte-level fill value
-    if (open_as_void) {
-      const Index nbytes = metadata.dtype->bytes_per_outer_element;
-      auto byte_arr = AllocateArray(
-          span<const Index, 1>({nbytes}), c_order, value_init,
-          dtype_v<tensorstore::dtypes::byte_t>);
-      fill_value = byte_arr;
-    } else {
+    size_t field_index = 0;  // open_as_void has a single field.
+    if (!open_as_void) {
       TENSORSTORE_ASSIGN_OR_RETURN(
-          size_t field_index,
-          GetFieldIndex(*metadata.dtype, selected_field));
-      fill_value = (*metadata.fill_value)[field_index];
+          field_index, GetFieldIndex(*metadata.dtype, selected_field));
     }
+    fill_value = (*metadata.fill_value)[field_index];
   }
 
   if (!fill_value.valid() || !transform.valid()) {

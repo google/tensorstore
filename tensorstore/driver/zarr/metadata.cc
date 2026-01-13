@@ -376,8 +376,28 @@ Result<ZarrMetadataPtr> CreateVoidMetadata(const ZarrMetadata& original) {
   // bytes_per_outer_element stays the same (inherited from copy)
 
   // Set fill_value for the single void field.
-  // Empty/null fill value is handled by GetChunkGridSpecification.
+  // Convert the original fill_values (which may have multiple fields with
+  // various dtypes) into a single byte array representing the raw bytes.
   metadata->fill_value.resize(1);
+  bool has_valid_fill_value = !original.fill_value.empty() &&
+                              std::all_of(original.fill_value.begin(),
+                                          original.fill_value.end(),
+                                          [](const auto& fv) { return fv.valid(); });
+  if (has_valid_fill_value) {
+    const Index nbytes = original.dtype.bytes_per_outer_element;
+    auto byte_fill = AllocateArray<std::byte>({nbytes});
+    // Encode all fields into the byte array at their respective offsets
+    for (size_t field_i = 0; field_i < original.dtype.fields.size(); ++field_i) {
+      const auto& field = original.dtype.fields[field_i];
+      const auto& fill_value = original.fill_value[field_i];
+      Array<void> encoded_fill_value(
+          {static_cast<void*>(byte_fill.data() + field.byte_offset),
+           field.dtype},
+          field.field_shape);
+      internal::EncodeArray(fill_value, encoded_fill_value, field.endian);
+    }
+    metadata->fill_value[0] = byte_fill;
+  }
 
   // Recompute chunk_layout using existing ValidateMetadata.
   // ComputeChunkLayout handles the void field correctly because

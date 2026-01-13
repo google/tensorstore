@@ -892,4 +892,93 @@ TEST(CreateVoidMetadataTest, StructuredType) {
   EXPECT_EQ(void_metadata->order, original.order);
 }
 
+TEST(CreateVoidMetadataTest, FillValueCopied) {
+  // Test that CreateVoidMetadata creates a byte-level fill_value from the
+  // original fill_value.
+  std::string_view metadata_text = R"({
+    "chunks": [10, 10],
+    "compressor": null,
+    "dtype": "<i4",
+    "fill_value": 42,
+    "filters": null,
+    "order": "C",
+    "shape": [100, 100],
+    "zarr_format": 2
+  })";
+  nlohmann::json j = nlohmann::json::parse(metadata_text);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto original, ZarrMetadata::FromJson(j));
+
+  // Verify original has fill_value set
+  ASSERT_EQ(1, original.fill_value.size());
+  ASSERT_TRUE(original.fill_value[0].valid());
+
+  // Create void metadata
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_metadata,
+                                   CreateVoidMetadata(original));
+
+  // Verify fill_value is created for the void metadata
+  ASSERT_EQ(1, void_metadata->fill_value.size());
+  EXPECT_TRUE(void_metadata->fill_value[0].valid());
+
+  // The fill_value should be a byte array with the encoded value
+  EXPECT_EQ(dtype_v<std::byte>, void_metadata->fill_value[0].dtype());
+  EXPECT_EQ(1, void_metadata->fill_value[0].rank());
+  EXPECT_EQ(4, void_metadata->fill_value[0].shape()[0]);  // 4 bytes for i4
+
+  // Verify the byte content: 42 in little endian = 0x2A, 0x00, 0x00, 0x00
+  auto fill_bytes =
+      static_cast<const unsigned char*>(void_metadata->fill_value[0].data());
+  EXPECT_EQ(0x2A, fill_bytes[0]);
+  EXPECT_EQ(0x00, fill_bytes[1]);
+  EXPECT_EQ(0x00, fill_bytes[2]);
+  EXPECT_EQ(0x00, fill_bytes[3]);
+}
+
+TEST(CreateVoidMetadataTest, FillValueCopiedFromAllFields) {
+  // Test that for structured types, CreateVoidMetadata creates a byte-level
+  // fill_value that encodes all fields.
+  std::string_view metadata_text = R"({
+    "chunks": [10],
+    "compressor": null,
+    "dtype": [["a", "<i4"], ["b", "<i2"]],
+    "fill_value": "KgAAAAoA",
+    "filters": null,
+    "order": "C",
+    "shape": [100],
+    "zarr_format": 2
+  })";
+  // Note: "KgAAAAoA" is base64 for bytes: 42, 0, 0, 0, 10, 0
+  // which represents int32(42) followed by int16(10)
+  nlohmann::json j = nlohmann::json::parse(metadata_text);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto original, ZarrMetadata::FromJson(j));
+
+  // Verify original has fill_values for both fields
+  ASSERT_EQ(2, original.fill_value.size());
+  ASSERT_TRUE(original.fill_value[0].valid());
+  ASSERT_TRUE(original.fill_value[1].valid());
+
+  // Create void metadata
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_metadata,
+                                   CreateVoidMetadata(original));
+
+  // Verify fill_value is created
+  ASSERT_EQ(1, void_metadata->fill_value.size());
+  EXPECT_TRUE(void_metadata->fill_value[0].valid());
+
+  // The fill_value should be a byte array encoding all fields
+  EXPECT_EQ(dtype_v<std::byte>, void_metadata->fill_value[0].dtype());
+  EXPECT_EQ(1, void_metadata->fill_value[0].rank());
+  EXPECT_EQ(6, void_metadata->fill_value[0].shape()[0]);  // 4 + 2 bytes
+
+  // Verify the byte content matches the original base64 decoded bytes
+  auto fill_bytes =
+      static_cast<const unsigned char*>(void_metadata->fill_value[0].data());
+  EXPECT_EQ(0x2A, fill_bytes[0]);  // 42
+  EXPECT_EQ(0x00, fill_bytes[1]);
+  EXPECT_EQ(0x00, fill_bytes[2]);
+  EXPECT_EQ(0x00, fill_bytes[3]);
+  EXPECT_EQ(0x0A, fill_bytes[4]);  // 10
+  EXPECT_EQ(0x00, fill_bytes[5]);
+}
+
 }  // namespace

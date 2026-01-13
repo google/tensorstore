@@ -4176,4 +4176,63 @@ TEST(ZarrDriverTest, GetSpecInfoOpenAsVoidRankConsistency) {
   EXPECT_EQ(4, void_spec.rank());
 }
 
+TEST(ZarrDriverTest, OpenAsVoidFillValue) {
+  // Test that fill_value is correctly obtained from metadata when using
+  // open_as_void. The void access should get the fill_value from the first
+  // field (field_index = 0) of the original metadata.
+  auto context = Context::Default();
+
+  // Create an array with an explicit fill_value
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+           {"fill_value", 0x1234},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Verify the normal store has the expected fill_value
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto normal_fill, store.fill_value());
+  EXPECT_TRUE(normal_fill.valid());
+  EXPECT_EQ(tensorstore::MakeScalarArray<int16_t>(0x1234), normal_fill);
+
+  // Open with open_as_void=true
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Verify void store has a valid fill_value derived from the original
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_fill, void_store.fill_value());
+  EXPECT_TRUE(void_fill.valid());
+
+  // The void fill_value should have shape {2} (2 bytes for int16)
+  EXPECT_EQ(1, void_fill.rank());
+  EXPECT_EQ(2, void_fill.shape()[0]);
+
+  // The fill_value bytes should represent 0x1234 in little endian: 0x34, 0x12
+  auto fill_bytes =
+      static_cast<const unsigned char*>(void_fill.data());
+  EXPECT_EQ(0x34, fill_bytes[0]);
+  EXPECT_EQ(0x12, fill_bytes[1]);
+}
+
 }  // namespace
