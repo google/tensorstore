@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
 #include "tensorstore/internal/testing/json_gtest.h"

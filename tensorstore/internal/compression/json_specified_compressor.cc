@@ -16,7 +16,6 @@
 
 #include <stddef.h>
 
-#include <memory>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -26,6 +25,7 @@
 #include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/write.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal {
@@ -41,7 +41,7 @@ absl::Status JsonSpecifiedCompressor::Encode(const absl::Cord& input,
 
   TENSORSTORE_RETURN_IF_ERROR(
       riegeli::Write(input, std::move(writer)),
-      MaybeConvertStatusTo(_, absl::StatusCode::kInvalidArgument));
+      internal::StatusBuilder(_).SetCode(absl::StatusCode::kInvalidArgument));
   if (!base_writer.Close()) return base_writer.status();
   return absl::OkStatus();
 }
@@ -54,7 +54,7 @@ absl::Status JsonSpecifiedCompressor::Decode(const absl::Cord& input,
 
   TENSORSTORE_RETURN_IF_ERROR(
       riegeli::ReadAndAppendAll(std::move(reader), *output),
-      MaybeConvertStatusTo(_, absl::StatusCode::kInvalidArgument));
+      internal::StatusBuilder(_).SetCode(absl::StatusCode::kInvalidArgument));
   if (!base_reader.VerifyEndAndClose()) return base_reader.status();
   return absl::OkStatus();
 }

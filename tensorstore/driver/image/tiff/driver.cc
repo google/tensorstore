@@ -38,6 +38,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_image_driver {
@@ -128,8 +129,8 @@ struct TiffSpecialization : public TiffReadOptions {
     }();
     if (!status.ok()) {
       if (status.code() == absl::StatusCode::kInvalidArgument) {
-        return internal::MaybeConvertStatusTo(std::move(status),
-                                              absl::StatusCode::kDataLoss);
+        return internal::StatusBuilder(std::move(status))
+            .SetCode(absl::StatusCode::kDataLoss);
       }
       return status;
     }

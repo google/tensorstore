@@ -945,18 +945,7 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
       std::forward<Func>(func)...);
 }
 
-#define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(temp, decl, expr,      \
-                                                   error_expr, ...)       \
-  auto temp = (expr);                                                     \
-  static_assert(tensorstore::IsResult<decltype(temp)>,                    \
-                "TENSORSTORE_ASSIGN_OR_RETURN requires a Result value."); \
-  if (ABSL_PREDICT_FALSE(!temp)) {                                        \
-    auto _ = std::move(temp).status();                                    \
-    ::tensorstore::MaybeAddSourceLocation(_);                             \
-    return (error_expr);                                                  \
-  }                                                                       \
-  decl = *std::move(temp);                                                \
-  /**/
+}  // namespace tensorstore
 
 /// Convenience macro for propagating errors when calling a function that
 /// returns a `tensorstore::Result`.
@@ -975,22 +964,37 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
 ///                                  _.Annotate("Context message"));
 ///
 /// \relates tensorstore::Result
-#define TENSORSTORE_ASSIGN_OR_RETURN(decl, ...)                          \
-  TENSORSTORE_PP_EXPAND(TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(      \
-      TENSORSTORE_PP_CAT(tensorstore_assign_or_return_, __LINE__), decl, \
-      __VA_ARGS__, _))                                                   \
-  /**/
-// Note: the use of `TENSORSTORE_PP_EXPAND` above is a workaround for MSVC 2019
-// preprocessor limitations.
+#define TENSORSTORE_ASSIGN_OR_RETURN(decl, ...)                 \
+  TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_SELECT_OVERLOAD(        \
+      (__VA_ARGS__, TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_3ARG, \
+       TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_2ARG))(            \
+      TENSORSTORE_PP_CAT(ts_assign_or_return_, __LINE__), decl, __VA_ARGS__)
 
-#define TENSORSTORE_INTERNAL_CHECK_OK_AND_ASSIGN_IMPL(temp, decl, expr)      \
-  auto temp = (expr);                                                        \
-  static_assert(tensorstore::IsResult<decltype(temp)>,                       \
-                "TENSORSTORE_CHECK_OK_AND_ASSIGN requires a Result value."); \
-  if (ABSL_PREDICT_FALSE(!temp)) {                                           \
-    TENSORSTORE_CHECK_OK(temp.status());                                     \
-  }                                                                          \
-  decl = *std::move(temp);
+// Implementation details of TENSORSTORE_ASSIGN_OR_RETURN
+#define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(temp, decl, expr,      \
+                                                   return_value)          \
+  auto temp = (expr);                                                     \
+  static_assert(::tensorstore::IsResult<decltype(temp)>,                  \
+                "TENSORSTORE_ASSIGN_OR_RETURN requires a Result value."); \
+  if (ABSL_PREDICT_FALSE(!temp)) {                                        \
+    absl::Status _ = std::move(temp).status();                            \
+    ::tensorstore::MaybeAddSourceLocation(_);                             \
+    return (return_value);                                                \
+  }                                                                       \
+  decl = *std::move(temp)
+
+#define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_HELPER(_2, _3, OVERLOAD, ...) \
+  OVERLOAD
+
+#define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_SELECT_OVERLOAD(args) \
+  TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_HELPER args
+
+#define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_2ARG(TEMP, DECL, EXPR) \
+  TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(TEMP, DECL, EXPR, _)
+
+#define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_3ARG(TEMP, DECL, EXPR, \
+                                                   RETURN_VALUE)     \
+  TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(TEMP, DECL, EXPR, RETURN_VALUE)
 
 /// Convenience macro for checking errors when calling a function that returns a
 /// `tensorstore::Result`.
@@ -1011,6 +1015,14 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
       TENSORSTORE_PP_CAT(tensorstore_check_ok_or_return_, __LINE__), decl, \
       __VA_ARGS__))
 
-}  // namespace tensorstore
+// Implementation details of TENSORSTORE_CHECK_OK_AND_ASSIGN
+#define TENSORSTORE_INTERNAL_CHECK_OK_AND_ASSIGN_IMPL(temp, decl, expr)      \
+  auto temp = (expr);                                                        \
+  static_assert(::tensorstore::IsResult<decltype(temp)>,                     \
+                "TENSORSTORE_CHECK_OK_AND_ASSIGN requires a Result value."); \
+  if (ABSL_PREDICT_FALSE(!temp)) {                                           \
+    TENSORSTORE_CHECK_OK(temp.status());                                     \
+  }                                                                          \
+  decl = *std::move(temp);
 
 #endif  // TENSORSTORE_RESULT_H_

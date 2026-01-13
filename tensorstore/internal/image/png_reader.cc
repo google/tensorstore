@@ -14,20 +14,20 @@
 
 #include "tensorstore/internal/image/png_reader.h"
 
-#include <assert.h>
 #include <stddef.h>
+#include <stdint.h>
 
+#include <cassert>
 #include <csetjmp>
+#include <cstring>
 #include <limits>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include "absl/types/optional.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
@@ -35,6 +35,7 @@
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 #include "tensorstore/util/str_cat.h"
 
 // Include libpng last
@@ -120,9 +121,9 @@ absl::Status PngReader::Context::Initialize() {
   }();
 
   if (!reader_->ok() || !last_error_.ok()) {
-    return internal::MaybeConvertStatusTo(
-        !reader_->ok() ? reader_->status() : last_error_,
-        absl::StatusCode::kInvalidArgument);
+    return internal::StatusBuilder(!reader_->ok() ? reader_->status()
+                                                  : last_error_)
+        .SetCode(absl::StatusCode::kInvalidArgument);
   }
 
   /// png_get... functions don't require longjmp
@@ -216,13 +217,10 @@ absl::Status PngReader::Context::Decode(tensorstore::span<unsigned char> dest) {
   }();
 
   if (!ok || !reader_->ok() || !last_error_.ok()) {
-    absl::Status status = internal::MaybeConvertStatusTo(
-        !reader_->ok() ? reader_->status() : last_error_,
-        absl::StatusCode::kDataLoss);
-    if (status.ok()) {
-      return absl::DataLossError("Failed to decode PNG");
-    }
-    return MaybeAnnotateStatus(status, "Failed to decode PNG");
+    return internal::StatusBuilder(!reader_->ok() ? reader_->status()
+                                                  : last_error_)
+        .SetCode(absl::StatusCode::kDataLoss)
+        .Format("Failed to decode PNG");
   }
   return absl::OkStatus();
 }

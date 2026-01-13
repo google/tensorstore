@@ -36,7 +36,7 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 #include "tinyxml2.h"
 
 using ::tensorstore::internal_http::HeaderMap;
@@ -270,24 +270,20 @@ absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
     error_type = "Unknown";
   }
 
-  absl::Status status(absl_status_code,
-                      absl::StrFormat("%s%s%s", error_type,
-                                      message.empty() ? "" : ": ", message));
-
-  status.SetPayload("http_response_code",
-                    absl::Cord(absl::StrFormat("%d", response.status_code)));
+  internal::StatusBuilder builder(absl_status_code, loc);
   if (!payload_str.empty()) {
-    status.SetPayload(
+    builder.SetPayload(
         "http_response_body",
         payload.Subcord(0,
                         payload_str.size() < 256 ? payload_str.size() : 256));
   }
   if (!request_id.empty()) {
-    status.SetPayload("x-amzn-requestid", request_id);
+    builder.SetPayload("x-amzn-requestid", request_id);
   }
-
-  MaybeAddSourceLocation(status, loc);
-  return status;
+  return builder
+      .SetPayload("http_response_code",
+                  absl::StrFormat("%d", response.status_code))
+      .Format("%s%s%s", error_type, (message.empty() ? "" : ": "), message);
 }
 
 }  // namespace internal_kvstore_s3

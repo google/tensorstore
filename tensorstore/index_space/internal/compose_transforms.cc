@@ -33,6 +33,7 @@
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
@@ -41,6 +42,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -314,12 +316,13 @@ Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
     return absl::Cord(str);
   };
 
-  AddStatusPayload(status, "transform", format_transform(a_to_b));
-  if (!status.GetPayload("domain").has_value()) {
-    AddStatusPayload(status, "left_transform", format_transform(b_to_c));
+  internal::StatusBuilder builder(std::move(status));
+  builder.AddStatusPayload("transform", format_transform(a_to_b));
+  if (!builder.GetPayload("domain").has_value()) {
+    builder.AddStatusPayload("left_transform", format_transform(b_to_c));
   }
 
-  return status;
+  return builder;
 }
 
 Result<IndexTransform<dynamic_rank, dynamic_rank, container>> ComposeTransforms(

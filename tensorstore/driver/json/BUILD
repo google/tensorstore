@@ -113,8 +113,10 @@ tensorstore_cc_library(
     hdrs = ["json_change_map.h"],
     deps = [
         "//tensorstore/internal:json_pointer",
+        "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/status",
         "@nlohmann_json//:json",
     ],
 )

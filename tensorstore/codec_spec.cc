@@ -14,15 +14,24 @@
 
 #include "tensorstore/codec_spec.h"
 
+#include <cassert>
 #include <ostream>
+#include <utility>
 
 #include "absl/base/no_destructor.h"
+#include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/codec_spec_registry.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal {
@@ -36,9 +45,8 @@ absl::Status CodecDriverSpec::MergeFrom(const CodecSpec& other) {
   if (!other) return absl::OkStatus();
   TENSORSTORE_RETURN_IF_ERROR(
       this->DoMergeFrom(*other),
-      tensorstore::MaybeAnnotateStatus(
-          _, tensorstore::StrCat("Cannot merge codec spec ", CodecSpec(this),
-                                 " with ", other)));
+      internal::StatusBuilder(_).Format("Cannot merge codec spec %v with %v",
+                                        CodecSpec(this), other));
   return absl::OkStatus();
 }
 

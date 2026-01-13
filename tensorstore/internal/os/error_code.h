@@ -17,13 +17,14 @@
 
 #include <cassert>
 #include <cerrno>
+#include <sstream>
 #include <string>
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/source_location.h"
-#include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 // Include system headers last to reduce impact of macros.
 #include "tensorstore/internal/os/include_windows.h"
@@ -65,6 +66,8 @@ std::string GetOsErrorMessage(OsErrorCode error);
 
 /// Returns an `absl::Status` with an OS error. The message is composed by
 /// catenation of the provided parts {a .. f}
+///
+/// TODO: Convert these uses to use absl::StrFormat
 template <typename A = std::string_view, typename B = std::string_view,
           typename C = std::string_view, typename D = std::string_view,
           typename E = std::string_view, typename F = std::string_view>
@@ -73,17 +76,17 @@ absl::Status StatusWithOsError(
     A a = {}, B b = {}, C c = {}, D d = {}, E e = {}, F f = {},
     SourceLocation loc = tensorstore::SourceLocation::current()) {
   assert(status_code != absl::StatusCode::kOk);
-  absl::Status status(
-      status_code,
-      tensorstore::StrCat(a, b, c, d, e, f, " [OS error ", error_code, ": ",
-                          OsErrorCodeLiteral(error_code),
-                          GetOsErrorMessage(error_code), "]"));
-  MaybeAddSourceLocation(status, loc);
-  return status;
+  std::ostringstream os;
+  os << a << b << c << d << e << f << ": " << GetOsErrorMessage(error_code);
+  return internal::StatusBuilder(status_code, loc)
+      .SetPayload("os_error_code", absl::StrFormat("%d", error_code))
+      .Format("%s", os.str());
 }
 
 /// Returns an `absl::Status` from an OS error. The message is composed by
 /// catenation of the provided parts {a .. f}
+///
+/// TODO: Convert these uses to use absl::StrFormat
 template <typename A = std::string_view, typename B = std::string_view,
           typename C = std::string_view, typename D = std::string_view,
           typename E = std::string_view, typename F = std::string_view>

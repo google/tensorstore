@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_STATUS_H_
 #define TENSORSTORE_STATUS_H_
 
-#include <optional>
-#include <string>
+#include <stddef.h>
+
+#include <cassert>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -24,49 +25,17 @@
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_format.h"
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/source_location.h"
+#include "tensorstore/util/status_builder.h"
+#include "tensorstore/util/status_impl.h"
 
 namespace tensorstore {
 namespace internal {
 
-/// Add the SourceLocation to the Status.
-void MaybeAddSourceLocationImpl(absl::Status& status, SourceLocation loc);
-
-// Returns a copy of `source` with `prefix_message` appended, possibly changing
-// the status code and adding a source location.
-absl::Status MaybeAnnotateStatusImpl(absl::Status source,
-                                     std::string_view prefix_message,
-                                     std::optional<absl::StatusCode> new_code,
-                                     std::optional<SourceLocation> loc);
-
+// Logs a fatal error with the status and terminates the program.
 [[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
                               SourceLocation loc);
-
-/// If status is not `absl::StatusCode::kOk`, then converts the status code.
-inline absl::Status MaybeConvertStatusTo(
-    absl::Status status, absl::StatusCode code,
-    SourceLocation loc = tensorstore::SourceLocation::current()) {
-  if (status.code() == code) {
-    if (!status.message().empty()) MaybeAddSourceLocationImpl(status, loc);
-    return status;
-  }
-  return MaybeAnnotateStatusImpl(std::move(status), {}, code, loc);
-}
-
-/// Converts `kInvalidArgument` and `kOutOfRange` errors to
-/// `kFailedPrecondition` errors.
-inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
-    absl::Status status,
-    SourceLocation loc = tensorstore::SourceLocation::current()) {
-  if (status.code() == absl::StatusCode::kInvalidArgument ||
-      status.code() == absl::StatusCode::kOutOfRange) {
-    return MaybeAnnotateStatusImpl(std::move(status), {},
-                                   absl::StatusCode::kFailedPrecondition, loc);
-  }
-  return status;
-}
 
 /// Returns `f(args...)`, converting a `void` return to `absl::Status`.
 template <typename F, typename... Args>
@@ -82,6 +51,19 @@ inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
   }
 }
 
+/// Converts `kInvalidArgument` and `kOutOfRange` errors to
+/// `kFailedPrecondition` errors.
+inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
+    absl::Status status,
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
+  if (status.code() != absl::StatusCode::kInvalidArgument &&
+      status.code() != absl::StatusCode::kOutOfRange) {
+    return status;
+  }
+  return StatusBuilder(std::move(status), loc)
+      .SetCode(absl::StatusCode::kFailedPrecondition);
+}
+
 }  // namespace internal
 
 // Add a source location to the status.
@@ -90,32 +72,27 @@ inline void MaybeAddSourceLocation(
     SourceLocation loc = tensorstore::SourceLocation::current()) {
   // Don't add locations to purely control flow status OBJECTS.
   if (status.ok() || status.message().empty()) return;
-  internal::MaybeAddSourceLocationImpl(status, loc);
+  internal_status::MaybeAddSourceLocationImpl(status, loc);
 }
 
-// Adds value to status usiung `status.SetPayload`.
-// Iterates through payloads like `prefix` and `prefix[N]`, and if value
-// is not found, adds to the status payload, returning prefix.
-// If the payload already exists, returns std::nullopt.
-std::optional<std::string> AddStatusPayload(absl::Status& status,
-                                            std::string_view prefix,
-                                            absl::Cord value);
-
 /// If status is not `absl::StatusCode::kOk`, then annotate the status
-/// message.
+/// message by appending the given message.
 ///
 /// \ingroup error handling
 inline absl::Status MaybeAnnotateStatus(
     absl::Status source, std::string_view message,
     SourceLocation loc = tensorstore::SourceLocation::current()) {
-  return internal::MaybeAnnotateStatusImpl(std::move(source), message,
-                                           std::nullopt, loc);
+  return internal::StatusBuilder(std::move(source), loc)
+      .SetPrepend()
+      .Format("%s", message);
 }
 inline absl::Status MaybeAnnotateStatus(
     absl::Status source, std::string_view message, absl::StatusCode new_code,
     SourceLocation loc = tensorstore::SourceLocation::current()) {
-  return internal::MaybeAnnotateStatusImpl(std::move(source), message, new_code,
-                                           loc);
+  return internal::StatusBuilder(std::move(source), loc)
+      .SetCode(new_code)
+      .SetPrepend()
+      .Format("%s", message);
 }
 
 /// Overload for the case of a bare absl::Status argument.

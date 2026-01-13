@@ -618,7 +618,6 @@ Result<IndexDomain<>> GetEffectiveDomain(
           tensorstore::MaybeAnnotateStatus(
               _, "Mismatch between metadata and schema")));
   return WithImplicitDimensions(domain, false, true);
-  return domain;
 }
 
 Result<IndexDomain<>> GetEffectiveDomain(

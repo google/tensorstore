@@ -14,13 +14,17 @@
 
 #include "tensorstore/driver/json/json_change_map.h"
 
+#include <cassert>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include "absl/container/btree_map.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_pointer.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {

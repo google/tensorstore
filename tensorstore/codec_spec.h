@@ -138,6 +138,20 @@ class CodecSpec
   /// \param os Output stream.
   /// \param codec Codec to write, may be null.
   friend std::ostream& operator<<(std::ostream& os, const CodecSpec& codec);
+
+  /// Writes the JSON representation of `codec` to `sink`.
+  ///
+  /// \param sink Output sink.
+  /// \param codec Codec to write, may be null.
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const CodecSpec& codec) {
+    auto json_result = codec.ToJson();
+    if (!json_result.ok()) {
+      sink.Append("<unprintable>");
+    } else {
+      sink.Append(json_result->dump());
+    }
+  }
 };
 
 namespace internal {

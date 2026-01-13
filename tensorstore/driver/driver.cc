@@ -57,7 +57,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal {
@@ -113,22 +113,20 @@ Future<Driver::Handle> OpenDriver(TransformedDriverSpec bound_spec,
 
         /// On failure, annotate status with spec.
         if (!status.ok()) {
-          status = tensorstore::MaybeAnnotateStatus(
-              std::move(status),
-              tensorstore::StrCat(
-                  "Error opening ",
-                  tensorstore::QuoteString(bound_spec.driver_spec->GetId()),
-                  " driver"));
+          internal::StatusBuilder builder(std::move(status));
+          builder.Format(
+              "Error opening %s driver",
+              tensorstore::QuoteString(bound_spec.driver_spec->GetId()));
           auto spec_json = internal_json_binding::ToJson(bound_spec);
           if (spec_json.ok()) {
-            AddStatusPayload(
-                status, "tensorstore_spec",
+            builder.AddStatusPayload(
+                "tensorstore_spec",
                 absl::Cord(spec_json.value().dump(
                     /*indent=*/-1, /*indent_char=*/' ', /*ensure_ascii=*/false,
                     /*error_handler=*/
                     ::nlohmann::json::error_handler_t::ignore)));
           }
-          return status;
+          return builder;
         }
 
         // Move handle out of the `Future`.

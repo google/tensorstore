@@ -31,35 +31,12 @@ using ::tensorstore::IsOk;
 using ::tensorstore::MaybeAnnotateStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::InvokeForStatus;
-using ::tensorstore::internal::MaybeAnnotateStatusImpl;
-using ::tensorstore::internal::MaybeConvertStatusTo;
 using ::testing::HasSubstr;
 
 TEST(StatusTest, StrCat) {
   const absl::Status s = absl::UnknownError("Message");
   EXPECT_THAT(s.ToString(), testing::HasSubstr("UNKNOWN: Message"));
   EXPECT_THAT(tensorstore::StrCat(s), testing::HasSubstr("UNKNOWN: Message"));
-}
-
-TEST(StatusTest, MaybeAnnotateStatusImpl) {
-  // Just change the code.
-  EXPECT_THAT(MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), {},
-                                      absl::StatusCode::kInternal,
-                                      tensorstore::SourceLocation::current()),
-              StatusIs(absl::StatusCode::kInternal, HasSubstr("Boo")));
-
-  // Just change the message.
-  EXPECT_THAT(
-      MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated", {},
-                              tensorstore::SourceLocation::current()),
-      StatusIs(absl::StatusCode::kUnknown, HasSubstr("Annotated: Boo")));
-
-  // Change both code and message
-  EXPECT_THAT(
-      MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated",
-                              absl::StatusCode::kInternal,
-                              tensorstore::SourceLocation::current()),
-      StatusIs(absl::StatusCode::kInternal, HasSubstr("Annotated: Boo")));
 }
 
 TEST(StatusTest, MaybeAnnotateStatus) {
@@ -77,15 +54,6 @@ TEST(StatusTest, MaybeAnnotateStatus) {
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kUnknown,
                                HasSubstr("Annotated: Bar")));
   EXPECT_THAT(tensorstore::StrCat(status), testing::HasSubstr("a='b'"));
-}
-
-TEST(StatusTest, MaybeConvertStatusTo) {
-  EXPECT_EQ(absl::OkStatus(),  //
-            MaybeConvertStatusTo(absl::OkStatus(),
-                                 absl::StatusCode::kDeadlineExceeded));
-  EXPECT_THAT(MaybeConvertStatusTo(absl::UnknownError("Boo"),
-                                   absl::StatusCode::kInternal),
-              StatusIs(absl::StatusCode::kInternal, HasSubstr("Boo")));
 }
 
 TEST(StatusTest, InvokeForStatus) {
@@ -113,7 +81,7 @@ TEST(StatusTest, InvokeForStatus) {
 }
 
 TEST(StatusTest, ReturnIfError) {
-  const auto Helper = [](absl::Status s) {
+  const auto Helper = [](absl::Status s) -> absl::Status {
     TENSORSTORE_RETURN_IF_ERROR(s);
     return absl::UnknownError("No error");
   };
@@ -126,7 +94,7 @@ TEST(StatusTest, ReturnIfError) {
 }
 
 TEST(StatusTest, ReturnIfErrorAnnotate) {
-  const auto Helper = [](absl::Status s) {
+  const auto Helper = [](absl::Status s) -> absl::Status {
     TENSORSTORE_RETURN_IF_ERROR(s, MaybeAnnotateStatus(_, "Annotated"));
     return absl::UnknownError("No error");
   };

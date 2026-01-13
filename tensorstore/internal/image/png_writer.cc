@@ -36,6 +36,7 @@
 
 // Include libpng last
 #include <png.h>
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_image {
@@ -161,9 +162,9 @@ absl::Status PngWriter::Context::Encode(
   }();
 
   if (!writer_->ok() || !last_error_.ok()) {
-    return internal::MaybeConvertStatusTo(
-        !writer_->ok() ? writer_->status() : last_error_,
-        absl::StatusCode::kDataLoss);
+    return internal::StatusBuilder(!writer_->ok() ? writer_->status()
+                                                  : last_error_)
+        .SetCode(absl::StatusCode::kDataLoss);
   }
   return absl::OkStatus();
 }

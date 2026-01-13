@@ -788,6 +788,14 @@ class DataType {
 
   /// Prints `name()` if `valid() == true`, otherwise prints `"<unspecified>"`.
   friend std::ostream& operator<<(std::ostream& os, DataType r);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, DataType r) {
+    if (r.valid()) {
+      sink.Append(r.name());
+    } else {
+      sink.Append("<unspecified>");
+    }
+  }
 
  private:
   // \invariant operations_ != nullptr
@@ -923,8 +931,9 @@ struct InitializeImpl {
 #ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMSET_OPTIMIZATION
   template <typename T>
   ABSL_ATTRIBUTE_ALWAYS_INLINE static std::enable_if_t<
-      std::is_trivially_constructible_v<T>, Index>
-  ApplyContiguous(Index count, T* dest, void*) {
+      std::is_trivially_constructible_v<T>, Index> ApplyContiguous(Index count,
+                                                                   T* dest,
+                                                                   void*) {
     std::memset(dest, 0, sizeof(T) * count);
     return count;
   }
@@ -943,8 +952,9 @@ struct CopyAssignImpl {
 #ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMMOVE_OPTIMIZATION
   template <typename T>
   ABSL_ATTRIBUTE_ALWAYS_INLINE static std::enable_if_t<
-      std::is_trivially_copyable_v<T>, Index>
-  ApplyContiguous(Index count, const T* source, T* dest, void*) {
+      std::is_trivially_copyable_v<T>, Index> ApplyContiguous(Index count,
+                                                              const T* source,
+                                                              T* dest, void*) {
 #ifdef __clang__
     // Note: Using `memmove` actually results in ~20% worse performance with
     // Clang if `count` is small (e.g. 64).  Furthermore, marking `source` and
@@ -1042,8 +1052,9 @@ struct CompareEqualImpl {
 #ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMCMP_OPTIMIZATION
   template <typename T>
   ABSL_ATTRIBUTE_ALWAYS_INLINE static std::enable_if_t<
-      IsTriviallyEqualityComparable<T>, Index>
-  ApplyContiguous(Index count, const T* a, T* b, void*) {
+      IsTriviallyEqualityComparable<T>, Index> ApplyContiguous(Index count,
+                                                               const T* a, T* b,
+                                                               void*) {
     return std::memcmp(a, b, sizeof(T) * count) == 0 ? count : 0;
   }
 #endif  // TENSORSTORE_DATA_TYPE_DISABLE_MEMCMP_OPTIMIZATION
@@ -1170,7 +1181,6 @@ class MakeDataTypeOperations {
   static constexpr internal::DataTypeOperations operations =
       DataTypeOperationsImpl<T>;
 };
-
 
 #define TENSORSTORE_DATA_TYPE_EXPLICIT_INSTANTIATION(T, ...)                   \
   __VA_ARGS__ template class MakeDataTypeOperations<::tensorstore::dtypes::T>; \

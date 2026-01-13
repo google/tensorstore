@@ -14,14 +14,16 @@
 
 #include "tensorstore/index_space/internal/transform_rep.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cstdlib>
+#include <cstring>
 #include <iterator>
 #include <memory>
-#include <new>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -32,6 +34,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -39,11 +42,14 @@
 #include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/dimension_labels.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/meta/exception_macros.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
-#include "tensorstore/util/division.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
