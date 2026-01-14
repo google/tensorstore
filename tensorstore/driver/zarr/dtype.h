@@ -19,6 +19,7 @@
 /// Support for encoding/decoding zarr "dtype" specifications.
 /// See: https://zarr.readthedocs.io/en/stable/spec/v2.html
 
+#include "absl/base/call_once.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -124,8 +125,19 @@ struct ZarrDType {
   friend void to_json(::nlohmann::json& out,  // NOLINT
                       const ZarrDType& dtype);
 
-  /// Lazily-computed cache for GetVoidField().
-  mutable std::optional<Field> void_field_cache_;
+  /// Thread-safe lazily-computed cache for GetVoidField().
+  /// This wrapper handles copy/move by resetting the cache.
+  struct VoidFieldCache {
+    mutable absl::once_flag once;
+    mutable std::optional<Field> field;
+
+    VoidFieldCache() = default;
+    VoidFieldCache(const VoidFieldCache&) {}
+    VoidFieldCache& operator=(const VoidFieldCache&) { return *this; }
+    VoidFieldCache(VoidFieldCache&&) noexcept {}
+    VoidFieldCache& operator=(VoidFieldCache&&) noexcept { return *this; }
+  };
+  mutable VoidFieldCache void_field_cache_;
 };
 
 /// Parses a zarr metadata "dtype" JSON specification.
