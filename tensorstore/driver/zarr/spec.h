@@ -68,9 +68,13 @@ using SelectedField = std::string;
 /// Creates zarr metadata from the given constraints.
 ///
 /// \param partial_metadata Constraints in the form of partial zarr metadata.
-/// \param selected_field The field to which `schema` applies.
+/// \param selected_field The field to which `schema` applies.  Must be empty
+///     if `open_as_void` is true.
 /// \param schema Schema constraints for the `selected_field`.
-/// \param open_as_void If true, opens the array as raw bytes.
+/// \param open_as_void If true, opens the array as raw bytes.  Must be false
+///     if `selected_field` is non-empty.
+/// \error `absl::StatusCode::kInvalidArgument` if both `selected_field` is
+///     non-empty and `open_as_void` is true.
 Result<ZarrMetadataPtr> GetNewMetadata(
     const ZarrPartialMetadata& partial_metadata,
     const SelectedField& selected_field, const Schema& schema,
@@ -101,6 +105,15 @@ Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
 ///
 /// When `open_as_void` is true and `metadata.dtype` is specified, `info.field`
 /// points to the dtype's synthesized void field.
+///
+/// \param metadata Partial metadata constraints.
+/// \param selected_field The field to which `schema` applies.  Must be empty
+///     if `open_as_void` is true.
+/// \param schema Schema constraints for the `selected_field`.
+/// \param open_as_void If true, opens the array as raw bytes.  Must be false
+///     if `selected_field` is non-empty.
+/// \error `absl::StatusCode::kInvalidArgument` if both `selected_field` is
+///     non-empty and `open_as_void` is true.
 Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
     const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
     const Schema& schema, bool open_as_void);

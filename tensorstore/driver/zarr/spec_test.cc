@@ -45,6 +45,7 @@ using ::tensorstore::MatchesJson;
 using ::tensorstore::Schema;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr::GetFieldIndex;
+using ::tensorstore::internal_zarr::GetSpecRankAndFieldInfo;
 using ::tensorstore::internal_zarr::ParseDType;
 using ::tensorstore::internal_zarr::ParseSelectedField;
 using ::tensorstore::internal_zarr::SelectedField;
@@ -656,6 +657,23 @@ TEST(GetNewMetadataTest, OpenAsVoidDtypeNotSpecified) {
                          "\"open_as_void\" is specified")));
 }
 
+TEST(GetNewMetadataTest, SelectedFieldAndOpenAsVoidMutuallyExclusive) {
+  // selected_field and open_as_void are mutually exclusive.
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(Schema::Shape({100, 200})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto partial_metadata,
+      ZarrPartialMetadata::FromJson(
+          {{"dtype", ::nlohmann::json::array_t{{"x", "<u4"}, {"y", "<i4"}}}}));
+  EXPECT_THAT(
+      tensorstore::internal_zarr::GetNewMetadata(partial_metadata,
+                                                 /*selected_field=*/"x", schema,
+                                                 /*open_as_void=*/true),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"field\" and \"open_as_void\" are mutually "
+                         "exclusive")));
+}
+
 TEST(GetNewMetadataTest, SelectedFieldInvalid) {
   EXPECT_THAT(
       GetNewMetadataFromOptions({{"dtype", {{"x", "<u4", {2}}, {"y", "<i4"}}}},
@@ -855,6 +873,22 @@ TEST(ZarrCodecSpecTest, RoundTrip) {
           {"filters", nullptr},
       },
   });
+}
+
+TEST(GetSpecRankAndFieldInfoTest, SelectedFieldAndOpenAsVoidMutuallyExclusive) {
+  // selected_field and open_as_void are mutually exclusive.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto partial_metadata,
+      ZarrPartialMetadata::FromJson(
+          {{"dtype", ::nlohmann::json::array_t{{"x", "<u4"}, {"y", "<i4"}}}}));
+  Schema schema;
+  EXPECT_THAT(
+      tensorstore::internal_zarr::GetSpecRankAndFieldInfo(
+          partial_metadata, /*selected_field=*/"x", schema,
+          /*open_as_void=*/true),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"field\" and \"open_as_void\" are mutually "
+                         "exclusive")));
 }
 
 }  // namespace

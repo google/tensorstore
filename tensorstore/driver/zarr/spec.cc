@@ -97,6 +97,15 @@ namespace {
 const internal::CodecSpecRegistration<ZarrCodecSpec> encoding_registration{
     {{"zarr2"}}};
 
+absl::Status ValidateSelectedFieldAndOpenAsVoid(
+    const SelectedField& selected_field, const bool open_as_void) {
+  if (open_as_void && !selected_field.empty()) {
+    return absl::InvalidArgumentError(
+        "\"field\" and \"open_as_void\" are mutually exclusive");
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 void GetChunkInnerOrder(DimensionIndex chunked_rank,
@@ -153,6 +162,8 @@ Result<ZarrMetadataPtr> GetNewMetadata(
     const ZarrPartialMetadata& partial_metadata,
     const SelectedField& selected_field, const Schema& schema,
     bool open_as_void) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateSelectedFieldAndOpenAsVoid(selected_field, open_as_void));
   ZarrMetadataPtr metadata = std::make_shared<ZarrMetadata>();
   metadata->zarr_format = partial_metadata.zarr_format.value_or(2);
   metadata->dimension_separator = partial_metadata.dimension_separator.value_or(
@@ -352,6 +363,8 @@ Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
 Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
     const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
     const Schema& schema, bool open_as_void) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateSelectedFieldAndOpenAsVoid(selected_field, open_as_void));
   SpecRankAndFieldInfo info;
 
   info.full_rank = schema.rank();
