@@ -19,9 +19,16 @@
 /// Support for encoding/decoding zarr "dtype" specifications.
 /// See: https://zarr.readthedocs.io/en/stable/spec/v2.html
 
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include "absl/base/call_once.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"

@@ -26,15 +26,19 @@
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/dtype.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_zarr {
