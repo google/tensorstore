@@ -600,6 +600,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
                                    OpenMode open_mode) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+    // Validate partial_metadata against regular metadata
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().partial_metadata));
     // For void access, use component index 0 since we create a special
@@ -607,13 +608,19 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     size_t field_index;
     if (spec().open_as_void) {
       field_index = 0;
+      // Validate schema against void metadata, which has the synthesized void
+      // field that matches how the data will actually be accessed
+      TENSORSTORE_ASSIGN_OR_RETURN(auto void_metadata,
+                                   CreateVoidMetadata(metadata));
+      TENSORSTORE_RETURN_IF_ERROR(
+          ValidateMetadataSchema(*void_metadata, field_index, spec().schema));
     } else {
       TENSORSTORE_ASSIGN_OR_RETURN(
           field_index,
           GetFieldIndex(metadata.dtype, spec().selected_field));
+      TENSORSTORE_RETURN_IF_ERROR(
+          ValidateMetadataSchema(metadata, field_index, spec().schema));
     }
-    TENSORSTORE_RETURN_IF_ERROR(
-        ValidateMetadataSchema(metadata, field_index, spec().schema));
     return field_index;
   }
 };
