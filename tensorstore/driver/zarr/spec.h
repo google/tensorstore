@@ -26,15 +26,19 @@
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/dtype.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -68,11 +72,17 @@ using SelectedField = std::string;
 /// Creates zarr metadata from the given constraints.
 ///
 /// \param partial_metadata Constraints in the form of partial zarr metadata.
-/// \param selected_field The field to which `schema` applies.
+/// \param selected_field The field to which `schema` applies.  Must be empty
+///     if `open_as_void` is true.
 /// \param schema Schema constraints for the `selected_field`.
+/// \param open_as_void If true, opens the array as raw bytes.  Must be false
+///     if `selected_field` is non-empty.
+/// \error `absl::StatusCode::kInvalidArgument` if both `selected_field` is
+///     non-empty and `open_as_void` is true.
 Result<ZarrMetadataPtr> GetNewMetadata(
     const ZarrPartialMetadata& partial_metadata,
-    const SelectedField& selected_field, const Schema& schema);
+    const SelectedField& selected_field, const Schema& schema,
+    bool open_as_void);
 
 struct SpecRankAndFieldInfo {
   /// Full rank of the TensorStore, if known.  Equal to the chunked rank plus
@@ -94,6 +104,23 @@ absl::Status ValidateSpecRankAndFieldInfo(SpecRankAndFieldInfo& info);
 Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
     const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
     const Schema& schema);
+
+/// Overload that supports open_as_void mode.
+///
+/// When `open_as_void` is true and `metadata.dtype` is specified, `info.field`
+/// points to the dtype's synthesized void field.
+///
+/// \param metadata Partial metadata constraints.
+/// \param selected_field The field to which `schema` applies.  Must be empty
+///     if `open_as_void` is true.
+/// \param schema Schema constraints for the `selected_field`.
+/// \param open_as_void If true, opens the array as raw bytes.  Must be false
+///     if `selected_field` is non-empty.
+/// \error `absl::StatusCode::kInvalidArgument` if both `selected_field` is
+///     non-empty and `open_as_void` is true.
+Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
+    const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
+    const Schema& schema, bool open_as_void);
 
 SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
                                              size_t field_index);

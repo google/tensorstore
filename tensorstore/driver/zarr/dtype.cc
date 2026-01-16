@@ -17,7 +17,9 @@
 #include <stddef.h>
 
 #include <string>
+#include <utility>
 
+#include "absl/base/call_once.h"
 #include "absl/base/optimization.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -334,6 +336,24 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrDType, [](auto is_loading,
 
 char EndianIndicator(tensorstore::endian e) {
   return e == tensorstore::endian::little ? '<' : '>';
+}
+
+const ZarrDType::Field* ZarrDType::GetVoidField() const {
+  absl::call_once(void_field_cache_.once, [this] {
+    const Index nbytes = bytes_per_outer_element;
+    void_field_cache_.field = Field{
+        {/*encoded_dtype=*/tensorstore::StrCat("|V", nbytes),
+         /*dtype=*/dtype_v<::tensorstore::dtypes::byte_t>,
+         /*endian=*/endian::native,
+         /*flexible_shape=*/{}},
+        /*outer_shape=*/{},
+        /*name=*/{},
+        /*field_shape=*/{nbytes},
+        /*num_inner_elements=*/nbytes,
+        /*byte_offset=*/0,
+        /*num_bytes=*/nbytes};
+  });
+  return &*void_field_cache_.field;
 }
 
 Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {

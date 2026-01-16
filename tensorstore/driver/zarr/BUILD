@@ -205,6 +205,7 @@ tensorstore_cc_library(
     hdrs = ["dtype.h"],
     deps = [
         "//tensorstore:data_type",
+        "//tensorstore:index",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:endian",
@@ -213,6 +214,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
         "@nlohmann_json//:json",
     ],
 )
@@ -434,6 +436,10 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@nlohmann_json//:json",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:read_all",
+        "@riegeli//riegeli/bytes:write",
     ],
     alwayslink = 1,
 )
