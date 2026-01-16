@@ -8,8 +8,17 @@ The ``neuroglancer_uint64_sharded`` driver implements support for the
 <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/sharded.md>`_
 on top of a base key-value store.
 
-Within the key-value store interface, which uses strings as keys, the uint64
-keys are encoded as 8-byte big endian values.
+Within the key-value store interface, which uses strings as keys, two formats
+are supported:
+
+- 8-byte big endian values: Specifies a standard uint64 chunk id.
+- 16-byte big endian values: The first 8 bytes specify a uint64 chunk id, and
+  the subsequent 8 bytes specify a uint64 size in bytes. Reading from such a
+  key returns the specified number of bytes immediately preceding the chunk
+  within the shard file. This special format is read-only, is excluded from
+  listing, and ignores any
+  :json:schema:`~kvstore/neuroglancer_uint64_sharded/ShardingSpec.data_encoding`
+  specified in the metadata (it is always raw).
 
 .. json:schema:: kvstore/neuroglancer_uint64_sharded
 

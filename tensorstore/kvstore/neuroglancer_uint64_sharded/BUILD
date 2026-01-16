@@ -214,6 +214,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
+        "//tensorstore/util:endian",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",

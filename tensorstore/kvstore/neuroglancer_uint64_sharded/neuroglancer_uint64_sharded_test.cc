@@ -58,6 +58,7 @@
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -71,6 +72,7 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Batch;
 using ::tensorstore::Future;
+using ::tensorstore::JsonSubValueMatches;
 using ::tensorstore::JsonSubValuesMatch;
 using ::tensorstore::KvStore;
 using ::tensorstore::OptionalByteRangeRequest;
@@ -105,6 +107,14 @@ absl::Cord Bytes(std::initializer_list<unsigned char> x) {
 }
 
 std::string GetChunkKey(uint64_t chunk_id) { return ChunkIdToKey({chunk_id}); }
+
+std::string GetChunkKeyWithSize(uint64_t chunk_id, uint64_t size) {
+  std::string key;
+  key.resize(16);
+  tensorstore::big_endian::Store64(key.data(), chunk_id);
+  tensorstore::big_endian::Store64(key.data() + 8, size);
+  return key;
+}
 
 class GetUint64Key {
  public:
@@ -275,6 +285,117 @@ class RawEncodingTest : public ::testing::Test {
       base_kv_store, tensorstore::InlineExecutor{}, "prefix", sharding_spec,
       CachePool::WeakPtr(cache_pool));
 };
+
+TEST_F(RawEncodingTest, ReadSizeBeforeChunk) {
+  // Construct a shard file manually.
+  // Shard Index (16 bytes): Minishard 0 range [0, 48).
+  // Minishard Index (48 bytes): 2 chunks.
+  // Chunk 1: ID 1, relative range [48, 53). (Size 5)
+  // Chunk 2: ID 2, relative range [53, 58). (Size 5)
+  // Data starts at 16 + 48 = 64.
+  // Chunk 1: [64, 69) -> "ABCDE"
+  // Chunk 2: [69, 74) -> "FGHIJ"
+  absl::Cord data = Bytes({
+      0, 0, 0, 0, 0, 0, 0, 0,  // Minishard 0 min (0)
+      48, 0, 0, 0, 0, 0, 0, 0  // Minishard 0 max (48)
+  });
+  data.Append(Bytes({
+      // Chunk IDs (Deltas: 1, 1)
+      1, 0, 0, 0, 0, 0, 0, 0,  //
+      1, 0, 0, 0, 0, 0, 0, 0,  //
+      // Mins (Deltas: 48, 0)
+      48, 0, 0, 0, 0, 0, 0, 0,  //
+      0, 0, 0, 0, 0, 0, 0, 0,   //
+      // Maxs (Deltas: 5, 5)
+      5, 0, 0, 0, 0, 0, 0, 0,  //
+      5, 0, 0, 0, 0, 0, 0, 0   //
+  }));
+  data.Append("ABCDE");
+  data.Append("FGHIJ");
+  base_kv_store->Write("prefix/0.shard", data).value();
+
+  // Read Chunk 2 normally.
+  EXPECT_THAT(store->Read(GetChunkKey(2)).result(),
+              MatchesKvsReadResult(absl::Cord("FGHIJ")));
+
+  // Read 5 bytes before Chunk 2 (should be Chunk 1).
+  EXPECT_THAT(store->Read(GetChunkKeyWithSize(2, 5)).result(),
+              MatchesKvsReadResult(absl::Cord("ABCDE")));
+
+  // Read 16 bytes before Chunk 1 (max deltas)
+  EXPECT_THAT(store->Read(GetChunkKeyWithSize(1, 16)).result(),
+              MatchesKvsReadResult(Bytes({5, 0, 0, 0, 0, 0, 0, 0,  //
+                                          5, 0, 0, 0, 0, 0, 0, 0})));
+
+  // Test error condition: size > chunk offset.
+  EXPECT_THAT(store->Read(GetChunkKeyWithSize(1, 65)).result(),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST_F(RawEncodingTest, ReadSizeBeforeChunkWithOptions) {
+  // Construct a shard file manually.
+  // Shard Index (16 bytes): Minishard 0 range [0, 48).
+  // Minishard Index (48 bytes): 2 chunks.
+  // Chunk 1: ID 1, relative range [48, 53). (Size 5)
+  // Chunk 2: ID 2, relative range [53, 58). (Size 5)
+  // Data starts at 16 + 48 = 64.
+  // Chunk 1: [64, 69) -> "ABCDE"
+  // Chunk 2: [69, 74) -> "FGHIJ"
+  absl::Cord data = Bytes({
+      0, 0, 0, 0, 0, 0, 0, 0,  // Minishard 0 min (0)
+      48, 0, 0, 0, 0, 0, 0, 0  // Minishard 0 max (48)
+  });
+  data.Append(Bytes({
+      // Chunk IDs (Deltas: 1, 1)
+      1, 0, 0, 0, 0, 0, 0, 0,  //
+      1, 0, 0, 0, 0, 0, 0, 0,  //
+      // Mins (Deltas: 48, 0)
+      48, 0, 0, 0, 0, 0, 0, 0,  //
+      0, 0, 0, 0, 0, 0, 0, 0,   //
+      // Maxs (Deltas: 5, 5)
+      5, 0, 0, 0, 0, 0, 0, 0,  //
+      5, 0, 0, 0, 0, 0, 0, 0   //
+  }));
+  data.Append("ABCDE");
+  data.Append("FGHIJ");
+  auto write_result = base_kv_store->Write("prefix/0.shard", data).value();
+  auto generation = write_result.generation;
+
+  // Read 5 bytes before Chunk 2 with matching if_equal generation.
+  {
+    kvstore::ReadOptions options;
+    options.generation_conditions.if_equal = generation;
+    EXPECT_THAT(store->Read(GetChunkKeyWithSize(2, 5), options).result(),
+                MatchesKvsReadResult(absl::Cord("ABCDE")));
+  }
+
+  // Read 5 bytes before Chunk 2 with mismatched if_equal generation.
+  {
+    kvstore::ReadOptions options;
+    options.generation_conditions.if_equal = StorageGeneration::FromString("x");
+    EXPECT_THAT(store->Read(GetChunkKeyWithSize(2, 5), options).result(),
+                MatchesKvsReadResultAborted());
+  }
+
+  // Read 5 bytes before Chunk 2 with if_not_equal generation.
+  {
+    kvstore::ReadOptions options;
+    options.generation_conditions.if_not_equal = generation;
+    EXPECT_THAT(store->Read(GetChunkKeyWithSize(2, 5), options).result(),
+                MatchesKvsReadResultAborted());
+  }
+}
+
+TEST_F(RawEncodingTest, TransactionalReadSizeBeforeChunk) {
+  tensorstore::Transaction txn(tensorstore::isolated);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto open_txn,
+      tensorstore::internal::AcquireOpenTransactionPtrOrError(txn));
+  EXPECT_THAT(store->TransactionalRead(open_txn, GetChunkKeyWithSize(1, 5), {})
+                  .result(),
+              StatusIs(absl::StatusCode::kUnimplemented,
+                       HasSubstr("size_before_chunk")));
+}
 
 TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
   std::vector<absl::Cord> values{absl::Cord("abc"), absl::Cord("aaaaa"),
@@ -979,6 +1100,94 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
         MatchesKvsReadResult(Bytes({4, 5, 6, 7, 8, 9}),
                              StorageGeneration::FromString("g1"), read_time));
   }
+}
+
+TEST_F(UnderlyingKeyValueStoreTest, ReadSizeBeforeChunkBatchStalenessBound) {
+  sharding_spec_json = {{"@type", "neuroglancer_uint64_sharded_v1"},
+                        {"hash", "identity"},
+                        {"preshift_bits", 0},
+                        {"minishard_bits", 0},
+                        {"shard_bits", 0},
+                        {"data_encoding", "raw"},
+                        {"minishard_index_encoding", "raw"}};
+  sharding_spec = ShardingSpec::FromJson(sharding_spec_json).value();
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+  mock_store->forward_to = memory_store;
+  mock_store->log_requests = true;
+
+  auto store = GetStore();
+
+  TENSORSTORE_ASSERT_OK(store->Write(GetChunkKey(1), absl::Cord("a")).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stamp, store->Write(GetChunkKey(2), absl::Cord("b")).result());
+  mock_store->request_log.pop_all();
+
+  auto staleness_bound = absl::Now() - absl::Hours(1);
+  {
+    kvstore::ReadOptions options;
+    options.staleness_bound = staleness_bound;
+    EXPECT_THAT(store->Read(GetChunkKeyWithSize(2, 1), options).result(),
+                MatchesKvsReadResult(absl::Cord("a")));
+  }
+  EXPECT_THAT(mock_store->request_log.pop_all(),
+              ::testing::ElementsAre(
+                  // Shard index
+                  JsonSubValuesMatch({{"/type", "read"},
+                                      {"/staleness_bound",
+                                       absl::FormatTime(staleness_bound)}}),
+                  // Minishard index
+                  JsonSubValuesMatch(
+                      {{"/type", "read"},
+                       {"/staleness_bound", absl::FormatTime(staleness_bound)},
+                       {"/if_equal", stamp.generation.value}}),
+                  // Value
+                  JsonSubValuesMatch(
+                      {{"/type", "read"},
+                       {"/staleness_bound", absl::FormatTime(staleness_bound)},
+                       {"/if_equal", stamp.generation.value}})));
+}
+
+TEST_F(UnderlyingKeyValueStoreTest, ReadSizeBeforeChunkBatchBatch) {
+  sharding_spec_json = {{"@type", "neuroglancer_uint64_sharded_v1"},
+                        {"hash", "identity"},
+                        {"preshift_bits", 0},
+                        {"minishard_bits", 0},
+                        {"shard_bits", 0},
+                        {"data_encoding", "raw"},
+                        {"minishard_index_encoding", "raw"}};
+  sharding_spec = ShardingSpec::FromJson(sharding_spec_json).value();
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+  mock_store->forward_to = memory_store;
+  mock_store->log_requests = true;
+  mock_store->handle_batch_requests = true;
+
+  auto store = GetStore();
+
+  TENSORSTORE_ASSERT_OK(store->Write(GetChunkKey(1), absl::Cord("a")).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stamp, store->Write(GetChunkKey(2), absl::Cord("b")).result());
+
+  mock_store->request_log.pop_all();
+
+  std::vector<Future<kvstore::ReadResult>> futures;
+  {
+    kvstore::ReadOptions options;
+    options.batch = Batch::New();
+    futures.push_back(store->Read(GetChunkKeyWithSize(2, 1), options));
+    futures.push_back(store->Read(GetChunkKey(2), options));
+  }
+  EXPECT_THAT(mock_store->request_log.pop_all(),
+              ::testing::ElementsAre(
+                  // Shard index
+                  JsonSubValuesMatch({{"/type", "batch_read"}}),
+                  // Minishard index
+                  ::testing::AllOf(
+                      JsonSubValueMatches("/type", "batch_read"),
+                      JsonSubValueMatches("/requests", ::testing::SizeIs(1))),
+                  // Values
+                  ::testing::AllOf(
+                      JsonSubValueMatches("/type", "batch_read"),
+                      JsonSubValueMatches("/requests", ::testing::SizeIs(2)))));
 }
 
 // Verify that a read-only transaction does not do any I/O on commit.
