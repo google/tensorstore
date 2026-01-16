@@ -1643,8 +1643,18 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">neuroglancer_uint64_sharded</span></code> driver implements support for the
 <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/sharded.md">Neuroglancer Precomputed sharded format</a>
 on top of a base key-value store.</p>
-<p>Within the key-value store interface, which uses strings as keys, the uint64
-keys are encoded as 8-byte big endian values.</p>
+<p>Within the key-value store interface, which uses strings as keys, two formats
+are supported:</p>
+<ul class="simple">
+<li><p>8-byte big endian values: Specifies a standard uint64 chunk id.</p></li>
+<li><p>16-byte big endian values: The first 8 bytes specify a uint64 chunk id, and
+the subsequent 8 bytes specify a uint64 size in bytes. Reading from such a
+key returns the specified number of bytes immediately preceding the chunk
+within the shard file. This special format is read-only, is excluded from
+listing, and ignores any
+<a class="reference internal" href="#json-kvstore/neuroglancer_uint64_sharded/ShardingSpec.data_encoding" title="kvstore/neuroglancer_uint64_sharded/ShardingSpec.data_encoding (JSON member) — Specifies the encoding of the data chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_encoding</span></code></a>
+specified in the metadata (it is always raw).</p></li>
+</ul>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/neuroglancer_uint64_sharded">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/neuroglancer_uint64_sharded</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/neuroglancer_uint64_sharded" title="Link to this definition">¶</a></dt>
