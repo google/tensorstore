@@ -410,37 +410,15 @@ std::string DataCache::GetBaseKvstorePath() { return key_prefix_; }
 
 absl::Status VoidDataCache::ValidateMetadataCompatibility(
     const void* existing_metadata_ptr, const void* new_metadata_ptr) {
-  assert(existing_metadata_ptr);
+  // The existing metadata is already void metadata (from cache initialization).
+  // Convert the new metadata to void metadata so both have the same synthesized
+  // void dtype, then use normal validation which compares all fields except
+  // shape (via IsMetadataCompatible).
   assert(new_metadata_ptr);
-  const auto& existing_metadata =
-      *static_cast<const ZarrMetadata*>(existing_metadata_ptr);
   const auto& new_metadata =
       *static_cast<const ZarrMetadata*>(new_metadata_ptr);
-
-  // For void access, we only require that bytes_per_outer_element matches,
-  // since we're treating the data as raw bytes regardless of the actual dtype.
-  // Shape is allowed to differ (handled by base class for resizing).
-  // Other fields like compressor, order, chunks must still match.
-  if (existing_metadata.dtype.bytes_per_outer_element !=
-      new_metadata.dtype.bytes_per_outer_element) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Void access metadata bytes_per_outer_element mismatch: existing=",
-        existing_metadata.dtype.bytes_per_outer_element,
-        ", new=", new_metadata.dtype.bytes_per_outer_element));
-  }
-
-  // Check that other critical fields match (same as base, but ignoring dtype)
-  if (existing_metadata.chunks != new_metadata.chunks) {
-    return absl::FailedPreconditionError("Chunk shape mismatch");
-  }
-  if (existing_metadata.order != new_metadata.order) {
-    return absl::FailedPreconditionError("Order mismatch");
-  }
-  if (existing_metadata.compressor != new_metadata.compressor) {
-    return absl::FailedPreconditionError("Compressor mismatch");
-  }
-
-  return absl::OkStatus();
+  return DataCache::ValidateMetadataCompatibility(
+      existing_metadata_ptr, new_metadata.GetVoidMetadata().get());
 }
 
 absl::Status VoidDataCache::GetBoundSpecData(

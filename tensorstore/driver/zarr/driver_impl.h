@@ -166,14 +166,14 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 /// The void metadata (created via CreateVoidMetadata) has dtype.fields
 /// containing only the void field, so inherited encode/decode methods
 /// work correctly for raw byte access. GetBoundSpecData is overridden
-/// to set open_as_void=true in the spec, and ValidateMetadataCompatibility
-/// is overridden to allow different dtypes with the same bytes_per_outer_element.
+/// to set open_as_void=true in the spec.
 class VoidDataCache : public DataCache {
  public:
   using DataCache::DataCache;
 
-  /// For void access, metadata is compatible if bytes_per_outer_element matches,
-  /// regardless of the actual dtype (since we treat everything as raw bytes).
+  /// Converts the new metadata to void metadata and uses normal validation.
+  /// This ensures both existing (already void) and new metadata have the
+  /// same synthesized void dtype, allowing IsMetadataCompatible to work.
   absl::Status ValidateMetadataCompatibility(
       const void* existing_metadata_ptr,
       const void* new_metadata_ptr) override;
