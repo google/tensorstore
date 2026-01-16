@@ -27,6 +27,8 @@
 #include <string>
 #include <vector>
 
+#include "absl/base/call_once.h"
+
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -105,6 +107,9 @@ TENSORSTORE_DECLARE_JSON_BINDER(DimensionSeparatorJsonBinder,
 
 void to_json(::nlohmann::json& out, DimensionSeparator value);
 
+struct ZarrMetadata;
+using ZarrMetadataPtr = std::shared_ptr<ZarrMetadata>;
+
 /// Parsed representation of a zarr `.zarray` metadata JSON file.
 struct ZarrMetadata {
   // The following members are common to both `ZarrMetadata` and
@@ -141,6 +146,11 @@ struct ZarrMetadata {
 
   ZarrChunkLayout chunk_layout;
 
+  /// Returns a cached void metadata derived from this metadata.
+  /// The returned pointer is valid for the lifetime of this ZarrMetadata.
+  /// Thread-safe and lazily initialized on first access.
+  ZarrMetadataPtr GetVoidMetadata() const;
+
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrMetadata,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
@@ -148,12 +158,24 @@ struct ZarrMetadata {
   /// Appends to `*out` a string that corresponds to the equivalence
   /// relationship defined by `IsMetadataCompatible`.
   friend void EncodeCacheKeyAdl(std::string* out, const ZarrMetadata& metadata);
+
+  /// Thread-safe lazily-computed cache for GetVoidMetadata().
+  /// This wrapper handles copy/move by resetting the cache.
+  struct VoidMetadataCache {
+    mutable absl::once_flag once;
+    mutable ZarrMetadataPtr metadata;
+
+    VoidMetadataCache() = default;
+    VoidMetadataCache(const VoidMetadataCache&) {}
+    VoidMetadataCache& operator=(const VoidMetadataCache&) { return *this; }
+    VoidMetadataCache(VoidMetadataCache&&) noexcept {}
+    VoidMetadataCache& operator=(VoidMetadataCache&&) noexcept { return *this; }
+  };
+  mutable VoidMetadataCache void_metadata_cache_;
 };
 
 /// Validates chunk layout and computes `metadata.chunk_layout`.
 absl::Status ValidateMetadata(ZarrMetadata& metadata);
-
-using ZarrMetadataPtr = std::shared_ptr<ZarrMetadata>;
 
 /// Partially-specified zarr metadata used either to validate existing metadata
 /// or to create a new array.

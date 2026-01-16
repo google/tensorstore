@@ -583,11 +583,10 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
     auto dim_sep = GetDimensionSeparator(spec().partial_metadata, original_metadata);
     if (spec().open_as_void) {
-      // Create void metadata from the original. This modifies the dtype to
-      // contain only the void field, allowing standard encode/decode to work.
-      // CreateVoidMetadata uses the same chunks and bytes_per_outer_element as
-      // the original validated metadata, so it should never fail.
-      initializer.metadata = CreateVoidMetadata(original_metadata).value();
+      // Use the cached void metadata from the original. The void metadata has
+      // dtype.fields containing only the void field, allowing standard
+      // encode/decode to work.
+      initializer.metadata = original_metadata.GetVoidMetadata();
       return std::make_unique<VoidDataCache>(
           std::move(initializer), spec().store.path, dim_sep,
           spec().metadata_key);
@@ -610,10 +609,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
       field_index = 0;
       // Validate schema against void metadata, which has the synthesized void
       // field that matches how the data will actually be accessed
-      TENSORSTORE_ASSIGN_OR_RETURN(auto void_metadata,
-                                   CreateVoidMetadata(metadata));
-      TENSORSTORE_RETURN_IF_ERROR(
-          ValidateMetadataSchema(*void_metadata, field_index, spec().schema));
+      TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(
+          *metadata.GetVoidMetadata(), field_index, spec().schema));
     } else {
       TENSORSTORE_ASSIGN_OR_RETURN(
           field_index,

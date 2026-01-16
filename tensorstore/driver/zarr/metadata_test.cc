@@ -981,4 +981,72 @@ TEST(CreateVoidMetadataTest, FillValueCopiedFromAllFields) {
   EXPECT_EQ(0x00, fill_bytes[5]);
 }
 
+TEST(GetVoidMetadataTest, CachesResult) {
+  // Test that GetVoidMetadata() returns a cached result
+  std::string_view metadata_text = R"({
+    "chunks": [10, 10],
+    "compressor": null,
+    "dtype": "<i4",
+    "fill_value": 42,
+    "filters": null,
+    "order": "C",
+    "shape": [100, 100],
+    "zarr_format": 2
+  })";
+  nlohmann::json j = nlohmann::json::parse(metadata_text);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto original, ZarrMetadata::FromJson(j));
+
+  // Call GetVoidMetadata() multiple times
+  auto void_metadata1 = original.GetVoidMetadata();
+  auto void_metadata2 = original.GetVoidMetadata();
+
+  // Verify both calls return non-null pointers
+  EXPECT_NE(nullptr, void_metadata1.get());
+  EXPECT_NE(nullptr, void_metadata2.get());
+
+  // Verify both calls return the same pointer (cached)
+  EXPECT_EQ(void_metadata1.get(), void_metadata2.get());
+
+  // Verify the result is correct
+  EXPECT_EQ(original.rank, void_metadata1->rank);
+  EXPECT_EQ(original.shape, void_metadata1->shape);
+  EXPECT_FALSE(void_metadata1->dtype.has_fields);
+  EXPECT_EQ(1, void_metadata1->dtype.fields.size());
+  EXPECT_EQ(dtype_v<std::byte>, void_metadata1->dtype.fields[0].dtype);
+}
+
+TEST(GetVoidMetadataTest, CopyDoesNotShareCache) {
+  // Test that copying a ZarrMetadata does not share the cache
+  std::string_view metadata_text = R"({
+    "chunks": [10, 10],
+    "compressor": null,
+    "dtype": "<i4",
+    "fill_value": 42,
+    "filters": null,
+    "order": "C",
+    "shape": [100, 100],
+    "zarr_format": 2
+  })";
+  nlohmann::json j = nlohmann::json::parse(metadata_text);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto original, ZarrMetadata::FromJson(j));
+
+  // Get void metadata from original
+  auto void_metadata1 = original.GetVoidMetadata();
+
+  // Copy the metadata
+  ZarrMetadata copy = original;
+
+  // Get void metadata from copy
+  auto void_metadata2 = copy.GetVoidMetadata();
+
+  // The pointers should be different (copy has its own cache)
+  EXPECT_NE(void_metadata1.get(), void_metadata2.get());
+
+  // But the contents should be equivalent
+  EXPECT_EQ(void_metadata1->rank, void_metadata2->rank);
+  EXPECT_EQ(void_metadata1->shape, void_metadata2->shape);
+  EXPECT_EQ(void_metadata1->dtype.bytes_per_outer_element,
+            void_metadata2->dtype.bytes_per_outer_element);
+}
+
 }  // namespace

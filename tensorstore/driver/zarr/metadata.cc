@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <cassert>
+ 
+#include "absl/base/call_once.h"
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -366,7 +368,8 @@ Result<ZarrChunkLayout> ComputeChunkLayout(
   return layout;
 }
 
-Result<ZarrMetadataPtr> CreateVoidMetadata(const ZarrMetadata& original) {
+namespace {
+ZarrMetadataPtr CreateVoidMetadataImpl(const ZarrMetadata& original) {
   auto metadata = std::make_shared<ZarrMetadata>(original);
 
   // Replace dtype with void dtype (single void field)
@@ -379,15 +382,16 @@ Result<ZarrMetadataPtr> CreateVoidMetadata(const ZarrMetadata& original) {
   // Convert the original fill_values (which may have multiple fields with
   // various dtypes) into a single byte array representing the raw bytes.
   metadata->fill_value.resize(1);
-  bool has_valid_fill_value = !original.fill_value.empty() &&
-                              std::all_of(original.fill_value.begin(),
-                                          original.fill_value.end(),
-                                          [](const auto& fv) { return fv.valid(); });
+  bool has_valid_fill_value =
+      !original.fill_value.empty() &&
+      std::all_of(original.fill_value.begin(), original.fill_value.end(),
+                  [](const auto& fv) { return fv.valid(); });
   if (has_valid_fill_value) {
     const Index nbytes = original.dtype.bytes_per_outer_element;
     auto byte_fill = AllocateArray<std::byte>({nbytes});
     // Encode all fields into the byte array at their respective offsets
-    for (size_t field_i = 0; field_i < original.dtype.fields.size(); ++field_i) {
+    for (size_t field_i = 0; field_i < original.dtype.fields.size();
+         ++field_i) {
       const auto& field = original.dtype.fields[field_i];
       const auto& fill_value = original.fill_value[field_i];
       Array<void> encoded_fill_value(
@@ -403,9 +407,23 @@ Result<ZarrMetadataPtr> CreateVoidMetadata(const ZarrMetadata& original) {
   // ComputeChunkLayout handles the void field correctly because
   // void_field.num_bytes == bytes_per_outer_element, producing
   // matching encoded/decoded layouts as required by DecodeChunk.
-  TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
+  // ValidateMetadata should never fail here since we're using the same chunks
+  // and bytes_per_outer_element as the original validated metadata.
+  TENSORSTORE_CHECK_OK(ValidateMetadata(*metadata));
 
   return metadata;
+}
+}  // namespace
+
+Result<ZarrMetadataPtr> CreateVoidMetadata(const ZarrMetadata& original) {
+  return CreateVoidMetadataImpl(original);
+}
+
+ZarrMetadataPtr ZarrMetadata::GetVoidMetadata() const {
+  absl::call_once(void_metadata_cache_.once, [this] {
+    void_metadata_cache_.metadata = CreateVoidMetadataImpl(*this);
+  });
+  return void_metadata_cache_.metadata;
 }
 
 constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
