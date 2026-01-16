@@ -21,6 +21,7 @@
 
 // Other headers
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <limits>
@@ -40,7 +41,7 @@
 #include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/garbage_collection.h"
-#include "python/tensorstore/json_type_caster.h"
+#include "python/tensorstore/json_type_caster.h"  // IWYU pragma: keep
 #include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "python/tensorstore/result_type_caster.h"
@@ -48,8 +49,9 @@
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/time.h"
-#include "python/tensorstore/transaction.h"
+#include "python/tensorstore/transaction.h"  // IWYU pragma: keep
 #include "python/tensorstore/type_name_override.h"
+#include "python/tensorstore/typed_slice.h"
 #include "python/tensorstore/with_handle.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
@@ -84,6 +86,33 @@ std::optional<absl::Cord> OptionalCordFromPython(
     std::optional<StrOrBytesView> value) {
   if (!value) return std::nullopt;
   return absl::Cord(value->value);
+}
+
+OptionalByteRangeRequest ParseByteRange(
+    std::optional<
+        TypedSlice<std::optional<int64_t>, std::optional<int64_t>, nullptr_t>>
+        byte_range) {
+  if (!byte_range) return OptionalByteRangeRequest();
+  auto throw_error = [&] {
+    const auto format_bound = [](std::optional<int64_t> value) -> std::string {
+      if (value) return std::to_string(*value);
+      return "None";
+    };
+    throw py::value_error(tensorstore::StrCat(
+        "Unsupported byte_range slice: ", format_bound(byte_range->start), ":",
+        format_bound(byte_range->stop)));
+  };
+  int64_t inclusive_min = byte_range->start.value_or(0);
+  if (inclusive_min < 0 && byte_range->stop) throw_error();
+  if (byte_range->stop && *byte_range->stop < 0) {
+    throw_error();
+  }
+  int64_t exclusive_max = byte_range->stop.value_or(-1);
+  OptionalByteRangeRequest req(inclusive_min, exclusive_max);
+  if (!req.SatisfiesInvariants()) {
+    throw_error();
+  }
+  return req;
 }
 
 namespace kvstore_spec_setters {
@@ -570,8 +599,10 @@ Group:
       "read",
       [](const Self& self, StrOrBytesView key,
          std::optional<StrOrBytes> if_not_equal,
-         std::optional<double> staleness_bound,
-         std::optional<Batch> batch) -> Future<kvstore::ReadResult> {
+         std::optional<double> staleness_bound, std::optional<Batch> batch,
+         std::optional<TypedSlice<std::optional<int64_t>,
+                                  std::optional<int64_t>, nullptr_t>>
+             byte_range) -> Future<kvstore::ReadResult> {
         kvstore::ReadOptions options;
         if (if_not_equal) {
           options.generation_conditions.if_not_equal.value =
@@ -582,12 +613,14 @@ Group:
         }
         options.batch =
             internal_python::ValidateOptionalBatch(std::move(batch));
+        options.byte_range = ParseByteRange(std::move(byte_range));
         ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         return kvstore::Read(self.value, key.value, std::move(options));
       },
       py::arg("key"), py::kw_only(), py::arg("if_not_equal") = std::nullopt,
       py::arg("staleness_bound") = std::nullopt,
-      py::arg("batch") = std::nullopt, R"(
+      py::arg("batch") = std::nullopt, py::arg("byte_range") = std::nullopt,
+      R"(
 Reads the value of a single key.
 
 A missing key is not treated as an error; instead, a :py:obj:`.ReadResult` with
@@ -653,6 +686,10 @@ Args:
        If specified, the returned :py:obj:`Future` will not, in general, become
        ready until the batch is submitted.  Therefore, immediately awaiting the
        returned future will lead to deadlock.
+
+  byte_range: Byte range to request, specified as a `slice` of the form
+    ``slice(50, 100)`` or ``slice(None, 100)`` or ``slice(50, None)`` or
+    ``slice(-50, None)``.
 
 Returns:
   Future that resolves when the read operation completes.
@@ -1395,7 +1432,7 @@ Group:
 
   cls.def(
       "__add__",
-      [](const Self& self, StrOrBytesView  suffix) -> kvstore::Spec {
+      [](const Self& self, StrOrBytesView suffix) -> kvstore::Spec {
         ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto new_spec = self.value;
         new_spec.AppendSuffix(suffix.value);

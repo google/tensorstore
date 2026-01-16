@@ -6278,6 +6278,7 @@ class KvStore:
         if_not_equal: str | bytes | None = None,
         staleness_bound: float | None = None,
         batch: Batch | None = None,
+        byte_range: slice | None = None,
     ) -> Future[KvStore.ReadResult]:
         """
         Reads the value of a single key.
@@ -6345,6 +6346,10 @@ class KvStore:
                If specified, the returned :py:obj:`Future` will not, in general, become
                ready until the batch is submitted.  Therefore, immediately awaiting the
                returned future will lead to deadlock.
+
+          byte_range: Byte range to request, specified as a `slice` of the form
+            ``slice(50, 100)`` or ``slice(None, 100)`` or ``slice(50, None)`` or
+            ``slice(-50, None)``.
 
         Returns:
           Future that resolves when the read operation completes.

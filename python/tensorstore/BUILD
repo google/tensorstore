@@ -1132,6 +1132,7 @@ pybind11_cc_library(
         ":time",
         ":transaction",
         ":type_name_override",
+        ":typed_slice",
         "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",
