@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_format.h"
 #include "grpcpp/channel.h"  // third_party
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/create_channel.h"  // third_party
@@ -27,9 +28,9 @@
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "grpcpp/support/client_interceptor.h"  // third_party
-#include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/logging_interceptor.h"
+#include "tensorstore/internal/version/version.h"
 
 namespace tensorstore {
 namespace internal_grpc {
@@ -40,6 +41,8 @@ std::shared_ptr<grpc::Channel> CreateChannel(
   if (endpoint.empty()) {
     return nullptr;
   }
+  args.SetUserAgentPrefix(
+      absl::StrFormat("tensorstore/%s", TENSORSTORE_VERSION));
 
   // The gRPC interceptor implements detailed logging.
   std::vector<
