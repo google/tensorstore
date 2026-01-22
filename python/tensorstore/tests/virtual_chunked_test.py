@@ -309,3 +309,37 @@ def test_gc_future(gc_tester: GcTester) -> None:
   do_read.future = future  # type: ignore
 
   gc_tester(t)
+
+
+def test_read_batch() -> None:
+  """Tests reading with a batch."""
+  array = np.arange(np.prod(shape := (4, 5))).reshape(shape)
+
+  def do_read(
+      domain: ts.IndexDomain,
+      chunk: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
+    assert isinstance(read_params.batch, ts.Batch)
+    chunk[...] = array[domain.index_exp]
+
+  t = ts.virtual_chunked(
+      do_read,
+      None,
+      dtype=array.dtype,
+      shape=array.shape,
+      chunk_layout=ts.ChunkLayout(read_chunk_shape=(2, 3)),
+  )
+
+  import time
+
+  with ts.Batch() as b:
+    f = t[1:3, 1:3].read(batch=b)
+    # Immediate batch submission triggers
+    # asserts in Batch::Impl::~Impl()
+    time.sleep(.01)
+
+  np.testing.assert_array_equal(
+    f.result(),
+    [[6, 7], [11, 12]]
+  )

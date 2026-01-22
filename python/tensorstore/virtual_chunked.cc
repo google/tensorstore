@@ -42,6 +42,7 @@
 #include "python/tensorstore/time.h"
 #include "python/tensorstore/type_name_override.h"
 #include "tensorstore/array.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index_space/index_domain.h"
@@ -96,6 +97,18 @@ Cached generation, read request can be skipped if no newer data is available.
       },
       R"(
 Read may be fulfilled with cached data no older than the specified bound.
+)");
+
+  cls.def_property_readonly(
+      "batch",
+      [](const Self& self) -> py::object {
+        if (auto batch = Batch(self.batch()); bool(batch)) {
+          return py::cast(std::move(batch));
+        }
+        return py::none();
+      },
+      R"(
+Batch associated with read request.
 )");
 }
 
