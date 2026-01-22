@@ -27,6 +27,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/base/call_once.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -105,6 +106,9 @@ TENSORSTORE_DECLARE_JSON_BINDER(DimensionSeparatorJsonBinder,
 
 void to_json(::nlohmann::json& out, DimensionSeparator value);
 
+struct ZarrMetadata;
+using ZarrMetadataPtr = std::shared_ptr<ZarrMetadata>;
+
 /// Parsed representation of a zarr `.zarray` metadata JSON file.
 struct ZarrMetadata {
   // The following members are common to both `ZarrMetadata` and
@@ -141,6 +145,11 @@ struct ZarrMetadata {
 
   ZarrChunkLayout chunk_layout;
 
+  /// Returns a cached void metadata derived from this metadata.
+  /// The returned pointer is valid for the lifetime of this ZarrMetadata.
+  /// Thread-safe and lazily initialized on first access.
+  ZarrMetadataPtr GetVoidMetadata() const;
+
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrMetadata,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
@@ -148,12 +157,28 @@ struct ZarrMetadata {
   /// Appends to `*out` a string that corresponds to the equivalence
   /// relationship defined by `IsMetadataCompatible`.
   friend void EncodeCacheKeyAdl(std::string* out, const ZarrMetadata& metadata);
+
+  // Thread-safe lazily-computed cache for GetVoidMetadata().
+  // The metadata field is reset to nullptr when copied/moved.
+  class LazyVoidMetadata {
+   public:
+    friend class ZarrMetadata;
+
+    LazyVoidMetadata() = default;
+    LazyVoidMetadata(const LazyVoidMetadata&) {}
+    LazyVoidMetadata& operator=(const LazyVoidMetadata&) { return *this; }
+    LazyVoidMetadata(LazyVoidMetadata&&) noexcept {}
+    LazyVoidMetadata& operator=(LazyVoidMetadata&&) noexcept { return *this; }
+
+   private:
+    absl::once_flag once_;
+    ZarrMetadataPtr metadata_;
+  };
+  mutable LazyVoidMetadata lazy_void_metadata_;
 };
 
 /// Validates chunk layout and computes `metadata.chunk_layout`.
 absl::Status ValidateMetadata(ZarrMetadata& metadata);
-
-using ZarrMetadataPtr = std::shared_ptr<ZarrMetadata>;
 
 /// Partially-specified zarr metadata used either to validate existing metadata
 /// or to create a new array.
@@ -198,6 +223,16 @@ struct ZarrPartialMetadata {
 Result<ZarrChunkLayout> ComputeChunkLayout(
     const ZarrDType& dtype, ContiguousLayoutOrder order,
     tensorstore::span<const Index> chunk_shape);
+
+/// Creates a modified ZarrMetadata for void (raw byte) access.
+///
+/// The returned metadata has dtype.fields containing only the void field
+/// (from GetVoidField()), allowing standard encode/decode paths to work
+/// with raw bytes. The chunk_layout is recomputed accordingly.
+///
+/// \param original The original metadata to base the void metadata on.
+/// \returns A new metadata suitable for void access.
+Result<ZarrMetadataPtr> CreateVoidMetadata(const ZarrMetadata& original);
 
 /// Encodes the field fill values as a zarr metadata "fill_value" JSON
 /// specification.

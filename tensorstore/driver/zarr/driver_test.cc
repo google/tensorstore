@@ -3499,4 +3499,813 @@ TEST(DriverTest, UrlSchemeRoundtrip) {
        {"kvstore", {{"driver", "memory"}, {"path", "abc.zarr/def/"}}}});
 }
 
+// Tests for open_as_void functionality
+
+TEST(ZarrDriverTest, OpenAsVoidSimpleType) {
+  // Test open_as_void with a simple data type (int16)
+  auto context = Context::Default();
+
+  // First create a normal array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write some data
+  auto data = tensorstore::MakeArray<int16_t>({{1, 2}, {3, 4}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(
+          data, store | tensorstore::Dims(0, 1).SizedInterval({0, 0}, {2, 2}))
+          .result());
+
+  // Now open with open_as_void=true
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // The void store should have rank = original_rank + 1 (for bytes dimension)
+  EXPECT_EQ(3, void_store.rank());
+
+  // The last dimension should be the size of the data type (2 bytes for int16)
+  EXPECT_EQ(2, void_store.domain().shape()[2]);
+
+  // The data type should be byte
+  EXPECT_EQ(tensorstore::dtype_v<tensorstore::dtypes::byte_t>,
+            void_store.dtype());
+}
+
+TEST(ZarrDriverTest, OpenAsVoidStructuredType) {
+  // Test open_as_void with a structured data type
+  auto context = Context::Default();
+
+  // Create an array with a structured dtype
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", ::nlohmann::json::array_t{{"x", "|u1"}, {"y", "<i2"}}},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write some data to field y
+  auto data = tensorstore::MakeArray<int16_t>({{100, 200}, {300, 400}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(
+          data, store | tensorstore::Dims(0, 1).SizedInterval({0, 0}, {2, 2}))
+          .result());
+
+  // Now open with open_as_void=true - this should give raw access to the entire
+  // struct
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // The void store should have rank = original_rank + 1 (for bytes dimension)
+  EXPECT_EQ(3, void_store.rank());
+
+  // The last dimension should be 3 bytes (1 byte for u1 + 2 bytes for i2)
+  EXPECT_EQ(3, void_store.domain().shape()[2]);
+
+  // The data type should be byte
+  EXPECT_EQ(tensorstore::dtype_v<tensorstore::dtypes::byte_t>,
+            void_store.dtype());
+}
+
+TEST(ZarrDriverTest, OpenAsVoidWithCompression) {
+  // Test open_as_void with compression enabled
+  auto context = Context::Default();
+
+  // Create an array with blosc compression
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i4"},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write some data
+  auto data = tensorstore::MakeArray<int32_t>(
+      {{0x01020304, 0x05060708}, {0x090a0b0c, 0x0d0e0f10}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(
+          data, store | tensorstore::Dims(0, 1).SizedInterval({0, 0}, {2, 2}))
+          .result());
+
+  // Now open with open_as_void=true
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // The void store should have rank = original_rank + 1 (for bytes dimension)
+  EXPECT_EQ(3, void_store.rank());
+
+  // The last dimension should be 4 bytes for int32
+  EXPECT_EQ(4, void_store.domain().shape()[2]);
+
+  // The data type should be byte
+  EXPECT_EQ(tensorstore::dtype_v<tensorstore::dtypes::byte_t>,
+            void_store.dtype());
+
+  // Read the raw bytes and verify decompression works
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result,
+      tensorstore::Read(void_store |
+                        tensorstore::Dims(0, 1).SizedInterval({0, 0}, {2, 2}))
+          .result());
+  EXPECT_EQ(read_result.shape()[0], 2);
+  EXPECT_EQ(read_result.shape()[1], 2);
+  EXPECT_EQ(read_result.shape()[2], 4);
+}
+
+TEST(ZarrDriverTest, OpenAsVoidSpecRoundtrip) {
+  // Test that open_as_void is properly preserved in spec round-trips
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto json_result, spec.ToJson());
+
+  EXPECT_EQ(true, json_result.value("open_as_void", false));
+}
+
+TEST(ZarrDriverTest, OpenAsVoidGetBoundSpecData) {
+  // Test that open_as_void is correctly preserved when getting spec from an
+  // opened void store. This tests VoidDataCache::GetBoundSpecData.
+  auto context = Context::Default();
+
+  // First create a normal array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Now open with open_as_void=true
+  ::nlohmann::json void_spec_json{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec_json, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Get the spec from the opened void store - this invokes GetBoundSpecData
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obtained_spec, void_store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obtained_json, obtained_spec.ToJson());
+
+  // Verify open_as_void is true in the obtained spec
+  EXPECT_EQ(true, obtained_json.value("open_as_void", false));
+
+  // Also verify metadata was correctly populated
+  EXPECT_TRUE(obtained_json.contains("metadata"));
+  auto& metadata = obtained_json["metadata"];
+  EXPECT_EQ("<i2", metadata.value("dtype", ""));
+}
+
+TEST(ZarrDriverTest, OpenAsVoidCannotUseWithField) {
+  // Test that specifying both open_as_void and field is rejected as they are
+  // mutually exclusive options.
+  ::nlohmann::json spec_with_both{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", ::nlohmann::json::array_t{{"x", "|u1"}, {"y", "<i2"}}},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+       }},
+      {"field", "x"},
+      {"open_as_void", true},
+  };
+
+  // Specifying both field and open_as_void should fail
+  EXPECT_THAT(tensorstore::Open(spec_with_both, tensorstore::OpenMode::create,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"field\" and \"open_as_void\" are mutually "
+                                 "exclusive")));
+
+  // Also test that Spec::FromJson rejects this combination
+  EXPECT_THAT(tensorstore::Spec::FromJson(spec_with_both),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"field\" and \"open_as_void\" are mutually "
+                                 "exclusive")));
+}
+
+TEST(ZarrDriverTest, OpenAsVoidUrlNotSupported) {
+  // Test that open_as_void is not supported with URL syntax
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"dtype", "<i2"},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // ToUrl should fail when open_as_void is specified
+  EXPECT_THAT(spec.ToUrl(), StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(ZarrDriverTest, OpenAsVoidReadWrite) {
+  // Test reading and writing through open_as_void
+  auto context = Context::Default();
+
+  // Create an array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<u2"},
+           {"shape", {2, 2}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write data as normal uint16
+  auto data =
+      tensorstore::MakeArray<uint16_t>({{0x0102, 0x0304}, {0x0506, 0x0708}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
+
+  // Open as void and read
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Read the raw bytes
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bytes_read,
+                                   tensorstore::Read(void_store).result());
+
+  // Verify shape: [2, 2, 2] where last dim is 2 bytes per uint16
+  EXPECT_EQ(bytes_read.shape()[0], 2);
+  EXPECT_EQ(bytes_read.shape()[1], 2);
+  EXPECT_EQ(bytes_read.shape()[2], 2);
+
+  // Verify the raw bytes (little endian)
+  auto bytes_ptr = static_cast<const unsigned char*>(bytes_read.data());
+  // First element: 0x0102 -> bytes 0x02, 0x01 (little endian)
+  EXPECT_EQ(bytes_ptr[0], 0x02);
+  EXPECT_EQ(bytes_ptr[1], 0x01);
+}
+
+TEST(ZarrDriverTest, OpenAsVoidWriteRoundtrip) {
+  // Test that writing through open_as_void correctly encodes data
+  // and can be read back both through void access and normal typed access.
+  auto context = Context::Default();
+
+  // Create an array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<u2"},
+           {"shape", {2, 2}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Initialize with zeros
+  auto zeros = tensorstore::MakeArray<uint16_t>({{0, 0}, {0, 0}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(zeros, store).result());
+
+  // Open as void for writing
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Create raw bytes representing uint16 values in little endian:
+  // [0,0]: 0x1234 -> {0x34, 0x12}, [0,1]: 0x5678 -> {0x78, 0x56}
+  // [1,0]: 0x9ABC -> {0xBC, 0x9A}, [1,1]: 0xDEF0 -> {0xF0, 0xDE}
+  auto raw_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
+      {2, 2, 2}, tensorstore::c_order, tensorstore::value_init);
+  auto raw_bytes_ptr = static_cast<unsigned char*>(
+      const_cast<void*>(static_cast<const void*>(raw_bytes.data())));
+  // Element [0,0] = 0x1234
+  raw_bytes_ptr[0] = 0x34;
+  raw_bytes_ptr[1] = 0x12;
+  // Element [0,1] = 0x5678
+  raw_bytes_ptr[2] = 0x78;
+  raw_bytes_ptr[3] = 0x56;
+  // Element [1,0] = 0x9ABC
+  raw_bytes_ptr[4] = 0xBC;
+  raw_bytes_ptr[5] = 0x9A;
+  // Element [1,1] = 0xDEF0
+  raw_bytes_ptr[6] = 0xF0;
+  raw_bytes_ptr[7] = 0xDE;
+
+  // Write raw bytes through void access
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(raw_bytes, void_store).result());
+
+  // Read back through void access and verify
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bytes_read,
+                                   tensorstore::Read(void_store).result());
+  auto bytes_read_ptr = static_cast<const unsigned char*>(bytes_read.data());
+  EXPECT_EQ(bytes_read_ptr[0], 0x34);
+  EXPECT_EQ(bytes_read_ptr[1], 0x12);
+
+  // Read back through normal typed access and verify the values
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto typed_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto typed_read,
+                                   tensorstore::Read(typed_store).result());
+  auto typed_ptr = static_cast<const uint16_t*>(typed_read.data());
+  EXPECT_EQ(typed_ptr[0], 0x1234);
+  EXPECT_EQ(typed_ptr[1], 0x5678);
+  EXPECT_EQ(typed_ptr[2], 0x9ABC);
+  EXPECT_EQ(typed_ptr[3], 0xDEF0);
+}
+
+TEST(ZarrDriverTest, OpenAsVoidWriteWithCompression) {
+  // Test writing through open_as_void with compression enabled.
+  // Verifies that the EncodeChunk method correctly compresses data.
+  auto context = Context::Default();
+
+  // Create an array with blosc compression
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i4"},
+           {"shape", {4, 4}},
+           {"chunks", {4, 4}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Initialize with zeros
+  auto zeros = tensorstore::MakeArray<int32_t>(
+      {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(zeros, store).result());
+
+  // Open as void for writing
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Create raw bytes representing int32 values in little endian
+  // Using a simple pattern: 0x01020304 at position [0,0]
+  auto raw_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
+      {4, 4, 4}, tensorstore::c_order, tensorstore::value_init);
+
+  // Set first element to 0x01020304 (little endian: 04 03 02 01)
+  auto raw_bytes_ptr = static_cast<unsigned char*>(
+      const_cast<void*>(static_cast<const void*>(raw_bytes.data())));
+  raw_bytes_ptr[0] = 0x04;
+  raw_bytes_ptr[1] = 0x03;
+  raw_bytes_ptr[2] = 0x02;
+  raw_bytes_ptr[3] = 0x01;
+
+  // Write raw bytes through void access (triggers compression)
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(raw_bytes, void_store).result());
+
+  // Read back through normal typed access
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto typed_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto typed_read,
+                                   tensorstore::Read(typed_store).result());
+  auto typed_ptr = static_cast<const int32_t*>(typed_read.data());
+
+  // First element should be 0x01020304
+  EXPECT_EQ(typed_ptr[0], 0x01020304);
+  // Rest should be zeros
+  EXPECT_EQ(typed_ptr[1], 0);
+}
+
+// Tests for GetSpecInfo() with open_as_void
+
+TEST(ZarrDriverTest, GetSpecInfoOpenAsVoidWithKnownRank) {
+  // Test that GetSpecInfo correctly computes rank when open_as_void=true
+  // and dtype is specified with known chunked_rank.
+  // Expected: full_rank = chunked_rank + 1 (for bytes dimension)
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"dtype", "<i4"},     // 4-byte integer
+           {"shape", {10, 20}},  // 2D array, so chunked_rank=2
+           {"chunks", {5, 10}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // With open_as_void and dtype specified, rank should be chunked_rank + 1
+  // chunked_rank = 2 (from shape), so full_rank = 3
+  EXPECT_EQ(3, spec.rank());
+}
+
+TEST(ZarrDriverTest, GetSpecInfoOpenAsVoidWithStructuredDtype) {
+  // Test GetSpecInfo with open_as_void=true and a structured dtype.
+  // The bytes dimension should reflect the full struct size.
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"dtype", ::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}}},
+           {"shape", {8}},  // 1D array
+           {"chunks", {4}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // chunked_rank = 1, so full_rank = 2
+  EXPECT_EQ(2, spec.rank());
+}
+
+TEST(ZarrDriverTest, GetSpecInfoOpenAsVoidWithDynamicRank) {
+  // Test GetSpecInfo when open_as_void=true with dtype but no shape/chunks
+  // (i.e., chunked_rank is dynamic). In this case, full_rank should remain
+  // dynamic until metadata is loaded.
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"dtype", "<i2"},
+           // No shape or chunks specified, so chunked_rank is dynamic
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // When chunked_rank is dynamic, full_rank remains dynamic
+  EXPECT_EQ(tensorstore::dynamic_rank, spec.rank());
+}
+
+TEST(ZarrDriverTest, GetSpecInfoOpenAsVoidWithoutDtype) {
+  // Test that when open_as_void=true but dtype is not specified,
+  // GetSpecInfo falls through to normal GetSpecRankAndFieldInfo behavior.
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      // No metadata.dtype specified
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // Without dtype, rank should be dynamic (normal behavior)
+  EXPECT_EQ(tensorstore::dynamic_rank, spec.rank());
+}
+
+TEST(ZarrDriverTest, GetSpecInfoOpenAsVoidRankConsistency) {
+  // Verify that the rank computed by GetSpecInfo matches what we get when
+  // actually opening the store.
+  auto context = Context::Default();
+
+  // First create a normal array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<f4"},      // 4-byte float
+           {"shape", {3, 4, 5}},  // 3D array
+           {"chunks", {3, 4, 5}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Open the store with open_as_void - don't specify metadata so it's read
+  // from the existing store
+  ::nlohmann::json void_spec_json{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec_json, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Opened store rank should be chunked_rank + 1 = 3 + 1 = 4
+  EXPECT_EQ(4, void_store.rank());
+
+  // Verify bytes dimension size - the domain is valid on an opened store
+  auto store_domain = void_store.domain();
+  EXPECT_TRUE(store_domain.valid());
+  EXPECT_EQ(4, store_domain.shape()[3]);  // 4 bytes for f4
+
+  // Now test the spec parsing with known metadata also sets rank correctly
+  ::nlohmann::json void_spec_with_metadata{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix2/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"dtype", "<f4"},
+           {"shape", {3, 4, 5}},
+           {"chunks", {3, 4, 5}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_spec, tensorstore::Spec::FromJson(void_spec_with_metadata));
+
+  // Spec rank should be 4 (3D chunked + 1 bytes dimension)
+  // This verifies GetSpecInfo computes full_rank = chunked_rank + 1
+  EXPECT_EQ(4, void_spec.rank());
+}
+
+TEST(ZarrDriverTest, OpenAsVoidFillValue) {
+  // Test that fill_value is correctly obtained from metadata when using
+  // open_as_void. The void access should get the fill_value from the first
+  // field (field_index = 0) of the original metadata.
+  auto context = Context::Default();
+
+  // Create an array with an explicit fill_value
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", {4, 4}},
+           {"chunks", {2, 2}},
+           {"fill_value", 0x1234},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Verify the normal store has the expected fill_value
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto normal_fill, store.fill_value());
+  EXPECT_TRUE(normal_fill.valid());
+  EXPECT_EQ(tensorstore::MakeScalarArray<int16_t>(0x1234), normal_fill);
+
+  // Open with open_as_void=true
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Verify void store has a valid fill_value derived from the original
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_fill, void_store.fill_value());
+  EXPECT_TRUE(void_fill.valid());
+
+  // The void fill_value should have shape {2} (2 bytes for int16)
+  EXPECT_EQ(1, void_fill.rank());
+  EXPECT_EQ(2, void_fill.shape()[0]);
+
+  // The fill_value bytes should represent 0x1234 in little endian: 0x34, 0x12
+  auto fill_bytes = static_cast<const unsigned char*>(void_fill.data());
+  EXPECT_EQ(0x34, fill_bytes[0]);
+  EXPECT_EQ(0x12, fill_bytes[1]);
+}
+
+TEST(ZarrDriverTest, OpenAsVoidIncompatibleMetadata) {
+  // Test that open_as_void correctly rejects incompatible metadata when the
+  // underlying storage is modified to have a different bytes_per_outer_element.
+  auto context = Context::Default();
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+
+  // Create an array with 4-byte dtype
+  ::nlohmann::json create_spec{
+      {"driver", "zarr"},
+      {"kvstore", storage_spec},
+      {"path", "prefix/"},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i4"},  // 4 bytes
+           {"shape", {2, 2}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write some data
+  auto data = tensorstore::MakeArray<int32_t>({{1, 2}, {3, 4}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
+
+  // Open with open_as_void
+  ::nlohmann::json void_spec{
+      {"driver", "zarr"},
+      {"kvstore", storage_spec},
+      {"path", "prefix/"},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Now overwrite the underlying storage with incompatible metadata
+  // (different bytes_per_outer_element: 2 bytes instead of 4)
+  ::nlohmann::json incompatible_spec{
+      {"driver", "zarr"},
+      {"kvstore", storage_spec},
+      {"path", "prefix/"},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},  // 2 bytes - incompatible
+           {"shape", {2, 2}},
+           {"chunks", {2, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto incompatible_store,
+      tensorstore::Open(incompatible_spec, context,
+                        tensorstore::OpenMode::create |
+                            tensorstore::OpenMode::delete_existing,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // ResolveBounds on the original void store should fail because the
+  // underlying metadata changed to an incompatible dtype
+  EXPECT_THAT(
+      ResolveBounds(void_store).result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               MatchesRegex(".*Updated zarr metadata .* is incompatible with "
+                            "existing metadata.*")));
+}
+
 }  // namespace

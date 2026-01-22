@@ -19,8 +19,15 @@
 /// Support for encoding/decoding zarr "dtype" specifications.
 /// See: https://zarr.readthedocs.io/en/stable/spec/v2.html
 
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "absl/base/call_once.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
@@ -114,11 +121,33 @@ struct ZarrDType {
   /// Bytes per "outer" element (derived value).
   Index bytes_per_outer_element;
 
+  /// Returns a synthesized field for raw byte access to the entire dtype.
+  /// The returned pointer is valid for the lifetime of this ZarrDType.
+  const Field* GetVoidField() const;
+
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrDType,
                                           internal_json_binding::NoOptions)
 
   friend void to_json(::nlohmann::json& out,  // NOLINT
                       const ZarrDType& dtype);
+
+  // Thread-safe lazily-computed cache for GetVoidField().
+  // The field is reset to nullptr when copied/moved.
+  class LazyVoidField {
+   public:
+    friend class ZarrDType;
+
+    LazyVoidField() = default;
+    LazyVoidField(const LazyVoidField&) {}
+    LazyVoidField& operator=(const LazyVoidField&) { return *this; }
+    LazyVoidField(LazyVoidField&&) noexcept {}
+    LazyVoidField& operator=(LazyVoidField&&) noexcept { return *this; }
+
+   private:
+    absl::once_flag once_;
+    Field field_;
+  };
+  mutable LazyVoidField lazy_void_field_;
 };
 
 /// Parses a zarr metadata "dtype" JSON specification.

@@ -17,16 +17,37 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <string>
 #include <string_view>
 
+#include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include <nlohmann/json_fwd.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/driver/chunk_cache_driver.h"
+#include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
+#include "tensorstore/driver/registry.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/driver/zarr/spec.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -63,10 +84,11 @@ class ZarrDriverSpec
   ZarrPartialMetadata partial_metadata;
   SelectedField selected_field;
   std::string metadata_key;
+  bool open_as_void = false;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<KvsDriverSpec>(x), x.partial_metadata,
-             x.selected_field, x.metadata_key);
+             x.selected_field, x.metadata_key, x.open_as_void);
   };
   absl::Status ApplyOptions(SpecOptions&& options) override;
 
@@ -137,9 +159,35 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   std::string GetBaseKvstorePath() override;
 
+  DimensionSeparator dimension_separator() const {
+    return dimension_separator_;
+  }
+
+ protected:
   std::string key_prefix_;
   DimensionSeparator dimension_separator_;
   std::string metadata_key_;
+};
+
+/// Derived DataCache for open_as_void mode that provides raw byte access.
+///
+/// The void metadata (created via CreateVoidMetadata) has dtype.fields
+/// containing only the void field, so inherited encode/decode methods
+/// work correctly for raw byte access. GetBoundSpecData is overridden
+/// to set open_as_void=true in the spec.
+class VoidDataCache : public DataCache {
+ public:
+  using DataCache::DataCache;
+
+  /// Converts the new metadata to void metadata and uses normal validation.
+  /// This ensures both existing (already void) and new metadata have the
+  /// same synthesized void dtype, allowing IsMetadataCompatible to work.
+  absl::Status ValidateMetadataCompatibility(
+      const void* existing_metadata_ptr, const void* new_metadata_ptr) override;
+
+  absl::Status GetBoundSpecData(
+      internal_kvs_backed_chunk_driver::KvsDriverSpec& spec_base,
+      const void* metadata_ptr, size_t component_index) override;
 };
 
 class ZarrDriver;

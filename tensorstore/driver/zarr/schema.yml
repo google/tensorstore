@@ -15,8 +15,18 @@ allOf:
         title: Name of field to open.
         description: |
           Must be specified if the `.metadata.dtype` specified in the array
-          metadata has more than one field.
+          metadata has more than one field.  Cannot be specified together with
+          :json:`"open_as_void": true`.
         default: null
+      open_as_void:
+        type: boolean
+        title: Raw byte access mode.
+        description: |
+          When true, opens the array as raw bytes instead of interpreting it
+          as structured data. The resulting array will have an additional
+          dimension representing the byte layout of each element.  Cannot be
+          :json:`true` if `.field` is also specified.
+        default: false
       metadata:
         title: Zarr array metadata.
         description: |
