@@ -29,6 +29,9 @@ doctest_test(
         "*.py",
         "*.cc",
     ]),
+    tags = [
+        "skip-windows",
+    ],
 )
 
 pybind11_py_extension(
