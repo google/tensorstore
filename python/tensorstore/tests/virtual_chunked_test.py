@@ -312,34 +312,48 @@ def test_gc_future(gc_tester: GcTester) -> None:
 
 
 def test_read_batch() -> None:
-  """Tests reading with a batch."""
-  array = np.arange(np.prod(shape := (4, 5))).reshape(shape)
+  """Tests reading both with and without a batch."""
+  array = ts.array(np.arange(np.prod(shape := (4, 5))).reshape(shape))
+  # Avoid sharing the common threadpool with array
+  context = ts.Context({"data_copy_concurrency": {"limit": 1}})
 
-  def do_read(
+  def do_batched_read(
       domain: ts.IndexDomain,
       chunk: np.ndarray,
       read_params: ts.VirtualChunkedReadParameters,
   ) -> None:
     assert isinstance(read_params.batch, ts.Batch)
-    chunk[...] = array[domain.index_exp]
+    chunk[...] = array[domain].read(batch=read_params.batch).result()
 
   t = ts.virtual_chunked(
-      do_read,
+      do_batched_read,
       None,
       dtype=array.dtype,
       shape=array.shape,
       chunk_layout=ts.ChunkLayout(read_chunk_shape=(2, 3)),
+      context=context,
   )
-
-  import time
 
   with ts.Batch() as b:
     f = t[1:3, 1:3].read(batch=b)
-    # Immediate batch submission triggers
-    # asserts in Batch::Impl::~Impl()
-    time.sleep(.01)
 
-  np.testing.assert_array_equal(
-    f.result(),
-    [[6, 7], [11, 12]]
+  np.testing.assert_array_equal(f.result(), array[1:3, 1:3])
+
+  def do_unbatched_read(
+      domain: ts.IndexDomain,
+      chunk: np.ndarray,
+      read_params: ts.VirtualChunkedReadParameters,
+  ) -> None:
+    assert read_params.batch is None
+    chunk[...] = array[domain].read(batch=read_params.batch).result()
+
+  t2 = ts.virtual_chunked(
+      do_unbatched_read,
+      None,
+      dtype=array.dtype,
+      shape=array.shape,
+      chunk_layout=ts.ChunkLayout(read_chunk_shape=(2, 3)),
+      context=context
   )
+
+  np.testing.assert_array_equal(t2[1:3, 1:3].read().result(), array[1:3, 1:3])

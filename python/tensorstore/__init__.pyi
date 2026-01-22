@@ -12186,7 +12186,7 @@ class VirtualChunkedReadParameters:
     """
 
     @property
-    def batch(self) -> typing.Any:
+    def batch(self) -> Batch | None:
         """
         Batch associated with read request.
         """

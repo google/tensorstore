@@ -101,12 +101,7 @@ Read may be fulfilled with cached data no older than the specified bound.
 
   cls.def_property_readonly(
       "batch",
-      [](const Self& self) -> py::object {
-        if (auto batch = Batch(self.batch()); bool(batch)) {
-          return py::cast(std::move(batch));
-        }
-        return py::none();
-      },
+      [](const Self& self) { return self.batch(); },
       R"(
 Batch associated with read request.
 )");
