@@ -280,7 +280,7 @@ class ReadParameters {
   absl::Time staleness_bound() const { return staleness_bound_; }
 
   /// Batch associated with read request
-  const std::optional<Batch> batch() const { return batch_; }
+  const std::optional<Batch>& batch() const { return batch_; }
 
   // Treat as private:
 
