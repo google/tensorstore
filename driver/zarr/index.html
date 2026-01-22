@@ -1174,6 +1174,18 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-driver/zarr2.open_as_void" class="md-nav__link">
+    
+      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
+    
+    <span class="md-ellipsis">
+      <span title="driver/zarr2.open_as_void (JSON member) — Raw byte access mode."><span>open_<wbr>as_<wbr>void</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-driver/zarr2.metadata" class="md-nav__link">
     
       <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
@@ -2548,6 +2560,18 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-driver/zarr2.open_as_void" class="md-nav__link">
+    
+      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
+    
+    <span class="md-ellipsis">
+      <span title="driver/zarr2.open_as_void (JSON member) — Raw byte access mode."><span>open_<wbr>as_<wbr>void</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-driver/zarr2.metadata" class="md-nav__link">
     
       <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
@@ -3667,7 +3691,18 @@ chunks equal to the fill value may be represented as missing chunks.</p>
 <span class="sig-name descname"><span class="pre">field</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-driver/zarr2.field" title="Link to this definition">¶</a></dt>
 <dd><span><p>Name of field to open.</p>
   </span><p>Must be specified if the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">metadata.dtype</span></code></a> specified in the array
-metadata has more than one field.</p>
+metadata has more than one field.  Cannot be specified together with
+<code class="code highlight json docutils literal highlight-json"><span class="nt">&quot;open_as_void&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span></code>.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/zarr2.open_as_void">
+<span class="sig-name descname"><span class="pre">open_as_void</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">false</span></code><a class="headerlink" href="#json-driver/zarr2.open_as_void" title="Link to this definition">¶</a></dt>
+<dd><span><p>Raw byte access mode.</p>
+  </span><p>When true, opens the array as raw bytes instead of interpreting it
+as structured data. The resulting array will have an additional
+dimension representing the byte layout of each element.  Cannot be
+<code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code> if <a class="reference internal" href="#json-driver/zarr2.field" title="driver/zarr2.field (JSON member) — Name of field to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">field</span></code></a> is also specified.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
