@@ -10,7 +10,9 @@ jobs:
           - os: "ubuntu-latest"
             cibw_build: "*"
             wheel_identifier: linux_x86_64
-          - os: "arm-ubuntu-arm-22.04-8core"
+          - os: "ubuntu-22.04-arm"
+            # TODO: Revert back to the following before merge
+            # - os: "arm-ubuntu-arm-22.04-8core"
             cibw_build: "*"
             wheel_identifier: linux_arm64
           - os: "windows-2022"
