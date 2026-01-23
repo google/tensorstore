@@ -750,7 +750,7 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
                        bool conditional) {
   TimestampedStorageGeneration stamp;
   std::shared_ptr<const EncodedChunks> shared_existing_chunks;
-  span<const EncodedChunk> existing_chunks;
+  tensorstore::span<const EncodedChunk> existing_chunks;
   if (conditional) {
     // The new shard state depends on the existing shard state.  We will need to
     // merge the mutations with the existing chunks.  Additionally, any
@@ -935,9 +935,19 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
   });
 }
 
-Result<ChunkId> KeyToChunkIdOrError(std::string_view key) {
-  if (auto chunk_id = KeyToChunkId(key)) {
-    return *chunk_id;
+struct ChunkIdAndSize {
+  ChunkId chunk_id;
+  std::optional<uint64_t> size;
+};
+
+Result<ChunkIdAndSize> KeyToChunkIdAndSizeOrError(std::string_view key) {
+  if (key.size() == 8) {
+    return ChunkIdAndSize{ChunkId{big_endian::Load64(key.data())},
+                          std::nullopt};
+  }
+  if (key.size() == 16) {
+    return ChunkIdAndSize{ChunkId{big_endian::Load64(key.data())},
+                          big_endian::Load64(key.data() + 8)};
   }
   return absl::InvalidArgumentError(
       tensorstore::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
@@ -1102,7 +1112,13 @@ class ShardedKeyValueStore
   absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,
                                size_t& phase, Key key,
                                ReadModifyWriteSource& source) override {
-    TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, KeyToChunkIdOrError(key));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto chunk_id_and_size,
+                                 KeyToChunkIdAndSizeOrError(key));
+    if (chunk_id_and_size.size) {
+      return absl::InvalidArgumentError(
+          "size_before_chunk not supported for this operation");
+    }
+    ChunkId chunk_id = chunk_id_and_size.chunk_id;
     const auto& sharding_spec = this->sharding_spec();
     const auto shard_info = GetSplitShardInfo(
         sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));
@@ -1155,16 +1171,21 @@ class ShardedKeyValueStore
   }
 
   std::string DescribeKey(std::string_view key) override {
-    auto chunk_id_opt = KeyToChunkId(key);
-    if (!chunk_id_opt) {
+    auto chunk_id_and_size_result = KeyToChunkIdAndSizeOrError(key);
+    if (!chunk_id_and_size_result.ok()) {
       return tensorstore::StrCat("invalid key ", tensorstore::QuoteString(key));
     }
+    auto chunk_id = chunk_id_and_size_result->chunk_id;
     const auto& sharding_spec = this->sharding_spec();
     const auto shard_info = GetSplitShardInfo(
-        sharding_spec, GetChunkShardInfo(sharding_spec, *chunk_id_opt));
+        sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));
     return tensorstore::StrCat(
-        "chunk ", chunk_id_opt->value, " in minishard ", shard_info.minishard,
-        " in ",
+        "chunk ", chunk_id.value,
+        chunk_id_and_size_result->size
+            ? tensorstore::StrCat(" (preceding ",
+                                  *chunk_id_and_size_result->size, " bytes)")
+            : "",
+        " in minishard ", shard_info.minishard, " in ",
         base_kvstore_driver()->DescribeKey(
             GetShardKey(sharding_spec, key_prefix(), shard_info.shard)));
   }
@@ -1212,6 +1233,15 @@ struct ReadOperationBatchReadRequest
     : public internal_kvstore_batch::ByteRangeReadRequest {
   MinishardAndChunkId minishard_and_chunk_id;
   kvstore::ReadGenerationConditions generation_conditions;
+  std::optional<uint64_t> size_before_chunk;
+
+  // Sort key for processing requests in the batch, groups by minishard, then
+  // chunk_id, then `size_before_chunk.has_value()`.  Currently the order does
+  // not take into account the `size_before_chunk` value because any coalescing
+  // of `size_before_chunk` requests will be handled by the base kvstore.
+  std::pair<MinishardAndChunkId, bool> sort_key() const {
+    return {minishard_and_chunk_id, size_before_chunk.has_value()};
+  }
 };
 
 class ReadOperationState;
@@ -1245,10 +1275,10 @@ class ReadOperationState
     // Take ownership of initial reference.
     internal::IntrusivePtr<ReadOperationState> self(this,
                                                     internal::adopt_object_ref);
-    span<Request> requests = request_batch.requests;
+    tensorstore::span<Request> requests = request_batch.requests;
     std::sort(request_batch.requests.begin(), request_batch.requests.end(),
               [](const Request& a, const Request& b) {
-                return a.minishard_and_chunk_id < b.minishard_and_chunk_id;
+                return a.sort_key() < b.sort_key();
               });
 
     if (ShouldReadEntireShard()) {
@@ -1278,6 +1308,10 @@ class ReadOperationState
   }
 
   bool ShouldReadEntireShard() {
+    for (const auto& request : request_batch.requests) {
+      // Entire shard code path doesn't support `size_before_chunk`.
+      if (request.size_before_chunk) return false;
+    }
     const auto& get_max_chunks_per_shard =
         driver().write_cache_->get_max_chunks_per_shard_;
     if (!get_max_chunks_per_shard) return false;
@@ -1352,7 +1386,7 @@ class ReadOperationState
                                  SplitShard(sharding_spec, read_result.value),
                                  internal_kvstore_batch::SetCommonResult(
                                      self->request_batch.requests, _));
-    span<Request> requests = self->request_batch.requests;
+    tensorstore::span<Request> requests = self->request_batch.requests;
     size_t request_i = 0;
 
     const auto complete_not_found = [&](Request& request) {
@@ -1400,7 +1434,8 @@ class ReadOperationState
   }
 
   void ProcessMinishard(Batch::View batch, MinishardIndex minishard,
-                        span<Request> requests, Batch& data_fetch_batch) {
+                        tensorstore::span<Request> requests,
+                        Batch& data_fetch_batch) {
     ChunkSplitShardInfo split_shard_info;
     split_shard_info.shard = std::get<ShardIndex>(batch_entry_key);
     split_shard_info.minishard = minishard;
@@ -1445,8 +1480,8 @@ class ReadOperationState
   }
 
   static void OnMinishardIndexReady(
-      internal::IntrusivePtr<ReadOperationState> self, span<Request> requests,
-      Batch successor_batch,
+      internal::IntrusivePtr<ReadOperationState> self,
+      tensorstore::span<Request> requests, Batch successor_batch,
       internal::PinnedCacheEntry<MinishardIndexCache>
           minishard_index_cache_entry) {
     std::shared_ptr<const std::vector<MinishardIndexEntry>> minishard_index;
@@ -1466,92 +1501,6 @@ class ReadOperationState
       return;
     }
 
-    const auto& sharding_spec = self->driver().sharding_spec();
-
-    const auto process_chunk = [&](ChunkId chunk_id,
-                                   span<Request> chunk_requests) {
-      auto byte_range = FindChunkInMinishard(*minishard_index, chunk_id);
-      if (!byte_range) {
-        internal_kvstore_batch::SetCommonResult(
-            chunk_requests, kvstore::ReadResult::Missing(stamp));
-        return;
-      }
-
-      int64_t size = byte_range->size();
-
-      chunk_requests = chunk_requests.first(
-          std::remove_if(
-              chunk_requests.begin(), chunk_requests.end(),
-              [&](Request& request) {
-                return !internal_kvstore_batch::ValidateRequestGeneration(
-                    request, stamp);
-              }) -
-          chunk_requests.begin());
-
-      if (sharding_spec.data_encoding == ShardingSpec::DataEncoding::raw) {
-        // Can apply requested byte range directly.
-        const auto process_request = [&](Request& request) {
-          // Note: We can't use
-          // `internal_kvstore_batch::ValidateRequestGenerationAndByteRange`
-          // because that mutates `request.byte_range` and the resolved byte
-          // range should not be used in the event of a retry due to generation
-          // mismatch.
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              auto sub_byte_range, request.byte_range.Validate(size),
-              static_cast<void>(request.promise.SetResult(_)));
-          kvstore::ReadOptions kvstore_read_options;
-          kvstore_read_options.generation_conditions.if_equal =
-              stamp.generation;
-          kvstore_read_options.staleness_bound =
-              self->request_batch.staleness_bound;
-          kvstore_read_options.byte_range = ByteRange{
-              byte_range->inclusive_min + sub_byte_range.inclusive_min,
-              byte_range->inclusive_min + sub_byte_range.exclusive_max};
-          kvstore_read_options.batch = successor_batch;
-          auto value_read_future = self->driver().base_kvstore_driver()->Read(
-              self->ShardKey(), std::move(kvstore_read_options));
-          value_read_future.Force();
-          std::move(value_read_future)
-              .ExecuteWhenReady(
-                  [self,
-                   &request](ReadyFuture<kvstore::ReadResult> future) mutable {
-                    TENSORSTORE_ASSIGN_OR_RETURN(
-                        auto&& read_result, std::move(future.result()),
-                        static_cast<void>(request.promise.SetResult(_)));
-                    self->OnRawValueReady(request, std::move(read_result));
-                  });
-        };
-        for (auto& request : chunk_requests) {
-          process_request(request);
-        }
-      } else {
-        kvstore::ReadOptions kvstore_read_options;
-        kvstore_read_options.generation_conditions.if_equal = stamp.generation;
-        kvstore_read_options.staleness_bound =
-            self->request_batch.staleness_bound;
-        kvstore_read_options.byte_range = *byte_range;
-        kvstore_read_options.batch = successor_batch;
-        auto value_read_future = self->driver().base_kvstore_driver()->Read(
-            self->ShardKey(), std::move(kvstore_read_options));
-        value_read_future.Force();
-        std::move(value_read_future)
-            .ExecuteWhenReady(
-                [self, chunk_requests](
-                    ReadyFuture<kvstore::ReadResult> future) mutable {
-                  const auto& executor = self->driver().executor();
-                  executor([self = std::move(self), chunk_requests,
-                            future = std::move(future)] {
-                    TENSORSTORE_ASSIGN_OR_RETURN(
-                        auto&& read_result, std::move(future.result()),
-                        internal_kvstore_batch::SetCommonResult(chunk_requests,
-                                                                _));
-                    self->OnEncodedValueReady(chunk_requests,
-                                              std::move(read_result));
-                  });
-                });
-      }
-    };
-
     for (size_t request_i = 0; request_i < requests.size();) {
       ChunkId chunk_id = requests[request_i].minishard_and_chunk_id.chunk_id;
       size_t end_request_i;
@@ -1560,10 +1509,154 @@ class ReadOperationState
         if (requests[end_request_i].minishard_and_chunk_id.chunk_id != chunk_id)
           break;
       }
-      process_chunk(chunk_id,
-                    requests.subspan(request_i, end_request_i - request_i));
+      ProcessChunk(self, *minishard_index, stamp, successor_batch, chunk_id,
+                   requests.subspan(request_i, end_request_i - request_i));
       request_i = end_request_i;
     }
+  }
+
+  static void ProcessChunk(
+      internal::IntrusivePtr<ReadOperationState> self,
+      const std::vector<MinishardIndexEntry>& minishard_index,
+      const TimestampedStorageGeneration& stamp, Batch successor_batch,
+      ChunkId chunk_id, tensorstore::span<Request> chunk_requests) {
+    auto byte_range = FindChunkInMinishard(minishard_index, chunk_id);
+    if (!byte_range) {
+      internal_kvstore_batch::SetCommonResult(
+          chunk_requests, kvstore::ReadResult::Missing(stamp));
+      return;
+    }
+
+    const auto& sharding_spec = self->driver().sharding_spec();
+    int64_t size = byte_range->size();
+
+    // Separate requests into normal and special requests (size_before_chunk).
+    // We can't modify the span in place easily if we want to handle both
+    // types efficiently, but we can iterate.
+
+    // First filter out requests with mismatched generation.
+    chunk_requests = chunk_requests.first(
+        std::remove_if(
+            chunk_requests.begin(), chunk_requests.end(),
+            [&](Request& request) {
+              return !internal_kvstore_batch::ValidateRequestGeneration(request,
+                                                                        stamp);
+            }) -
+        chunk_requests.begin());
+
+    // Process special requests (size_before_chunk set)
+    size_t special_req_start = chunk_requests.size();
+    while (special_req_start > 0) {
+      auto& request = chunk_requests[special_req_start - 1];
+      if (!request.size_before_chunk) break;
+      --special_req_start;
+      ProcessChunkSpecialRequest(self, *byte_range, stamp, successor_batch,
+                                 request);
+    }
+
+    chunk_requests = chunk_requests.first(special_req_start);
+
+    if (sharding_spec.data_encoding == ShardingSpec::DataEncoding::raw) {
+      // Can apply requested byte range directly.
+      const auto process_request = [&](Request& request) {
+        assert(!request.size_before_chunk);
+        // Note: We can't use
+        // `internal_kvstore_batch::ValidateRequestGenerationAndByteRange`
+        // because that mutates `request.byte_range` and the resolved byte
+        // range should not be used in the event of a retry due to generation
+        // mismatch.
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto sub_byte_range, request.byte_range.Validate(size),
+            static_cast<void>(request.promise.SetResult(_)));
+        kvstore::ReadOptions kvstore_read_options;
+        kvstore_read_options.generation_conditions.if_equal = stamp.generation;
+        kvstore_read_options.staleness_bound =
+            self->request_batch.staleness_bound;
+        kvstore_read_options.byte_range =
+            ByteRange{byte_range->inclusive_min + sub_byte_range.inclusive_min,
+                      byte_range->inclusive_min + sub_byte_range.exclusive_max};
+        kvstore_read_options.batch = successor_batch;
+        auto value_read_future = self->driver().base_kvstore_driver()->Read(
+            self->ShardKey(), std::move(kvstore_read_options));
+        value_read_future.Force();
+        std::move(value_read_future)
+            .ExecuteWhenReady(
+                [self,
+                 &request](ReadyFuture<kvstore::ReadResult> future) mutable {
+                  TENSORSTORE_ASSIGN_OR_RETURN(
+                      auto&& read_result, std::move(future.result()),
+                      static_cast<void>(request.promise.SetResult(_)));
+                  self->OnRawValueReady(request, std::move(read_result));
+                });
+      };
+      for (auto& request : chunk_requests) {
+        process_request(request);
+      }
+    } else {
+      kvstore::ReadOptions kvstore_read_options;
+      kvstore_read_options.generation_conditions.if_equal = stamp.generation;
+      kvstore_read_options.staleness_bound =
+          self->request_batch.staleness_bound;
+      kvstore_read_options.byte_range = *byte_range;
+      kvstore_read_options.batch = successor_batch;
+      auto value_read_future = self->driver().base_kvstore_driver()->Read(
+          self->ShardKey(), std::move(kvstore_read_options));
+      value_read_future.Force();
+      std::move(value_read_future)
+          .ExecuteWhenReady(
+              [self, chunk_requests](
+                  ReadyFuture<kvstore::ReadResult> future) mutable {
+                const auto& executor = self->driver().executor();
+                executor([self = std::move(self), chunk_requests,
+                          future = std::move(future)] {
+                  TENSORSTORE_ASSIGN_OR_RETURN(
+                      auto&& read_result, std::move(future.result()),
+                      internal_kvstore_batch::SetCommonResult(chunk_requests,
+                                                              _));
+                  self->OnEncodedValueReady(chunk_requests,
+                                            std::move(read_result));
+                });
+              });
+    }
+  }
+
+  static void ProcessChunkSpecialRequest(
+      internal::IntrusivePtr<ReadOperationState> self,
+      const ByteRange& byte_range, const TimestampedStorageGeneration& stamp,
+      Batch successor_batch, Request& request) {
+    const uint64_t size_before = *request.size_before_chunk;
+    if (size_before > static_cast<uint64_t>(byte_range.inclusive_min)) {
+      request.promise.SetResult(absl::OutOfRangeError(tensorstore::StrCat(
+          "Requested size ", size_before, " exceeds chunk offset ",
+          byte_range.inclusive_min)));
+      return;
+    }
+
+    int64_t actual_size = size_before;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto sub_byte_range, request.byte_range.Validate(actual_size),
+        static_cast<void>(request.promise.SetResult(_)));
+
+    kvstore::ReadOptions kvstore_read_options;
+    kvstore_read_options.generation_conditions.if_equal = stamp.generation;
+    kvstore_read_options.staleness_bound = self->request_batch.staleness_bound;
+    kvstore_read_options.byte_range =
+        ByteRange{byte_range.inclusive_min - static_cast<int64_t>(size_before) +
+                      sub_byte_range.inclusive_min,
+                  byte_range.inclusive_min - static_cast<int64_t>(size_before) +
+                      sub_byte_range.exclusive_max};
+    kvstore_read_options.batch = successor_batch;
+    auto value_read_future = self->driver().base_kvstore_driver()->Read(
+        self->ShardKey(), std::move(kvstore_read_options));
+    value_read_future.Force();
+    std::move(value_read_future)
+        .ExecuteWhenReady(
+            [self, &request](ReadyFuture<kvstore::ReadResult> future) mutable {
+              TENSORSTORE_ASSIGN_OR_RETURN(
+                  auto&& read_result, std::move(future.result()),
+                  static_cast<void>(request.promise.SetResult(_)));
+              self->OnRawValueReady(request, std::move(read_result));
+            });
   }
 
   void OnRawValueReady(Request& request, kvstore::ReadResult&& read_result) {
@@ -1577,7 +1670,7 @@ class ReadOperationState
     request.promise.SetResult(std::move(read_result));
   }
 
-  void OnEncodedValueReady(span<Request> chunk_requests,
+  void OnEncodedValueReady(tensorstore::span<Request> chunk_requests,
                            kvstore::ReadResult&& read_result) {
     if (read_result.aborted()) {
       // Concurrent modification.  Retry.
@@ -1611,6 +1704,7 @@ class ReadOperationState
     };
 
     for (auto& request : chunk_requests) {
+      if (request.size_before_chunk) continue;
       request.promise.SetResult(process_request(request));
     }
   }
@@ -1619,7 +1713,9 @@ class ReadOperationState
 
 Future<kvstore::ReadResult> ShardedKeyValueStore::Read(Key key,
                                                        ReadOptions options) {
-  TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, KeyToChunkIdOrError(key));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto chunk_id_and_size,
+                               KeyToChunkIdAndSizeOrError(key));
+  ChunkId chunk_id = chunk_id_and_size.chunk_id;
   const auto& sharding_spec = this->sharding_spec();
   auto shard_info = GetChunkShardInfo(sharding_spec, chunk_id);
   auto split_shard_info = GetSplitShardInfo(sharding_spec, shard_info);
@@ -1629,14 +1725,21 @@ Future<kvstore::ReadResult> ShardedKeyValueStore::Read(Key key,
       ReadOperationState::Request{
           {std::move(promise), options.byte_range},
           MinishardAndChunkId{split_shard_info.minishard, chunk_id},
-          std::move(options.generation_conditions)});
+          std::move(options.generation_conditions),
+          chunk_id_and_size.size});
   return std::move(future);
 }
 
 Future<kvstore::ReadResult> ShardedKeyValueStore::TransactionalRead(
     const internal::OpenTransactionPtr& transaction, Key key,
     ReadOptions options) {
-  TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, KeyToChunkIdOrError(key));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto chunk_id_and_size,
+                               KeyToChunkIdAndSizeOrError(key));
+  if (chunk_id_and_size.size) {
+    return absl::UnimplementedError(
+        "size_before_chunk not supported for transactional reads");
+  }
+  auto chunk_id = chunk_id_and_size.chunk_id;
   const auto& sharding_spec = this->sharding_spec();
   const auto shard_info = GetSplitShardInfo(
       sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));

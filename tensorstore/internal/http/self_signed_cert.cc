@@ -23,7 +23,6 @@
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include <openssl/asn1.h>
 #include <openssl/bio.h>
 #include <openssl/bn.h>
@@ -34,7 +33,7 @@
 #include <openssl/x509.h>
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -77,8 +76,11 @@ std::unique_ptr<X509_NAME, X509NameFree> CreateName(
 // Append the OpenSSL error strings to the status message.
 absl::Status OpenSslError(std::string message,
                           SourceLocation loc = SourceLocation::current()) {
+  internal::StatusBuilder builder(absl::StatusCode::kInternal, loc);
   for (int line = 0; line < 4; ++line) {
-    absl::StrAppend(&message, "\n");
+    if (line > 0) {
+      builder.Format("\n");
+    }
     const char* extra_data = nullptr;
     const char* file_name = nullptr;
     int line_number = 0;
@@ -90,21 +92,19 @@ absl::Status OpenSslError(std::string message,
       break;
     }
     if (file_name != nullptr) {
-      absl::StrAppend(&message, file_name, ":", line_number, " ");
+      builder.Format("%s:%d ", file_name, line_number);
     }
     const char* reason_error_string = ERR_reason_error_string(error_code);
     if (reason_error_string != nullptr) {
-      absl::StrAppend(&message, reason_error_string);
+      builder.Format("%s", reason_error_string);
     } else {
-      absl::StrAppend(&message, error_code);
+      builder.Format("%d", error_code);
     }
     if (extra_data != nullptr && (flags & ERR_TXT_STRING)) {
-      absl::StrAppend(&message, " - ", extra_data);
+      builder.Format(" - %s", extra_data);
     }
   }
-  auto status = absl::InternalError(message);
-  MaybeAddSourceLocation(status, loc);
-  return status;
+  return builder;
 }
 
 }  // namespace

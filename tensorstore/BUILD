@@ -998,9 +998,11 @@ tensorstore_cc_library(
         "//tensorstore/serialization:json",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/status",
+        "@nlohmann_json//:json",
     ],
 )
 

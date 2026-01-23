@@ -624,9 +624,13 @@ tensorstore_cc_library(
     name = "status",
     srcs = [
         "status.cc",
+        "status_builder.cc",
+        "status_impl.cc",
     ],
     hdrs = [
         "status.h",
+        "status_builder.h",
+        "status_impl.h",
     ],
     deps = [
         "//tensorstore/internal:source_location",
@@ -637,6 +641,20 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "status_builder_test",
+    srcs = [
+        "status_builder_test.cc",
+    ],
+    deps = [
+        ":status",
+        ":status_testutil",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )
 

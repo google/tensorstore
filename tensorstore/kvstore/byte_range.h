@@ -62,6 +62,10 @@ struct ByteRange {
 
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const ByteRange& r);
+  template <typename Sink>
+  void AbslStringify(Sink& sink, const ByteRange& r) {
+    absl::Format(&sink, "[%d, %d)", r.inclusive_min, r.exclusive_max);
+  }
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.inclusive_min, x.exclusive_max);
@@ -181,6 +185,14 @@ struct OptionalByteRangeRequest {
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os,
                                   const OptionalByteRangeRequest& r);
+  template <typename Sink>
+  void AbslStringify(Sink& sink, const ByteRange& r) {
+    if (r.exclusive_max != -1) {
+      absl::Format(&sink, "[%d, %d)", r.inclusive_min, r.exclusive_max);
+    } else {
+      absl::Format(&sink, "[%d, ?)", r.inclusive_min);
+    }
+  }
 
   /// Checks that this byte range is valid.
   constexpr bool SatisfiesInvariants() const {

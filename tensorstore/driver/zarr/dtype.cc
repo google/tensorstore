@@ -15,15 +15,31 @@
 #include "tensorstore/driver/zarr/dtype.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
+#include <algorithm>
+#include <limits>
 #include <string>
+#include <string_view>
 
+#include "absl/base/attributes.h"
+#include "absl/base/call_once.h"
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -334,6 +350,24 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrDType, [](auto is_loading,
 
 char EndianIndicator(tensorstore::endian e) {
   return e == tensorstore::endian::little ? '<' : '>';
+}
+
+const ZarrDType::Field* ZarrDType::GetVoidField() const {
+  absl::call_once(lazy_void_field_.once_, [this] {
+    const Index nbytes = bytes_per_outer_element;
+    lazy_void_field_.field_ =
+        Field{{/*encoded_dtype=*/tensorstore::StrCat("|V", nbytes),
+               /*dtype=*/dtype_v<::tensorstore::dtypes::byte_t>,
+               /*endian=*/endian::native,
+               /*flexible_shape=*/{}},
+              /*outer_shape=*/{},
+              /*name=*/{},
+              /*field_shape=*/{nbytes},
+              /*num_inner_elements=*/nbytes,
+              /*byte_offset=*/0,
+              /*num_bytes=*/nbytes};
+  });
+  return &lazy_void_field_.field_;
 }
 
 Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {

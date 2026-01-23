@@ -43,9 +43,9 @@ tensorstore_cc_library(
         ":include_windows",
         "//tensorstore/internal:source_location",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 

@@ -242,12 +242,12 @@ Result<Schema> ParseSchemaFromProto(const ::tensorstore::proto::Schema& proto) {
   }
   if (proto.has_domain()) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto domain,
-                                 ParseIndexDomainFromProto(proto.domain()))
+                                 ParseIndexDomainFromProto(proto.domain()));
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(domain));
   }
   if (proto.has_chunk_layout()) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto chunk_layout, ParseChunkLayoutFromProto(proto.chunk_layout()))
+        auto chunk_layout, ParseChunkLayoutFromProto(proto.chunk_layout()));
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(chunk_layout));
   }
   if (proto.has_codec()) {

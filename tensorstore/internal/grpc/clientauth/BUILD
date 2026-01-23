@@ -140,6 +140,8 @@ tensorstore_cc_library(
     deps = [
         ":authentication_strategy",
         "//tensorstore/internal/grpc:logging_interceptor",
+        "//tensorstore/internal/version:version_h",
+        "@abseil-cpp//absl/strings:str_format",
         "@grpc//:grpc++",
     ],
 )

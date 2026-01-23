@@ -23,11 +23,12 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/version/version.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -70,8 +71,8 @@ void CurlSlistCleanup::operator()(curl_slist* s) { curl_slist_free_all(s); }
 
 /// Returns the default CurlUserAgent.
 std::string GetCurlUserAgentSuffix() {
-  static std::string agent = tensorstore::StrCat(
-      "tensorstore/", TENSORSTORE_VERSION, " ", curl_version());
+  static std::string agent =
+      absl::StrCat("tensorstore/", TENSORSTORE_VERSION, " ", curl_version());
   return agent;
 }
 
@@ -143,13 +144,14 @@ absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
     default:
       break;
   }
-
-  absl::Status status(
-      error_code, tensorstore::StrCat("CURL error ", curl_easy_strerror(code),
-                                      detail.empty() ? "" : ": ", detail));
-  status.SetPayload("curl_code", absl::Cord(tensorstore::StrCat(code)));
-  MaybeAddSourceLocation(status, loc);
-  return status;
+  std::string_view curl_code_str(curl_easy_strerror(code));
+  if (!detail.empty() && detail == curl_code_str) {
+    detail = {};
+  }
+  return internal::StatusBuilder(error_code, loc)
+      .SetPayload("curl_code", absl::StrFormat("%d", code))
+      .Format("CURL error %s%s%s", curl_code_str, detail.empty() ? "" : ": ",
+              detail);
 }
 
 /// Returns a absl::Status object for a corresponding CURLcode.
@@ -158,13 +160,14 @@ absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view detail,
   if (code == CURLM_OK) {
     return absl::OkStatus();
   }
-  absl::Status status(
-      absl::StatusCode::kInternal,
-      tensorstore::StrCat("CURLM error ", curl_multi_strerror(code),
-                          detail.empty() ? "" : ": ", detail));
-  status.SetPayload("curlm_code", absl::Cord(tensorstore::StrCat(code)));
-  MaybeAddSourceLocation(status, loc);
-  return status;
+  std::string_view curl_code_str(curl_multi_strerror(code));
+  if (!detail.empty() && detail == curl_code_str) {
+    detail = {};
+  }
+  return internal::StatusBuilder(absl::StatusCode::kInternal, loc)
+      .SetPayload("curlm_code", absl::StrFormat("%d", code))
+      .Format("CURLM error %s%s%s", curl_code_str, detail.empty() ? "" : ": ",
+              detail);
 }
 
 void SetLogToAbseil(CURL* handle) {

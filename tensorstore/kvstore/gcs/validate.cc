@@ -17,6 +17,7 @@
 #include <iterator>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
@@ -30,7 +31,7 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_storage_gcs {
@@ -108,6 +109,7 @@ absl::Status GcsHttpResponseToStatus(
   if (absl_status_code == absl::StatusCode::kOk) {
     return absl::OkStatus();
   }
+  internal::StatusBuilder builder(absl_status_code, loc);
 
   // https://cloud.google.com/storage/docs/retry-strategy
   retryable = (response.status_code == 429 ||  // too many requests
@@ -115,12 +117,12 @@ absl::Status GcsHttpResponseToStatus(
                response.status_code >= 500     // server error
   );
 
-  std::string error_message;
-
   // Attempt to parse and extract the error message from the JSON response.
   // https://cloud.google.com/storage/docs/json_api/v1/status-codes
   auto payload = response.payload;
   auto payload_str = payload.Flatten();
+  bool has_error_message = false;
+
   if (auto j_obj = internal::ParseJson(payload_str); j_obj.is_object()) {
     if (auto j_error = internal_json::JsonExtractMember(
             j_obj.template get_ptr<::nlohmann::json::object_t*>(), "error");
@@ -129,35 +131,32 @@ absl::Status GcsHttpResponseToStatus(
               j_error.template get_ptr<::nlohmann::json::object_t*>(),
               "message");
           j_message.is_string()) {
-        error_message = j_message.template get<std::string>();
+        builder.Format("%s", j_message.template get<std::string>());
+        has_error_message = true;
       }
     }
   }
-  if (error_message.empty()) {
-    error_message = HttpResponseCodeToMessage(response);
+  if (!has_error_message) {
+    std::string error_message = HttpResponseCodeToMessage(response);
     if (error_message.empty()) {
       error_message = "Unknown";
     }
+    builder.Format("%s", error_message);
   }
 
-  absl::Status status(absl_status_code, error_message);
-  status.SetPayload("http_response_code",
-                    absl::Cord(absl::StrFormat("%d", response.status_code)));
   if (!payload_str.empty()) {
-    status.SetPayload(
+    builder.SetPayload(
         "http_response_body",
         payload.Subcord(0,
                         payload_str.size() < 256 ? payload_str.size() : 256));
   }
-
   // Also add the upload ID if it exists.
   if (auto id_header = response.headers.find("x-guploader-uploadid");
       id_header != response.headers.end()) {
-    status.SetPayload("x-guploader-uploadid", absl::Cord(id_header->second));
+    builder.SetPayload("x-guploader-uploadid", id_header->second);
   }
-
-  MaybeAddSourceLocation(status, loc);
-  return status;
+  return builder.SetPayload("http_response_code",
+                            absl::StrFormat("%d", response.status_code));
 }
 
 }  // namespace internal_storage_gcs

@@ -15,17 +15,27 @@
 #include "tensorstore/index_space/internal/dimension_selection.h"
 
 #include <numeric>
+#include <string>
+#include <variant>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/util/division.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
 
-absl::Status CheckAndNormalizeDimensions(DimensionIndex input_rank,
-                                         span<DimensionIndex> dimensions) {
+absl::Status CheckAndNormalizeDimensions(
+    DimensionIndex input_rank, tensorstore::span<DimensionIndex> dimensions) {
   if (dimensions.size() > input_rank) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Number of dimensions (", dimensions.size(),

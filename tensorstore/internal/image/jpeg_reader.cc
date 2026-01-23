@@ -14,22 +14,30 @@
 
 #include "tensorstore/internal/image/jpeg_reader.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
 #include <csetjmp>
+#include <cstring>
 #include <memory>
+#include <utility>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 // Include libjpeg last
 #include <jerror.h>
 #include <jpeglib.h>
 #include "tensorstore/internal/image/jpeg_common.h"
+#include "tensorstore/util/status_builder.h"
 // See: https://libjpeg-turbo.org/Documentation/Documentation
 
 namespace tensorstore {
@@ -229,10 +237,10 @@ absl::Status JpegReader::Context::Initialize(riegeli::Reader* reader) {
   }();
 
   if (!ok || !riegeli_src_.reader->ok()) {
-    return internal::MaybeConvertStatusTo(riegeli_src_.reader->ok()
-                                              ? error_.last_error
-                                              : riegeli_src_.reader->status(),
-                                          absl::StatusCode::kDataLoss);
+    return internal::StatusBuilder(riegeli_src_.reader->ok()
+                                       ? error_.last_error
+                                       : riegeli_src_.reader->status())
+        .SetCode(absl::StatusCode::kDataLoss);
   }
 
   if (cinfo_.num_components != 1 && cinfo_.num_components != 3) {
@@ -280,10 +288,10 @@ absl::Status JpegReader::Context::Decode(tensorstore::span<unsigned char> dest,
   }();
 
   if (!ok || !riegeli_src_.reader->ok()) {
-    return internal::MaybeConvertStatusTo(riegeli_src_.reader->ok()
-                                              ? error_.last_error
-                                              : riegeli_src_.reader->status(),
-                                          absl::StatusCode::kDataLoss);
+    return internal::StatusBuilder(riegeli_src_.reader->ok()
+                                       ? error_.last_error
+                                       : riegeli_src_.reader->status())
+        .SetCode(absl::StatusCode::kDataLoss);
   }
   return absl::OkStatus();
 }

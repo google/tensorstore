@@ -17,6 +17,7 @@
 
 #include <iosfwd>
 #include <string_view>
+#include <type_traits>
 
 #include "absl/status/status.h"
 
@@ -180,6 +181,10 @@ std::string_view to_string(ReadWriteMode mode);
 /// \relates ReadWriteMode
 /// \id ReadWriteMode
 std::ostream& operator<<(std::ostream& os, ReadWriteMode mode);
+template <typename Sink>
+void AbslStringify(Sink& sink, ReadWriteMode mode) {
+  sink.Append(to_string(mode));
+}
 
 /// Indicates a minimal spec, i.e. missing information necessary to recreate.
 ///

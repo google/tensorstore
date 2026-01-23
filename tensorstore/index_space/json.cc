@@ -575,7 +575,7 @@ Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
   auto result = [&]() -> Result<TransformRep::Ptr<>> {
     auto binder = jb::Object(IndexTransformParser(false, rank_constraint));
     TENSORSTORE_ASSIGN_OR_RETURN(auto parser_data,
-                                 jb::FromJson<TransformParserData>(j, binder))
+                                 jb::FromJson<TransformParserData>(j, binder));
     return parser_data.Finalize();
   }();
 

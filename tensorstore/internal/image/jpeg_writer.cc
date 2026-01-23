@@ -31,6 +31,7 @@
 #include <jerror.h>
 #include <jpeglib.h>
 #include "tensorstore/internal/image/jpeg_common.h"
+#include "tensorstore/util/status_builder.h"
 // See: https://libjpeg-turbo.org/Documentation/Documentation
 
 namespace tensorstore {
@@ -208,13 +209,11 @@ absl::Status JpegWriter::Encode(const ImageInfo& info,
   }();
 
   // On failure, clear the writer.
-  absl::Status status;
   if (!ok) {
-    absl::Status status = internal::MaybeConvertStatusTo(
-        state.writer->ok() ? state.error_.last_error : state.writer->status(),
-        absl::StatusCode::kDataLoss);
+    internal::StatusBuilder builder(
+        state.writer->ok() ? state.error_.last_error : state.writer->status());
     writer_ = nullptr;
-    return status;
+    return builder.SetCode(absl::StatusCode::kDataLoss);
   }
   return absl::OkStatus();
 }

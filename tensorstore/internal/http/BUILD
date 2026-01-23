@@ -196,7 +196,6 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/strings",
         "@boringssl//:crypto",
     ],
 )

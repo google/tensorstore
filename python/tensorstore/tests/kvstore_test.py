@@ -25,9 +25,26 @@ import pytest
 import tensorstore as ts
 
 
-def test_instantiation() -> None:
-  with pytest.raises(TypeError):
-    ts.KvStore()
+async def test_read_byte_range() -> None:
+  store = await ts.KvStore.open({'driver': 'memory'})
+  await store.write(b'key', b'0123456789')
+
+  assert (await store.read(b'key')).value == b'0123456789'
+  assert (await store.read(b'key', byte_range=slice(1, 5))).value == b'1234'
+  assert (
+      await store.read(b'key', byte_range=slice(1, None))
+  ).value == b'123456789'
+  assert (await store.read(b'key', byte_range=slice(None, 5))).value == b'01234'
+  assert (
+      await store.read(b'key', byte_range=slice(None, None))
+  ).value == b'0123456789'
+  assert (await store.read(b'key', byte_range=slice(-3, None))).value == b'789'
+
+  with pytest.raises(ValueError):
+    await store.read(b'key', byte_range=slice(-3, -1))
+
+  with pytest.raises(ValueError):
+    await store.read(b'key', byte_range=slice(None, -1))
 
 
 def test_spec_pickle() -> None:

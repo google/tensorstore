@@ -35,6 +35,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -243,10 +244,11 @@ absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
     internal_index_space::PrintToOstream(os, a_to_b);
     std::string str = os.str();
     absl::StrReplaceAll({{"\n", " "}}, &str);
-    AddStatusPayload(status, "transform", absl::Cord(str));
-    AddStatusPayload(status, "domain", absl::Cord(tensorstore::StrCat(b)));
+    return internal::StatusBuilder(std::move(status))
+        .AddStatusPayload("transform", absl::Cord(str))
+        .AddStatusPayload("domain", absl::Cord(tensorstore::StrCat(b)));
   }
-  return status;
+  return absl::OkStatus();
 }
 
 absl::Status PropagateExplicitBounds(BoxView<> b, TransformRep* a_to_b,
