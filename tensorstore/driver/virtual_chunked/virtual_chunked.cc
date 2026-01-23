@@ -235,10 +235,9 @@ void VirtualChunkedCache::DoRead(EntryOrNode& node,
     return;
   }
   auto& executor = cache.executor();
-  auto opt_batch = request.batch ? std::make_optional(Batch(request.batch)) : std::nullopt;
   // `node` is guaranteed to remain valid until `ReadSuccess` or `ReadError`
   // is called.  Therefore we don't need to separately hold a reference.
-  executor([&node, staleness_bound = request.staleness_bound, batch = std::move(opt_batch)] {
+  executor([&node, staleness_bound = request.staleness_bound, batch = Batch(request.batch)] {
     auto& entry = GetOwningEntry(node);
     auto& cache = GetOwningCache(entry);
     const auto& component_spec = cache.grid().components.front();

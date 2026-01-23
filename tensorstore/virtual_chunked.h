@@ -268,7 +268,7 @@ namespace virtual_chunked {
 /// chunk.
 class ReadParameters {
  public:
-  ReadParameters() = default;
+  ReadParameters() : batch_(no_batch) {}
 
   const Executor& executor() const { return executor_; }
 
@@ -280,14 +280,14 @@ class ReadParameters {
   absl::Time staleness_bound() const { return staleness_bound_; }
 
   /// Batch associated with read request
-  const std::optional<Batch>& batch() const { return batch_; }
+  Batch batch() const { return batch_; }
 
   // Treat as private:
 
   Executor executor_;
   StorageGeneration if_not_equal_;
   absl::Time staleness_bound_;
-  std::optional<Batch> batch_;
+  Batch batch_;
 };
 
 /// Type-erased function called to read a single chunk.
