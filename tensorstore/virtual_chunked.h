@@ -251,6 +251,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/serialization/function.h"
@@ -267,7 +268,7 @@ namespace virtual_chunked {
 /// chunk.
 class ReadParameters {
  public:
-  ReadParameters() = default;
+  ReadParameters() : batch_(no_batch) {}
 
   const Executor& executor() const { return executor_; }
 
@@ -278,11 +279,15 @@ class ReadParameters {
   /// Read may be fulfilled with cached data no older than the specified bound.
   absl::Time staleness_bound() const { return staleness_bound_; }
 
+  /// Batch associated with read request
+  Batch batch() const { return batch_; }
+
   // Treat as private:
 
   Executor executor_;
   StorageGeneration if_not_equal_;
   absl::Time staleness_bound_;
+  Batch batch_;
 };
 
 /// Type-erased function called to read a single chunk.
