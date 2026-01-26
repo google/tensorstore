@@ -767,10 +767,14 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
       builder.input_shape(full_shape);
       builder.input_labels(span(&normalized_dimension_names[0], total_rank));
 
+      // Set implicit bounds: array dims have implicit upper bounds (resizable),
+      // bytes dim has explicit bounds (fixed size).
+      DimensionSet implicit_lower_bounds(false);
       DimensionSet implicit_upper_bounds(false);
       for (DimensionIndex i = 0; i < rank; ++i) {
         implicit_upper_bounds[i] = true;
       }
+      builder.implicit_lower_bounds(implicit_lower_bounds);
       builder.implicit_upper_bounds(implicit_upper_bounds);
 
       for (DimensionIndex i = 0; i < total_rank; ++i) {
