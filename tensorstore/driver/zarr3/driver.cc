@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -380,6 +381,9 @@ class DataCacheBase
 
   virtual ZarrChunkCache& zarr_chunk_cache() = 0;
 
+  /// Returns true if this cache was opened with open_as_void=true.
+  virtual bool is_void_access() const = 0;
+
   absl::Status ValidateMetadataCompatibility(
       const void* existing_metadata_ptr,
       const void* new_metadata_ptr) override {
@@ -718,6 +722,8 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
 
   ZarrChunkCache& zarr_chunk_cache() final { return *this; }
 
+  bool is_void_access() const final { return ChunkCacheImpl::open_as_void_; }
+
   const internal::ChunkGridSpecification& grid() const override {
     return grid_;
   }
@@ -812,6 +818,33 @@ class ZarrDriver : public ZarrDriverBase {
     if (metadata.fill_value.empty()) {
       return SharedArray<const void>();
     }
+
+    // For void access, convert fill_value to byte array representation.
+    // This is similar to v2's CreateVoidMetadata fill_value handling.
+    // In zarr3, endianness is handled by the codec chain, so we just copy
+    // the raw bytes from each field's fill_value.
+    if (static_cast<DataCacheBase*>(cache())->is_void_access()) {
+      const Index nbytes = metadata.data_type.bytes_per_outer_element;
+      auto byte_fill = AllocateArray<std::byte>({nbytes}, c_order, value_init);
+
+      // Copy bytes from each field's fill_value at their respective offsets
+      for (size_t field_i = 0; field_i < metadata.data_type.fields.size();
+           ++field_i) {
+        const auto& field = metadata.data_type.fields[field_i];
+        if (field_i >= metadata.fill_value.size() ||
+            !metadata.fill_value[field_i].valid()) {
+          continue;
+        }
+        const auto& fill_value = metadata.fill_value[field_i];
+        // Copy the raw bytes from the fill_value to the byte array
+        std::memcpy(byte_fill.data() + field.byte_offset,
+                    fill_value.data(),
+                    field.num_bytes);
+      }
+
+      return byte_fill;
+    }
+
     size_t index = this->component_index();
     if (index >= metadata.fill_value.size()) {
         return absl::OutOfRangeError("Component index out of bounds");
