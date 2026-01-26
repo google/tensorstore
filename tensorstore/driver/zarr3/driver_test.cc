@@ -1886,10 +1886,10 @@ TEST(Zarr3DriverTest, OpenAsVoidSimpleType) {
             void_store.dtype());
 }
 
-// TODO(b/xxx): OpenAsVoidStructuredType test disabled pending implementation
-// of multi-field structured type handling in open_as_void mode. The v3
-// implementation needs additional work to properly handle structured types
-// with multiple fields when opened with open_as_void=true.
+// TODO(b/xxx): OpenAsVoidStructuredType test disabled pending additional work
+// to handle rank mismatch between spec transform and void access transform.
+// The void access adds an extra dimension for bytes_per_outer_element, but the
+// spec's transform is based on the original array shape without this dimension.
 
 TEST(Zarr3DriverTest, OpenAsVoidWithCompression) {
   // Test open_as_void with compression enabled
