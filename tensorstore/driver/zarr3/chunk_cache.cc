@@ -252,16 +252,12 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
 Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     span<const Index> chunk_indices,
     span<const SharedArray<const void>> component_arrays) {
-  assert(component_arrays.size() == 1);
+  const size_t num_fields = dtype_.fields.size();
 
   // Special case: void access - encode bytes back to original format.
-  //
-  // For structured types: codec already expects bytes with extra dimension.
-  // Just encode directly.
-  //
-  // For non-structured types: reinterpret byte array as original dtype
-  // and shape before encoding.
   if (open_as_void_) {
+    assert(component_arrays.size() == 1);
+
     if (original_is_structured_) {
       // Structured types: codec already expects bytes with extra dimension.
       return codec_state_->EncodeArray(component_arrays[0]);
@@ -276,8 +272,6 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     std::vector<Index> original_shape(void_shape.begin(), void_shape.end() - 1);
 
     // Use the original dtype (stored during cache creation) for encoding.
-    // This is the dtype the codec was prepared for, not the void dtype.
-
     // Create a view over the byte data with original dtype and layout.
     // Use the aliasing constructor to share ownership with byte_array but
     // interpret the data with the original dtype.
@@ -293,7 +287,47 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     return codec_state_->EncodeArray(encoded_array);
   }
 
-  return codec_state_->EncodeArray(component_arrays[0]);
+  // For single non-structured field, encode directly
+  if (num_fields == 1 && dtype_.fields[0].outer_shape.empty()) {
+    assert(component_arrays.size() == 1);
+    return codec_state_->EncodeArray(component_arrays[0]);
+  }
+
+  // For structured types, combine multiple field arrays into a single byte array
+  assert(component_arrays.size() == num_fields);
+
+  // Build encode shape: [chunk_dims..., bytes_per_outer_element]
+  const auto& chunk_shape = grid().chunk_shape;
+  std::vector<Index> encode_shape(chunk_shape.begin(), chunk_shape.end());
+  encode_shape.push_back(dtype_.bytes_per_outer_element);
+
+  // Calculate number of outer elements
+  Index num_elements = 1;
+  for (size_t i = 0; i < chunk_shape.size(); ++i) {
+    num_elements *= chunk_shape[i];
+  }
+
+  // Allocate byte array for combined fields
+  auto byte_array = AllocateArray<std::byte>(encode_shape, c_order, value_init);
+  auto* dst_bytes = byte_array.data();
+
+  // Copy each field's data into the byte array at their respective offsets
+  for (size_t field_i = 0; field_i < num_fields; ++field_i) {
+    const auto& field = dtype_.fields[field_i];
+    const auto& field_array = component_arrays[field_i];
+    const auto* src = static_cast<const std::byte*>(field_array.data());
+    const Index field_size = field.dtype->size;
+
+    // Copy field data to each struct element
+    for (Index i = 0; i < num_elements; ++i) {
+      std::memcpy(dst_bytes + i * dtype_.bytes_per_outer_element +
+                      field.byte_offset,
+                  src + i * field_size,
+                  field_size);
+    }
+  }
+
+  return codec_state_->EncodeArray(byte_array);
 }
 
 kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {

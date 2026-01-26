@@ -1886,13 +1886,67 @@ TEST(Zarr3DriverTest, OpenAsVoidSimpleType) {
             void_store.dtype());
 }
 
-// TODO(b/xxx): OpenAsVoidStructuredType test disabled pending implementation
-// of proper rank handling in GetNewMetadata for void access with structured
-// types. Creating new arrays with open_as_void=true and structured dtypes
-// requires adding field_shape dimensions to chunked_rank and updating
-// SetChunkLayoutFromMetadata to handle the dimension mismatch between
-// metadata shape and full rank. This is a more extensive change that will
-// be addressed separately.
+TEST(Zarr3DriverTest, OpenAsVoidStructuredType) {
+  // Test open_as_void with a structured data type
+  auto context = Context::Default();
+
+  // Step 1: Create and write the array using a structured dtype (with field)
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "structured"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array({{"x", "uint8"}, {"y", "int16"}})}}}}},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write some data to field y
+  auto data = tensorstore::MakeArray<int16_t>({{100, 200}, {300, 400}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(data, store | tensorstore::Dims(0, 1).SizedInterval(
+                                           {0, 0}, {2, 2}))
+          .result());
+
+  // Close the first store by letting it go out of scope
+  store = tensorstore::TensorStore<int16_t>();
+
+  // Step 2: Open with open_as_void=true
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // The void store should have rank = original_rank + 1 (for bytes dimension)
+  EXPECT_EQ(3, void_store.rank());
+
+  // The last dimension should be 3 bytes (1 byte for u1 + 2 bytes for i2)
+  EXPECT_EQ(3, void_store.domain().shape()[2]);
+
+  // The data type should be byte
+  EXPECT_EQ(tensorstore::dtype_v<tensorstore::dtypes::byte_t>,
+            void_store.dtype());
+}
 
 TEST(Zarr3DriverTest, OpenAsVoidWithCompression) {
   // Test open_as_void with compression enabled
