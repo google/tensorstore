@@ -2202,6 +2202,101 @@ TEST(Zarr3DriverTest, OpenAsVoidWriteRoundtrip) {
   EXPECT_EQ(bytes_read_ptr[7], 0xDE);
 }
 
+TEST(Zarr3DriverTest, OpenAsVoidWriteWithCompression) {
+  // Test writing through open_as_void with compression enabled.
+  // Verifies that the EncodeChunk method correctly compresses data.
+  auto context = Context::Default();
+
+  // Create an array with gzip compression
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type", "int32"},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {4, 4}}}}}},
+           {"codecs",
+            ::nlohmann::json::array(
+                {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
+                 {{"name", "gzip"}, {"configuration", {{"level", 5}}}}})},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Initialize with zeros
+  auto zeros = tensorstore::MakeArray<int32_t>(
+      {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(zeros, store).result());
+
+  // Open as void for writing
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Verify the void store has the expected shape: [4, 4, 4] (4x4 ints, 4 bytes each)
+  EXPECT_EQ(3, void_store.rank());
+  EXPECT_EQ(4, void_store.domain().shape()[0]);
+  EXPECT_EQ(4, void_store.domain().shape()[1]);
+  EXPECT_EQ(4, void_store.domain().shape()[2]);
+
+  // Create raw bytes representing int32 values in little endian
+  // Using a simple pattern: 0x01020304 at position [0,0]
+  auto raw_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
+      {4, 4, 4}, tensorstore::c_order, tensorstore::value_init);
+
+  // Set first element to 0x01020304 (little endian: 04 03 02 01)
+  auto raw_bytes_ptr = static_cast<unsigned char*>(
+      const_cast<void*>(static_cast<const void*>(raw_bytes.data())));
+  raw_bytes_ptr[0] = 0x04;
+  raw_bytes_ptr[1] = 0x03;
+  raw_bytes_ptr[2] = 0x02;
+  raw_bytes_ptr[3] = 0x01;
+
+  // Write raw bytes through void access (triggers compression)
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(raw_bytes, void_store).result());
+
+  // Verify the write worked by reading back through void access first
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_read,
+                                   tensorstore::Read(void_store).result());
+  auto void_read_ptr = static_cast<const unsigned char*>(void_read.data());
+  // First 4 bytes should be our pattern
+  EXPECT_EQ(void_read_ptr[0], 0x04);
+  EXPECT_EQ(void_read_ptr[1], 0x03);
+  EXPECT_EQ(void_read_ptr[2], 0x02);
+  EXPECT_EQ(void_read_ptr[3], 0x01);
+
+  // Read back through normal typed access
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto typed_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto typed_read,
+                                   tensorstore::Read(typed_store).result());
+  auto typed_ptr = static_cast<const int32_t*>(typed_read.data());
+
+  // First element should be 0x01020304
+  EXPECT_EQ(typed_ptr[0], 0x01020304);
+  // Rest should be zeros
+  EXPECT_EQ(typed_ptr[1], 0);
+}
+
 TEST(Zarr3DriverTest, FieldSelectionUrlNotSupported) {
   // Test that field selection is not supported with URL syntax
   ::nlohmann::json json_spec{
