@@ -31,6 +31,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/chunk.h"
@@ -53,6 +54,7 @@
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/internal/storage_statistics.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -192,6 +194,10 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
         auto decoded_array,
         codec_state_->DecodeArray(original_chunk_shape, std::move(data)));
 
+    // Verify decoded array is C-contiguous (codec chain should guarantee this)
+    assert(IsContiguousLayout(decoded_array.layout(), c_order,
+                              decoded_array.dtype().size()));
+
     // Reinterpret the decoded array's bytes as [chunk_shape..., bytes_per_elem]
     auto byte_array = AllocateArray(
         void_component_shape, c_order, default_init,
@@ -223,7 +229,10 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto byte_array, codec_state_->DecodeArray(decode_shape, std::move(data)));
 
-  // Extract each field from the byte array
+  // Extract each field from the byte array.
+  // Note: decoded byte_array should be C-contiguous (codec chain guarantees).
+  assert(IsContiguousLayout(byte_array.layout(), c_order,
+                            byte_array.dtype().size()));
   const Index num_elements = byte_array.num_elements() /
                              dtype_.bytes_per_outer_element;
   const auto* src_bytes = static_cast<const std::byte*>(byte_array.data());
@@ -312,10 +321,15 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
   auto byte_array = AllocateArray<std::byte>(encode_shape, c_order, value_init);
   auto* dst_bytes = byte_array.data();
 
-  // Copy each field's data into the byte array at their respective offsets
+  // Copy each field's data into the byte array at their respective offsets.
+  // Note: This assumes component arrays are C-contiguous, which is guaranteed
+  // by the chunk cache's write path (AsyncWriteArray allocates C-order arrays).
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = dtype_.fields[field_i];
     const auto& field_array = component_arrays[field_i];
+    // Verify the array is C-contiguous as expected
+    assert(IsContiguousLayout(field_array.layout(), c_order,
+                              field_array.dtype().size()));
     const auto* src = static_cast<const std::byte*>(field_array.data());
     const Index field_size = field.dtype->size;
 
