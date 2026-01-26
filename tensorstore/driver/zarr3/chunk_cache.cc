@@ -76,11 +76,13 @@ ZarrChunkCache::~ZarrChunkCache() = default;
 ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType dtype, internal::CachePool::WeakPtr /*data_cache_pool*/,
-    bool open_as_void)
+    bool open_as_void, bool original_is_structured, DataType original_dtype)
     : Base(std::move(store)),
       codec_state_(std::move(codec_state)),
       dtype_(std::move(dtype)),
-      open_as_void_(open_as_void) {}
+      open_as_void_(open_as_void),
+      original_is_structured_(original_is_structured),
+      original_dtype_(original_dtype) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
                               AnyFlowReceiver<absl::Status, internal::ReadChunk,
@@ -158,11 +160,49 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   const size_t num_fields = dtype_.fields.size();
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
-  // Special case: void access - return raw bytes directly
+  // Special case: void access - decode and return as bytes.
+  //
+  // For non-structured types: codec was prepared for [chunk_shape] with
+  // original dtype. We decode to that shape then reinterpret as bytes.
+  //
+  // For structured types: codec was already prepared for
+  // [chunk_shape, bytes_per_elem] with byte dtype. Just decode directly.
   if (open_as_void_) {
+    assert(num_fields == 1);  // Void access uses a single synthesized field
+    const auto& void_component_shape = grid().components[0].shape();
+
+    if (original_is_structured_) {
+      // Structured types: codec already expects bytes with extra dimension.
+      // Just decode directly to the void component shape.
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          field_arrays[0],
+          codec_state_->DecodeArray(void_component_shape, std::move(data)));
+      return field_arrays;
+    }
+
+    // Non-structured types: codec expects original dtype without extra
+    // dimension. Decode, then reinterpret as bytes.
+    const auto& void_chunk_shape = grid().chunk_shape;
+    std::vector<Index> original_chunk_shape(
+        void_chunk_shape.begin(),
+        void_chunk_shape.end() - 1);  // Strip bytes dimension
+
+    // Decode using original codec shape
     TENSORSTORE_ASSIGN_OR_RETURN(
-        field_arrays[0], codec_state_->DecodeArray(grid().components[0].shape(),
-                                                   std::move(data)));
+        auto decoded_array,
+        codec_state_->DecodeArray(original_chunk_shape, std::move(data)));
+
+    // Reinterpret the decoded array's bytes as [chunk_shape..., bytes_per_elem]
+    auto byte_array = AllocateArray(
+        void_component_shape, c_order, default_init,
+        dtype_v<tensorstore::dtypes::byte_t>);
+
+    // Copy decoded data to byte array (handles potential layout differences)
+    std::memcpy(byte_array.data(), decoded_array.data(),
+                decoded_array.num_elements() *
+                    decoded_array.dtype().size());
+
+    field_arrays[0] = std::move(byte_array);
     return field_arrays;
   }
 
@@ -213,8 +253,82 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
 Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     span<const Index> chunk_indices,
     span<const SharedArray<const void>> component_arrays) {
-  assert(component_arrays.size() == 1);
-  return codec_state_->EncodeArray(component_arrays[0]);
+  const size_t num_fields = dtype_.fields.size();
+
+  // Special case: void access - encode bytes back to original format.
+  if (open_as_void_) {
+    assert(component_arrays.size() == 1);
+
+    if (original_is_structured_) {
+      // Structured types: codec already expects bytes with extra dimension.
+      return codec_state_->EncodeArray(component_arrays[0]);
+    }
+
+    // Non-structured types: reinterpret bytes as original dtype/shape.
+    const auto& byte_array = component_arrays[0];
+    const Index bytes_per_element = dtype_.bytes_per_outer_element;
+
+    // Build original chunk shape by stripping the bytes dimension
+    const auto& void_shape = byte_array.shape();
+    std::vector<Index> original_shape(void_shape.begin(), void_shape.end() - 1);
+
+    // Use the original dtype (stored during cache creation) for encoding.
+    // Create a view over the byte data with original dtype and layout.
+    // Use the aliasing constructor to share ownership with byte_array but
+    // interpret the data with the original dtype.
+    SharedArray<const void> encoded_array;
+    auto aliased_ptr = std::shared_ptr<const void>(
+        byte_array.pointer(),  // Share ownership with byte_array
+        byte_array.data());    // But point to the raw data
+    encoded_array.element_pointer() = SharedElementPointer<const void>(
+        std::move(aliased_ptr), original_dtype_);
+    encoded_array.layout() = StridedLayout<>(c_order, bytes_per_element,
+                                             original_shape);
+
+    return codec_state_->EncodeArray(encoded_array);
+  }
+
+  // For single non-structured field, encode directly
+  if (num_fields == 1 && dtype_.fields[0].outer_shape.empty()) {
+    assert(component_arrays.size() == 1);
+    return codec_state_->EncodeArray(component_arrays[0]);
+  }
+
+  // For structured types, combine multiple field arrays into a single byte array
+  assert(component_arrays.size() == num_fields);
+
+  // Build encode shape: [chunk_dims..., bytes_per_outer_element]
+  const auto& chunk_shape = grid().chunk_shape;
+  std::vector<Index> encode_shape(chunk_shape.begin(), chunk_shape.end());
+  encode_shape.push_back(dtype_.bytes_per_outer_element);
+
+  // Calculate number of outer elements
+  Index num_elements = 1;
+  for (size_t i = 0; i < chunk_shape.size(); ++i) {
+    num_elements *= chunk_shape[i];
+  }
+
+  // Allocate byte array for combined fields
+  auto byte_array = AllocateArray<std::byte>(encode_shape, c_order, value_init);
+  auto* dst_bytes = byte_array.data();
+
+  // Copy each field's data into the byte array at their respective offsets
+  for (size_t field_i = 0; field_i < num_fields; ++field_i) {
+    const auto& field = dtype_.fields[field_i];
+    const auto& field_array = component_arrays[field_i];
+    const auto* src = static_cast<const std::byte*>(field_array.data());
+    const Index field_size = field.dtype->size;
+
+    // Copy field data to each struct element
+    for (Index i = 0; i < num_elements; ++i) {
+      std::memcpy(dst_bytes + i * dtype_.bytes_per_outer_element +
+                      field.byte_offset,
+                  src + i * field_size,
+                  field_size);
+    }
+  }
+
+  return codec_state_->EncodeArray(byte_array);
 }
 
 kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
@@ -224,12 +338,14 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 ZarrShardedChunkCache::ZarrShardedChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType dtype, internal::CachePool::WeakPtr data_cache_pool,
-    bool open_as_void)
+    bool open_as_void, bool original_is_structured, DataType original_dtype)
     : base_kvstore_(std::move(store)),
       codec_state_(std::move(codec_state)),
       dtype_(std::move(dtype)),
-      data_cache_pool_(std::move(data_cache_pool)),
-      open_as_void_(open_as_void) {}
+      open_as_void_(open_as_void),
+      original_is_structured_(original_is_structured),
+      original_dtype_(original_dtype),
+      data_cache_pool_(std::move(data_cache_pool)) {}
 
 Result<IndexTransform<>> TranslateCellToSourceTransformForShard(
     IndexTransform<> transform, span<const Index> grid_cell_indices,
@@ -538,7 +654,8 @@ void ZarrShardedChunkCache::Entry::DoInitialize() {
                 *sharding_state.sub_chunk_codec_chain,
                 std::move(sharding_kvstore), cache.executor(),
                 ZarrShardingCodec::PreparedState::Ptr(&sharding_state),
-                cache.dtype_, cache.data_cache_pool_, cache.open_as_void_);
+                cache.dtype_, cache.data_cache_pool_, cache.open_as_void_,
+                cache.original_is_structured_, cache.original_dtype_);
         zarr_chunk_cache = new_cache.release();
         return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
       })

@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -50,6 +51,7 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/async_write_array.h"
@@ -140,8 +142,7 @@ class ZarrDriverSpec
                     // at metadata level only.
                   }
                 }
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    RankConstraint{obj->metadata_constraints.rank}));
+                // Note: rank is set in Initialize after open_as_void is known.
                 return absl::OkStatus();
               },
               jb::Projection<&ZarrDriverSpec::metadata_constraints>(
@@ -151,10 +152,25 @@ class ZarrDriverSpec
                   [](auto* obj) { *obj = std::string{}; }))),
       jb::Member("open_as_void", jb::Projection<&ZarrDriverSpec::open_as_void>(
                   jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                      [](auto* v) { *v = false; }))));
-
-
-
+                      [](auto* v) { *v = false; }))),
+      jb::Initialize([](auto* obj) {
+        // Validate that field and open_as_void are mutually exclusive
+        if (obj->open_as_void && !obj->selected_field.empty()) {
+          return absl::InvalidArgumentError(
+              "\"field\" and \"open_as_void\" are mutually exclusive");
+        }
+        // Set the schema rank from metadata constraints.
+        // For void access, add 1 for the bytes dimension (from the void field's
+        // field_shape = {bytes_per_outer_element}).
+        if (obj->metadata_constraints.rank != dynamic_rank) {
+          DimensionIndex rank = obj->metadata_constraints.rank;
+          if (obj->open_as_void) {
+            rank += 1;  // Add bytes dimension
+          }
+          TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{rank}));
+        }
+        return absl::OkStatus();
+      }));
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.minimal_spec) {
@@ -164,6 +180,47 @@ class ZarrDriverSpec
   }
 
   Result<IndexDomain<>> GetDomain() const override {
+    // For void access with known dtype and shape, build domain directly
+    // to include the extra bytes dimension.
+    if (open_as_void && metadata_constraints.data_type &&
+        metadata_constraints.shape) {
+      const Index bytes_per_elem =
+          metadata_constraints.data_type->bytes_per_outer_element;
+      const DimensionIndex original_rank = metadata_constraints.shape->size();
+      IndexDomainBuilder builder(original_rank + 1);
+
+      // Set original dimensions from metadata
+      for (DimensionIndex i = 0; i < original_rank; ++i) {
+        builder.origin()[i] = 0;
+        builder.shape()[i] = (*metadata_constraints.shape)[i];
+      }
+
+      // Add bytes dimension
+      builder.origin()[original_rank] = 0;
+      builder.shape()[original_rank] = bytes_per_elem;
+
+      // Set implicit bounds: array dims are implicit, bytes dim is explicit
+      DimensionSet implicit_lower(false);
+      DimensionSet implicit_upper(false);
+      for (DimensionIndex i = 0; i < original_rank; ++i) {
+        implicit_upper[i] = true;  // Array dimensions are resizable
+      }
+      builder.implicit_lower_bounds(implicit_lower);
+      builder.implicit_upper_bounds(implicit_upper);
+
+      // Copy dimension names if available
+      if (metadata_constraints.dimension_names) {
+        for (DimensionIndex i = 0; i < original_rank; ++i) {
+          if (const auto& name = (*metadata_constraints.dimension_names)[i];
+              name.has_value()) {
+            builder.labels()[i] = *name;
+          }
+        }
+      }
+
+      return builder.Finalize();
+    }
+
     return GetEffectiveDomain(metadata_constraints, schema);
   }
 
@@ -258,6 +315,14 @@ class ZarrDriverSpec
   }
 
   Result<std::string> ToUrl() const override {
+    if (!selected_field.empty()) {
+      return absl::InvalidArgumentError(
+          "zarr3 URL syntax not supported with selected_field specified");
+    }
+    if (open_as_void) {
+      return absl::InvalidArgumentError(
+          "zarr3 URL syntax not supported with open_as_void specified");
+    }
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
     return tensorstore::StrCat(base_url, "|", id, ":");
   }
@@ -315,6 +380,9 @@ class DataCacheBase
   }
 
   virtual ZarrChunkCache& zarr_chunk_cache() = 0;
+
+  /// Returns true if this cache was opened with open_as_void=true.
+  virtual bool is_void_access() const = 0;
 
   absl::Status ValidateMetadataCompatibility(
       const void* existing_metadata_ptr,
@@ -654,6 +722,8 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
 
   ZarrChunkCache& zarr_chunk_cache() final { return *this; }
 
+  bool is_void_access() const final { return ChunkCacheImpl::open_as_void_; }
+
   const internal::ChunkGridSpecification& grid() const override {
     return grid_;
   }
@@ -697,10 +767,14 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
       builder.input_shape(full_shape);
       builder.input_labels(span(&normalized_dimension_names[0], total_rank));
 
+      // Set implicit bounds: array dims have implicit upper bounds (resizable),
+      // bytes dim has explicit bounds (fixed size).
+      DimensionSet implicit_lower_bounds(false);
       DimensionSet implicit_upper_bounds(false);
       for (DimensionIndex i = 0; i < rank; ++i) {
         implicit_upper_bounds[i] = true;
       }
+      builder.implicit_lower_bounds(implicit_lower_bounds);
       builder.implicit_upper_bounds(implicit_upper_bounds);
 
       for (DimensionIndex i = 0; i < total_rank; ++i) {
@@ -712,6 +786,17 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
     // Not void access - delegate to base implementation
     return DataCacheBase::GetExternalToInternalTransform(metadata_ptr,
                                                          component_index);
+  }
+
+  absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
+                                const void* metadata_ptr,
+                                size_t component_index) override {
+    TENSORSTORE_RETURN_IF_ERROR(
+        DataCacheBase::GetBoundSpecData(spec_base, metadata_ptr, component_index));
+    auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
+    // Preserve the open_as_void flag so spec round-trips correctly
+    spec.open_as_void = ChunkCacheImpl::open_as_void_;
+    return absl::OkStatus();
   }
 
   internal::ChunkGridSpecification grid_;
@@ -737,6 +822,33 @@ class ZarrDriver : public ZarrDriverBase {
     if (metadata.fill_value.empty()) {
       return SharedArray<const void>();
     }
+
+    // For void access, convert fill_value to byte array representation.
+    // This is similar to v2's CreateVoidMetadata fill_value handling.
+    // In zarr3, endianness is handled by the codec chain, so we just copy
+    // the raw bytes from each field's fill_value.
+    if (static_cast<DataCacheBase*>(cache())->is_void_access()) {
+      const Index nbytes = metadata.data_type.bytes_per_outer_element;
+      auto byte_fill = AllocateArray<std::byte>({nbytes}, c_order, value_init);
+
+      // Copy bytes from each field's fill_value at their respective offsets
+      for (size_t field_i = 0; field_i < metadata.data_type.fields.size();
+           ++field_i) {
+        const auto& field = metadata.data_type.fields[field_i];
+        if (field_i >= metadata.fill_value.size() ||
+            !metadata.fill_value[field_i].valid()) {
+          continue;
+        }
+        const auto& fill_value = metadata.fill_value[field_i];
+        // Copy the raw bytes from the fill_value to the byte array
+        std::memcpy(byte_fill.data() + field.byte_offset,
+                    fill_value.data(),
+                    field.num_bytes);
+      }
+
+      return byte_fill;
+    }
+
     size_t index = this->component_index();
     if (index >= metadata.fill_value.size()) {
         return absl::OutOfRangeError("Component index out of bounds");
@@ -889,11 +1001,24 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
               /*.num_bytes=*/metadata.data_type.bytes_per_outer_element}},
           /*.bytes_per_outer_element=*/metadata.data_type.bytes_per_outer_element};
     }
+    // Determine if original dtype is structured (multiple fields or field with
+    // outer_shape). This affects how void access handles codec operations.
+    const bool original_is_structured =
+        metadata.data_type.fields.size() > 1 ||
+        (metadata.data_type.fields.size() == 1 &&
+         !metadata.data_type.fields[0].outer_shape.empty());
+
+    // Get the original dtype for void access encoding (needed by EncodeChunk).
+    // For non-structured types, this is the single field's dtype.
+    DataType original_dtype = metadata.data_type.fields.size() > 0
+                                  ? metadata.data_type.fields[0].dtype
+                                  : DataType{};
+
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
         metadata.codec_state, dtype,
         /*data_cache_pool=*/*cache_pool(),
-        spec().open_as_void);
+        spec().open_as_void, original_is_structured, original_dtype);
   }
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
