@@ -158,12 +158,13 @@ class ZarrDriverSpec
           return absl::InvalidArgumentError(
               "\"field\" and \"open_as_void\" are mutually exclusive");
         }
-        // Set the rank from metadata constraints, adding 1 for void access
-        // (which has an extra bytes dimension).
+        // Set the schema rank from metadata constraints.
+        // For void access, add 1 for the bytes dimension (from the void field's
+        // field_shape = {bytes_per_outer_element}).
         if (obj->metadata_constraints.rank != dynamic_rank) {
           DimensionIndex rank = obj->metadata_constraints.rank;
           if (obj->open_as_void) {
-            rank += 1;
+            rank += 1;  // Add bytes dimension
           }
           TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{rank}));
         }

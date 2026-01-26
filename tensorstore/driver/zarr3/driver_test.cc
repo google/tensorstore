@@ -1888,9 +1888,11 @@ TEST(Zarr3DriverTest, OpenAsVoidSimpleType) {
 
 // TODO(b/xxx): OpenAsVoidStructuredType test disabled pending implementation
 // of proper rank handling in GetNewMetadata for void access with structured
-// types. The current implementation doesn't correctly handle the extra bytes
-// dimension when creating new arrays with open_as_void=true and structured
-// dtypes.
+// types. Creating new arrays with open_as_void=true and structured dtypes
+// requires adding field_shape dimensions to chunked_rank and updating
+// SetChunkLayoutFromMetadata to handle the dimension mismatch between
+// metadata shape and full rank. This is a more extensive change that will
+// be addressed separately.
 
 TEST(Zarr3DriverTest, OpenAsVoidWithCompression) {
   // Test open_as_void with compression enabled
