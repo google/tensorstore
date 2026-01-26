@@ -1891,6 +1891,7 @@ TEST(Zarr3DriverTest, OpenAsVoidStructuredType) {
   auto context = Context::Default();
 
   // Step 1: Create and write the array using a structured dtype (with field)
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes total
   ::nlohmann::json create_spec{
       {"driver", "zarr3"},
       {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
@@ -1914,14 +1915,16 @@ TEST(Zarr3DriverTest, OpenAsVoidStructuredType) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
-  // Write some data to field y
+  // Write some data to field y (int16)
+  // int16 100 = 0x0064 in little endian = [0x64, 0x00]
+  // int16 200 = 0x00C8 in little endian = [0xC8, 0x00]
   auto data = tensorstore::MakeArray<int16_t>({{100, 200}, {300, 400}});
   TENSORSTORE_EXPECT_OK(
       tensorstore::Write(data, store | tensorstore::Dims(0, 1).SizedInterval(
                                            {0, 0}, {2, 2}))
           .result());
 
-  // Close the first store by letting it go out of scope
+  // Close store to ensure data is flushed
   store = tensorstore::TensorStore<int16_t>();
 
   // Step 2: Open with open_as_void=true
@@ -1946,6 +1949,49 @@ TEST(Zarr3DriverTest, OpenAsVoidStructuredType) {
   // The data type should be byte
   EXPECT_EQ(tensorstore::dtype_v<tensorstore::dtypes::byte_t>,
             void_store.dtype());
+
+  // Step 3: Read and verify byte content for field y only
+  // Since we only wrote to field y, field x will be zeros (fill value)
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_array,
+      tensorstore::Read(
+          void_store | tensorstore::Dims(0, 1, 2).SizedInterval({0, 0, 0},
+                                                                {2, 2, 3}))
+          .result());
+
+  EXPECT_EQ(3, byte_array.rank());
+  EXPECT_EQ(2, byte_array.shape()[0]);
+  EXPECT_EQ(2, byte_array.shape()[1]);
+  EXPECT_EQ(3, byte_array.shape()[2]);
+
+  // Verify bytes - we use the array's data() and strides
+  const auto* bytes = static_cast<const unsigned char*>(byte_array.data());
+  const Index stride0 = byte_array.byte_strides()[0];
+  const Index stride1 = byte_array.byte_strides()[1];
+  const Index stride2 = byte_array.byte_strides()[2];
+  auto get_byte = [&](Index i, Index j, Index k) -> unsigned char {
+    return bytes[i * stride0 + j * stride1 + k * stride2];
+  };
+
+  // Element [0,0]: x=0 (fill), y=100 (0x0064 LE = [0x64, 0x00])
+  EXPECT_EQ(0, get_byte(0, 0, 0));      // x (fill value)
+  EXPECT_EQ(0x64, get_byte(0, 0, 1));   // y low byte
+  EXPECT_EQ(0x00, get_byte(0, 0, 2));   // y high byte
+
+  // Element [0,1]: x=0 (fill), y=200 (0x00C8 LE = [0xC8, 0x00])
+  EXPECT_EQ(0, get_byte(0, 1, 0));      // x (fill value)
+  EXPECT_EQ(0xC8, get_byte(0, 1, 1));   // y low byte
+  EXPECT_EQ(0x00, get_byte(0, 1, 2));   // y high byte
+
+  // Element [1,0]: x=0 (fill), y=300 (0x012C LE = [0x2C, 0x01])
+  EXPECT_EQ(0, get_byte(1, 0, 0));      // x (fill value)
+  EXPECT_EQ(0x2C, get_byte(1, 0, 1));   // y low byte
+  EXPECT_EQ(0x01, get_byte(1, 0, 2));   // y high byte
+
+  // Element [1,1]: x=0 (fill), y=400 (0x0190 LE = [0x90, 0x01])
+  EXPECT_EQ(0, get_byte(1, 1, 0));      // x (fill value)
+  EXPECT_EQ(0x90, get_byte(1, 1, 1));   // y low byte
+  EXPECT_EQ(0x01, get_byte(1, 1, 2));   // y high byte
 }
 
 TEST(Zarr3DriverTest, OpenAsVoidWithCompression) {
@@ -2404,6 +2450,33 @@ TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithKnownRank) {
   // With open_as_void and dtype specified, rank should be chunked_rank + 1
   // chunked_rank = 2 (from shape), so full_rank = 3
   EXPECT_EQ(3, spec.rank());
+}
+
+TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithStructuredDtype) {
+  // Test GetSpecInfo with open_as_void=true and a structured dtype.
+  // The bytes dimension should reflect the full struct size.
+  ::nlohmann::json json_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "structured"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array({{"x", "int32"}, {"y", "uint16"}})}}}}},
+           {"shape", {8}},  // 1D array
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {4}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // chunked_rank = 1, so full_rank = 2
+  EXPECT_EQ(2, spec.rank());
 }
 
 TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithDynamicRank) {
