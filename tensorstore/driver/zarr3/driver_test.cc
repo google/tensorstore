@@ -2646,4 +2646,77 @@ TEST(Zarr3DriverTest, OpenAsVoidFillValue) {
   EXPECT_EQ(0x12, fill_bytes[1]);
 }
 
+TEST(Zarr3DriverTest, OpenAsVoidIncompatibleMetadata) {
+  // Test that open_as_void correctly rejects incompatible metadata when the
+  // underlying storage is modified to have a different bytes_per_outer_element.
+  auto context = Context::Default();
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+
+  // Create an array with 4-byte dtype
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", storage_spec},
+      {"path", "prefix/"},
+      {"metadata",
+       {
+           {"data_type", "int32"},  // 4 bytes
+           {"shape", {2, 2}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write some data
+  auto data = tensorstore::MakeArray<int32_t>({{1, 2}, {3, 4}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
+
+  // Open with open_as_void
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", storage_spec},
+      {"path", "prefix/"},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Now overwrite the underlying storage with incompatible metadata
+  // (different bytes_per_outer_element: 2 bytes instead of 4)
+  ::nlohmann::json incompatible_spec{
+      {"driver", "zarr3"},
+      {"kvstore", storage_spec},
+      {"path", "prefix/"},
+      {"metadata",
+       {
+           {"data_type", "int16"},  // 2 bytes - incompatible
+           {"shape", {2, 2}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto incompatible_store,
+      tensorstore::Open(incompatible_spec, context,
+                        tensorstore::OpenMode::create |
+                            tensorstore::OpenMode::delete_existing,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // ResolveBounds on the original void store should fail because the
+  // underlying metadata changed to an incompatible dtype
+  EXPECT_THAT(ResolveBounds(void_store).result(),
+              StatusIs(absl::StatusCode::kFailedPrecondition));
+}
+
 }  // namespace
