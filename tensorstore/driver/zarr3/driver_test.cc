@@ -1886,10 +1886,11 @@ TEST(Zarr3DriverTest, OpenAsVoidSimpleType) {
             void_store.dtype());
 }
 
-// TODO(b/xxx): OpenAsVoidStructuredType test disabled pending additional work
-// to handle rank mismatch between spec transform and void access transform.
-// The void access adds an extra dimension for bytes_per_outer_element, but the
-// spec's transform is based on the original array shape without this dimension.
+// TODO(b/xxx): OpenAsVoidStructuredType test disabled pending implementation
+// of proper rank handling in GetNewMetadata for void access with structured
+// types. The current implementation doesn't correctly handle the extra bytes
+// dimension when creating new arrays with open_as_void=true and structured
+// dtypes.
 
 TEST(Zarr3DriverTest, OpenAsVoidWithCompression) {
   // Test open_as_void with compression enabled
