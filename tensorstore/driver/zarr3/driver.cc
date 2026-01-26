@@ -727,6 +727,17 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
                                                          component_index);
   }
 
+  absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
+                                const void* metadata_ptr,
+                                size_t component_index) override {
+    TENSORSTORE_RETURN_IF_ERROR(
+        DataCacheBase::GetBoundSpecData(spec_base, metadata_ptr, component_index));
+    auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
+    // Preserve the open_as_void flag so spec round-trips correctly
+    spec.open_as_void = ChunkCacheImpl::open_as_void_;
+    return absl::OkStatus();
+  }
+
   internal::ChunkGridSpecification grid_;
 };
 
