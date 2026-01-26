@@ -2719,4 +2719,135 @@ TEST(Zarr3DriverTest, OpenAsVoidIncompatibleMetadata) {
               StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
+TEST(Zarr3DriverTest, OpenAsVoidWithSharding) {
+  // Test open_as_void with sharding enabled.
+  // Verifies that void access flags propagate correctly through sharded caches.
+  auto context = Context::Default();
+
+  // Create a sharded array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type", "int32"},
+           {"shape", {8, 8}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {8, 8}}}}}},
+           {"codecs",
+            {{{"name", "sharding_indexed"},
+              {"configuration",
+               {{"chunk_shape", {4, 4}},
+                {"codecs", {{{"name", "bytes"}}}},
+                {"index_codecs",
+                 {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write some data
+  auto data = tensorstore::MakeArray<int32_t>(
+      {{0x01020304, 0x05060708, 0, 0, 0, 0, 0, 0},
+       {0x090A0B0C, 0x0D0E0F10, 0, 0, 0, 0, 0, 0},
+       {0, 0, 0, 0, 0, 0, 0, 0},
+       {0, 0, 0, 0, 0, 0, 0, 0},
+       {0, 0, 0, 0, 0, 0, 0, 0},
+       {0, 0, 0, 0, 0, 0, 0, 0},
+       {0, 0, 0, 0, 0, 0, 0, 0},
+       {0, 0, 0, 0, 0, 0, 0, 0}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
+
+  // Open with open_as_void=true
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Verify rank is original + 1 for bytes dimension
+  EXPECT_EQ(3, void_store.rank());
+
+  // Verify bytes dimension is 4 (int32 = 4 bytes)
+  EXPECT_EQ(4, void_store.domain().shape()[2]);
+
+  // Read through void access and verify byte content
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto bytes_read,
+      tensorstore::Read(
+          void_store | tensorstore::Dims(0, 1, 2).SizedInterval({0, 0, 0},
+                                                                {2, 2, 4}))
+          .result());
+
+  EXPECT_EQ(3, bytes_read.rank());
+  EXPECT_EQ(2, bytes_read.shape()[0]);
+  EXPECT_EQ(2, bytes_read.shape()[1]);
+  EXPECT_EQ(4, bytes_read.shape()[2]);
+
+  // Verify the raw bytes (little endian)
+  const auto* bytes = static_cast<const unsigned char*>(bytes_read.data());
+  const Index stride0 = bytes_read.byte_strides()[0];
+  const Index stride1 = bytes_read.byte_strides()[1];
+  const Index stride2 = bytes_read.byte_strides()[2];
+  auto get_byte = [&](Index i, Index j, Index k) -> unsigned char {
+    return bytes[i * stride0 + j * stride1 + k * stride2];
+  };
+
+  // Element [0,0] = 0x01020304 in little endian: 04 03 02 01
+  EXPECT_EQ(0x04, get_byte(0, 0, 0));
+  EXPECT_EQ(0x03, get_byte(0, 0, 1));
+  EXPECT_EQ(0x02, get_byte(0, 0, 2));
+  EXPECT_EQ(0x01, get_byte(0, 0, 3));
+
+  // Element [0,1] = 0x05060708 in little endian: 08 07 06 05
+  EXPECT_EQ(0x08, get_byte(0, 1, 0));
+  EXPECT_EQ(0x07, get_byte(0, 1, 1));
+  EXPECT_EQ(0x06, get_byte(0, 1, 2));
+  EXPECT_EQ(0x05, get_byte(0, 1, 3));
+
+  // Write through void access
+  auto raw_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
+      {2, 2, 4}, tensorstore::c_order, tensorstore::value_init);
+  auto raw_bytes_ptr = static_cast<unsigned char*>(
+      const_cast<void*>(static_cast<const void*>(raw_bytes.data())));
+  // Set element [0,0] to 0xAABBCCDD (little endian: DD CC BB AA)
+  raw_bytes_ptr[0] = 0xDD;
+  raw_bytes_ptr[1] = 0xCC;
+  raw_bytes_ptr[2] = 0xBB;
+  raw_bytes_ptr[3] = 0xAA;
+
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(raw_bytes,
+                         void_store | tensorstore::Dims(0, 1, 2).SizedInterval(
+                                          {0, 0, 0}, {2, 2, 4}))
+          .result());
+
+  // Read back through typed access and verify
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto typed_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto typed_read,
+      tensorstore::Read(
+          typed_store | tensorstore::Dims(0, 1).SizedInterval({0, 0}, {2, 2}))
+          .result());
+  auto typed_ptr = static_cast<const int32_t*>(typed_read.data());
+
+  // Element [0,0] should be 0xAABBCCDD
+  EXPECT_EQ(static_cast<int32_t>(0xAABBCCDD), typed_ptr[0]);
+}
+
 }  // namespace
