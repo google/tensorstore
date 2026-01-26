@@ -50,6 +50,7 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/async_write_array.h"
@@ -140,8 +141,7 @@ class ZarrDriverSpec
                     // at metadata level only.
                   }
                 }
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    RankConstraint{obj->metadata_constraints.rank}));
+                // Note: rank is set in Initialize after open_as_void is known.
                 return absl::OkStatus();
               },
               jb::Projection<&ZarrDriverSpec::metadata_constraints>(
@@ -158,6 +158,15 @@ class ZarrDriverSpec
           return absl::InvalidArgumentError(
               "\"field\" and \"open_as_void\" are mutually exclusive");
         }
+        // Set the rank from metadata constraints, adding 1 for void access
+        // (which has an extra bytes dimension).
+        if (obj->metadata_constraints.rank != dynamic_rank) {
+          DimensionIndex rank = obj->metadata_constraints.rank;
+          if (obj->open_as_void) {
+            rank += 1;
+          }
+          TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{rank}));
+        }
         return absl::OkStatus();
       }));
 
@@ -169,6 +178,47 @@ class ZarrDriverSpec
   }
 
   Result<IndexDomain<>> GetDomain() const override {
+    // For void access with known dtype and shape, build domain directly
+    // to include the extra bytes dimension.
+    if (open_as_void && metadata_constraints.data_type &&
+        metadata_constraints.shape) {
+      const Index bytes_per_elem =
+          metadata_constraints.data_type->bytes_per_outer_element;
+      const DimensionIndex original_rank = metadata_constraints.shape->size();
+      IndexDomainBuilder builder(original_rank + 1);
+
+      // Set original dimensions from metadata
+      for (DimensionIndex i = 0; i < original_rank; ++i) {
+        builder.origin()[i] = 0;
+        builder.shape()[i] = (*metadata_constraints.shape)[i];
+      }
+
+      // Add bytes dimension
+      builder.origin()[original_rank] = 0;
+      builder.shape()[original_rank] = bytes_per_elem;
+
+      // Set implicit bounds: array dims are implicit, bytes dim is explicit
+      DimensionSet implicit_lower(false);
+      DimensionSet implicit_upper(false);
+      for (DimensionIndex i = 0; i < original_rank; ++i) {
+        implicit_upper[i] = true;  // Array dimensions are resizable
+      }
+      builder.implicit_lower_bounds(implicit_lower);
+      builder.implicit_upper_bounds(implicit_upper);
+
+      // Copy dimension names if available
+      if (metadata_constraints.dimension_names) {
+        for (DimensionIndex i = 0; i < original_rank; ++i) {
+          if (const auto& name = (*metadata_constraints.dimension_names)[i];
+              name.has_value()) {
+            builder.labels()[i] = *name;
+          }
+        }
+      }
+
+      return builder.Finalize();
+    }
+
     return GetEffectiveDomain(metadata_constraints, schema);
   }
 
