@@ -151,10 +151,15 @@ class ZarrDriverSpec
                   [](auto* obj) { *obj = std::string{}; }))),
       jb::Member("open_as_void", jb::Projection<&ZarrDriverSpec::open_as_void>(
                   jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                      [](auto* v) { *v = false; }))));
-
-
-
+                      [](auto* v) { *v = false; }))),
+      jb::Initialize([](auto* obj) {
+        // Validate that field and open_as_void are mutually exclusive
+        if (obj->open_as_void && !obj->selected_field.empty()) {
+          return absl::InvalidArgumentError(
+              "\"field\" and \"open_as_void\" are mutually exclusive");
+        }
+        return absl::OkStatus();
+      }));
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.minimal_spec) {
