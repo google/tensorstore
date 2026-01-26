@@ -76,12 +76,13 @@ ZarrChunkCache::~ZarrChunkCache() = default;
 ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType dtype, internal::CachePool::WeakPtr /*data_cache_pool*/,
-    bool open_as_void, bool original_is_structured)
+    bool open_as_void, bool original_is_structured, DataType original_dtype)
     : Base(std::move(store)),
       codec_state_(std::move(codec_state)),
       dtype_(std::move(dtype)),
       open_as_void_(open_as_void),
-      original_is_structured_(original_is_structured) {}
+      original_is_structured_(original_is_structured),
+      original_dtype_(original_dtype) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
                               AnyFlowReceiver<absl::Status, internal::ReadChunk,
@@ -274,10 +275,20 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     const auto& void_shape = byte_array.shape();
     std::vector<Index> original_shape(void_shape.begin(), void_shape.end() - 1);
 
-    // Create a view over the byte data with original layout
-    auto encoded_array = SharedArray<const void>(
-        byte_array.element_pointer(),
-        StridedLayout<>(c_order, bytes_per_element, original_shape));
+    // Use the original dtype (stored during cache creation) for encoding.
+    // This is the dtype the codec was prepared for, not the void dtype.
+
+    // Create a view over the byte data with original dtype and layout.
+    // Use the aliasing constructor to share ownership with byte_array but
+    // interpret the data with the original dtype.
+    SharedArray<const void> encoded_array;
+    auto aliased_ptr = std::shared_ptr<const void>(
+        byte_array.pointer(),  // Share ownership with byte_array
+        byte_array.data());    // But point to the raw data
+    encoded_array.element_pointer() = SharedElementPointer<const void>(
+        std::move(aliased_ptr), original_dtype_);
+    encoded_array.layout() = StridedLayout<>(c_order, bytes_per_element,
+                                             original_shape);
 
     return codec_state_->EncodeArray(encoded_array);
   }
@@ -292,12 +303,13 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 ZarrShardedChunkCache::ZarrShardedChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType dtype, internal::CachePool::WeakPtr data_cache_pool,
-    bool open_as_void, bool original_is_structured)
+    bool open_as_void, bool original_is_structured, DataType original_dtype)
     : base_kvstore_(std::move(store)),
       codec_state_(std::move(codec_state)),
       dtype_(std::move(dtype)),
       open_as_void_(open_as_void),
       original_is_structured_(original_is_structured),
+      original_dtype_(original_dtype),
       data_cache_pool_(std::move(data_cache_pool)) {}
 
 Result<IndexTransform<>> TranslateCellToSourceTransformForShard(
@@ -608,7 +620,7 @@ void ZarrShardedChunkCache::Entry::DoInitialize() {
                 std::move(sharding_kvstore), cache.executor(),
                 ZarrShardingCodec::PreparedState::Ptr(&sharding_state),
                 cache.dtype_, cache.data_cache_pool_, cache.open_as_void_,
-                cache.original_is_structured_);
+                cache.original_is_structured_, cache.original_dtype_);
         zarr_chunk_cache = new_cache.release();
         return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
       })

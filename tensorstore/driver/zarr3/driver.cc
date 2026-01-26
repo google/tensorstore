@@ -971,11 +971,17 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
         (metadata.data_type.fields.size() == 1 &&
          !metadata.data_type.fields[0].outer_shape.empty());
 
+    // Get the original dtype for void access encoding (needed by EncodeChunk).
+    // For non-structured types, this is the single field's dtype.
+    DataType original_dtype = metadata.data_type.fields.size() > 0
+                                  ? metadata.data_type.fields[0].dtype
+                                  : DataType{};
+
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
         metadata.codec_state, dtype,
         /*data_cache_pool=*/*cache_pool(),
-        spec().open_as_void, original_is_structured);
+        spec().open_as_void, original_is_structured, original_dtype);
   }
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
