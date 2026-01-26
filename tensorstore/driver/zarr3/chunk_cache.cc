@@ -230,29 +230,35 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
       auto byte_array, codec_state_->DecodeArray(decode_shape, std::move(data)));
 
   // Extract each field from the byte array.
-  // Note: decoded byte_array should be C-contiguous (codec chain guarantees).
-  assert(IsContiguousLayout(byte_array.layout(), c_order,
-                            byte_array.dtype().size()));
-  const Index num_elements = byte_array.num_elements() /
-                             dtype_.bytes_per_outer_element;
-  const auto* src_bytes = static_cast<const std::byte*>(byte_array.data());
-
+  // We create a strided view into the source that maps to each field's
+  // position within the interleaved struct layout, then use CopyArray which
+  // safely handles any layout differences via IterateOverArrays.
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = dtype_.fields[field_i];
     // Use the component's shape (from the grid) for the result array
     const auto& component_shape = grid().components[field_i].shape();
     auto result_array =
         AllocateArray(component_shape, c_order, default_init, field.dtype);
-    auto* dst = static_cast<std::byte*>(result_array.data());
-    const Index field_size = field.dtype->size;
 
-    // Copy field data from each struct element
-    for (Index i = 0; i < num_elements; ++i) {
-      std::memcpy(dst + i * field_size,
-                  src_bytes + i * dtype_.bytes_per_outer_element +
-                      field.byte_offset,
-                  field_size);
+    // Build strides for the source view: each element is separated by
+    // bytes_per_outer_element (the struct size), not field_size.
+    std::vector<Index> src_byte_strides(chunk_shape.size());
+    Index stride = dtype_.bytes_per_outer_element;
+    for (DimensionIndex i = chunk_shape.size(); i-- > 0;) {
+      src_byte_strides[i] = stride;
+      stride *= chunk_shape[i];
     }
+
+    // Create source ArrayView pointing to this field's offset within
+    // the interleaved byte array, with strides that skip over other fields.
+    ArrayView<const void> src_field_view(
+        {static_cast<const void*>(
+             static_cast<const std::byte*>(byte_array.data()) + field.byte_offset),
+         field.dtype},
+        StridedLayoutView<>(chunk_shape, src_byte_strides));
+
+    // Use CopyArray which safely handles any layout differences
+    CopyArray(src_field_view, result_array);
     field_arrays[field_i] = std::move(result_array);
   }
 
@@ -311,35 +317,34 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
   std::vector<Index> encode_shape(chunk_shape.begin(), chunk_shape.end());
   encode_shape.push_back(dtype_.bytes_per_outer_element);
 
-  // Calculate number of outer elements
-  Index num_elements = 1;
-  for (size_t i = 0; i < chunk_shape.size(); ++i) {
-    num_elements *= chunk_shape[i];
-  }
-
   // Allocate byte array for combined fields
   auto byte_array = AllocateArray<std::byte>(encode_shape, c_order, value_init);
-  auto* dst_bytes = byte_array.data();
 
   // Copy each field's data into the byte array at their respective offsets.
-  // Note: This assumes component arrays are C-contiguous, which is guaranteed
-  // by the chunk cache's write path (AsyncWriteArray allocates C-order arrays).
+  // We create a strided view into the destination that maps to each field's
+  // position within the interleaved struct layout, then use CopyArray which
+  // safely handles any source array strides via IterateOverArrays.
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = dtype_.fields[field_i];
     const auto& field_array = component_arrays[field_i];
-    // Verify the array is C-contiguous as expected
-    assert(IsContiguousLayout(field_array.layout(), c_order,
-                              field_array.dtype().size()));
-    const auto* src = static_cast<const std::byte*>(field_array.data());
-    const Index field_size = field.dtype->size;
 
-    // Copy field data to each struct element
-    for (Index i = 0; i < num_elements; ++i) {
-      std::memcpy(dst_bytes + i * dtype_.bytes_per_outer_element +
-                      field.byte_offset,
-                  src + i * field_size,
-                  field_size);
+    // Build strides for the destination view: each element is separated by
+    // bytes_per_outer_element (the struct size), not field_size.
+    std::vector<Index> dest_byte_strides(chunk_shape.size());
+    Index stride = dtype_.bytes_per_outer_element;
+    for (DimensionIndex i = chunk_shape.size(); i-- > 0;) {
+      dest_byte_strides[i] = stride;
+      stride *= chunk_shape[i];
     }
+
+    // Create destination ArrayView pointing to this field's offset within
+    // the interleaved byte array, with strides that skip over other fields.
+    ArrayView<void> dest_field_view(
+        {static_cast<void*>(byte_array.data() + field.byte_offset), field.dtype},
+        StridedLayoutView<>(chunk_shape, dest_byte_strides));
+
+    // Use CopyArray which safely handles any source strides via IterateOverArrays
+    CopyArray(field_array, dest_field_view);
   }
 
   return codec_state_->EncodeArray(byte_array);
