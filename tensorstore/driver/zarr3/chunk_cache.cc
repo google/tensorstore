@@ -78,13 +78,15 @@ ZarrChunkCache::~ZarrChunkCache() = default;
 ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType dtype, internal::CachePool::WeakPtr /*data_cache_pool*/,
-    bool open_as_void, bool original_is_structured, DataType original_dtype)
+    bool open_as_void, bool original_is_structured, DataType original_dtype,
+    bool grid_has_void_dimension)
     : Base(std::move(store)),
       codec_state_(std::move(codec_state)),
       dtype_(std::move(dtype)),
       open_as_void_(open_as_void),
       original_is_structured_(original_is_structured),
-      original_dtype_(original_dtype) {}
+      original_dtype_(original_dtype),
+      grid_has_void_dimension_(grid_has_void_dimension) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
                               AnyFlowReceiver<absl::Status, internal::ReadChunk,
@@ -184,10 +186,23 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
 
     // Non-structured types: codec expects original dtype without extra
     // dimension. Decode, then reinterpret as bytes.
-    const auto& void_chunk_shape = grid().chunk_shape;
-    std::vector<Index> original_chunk_shape(
-        void_chunk_shape.begin(),
-        void_chunk_shape.end() - 1);  // Strip bytes dimension
+    //
+    // For top-level caches, grid().chunk_shape includes bytes dimension.
+    // For sub-chunk caches (inside sharding), grid() returns the sharding
+    // codec's sub_chunk_grid which doesn't have bytes dimension.
+    const Index bytes_per_element = dtype_.bytes_per_outer_element;
+    const auto& grid_chunk_shape = grid().chunk_shape;
+
+    std::vector<Index> original_chunk_shape;
+    if (grid_has_void_dimension_) {
+      // Strip the bytes dimension to get original shape
+      original_chunk_shape.assign(grid_chunk_shape.begin(),
+                                  grid_chunk_shape.end() - 1);
+    } else {
+      // Sub-chunk cache: grid shape is already the original shape
+      original_chunk_shape.assign(grid_chunk_shape.begin(),
+                                  grid_chunk_shape.end());
+    }
 
     // Decode using original codec shape
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -198,9 +213,13 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
     assert(IsContiguousLayout(decoded_array.layout(), c_order,
                               decoded_array.dtype().size()));
 
+    // Build the void output shape: original_shape + [bytes_per_element]
+    std::vector<Index> void_output_shape = original_chunk_shape;
+    void_output_shape.push_back(bytes_per_element);
+
     // Reinterpret the decoded array's bytes as [chunk_shape..., bytes_per_elem]
     auto byte_array = AllocateArray(
-        void_component_shape, c_order, default_init,
+        void_output_shape, c_order, default_init,
         dtype_v<tensorstore::dtypes::byte_t>);
 
     // Copy decoded data to byte array (handles potential layout differences)
@@ -351,7 +370,8 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 ZarrShardedChunkCache::ZarrShardedChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType dtype, internal::CachePool::WeakPtr data_cache_pool,
-    bool open_as_void, bool original_is_structured, DataType original_dtype)
+    bool open_as_void, bool original_is_structured, DataType original_dtype,
+    bool /*grid_has_void_dimension*/)
     : base_kvstore_(std::move(store)),
       codec_state_(std::move(codec_state)),
       dtype_(std::move(dtype)),
