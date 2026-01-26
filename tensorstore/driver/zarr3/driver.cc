@@ -913,11 +913,18 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
               /*.num_bytes=*/metadata.data_type.bytes_per_outer_element}},
           /*.bytes_per_outer_element=*/metadata.data_type.bytes_per_outer_element};
     }
+    // Determine if original dtype is structured (multiple fields or field with
+    // outer_shape). This affects how void access handles codec operations.
+    const bool original_is_structured =
+        metadata.data_type.fields.size() > 1 ||
+        (metadata.data_type.fields.size() == 1 &&
+         !metadata.data_type.fields[0].outer_shape.empty());
+
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
         metadata.codec_state, dtype,
         /*data_cache_pool=*/*cache_pool(),
-        spec().open_as_void);
+        spec().open_as_void, original_is_structured);
   }
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
