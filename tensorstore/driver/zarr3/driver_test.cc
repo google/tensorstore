@@ -2018,13 +2018,124 @@ TEST(Zarr3DriverTest, OpenAsVoidUrlNotSupported) {
   EXPECT_THAT(spec.ToUrl(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-// TODO(b/xxx): OpenAsVoidReadWrite test disabled pending implementation
-// of void access codec chain handling. Currently fails with "Not enough data"
-// error when reading void-accessed data.
+TEST(Zarr3DriverTest, OpenAsVoidReadWrite) {
+  // Test reading and writing through open_as_void
+  auto context = Context::Default();
 
-// TODO(b/xxx): OpenAsVoidWriteRoundtrip test disabled pending implementation
-// of void access codec chain handling. Currently fails with "Not enough data"
-// error when reading/writing void-accessed data.
+  // Create an array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type", "uint16"},
+           {"shape", {2, 2}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write data as normal uint16
+  auto data =
+      tensorstore::MakeArray<uint16_t>({{0x0102, 0x0304}, {0x0506, 0x0708}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
+
+  // Open as void and read
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Read the raw bytes
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bytes_read,
+                                   tensorstore::Read(void_store).result());
+
+  // Verify shape: [2, 2, 2] where last dim is 2 bytes per uint16
+  EXPECT_EQ(bytes_read.shape()[0], 2);
+  EXPECT_EQ(bytes_read.shape()[1], 2);
+  EXPECT_EQ(bytes_read.shape()[2], 2);
+
+  // Verify the raw bytes (little endian)
+  auto bytes_ptr = static_cast<const unsigned char*>(bytes_read.data());
+  // First element: 0x0102 -> bytes 0x02, 0x01 (little endian)
+  EXPECT_EQ(bytes_ptr[0], 0x02);
+  EXPECT_EQ(bytes_ptr[1], 0x01);
+}
+
+TEST(Zarr3DriverTest, OpenAsVoidWriteRoundtrip) {
+  // Test that writing through open_as_void correctly encodes data
+  // and can be read back both through void access and normal typed access.
+  auto context = Context::Default();
+
+  // Create an array and write initial data via typed access
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type", "uint16"},
+           {"shape", {2, 2}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write initial data via typed access
+  auto data = tensorstore::MakeArray<uint16_t>({{0x1234, 0x5678},
+                                                 {0x9ABC, 0xDEF0}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
+
+  // Now read via void access and verify the byte layout
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Read through void access
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bytes_read,
+                                   tensorstore::Read(void_store).result());
+  auto bytes_read_ptr = static_cast<const unsigned char*>(bytes_read.data());
+
+  // Verify the raw bytes (little endian)
+  // Element [0,0] = 0x1234 -> bytes 0x34, 0x12
+  EXPECT_EQ(bytes_read_ptr[0], 0x34);
+  EXPECT_EQ(bytes_read_ptr[1], 0x12);
+  // Element [0,1] = 0x5678 -> bytes 0x78, 0x56
+  EXPECT_EQ(bytes_read_ptr[2], 0x78);
+  EXPECT_EQ(bytes_read_ptr[3], 0x56);
+  // Element [1,0] = 0x9ABC -> bytes 0xBC, 0x9A
+  EXPECT_EQ(bytes_read_ptr[4], 0xBC);
+  EXPECT_EQ(bytes_read_ptr[5], 0x9A);
+  // Element [1,1] = 0xDEF0 -> bytes 0xF0, 0xDE
+  EXPECT_EQ(bytes_read_ptr[6], 0xF0);
+  EXPECT_EQ(bytes_read_ptr[7], 0xDE);
+}
 
 TEST(Zarr3DriverTest, FieldSelectionUrlNotSupported) {
   // Test that field selection is not supported with URL syntax
