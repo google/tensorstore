@@ -158,11 +158,38 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   const size_t num_fields = dtype_.fields.size();
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
-  // Special case: void access - return raw bytes directly
+  // Special case: void access - decode using original codec shape, then
+  // reinterpret as bytes with extra dimension.
+  //
+  // The codec was prepared for the original dtype and chunk_shape (without
+  // bytes dimension). We decode to that shape, then view the raw bytes with
+  // an extra dimension representing the bytes per element.
   if (open_as_void_) {
+    // The grid's chunk_shape for void has extra bytes dimension - strip it
+    // to get the original codec shape.
+    const auto& void_chunk_shape = grid().chunk_shape;
+    std::vector<Index> original_chunk_shape(
+        void_chunk_shape.begin(),
+        void_chunk_shape.end() - 1);  // Strip bytes dimension
+
+    // Decode using original codec shape
     TENSORSTORE_ASSIGN_OR_RETURN(
-        field_arrays[0], codec_state_->DecodeArray(grid().components[0].shape(),
-                                                   std::move(data)));
+        auto decoded_array,
+        codec_state_->DecodeArray(original_chunk_shape, std::move(data)));
+
+    // Reinterpret the decoded array's bytes as [chunk_shape..., bytes_per_elem]
+    // This creates a view over the same memory but with byte dtype and extra dim
+    const auto& void_component_shape = grid().components[0].shape();
+    auto byte_array = AllocateArray(
+        void_component_shape, c_order, default_init,
+        dtype_v<tensorstore::dtypes::byte_t>);
+
+    // Copy decoded data to byte array (handles potential layout differences)
+    std::memcpy(byte_array.data(), decoded_array.data(),
+                decoded_array.num_elements() *
+                    decoded_array.dtype().size());
+
+    field_arrays[0] = std::move(byte_array);
     return field_arrays;
   }
 
@@ -214,6 +241,29 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     span<const Index> chunk_indices,
     span<const SharedArray<const void>> component_arrays) {
   assert(component_arrays.size() == 1);
+
+  // Special case: void access - reinterpret byte array back to original
+  // dtype shape before encoding.
+  //
+  // The input has shape [chunk_shape..., bytes_per_elem] of byte_t.
+  // The codec expects [chunk_shape] of the original dtype.
+  if (open_as_void_) {
+    const auto& byte_array = component_arrays[0];
+    const Index bytes_per_element = dtype_.bytes_per_outer_element;
+
+    // Build original chunk shape by stripping the bytes dimension
+    const auto& void_shape = byte_array.shape();
+    std::vector<Index> original_shape(void_shape.begin(), void_shape.end() - 1);
+
+    // Create a view over the byte data with original layout
+    // The codec expects the original dtype's element size for stride calculation
+    auto encoded_array = SharedArray<const void>(
+        byte_array.element_pointer(),
+        StridedLayout<>(c_order, bytes_per_element, original_shape));
+
+    return codec_state_->EncodeArray(encoded_array);
+  }
+
   return codec_state_->EncodeArray(component_arrays[0]);
 }
 
