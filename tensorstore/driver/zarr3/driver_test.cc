@@ -2324,4 +2324,154 @@ TEST(Zarr3DriverTest, FieldSelectionUrlNotSupported) {
                                      HasSubstr("selected_field")));
 }
 
+// Tests for GetSpecInfo() with open_as_void (mirroring v2 tests)
+
+TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithKnownRank) {
+  // Test that GetSpecInfo correctly computes rank when open_as_void=true
+  // and dtype is specified with known chunked_rank.
+  // Expected: full_rank = chunked_rank + 1 (for bytes dimension)
+  ::nlohmann::json json_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"data_type", "int32"},  // 4-byte integer
+           {"shape", {10, 20}},     // 2D array, so chunked_rank=2
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {5, 10}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // With open_as_void and dtype specified, rank should be chunked_rank + 1
+  // chunked_rank = 2 (from shape), so full_rank = 3
+  EXPECT_EQ(3, spec.rank());
+}
+
+TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithDynamicRank) {
+  // Test GetSpecInfo when open_as_void=true with dtype but no shape/chunks
+  // (i.e., chunked_rank is dynamic). In this case, full_rank should remain
+  // dynamic until metadata is loaded.
+  ::nlohmann::json json_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"data_type", "int16"},
+           // No shape or chunks specified, so chunked_rank is dynamic
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // When chunked_rank is dynamic, full_rank remains dynamic
+  EXPECT_EQ(tensorstore::dynamic_rank, spec.rank());
+}
+
+TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithoutDtype) {
+  // Test that when open_as_void=true but dtype is not specified,
+  // GetSpecInfo falls through to normal GetSpecRankAndFieldInfo behavior.
+  ::nlohmann::json json_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+      // No metadata.data_type specified
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  // Without dtype, rank should be dynamic (normal behavior)
+  EXPECT_EQ(tensorstore::dynamic_rank, spec.rank());
+}
+
+TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidRankConsistency) {
+  // Verify that the rank computed by GetSpecInfo matches what we get when
+  // actually opening the store.
+  auto context = Context::Default();
+
+  // First create a normal array
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type", "float32"},  // 4-byte float
+           {"shape", {3, 4, 5}},      // 3D array
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {3, 4, 5}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Open the store with open_as_void - don't specify metadata so it's read
+  // from the existing store
+  ::nlohmann::json void_spec_json{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec_json, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Opened store rank should be chunked_rank + 1 = 3 + 1 = 4
+  EXPECT_EQ(4, void_store.rank());
+
+  // Verify bytes dimension size - the domain is valid on an opened store
+  auto store_domain = void_store.domain();
+  EXPECT_TRUE(store_domain.valid());
+  EXPECT_EQ(4, store_domain.shape()[3]);  // 4 bytes for float32
+
+  // Now test the spec parsing with known metadata also sets rank correctly
+  ::nlohmann::json void_spec_with_metadata{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix2/"}}},
+      {"open_as_void", true},
+      {"metadata",
+       {
+           {"data_type", "float32"},
+           {"shape", {3, 4, 5}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {3, 4, 5}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_spec, tensorstore::Spec::FromJson(void_spec_with_metadata));
+
+  // Spec rank should be 4 (3D chunked + 1 bytes dimension)
+  // This verifies GetSpecInfo computes full_rank = chunked_rank + 1
+  EXPECT_EQ(4, void_spec.rank());
+}
+
+// TODO(fill_value): OpenAsVoidFillValue test disabled pending implementation
+// of proper fill_value handling for void access. The v2 implementation converts
+// the fill_value to a byte array representation via CreateVoidMetadata().
+// The v3 implementation needs similar functionality to properly expose the
+// fill_value as raw bytes when using open_as_void.
+//
+// TEST(Zarr3DriverTest, OpenAsVoidFillValue) {
+//   // Test that fill_value is correctly obtained from metadata when using
+//   // open_as_void. The void access should get the fill_value representing
+//   // the raw bytes of the original fill_value.
+//   ...
+// }
+
 }  // namespace
