@@ -1891,9 +1891,71 @@ TEST(Zarr3DriverTest, OpenAsVoidSimpleType) {
 // implementation needs additional work to properly handle structured types
 // with multiple fields when opened with open_as_void=true.
 
-// TODO(b/xxx): OpenAsVoidWithCompression test disabled pending implementation
-// of void access codec chain handling. Currently fails with "Not enough data"
-// error when reading void-accessed data through compression codecs.
+TEST(Zarr3DriverTest, OpenAsVoidWithCompression) {
+  // Test open_as_void with compression enabled
+  auto context = Context::Default();
+
+  // Create an array with gzip compression
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type", "int32"},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
+           {"codecs", {{{"name", "bytes"}}, {{"name", "gzip"}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write some data
+  auto data = tensorstore::MakeArray<int32_t>(
+      {{0x01020304, 0x05060708}, {0x090a0b0c, 0x0d0e0f10}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(data, store | tensorstore::Dims(0, 1).SizedInterval(
+                                           {0, 0}, {2, 2}))
+          .result());
+
+  // Now open with open_as_void=true
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // The void store should have rank = original_rank + 1 (for bytes dimension)
+  EXPECT_EQ(3, void_store.rank());
+
+  // The last dimension should be 4 bytes for int32
+  EXPECT_EQ(4, void_store.domain().shape()[2]);
+
+  // The data type should be byte
+  EXPECT_EQ(tensorstore::dtype_v<tensorstore::dtypes::byte_t>,
+            void_store.dtype());
+
+  // Read the raw bytes and verify decompression works
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result,
+      tensorstore::Read(void_store | tensorstore::Dims(0, 1).SizedInterval(
+                                         {0, 0}, {2, 2}))
+          .result());
+  EXPECT_EQ(read_result.shape()[0], 2);
+  EXPECT_EQ(read_result.shape()[1], 2);
+  EXPECT_EQ(read_result.shape()[2], 4);
+}
 
 TEST(Zarr3DriverTest, OpenAsVoidSpecRoundtrip) {
   // Test that open_as_void is properly preserved in spec round-trips
