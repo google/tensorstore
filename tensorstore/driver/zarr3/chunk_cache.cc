@@ -243,11 +243,8 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
     // Build strides for the source view: each element is separated by
     // bytes_per_outer_element (the struct size), not field_size.
     std::vector<Index> src_byte_strides(chunk_shape.size());
-    Index stride = dtype_.bytes_per_outer_element;
-    for (DimensionIndex i = chunk_shape.size(); i-- > 0;) {
-      src_byte_strides[i] = stride;
-      stride *= chunk_shape[i];
-    }
+    ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
+                   src_byte_strides);
 
     // Create source ArrayView pointing to this field's offset within
     // the interleaved byte array, with strides that skip over other fields.
@@ -331,11 +328,8 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     // Build strides for the destination view: each element is separated by
     // bytes_per_outer_element (the struct size), not field_size.
     std::vector<Index> dest_byte_strides(chunk_shape.size());
-    Index stride = dtype_.bytes_per_outer_element;
-    for (DimensionIndex i = chunk_shape.size(); i-- > 0;) {
-      dest_byte_strides[i] = stride;
-      stride *= chunk_shape[i];
-    }
+    ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
+                   dest_byte_strides);
 
     // Create destination ArrayView pointing to this field's offset within
     // the interleaved byte array, with strides that skip over other fields.
