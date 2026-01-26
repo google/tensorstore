@@ -221,6 +221,7 @@ tensorstore_cc_library(
     srcs = ["chunk_cache.cc"],
     hdrs = ["chunk_cache.h"],
     deps = [
+        ":metadata",
         "//tensorstore:array",
         "//tensorstore:array_storage_statistics",
         "//tensorstore:batch",
