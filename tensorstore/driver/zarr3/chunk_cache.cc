@@ -168,6 +168,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   // For structured types: codec was already prepared for
   // [chunk_shape, bytes_per_elem] with byte dtype. Just decode directly.
   if (open_as_void_) {
+    assert(num_fields == 1);  // Void access uses a single synthesized field
     const auto& void_component_shape = grid().components[0].shape();
 
     if (original_is_structured_) {
