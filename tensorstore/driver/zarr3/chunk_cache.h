@@ -286,19 +286,17 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
                        open_as_void, original_is_structured, original_dtype,
                        /*grid_has_void_dimension=*/false),
         sharding_state_(std::move(sharding_state)),
-        executor_(std::move(executor)),
-        open_as_void_(open_as_void),
-        original_is_structured_(original_is_structured),
-        bytes_per_element_(dtype.bytes_per_outer_element) {
+        executor_(std::move(executor)) {
     // For void access on non-structured types, create a modified grid
     // with the bytes dimension added to the component shape.
     // The grid's chunk_shape stays the same (determines cell layout).
-    if (open_as_void_ && !original_is_structured_) {
+    if (ChunkCacheImpl::open_as_void_ &&
+        !ChunkCacheImpl::original_is_structured_) {
       const auto& original_grid = *sharding_state_->sub_chunk_grid;
       const auto& orig_comp = original_grid.components[0];
       // Component chunk_shape gets bytes dimension, grid chunk_shape doesn't
       std::vector<Index> void_comp_shape = orig_comp.chunk_shape;
-      void_comp_shape.push_back(bytes_per_element_);
+      void_comp_shape.push_back(ChunkCacheImpl::dtype_.bytes_per_outer_element);
       // Create zero fill value with the void shape
       auto fill_value = AllocateArray(void_comp_shape, c_order, value_init,
                                        dtype_v<tensorstore::dtypes::byte_t>);
@@ -332,9 +330,6 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
 
   ZarrShardingCodec::PreparedState::Ptr sharding_state_;
   Executor executor_;
-  bool open_as_void_;
-  bool original_is_structured_;
-  Index bytes_per_element_;
   std::optional<internal::ChunkGridSpecification> void_grid_;
 };
 
