@@ -263,6 +263,14 @@ class ZarrDriverSpec
   }
 
   Result<std::string> ToUrl() const override {
+    if (!selected_field.empty()) {
+      return absl::InvalidArgumentError(
+          "zarr3 URL syntax not supported with selected_field specified");
+    }
+    if (open_as_void) {
+      return absl::InvalidArgumentError(
+          "zarr3 URL syntax not supported with open_as_void specified");
+    }
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
     return tensorstore::StrCat(base_url, "|", id, ":");
   }
