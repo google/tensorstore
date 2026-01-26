@@ -189,24 +189,15 @@ class ZarrDriverSpec
       const DimensionIndex original_rank = metadata_constraints.shape->size();
       IndexDomainBuilder builder(original_rank + 1);
 
-      // Set original dimensions from metadata
-      for (DimensionIndex i = 0; i < original_rank; ++i) {
-        builder.origin()[i] = 0;
-        builder.shape()[i] = (*metadata_constraints.shape)[i];
-      }
-
-      // Add bytes dimension
-      builder.origin()[original_rank] = 0;
+      // Set original dimensions from metadata (all origins are 0)
+      std::fill_n(builder.origin().begin(), original_rank + 1, Index{0});
+      std::copy_n(metadata_constraints.shape->begin(), original_rank,
+                  builder.shape().begin());
       builder.shape()[original_rank] = bytes_per_elem;
 
-      // Set implicit bounds: array dims are implicit, bytes dim is explicit
-      DimensionSet implicit_lower(false);
-      DimensionSet implicit_upper(false);
-      for (DimensionIndex i = 0; i < original_rank; ++i) {
-        implicit_upper[i] = true;  // Array dimensions are resizable
-      }
-      builder.implicit_lower_bounds(implicit_lower);
-      builder.implicit_upper_bounds(implicit_upper);
+      // Set implicit bounds: array dims are implicit (resizable), bytes dim is explicit
+      builder.implicit_lower_bounds(DimensionSet(false));
+      builder.implicit_upper_bounds(DimensionSet::UpTo(original_rank));
 
       // Copy dimension names if available
       if (metadata_constraints.dimension_names) {
@@ -769,13 +760,8 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
 
       // Set implicit bounds: array dims have implicit upper bounds (resizable),
       // bytes dim has explicit bounds (fixed size).
-      DimensionSet implicit_lower_bounds(false);
-      DimensionSet implicit_upper_bounds(false);
-      for (DimensionIndex i = 0; i < rank; ++i) {
-        implicit_upper_bounds[i] = true;
-      }
-      builder.implicit_lower_bounds(implicit_lower_bounds);
-      builder.implicit_upper_bounds(implicit_upper_bounds);
+      builder.implicit_lower_bounds(DimensionSet(false));
+      builder.implicit_upper_bounds(DimensionSet::UpTo(rank));
 
       for (DimensionIndex i = 0; i < total_rank; ++i) {
         builder.output_single_input_dimension(i, i);

@@ -31,6 +31,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/chunk.h"
@@ -53,6 +54,7 @@
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/internal/storage_statistics.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -76,13 +78,15 @@ ZarrChunkCache::~ZarrChunkCache() = default;
 ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType dtype, internal::CachePool::WeakPtr /*data_cache_pool*/,
-    bool open_as_void, bool original_is_structured, DataType original_dtype)
+    bool open_as_void, bool original_is_structured, DataType original_dtype,
+    bool grid_has_void_dimension)
     : Base(std::move(store)),
       codec_state_(std::move(codec_state)),
       dtype_(std::move(dtype)),
       open_as_void_(open_as_void),
       original_is_structured_(original_is_structured),
-      original_dtype_(original_dtype) {}
+      original_dtype_(original_dtype),
+      grid_has_void_dimension_(grid_has_void_dimension) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
                               AnyFlowReceiver<absl::Status, internal::ReadChunk,
@@ -182,19 +186,40 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
 
     // Non-structured types: codec expects original dtype without extra
     // dimension. Decode, then reinterpret as bytes.
-    const auto& void_chunk_shape = grid().chunk_shape;
-    std::vector<Index> original_chunk_shape(
-        void_chunk_shape.begin(),
-        void_chunk_shape.end() - 1);  // Strip bytes dimension
+    //
+    // For top-level caches, grid().chunk_shape includes bytes dimension.
+    // For sub-chunk caches (inside sharding), grid() returns the sharding
+    // codec's sub_chunk_grid which doesn't have bytes dimension.
+    const Index bytes_per_element = dtype_.bytes_per_outer_element;
+    const auto& grid_chunk_shape = grid().chunk_shape;
+
+    std::vector<Index> original_chunk_shape;
+    if (grid_has_void_dimension_) {
+      // Strip the bytes dimension to get original shape
+      original_chunk_shape.assign(grid_chunk_shape.begin(),
+                                  grid_chunk_shape.end() - 1);
+    } else {
+      // Sub-chunk cache: grid shape is already the original shape
+      original_chunk_shape.assign(grid_chunk_shape.begin(),
+                                  grid_chunk_shape.end());
+    }
 
     // Decode using original codec shape
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto decoded_array,
         codec_state_->DecodeArray(original_chunk_shape, std::move(data)));
 
+    // Verify decoded array is C-contiguous (codec chain should guarantee this)
+    assert(IsContiguousLayout(decoded_array.layout(), c_order,
+                              decoded_array.dtype().size()));
+
+    // Build the void output shape: original_shape + [bytes_per_element]
+    std::vector<Index> void_output_shape = original_chunk_shape;
+    void_output_shape.push_back(bytes_per_element);
+
     // Reinterpret the decoded array's bytes as [chunk_shape..., bytes_per_elem]
     auto byte_array = AllocateArray(
-        void_component_shape, c_order, default_init,
+        void_output_shape, c_order, default_init,
         dtype_v<tensorstore::dtypes::byte_t>);
 
     // Copy decoded data to byte array (handles potential layout differences)
@@ -223,27 +248,33 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto byte_array, codec_state_->DecodeArray(decode_shape, std::move(data)));
 
-  // Extract each field from the byte array
-  const Index num_elements = byte_array.num_elements() /
-                             dtype_.bytes_per_outer_element;
-  const auto* src_bytes = static_cast<const std::byte*>(byte_array.data());
-
+  // Extract each field from the byte array.
+  // We create a strided view into the source that maps to each field's
+  // position within the interleaved struct layout, then use CopyArray which
+  // safely handles any layout differences via IterateOverArrays.
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = dtype_.fields[field_i];
     // Use the component's shape (from the grid) for the result array
     const auto& component_shape = grid().components[field_i].shape();
     auto result_array =
         AllocateArray(component_shape, c_order, default_init, field.dtype);
-    auto* dst = static_cast<std::byte*>(result_array.data());
-    const Index field_size = field.dtype->size;
 
-    // Copy field data from each struct element
-    for (Index i = 0; i < num_elements; ++i) {
-      std::memcpy(dst + i * field_size,
-                  src_bytes + i * dtype_.bytes_per_outer_element +
-                      field.byte_offset,
-                  field_size);
-    }
+    // Build strides for the source view: each element is separated by
+    // bytes_per_outer_element (the struct size), not field_size.
+    std::vector<Index> src_byte_strides(chunk_shape.size());
+    ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
+                   src_byte_strides);
+
+    // Create source ArrayView pointing to this field's offset within
+    // the interleaved byte array, with strides that skip over other fields.
+    ArrayView<const void> src_field_view(
+        {static_cast<const void*>(
+             static_cast<const std::byte*>(byte_array.data()) + field.byte_offset),
+         field.dtype},
+        StridedLayoutView<>(chunk_shape, src_byte_strides));
+
+    // Use CopyArray which safely handles any layout differences
+    CopyArray(src_field_view, result_array);
     field_arrays[field_i] = std::move(result_array);
   }
 
@@ -302,30 +333,31 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
   std::vector<Index> encode_shape(chunk_shape.begin(), chunk_shape.end());
   encode_shape.push_back(dtype_.bytes_per_outer_element);
 
-  // Calculate number of outer elements
-  Index num_elements = 1;
-  for (size_t i = 0; i < chunk_shape.size(); ++i) {
-    num_elements *= chunk_shape[i];
-  }
-
   // Allocate byte array for combined fields
   auto byte_array = AllocateArray<std::byte>(encode_shape, c_order, value_init);
-  auto* dst_bytes = byte_array.data();
 
-  // Copy each field's data into the byte array at their respective offsets
+  // Copy each field's data into the byte array at their respective offsets.
+  // We create a strided view into the destination that maps to each field's
+  // position within the interleaved struct layout, then use CopyArray which
+  // safely handles any source array strides via IterateOverArrays.
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = dtype_.fields[field_i];
     const auto& field_array = component_arrays[field_i];
-    const auto* src = static_cast<const std::byte*>(field_array.data());
-    const Index field_size = field.dtype->size;
 
-    // Copy field data to each struct element
-    for (Index i = 0; i < num_elements; ++i) {
-      std::memcpy(dst_bytes + i * dtype_.bytes_per_outer_element +
-                      field.byte_offset,
-                  src + i * field_size,
-                  field_size);
-    }
+    // Build strides for the destination view: each element is separated by
+    // bytes_per_outer_element (the struct size), not field_size.
+    std::vector<Index> dest_byte_strides(chunk_shape.size());
+    ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
+                   dest_byte_strides);
+
+    // Create destination ArrayView pointing to this field's offset within
+    // the interleaved byte array, with strides that skip over other fields.
+    ArrayView<void> dest_field_view(
+        {static_cast<void*>(byte_array.data() + field.byte_offset), field.dtype},
+        StridedLayoutView<>(chunk_shape, dest_byte_strides));
+
+    // Use CopyArray which safely handles any source strides via IterateOverArrays
+    CopyArray(field_array, dest_field_view);
   }
 
   return codec_state_->EncodeArray(byte_array);
@@ -338,7 +370,8 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 ZarrShardedChunkCache::ZarrShardedChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType dtype, internal::CachePool::WeakPtr data_cache_pool,
-    bool open_as_void, bool original_is_structured, DataType original_dtype)
+    bool open_as_void, bool original_is_structured, DataType original_dtype,
+    bool /*grid_has_void_dimension*/)
     : base_kvstore_(std::move(store)),
       codec_state_(std::move(codec_state)),
       dtype_(std::move(dtype)),
