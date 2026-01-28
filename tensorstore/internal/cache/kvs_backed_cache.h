@@ -31,6 +31,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/kvstore/driver.h"
@@ -53,6 +54,14 @@ namespace internal {
 void KvsBackedCache_IncrementReadUnchangedMetric();
 void KvsBackedCache_IncrementReadChangedMetric();
 void KvsBackedCache_IncrementReadErrorMetric();
+
+#ifdef __clang__
+// KvsBackedCache uses the CRTP pattern, and clang may emit
+// "-Winconsistent-missing-override" warnings when virtual is used
+// instead of override.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#endif  // __clang__
 
 /// Base class that integrates an `AsyncCache` with a `kvstore::Driver`.
 ///
@@ -498,7 +507,7 @@ class KvsBackedCache : public Parent {
         this->WritebackSuccess(
             AsyncCache::ReadState{std::move(new_data_), std::move(new_stamp)});
       } else {
-        // Umodified or overwritten during commit.
+        // Unmodified or overwritten during commit.
         this->WritebackSuccess(AsyncCache::ReadState{});
       }
     }
@@ -561,6 +570,10 @@ class KvsBackedCache : public Parent {
 
   kvstore::DriverPtr kvstore_driver_;
 };
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif  // __clang__
 
 }  // namespace internal
 }  // namespace tensorstore

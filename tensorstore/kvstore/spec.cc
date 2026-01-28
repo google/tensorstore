@@ -209,6 +209,7 @@ bool operator==(const Spec& a, const Spec& b) {
 }  // namespace kvstore
 
 namespace internal_kvstore {
+
 class DriverWrapperSpec : public kvstore::DriverSpec {
  public:
   explicit DriverWrapperSpec(DriverPtr driver) : driver_(std::move(driver)) {}
@@ -217,10 +218,10 @@ class DriverWrapperSpec : public kvstore::DriverSpec {
       const Context& context) override {  // Can't bind context of open kvstore.
     return absl::OkStatus();
   }
-  void UnbindContext(const internal::ContextSpecBuilder& builder) {
+  void UnbindContext(const internal::ContextSpecBuilder& builder) override {
     // Can't unbind context of open kvstore.
   }
-  void StripContext() {
+  void StripContext() override {
     // Can't strip context of open kvstore.
   }
 
@@ -228,11 +229,11 @@ class DriverWrapperSpec : public kvstore::DriverSpec {
     out->append(driver_->cache_identifier_);
   }
 
-  std::string_view driver_id() const { return driver_->driver_id(); }
+  std::string_view driver_id() const override { return driver_->driver_id(); }
 
   Future<DriverPtr> DoOpen() const override { return driver_; }
 
-  DriverSpecPtr Clone() const { return DriverSpecPtr(this); }
+  DriverSpecPtr Clone() const override { return DriverSpecPtr(this); }
 
   void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const override {

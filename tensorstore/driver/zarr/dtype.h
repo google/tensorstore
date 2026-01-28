@@ -135,7 +135,7 @@ struct ZarrDType {
   // The field is reset to nullptr when copied/moved.
   class LazyVoidField {
    public:
-    friend class ZarrDType;
+    friend struct ZarrDType;
 
     LazyVoidField() = default;
     LazyVoidField(const LazyVoidField&) {}

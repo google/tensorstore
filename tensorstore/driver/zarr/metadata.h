@@ -162,7 +162,7 @@ struct ZarrMetadata {
   // The metadata field is reset to nullptr when copied/moved.
   class LazyVoidMetadata {
    public:
-    friend class ZarrMetadata;
+    friend struct ZarrMetadata;
 
     LazyVoidMetadata() = default;
     LazyVoidMetadata(const LazyVoidMetadata&) {}
