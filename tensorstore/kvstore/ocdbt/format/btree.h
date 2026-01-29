@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <iosfwd>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -37,7 +38,9 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"

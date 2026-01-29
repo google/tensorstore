@@ -16,6 +16,7 @@
 #define TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_H_
 
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <type_traits>

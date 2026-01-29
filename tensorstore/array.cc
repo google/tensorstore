@@ -25,6 +25,7 @@
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/varint/varint_reading.h"
 #include "riegeli/varint/varint_writing.h"
 #include "tensorstore/box.h"
@@ -152,14 +153,15 @@ void PrintArrayDimension(
 }
 
 std::string DescribeForCast(DataType dtype, DimensionIndex rank) {
-  return tensorstore::StrCat(
-      "array with ", StaticCastTraits<DataType>::Describe(dtype), " and ",
-      StaticCastTraits<DimensionIndex>::Describe(rank));
+  return absl::StrFormat("array with %s and %s",
+                         StaticCastTraits<DataType>::Describe(dtype),
+                         StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 absl::Status ArrayOriginCastError(tensorstore::span<const Index> shape) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Cannot translate array with shape ", shape, " to have zero origin."));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Cannot translate array with shape %s to have zero origin.",
+      absl::FormatStreamed(shape)));
 }
 
 }  // namespace internal_array
@@ -325,15 +327,16 @@ bool DecodeArray<OriginKind>::Decode(
   }
   if (data_type_constraint.valid() && data_type_constraint != dtype) {
     source.Fail(absl::DataLossError(
-        tensorstore::StrCat("Expected data type of ", data_type_constraint,
-                            " but received: ", dtype)));
+        absl::StrFormat("Expected data type of %s but received: %s",
+                        absl::FormatStreamed(data_type_constraint),
+                        absl::FormatStreamed(dtype))));
     return false;
   }
   DimensionIndex rank;
   if (!serialization::RankSerializer::Decode(source, rank)) return false;
   if (rank_constraint != dynamic_rank && rank != rank_constraint) {
-    source.Fail(absl::DataLossError(tensorstore::StrCat(
-        "Expected rank of ", rank_constraint, " but received: ", rank)));
+    source.Fail(absl::DataLossError(absl::StrFormat(
+        "Expected rank of %d but received: %d", rank_constraint, rank)));
     return false;
   }
   array.layout().set_rank(rank);
@@ -352,8 +355,8 @@ bool DecodeArray<OriginKind>::Decode(
     } else {
       array.byte_strides()[i] = 1;
       if (internal::MulOverflow(num_bytes, array.shape()[i], &num_bytes)) {
-        source.Fail(serialization::DecodeError(
-            tensorstore::StrCat("Invalid array shape ", array.shape())));
+        source.Fail(serialization::DecodeError(absl::StrFormat(
+            "Invalid array shape %s", absl::FormatStreamed(array.shape()))));
         return false;
       }
     }

@@ -29,8 +29,8 @@
 
 #include <utility>
 
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/meta/type_traits.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -112,7 +112,7 @@ GetItemHelperClass<Parent, Tag> DefineSubscriptMethod(
     return Helper{std::move(self)};
   });
   helper_class.def("__repr__", [method_name](const Helper& self) {
-    return tensorstore::StrCat(pybind11::repr(self.parent), ".", method_name);
+    return absl::StrFormat("%s.%s", pybind11::repr(self.parent), method_name);
   });
   helper_class.attr("__iter__") = pybind11::none();
   return {helper_class};

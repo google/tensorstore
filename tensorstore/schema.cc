@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -51,6 +52,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -93,17 +95,18 @@ absl::Status ValidateRank(Schema& schema, const char* field_name,
                           DimensionIndex rank) {
   TENSORSTORE_RETURN_IF_ERROR(tensorstore::ValidateRank(rank));
   if (schema.rank_ != dynamic_rank && schema.rank_ != rank) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Rank specified by ", field_name, " (", rank,
-        ") does not match existing rank specified by schema (", schema.rank_,
-        ")"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Rank specified by %s (%d) does not match existing rank specified by "
+        "schema (%d)",
+        field_name, rank, schema.rank_));
   }
   if (schema.impl_ && schema.impl_->fill_value_.valid() &&
       schema.impl_->fill_value_.rank() > rank) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Rank specified by ", field_name, " (", rank,
-        ") is incompatible with existing fill_value of shape ",
-        schema.impl_->fill_value_.shape()));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Rank specified by %s (%d) is incompatible with existing fill_value of "
+        "shape %s",
+        field_name, rank,
+        absl::FormatStreamed(schema.impl_->fill_value_.shape())));
   }
   schema.rank_ = rank;
   return absl::OkStatus();
@@ -243,9 +246,10 @@ Result<IndexDomain<>> TransformInputDomain(IndexDomainView<> input_domain,
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
     const auto map = transform.output_index_maps()[output_dim];
     if (map.method() != OutputIndexMethod::single_input_dimension) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Cannot specify domain through a transform with a ", map.method(),
-          " output index map"));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Cannot specify domain through a transform with a %v "
+                          "output index map",
+                          map.method()));
     }
     const DimensionIndex input_dim = map.input_dimension();
     if (seen_input_dims[input_dim]) {
@@ -266,9 +270,9 @@ Result<IndexDomain<>> TransformInputDomain(IndexDomainView<> input_domain,
         auto new_interval,
         GetAffineTransformRange(output_interval, map.offset(), map.stride()),
         tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Error computing range of output dimension ",
-                                   output_dim, " from input dimension ",
-                                   input_dim)));
+            _, absl::StrFormat("Error computing range of output dimension %d "
+                               "from input dimension %d",
+                               output_dim, input_dim)));
     output_domain_builder.labels()[output_dim] =
         input_domain[input_dim].label();
     output_domain_builder.origin()[output_dim] = new_interval.inclusive_min();
@@ -284,9 +288,9 @@ Result<IndexDomain<>> TransformInputDomain(IndexDomainView<> input_domain,
 template <typename T, typename U>
 absl::Status MismatchError(const char* field_name, const T& existing_value,
                            const U& new_value) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Specified ", field_name, " (", new_value,
-      ") does not match existing value (", existing_value, ")"));
+  return absl::InvalidArgumentError(
+      absl::StrFormat("Specified %s (%v) does not match existing value (%v)",
+                      field_name, new_value, existing_value));
 }
 
 }  // namespace
@@ -383,16 +387,18 @@ absl::Status Schema::Set(FillValue value) {
   }
   auto unbroadcast = tensorstore::UnbroadcastArray(value.shared_array_view());
   if (rank_ != dynamic_rank && rank_ < unbroadcast.rank()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid fill_value for rank ", rank_, ": ", unbroadcast));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid fill_value for rank %d: %s", rank_,
+                        absl::FormatStreamed(unbroadcast)));
   }
   auto& impl = EnsureUniqueImpl();
   if (impl.fill_value_.valid()) {
     if (impl.fill_value_ != unbroadcast) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Specified fill_value (", unbroadcast,
-                              ") does not match existing value in schema (",
-                              impl.fill_value_, ")"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Specified fill_value (%s) does not match existing value in schema "
+          "(%v)",
+          absl::FormatStreamed(unbroadcast),
+          absl::FormatStreamed(impl.fill_value_)));
     }
     return absl::OkStatus();
   }
@@ -456,10 +462,10 @@ absl::Status Schema::TransformInputSpaceSchema(IndexTransformView<> transform) {
   if (!transform.valid()) return absl::OkStatus();
   const DimensionIndex rank = rank_;
   if (!RankConstraint::EqualOrUnspecified(rank, transform.input_rank())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Cannot inverse transform schema of rank ", rank,
-        " by index transform of rank ", transform.input_rank(), " -> ",
-        transform.output_rank()));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Cannot inverse transform schema of rank %d by index transform of rank "
+        "%d -> %d",
+        rank, transform.input_rank(), transform.output_rank()));
   }
   if (!impl_) {
     rank_ = transform.output_rank();
@@ -503,10 +509,10 @@ Result<Schema> ApplyIndexTransform(IndexTransform<> transform, Schema schema) {
   if (!transform.valid()) return schema;
   const DimensionIndex rank = schema.rank_;
   if (!RankConstraint::EqualOrUnspecified(rank, transform.output_rank())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Cannot transform schema of rank ", rank,
-        " by index transform of rank ", transform.input_rank(), " -> ",
-        transform.output_rank()));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Cannot transform schema of rank %d by index transform of rank %d -> "
+        "%d",
+        rank, transform.input_rank(), transform.output_rank()));
   }
   if (!schema.impl_) {
     schema.rank_ = transform.input_rank();
@@ -590,9 +596,9 @@ absl::Status ChooseReadWriteChunkGrid(MutableBoxView<> chunk_template,
                                       const Schema& schema) {
   if (!RankConstraint::EqualOrUnspecified(chunk_template.rank(),
                                           schema.rank())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Expected schema to have rank ", chunk_template.rank(),
-        ", but received schema of rank: ", schema.rank()));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Expected schema to have rank %d, but received schema of rank: %d",
+        chunk_template.rank(), schema.rank()));
   }
   auto domain = schema.domain();
   BoxView<> box;

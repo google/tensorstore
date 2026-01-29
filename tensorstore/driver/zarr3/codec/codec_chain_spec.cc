@@ -132,8 +132,8 @@ constexpr auto ZarrCodecChainSpecJsonBinderImpl = jb::Compose<
         }
         for (; it != end; ++it) {
           if ((*it)->kind() != ZarrCodecKind::kBytesToBytes) {
-            return absl::InvalidArgumentError(tensorstore::StrCat(
-                "Expected bytes -> bytes codec, but received: ",
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Expected bytes -> bytes codec, but received: %s",
                 jb::ToJson(*it, ZarrCodecJsonBinder).value().dump()));
           }
           obj->bytes_to_bytes.push_back(
@@ -164,16 +164,16 @@ Result<ZarrArrayToBytesCodecSpec::Ptr> GetDefaultArrayToBytesCodecSpec(
   if (internal::IsTrivialDataType(decoded.dtype)) {
     return DefaultBytesCodec();
   }
-  return absl::InternalError(tensorstore::StrCat(
-      "No default codec defined for data type ", decoded.dtype));
+  return absl::InternalError(absl::StrFormat(
+      "No default codec defined for data type %v", decoded.dtype));
 }
 
 absl::Status CodecResolveError(const ZarrCodecSpec& codec_spec,
                                std::string_view message,
                                const absl::Status& status) {
   return tensorstore::MaybeAnnotateStatus(
-      status, tensorstore::StrCat(
-                  "Error ", message, " through ",
+      status, absl::StrFormat(
+                  "Error %s through codec %s", message,
                   jb::ToJson(&codec_spec, ZarrCodecJsonBinder).value().dump()));
 }
 }  // namespace

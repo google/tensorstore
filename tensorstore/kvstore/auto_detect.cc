@@ -28,11 +28,13 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/btree_set.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -41,7 +43,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -125,8 +126,8 @@ struct AutoDetectOperationState {
 
   void SetError(const absl::Status& error, std::string_view path) {
     if (!this->error.ok() || error.ok()) return;
-    this->error = base.driver->AnnotateError(
-        tensorstore::StrCat(base.path, path), "reading", error);
+    this->error = base.driver->AnnotateError(absl::StrCat(base.path, path),
+                                             "reading", error);
   }
 
   static void MaybeDetectFileFormat(Ptr self, Promise<Value> promise) {

@@ -24,13 +24,14 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json {
@@ -44,8 +45,8 @@ namespace internal_json {
   return ::nlohmann::json(::nlohmann::json::value_t::discarded);
 }
 absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Object includes extra members: ",
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Object includes extra members: %s",
       absl::StrJoin(j_obj, ",", [](std::string* out, const auto& p) {
         absl::StrAppend(out, QuoteString(p.first));
       })));
@@ -71,7 +72,7 @@ absl::Status JsonParseArray(
     auto status = element_callback(j[i], i);
     if (!status.ok()) {
       return MaybeAnnotateStatus(
-          status, tensorstore::StrCat("Error parsing value at position ", i));
+          status, absl::StrFormat("Error parsing value at position %d", i));
     }
   }
   return absl::OkStatus();
@@ -81,8 +82,8 @@ absl::Status JsonValidateArrayLength(ptrdiff_t parsed_size,
                                      ptrdiff_t expected_size) {
   if (parsed_size != expected_size) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Array has length ", parsed_size,
-                            " but should have length ", expected_size));
+        absl::StrFormat("Array has length %d but should have length %d",
+                        parsed_size, expected_size));
   }
   return absl::OkStatus();
 }

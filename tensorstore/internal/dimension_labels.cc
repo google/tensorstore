@@ -22,6 +22,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"
@@ -47,7 +48,7 @@ absl::Status ValidateDimensionLabelsAreUniqueImpl(
   }
   if (!error.empty()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Dimension label(s) ", error, " not unique"));
+        absl::StrFormat("Dimension label(s) %s not unique", error));
   }
 
   return absl::OkStatus();

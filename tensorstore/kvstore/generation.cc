@@ -27,6 +27,7 @@
 #include <utility>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/fwd.h"
@@ -113,8 +114,9 @@ std::string StorageGeneration::DebugString() const {
     if (i == value.size()) {
       absl::StrAppend(&output, "Unknown");
     } else {
-      absl::StrAppend(&output, tensorstore::QuoteString(std::string_view(
-                                   &value[i], value.size() - i)));
+      absl::StrAppendFormat(
+          &output, "%v",
+          QuoteString(std::string_view(&value[i], value.size() - i)));
     }
   }
   return output;

@@ -14,18 +14,18 @@
 
 #include "tensorstore/util/quote_string.h"
 
-#include <string>
+#include <ostream>
 #include <string_view>
 
 #include "absl/strings/escaping.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
 namespace tensorstore {
+namespace internal {
 
-std::string QuoteString(std::string_view s) {
-  return absl::StrCat(
-      "\"", absl::CHexEscape(absl::string_view(s.data(), s.size())), "\"");
+std::ostream& PrintQuotedString(std::ostream& os, std::string_view v) {
+  return os << '"' << absl::CHexEscape(v) << '"';
 }
 
+}  // namespace internal
 }  // namespace tensorstore

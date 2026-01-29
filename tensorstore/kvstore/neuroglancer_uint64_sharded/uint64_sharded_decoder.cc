@@ -25,6 +25,7 @@
 #include "absl/algorithm/container.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/cord_util.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -47,8 +48,8 @@ Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
     decoded_input = input;
   }
   if ((decoded_input.size() % 24) != 0) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid minishard index length: ", decoded_input.size()));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid minishard index length: %d", decoded_input.size()));
   }
   std::vector<MinishardIndexEntry> result(decoded_input.size() / 24);
   static_assert(sizeof(MinishardIndexEntry) == 24);
@@ -66,9 +67,9 @@ Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
         little_endian::Load64(decoded_flat.data() + i * 8 + 16 * result.size());
     entry.byte_range.exclusive_max = byte_offset;
     if (!entry.byte_range.SatisfiesInvariants()) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Invalid byte range in minishard index for chunk ",
-          entry.chunk_id.value, ": ", entry.byte_range));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Invalid byte range in minishard index for chunk %d: %v",
+          entry.chunk_id.value, absl::FormatStreamed(entry.byte_range)));
     }
   }
   absl::c_sort(result,
@@ -104,15 +105,16 @@ Result<absl::Cord> DecodeData(const absl::Cord& input,
 
 Result<ByteRange> DecodeShardIndexEntry(std::string_view input) {
   if (input.size() != 16) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Expected 16 bytes, but received: ", input.size(), " bytes"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Expected 16 bytes, but received: %d bytes", input.size()));
   }
   ByteRange r;
   r.inclusive_min = little_endian::Load64(input.data());
   r.exclusive_max = little_endian::Load64(input.data() + 8);
   if (!r.SatisfiesInvariants()) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("Shard index specified invalid byte range: ", r));
+        absl::StrFormat("Shard index specified invalid byte range: %v",
+                        absl::FormatStreamed(r)));
   }
   return r;
 }
@@ -128,8 +130,8 @@ DecodeMinishardIndexAndAdjustByteRanges(const absl::Cord& encoded,
     if (!result.ok()) {
       return MaybeAnnotateStatus(
           result.status(),
-          tensorstore::StrCat("Error decoding minishard index entry for chunk ",
-                              entry.chunk_id.value));
+          absl::StrFormat("Error decoding minishard index entry for chunk %d",
+                          entry.chunk_id.value));
     }
     entry.byte_range = std::move(result).value();
   }
@@ -146,10 +148,9 @@ absl::Status SplitMinishard(const ShardingSpec& sharding_spec,
     if (prev_chunk_id &&
         existing_entry.chunk_id.value == prev_chunk_id->value) {
       return absl::FailedPreconditionError(
-          tensorstore::StrCat("Chunk ", existing_entry.chunk_id.value,
-                              " occurs more than once in the minishard index "
-                              "for minishard ",
-                              minishard));
+          absl::StrFormat("Chunk %d occurs more than once in the minishard "
+                          "index for minishard %d",
+                          existing_entry.chunk_id.value, minishard));
     }
     prev_chunk_id = existing_entry.chunk_id;
     const auto GetChunkByteRange = [&]() -> Result<ByteRange> {
@@ -161,8 +162,8 @@ absl::Status SplitMinishard(const ShardingSpec& sharding_spec,
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto chunk_byte_range, GetChunkByteRange(),
         tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Invalid existing byte range for chunk ",
-                                   existing_entry.chunk_id.value)));
+            _, absl::StrFormat("Invalid existing byte range for chunk %d",
+                               existing_entry.chunk_id.value)));
     chunks.push_back(
         EncodedChunk{{minishard, existing_entry.chunk_id},
                      internal::GetSubCord(shard_data, chunk_byte_range)});
@@ -178,8 +179,8 @@ Result<std::vector<EncodedChunk>> SplitShard(const ShardingSpec& sharding_spec,
   const uint64_t num_minishards = sharding_spec.num_minishards();
   if (shard_data.size() < num_minishards * 16) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("Existing shard has size ", shard_data.size(),
-                            ", but expected at least: ", num_minishards * 16));
+        absl::StrFormat("Existing shard has size %d, but expected at least: %d",
+                        shard_data.size(), num_minishards * 16));
   }
   std::vector<char> shard_index(16 * num_minishards);
   internal::CopyCordToSpan(shard_data, shard_index);
@@ -200,8 +201,8 @@ Result<std::vector<EncodedChunk>> SplitShard(const ShardingSpec& sharding_spec,
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto minishard_ibr, GetMinishardIndexByteRange(),
         tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat(
-                   "Error decoding existing shard index entry for minishard ",
+            _, absl::StrFormat(
+                   "Error decoding existing shard index entry for minishard %d",
                    minishard)));
     if (minishard_ibr.size() == 0) continue;
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -209,8 +210,8 @@ Result<std::vector<EncodedChunk>> SplitShard(const ShardingSpec& sharding_spec,
         DecodeMinishardIndexAndAdjustByteRanges(
             internal::GetSubCord(shard_data, minishard_ibr), sharding_spec),
         tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat(
-                   "Error decoding existing minishard index for minishard ",
+            _, absl::StrFormat(
+                   "Error decoding existing minishard index for minishard %d",
                    minishard)));
     TENSORSTORE_RETURN_IF_ERROR(SplitMinishard(
         sharding_spec, shard_data, minishard, minishard_index, chunks));

@@ -23,6 +23,7 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
@@ -45,8 +46,8 @@ void PrintToOstream(
 }
 
 std::string DescribeForCast(DimensionIndex rank) {
-  return tensorstore::StrCat("strided layout with ",
-                             StaticCastTraits<DimensionIndex>::Describe(rank));
+  return absl::StrFormat("strided layout with %s",
+                         StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 bool StridedLayoutsEqual(StridedLayoutView<dynamic_rank, offset_origin> a,

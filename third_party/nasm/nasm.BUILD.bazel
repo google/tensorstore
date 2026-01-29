@@ -95,8 +95,8 @@ cc_binary(
     srcs = ["asm/nasm.c"],
     copts = COPTS,
     includes = INCLUDES,
+    visibility = ["//visibility:public"],
     deps = [
         ":nasmlib",
     ],
-    visibility = ["//visibility:public"],
 )

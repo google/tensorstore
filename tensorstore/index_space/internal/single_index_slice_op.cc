@@ -14,9 +14,26 @@
 
 #include "tensorstore/index_space/internal/single_index_slice_op.h"
 
+#include <algorithm>
+#include <cassert>
+#include <string>
+
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_vector_or_scalar.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -97,9 +114,8 @@ Result<SingletonSlicingInfo> GetSingletonSlicingInfo(
   if (!slice_error.empty()) {
     // Assign to result, rather than just returning the error, to encourage
     // NRVO.
-    result = absl::OutOfRangeError(
-        tensorstore::StrCat("Slice mismatch: ", slice_error));
-    return result;
+    return absl::OutOfRangeError(
+        absl::StrFormat("Slice mismatch: %s", slice_error));
   }
 
   // For each existing dimension not being sliced, set the corresponding the
@@ -190,9 +206,9 @@ absl::Status PerformSingleIndexSlice(TransformRep* original_transform,
                                     &new_offset) ||
               internal::AddOverflow(new_offset, output_offset,
                                     &new_map.offset())) {
-            return absl::InvalidArgumentError(tensorstore::StrCat(
-                "Integer overflow computing offset for output dimension ",
-                output_dim, "."));
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Integer overflow computing offset for output dimension %d.",
+                output_dim));
           }
           new_map.SetConstant();
           new_map.stride() = 0;

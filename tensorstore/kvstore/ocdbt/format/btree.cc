@@ -14,10 +14,11 @@
 
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 
+#include <stdint.h>
+
 #include <algorithm>
 #include <cassert>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -33,6 +34,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"

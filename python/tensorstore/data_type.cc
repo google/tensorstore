@@ -22,7 +22,6 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-
 // Other headers
 #include <stddef.h>
 
@@ -35,6 +34,7 @@
 #include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
+#include "absl/strings/str_format.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/serialization.h"
@@ -43,7 +43,6 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -134,8 +133,8 @@ pybind11::dtype GetNumpyDtype(int type_num) {
 DataType GetDataTypeOrThrow(std::string_view name) {
   auto d = GetDataType(name);
   if (!d.valid()) {
-    throw py::value_error(tensorstore::StrCat(
-        "No TensorStore data type with name: ", QuoteString(name)));
+    throw py::value_error(absl::StrFormat(
+        "No TensorStore data type with name: %v", QuoteString(name)));
   }
   return d;
 }
@@ -167,8 +166,8 @@ py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
   if (type_num != -1) {
     return GetNumpyDtype(type_num);
   }
-  throw py::value_error(tensorstore::StrCat(
-      "No NumPy dtype corresponding to TensorStore data type: ",
+  throw py::value_error(absl::StrFormat(
+      "No NumPy dtype corresponding to TensorStore data type: %v",
       QuoteString(dtype.name())));
 }
 
@@ -191,8 +190,8 @@ DataType GetDataType(pybind11::dtype dt) {
 DataType GetDataTypeOrThrow(py::dtype dt) {
   auto dtype = GetDataType(dt);
   if (dtype.valid()) return dtype;
-  throw py::value_error(tensorstore::StrCat(
-      "No TensorStore data type corresponding to NumPy dtype: ",
+  throw py::value_error(absl::StrFormat(
+      "No TensorStore data type corresponding to NumPy dtype: %s",
       py::cast<std::string>(py::repr(dt))));
 }
 
@@ -242,7 +241,7 @@ Group:
 )");
 
   cls.def("__repr__", [](DataType self) {
-    return tensorstore::StrCat("dtype(", QuoteString(self.name()), ")");
+    return absl::StrFormat("dtype(%v)", QuoteString(self.name()));
   });
 
   EnablePicklingFromSerialization</*WithLocking=*/false>(cls);

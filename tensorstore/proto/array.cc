@@ -24,6 +24,7 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
 #include "tensorstore/array.h"
@@ -238,10 +239,10 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
 
     for (DimensionIndex i = rank - 1; i >= 0; --i) {
       if (!IndexInterval::ValidSized(array.origin()[i], array.shape()[i])) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Proto origin and shape of {", array.origin()[i], ", ",
-            array.shape()[i],
-            "} do not specify a valid IndexInterval for rank ", i));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Proto origin and shape of {%d, %d} do not specify a valid "
+            "IndexInterval for rank %d",
+            array.origin()[i], array.shape()[i], i));
       }
       if (zero_byte_strides[i]) {
         array.layout().byte_strides()[i] = 0;
@@ -249,8 +250,8 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
         array.layout().byte_strides()[i] = 1;
         if (internal::MulOverflow(num_elements, array.shape()[i],
                                   &num_elements)) {
-          return absl::DataLossError(
-              tensorstore::StrCat("Invalid array shape ", array.shape()));
+          return absl::DataLossError(absl::StrFormat(
+              "Invalid array shape %v", absl::FormatStreamed(array.shape())));
         }
       }
     }
@@ -270,14 +271,14 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
     // Validate data lengths.
     if ((dtype.id() == DataTypeIdOf<int16_t> ||
          dtype.id() == DataTypeIdOf<int32_t> ||
-         dtype.id() == DataTypeIdOf<int64_t>)&&proto.int_data_size() !=
-        num_elements) {
+         dtype.id() == DataTypeIdOf<int64_t>) &&
+        proto.int_data_size() != num_elements) {
       return absl::DataLossError("proto int_data incomplete");
     }
     if ((dtype.id() == DataTypeIdOf<uint16_t> ||
          dtype.id() == DataTypeIdOf<uint32_t> ||
-         dtype.id() == DataTypeIdOf<uint64_t>)&&proto.uint_data_size() !=
-        num_elements) {
+         dtype.id() == DataTypeIdOf<uint64_t>) &&
+        proto.uint_data_size() != num_elements) {
       return absl::DataLossError("proto uint_data incomplete");
     }
     if (dtype.id() == DataTypeIdOf<double> &&

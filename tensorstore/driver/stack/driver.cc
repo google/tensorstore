@@ -704,7 +704,7 @@ struct AfterOpenOp {
     if (!status.ok()) {
       state->SetError(MaybeAnnotateStatus(
           std::move(status),
-          tensorstore::StrCat("While opening layer ", layer_id)));
+          absl::StrFormat("While opening layer %d", layer_id)));
     }
   }
 };

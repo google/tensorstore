@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/chunk_layout_keyword_arguments.h"
 #include "python/tensorstore/critical_section.h"
@@ -50,7 +51,6 @@
 #include "tensorstore/util/maybe_hard_constraint.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "python/tensorstore/array_type_caster.h"
@@ -734,7 +734,7 @@ bool type_caster<tensorstore::ChunkLayout::Usage>::load(handle src,
 handle type_caster<tensorstore::ChunkLayout::Usage>::cast(
     tensorstore::ChunkLayout::Usage usage, return_value_policy /* policy */,
     handle /* parent */) {
-  return pybind11::cast(tensorstore::StrCat(usage)).release();
+  return pybind11::cast(absl::StrCat(usage)).release();
 }
 
 }  // namespace detail

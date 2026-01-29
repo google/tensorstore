@@ -24,6 +24,7 @@
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
@@ -246,9 +247,9 @@ struct SubmitMutationBatchOperation
     }
     GenerationNumber new_generation = state->response.root_generation();
     if (!IsValidGenerationNumber(new_generation)) {
-      state->promise.SetResult(absl::InternalError(tensorstore::StrCat(
-          "Invalid root_generation (", new_generation,
-          ") in response from cooperator: ",
+      state->promise.SetResult(absl::InternalError(absl::StrFormat(
+          "Invalid root_generation (%d) in response from cooperator: %v",
+          new_generation,
           tensorstore::QuoteString(state->lease_node->peer_address))));
       return;
     }
@@ -260,12 +261,13 @@ struct SubmitMutationBatchOperation
         tensorstore::CeilOfRatio<size_t>(conditions.size(), 8);
     if (response_conditions_matched.size() !=
         expected_conditions_matched_bytes) {
-      state->promise.SetResult(absl::InternalError(tensorstore::StrCat(
-          "Invalid conditions_matched response from cooperator ",
+      state->promise.SetResult(absl::InternalError(absl::StrFormat(
+          "Invalid conditions_matched response from cooperator %v: "
+          "batch_size=%d, expected_bytes=%d, actual_bytes=%d",
           tensorstore::QuoteString(state->lease_node->peer_address),
-          ": batch_size=", state->batch_request.mutations.size(),
-          ", expected_bytes=", expected_conditions_matched_bytes,
-          ", actual_bytes=", response_conditions_matched.size())));
+          state->batch_request.mutations.size(),
+          expected_conditions_matched_bytes,
+          response_conditions_matched.size())));
       return;
     }
     conditions.bit_span().DeepAssign(

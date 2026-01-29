@@ -14,16 +14,24 @@
 
 #include "tensorstore/internal/json_pointer.h"
 
+#include <stddef.h>
+
 #include <algorithm>
+#include <cassert>
+#include <iterator>
+#include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -55,7 +63,7 @@ absl::Status Validate(std::string_view s) {
 
   const auto parse_error = [&](const auto&... message) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat(message..., ": ", tensorstore::QuoteString(s)));
+        tensorstore::StrCat(message..., ": ", QuoteString(s)));
   };
   if (s[0] != '/') {
     return parse_error("JSON Pointer does not start with '/'");
@@ -212,8 +220,7 @@ Result<::nlohmann::json*> Dereference(::nlohmann::json& full_value,
     size_t pointer_component_end = sub_value_pointer.find('/', i);
     const bool is_leaf = pointer_component_end == std::string_view::npos;
     const auto quoted_pointer = [&] {
-      return tensorstore::QuoteString(
-          sub_value_pointer.substr(0, pointer_component_end));
+      return QuoteString(sub_value_pointer.substr(0, pointer_component_end));
     };
     std::string_view pointer_component =
         sub_value_pointer.substr(i, pointer_component_end - i);
@@ -235,9 +242,9 @@ Result<::nlohmann::json*> Dereference(::nlohmann::json& full_value,
             case kDelete:
               return nullptr;
             case kMustExist:
-              return absl::NotFoundError(
-                  tensorstore::StrCat("JSON Pointer ", quoted_pointer(),
-                                      " refers to non-existent object member"));
+              return absl::NotFoundError(absl::StrFormat(
+                  "JSON Pointer %v refers to non-existent object member",
+                  quoted_pointer()));
             case kCreate:
               ABSL_UNREACHABLE();  // COV_NF_LINE
           }
@@ -249,9 +256,9 @@ Result<::nlohmann::json*> Dereference(::nlohmann::json& full_value,
       if (pointer_component == "-") {
         switch (mode) {
           case kMustExist:
-            return absl::FailedPreconditionError(
-                tensorstore::StrCat("JSON Pointer ", quoted_pointer(),
-                                    " refers to non-existent array element"));
+            return absl::FailedPreconditionError(absl::StrFormat(
+                "JSON Pointer %v refers to non-existent array element",
+                quoted_pointer()));
           case kCreate:
             sub_value =
                 &j_array->emplace_back(::nlohmann::json::value_t::discarded);
@@ -267,15 +274,14 @@ Result<::nlohmann::json*> Dereference(::nlohmann::json& full_value,
                         [](char c) { return !absl::ascii_isdigit(c); }) ||
             (pointer_component.size() > 1 && pointer_component[0] == '0') ||
             !absl::SimpleAtoi(pointer_component, &array_index)) {
-          return absl::FailedPreconditionError(
-              tensorstore::StrCat("JSON Pointer ", quoted_pointer(),
-                                  " is invalid for array value"));
+          return absl::FailedPreconditionError(absl::StrFormat(
+              "JSON Pointer %v is invalid for array value", quoted_pointer()));
         }
         if (array_index >= j_array->size()) {
           if (mode == kDelete) return nullptr;
-          return absl::OutOfRangeError(tensorstore::StrCat(
-              "JSON Pointer ", quoted_pointer(),
-              " is out-of-range for array of size ", j_array->size()));
+          return absl::OutOfRangeError(absl::StrFormat(
+              "JSON Pointer %v is out-of-range for array of size %d",
+              quoted_pointer(), j_array->size()));
         }
         if (mode == kDelete && is_leaf) {
           j_array->erase(j_array->begin() + array_index);
@@ -284,9 +290,9 @@ Result<::nlohmann::json*> Dereference(::nlohmann::json& full_value,
         sub_value = &(*j_array)[array_index];
       }
     } else {
-      return absl::FailedPreconditionError(tensorstore::StrCat(
-          "JSON Pointer reference ", quoted_pointer(), " cannot be applied to ",
-          sub_value->type_name(), " value: ", *sub_value));
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "JSON Pointer reference %v cannot be applied to %s value: %s",
+          quoted_pointer(), sub_value->type_name(), sub_value->dump()));
     }
     if (pointer_component_end == std::string_view::npos) {
       assert(mode != kDelete);

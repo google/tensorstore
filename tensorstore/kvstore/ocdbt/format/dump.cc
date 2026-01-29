@@ -22,6 +22,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "re2/re2.h"
 #include "tensorstore/internal/ascii_set.h"
@@ -54,8 +55,8 @@ Result<LabeledIndirectDataReference> LabeledIndirectDataReference::Parse(
   if (!RE2::FullMatch(s, *kPattern, &label, &encoded_base_path,
                       &encoded_relative_path, &r.location.offset,
                       &r.location.length)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid indirect data reference: ", tensorstore::QuoteString(s)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid indirect data reference: %v", tensorstore::QuoteString(s)));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(r.kind, ParseIndirectDataKind(label));
   r.location.file_id.base_path = internal::PercentDecode(encoded_base_path);
@@ -127,9 +128,9 @@ constexpr auto IndirectDataReferenceBinder(IndirectDataKind kind) {
       [kind](auto is_loading, const auto& options, auto* obj, auto* j) {
         if constexpr (is_loading) {
           if (j->kind != kind) {
-            return absl::InvalidArgumentError(tensorstore::StrCat(
-                "Indirect data reference kind mismatch: expected ", kind,
-                ", got ", j->kind));
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Indirect data reference kind mismatch: expected %v, got %v",
+                kind, j->kind));
           }
           *obj = j->location;
         } else {

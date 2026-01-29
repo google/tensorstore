@@ -14,12 +14,12 @@ filegroup(
 cc_library(
     name = "snappy",
     srcs = [
+        "config.h",
         "snappy.cc",
         "snappy-internal.h",
         "snappy-sinksource.cc",
         "snappy-stubs-internal.cc",
         "snappy-stubs-internal.h",
-        "config.h",
     ],
     hdrs = [
         "snappy.h",
@@ -39,8 +39,8 @@ cc_library(
     name = "snappy-c",
     srcs = ["snappy-c.cc"],
     hdrs = ["snappy-c.h"],
-    deps = [":snappy"],
     local_defines = ["HAVE_CONFIG_H"],
+    deps = [":snappy"],
 )
 
 # Generate a config.h similar to what cmake would produce.

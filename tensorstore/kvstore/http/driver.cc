@@ -127,9 +127,9 @@ bool IsRetriable(const absl::Status& status) {
 
 absl::Status ValidateParsedHttpUrl(const internal::ParsedGenericUri& parsed) {
   if (parsed.scheme != "http" && parsed.scheme != "https") {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Expected scheme of \"http\" or \"https\" but received: ",
-        tensorstore::QuoteString(parsed.scheme)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Expected scheme of \"http\" or \"https\" but received: %v",
+        QuoteString(parsed.scheme)));
   }
   if (!parsed.fragment.empty()) {
     return absl::InvalidArgumentError("Fragment identifier not supported");
@@ -213,11 +213,10 @@ class HttpKeyValueStoreSpec
       internal::AppendPathComponent(new_path, path);
       path = std::move(new_path);
     } else if (new_path != "/") {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Cannot specify absolute path ", tensorstore::QuoteString(path),
-          " in conjunction with base URL ",
-          tensorstore::QuoteString(data_.base_url),
-          " that includes a path component"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Cannot specify absolute path %v in conjunction with base URL %v "
+          "that includes a path component",
+          QuoteString(path), QuoteString(data_.base_url)));
     }
     data_.base_url = std::move(base_url);
     return absl::OkStatus();
@@ -287,15 +286,18 @@ struct ReadTask {
 
     if (StorageGeneration::IsCleanValidValue(
             options.generation_conditions.if_equal)) {
-      request_builder.AddHeader("if-match",
-                                QuoteString(StorageGeneration::DecodeString(
-                                    options.generation_conditions.if_equal)));
+      request_builder.AddHeader(
+          "if-match", QuoteString(StorageGeneration::DecodeString(
+                                      options.generation_conditions.if_equal))
+                          .ToString());
     }
     if (StorageGeneration::IsCleanValidValue(
             options.generation_conditions.if_not_equal)) {
       request_builder.AddHeader(
-          "if-none-match", QuoteString(StorageGeneration::DecodeString(
-                               options.generation_conditions.if_not_equal)));
+          "if-none-match",
+          QuoteString(StorageGeneration::DecodeString(
+                          options.generation_conditions.if_not_equal))
+              .ToString());
     }
 
     auto request = request_builder.BuildRequest();
@@ -329,8 +331,8 @@ struct ReadTask {
           response_date == absl::InfiniteFuture() ||
           response_date == absl::InfinitePast()) {
         return absl::InvalidArgumentError(
-            tensorstore::StrCat("Invalid \"date\" response header: ",
-                                tensorstore::QuoteString(date_it->second)));
+            absl::StrFormat("Invalid \"date\" response header: %v",
+                            QuoteString(date_it->second)));
       }
       if (response_date < start_time) {
         if (options.staleness_bound < start_time &&

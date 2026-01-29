@@ -89,9 +89,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "@libjpeg_turbo//:jpeg",
-        "@zlib//:zlib",
-        "@zstd//:zstd",
         "@xz//:lzma",
+        "@zlib",
+        "@zstd",
     ],
 )
 

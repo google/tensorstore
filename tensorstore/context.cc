@@ -30,6 +30,8 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -52,7 +54,6 @@
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_context {
@@ -182,18 +183,18 @@ void KillCycle(ResourceContainer* container) {
     assert(node->spec_);
     std::string part;
     if (!node->spec_->key_.empty()) {
-      tensorstore::StrAppend(&part, QuoteString(node->spec_->key_), ":");
+      absl::StrAppendFormat(&part, "%v:", QuoteString(node->spec_->key_));
     }
     auto json_result = node->spec_->ToJson(IncludeDefaults{true});
     if (json_result.has_value()) {
-      tensorstore::StrAppend(
+      absl::StrAppend(
           &part,
           json_result->dump(
               /*indent=*/-1, /*indent_char=*/' ', /*ensure_ascii=*/true,
               /*error_handler=*/::nlohmann::json::error_handler_t::ignore));
     } else {
-      tensorstore::StrAppend(
-          &part, "unprintable spec for ",
+      absl::StrAppendFormat(
+          &part, "unprintable spec for %v",
           tensorstore::QuoteString(node->spec_->provider_->id_));
     }
     parts.push_back(std::move(part));
@@ -373,8 +374,8 @@ class ResourceReference : public ResourceSpecImplBase {
       }
       if (!c->parent_) {
         if (referent != provider_->id_) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Resource not defined: ", QuoteString(referent)));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Resource not defined: %v", QuoteString(referent)));
         }
         // Create default.
         auto default_spec = MakeDefaultResourceSpec(*provider_, provider_->id_);
@@ -444,8 +445,8 @@ std::string_view ParseResourceProvider(std::string_view key) {
 }
 
 absl::Status ProviderNotRegisteredError(std::string_view key) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Invalid context resource identifier: ", QuoteString(key)));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Invalid context resource identifier: %v", QuoteString(key)));
 }
 
 Result<ResourceSpecImplPtr> ResourceSpecFromJson(
@@ -463,10 +464,10 @@ Result<ResourceSpecImplPtr> ResourceSpecFromJson(
     } else if (auto result = provider.FromJson(j, options); result.ok()) {
       impl = std::move(result).value();
     } else {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Invalid spec or reference to ", QuoteString(provider.id_),
-          " resource: ", QuoteString(*s), " (", result.status().message(),
-          ")"));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Invalid spec or reference to %v resource: %v (%s)",
+                          QuoteString(provider.id_), QuoteString(*s),
+                          result.status().message()));
     }
   } else {
     TENSORSTORE_ASSIGN_OR_RETURN(impl, provider.FromJson(j, options));
@@ -655,7 +656,7 @@ BuilderImpl::~BuilderImpl() {
       // Find the first number `i` such that `<id>#<i>` is unused.
       size_t i = 0;
       while (true) {
-        key = tensorstore::StrCat(resource->spec_->provider_->id_, "#", i);
+        key = absl::StrFormat("%s#%d", resource->spec_->provider_->id_, i);
         if (!ids.count(key)) break;
         ++i;
       }
@@ -801,9 +802,9 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
 
           for (const auto& [key, value] : *j) {
             if (absl::StrContains(key, '#')) {
-              return absl::InvalidArgumentError(tensorstore::StrCat(
-                  "Context resource identifier must not contain \"#\": ",
-                  tensorstore::QuoteString(key)));
+              return absl::InvalidArgumentError(absl::StrFormat(
+                  "Context resource identifier must not contain \"#\": %v",
+                  QuoteString(key)));
             }
             TENSORSTORE_ASSIGN_OR_RETURN(
                 auto resource, internal_context::ResourceSpecFromJsonWithKey(
@@ -1043,10 +1044,9 @@ namespace {
   if (internal_context::ParseResourceProvider(key) == provider_id) {
     return true;
   }
-  source.Fail(serialization::DecodeError(tensorstore::StrCat(
-      "Context resource key ", tensorstore::QuoteString(key),
-      " does not match expected provider ",
-      tensorstore::QuoteString(provider_id))));
+  source.Fail(serialization::DecodeError(absl::StrFormat(
+      "Context resource key %v does not match expected provider %v",
+      QuoteString(key), QuoteString(provider_id))));
   return false;
 }
 
@@ -1235,10 +1235,10 @@ bool EncodeContextSpecBuilder(serialization::EncodeSink& sink,
     return false;
   }
   if (resource->spec_->provider_->id_ != provider_id) {
-    source.Fail(serialization::DecodeError(tensorstore::StrCat(
-        "Context resource has provider id ",
-        tensorstore::QuoteString(resource->spec_->provider_->id_),
-        " but expected ", tensorstore::QuoteString(provider_id))));
+    source.Fail(serialization::DecodeError(
+        absl::StrFormat("Context resource has provider id %v but expected %v",
+                        QuoteString(resource->spec_->provider_->id_),
+                        QuoteString(provider_id))));
     return false;
   }
   auto container = std::make_unique<internal_context::ResourceContainer>();
@@ -1257,8 +1257,8 @@ bool EncodeContextSpecBuilder(serialization::EncodeSink& sink,
   if (!context_impl.spec_->resources_.emplace(container->spec_).second) {
     // Keys are not unique.
     source.Fail(absl::DataLossError(
-        tensorstore::StrCat("Duplicate context resource key in Context spec ",
-                            tensorstore::QuoteString(container->spec_->key_))));
+        absl::StrFormat("Duplicate context resource key in Context spec %v",
+                        QuoteString(container->spec_->key_))));
     return false;
   }
   [[maybe_unused]] bool inserted_resource =

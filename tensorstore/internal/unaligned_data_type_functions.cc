@@ -20,6 +20,7 @@
 #include <complex>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/endian_elementwise_conversion.h"
@@ -46,8 +47,8 @@ struct ValidateBoolLoopImpl {
   bool operator()(const unsigned char* value, void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
     if (*value & ~static_cast<unsigned char>(1)) {
-      *status = absl::InvalidArgumentError(tensorstore::StrCat(
-          "Invalid bool value: ", static_cast<int>(*value)));
+      *status = absl::InvalidArgumentError(
+          absl::StrFormat("Invalid bool value: %d", static_cast<int>(*value)));
       return false;
     }
     return true;

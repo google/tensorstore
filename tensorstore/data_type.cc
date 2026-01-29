@@ -29,6 +29,7 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/index.h"
@@ -108,7 +109,7 @@ std::shared_ptr<void> AllocateAndConstructShared<void>(
 
 std::string StaticCastTraits<DataType>::Describe(DataType dtype) {
   if (!dtype.valid()) return "dynamic data type";
-  return tensorstore::StrCat("data type of ", dtype);
+  return absl::StrFormat("data type of %v", dtype);
 }
 
 namespace internal_data_type {
@@ -602,20 +603,20 @@ Result<DataTypeConversionLookupResult> GetDataTypeConverterOrError(
     if (!!(lookup_result.flags & DataTypeConversionFlags::kSupported)) {
       if (!!(required_flags & DataTypeConversionFlags::kSafeAndImplicit) &&
           !(lookup_result.flags & DataTypeConversionFlags::kSafeAndImplicit)) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Explicit data type conversion required to convert ", from, " -> ",
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Explicit data type conversion required to convert %v -> %v", from,
             to));
       }
     }
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Cannot convert ", from, " -> ", to));
+        absl::StrFormat("Cannot convert %v -> %v", from, to));
   }
   return lookup_result;
 }
 
 absl::Status NonSerializableDataTypeError(DataType dtype) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Cannot serialize custom data type: ", dtype->type.name()));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Cannot serialize custom data type: %s", dtype->type.name()));
 }
 }  // namespace internal
 
@@ -652,7 +653,7 @@ bool Serializer<DataType>::Decode(DecodeSource& source, DataType& value) {
   value = GetDataType(name);
   if (!value.valid()) {
     source.Fail(absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid data type: ", name)));
+        absl::StrFormat("Invalid data type: %s", name)));
     return false;
   }
   return true;

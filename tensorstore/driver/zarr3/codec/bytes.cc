@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/array.h"
@@ -52,8 +53,8 @@ namespace internal_zarr3 {
 
 namespace {
 absl::Status InvalidDataTypeError(DataType dtype) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Data type ", dtype, " not compatible with \"bytes\" codec"));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Data type %v not compatible with \"bytes\" codec", dtype));
 }
 
 class BytesCodec : public ZarrArrayToBytesCodec {
@@ -119,9 +120,9 @@ Result<ZarrArrayToBytesCodec::Ptr> BytesCodecSpec::Resolve(
       internal::IsEndianInvariantDataType(decoded.dtype);
   if (!options.constraints && !is_endian_invariant && !options.endianness) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("\"bytes\" codec requires that \"endian\" option "
-                            "is specified for data type ",
-                            decoded.dtype));
+        absl::StrFormat("\"bytes\" codec requires that \"endian\" option "
+                        "is specified for data type %v",
+                        decoded.dtype));
   }
   encoded.item_bits = decoded.dtype.size() * 8;
   DimensionIndex rank = decoded.rank;

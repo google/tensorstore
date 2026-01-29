@@ -29,6 +29,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
@@ -385,9 +386,9 @@ void OcdbtDriver::ListImpl(kvstore::ListOptions options,
 
 namespace {
 absl::Status GetReadOnlyError(OcdbtDriver& driver) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Writing is not supported with version=",
-      FormatVersionSpecForUrl(*driver.version_spec_), " specified"));
+  return absl::InvalidArgumentError(
+      absl::StrFormat("Writing is not supported with version=%s specified",
+                      FormatVersionSpecForUrl(*driver.version_spec_)));
 }
 }  // namespace
 
@@ -549,8 +550,8 @@ namespace {
 Result<kvstore::Spec> ParseOcdbtUrl(std::string_view url, kvstore::Spec base) {
   auto parsed = internal::ParseGenericUri(url);
   if (parsed.scheme != OcdbtDriverSpec::id) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Scheme \"", OcdbtDriverSpec::id, ":\" not present in url"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Scheme \"%s:\" not present in url", OcdbtDriverSpec::id));
   }
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   std::string_view encoded_path = parsed.path;

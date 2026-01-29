@@ -15,11 +15,22 @@
 #include "tensorstore/index_space/alignment.h"
 
 #include <algorithm>
+#include <cassert>
 #include <numeric>
+#include <string>
+#include <string_view>
+#include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -33,9 +44,10 @@ absl::Status AlignDimensionsTo(IndexDomainView<> source,
   const DimensionIndex target_rank = target.rank();
   if (!(options & DomainAlignmentOptions::broadcast) &&
       source_rank != target_rank) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Aligning source domain of rank ", source_rank,
-        " to target domain of rank ", target_rank, " requires broadcasting"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Aligning source domain of rank %d to target domain of rank %d "
+        "requires broadcasting",
+        source_rank, target_rank));
   }
   assert(source_matches.size() == source_rank);
   const auto source_labels = source.labels();
@@ -95,29 +107,32 @@ absl::Status AlignDimensionsTo(IndexDomainView<> source,
               : source_size != target_shape[j]) {
         if (!(options & DomainAlignmentOptions::broadcast) ||
             source_size != 1) {
-          tensorstore::StrAppend(&mismatch_error, "source dimension ", i, " ",
-                                 source[i], " mismatch with target dimension ",
-                                 j, " ", target[j], ", ");
+          absl::StrAppendFormat(&mismatch_error,
+                                "source dimension %d %v mismatch with target "
+                                "dimension %d %v, ",
+                                i, source[i], j, target[j]);
         }
         j = -1;
       }
     } else {
       // j == -1
       if (!(options & DomainAlignmentOptions::broadcast)) {
-        tensorstore::StrAppend(&mismatch_error, "unmatched source dimension ",
-                               i, " ", source[i], ", ");
+        absl::StrAppendFormat(&mismatch_error,
+                              "unmatched source dimension %d %v, ", i,
+                              source[i]);
       }
       if (source_size != 1) {
-        tensorstore::StrAppend(&mismatch_error, "unmatched source dimension ",
-                               i, " ", source[i],
-                               " does not have a size of 1, ");
+        absl::StrAppendFormat(&mismatch_error,
+                              "unmatched source dimension %d %v does not have "
+                              "a size of 1, ",
+                              i, source[i]);
       }
     }
   }
   if (!mismatch_error.empty()) {
     mismatch_error.resize(mismatch_error.size() - 2);
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Error aligning dimensions: ", mismatch_error));
+        absl::StrFormat("Error aligning dimensions: %s", mismatch_error));
   }
   return absl::OkStatus();
 }

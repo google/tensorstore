@@ -59,14 +59,14 @@ cc_library(
         "lib/zstd.h",
         "lib/zstd_errors.h",
     ],
-    includes = ["lib"],
-    local_defines = LOCAL_DEFINES,
     defines = [
         # Since this rule is used to build a static library, prevent ZSTD from
         # overriding global `-fvisibility=hidden` setting.
         "ZSTDLIB_VISIBLE=",
         "ZSTDLIB_HIDDEN=",
     ],
+    includes = ["lib"],
+    local_defines = LOCAL_DEFINES,
     visibility = ["//visibility:public"],
 )
 

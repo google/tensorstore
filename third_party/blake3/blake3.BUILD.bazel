@@ -16,8 +16,6 @@ cc_library(
         "c/blake3.h",
         "c/blake3_impl.h",
     ],
-    strip_include_prefix = "c",
-    visibility = ["//visibility:public"],
     implementation_deps = select({
         "@platforms//cpu:aarch64": [":blake3_neon"],
         "@platforms//cpu:x86_32": [
@@ -31,6 +29,8 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    strip_include_prefix = "c",
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -74,7 +74,10 @@ cc_library(
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:SSE2"],
         "//conditions:default": ["-msse2"],
     }),
-    target_compatible_with = ["@platforms//cpu:x86_64", "@platforms//cpu:x86_32"],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//cpu:x86_32",
+    ],
     deps = [":blake3_impl"],
 )
 
@@ -87,7 +90,10 @@ cc_library(
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:AVX"],
         "//conditions:default": ["-msse4.1"],
     }),
-    target_compatible_with = ["@platforms//cpu:x86_64", "@platforms//cpu:x86_32"],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//cpu:x86_32",
+    ],
     deps = [":blake3_impl"],
 )
 
@@ -98,7 +104,10 @@ cc_library(
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:AVX2"],
         "//conditions:default": ["-mavx2"],
     }),
-    target_compatible_with = ["@platforms//cpu:x86_64", "@platforms//cpu:x86_32"],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//cpu:x86_32",
+    ],
     deps = [":blake3_impl"],
 )
 
@@ -112,13 +121,16 @@ cc_library(
             "-mavx512vl",
         ],
     }),
-    target_compatible_with = ["@platforms//cpu:x86_64", "@platforms//cpu:x86_32"],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//cpu:x86_32",
+    ],
     deps = [":blake3_impl"],
 )
 
 cc_library(
     name = "blake3_neon",
     srcs = ["c/blake3_neon.c"],
-    deps = [":blake3_impl"],
     target_compatible_with = ["@platforms//cpu:aarch64"],
+    deps = [":blake3_impl"],
 )

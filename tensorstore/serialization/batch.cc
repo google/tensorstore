@@ -15,6 +15,7 @@
 #include "tensorstore/serialization/batch.h"
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -45,17 +46,17 @@ bool BatchDecodeSource::DoIndirect(const std::type_info& type,
   size_t id;
   if (!serialization::ReadSize(reader(), id)) return false;
   if (id > indirect_objects_.size()) {
-    Fail(DecodeError(tensorstore::StrCat("Indirect object index ", id,
-                                         " out of range [0, ",
-                                         indirect_objects_.size(), ")")));
+    Fail(DecodeError(
+        absl::StrFormat("Indirect object index %d out of range [0, %d)", id,
+                        indirect_objects_.size())));
     return false;
   }
   if (id < indirect_objects_.size()) {
     auto& entry = indirect_objects_[id];
     if (*entry.type != type) {
-      Fail(absl::InvalidArgumentError(tensorstore::StrCat(
-          "Type mismatch for indirect object, received ", entry.type->name(),
-          " but expected ", type.name())));
+      Fail(absl::InvalidArgumentError(absl::StrFormat(
+          "Type mismatch for indirect object, received %s but expected %s",
+          entry.type->name(), type.name())));
       return false;
     }
     value = entry.value;

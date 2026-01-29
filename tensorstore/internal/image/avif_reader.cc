@@ -337,8 +337,8 @@ absl::Status AvifReader::Initialize(riegeli::Reader* reader) {
 
   avifResult result = avifDecoderParse(decoder.get());
   if (result != AVIF_RESULT_OK) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Failed to parse AVIF stream: ", avifResultToString(result)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Failed to parse AVIF stream: %s", avifResultToString(result)));
   }
   if (decoder->imageCount != 1) {
     return absl::InvalidArgumentError(
@@ -348,8 +348,8 @@ absl::Status AvifReader::Initialize(riegeli::Reader* reader) {
   // Only read the first image even if there are multiple.
   result = avifDecoderNextImage(decoder.get());
   if (result != AVIF_RESULT_OK) {
-    return absl::DataLossError(tensorstore::StrCat(
-        "Failed to decode AVIF image: ", avifResultToString(result)));
+    return absl::DataLossError(absl::StrFormat(
+        "Failed to decode AVIF image: %s", avifResultToString(result)));
   }
 
   decoder_ = std::move(decoder);

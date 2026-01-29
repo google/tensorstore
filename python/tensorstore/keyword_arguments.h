@@ -56,6 +56,7 @@
 #include <string_view>
 
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"  // IWYU pragma: keep
@@ -160,14 +161,14 @@ void SetKeywordArgumentOrThrow(Target& target, KeywordArgument<ParamDef>& arg) {
   if (arg.value.is_none()) return;
   pybind11::detail::make_caster<typename ParamDef::type> caster;
   if (!caster.load(arg.value, /*convert=*/true)) {
-    throw pybind11::type_error(tensorstore::StrCat("Invalid ", ParamDef::name));
+    throw pybind11::type_error(absl::StrFormat("Invalid %s", ParamDef::name));
   }
   auto status = ParamDef::Apply(
       target,
       pybind11::detail::cast_op<typename ParamDef::type&&>(std::move(caster)));
   if (!status.ok()) {
     ThrowStatusException(MaybeAnnotateStatus(
-        status, tensorstore::StrCat("Invalid ", ParamDef::name)));
+        status, absl::StrFormat("Invalid %s", ParamDef::name)));
   }
 }
 

@@ -14,9 +14,28 @@
 
 #include "tensorstore/index_space/dimension_units.h"
 
+#include <stddef.h>
+
+#include <cassert>
+#include <cstdlib>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 
@@ -43,9 +62,9 @@ Result<DimensionUnitsVector> TransformInputDimensionUnits(
   }
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     if (!input_units[input_dim] || seen_input_dims[input_dim]) continue;
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "No output dimension corresponds to input dimension ", input_dim,
-        " with unit ", *input_units[input_dim]));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "No output dimension corresponds to input dimension %d with unit %v",
+        input_dim, *input_units[input_dim]));
   }
   // Copy `output_units` to `input_units`.
   input_units.resize(output_rank);
@@ -95,9 +114,10 @@ absl::Status MergeDimensionUnits(DimensionUnitsVector& existing_units,
     auto& new_unit = new_units[i];
     if (!new_unit) continue;
     if (existing_unit && existing_unit != new_unit) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Cannot merge dimension units ", DimensionUnitsToString(new_units),
-          " and ", DimensionUnitsToString(existing_units)));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Cannot merge dimension units %s and %s",
+                          DimensionUnitsToString(new_units),
+                          DimensionUnitsToString(existing_units)));
     }
   }
   // Apply changes.
@@ -110,7 +130,8 @@ absl::Status MergeDimensionUnits(DimensionUnitsVector& existing_units,
   return absl::OkStatus();
 }
 
-std::string DimensionUnitsToString(span<const std::optional<Unit>> u) {
+std::string DimensionUnitsToString(
+    tensorstore::span<const std::optional<Unit>> u) {
   std::string result = "[";
   std::string_view sep = "";
   for (const auto& unit : u) {
@@ -119,7 +140,7 @@ std::string DimensionUnitsToString(span<const std::optional<Unit>> u) {
     if (!unit) {
       result += "null";
     } else {
-      result += tensorstore::QuoteString(tensorstore::StrCat(*unit));
+      absl::StrAppendFormat(&result, "%v", QuoteString(absl::StrCat(*unit)));
     }
   }
   result += "]";

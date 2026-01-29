@@ -485,9 +485,9 @@ class AsyncCache : public Cache {
     template <typename Sink>
     friend void AbslStringify(Sink& sink, const Entry& entry) {
       auto& owning_cache = GetOwningCache(const_cast<Entry&>(entry));
-      absl::Format(&sink, "[%s: entry=%p, key=%s] ",
+      absl::Format(&sink, "[%s: entry=%p, key=%v] ",
                    typeid(owning_cache).name(), &entry,
-                   tensorstore::QuoteString(entry.key()));
+                   QuoteString(entry.key()));
     }
   };
 
@@ -909,9 +909,9 @@ class AsyncCache : public Cache {
       auto& owning_cache = GetOwningCache(entry);
       const auto* txn = node.transaction();
       absl::Format(
-          &sink, "[%s: entry=%p, key=%s, node=%p, transaction=%p%s, phase=%d] ",
-          typeid(owning_cache).name(), &entry,
-          tensorstore::QuoteString(entry.key()), &node, txn,
+          &sink, "[%s: entry=%p, key=%v, node=%p, transaction=%p%s, phase=%d] ",
+          typeid(owning_cache).name(), &entry, QuoteString(entry.key()), &node,
+          txn,
           txn == nullptr                ? ""
           : txn->implicit_transaction() ? " (implicit)"
                                         : " (explicit)",

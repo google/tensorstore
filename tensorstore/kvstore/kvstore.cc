@@ -33,6 +33,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"  // IWYU pragma: keep
 #include <nlohmann/json.hpp>
@@ -408,7 +409,7 @@ ListSender Driver::List(ListOptions options,
 }
 
 std::string Driver::DescribeKey(std::string_view key) {
-  return tensorstore::QuoteString(key);
+  return QuoteString(key).ToString();
 }
 
 absl::Status Driver::AnnotateError(std::string_view key,
@@ -425,7 +426,7 @@ absl::Status Driver::AnnotateErrorWithKeyDescription(
     return error;
   }
   return tensorstore::MaybeAnnotateStatus(
-      error, absl::StrCat("Error ", action, " ", key_description), loc);
+      error, absl::StrFormat("Error %s %s", action, key_description), loc);
 }
 
 bool operator==(const KvStore& a, const KvStore& b) {
