@@ -286,7 +286,7 @@ class ReadParameters {
   Executor executor_;
   StorageGeneration if_not_equal_;
   absl::Time staleness_bound_;
-  Batch batch_ = no_batch;
+  Batch batch_{no_batch};
 };
 
 /// Type-erased function called to read a single chunk.
