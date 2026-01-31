@@ -9,13 +9,13 @@ licenses(["notice"])  # BSD/MIT-like license (for zlib)
 cc_library(
     name = "zlib",
     hdrs = [
-        "zlib.h",
         "zconf.h",
+        "zlib.h",
     ],
-    includes = ["."],  # for include <zlib.h>
     defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
-    visibility = ["//visibility:public"],
     implementation_deps = [":zlib_impl"],
+    includes = ["."],  # for include <zlib.h>
+    visibility = ["//visibility:public"],
 )
 
 ###############################################
@@ -60,6 +60,7 @@ cc_library(
         ],
     }),
     hdrs = [
+        "contrib/optimizations/insert_string.h",
         "crc32.h",
         "deflate.h",
         "gzguts.h",
@@ -69,7 +70,6 @@ cc_library(
         "inftrees.h",
         "trees.h",
         "zutil.h",
-        "contrib/optimizations/insert_string.h",
     ],
     copts = select({
         ":use_x86_msvc_flags": ["/arch:AVX"],

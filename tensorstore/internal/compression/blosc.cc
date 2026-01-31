@@ -24,13 +24,13 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <blosc.h>
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace blosc {
@@ -51,9 +51,9 @@ Result<size_t> EncodeWithCallback(
     std::string_view input, const Options& options,
     absl::FunctionRef<char*(size_t)> get_output_buffer) {
   if (input.size() > BLOSC_MAX_BUFFERSIZE) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Blosc compression input of ", input.size(),
-        " bytes exceeds maximum size of ", BLOSC_MAX_BUFFERSIZE));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Blosc compression input of %zu bytes exceeds maximum size of %d",
+        input.size(), BLOSC_MAX_BUFFERSIZE));
   }
   size_t output_buffer_size = input.size() + BLOSC_MAX_OVERHEAD;
   char* output_buffer = get_output_buffer(output_buffer_size);
@@ -67,8 +67,7 @@ Result<size_t> EncodeWithCallback(
       output_buffer, output_buffer_size, options.compressor, options.blocksize,
       /*numinternalthreads=*/1);
   if (n < 0) {
-    return absl::InternalError(
-        tensorstore::StrCat("Internal blosc error: ", n));
+    return absl::InternalError(absl::StrFormat("Internal blosc error: %d", n));
   }
   return n;
 }
@@ -93,8 +92,7 @@ Result<size_t> DecodeWithCallback(
     const int n = blosc_decompress_ctx(input.data(), output_buffer, nbytes,
                                        /*numinternalthreads=*/1);
     if (n <= 0) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Blosc error: ", n));
+      return absl::InvalidArgumentError(absl::StrFormat("Blosc error: %d", n));
     }
   }
   return nbytes;

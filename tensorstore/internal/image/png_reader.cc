@@ -138,8 +138,8 @@ absl::Status PngReader::Context::Initialize() {
   assert(height < std::numeric_limits<int32_t>::max());
   // num_components is between [1,4] inclusive.
   if (bit_depth > 16) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Failed to decode PNG: bit_depth (", bit_depth, ")"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Failed to decode PNG: bit_depth (%d)", bit_depth));
   }
   return absl::OkStatus();
 }

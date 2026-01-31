@@ -438,8 +438,9 @@ struct PythonFutureObject {
   // Implementation of `Make` for a particular Future<T> type.
   // `T` is guaranteed to be non-const.
   template <typename T>
-  static pybind11::object MakeInternal(
-      Future<const T> future, PythonObjectReferenceManager manager = {}) {
+  static pybind11::object MakeInternal(Future<const T> future,
+                                       PythonObjectReferenceManager manager =
+                                           {}) ABSL_NO_THREAD_SAFETY_ANALYSIS {
     assert(!future.null());
     pybind11::object self = pybind11::reinterpret_steal<pybind11::object>(
         python_type->tp_alloc(python_type, 0));

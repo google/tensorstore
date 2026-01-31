@@ -22,10 +22,12 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -229,6 +231,20 @@ class IndexInterval {
   /// may be "+inf".
   friend std::ostream& operator<<(std::ostream& os, IndexInterval x);
 
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, IndexInterval x) {
+    if (x.inclusive_min() == -kInfIndex) {
+      sink.Append("(-inf");
+    } else {
+      absl::Format(&sink, "[%d", x.inclusive_min());
+    }
+    if (x.inclusive_max() == kInfIndex) {
+      sink.Append(", +inf)");
+    } else {
+      absl::Format(&sink, ", %d)", x.exclusive_max());
+    }
+  }
+
   /// Compares two intervals for equality.
   friend constexpr bool operator==(IndexInterval a, IndexInterval b) {
     return a.inclusive_min() == b.inclusive_min() && a.size() == b.size();
@@ -353,6 +369,11 @@ class IndexIntervalRef {
   /// Prints a string representation.
   friend std::ostream& operator<<(std::ostream& os, IndexIntervalRef x) {
     return os << static_cast<IndexInterval>(x);
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, IndexIntervalRef x) {
+    absl::Format(&sink, "%v", static_cast<IndexInterval>(x));
   }
 
   /// Compares two intervals for equality.
@@ -538,6 +559,25 @@ class OptionallyImplicitIndexInterval : public IndexInterval {
   friend std::ostream& operator<<(std::ostream& os,
                                   const OptionallyImplicitIndexInterval& x);
 
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink,
+                            const OptionallyImplicitIndexInterval& x) {
+    if (x.inclusive_min() == -kInfIndex) {
+      sink.Append("(-inf");
+    } else {
+      absl::Format(&sink, "[%d", x.inclusive_min());
+    }
+    if (x.implicit_lower()) sink.Append("*");
+    sink.Append(", ");
+    if (x.inclusive_max() == kInfIndex) {
+      sink.Append("+inf");
+    } else {
+      absl::Format(&sink, "%d", x.exclusive_max());
+    }
+    if (x.implicit_upper()) sink.Append("*");
+    sink.Append(")");
+  }
+
   /// Compares two intervals for equality.
   friend bool operator==(const OptionallyImplicitIndexInterval& a,
                          const OptionallyImplicitIndexInterval& b) {
@@ -687,6 +727,16 @@ class IndexDomainDimension : public OptionallyImplicitIndexInterval {
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const IndexDomainDimension& x) {
+    if (x.label().empty()) {
+      absl::Format(&sink, "%v", x.optionally_implicit_interval());
+    } else {
+      absl::Format(&sink, "%v: %v", QuoteString(x.label()),
+                   x.optionally_implicit_interval());
+    }
+  }
 
   /// Compares the bounds and labels.
   friend bool operator==(const IndexDomainDimension<container>& a,

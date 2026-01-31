@@ -45,9 +45,9 @@ cc_library(
         "//conditions:default": [],
     }),
     deps = [
+        ":darwin_headers",
         "@aws_c_common",
         "@boringssl//:crypto",
-        ":darwin_headers",
     ],
 )
 

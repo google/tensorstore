@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/transform_broadcastable_array.h"
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index_interval.h"
@@ -94,9 +95,9 @@ Result<SharedArray<const void>> TransformInputBroadcastableArray(
        ++output_dim) {
     const auto map = transform.output_index_maps()[output_dim];
     if (map.method() != OutputIndexMethod::single_input_dimension) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Cannot transform input array through ",
-                              map.method(), " output index map"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Cannot transform input array through %v output index map",
+          map.method()));
     }
     const DimensionIndex input_dim = map.input_dimension();
     if (seen_input_dims[input_dim]) {
@@ -140,10 +141,9 @@ Result<SharedArray<const void>> TransformInputBroadcastableArray(
     const DimensionIndex input_dim =
         input_rank - input_array.rank() + input_array_dim;
     if (input_dim < 0 || !seen_input_dims[input_dim]) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Cannot transform input array; "
-                              "dimension ",
-                              input_array_dim, " cannot be mapped"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Cannot transform input array; dimension %d cannot be mapped",
+          input_array_dim));
     }
   }
   output_array.element_pointer() = SharedElementPointer<const void>(

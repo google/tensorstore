@@ -17,36 +17,36 @@ WEBP_DEFINES = select({
 
 cc_library(
     name = "webp",
-    hdrs = [
-        "src/webp/decode.h",
-        "src/webp/encode.h",
-        "src/webp/format_constants.h",
-        "src/webp/mux_types.h",
-        "src/webp/types.h",
-        "src/webp/demux.h",
-        "src/webp/mux.h",
-    ],
     srcs = [
         "src/demux/anim_decode.c",
         "src/demux/demux.c",
         "src/mux/anim_encode.c",
+        "src/mux/animi.h",
         "src/mux/muxedit.c",
+        "src/mux/muxi.h",
         "src/mux/muxinternal.c",
         "src/mux/muxread.c",
-        "src/mux/animi.h",
-        "src/mux/muxi.h",
     ],
-    includes = ["src"],
-    visibility = ["//visibility:public"],
+    hdrs = [
+        "src/webp/decode.h",
+        "src/webp/demux.h",
+        "src/webp/encode.h",
+        "src/webp/format_constants.h",
+        "src/webp/mux.h",
+        "src/webp/mux_types.h",
+        "src/webp/types.h",
+    ],
     implementation_deps = [
         ":dec",
         ":dsp",
         ":enc",
         ":sharpyuv",
-        ":utils_dec",
         ":utils",
+        ":utils_dec",
     ],
+    includes = ["src"],
     local_defines = WEBP_DEFINES,
+    visibility = ["//visibility:public"],
 )
 
 ####################################################################################
@@ -79,8 +79,6 @@ _UTILS_EXTRA = [
 
 cc_library(
     name = "utils_dec",
-    defines = WEBP_DEFINES,
-    copts = WEBP_C89_FLAGS,
     srcs = [
         "src/utils/bit_reader_utils.c",
         "src/utils/color_cache_utils.c",
@@ -107,12 +105,12 @@ cc_library(
         "src/utils/thread_utils.h",
         "src/utils/utils.h",
     ],
+    copts = WEBP_C89_FLAGS,
+    defines = WEBP_DEFINES,
 )
 
 cc_library(
     name = "utils",
-    local_defines = WEBP_DEFINES,
-    copts = WEBP_C89_FLAGS,
     srcs = [
         "src/utils/bit_writer_utils.c",
         "src/utils/huffman_encode_utils.c",
@@ -123,6 +121,8 @@ cc_library(
         "src/utils/huffman_encode_utils.h",
         "src/utils/quant_levels_utils.h",
     ],
+    copts = WEBP_C89_FLAGS,
+    local_defines = WEBP_DEFINES,
     deps = [
         ":utils_dec",
     ],
@@ -136,8 +136,6 @@ cc_library(
 # src/dec
 cc_library(
     name = "dec",
-    local_defines = WEBP_DEFINES,
-    copts = WEBP_C89_FLAGS,
     srcs = [
         "src/dec/alpha_dec.c",
         "src/dec/buffer_dec.c",
@@ -150,17 +148,17 @@ cc_library(
         "src/dec/vp8l_dec.c",
         "src/dec/webp_dec.c",
     ],
+    copts = WEBP_C89_FLAGS,
+    local_defines = WEBP_DEFINES,
     deps = [
-        ":utils_dec",
         ":dsp",
         ":headers_internal",
+        ":utils_dec",
     ],
 )
 
 cc_library(
     name = "enc",
-    local_defines = WEBP_DEFINES,
-    copts = WEBP_C89_FLAGS,
     srcs = [
         "src/enc/alpha_enc.c",
         "src/enc/analysis_enc.c",
@@ -173,8 +171,8 @@ cc_library(
         "src/enc/histogram_enc.c",
         "src/enc/iterator_enc.c",
         "src/enc/near_lossless_enc.c",
-        "src/enc/picture_enc.c",
         "src/enc/picture_csp_enc.c",
+        "src/enc/picture_enc.c",
         "src/enc/picture_psnr_enc.c",
         "src/enc/picture_rescale_enc.c",
         "src/enc/picture_tools_enc.c",
@@ -186,11 +184,13 @@ cc_library(
         "src/enc/vp8l_enc.c",
         "src/enc/webp_enc.c",
     ],
+    copts = WEBP_C89_FLAGS,
+    local_defines = WEBP_DEFINES,
     deps = [
-        ":sharpyuv",
-        ":utils",
         ":dsp",
         ":headers_internal",
+        ":sharpyuv",
+        ":utils",
     ],
 )
 
@@ -199,29 +199,29 @@ cc_library(
 # src/dsp
 cc_library(
     name = "dsp",
-    local_defines = WEBP_DEFINES,
-    copts = WEBP_C89_FLAGS,
     srcs = [
         "src/dsp/alpha_processing.c",
         "src/dsp/cost.c",
         "src/dsp/cpu.c",
-        "src/dsp/dec_clip_tables.c",
         "src/dsp/dec.c",
+        "src/dsp/dec_clip_tables.c",
         "src/dsp/enc.c",
         "src/dsp/filters.c",
-        "src/dsp/lossless_enc.c",
         "src/dsp/lossless.c",
+        "src/dsp/lossless_enc.c",
         "src/dsp/rescaler.c",
         "src/dsp/ssim.c",
         "src/dsp/upsampling.c",
         "src/dsp/yuv.c",
     ],
+    copts = WEBP_C89_FLAGS,
+    local_defines = WEBP_DEFINES,
     deps = [":headers_internal"] + select({
         "@platforms//cpu:aarch64": [":dsp_neon"],
         "@platforms//cpu:x86_64": [
+            ":dsp_avx2",
             ":dsp_sse2",
             ":dsp_sse41",
-            ":dsp_avx2",
         ],
         "//conditions:default": [],
     }),
@@ -230,41 +230,41 @@ cc_library(
 cc_library(
     name = "dsp_sse2",
     srcs = glob(["src/dsp/*_sse2.c"]),
-    local_defines = WEBP_DEFINES,
-    target_compatible_with = [
-        "@platforms//cpu:x86_64",
-    ],
     copts = WEBP_C89_FLAGS + select({
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:SSE2"],
         "//conditions:default": ["-msse2"],
     }),
+    local_defines = WEBP_DEFINES,
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
     deps = [":headers_internal"],
 )
 
 cc_library(
     name = "dsp_sse41",
     srcs = glob(["src/dsp/*_sse41.c"]),
-    local_defines = WEBP_DEFINES,
-    target_compatible_with = [
-        "@platforms//cpu:x86_64",
-    ],
     copts = WEBP_C89_FLAGS + select({
         # MSVC has no dedicated sse4.1 flag
         # https://learn.microsoft.com/en-us/cpp/build/reference/arch-x86?view=msvc-170
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:AVX"],
         "//conditions:default": ["-msse4.1"],
     }),
+    local_defines = WEBP_DEFINES,
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
     deps = [":headers_internal"],
 )
 
 cc_library(
     name = "dsp_avx2",
     srcs = glob(["src/dsp/*_avx2.c"]),
-    local_defines = WEBP_DEFINES,
     copts = WEBP_C89_FLAGS + select({
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:AVX2"],
         "//conditions:default": ["-mavx2"],
     }),
+    local_defines = WEBP_DEFINES,
     target_compatible_with = [
         "@platforms//cpu:x86_64",
     ],
@@ -273,11 +273,11 @@ cc_library(
 
 cc_library(
     name = "dsp_neon",
-    local_defines = WEBP_DEFINES,
     srcs = glob(["src/dsp/*_neon.c"]),
+    copts = WEBP_C89_FLAGS,
+    local_defines = WEBP_DEFINES,
     target_compatible_with = ["@platforms//cpu:aarch64"],
     deps = [":headers_internal"],
-    copts = WEBP_C89_FLAGS,
 )
 
 ####################################################################################
@@ -285,21 +285,22 @@ cc_library(
 
 cc_library(
     name = "sharpyuv",
-    local_defines = WEBP_DEFINES,
     srcs = [
         "sharpyuv/sharpyuv.c",
         "sharpyuv/sharpyuv_cpu.c",
+        "sharpyuv/sharpyuv_cpu.h",
         "sharpyuv/sharpyuv_csp.c",
         "sharpyuv/sharpyuv_dsp.c",
-        "sharpyuv/sharpyuv_gamma.c",
         "sharpyuv/sharpyuv_dsp.h",
-        "sharpyuv/sharpyuv_cpu.h",
+        "sharpyuv/sharpyuv_gamma.c",
     ],
     hdrs = [
         "sharpyuv/sharpyuv.h",
         "sharpyuv/sharpyuv_csp.h",
         "sharpyuv/sharpyuv_gamma.h",
     ],
+    copts = WEBP_C89_FLAGS,
+    local_defines = WEBP_DEFINES,
     deps = [
         ":sharpyuv_hdrs",
     ] + select({
@@ -309,7 +310,6 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    copts = WEBP_C89_FLAGS,
 )
 
 cc_library(
@@ -330,23 +330,23 @@ cc_library(
 
 cc_library(
     name = "sharpyuv_sse2",
-    local_defines = WEBP_DEFINES,
     srcs = glob(["sharpyuv/*_sse2.c"]),
-    target_compatible_with = [
-        "@platforms//cpu:x86_64",
-    ],
     copts = WEBP_C89_FLAGS + select({
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:SSE2"],
         "//conditions:default": ["-msse2"],
     }),
+    local_defines = WEBP_DEFINES,
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
     deps = [":sharpyuv_hdrs"],
 )
 
 cc_library(
     name = "sharpyuv_neon",
-    local_defines = WEBP_DEFINES,
     srcs = glob(["sharpyuv/*_neon.c"]),
+    copts = WEBP_C89_FLAGS,
+    local_defines = WEBP_DEFINES,
     target_compatible_with = ["@platforms//cpu:aarch64"],
     deps = [":sharpyuv_hdrs"],
-    copts = WEBP_C89_FLAGS,
 )

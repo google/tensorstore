@@ -204,8 +204,8 @@ absl::Status AvifAddImage(avifEncoder* encoder,
     rgb_image.rowBytes = info.num_components * info.width * info.dtype.size();
     avifResult result = avifImageRGBToYUV(image.get(), &rgb_image);
     if (result != AVIF_RESULT_OK) {
-      return absl::InternalError(tensorstore::StrCat(
-          "Failed to convert RGB to YUV ", avifResultToString(result)));
+      return absl::InternalError(absl::StrFormat(
+          "Failed to convert RGB to YUV %s", avifResultToString(result)));
     }
   } else {
     FillYUVImage(info, source, image.get());
@@ -226,8 +226,8 @@ absl::Status AvifAddImage(avifEncoder* encoder,
   avifResult result =
       avifEncoderAddImage(encoder, image.get(), 1, AVIF_ADD_IMAGE_FLAG_SINGLE);
   if (result != AVIF_RESULT_OK) {
-    return absl::InternalError(tensorstore::StrCat("Failed to encode image ",
-                                                   avifResultToString(result)));
+    return absl::InternalError(absl::StrFormat("Failed to encode image %s",
+                                               avifResultToString(result)));
   }
   return absl::OkStatus();
 }
@@ -236,8 +236,8 @@ absl::Status AvifFinish(avifEncoder* encoder, riegeli::Writer* writer) {
   avifRWData avif_output = AVIF_DATA_EMPTY;
   avifResult result = avifEncoderFinish(encoder, &avif_output);
   if (result != AVIF_RESULT_OK) {
-    return absl::DataLossError(tensorstore::StrCat("Failed to finish encode ",
-                                                   avifResultToString(result)));
+    return absl::DataLossError(absl::StrFormat("Failed to finish encode %s",
+                                               avifResultToString(result)));
   }
   absl::string_view buffer(reinterpret_cast<const char*>(avif_output.data),
                            avif_output.size);
@@ -284,15 +284,15 @@ absl::Status AvifWriter::InitializeImpl(riegeli::Writer* writer,
 
   if (options.quantizer < AVIF_QUANTIZER_BEST_QUALITY ||
       options.quantizer > AVIF_QUANTIZER_WORST_QUALITY) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "AVIF quantizer option must be in the range [",
-        AVIF_QUANTIZER_BEST_QUALITY, "..", AVIF_QUANTIZER_WORST_QUALITY, "] "));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "AVIF quantizer option must be in the range [%d..%d] ",
+        AVIF_QUANTIZER_BEST_QUALITY, AVIF_QUANTIZER_WORST_QUALITY));
   }
   if (options.speed > AVIF_SPEED_FASTEST ||
       options.speed < AVIF_SPEED_SLOWEST) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "AVIF speed must be in the range [", AVIF_SPEED_SLOWEST, "..",
-        AVIF_SPEED_FASTEST, "] "));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("AVIF speed must be in the range [%d..%d] ",
+                        AVIF_SPEED_SLOWEST, AVIF_SPEED_FASTEST));
   }
 
   /// Test for the AOM codec for lossless encoding.

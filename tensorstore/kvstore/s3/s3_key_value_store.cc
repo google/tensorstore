@@ -228,8 +228,8 @@ struct S3KeyValueStoreSpecData {
                  jb::Projection<&S3KeyValueStoreSpecData::bucket>(jb::Validate(
                      [](const auto& options, const std::string* x) {
                        if (!IsValidBucketName(*x)) {
-                         return absl::InvalidArgumentError(tensorstore::StrCat(
-                             "Invalid S3 bucket name: ", QuoteString(*x)));
+                         return absl::InvalidArgumentError(absl::StrFormat(
+                             "Invalid S3 bucket name: %v", QuoteString(*x)));
                        }
                        return absl::OkStatus();
                      }))),
@@ -1018,8 +1018,8 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
     // TODO: Support multi-part uploads of files larger than 5GB.
     // Generally, aws-cli splits uploads which exceed ~8MB into multiple
     // parts.
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Object size ", value->size(), " exceeds S3 limit of ", kMaxS3PutSize));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Object size %d exceeds S3 limit of %d", value->size(), kMaxS3PutSize));
   }
 
   auto op = PromiseFuturePair<TimestampedStorageGeneration>::Make();
@@ -1403,8 +1403,8 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
       internal::EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid S3 bucket name: ", QuoteString(parsed.authority)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid S3 bucket name: %v", QuoteString(parsed.authority)));
   }
   auto decoded_path = parsed.path.empty()
                           ? std::string()

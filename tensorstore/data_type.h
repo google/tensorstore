@@ -1319,6 +1319,11 @@ class StaticDataType {
   friend std::ostream& operator<<(std::ostream& os, StaticDataType r) {
     return os << DataType(r);
   }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, StaticDataType r) {
+    sink.Append(r.name());
+  }
 };
 
 // We declare but do not define specialization for void, as `void` is not a

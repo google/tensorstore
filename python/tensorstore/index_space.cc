@@ -34,6 +34,7 @@
 
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/critical_section.h"
@@ -157,9 +158,8 @@ namespace {
 DimensionIndex NormalizePythonDimensionIndex(PythonDimensionIndex i,
                                              DimensionIndex size) {
   if (i.value < -size || i.value >= size) {
-    throw py::index_error(tensorstore::StrCat("Index ", i.value,
-                                              " is outside valid range [",
-                                              -size, ", ", size, ")"));
+    throw py::index_error(absl::StrFormat(
+        "Index %d is outside valid range [%d, %d)", i.value, -size, size));
   }
   if (i.value < 0) i.value += size;
   return i.value;
@@ -192,8 +192,8 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   const char* input_rank_field = nullptr;
   if (input_rank) {
     if (!IsValidRank(*input_rank)) {
-      throw py::value_error(tensorstore::StrCat(
-          "Invalid ", input_rank_field_name, ": ", *input_rank));
+      throw py::value_error(absl::StrFormat(
+          "Invalid %s: %d", input_rank_field_name, *input_rank));
     }
     input_rank_field = input_rank_field_name;
   }
@@ -201,17 +201,17 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   const auto check_rank = [&](DimensionIndex rank, const char* field_name) {
     if (!input_rank) {
       if (!IsValidRank(rank)) {
-        throw py::value_error(
-            tensorstore::StrCat("Rank specified by `", field_name, "` (", rank,
-                                ") exceeds maximum rank of ", kMaxRank));
+        throw py::value_error(absl::StrFormat(
+            "Rank specified by `%s` (%d) exceeds maximum rank of %d",
+            field_name, rank, kMaxRank));
       }
       input_rank = rank;
       input_rank_field = field_name;
     } else if (*input_rank != rank) {
       throw py::value_error(
-          tensorstore::StrCat("Rank specified by `", field_name, "` (", rank,
-                              ") does not match rank specified by `",
-                              input_rank_field, "` (", *input_rank, ")"));
+          absl::StrFormat("Rank specified by `%s` (%d) does not match rank "
+                          "specified by `%s` (%d)",
+                          field_name, rank, input_rank_field, *input_rank));
     }
   };
   if (input_inclusive_min) {
@@ -224,9 +224,8 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   const auto check_upper_bound = [&](DimensionIndex rank,
                                      const char* field_name) {
     if (upper_bound_field) {
-      throw py::value_error(tensorstore::StrCat("Cannot specify both `",
-                                                upper_bound_field, "` and `",
-                                                field_name, "`"));
+      throw py::value_error(absl::StrFormat("Cannot specify both `%s` and `%s`",
+                                            upper_bound_field, field_name));
     } else {
       upper_bound_field = field_name;
     }
@@ -251,12 +250,12 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   }
   if (!input_rank) {
     throw py::value_error(
-        tensorstore::StrCat("Must specify `", input_rank_field_name, "`"));
+        absl::StrFormat("Must specify `%s`", input_rank_field_name));
   }
   if (output_rank && !IsValidRank(*output_rank)) {
-    throw py::value_error(
-        tensorstore::StrCat("Number of output dimensions (", *output_rank,
-                            ") exceeds maximum rank of ", kMaxRank));
+    throw py::value_error(absl::StrFormat(
+        "Number of output dimensions (%d) exceeds maximum rank of %d",
+        *output_rank, kMaxRank));
   }
   auto builder =
       IndexTransformBuilder<>(*input_rank, output_rank.value_or(*input_rank));
@@ -1046,9 +1045,10 @@ Group:
         const auto get_bound = [&](Index value, Index inf) -> py::object {
           if (value == inf) return py::none();
           if (value < 0) {
-            throw py::value_error(tensorstore::StrCat(
-                "Cannot convert domain ", self,
-                " with negative bounds to index expression"));
+            throw py::value_error(
+                absl::StrFormat("Cannot convert domain %s with negative bounds "
+                                "to index expression",
+                                absl::FormatStreamed(self)));
           }
           return py::int_(value);
         };
@@ -1685,10 +1685,10 @@ Group:
       "__call__",
       [](const IndexTransform<>& self, SequenceParameter<Index> indices) {
         if (static_cast<DimensionIndex>(indices.size()) != self.input_rank()) {
-          throw std::invalid_argument(tensorstore::StrCat(
-              "input indices vector of length ", indices.size(),
-              " cannot be used with index transform with input rank ",
-              self.input_rank()));
+          throw std::invalid_argument(absl::StrFormat(
+              "input indices vector of length %d cannot be used with index "
+              "transform with input rank %d",
+              indices.size(), self.input_rank()));
         }
         Index output_indices[kMaxRank];
         ThrowStatusException(self.TransformIndices(

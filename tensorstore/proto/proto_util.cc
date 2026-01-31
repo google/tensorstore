@@ -44,14 +44,14 @@ class ErrorCollector : public google::protobuf::io::ErrorCollector {
                    absl::string_view message) override {
     // Proto parsing uses a line of -1 to indicate errors not associated with a
     // specific line.
-    errors.emplace_back(absl::StrCat("Line: ", std::max(1, line + 1),
-                                     ", col: ", column + 1, ": ", message));
+    errors.emplace_back(absl::StrFormat(
+        "Line: %d, col: %d: %s", std::max(1, line + 1), column + 1, message));
   }
 
   void RecordWarning(int line, google::protobuf::io::ColumnNumber column,
                      absl::string_view message) override {
-    errors.emplace_back(absl::StrCat("Line: ", std::max(1, line + 1),
-                                     ", col: ", column + 1, ": ", message));
+    errors.emplace_back(absl::StrFormat(
+        "Line: %d, col: %d: %s", std::max(1, line + 1), column + 1, message));
   }
 
   std::vector<std::string> errors;

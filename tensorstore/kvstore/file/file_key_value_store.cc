@@ -105,6 +105,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
@@ -260,7 +261,7 @@ class FileKeyValueStoreSpec
   absl::Status NormalizeSpec(std::string& path) override {
     if (!IsFileKvstorePathValid(path)) {
       return absl::InvalidArgumentError(
-          absl::StrCat("Invalid file path: ", QuoteString(path)));
+          absl::StrFormat("Invalid file path: %v", QuoteString(path)));
     }
     path = internal::LexicalNormalizePath(path);
     return absl::OkStatus();
@@ -319,7 +320,7 @@ class FileKeyValueStore
 absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
     return absl::InvalidArgumentError(
-        absl::StrCat("Invalid key: ", QuoteString(key)));
+        absl::StrFormat("Invalid key: %v", QuoteString(key)));
   }
   return absl::OkStatus();
 }
@@ -407,8 +408,8 @@ class BatchReadTask final
     if (!read_result.ok()) {
       return MaybeAnnotateStatus(
           std::move(read_result).status(),
-          absl::StrCat("Error reading from open file ",
-                       std::get<std::string>(batch_entry_key)));
+          absl::StrFormat("Error reading from open file %s",
+                          std::get<std::string>(batch_entry_key)));
     }
     return kvstore::ReadResult::Value(*std::move(read_result), stamp_);
   }
@@ -572,7 +573,7 @@ absl::Status WriteWithSync(FileDescriptor fd, const std::string& fd_path,
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto n, internal_os::WriteCordToFile(fd, value),
         MaybeAnnotateStatus(
-            _, absl::StrCat("Failed writing: ", QuoteString(fd_path))));
+            _, absl::StrFormat("Failed writing: %v", QuoteString(fd_path))));
     file_metrics.bytes_written.IncrementBy(n);
     if (n == value.size()) break;
     value.RemovePrefix(n);

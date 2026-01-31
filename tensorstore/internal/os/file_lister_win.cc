@@ -257,8 +257,8 @@ absl::Status RecursiveFileList(
       return absl::OkStatus();
     }
     if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
-      return absl::NotFoundError(absl::StrCat("Cannot list non-directory: ",
-                                              QuoteString(root_directory)));
+      return absl::NotFoundError(absl::StrFormat(
+          "Cannot list non-directory: %s", QuoteString(root_directory)));
     }
   }
 

@@ -184,8 +184,8 @@ bool IntersectsPrefix(const KeyRange& a, std::string_view prefix) {
 }
 
 std::ostream& operator<<(std::ostream& os, const KeyRange& range) {
-  return os << "[" << tensorstore::QuoteString(range.inclusive_min) << ", "
-            << tensorstore::QuoteString(range.exclusive_max) << ")";
+  return os << "[" << QuoteString(range.inclusive_min) << ", "
+            << QuoteString(range.exclusive_max) << ")";
 }
 
 KeyRange KeyRange::AddPrefix(std::string_view prefix, KeyRange range) {

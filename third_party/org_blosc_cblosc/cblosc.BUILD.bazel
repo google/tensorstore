@@ -33,7 +33,24 @@ cc_library(
             "-Wno-unused-function",
         ],
     }),
-    strip_include_prefix = "blosc",
+    implementation_deps = [
+        ":shuffle_common",
+        "@lz4",
+        "@snappy//:snappy-c",
+        "@zlib",
+        "@zstd",
+    ] + select(
+        {
+            "@platforms//os:windows": [":win32"],
+            "//conditions:default": [],
+        },
+    ) + select({
+        "@platforms//cpu:x86_64": [
+            ":shuffle_avx2",
+            ":shuffle_sse2",
+        ],
+        "//conditions:default": [],
+    }),
     local_defines = _BLOSC_LOCAL_DEFINES + [
         "HAVE_ZLIB",
         "HAVE_LZ4",
@@ -48,39 +65,22 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    strip_include_prefix = "blosc",
     visibility = ["//visibility:public"],
-    implementation_deps = [
-        ":shuffle_common",
-        "@snappy//:snappy-c",
-        "@zlib//:zlib",
-        "@zstd//:zstd",
-        "@lz4//:lz4",
-    ] + select(
-        {
-            "@platforms//os:windows": [":win32"],
-            "//conditions:default": [],
-        },
-    ) + select({
-        "@platforms//cpu:x86_64": [
-            ":shuffle_sse2",
-            ":shuffle_avx2",
-        ],
-        "//conditions:default": [],
-    }),
 )
 
 cc_library(
     name = "shuffle_common",
-    hdrs = [
-        "blosc/blosc-common.h",
-        "blosc/blosc-comp-features.h",
-        "blosc/blosc-export.h",
-        "blosc/bitshuffle-generic.h",
-        "blosc/shuffle-generic.h",
-    ],
     srcs = [
         "blosc/bitshuffle-generic.c",
         "blosc/shuffle-generic.c",
+    ],
+    hdrs = [
+        "blosc/bitshuffle-generic.h",
+        "blosc/blosc-common.h",
+        "blosc/blosc-comp-features.h",
+        "blosc/blosc-export.h",
+        "blosc/shuffle-generic.h",
     ],
     local_defines = _BLOSC_LOCAL_DEFINES,
     strip_include_prefix = "blosc",
@@ -96,13 +96,13 @@ cc_library(
         "blosc/bitshuffle-sse2.h",
         "blosc/shuffle-sse2.h",
     ],
-    local_defines = _BLOSC_LOCAL_DEFINES,
-    includes = ["blosc"],
-    target_compatible_with = ["@platforms//cpu:x86_64"],
     copts = select({
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:SSE2"],
         "//conditions:default": ["-msse2"],
     }),
+    includes = ["blosc"],
+    local_defines = _BLOSC_LOCAL_DEFINES,
+    target_compatible_with = ["@platforms//cpu:x86_64"],
     deps = [
         ":shuffle_common",
     ],
@@ -118,12 +118,12 @@ cc_library(
         "blosc/bitshuffle-avx2.h",
         "blosc/shuffle-avx2.h",
     ],
-    local_defines = _BLOSC_LOCAL_DEFINES,
-    includes = ["blosc"],
     copts = select({
         "@rules_cc//cc/compiler:msvc-cl": ["/arch:AVX2"],
         "//conditions:default": ["-mavx2"],
     }),
+    includes = ["blosc"],
+    local_defines = _BLOSC_LOCAL_DEFINES,
     target_compatible_with = ["@platforms//cpu:x86_64"],
     deps = [
         ":shuffle_common",
@@ -133,12 +133,12 @@ cc_library(
 
 cc_library(
     name = "win32",
+    srcs = [
+        "blosc/win32/pthread.c",
+    ],
     hdrs = [
         "blosc/win32/pthread.h",
         "blosc/win32/stdint-windows.h",
-    ],
-    srcs = [
-        "blosc/win32/pthread.c",
     ],
     target_compatible_with = ["@platforms//os:windows"],
 )

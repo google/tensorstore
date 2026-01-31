@@ -154,10 +154,10 @@ cc_library(
     name = "external_cjson",
     srcs = ["source/external/cJSON.c"],
     hdrs = ["source/external/cJSON.h"],
-    strip_include_prefix = "source",
-    defines = ["CJSON_HIDE_SYMBOLS"],
-    visibility = ["//visibility:private"],
     copts = _COPTS,
+    defines = ["CJSON_HIDE_SYMBOLS"],
+    strip_include_prefix = "source",
+    visibility = ["//visibility:private"],
 )
 
 cc_library(
@@ -206,7 +206,11 @@ selects.config_setting_group(
             "@platforms//cpu:" + cpu,
         ],
     )
-    for os in ["linux", "macos", "windows"]
+    for os in [
+        "linux",
+        "macos",
+        "windows",
+    ]
     for cpu in ["arm64"]
 ]
 
@@ -219,7 +223,10 @@ selects.config_setting_group(
             compiler[1],
         ],
     )
-    for cpu in ["arm64", "x86_64"]
+    for cpu in [
+        "arm64",
+        "x86_64",
+    ]
     for compiler in [
         ("gcc_or_clang", ":compiler_gcc_or_clang"),
         ("msvc", "@rules_cc//cc/compiler:msvc-cl"),

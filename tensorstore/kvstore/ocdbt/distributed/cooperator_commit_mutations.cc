@@ -333,7 +333,7 @@ void NodeCommitOperation::VisitNode(NodeCommitOperation::Ptr commit_op,
       << "] VisitNode: node_identifier=" << node_identifier
       << ", key_range=" << commit_op->key_range
       << ", parent_key_range=" << commit_op->parent_key_range
-      << ", key_prefix=" << tensorstore::QuoteString(commit_op->key_prefix);
+      << ", key_prefix=" << QuoteString(commit_op->key_prefix);
   if (commit_op->height == node_identifier.height) {
     ApplyMutations(std::move(commit_op), &node);
     return;

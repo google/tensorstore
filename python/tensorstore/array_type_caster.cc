@@ -35,6 +35,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/strings/str_format.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "tensorstore/array.h"
@@ -207,8 +208,8 @@ SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
   }
   const DimensionIndex rank = array_obj.ndim();
   if (rank > kMaxRank) {
-    throw pybind11::value_error(tensorstore::StrCat(
-        "Array of rank ", rank, " is not supported by tensorstore"));
+    throw pybind11::value_error(absl::StrFormat(
+        "Array of rank %d is not supported by tensorstore", rank));
   }
   StridedLayout<dynamic_rank(kMaxRank)> array_obj_layout;
   array_obj_layout.set_rank(rank);

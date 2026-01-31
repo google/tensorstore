@@ -28,6 +28,7 @@
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
 #include "riegeli/bytes/fd_writer.h"
@@ -72,8 +73,8 @@ template <typename InputArray>
 absl::Status Validate(const InputArray& input) {
   std::vector<std::string> errors;
   if (input.rank() != 2 && input.rank() != 3) {
-    errors.push_back(tensorstore::StrCat("expected input of rank 2 or 3, not ",
-                                         input.rank()));
+    errors.push_back(
+        absl::StrFormat("expected input of rank 2 or 3, not %d", input.rank()));
   }
 
   // Validate data types
@@ -95,8 +96,8 @@ absl::Status Validate(const InputArray& input) {
   }
 
   if (!errors.empty()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "tensorstore validation failed: ", absl::StrJoin(errors, ", ")));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "tensorstore validation failed: %s", absl::StrJoin(errors, ", ")));
   }
   return absl::OkStatus();
 }

@@ -15,18 +15,48 @@
 #ifndef TENSORSTORE_UTIL_QUOTE_STRING_H_
 #define TENSORSTORE_UTIL_QUOTE_STRING_H_
 
+#include <stddef.h>
+
+#include <ostream>
 #include <string>
 #include <string_view>
 
-namespace tensorstore {
+#include "absl/base/attributes.h"
+#include "absl/strings/escaping.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 
-/// Returns a representation using C++ string literal syntax (including opening
-/// and closing quotes) of the contents of `s`.
-///
-/// Example:
-///
-///     EXPECT_EQ("\"hello\\nworld\"", QuoteString("hello\nworld"));
-std::string QuoteString(std::string_view s);
+namespace tensorstore {
+namespace internal {
+std::ostream& PrintQuotedString(std::ostream& os, std::string_view v);
+}  // namespace internal
+
+// Returns a representation using C++ string literal syntax (including opening
+// and closing quotes) of the contents of `s`.
+//
+// Example:
+//     EXPECT_EQ("\"hello\\nworld\"",
+//               absl::StrFormat("%v", QuoteString("hello\nworld")));
+//
+struct QuoteString {
+  std::string_view s;
+  explicit QuoteString(std::string_view sv ABSL_ATTRIBUTE_LIFETIME_BOUND)
+      : s(sv) {}
+
+  std::string ToString() const {
+    return absl::StrCat("\"", absl::CHexEscape(s), "\"");
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, QuoteString v) {
+    sink.Append("\"");
+    sink.Append(absl::CHexEscape(v.s));
+    sink.Append("\"");
+  }
+  friend std::ostream& operator<<(std::ostream& os, QuoteString v) {
+    return internal::PrintQuotedString(os, v.s);
+  }
+};
 
 }  // namespace tensorstore
 

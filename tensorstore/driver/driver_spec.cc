@@ -23,6 +23,7 @@
 
 #include "absl/base/no_destructor.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
@@ -267,8 +268,8 @@ TENSORSTORE_DEFINE_JSON_BINDER(
           return absl::CancelledError();
         }
         return absl::InvalidArgumentError(
-            tensorstore::StrCat(tensorstore::QuoteString(unregistered_id),
-                                " is not a registered TensorStore driver"));
+            absl::StrFormat("%v is not a registered TensorStore driver",
+                            tensorstore::QuoteString(unregistered_id)));
       };
       auto binder = jb::NestedContextJsonBinder(jb::Object(
           jb::Member("driver",
@@ -311,10 +312,10 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                     if (rank != dynamic_rank) {
                       if (obj.transform.valid()) {
                         if (obj.transform.input_rank() != rank) {
-                          return absl::InvalidArgumentError(tensorstore::StrCat(
-                              "Specified rank (", rank,
-                              ") does not match input rank of transform (",
-                              obj.transform.input_rank(), ")"));
+                          return absl::InvalidArgumentError(absl::StrFormat(
+                              "Specified rank (%d) does not match input rank "
+                              "of transform (%d)",
+                              rank, obj.transform.input_rank()));
                         }
                       } else {
                         TENSORSTORE_RETURN_IF_ERROR(

@@ -56,7 +56,7 @@ absl::Status MergeConstraint(std::string_view member, T& a, const T& b,
                              Binder binder, TryMerge try_merge = {}) {
   if (!try_merge(a, b)) {
     return absl::FailedPreconditionError(absl::StrFormat(
-        "Incompatible %s: %s vs %s", tensorstore::QuoteString(member),
+        "Incompatible %v: %s vs %s", tensorstore::QuoteString(member),
         internal_json_binding::ToJson(a, binder).value().dump(),
         internal_json_binding::ToJson(b, binder).value().dump()));
   }

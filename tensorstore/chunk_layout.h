@@ -157,10 +157,19 @@ class ChunkLayout {
   constexpr static double kDefaultAspectRatioValue = 0;
   constexpr static Index kDefaultShapeValue = 0;
 
+  static const char* ToString(Usage usage);
+
   /// Prints a string representation to an `std::ostream`.
   ///
   /// \relates Usage
-  friend std::ostream& operator<<(std::ostream& os, Usage usage);
+  friend std::ostream& operator<<(std::ostream& os, Usage usage) {
+    return os << ToString(usage);
+  }
+
+  template <typename S>
+  friend void AbslStringify(S& sink, Usage usage) {
+    sink.Append(ToString(usage));
+  }
 
   /// Parses a string representation.
   ///

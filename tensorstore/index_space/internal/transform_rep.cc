@@ -32,6 +32,7 @@
 #include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
@@ -511,8 +512,8 @@ absl::Status TransformIndices(TransformRep* data,
         output_indices[output_dim],
         output_index_maps[output_dim](input_indices),
         MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Computing index for output dimension ",
-                                   output_dim)));
+            _, absl::StrFormat("Computing index for output dimension %d",
+                               output_dim)));
   }
   return absl::OkStatus();
 }

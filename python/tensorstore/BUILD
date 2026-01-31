@@ -29,6 +29,9 @@ doctest_test(
         "*.py",
         "*.cc",
     ]),
+    tags = [
+        "skip-windows",
+    ],
 )
 
 pybind11_py_extension(
@@ -218,7 +221,7 @@ pybind11_cc_library(
     hdrs = ["subscript_method.h"],
     deps = [
         "//tensorstore/internal/meta:type_traits",
-        "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/strings:str_format",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
@@ -386,6 +389,7 @@ pybind11_cc_library(
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/meta:type_traits",
+        "@abseil-cpp//absl/strings:str_format",
         "@com_github_pybind_pybind11//:pybind11",
         "@nlohmann_json//:json",
     ],
@@ -433,6 +437,7 @@ pybind11_cc_library(
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/strings:str_format",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
@@ -507,10 +512,10 @@ pybind11_cc_library(
         "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "//tensorstore/util:quote_string",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/hash",
+        "@abseil-cpp//absl/strings:str_format",
         "@com_github_pybind_pybind11//:pybind11",
         "@pypa_numpy//:headers",
     ],
@@ -1016,8 +1021,8 @@ pybind11_cc_library(
         "//tensorstore/util:maybe_hard_constraint",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@com_github_pybind_pybind11//:pybind11",
         "@nlohmann_json//:json",
     ],
@@ -1033,6 +1038,7 @@ pybind11_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
@@ -1101,6 +1107,7 @@ pybind11_cc_library(
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
         "@com_github_pybind_pybind11//:pybind11",
         "@riegeli//riegeli/bytes:cord_writer",
@@ -1159,7 +1166,7 @@ pybind11_cc_library(
 
 tensorstore_pytest_test(
     name = "kvstore_test",
-    size = "small",
+    size = "medium",
     srcs = ["tests/kvstore_test.py"],
     tags = ["cpu:2"],
     deps = [

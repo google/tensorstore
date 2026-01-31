@@ -15,12 +15,27 @@
 #include "tensorstore/index_space/internal/interval_slice_op.h"
 
 #include <algorithm>
+#include <cassert>
+#include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_vector_or_scalar.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/util/division.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -102,8 +117,8 @@ absl::Status GetIntervalSliceInfo(
         compute_input_domain_slice(i, input_dim),
         MaybeAnnotateStatus(
             _,
-            tensorstore::StrCat("Computing interval slice for input dimension ",
-                                input_dim)));
+            absl::StrFormat("Computing interval slice for input dimension %d",
+                            input_dim)));
   }
   return absl::OkStatus();
 }
@@ -128,14 +143,14 @@ absl::Status ApplyOffsetsAndStridesToOutputIndexMaps(
         Index offset;
         if (internal::MulOverflow(slice_info.offset, map.stride(), &offset) ||
             internal::AddOverflow(offset, map.offset(), &map.offset())) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Integer overflow computing offset for output dimension ",
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Integer overflow computing offset for output dimension %d",
               output_dim));
         }
         if (internal::MulOverflow(slice_info.stride, map.stride(),
                                   &map.stride())) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Integer overflow computing stride for output dimension ",
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Integer overflow computing stride for output dimension %d",
               output_dim));
         }
         break;
@@ -250,8 +265,8 @@ Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
     TENSORSTORE_RETURN_IF_ERROR(
         compute_input_domain(i, input_dim),
         MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Applying stride to input dimension ",
-                                   input_dim)));
+            _, absl::StrFormat("Applying stride to input dimension %d",
+                               input_dim)));
   }
   TENSORSTORE_RETURN_IF_ERROR(ApplyOffsetsAndStridesToOutputIndexMaps(
       rep.get(), span(input_dimension_info).first(input_rank)));

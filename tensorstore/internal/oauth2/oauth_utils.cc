@@ -15,18 +15,24 @@
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
+#include <cassert>
 #include <memory>
-#include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
-#include <openssl/bio.h>     // IWYU pragma: keep
-#include <openssl/evp.h>     // IWYU pragma: keep
-#include <openssl/pem.h>     // IWYU pragma: keep
-#include <openssl/rsa.h>     // IWYU pragma: keep
+#include <nlohmann/json_fwd.hpp>
+#include <openssl/bio.h>  // IWYU pragma: keep
+#include <openssl/evp.h>  // IWYU pragma: keep
+#include <openssl/pem.h>  // IWYU pragma: keep
+#include <openssl/rsa.h>  // IWYU pragma: keep
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
@@ -201,8 +207,8 @@ ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials) {
   auto creds_token = jb::FromJson<GoogleServiceAccountCredentials>(
       credentials, GoogleServiceAccountCredentialsBinder);
   if (!creds_token.ok()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid GoogleServiceAccountCredentials: ", creds_token.status()));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid GoogleServiceAccountCredentials: %v", creds_token.status()));
   }
   return creds_token;
 }
@@ -211,8 +217,8 @@ Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
     std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid GoogleServiceAccountCredentials: ", source));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid GoogleServiceAccountCredentials: %s", source));
   }
   return ParseGoogleServiceAccountCredentialsImpl(credentials);
 }

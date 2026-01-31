@@ -136,6 +136,7 @@ tensorstore_cc_library(
     testonly = 1,
     hdrs = ["queue_testutil.h"],
     deps = [
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",

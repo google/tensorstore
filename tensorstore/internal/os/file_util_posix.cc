@@ -402,9 +402,9 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
   if (::rename(old_name.c_str(), new_name.c_str()) == 0) {
     return absl::OkStatus();
   }
-  auto status =
-      StatusFromOsError(errno, "Failed to rename fd: ", absl::StrCat(fd), " ",
-                        QuoteString(old_name), " to: ", QuoteString(new_name));
+  auto status = StatusFromOsError(
+      errno, absl::StrFormat("Failed to rename fd: %d %v to: %v", fd,
+                             QuoteString(old_name), QuoteString(new_name)));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 

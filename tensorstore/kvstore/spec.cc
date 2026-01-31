@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/driver_kind_registry.h"
@@ -90,61 +91,65 @@ void EncodeCacheKeyAdl(std::string* out, const DriverSpecPtr& ptr) {
   return ptr->EncodeCacheKey(out);
 }
 
-TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Spec, [](auto is_loading,
-                                                const auto& options, auto* obj,
-                                                auto* j) {
-  if constexpr (is_loading) {
-    if (auto* s = j->template get_ptr<const std::string*>()) {
-      TENSORSTORE_ASSIGN_OR_RETURN(*obj, Spec::FromUrl(*s));
-      // Spec::FromUrl already calls NormalizeSpec
-      return absl::OkStatus();
-    }
-  } else {
-    if (!obj->valid()) {
-      *j = ::nlohmann::json::value_t::discarded;
-      return absl::OkStatus();
-    }
-  }
-  namespace jb = tensorstore::internal_json_binding;
-  auto& registry = internal_kvstore::GetDriverRegistry();
-  return jb::NestedContextJsonBinder(jb::Object(
-      jb::Member("driver",
-                 jb::Projection<&Spec::driver>(
-                     registry.KeyBinder([](std::string_view unregistered_id) {
-                       auto kind = internal::GetDriverKind(unregistered_id);
-                       if (kind) {
-                         return absl::InvalidArgumentError(tensorstore::StrCat(
-                             tensorstore::QuoteString(unregistered_id),
-                             " is a ", *kind, " driver, not a KvStore driver"));
-                       }
-                       return absl::InvalidArgumentError(tensorstore::StrCat(
-                           tensorstore::QuoteString(unregistered_id),
-                           " is not a registered KvStore driver"));
-                     }))),
-      jb::Initialize([](Spec* p) {
-        const_cast<DriverSpec&>(*p->driver).context_binding_state_ =
-            ContextBindingState::unbound;
-      }),
-      jb::Member("context", jb::Projection(
-                                [](const Spec& p) -> Context::Spec& {
-                                  return const_cast<Context::Spec&>(
-                                      p.driver->context_spec_);
-                                },
-                                internal::ContextSpecDefaultableJsonBinder)),
-      jb::Member("path", jb::Projection(
-                             [](auto& p) -> decltype(auto) { return (p.path); },
-                             jb::DefaultInitializedValue())),
-      [&](auto is_loading, const auto& options, auto* obj, auto* j) {
-        if constexpr (is_loading) {
-          TENSORSTORE_RETURN_IF_ERROR(registry.RegisteredObjectBinder()(
-              is_loading, {options, obj->path}, &obj->driver, j));
-          return const_cast<DriverSpec&>(*obj->driver).NormalizeSpec(obj->path);
-        } else {
-          return registry.RegisteredObjectBinder()(is_loading, options,
-                                                   &obj->driver, j);
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    Spec,
+    [](auto is_loading, const auto& options, auto* obj,
+       auto* j) -> absl::Status {
+      if constexpr (is_loading) {
+        if (auto* s = j->template get_ptr<const std::string*>()) {
+          TENSORSTORE_ASSIGN_OR_RETURN(*obj, Spec::FromUrl(*s));
+          // Spec::FromUrl already calls NormalizeSpec
+          return absl::OkStatus();
         }
-      }))(is_loading, options, obj, j);
-})
+      } else {
+        if (!obj->valid()) {
+          *j = ::nlohmann::json::value_t::discarded;
+          return absl::OkStatus();
+        }
+      }
+      namespace jb = tensorstore::internal_json_binding;
+      auto& registry = internal_kvstore::GetDriverRegistry();
+      return jb::NestedContextJsonBinder(jb::Object(
+          jb::Member("driver",
+                     jb::Projection<&Spec::driver>(registry.KeyBinder(
+                         [](std::string_view unregistered_id) {
+                           auto kind = internal::GetDriverKind(unregistered_id);
+                           if (kind) {
+                             return absl::InvalidArgumentError(absl::StrFormat(
+                                 "%v is a %v driver, not a KvStore driver",
+                                 QuoteString(unregistered_id), *kind));
+                           }
+                           return absl::InvalidArgumentError(absl::StrFormat(
+                               "%v is not a registered KvStore driver",
+                               QuoteString(unregistered_id)));
+                         }))),
+          jb::Initialize([](Spec* p) {
+            const_cast<DriverSpec&>(*p->driver).context_binding_state_ =
+                ContextBindingState::unbound;
+          }),
+          jb::Member("context",
+                     jb::Projection(
+                         [](const Spec& p) -> Context::Spec& {
+                           return const_cast<Context::Spec&>(
+                               p.driver->context_spec_);
+                         },
+                         internal::ContextSpecDefaultableJsonBinder)),
+          jb::Member(
+              "path",
+              jb::Projection([](auto& p) -> decltype(auto) { return (p.path); },
+                             jb::DefaultInitializedValue())),
+          [&](auto is_loading, const auto& options, auto* obj, auto* j) {
+            if constexpr (is_loading) {
+              TENSORSTORE_RETURN_IF_ERROR(registry.RegisteredObjectBinder()(
+                  is_loading, {options, obj->path}, &obj->driver, j));
+              return const_cast<DriverSpec&>(*obj->driver)
+                  .NormalizeSpec(obj->path);
+            } else {
+              return registry.RegisteredObjectBinder()(is_loading, options,
+                                                       &obj->driver, j);
+            }
+          }))(is_loading, options, obj, j);
+    })
 
 absl::Status DriverSpecPtr::Set(DriverSpecOptions&& options) {
   if (options.minimal_spec) {
@@ -209,6 +214,7 @@ bool operator==(const Spec& a, const Spec& b) {
 }  // namespace kvstore
 
 namespace internal_kvstore {
+
 class DriverWrapperSpec : public kvstore::DriverSpec {
  public:
   explicit DriverWrapperSpec(DriverPtr driver) : driver_(std::move(driver)) {}
@@ -217,10 +223,10 @@ class DriverWrapperSpec : public kvstore::DriverSpec {
       const Context& context) override {  // Can't bind context of open kvstore.
     return absl::OkStatus();
   }
-  void UnbindContext(const internal::ContextSpecBuilder& builder) {
+  void UnbindContext(const internal::ContextSpecBuilder& builder) override {
     // Can't unbind context of open kvstore.
   }
-  void StripContext() {
+  void StripContext() override {
     // Can't strip context of open kvstore.
   }
 
@@ -228,11 +234,11 @@ class DriverWrapperSpec : public kvstore::DriverSpec {
     out->append(driver_->cache_identifier_);
   }
 
-  std::string_view driver_id() const { return driver_->driver_id(); }
+  std::string_view driver_id() const override { return driver_->driver_id(); }
 
   Future<DriverPtr> DoOpen() const override { return driver_; }
 
-  DriverSpecPtr Clone() const { return DriverSpecPtr(this); }
+  DriverSpecPtr Clone() const override { return DriverSpecPtr(this); }
 
   void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const override {

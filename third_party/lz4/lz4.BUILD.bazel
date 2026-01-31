@@ -28,7 +28,6 @@ cc_library(
         "lib/lz4frame.h",
         "lib/lz4hc.h",
     ],
-    strip_include_prefix = "lib",
     defines = [
         # Since this rule is used to build a static library, prevent LZ4 from
         # overriding global `-fvisibility=hidden` setting.
@@ -39,6 +38,7 @@ cc_library(
         # Inline XXH for better performance and to avoid exposing symbols.
         "XXH_INLINE_ALL",
     ],
+    strip_include_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
         ":lz4_internal",

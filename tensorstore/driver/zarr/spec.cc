@@ -97,6 +97,15 @@ namespace {
 const internal::CodecSpecRegistration<ZarrCodecSpec> encoding_registration{
     {{"zarr2"}}};
 
+absl::Status ValidateSelectedFieldAndOpenAsVoid(
+    const SelectedField& selected_field, const bool open_as_void) {
+  if (open_as_void && !selected_field.empty()) {
+    return absl::InvalidArgumentError(
+        "\"field\" and \"open_as_void\" are mutually exclusive");
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 void GetChunkInnerOrder(DimensionIndex chunked_rank,
@@ -151,7 +160,10 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
 
 Result<ZarrMetadataPtr> GetNewMetadata(
     const ZarrPartialMetadata& partial_metadata,
-    const SelectedField& selected_field, const Schema& schema) {
+    const SelectedField& selected_field, const Schema& schema,
+    bool open_as_void) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateSelectedFieldAndOpenAsVoid(selected_field, open_as_void));
   ZarrMetadataPtr metadata = std::make_shared<ZarrMetadata>();
   metadata->zarr_format = partial_metadata.zarr_format.value_or(2);
   metadata->dimension_separator = partial_metadata.dimension_separator.value_or(
@@ -167,17 +179,27 @@ Result<ZarrMetadataPtr> GetNewMetadata(
   // before validating the domain.
 
   size_t selected_field_index = 0;
+  const ZarrDType::Field* field_ptr = nullptr;
   if (partial_metadata.dtype) {
-    // If a zarr dtype is specified explicitly, determine the field index.  If a
-    // multi-field zarr dtype is desired, it must be specified explicitly.
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        selected_field_index,
-        GetFieldIndex(*partial_metadata.dtype, selected_field));
+    if (open_as_void) {
+      field_ptr = partial_metadata.dtype->GetVoidField();
+    } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          size_t field_index,
+          GetFieldIndex(*partial_metadata.dtype, selected_field));
+      field_ptr = &partial_metadata.dtype->fields[field_index];
+      selected_field_index = field_index;
+    }
     metadata->dtype = *partial_metadata.dtype;
   } else {
     if (!selected_field.empty()) {
       return absl::InvalidArgumentError(
           "\"dtype\" must be specified in \"metadata\" if \"field\" is "
+          "specified");
+    }
+    if (open_as_void) {
+      return absl::InvalidArgumentError(
+          "\"dtype\" must be specified in \"metadata\" if \"open_as_void\" is "
           "specified");
     }
     if (!schema.dtype().valid()) {
@@ -191,8 +213,9 @@ Result<ZarrMetadataPtr> GetNewMetadata(
         static_cast<ZarrDType::BaseDType&>(field),
         internal_zarr::ChooseBaseDType(schema.dtype()));
     TENSORSTORE_RETURN_IF_ERROR(ValidateDType(metadata->dtype));
+    field_ptr = &field;
   }
-  auto& field = metadata->dtype.fields[selected_field_index];
+  auto& field = *field_ptr;
 
   SpecRankAndFieldInfo info;
   info.full_rank = schema.rank();
@@ -333,15 +356,28 @@ absl::Status ValidateSpecRankAndFieldInfo(SpecRankAndFieldInfo& info) {
 Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
     const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
     const Schema& schema) {
+  return GetSpecRankAndFieldInfo(metadata, selected_field, schema,
+                                 /*open_as_void=*/false);
+}
+
+Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
+    const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
+    const Schema& schema, bool open_as_void) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateSelectedFieldAndOpenAsVoid(selected_field, open_as_void));
   SpecRankAndFieldInfo info;
 
   info.full_rank = schema.rank();
   info.chunked_rank = metadata.rank;
 
   if (metadata.dtype) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        size_t field_index, GetFieldIndex(*metadata.dtype, selected_field));
-    info.field = &metadata.dtype->fields[field_index];
+    if (open_as_void) {
+      info.field = metadata.dtype->GetVoidField();
+    } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          size_t field_index, GetFieldIndex(*metadata.dtype, selected_field));
+      info.field = &metadata.dtype->fields[field_index];
+    }
   }
 
   TENSORSTORE_RETURN_IF_ERROR(ValidateSpecRankAndFieldInfo(info));

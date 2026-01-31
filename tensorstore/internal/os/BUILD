@@ -139,7 +139,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )
@@ -210,6 +210,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 

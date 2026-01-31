@@ -28,6 +28,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
@@ -61,7 +62,6 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -366,10 +366,9 @@ class IoHandleImpl : public IoHandle {
               PromiseType promise, ReadyFuture<ReadVersionResponse> future) {
             auto& response = future.value();
             if (!response.generation) {
-              promise.SetResult(
-                  absl::FailedPreconditionError(tensorstore::StrCat(
-                      "No version matching newly-written generation=",
-                      new_manifest->latest_generation())));
+              promise.SetResult(absl::FailedPreconditionError(absl::StrFormat(
+                  "No version matching newly-written generation=%d",
+                  new_manifest->latest_generation())));
               return;
             }
             auto& ref = *response.generation;

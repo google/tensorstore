@@ -53,9 +53,9 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/serialization",
         "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -85,6 +85,7 @@ tensorstore_cc_library(
         "//tensorstore/util:endian",
         "//tensorstore/util:quote_string",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )
@@ -218,6 +219,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
         "@abseil-cpp//absl/types:compare",
@@ -412,6 +414,7 @@ tensorstore_cc_library(
     srcs = ["auto_detect.cc"],
     hdrs = ["auto_detect.h"],
     deps = [
+        ":byte_range",
         ":kvstore",
         "//tensorstore:batch",
         "//tensorstore/internal:path",
@@ -419,11 +422,11 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/container:btree",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",

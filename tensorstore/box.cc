@@ -14,10 +14,17 @@
 
 #include "tensorstore/box.h"
 
-#include <algorithm>
-#include <ostream>
+#include <stddef.h>
+#include <stdint.h>
 
-#include "absl/status/status.h"
+#include <algorithm>
+#include <cassert>
+#include <string>
+
+#include "absl/strings/str_format.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/span.h"  // IWYU pragma: keep
 #include "tensorstore/util/str_cat.h"
@@ -26,12 +33,8 @@ namespace tensorstore {
 namespace internal_box {
 
 std::string DescribeForCast(DimensionIndex rank) {
-  return tensorstore::StrCat("box with ",
-                             StaticCastTraits<DimensionIndex>::Describe(rank));
-}
-
-std::ostream& PrintToOstream(std::ostream& os, const BoxView<>& view) {
-  return os << "{origin=" << view.origin() << ", shape=" << view.shape() << "}";
+  return absl::StrFormat("box with %s",
+                         StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 bool AreEqual(const BoxView<>& box_a, const BoxView<>& box_b) {
@@ -73,7 +76,7 @@ bool RankSerializer::Decode(DecodeSource& source, DimensionIndex& rank) {
   if (!source.reader().ReadByte(v)) return false;
   if (v > kMaxRank) {
     source.Fail(DecodeError(
-        tensorstore::StrCat("Invalid rank value: ", static_cast<size_t>(v))));
+        absl::StrFormat("Invalid rank value: %d", static_cast<size_t>(v))));
   }
   rank = static_cast<DimensionIndex>(v);
   return true;

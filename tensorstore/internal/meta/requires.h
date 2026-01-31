@@ -1,4 +1,4 @@
-// Copyright 2020 The TensorStore Authors
+// Copyright 2026 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/static_cast.h"
+#ifndef TENSORSTORE_INTERNAL_META_REQUIRES_H_
+#define TENSORSTORE_INTERNAL_META_REQUIRES_H_
 
-#include "absl/status/status.h"
-#include "absl/strings/str_format.h"
+#include <type_traits>
 
 namespace tensorstore {
-namespace internal_cast {
+namespace internal_meta {
 
-absl::Status CastError(std::string_view source_description,
-                       std::string_view target_description) {
-  return absl::InvalidArgumentError(absl::StrFormat(
-      "Cannot cast %s to %s", source_description, target_description));
+// Requires is a sfinae helper that detects callability.
+// Example:
+//  if constexpr (Requires<T>([](auto&& v) -> decltype(v.begin()){})) {
+//     t.begin();
+//  }
+template <typename... T, typename F>
+constexpr bool Requires(F) {
+  return std::is_invocable_v<F, T...>;
 }
 
-}  // namespace internal_cast
+}  // namespace internal_meta
 }  // namespace tensorstore
+
+#endif  // TENSORSTORE_INTERNAL_META_REQUIRES_H_

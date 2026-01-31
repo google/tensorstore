@@ -47,11 +47,12 @@ tensorstore_cc_library(
     deps = [
         ":index_transform",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -216,9 +217,9 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -530,9 +531,8 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -558,14 +558,21 @@ tensorstore_cc_library(
         ":dimension_index_buffer",
         ":index_transform",
         ":index_vector_or_scalar",
+        ":output_index_method",
+        "//tensorstore:box",
+        "//tensorstore:container_kind",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore:rank",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal/meta",
-        "//tensorstore/util:division",
+        "//tensorstore/util:element_pointer",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -781,6 +788,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -845,12 +853,19 @@ tensorstore_cc_library(
         ":dimension_index_buffer",
         ":index_transform",
         ":index_vector_or_scalar",
+        ":output_index_method",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore:rank",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal/meta",
+        "//tensorstore/util:element_pointer",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -992,6 +1007,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -1133,6 +1149,7 @@ tensorstore_cc_library(
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:result",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -1161,10 +1178,18 @@ tensorstore_cc_library(
     hdrs = ["dimension_units.h"],
     deps = [
         ":index_transform",
+        ":output_index_method",
+        "//tensorstore:index",
+        "//tensorstore:rank",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "//tensorstore/util:unit",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "absl/strings/str_format.h"
 #ifdef _WIN32
 #error "Use file_lister_win.cc instead."
 #endif
@@ -224,8 +225,8 @@ absl::Status RecursiveFileList(
                              "Failed to stat: ", QuoteString(root_directory));
   }
   if (!S_ISDIR(dir_stat.st_mode)) {
-    return absl::NotFoundError(absl::StrCat("Cannot list non-directory: ",
-                                            QuoteString(root_directory)));
+    return absl::NotFoundError(absl::StrFormat("Cannot list non-directory: %v",
+                                               QuoteString(root_directory)));
   }
 
   auto status = RecursiveListImpl(recurse_into, on_item, root_directory);

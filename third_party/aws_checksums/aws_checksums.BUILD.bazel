@@ -51,10 +51,10 @@ cc_library(
         "//conditions:default": [],
     }),
     includes = ["include"],
+    visibility = ["//visibility:public"],
     deps = [
         "@aws_c_common",
     ],
-    visibility = ["//visibility:public"],
 )
 
 [
@@ -65,8 +65,15 @@ cc_library(
             "@platforms//cpu:" + cpu,
         ],
     )
-    for os in ["linux", "macos", "windows"]
-    for cpu in ["arm64", "x86_64"]
+    for os in [
+        "linux",
+        "macos",
+        "windows",
+    ]
+    for cpu in [
+        "arm64",
+        "x86_64",
+    ]
 ]
 
 selects.config_setting_group(
@@ -89,5 +96,8 @@ selects.config_setting_group(
         ("gcc_or_clang", ":compiler_gcc_or_clang"),
         ("msvc", "@rules_cc//cc/compiler:msvc-cl"),
     ]
-    for cpu in ["arm64", "x86_64"]
+    for cpu in [
+        "arm64",
+        "x86_64",
+    ]
 ]

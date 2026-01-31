@@ -113,7 +113,6 @@ using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::SupportedFeatures;
 
-
 namespace tensorstore {
 namespace internal_gcs_grpc {
 namespace {
@@ -137,16 +136,16 @@ ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     GcsGrpcKeyValueStoreSpecData,
     jb::Object(
-        jb::Member(
-            "bucket",
-            jb::Projection<&GcsGrpcKeyValueStoreSpecData::bucket>(
-                jb::Validate([](const auto& options, const std::string* x) {
-                  if (!internal_storage_gcs::IsValidBucketName(*x)) {
-                    return absl::InvalidArgumentError(tensorstore::StrCat(
-                        "Invalid GCS bucket name: ", QuoteString(*x)));
-                  }
-                  return absl::OkStatus();
-                }))),
+        jb::Member("bucket",
+                   jb::Projection<&GcsGrpcKeyValueStoreSpecData::bucket>(
+                       jb::Validate([](const auto& options,
+                                       const std::string* x) {
+                         if (!internal_storage_gcs::IsValidBucketName(*x)) {
+                           return absl::InvalidArgumentError(absl::StrFormat(
+                               "Invalid GCS bucket name: %v", QuoteString(*x)));
+                         }
+                         return absl::OkStatus();
+                       }))),
         jb::Member("endpoint",
                    jb::Projection<&GcsGrpcKeyValueStoreSpecData::endpoint>(
                        jb::DefaultInitializedValue())),
@@ -375,8 +374,8 @@ Result<kvstore::Spec> ParseGcsGrpcUrl(std::string_view url) {
       parsed, GcsGrpcKeyValueStoreSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid GCS bucket name: ", QuoteString(parsed.authority)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid GCS bucket name: %v", QuoteString(parsed.authority)));
   }
   auto decoded_path = parsed.path.empty()
                           ? std::string()

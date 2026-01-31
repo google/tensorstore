@@ -23,7 +23,7 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/metrics/counter.h"
@@ -79,7 +79,7 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
   TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(fd.get(), info));
   if (!info->IsRegularFile()) {
     return absl::FailedPreconditionError(
-        absl::StrCat("Not a regular file: ", lock_path));
+        absl::StrFormat("Not a regular file: %v", QuoteString(lock_path)));
   }
 
   // Loop until lock is acquired successfully.
@@ -87,8 +87,9 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
     // Acquire lock.
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto unlock_fn, AcquireFdLock(fd.get()),
-        MaybeAnnotateStatus(_, absl::StrCat("Failed to acquire lock on file: ",
-                                            QuoteString(lock_path))));
+        MaybeAnnotateStatus(
+            _, absl::StrFormat("Failed to acquire lock on file: %v",
+                               QuoteString(lock_path))));
 
     // Reopening the file should give the same value since the lock is held.
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -127,7 +128,7 @@ Result<FileLock> AcquireExclusiveFile(std::string lock_path,
       if (!info.IsRegularFile()) {
         // A lock file must be a regular file, not a symlink or directory.
         return absl::FailedPreconditionError(
-            absl::StrCat("Not a regular file: ", lock_path));
+            absl::StrFormat("Not a regular file: %v", QuoteString(lock_path)));
       }
       if (info.GetMTime() < (start - timeout)) {
         // NOTE: Automatic cleanup of stale lock could be added.
@@ -166,7 +167,7 @@ Result<FileLock> AcquireExclusiveFile(std::string lock_path,
   } while (absl::Now() < start + timeout);
 
   return absl::DeadlineExceededError(
-      absl::StrCat("Failed to open lock file: ", lock_path));
+      absl::StrFormat("Failed to open lock file: %v", QuoteString(lock_path)));
 }
 
 /* static */

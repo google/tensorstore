@@ -106,6 +106,35 @@ constexpr inline OpenMode operator~(OpenMode a) {
 /// \relates OpenMode
 /// \id OpenMode
 std::ostream& operator<<(std::ostream& os, OpenMode mode);
+template <typename Sink>
+void AbslStringify(Sink& sink, OpenMode mode) {
+  const char* sep = "";
+  constexpr const char* kSep = "|";
+  if (!!(mode & OpenMode::open)) {
+    sink.Append("open");
+    sep = kSep;
+  }
+  if (!!(mode & OpenMode::create)) {
+    sink.Append(sep);
+    sink.Append("create");
+    sep = kSep;
+  }
+  if (!!(mode & OpenMode::delete_existing)) {
+    sink.Append(sep);
+    sink.Append("delete_existing");
+    sep = kSep;
+  }
+  if (!!(mode & OpenMode::assume_metadata)) {
+    sink.Append(sep);
+    sink.Append("assume_metadata");
+    sep = kSep;
+  }
+  if (!!(mode & OpenMode::assume_cached_metadata)) {
+    sink.Append(sep);
+    sink.Append("assume_cached_metadata");
+    sep = kSep;
+  }
+}
 
 /// Specifies whether reading and/or writing is permitted.
 ///

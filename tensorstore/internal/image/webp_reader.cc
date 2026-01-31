@@ -20,17 +20,17 @@
 
 #include <algorithm>
 #include <memory>
-#include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
-#include "absl/types/optional.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 // Include libwebp last

@@ -227,9 +227,9 @@ Result<ParsedContentRange> ParseContentRangeHeader(
   if (it == response.headers.end()) {
     if (response.status_code != 206) {
       // A content range header is not expected.
-      return absl::FailedPreconditionError(
-          tensorstore::StrCat("No Content-Range header expected with HTTP ",
-                              response.status_code, " response"));
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "No Content-Range header expected with HTTP %d response",
+          response.status_code));
     }
     return absl::FailedPreconditionError(
         "Expected Content-Range header with HTTP 206 response");

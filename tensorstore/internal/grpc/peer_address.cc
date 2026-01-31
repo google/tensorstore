@@ -14,13 +14,14 @@
 
 #include "tensorstore/internal/grpc/peer_address.h"
 
+#include <string>
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "grpcpp/server_context.h"  // third_party
 #include "re2/re2.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -31,8 +32,8 @@ Result<std::pair<std::string, int>> GetGrpcPeerAddressAndPort(
   std::string address;
   int port;
   if (!RE2::FullMatch(context->peer(), *kPeerPattern, &address, &port)) {
-    return absl::InternalError(tensorstore::StrCat(
-        "Failed to determine peer address and port: ", context->peer()));
+    return absl::InternalError(absl::StrFormat(
+        "Failed to determine peer address and port: %s", context->peer()));
   }
   return {std::in_place, std::move(address), port};
 }

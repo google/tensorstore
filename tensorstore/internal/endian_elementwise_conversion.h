@@ -23,6 +23,7 @@
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
@@ -371,8 +372,9 @@ struct ReadSwapEndianLoopTemplate {
         for (size_t i = 0; i < length; ++i) {
           if (output[i] & ~static_cast<unsigned char>(1)) {
             reader.Seek(pos + i);
-            reader.Fail(absl::InvalidArgumentError(tensorstore::StrCat(
-                "Invalid bool value: ", static_cast<unsigned int>(output[i]))));
+            reader.Fail(absl::InvalidArgumentError(
+                absl::StrFormat("Invalid bool value: %u",
+                                static_cast<unsigned int>(output[i]))));
             return false;
           }
         }
@@ -438,8 +440,9 @@ struct ReadSwapEndianLoopTemplate {
           if constexpr (IsBool) {
             if (*cursor & ~static_cast<unsigned char>(1)) {
               reader.set_cursor(cursor);
-              reader.Fail(absl::InvalidArgumentError(tensorstore::StrCat(
-                  "Invalid bool value: ", static_cast<unsigned int>(*cursor))));
+              reader.Fail(absl::InvalidArgumentError(
+                  absl::StrFormat("Invalid bool value: %u",
+                                  static_cast<unsigned int>(*cursor))));
               return false;
             }
           }

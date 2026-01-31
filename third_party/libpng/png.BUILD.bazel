@@ -18,8 +18,8 @@ license(
 
 copy_file(
     name = "pnglibconf",
-    out = "pnglibconf.h",
     src = "scripts/pnglibconf.h.prebuilt",
+    out = "pnglibconf.h",
 )
 
 cc_library(
@@ -47,8 +47,8 @@ cc_library(
         "pngwutil.c",
     ] + select({
         "@platforms//cpu:x86_64": [
-            "intel/intel_init.c",
             "intel/filter_sse2_intrinsics.c",
+            "intel/intel_init.c",
         ],
         "@platforms//cpu:ppc": [
             "powerpc/filter_vsx_intrinsics.c",
@@ -65,19 +65,6 @@ cc_library(
         "png.h",
         "pngconf.h",
     ],
-    linkopts = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["-lm"],
-    }),
-    includes = ["."],
-    visibility = ["//visibility:public"],
-    deps = ["@zlib"],
-    local_defines = select({
-        "@platforms//cpu:arm64": ["PNG_ARM_NEON_OPT=2"],
-        "@platforms//cpu:x86_64": ["PNG_INTEL_SSE_OPT=1"],
-        "@platforms//cpu:ppc": ["PNG_POWERPC_VSX_OPT=2"],
-        "//conditions:default": [],
-    }),
     copts = select({
         ":use_x86_gcc_flags": [
             "-mpclmul",
@@ -88,6 +75,19 @@ cc_library(
         ":use_x86_msvc_flags": ["/arch:AVX"],
         "//conditions:default": [],
     }),
+    includes = ["."],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lm"],
+    }),
+    local_defines = select({
+        "@platforms//cpu:arm64": ["PNG_ARM_NEON_OPT=2"],
+        "@platforms//cpu:x86_64": ["PNG_INTEL_SSE_OPT=1"],
+        "@platforms//cpu:ppc": ["PNG_POWERPC_VSX_OPT=2"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = ["@zlib"],
 )
 
 alias(

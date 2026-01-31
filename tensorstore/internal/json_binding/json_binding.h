@@ -103,6 +103,7 @@
 
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/json.h"
@@ -871,8 +872,8 @@ struct MemberBinderImpl {
     return status.ok()
                ? status
                : MaybeAnnotateStatus(
-                     status, tensorstore::StrCat("Error parsing object member ",
-                                                 QuoteString(name)));
+                     status, absl::StrFormat("Error parsing object member %v",
+                                             QuoteString(name)));
   }
   template <typename Options, typename Obj>
   absl::Status operator()(std::false_type is_loading, const Options& options,
@@ -881,9 +882,9 @@ struct MemberBinderImpl {
     TENSORSTORE_RETURN_IF_ERROR(
         binder(is_loading, options, obj, &j_member),
 
-        MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Error converting object member ",
-                                   QuoteString(name))));
+        MaybeAnnotateStatus(_,
+                            absl::StrFormat("Error converting object member %v",
+                                            QuoteString(name))));
     if (!j_member.is_discarded()) {
       j_obj->emplace(name, std::move(j_member));
     }
@@ -982,10 +983,9 @@ constexpr auto AtMostOne(MemberName... names) {
         return j->find(name) == j->end() ? 0 : 1;
       };
       if ((has_member(names) + ...) > 1) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "At most one of ",
-            absl::StrJoin({QuoteString(std::string_view(names))...}, ", "),
-            " members is allowed"));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "At most one of %s members is allowed",
+            absl::StrJoin({QuoteString(std::string_view(names))...}, ", ")));
       }
     }
     return absl::OkStatus();
@@ -1011,11 +1011,11 @@ constexpr auto AtLeastOne(MemberName... names) {
         return j->find(name) == j->end() ? 0 : 1;
       };
       if ((has_member(names) + ...) == 0) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "At least one of ",
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "At least one of %s members must be specified",
             absl::StrJoin(
-                std::make_tuple(QuoteString(std::string_view(names))...), ", "),
-            " members must be specified"));
+                std::make_tuple(QuoteString(std::string_view(names))...),
+                ", ")));
       }
     }
     return absl::OkStatus();

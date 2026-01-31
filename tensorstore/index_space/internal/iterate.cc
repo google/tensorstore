@@ -23,6 +23,7 @@
 
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -132,9 +133,9 @@ absl::Status InitializeSingleArrayIterationStateImpl(
         if (!Contains(array.domain()[output_dim], output_offset)) {
           return MaybeAnnotateStatus(
               CheckContains(array.domain()[output_dim], output_offset),
-              tensorstore::StrCat(
-                  "Checking bounds of constant output index map for dimension ",
-                  output_dim));
+              absl::StrFormat("Checking bounds of constant output index map "
+                              "for dimension %d",
+                              output_dim));
         }
       } else {
         // `output_offset` is assumed to be valid in the normalized
@@ -151,8 +152,8 @@ absl::Status InitializeSingleArrayIterationStateImpl(
                                               iteration_shape[input_dim]),
                 output_offset, output_stride),
             MaybeAnnotateStatus(
-                _, tensorstore::StrCat(
-                       "Checking bounds of output index map for dimension ",
+                _, absl::StrFormat(
+                       "Checking bounds of output index map for dimension %d",
                        output_dim)));
         if (!Contains(array.domain()[output_dim], range)) {
           return absl::OutOfRangeError(tensorstore::StrCat(
@@ -186,9 +187,9 @@ absl::Status InitializeSingleArrayIterationStateImpl(
             GetAffineTransformDomain(array.domain()[output_dim], output_offset,
                                      output_stride),
             MaybeAnnotateStatus(
-                _, tensorstore::StrCat(
-                       "Propagating bounds from intermediate dimension ",
-                       output_dim, ".")));
+                _, absl::StrFormat(
+                       "Propagating bounds from intermediate dimension %d.",
+                       output_dim)));
         index_bounds = Intersect(propagated_index_bounds, index_bounds);
       }
 
@@ -216,9 +217,8 @@ absl::Status InitializeSingleArrayIterationStateImpl(
         TENSORSTORE_RETURN_IF_ERROR(
             CheckContains(index_bounds, index),
             MaybeAnnotateStatus(
-                _,
-                tensorstore::StrCat("In index array map for output dimension ",
-                                    output_dim)));
+                _, absl::StrFormat("In index array map for output dimension %d",
+                                   output_dim)));
         single_array_state->base_pointer +=
             internal::wrap_on_overflow::Multiply(
                 byte_stride,
@@ -243,9 +243,8 @@ absl::Status InitializeSingleArrayIterationStateImpl(
                                            input_rank, iteration_shape,
                                            index_array_data.byte_strides))),
             MaybeAnnotateStatus(
-                _,
-                tensorstore::StrCat("In index array map for output dimension ",
-                                    output_dim)));
+                _, absl::StrFormat("In index array map for output dimension %d",
+                                   output_dim)));
       }
     }
   }

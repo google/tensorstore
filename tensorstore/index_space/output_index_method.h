@@ -39,6 +39,24 @@ enum class OutputIndexMethod {
 /// \id OutputIndexMethod
 std::ostream& operator<<(std::ostream& os, OutputIndexMethod method);
 
+template <typename Sink>
+void AbslStringify(Sink& sink, OutputIndexMethod method) {
+  switch (method) {
+    case OutputIndexMethod::constant:
+      sink.Append("constant");
+      break;
+    case OutputIndexMethod::single_input_dimension:
+      sink.Append("single_input_dimension");
+      break;
+    case OutputIndexMethod::array:
+      sink.Append("array");
+      break;
+    default:
+      sink.Append("<unknown>");
+      break;
+  }
+}
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INDEX_SPACE_OUTPUT_INDEX_METHOD_H_

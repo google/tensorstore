@@ -12,16 +12,16 @@ exports_files(["LICENSE.md"])
 cc_library(
     name = "jpeg",
     hdrs = [
+        "public/jconfig.h",
         "public/jerror.h",
         "public/jmorecfg.h",
         "public/jpegint.h",
         "public/jpeglib.h",
-        "public/jconfig.h",
     ],
-    includes = ["public"],
     implementation_deps = [
         ":jpeg_impl",
     ],
+    includes = ["public"],
     visibility = ["//visibility:public"],
 )
 
@@ -150,11 +150,11 @@ cc_library(
     srcs = JPEG16_SOURCES,
     hdrs = glob(["src/*.h"]),
     copts = JPEG_COPTS,
-    strip_include_prefix = "src",
-    textual_hdrs = JPEG_TEXTUAL_HDRS,
     local_defines = [
         "BITS_IN_JSAMPLE=16",
     ],
+    strip_include_prefix = "src",
+    textual_hdrs = JPEG_TEXTUAL_HDRS,
     deps = [
         ":jpeg_config",
     ],
@@ -166,11 +166,11 @@ cc_library(
     srcs = JPEG12_SOURCES,
     hdrs = glob(["src/*.h"]),
     copts = JPEG_COPTS,
-    strip_include_prefix = "src",
-    textual_hdrs = JPEG_TEXTUAL_HDRS,
     local_defines = [
         "BITS_IN_JSAMPLE=12",
     ],
+    strip_include_prefix = "src",
+    textual_hdrs = JPEG_TEXTUAL_HDRS,
     deps = [
         ":jpeg_config",
     ],
@@ -182,13 +182,13 @@ cc_library(
     srcs = JPEG_SOURCES,
     hdrs = glob(["src/*.h"]),
     copts = JPEG_COPTS,
+    linkstatic = 1,  # needed to find symbol jpeg_nbits_table
     strip_include_prefix = "src",
     textual_hdrs = JPEG_TEXTUAL_HDRS,
-    linkstatic = 1,  # needed to find symbol jpeg_nbits_table
     deps = [
-        ":jpeg_config",
         ":jpeg12",
         ":jpeg16",
+        ":jpeg_config",
     ] + select({
         "@platforms//cpu:x86_64": [":simd_x86_64"],
         ":armeabi-v7a": [":simd_aarch32"],
@@ -205,9 +205,12 @@ cc_library(
         "simd/x86_64/jsimd.c",
         ":simd_x86_64_asm",
     ],
-    linkstatic = 1,
-    hdrs = glob(["src/*.h", "simd/*.h"]),
+    hdrs = glob([
+        "src/*.h",
+        "simd/*.h",
+    ]),
     copts = JPEG_COPTS,
+    linkstatic = 1,
     target_compatible_with = ["@platforms//cpu:x86_64"],
     deps = [
         ":jpeg_config",
@@ -245,6 +248,12 @@ nasm_library(
         "simd/x86_64/jquanti-sse2.asm",
         "simd/x86_64/jsimdcpu.asm",
     ],
+    hdrs = glob([
+        "simd/nasm/*.inc",
+        # The non-ext .asm files with the similar name %include these
+        "simd/x86_64/*ext-avx2.asm",
+        "simd/x86_64/*ext-sse2.asm",
+    ]),
     copts = [
         "-w+all",
         "-w-reloc-rel-dword",
@@ -262,12 +271,6 @@ nasm_library(
             "-DPIC",
         ],
     }),
-    hdrs = glob([
-        "simd/nasm/*.inc",
-        # The non-ext .asm files with the similar name %include these
-        "simd/x86_64/*ext-avx2.asm",
-        "simd/x86_64/*ext-sse2.asm",
-    ]),
     includes = [
         "simd/nasm",
         "simd/x86_64",
@@ -299,7 +302,11 @@ cc_library(
     ],
     hdrs = [
         "neon-compat.h",
-    ] + glob(["src/*.h", "simd/*.h", "simd/arm/*.h"]),
+    ] + glob([
+        "src/*.h",
+        "simd/*.h",
+        "simd/arm/*.h",
+    ]),
     copts = JPEG_COPTS,
     target_compatible_with = [
         "@platforms//cpu:arm64",
@@ -321,7 +328,11 @@ cc_library(
     ],
     hdrs = [
         "neon-compat.h",
-    ] + glob(["src/*.h", "simd/*.h", "simd/arm/*.h"]),
+    ] + glob([
+        "src/*.h",
+        "simd/*.h",
+        "simd/arm/*.h",
+    ]),
     copts = JPEG_COPTS,
     target_compatible_with = [
         ":armeabi-v7a",
@@ -351,10 +362,14 @@ cc_library(
         "simd/powerpc/jquanti-altivec.c",
         "simd/powerpc/jsimd.c",
     ],
-    hdrs = glob(["src/*.h", "simd/*.h", "simd/powerpc/*.h"]),
-    textual_hdrs = glob(["simd/powerpc/*ext-altivec.c"]),
+    hdrs = glob([
+        "src/*.h",
+        "simd/*.h",
+        "simd/powerpc/*.h",
+    ]),
     copts = JPEG_COPTS,
     target_compatible_with = ["@platforms//cpu:ppc"],
+    textual_hdrs = glob(["simd/powerpc/*ext-altivec.c"]),
     deps = [
         ":jpeg_config",
     ],
@@ -364,8 +379,8 @@ cc_library(
 cc_library(
     name = "jpeg_config",
     hdrs = [
-        "config/jconfigint.h",
         "config/jconfig.h",
+        "config/jconfigint.h",
         "config/jversion.h",
     ],
     strip_include_prefix = "config",

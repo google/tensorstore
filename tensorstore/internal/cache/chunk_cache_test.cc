@@ -102,9 +102,7 @@ using ::tensorstore::Future;
 using ::tensorstore::Index;
 using ::tensorstore::IndexTransform;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MakeCopy;
 using ::tensorstore::no_transaction;
-using ::tensorstore::ReadProgressFunction;
 using ::tensorstore::Result;
 using ::tensorstore::SharedArray;
 using ::tensorstore::span;
@@ -113,7 +111,6 @@ using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TensorStore;
 using ::tensorstore::Transaction;
-using ::tensorstore::WriteProgressFunction;
 using ::tensorstore::internal::AsyncCache;
 using ::tensorstore::internal::AsyncWriteArray;
 using ::tensorstore::internal::CachePool;
@@ -496,13 +493,13 @@ TEST_F(ChunkCacheTest, CancelRead) {
 // Special-purpose FlowReceiver used by the `CancelWrite` test defined below,
 // passed to `ChunkCache::Write`.
 struct CancelWriteReceiver {
-  friend void set_starting(CancelWriteReceiver& receiver,
-                           tensorstore::AnyCancelReceiver cancel) {
+  [[maybe_unused]] friend void set_starting(
+      CancelWriteReceiver& receiver, tensorstore::AnyCancelReceiver cancel) {
     receiver.cancel = std::move(cancel);
   }
-  friend void set_value(CancelWriteReceiver& receiver,
-                        tensorstore::internal::WriteChunk chunk,
-                        tensorstore::IndexTransform<> cell_transform) {
+  [[maybe_unused]] friend void set_value(
+      CancelWriteReceiver& receiver, tensorstore::internal::WriteChunk chunk,
+      tensorstore::IndexTransform<> cell_transform) {
     EXPECT_FALSE(receiver.set_value_called);
     receiver.set_value_called = true;
     EXPECT_EQ(tensorstore::IndexTransformBuilder<>(1, 1)
@@ -521,9 +518,10 @@ struct CancelWriteReceiver {
               cell_transform);
     receiver.cancel();
   }
-  friend void set_done(CancelWriteReceiver& receiver) {}
-  friend void set_error(CancelWriteReceiver& receiver, absl::Status status) {}
-  friend void set_stopping(CancelWriteReceiver& receiver) {
+  [[maybe_unused]] friend void set_done(CancelWriteReceiver& receiver) {}
+  [[maybe_unused]] friend void set_error(CancelWriteReceiver& receiver,
+                                         absl::Status status) {}
+  [[maybe_unused]] friend void set_stopping(CancelWriteReceiver& receiver) {
     receiver.cancel = nullptr;
   }
 

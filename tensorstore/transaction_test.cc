@@ -22,9 +22,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -154,7 +154,7 @@ struct TestNode : public TransactionState::Node {
   void Commit() override { log->push_back("commit:" + Describe()); }
   void Abort() override { log->push_back("abort:" + Describe()); }
   std::string Describe() override {
-    return tensorstore::StrCat(reinterpret_cast<uintptr_t>(associated_data()));
+    return absl::StrCat(reinterpret_cast<uintptr_t>(associated_data()));
   }
 
   NodeLog* log;

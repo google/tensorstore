@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -81,7 +82,7 @@ Future<std::vector<ListEntry>> ListFuture(const KvStore& store,
 
 Future<ReadResult> Read(const KvStore& store, std::string_view key,
                         ReadOptions options) {
-  auto full_key = tensorstore::StrCat(store.path, key);
+  auto full_key = absl::StrCat(store.path, key);
   if (store.transaction == no_transaction) {
     // Regular non-transactional read.
     return store.driver->Read(std::move(full_key), std::move(options));

@@ -27,6 +27,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
@@ -52,7 +53,6 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace {
@@ -327,9 +327,9 @@ constexpr auto IndexTransformParser(
         jb::Initialize([=](auto* obj) {
           if (!RankConstraint::EqualOrUnspecified(input_rank_constraint,
                                                   obj->rank)) {
-            return absl::InvalidArgumentError(tensorstore::StrCat(
-                "Expected ", keys->rank, " to be ", input_rank_constraint,
-                ", but is: ", obj->rank));
+            return absl::InvalidArgumentError(
+                absl::StrFormat("Expected %s to be %d, but is: %d", keys->rank,
+                                input_rank_constraint, obj->rank));
           }
           return absl::OkStatus();
         })
@@ -350,9 +350,9 @@ constexpr auto IndexTransformOutputParser(
           if (obj->output) {
             if (output_rank_constraint != dynamic_rank &&
                 obj->output->size() != output_rank_constraint) {
-              return absl::InvalidArgumentError(tensorstore::StrCat(
-                  "Expected output rank to be ", output_rank_constraint,
-                  ", but is: ", obj->output->size()));
+              return absl::InvalidArgumentError(
+                  absl::StrFormat("Expected output rank to be %d, but is: %d",
+                                  output_rank_constraint, obj->output->size()));
             }
             return absl::OkStatus();
           }
@@ -608,8 +608,8 @@ TENSORSTORE_DEFINE_JSON_BINDER(
         }
       }
       if (!RankConstraint::EqualOrUnspecified(options.rank().rank, *obj)) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected ", options.rank().rank, ", but received: ", *obj));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected %d, but received: %d", options.rank().rank, *obj));
       }
       return absl::OkStatus();
     })

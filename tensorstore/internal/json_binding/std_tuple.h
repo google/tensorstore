@@ -24,6 +24,7 @@
 
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json/value_as.h"
@@ -31,7 +32,6 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -41,9 +41,9 @@ inline absl::Status MaybeAnnotateTupleElementError(absl::Status status,
   return status.ok()
              ? status
              : MaybeAnnotateStatus(
-                   status, tensorstore::StrCat(
-                               "Error ", is_loading ? "parsing" : "converting",
-                               " value at position ", i));
+                   status,
+                   absl::StrFormat("Error %s value at position %d",
+                                   is_loading ? "parsing" : "converting", i));
 }
 
 template <bool IsLoading>

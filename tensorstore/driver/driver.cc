@@ -115,7 +115,7 @@ Future<Driver::Handle> OpenDriver(TransformedDriverSpec bound_spec,
         if (!status.ok()) {
           internal::StatusBuilder builder(std::move(status));
           builder.Format(
-              "Error opening %s driver",
+              "Error opening %v driver",
               tensorstore::QuoteString(bound_spec.driver_spec->GetId()));
           auto spec_json = internal_json_binding::ToJson(bound_spec);
           if (spec_json.ok()) {

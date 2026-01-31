@@ -75,9 +75,8 @@ struct ArrayBinderImpl {
       TENSORSTORE_RETURN_IF_ERROR(
           element_binder(is_loading, options, &element, &(*j_arr)[i]),
           MaybeAnnotateStatus(
-              _, tensorstore::StrCat("Error ",
-                                     is_loading ? "parsing" : "converting",
-                                     " value at position ", i)));
+              _, absl::StrFormat("Error %s value at position %d",
+                                 is_loading ? "parsing" : "converting", i)));
     }
     return absl::OkStatus();
   }

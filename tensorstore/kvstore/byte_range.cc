@@ -14,33 +14,17 @@
 
 #include "tensorstore/kvstore/byte_range.h"
 
+#include <stdint.h>
+
 #include <cassert>
-#include <optional>
-#include <ostream>
-#include <string>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/serialization/std_optional.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
-
-std::ostream& operator<<(std::ostream& os, const OptionalByteRangeRequest& r) {
-  os << "[" << r.inclusive_min << ", ";
-  if (r.exclusive_max != -1) {
-    os << r.exclusive_max;
-  } else {
-    os << "?";
-  }
-  os << ")";
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const ByteRange& r) {
-  return os << "[" << r.inclusive_min << ", " << r.exclusive_max << ")";
-}
 
 Result<ByteRange> OptionalByteRangeRequest::Validate(int64_t size) const {
   assert(SatisfiesInvariants());
@@ -52,9 +36,9 @@ Result<ByteRange> OptionalByteRangeRequest::Validate(int64_t size) const {
   }
   if (inclusive_min < 0 || exclusive_max > size ||
       inclusive_min > exclusive_max) {
-    return absl::OutOfRangeError(
-        tensorstore::StrCat("Requested byte range ", *this,
-                            " is not valid for value of size ", size));
+    return absl::OutOfRangeError(absl::StrFormat(
+        "Requested byte range %v is not valid for value of size %d", *this,
+        size));
   }
   return ByteRange{inclusive_min, exclusive_max};
 }

@@ -137,7 +137,8 @@ absl::Status ZarrDriverSpec::ApplyOptions(SpecOptions&& options) {
 }
 
 Result<SpecRankAndFieldInfo> ZarrDriverSpec::GetSpecInfo() const {
-  return GetSpecRankAndFieldInfo(partial_metadata, selected_field, schema);
+  return GetSpecRankAndFieldInfo(partial_metadata, selected_field, schema,
+                                 open_as_void);
 }
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
@@ -171,7 +172,17 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
         jb::Member("field", jb::Projection<&ZarrDriverSpec::selected_field>(
                                 jb::DefaultValue<jb::kNeverIncludeDefaults>(
                                     [](auto* obj) { *obj = std::string{}; }))),
+        jb::Member("open_as_void",
+                   jb::Projection<&ZarrDriverSpec::open_as_void>(
+                       jb::DefaultValue<jb::kNeverIncludeDefaults>([](auto* v) {
+                         *v = false;
+                       }))),
         jb::Initialize([](auto* obj) {
+          // Validate that field and open_as_void are mutually exclusive
+          if (obj->open_as_void && !obj->selected_field.empty()) {
+            return absl::InvalidArgumentError(
+                "\"field\" and \"open_as_void\" are mutually exclusive");
+          }
           TENSORSTORE_ASSIGN_OR_RETURN(auto info, obj->GetSpecInfo());
           if (info.full_rank != dynamic_rank) {
             TENSORSTORE_RETURN_IF_ERROR(
@@ -209,8 +220,11 @@ Result<SharedArray<const void>> ZarrDriverSpec::GetFillValue(
 
   const auto& metadata = partial_metadata;
   if (metadata.dtype && metadata.fill_value) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        size_t field_index, GetFieldIndex(*metadata.dtype, selected_field));
+    size_t field_index = 0;  // open_as_void has a single field.
+    if (!open_as_void) {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          field_index, GetFieldIndex(*metadata.dtype, selected_field));
+    }
     fill_value = (*metadata.fill_value)[field_index];
   }
 
@@ -356,6 +370,7 @@ absl::Status DataCache::GetBoundSpecData(
   const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
   spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);
   spec.metadata_key = metadata_key_;
+  spec.open_as_void = false;
   auto& pm = spec.partial_metadata;
   pm.rank = metadata.rank;
   pm.zarr_format = metadata.zarr_format;
@@ -382,6 +397,30 @@ Result<ChunkLayout> DataCache::GetChunkLayoutFromMetadata(
 }
 
 std::string DataCache::GetBaseKvstorePath() { return key_prefix_; }
+
+absl::Status VoidDataCache::ValidateMetadataCompatibility(
+    const void* existing_metadata_ptr, const void* new_metadata_ptr) {
+  // The existing metadata is already void metadata (from cache initialization).
+  // Convert the new metadata to void metadata so both have the same synthesized
+  // void dtype, then use normal validation which compares all fields except
+  // shape (via IsMetadataCompatible).
+  assert(new_metadata_ptr);
+  const auto& new_metadata =
+      *static_cast<const ZarrMetadata*>(new_metadata_ptr);
+  return DataCache::ValidateMetadataCompatibility(
+      existing_metadata_ptr, new_metadata.GetVoidMetadata().get());
+}
+
+absl::Status VoidDataCache::GetBoundSpecData(
+    internal_kvs_backed_chunk_driver::KvsDriverSpec& spec_base,
+    const void* metadata_ptr, size_t component_index) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      DataCache::GetBoundSpecData(spec_base, metadata_ptr, component_index));
+  auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
+  spec.open_as_void = true;
+  return absl::OkStatus();
+}
+
 Result<CodecSpec> ZarrDriver::GetCodec() {
   return internal_zarr::GetCodecSpecFromMetadata(metadata());
 }
@@ -415,6 +454,10 @@ Result<std::string> ZarrDriverSpec::ToUrl() const {
   if (!selected_field.empty()) {
     return absl::InvalidArgumentError(
         "zarr2 URL syntax not supported with selected_field specified");
+  }
+  if (open_as_void) {
+    return absl::InvalidArgumentError(
+        "zarr2 URL syntax not supported with open_as_void specified");
   }
   TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
   return tensorstore::StrCat(base_url, "|", kUrlScheme, ":");
@@ -451,7 +494,7 @@ Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
                     /*chunk_shape=*/grid.chunk_shape,
                     /*shape=*/metadata->shape,
                     /*dimension_separator=*/
-                    GetDimensionSeparatorChar(cache->dimension_separator_),
+                    GetDimensionSeparatorChar(cache->dimension_separator()),
                     staleness_bound, request.options));
           }),
       std::move(promise), std::move(metadata_future));
@@ -483,7 +526,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto metadata,
         internal_zarr::GetNewMetadata(spec().partial_metadata,
-                                      spec().selected_field, spec().schema),
+                                      spec().selected_field, spec().schema,
+                                      spec().open_as_void),
         tensorstore::MaybeAnnotateStatus(
             _, "Cannot create using specified \"metadata\" and schema"));
     return metadata;
@@ -496,29 +540,52 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     internal::EncodeCacheKey(
         &result, spec.store.path,
         GetDimensionSeparator(spec.partial_metadata, zarr_metadata),
-        zarr_metadata, spec.metadata_key);
+        zarr_metadata, spec.metadata_key,
+        spec.open_as_void ? "void" : "normal");
     return result;
   }
 
   std::unique_ptr<internal_kvs_backed_chunk_driver::DataCacheBase> GetDataCache(
       DataCache::Initializer&& initializer) override {
-    const auto& metadata =
+    const auto& original_metadata =
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
-    return std::make_unique<DataCache>(
-        std::move(initializer), spec().store.path,
-        GetDimensionSeparator(spec().partial_metadata, metadata),
-        spec().metadata_key);
+    auto dim_sep =
+        GetDimensionSeparator(spec().partial_metadata, original_metadata);
+    if (spec().open_as_void) {
+      // Use the cached void metadata from the original. The void metadata has
+      // dtype.fields containing only the void field, allowing standard
+      // encode/decode to work.
+      initializer.metadata = original_metadata.GetVoidMetadata();
+      return std::make_unique<VoidDataCache>(std::move(initializer),
+                                             spec().store.path, dim_sep,
+                                             spec().metadata_key);
+    }
+    return std::make_unique<DataCache>(std::move(initializer),
+                                       spec().store.path, dim_sep,
+                                       spec().metadata_key);
   }
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
                                    OpenMode open_mode) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+    // Validate partial_metadata against regular metadata
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().partial_metadata));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto field_index, GetFieldIndex(metadata.dtype, spec().selected_field));
-    TENSORSTORE_RETURN_IF_ERROR(
-        ValidateMetadataSchema(metadata, field_index, spec().schema));
+    // For void access, use component index 0 since we create a special
+    // component for raw byte access
+    size_t field_index;
+    if (spec().open_as_void) {
+      field_index = 0;
+      // Validate schema against void metadata, which has the synthesized void
+      // field that matches how the data will actually be accessed
+      TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(
+          *metadata.GetVoidMetadata(), field_index, spec().schema));
+    } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          field_index, GetFieldIndex(metadata.dtype, spec().selected_field));
+      TENSORSTORE_RETURN_IF_ERROR(
+          ValidateMetadataSchema(metadata, field_index, spec().schema));
+    }
     return field_index;
   }
 };

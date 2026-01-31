@@ -50,6 +50,11 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "requires",
+    hdrs = ["requires.h"],
+)
+
+tensorstore_cc_library(
     name = "type_traits",
     hdrs = ["type_traits.h"],
     deps = [

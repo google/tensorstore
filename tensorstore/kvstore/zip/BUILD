@@ -51,7 +51,6 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:core_headers",
