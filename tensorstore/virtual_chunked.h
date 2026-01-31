@@ -279,7 +279,7 @@ class ReadParameters {
   /// Read may be fulfilled with cached data no older than the specified bound.
   absl::Time staleness_bound() const { return staleness_bound_; }
 
-  /// Batch associated with read request
+  /// Batch associated with the read request.
   Batch::View batch() const { return batch_; }
 
   // Treat as private:
