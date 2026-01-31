@@ -283,7 +283,6 @@ class ReadParameters {
   Batch::View batch() const { return batch_; }
 
   // Treat as private:
-
   Executor executor_;
   StorageGeneration if_not_equal_;
   absl::Time staleness_bound_;
