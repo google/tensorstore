@@ -873,3 +873,28 @@ tensorstore_cc_test(
         "@net_sourceforge_half//:half",
     ],
 )
+
+tensorstore_cc_library(
+    name = "generic_stringify",
+    hdrs = ["generic_stringify.h"],
+    deps = [
+        "//tensorstore/internal/meta:requires",
+        "//tensorstore/internal/meta:type_traits",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/strings:string_view",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "generic_stringify_test",
+    srcs = ["generic_stringify_test.cc"],
+    deps = [
+        ":generic_stringify",
+        ":result",
+        ":span",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
+    ],
+)
