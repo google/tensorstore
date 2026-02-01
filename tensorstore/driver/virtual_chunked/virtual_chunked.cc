@@ -237,7 +237,8 @@ void VirtualChunkedCache::DoRead(EntryOrNode& node,
   auto& executor = cache.executor();
   // `node` is guaranteed to remain valid until `ReadSuccess` or `ReadError`
   // is called.  Therefore we don't need to separately hold a reference.
-  executor([&node, staleness_bound = request.staleness_bound, batch = Batch(request.batch)] {
+  executor([&node, staleness_bound = request.staleness_bound,
+            batch = Batch(request.batch)] {
     auto& entry = GetOwningEntry(node);
     auto& cache = GetOwningCache(entry);
     const auto& component_spec = cache.grid().components.front();
