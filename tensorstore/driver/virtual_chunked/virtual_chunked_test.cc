@@ -25,6 +25,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -51,6 +52,7 @@
 
 namespace {
 
+using ::tensorstore::Batch;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::dynamic_rank;
 using ::tensorstore::Future;
@@ -585,6 +587,79 @@ TEST(VirtualChunkedTest, NonAtomicSingleChunk) {
   }
 
   TENSORSTORE_ASSERT_OK(future);
+}
+
+template <typename... Option>
+Result<tensorstore::TensorStore<void, dynamic_rank,
+                                tensorstore::ReadWriteMode::read>>
+BatchSettingView(Batch& batch, Option&&... option) {
+  auto mutex = std::make_shared<absl::Mutex>();
+  return tensorstore::VirtualChunked(
+      tensorstore::NonSerializable{
+          [mutex, &batch](auto output, auto read_params)
+              -> Future<TimestampedStorageGeneration> {
+            tensorstore::InitializeArray(output);
+            absl::MutexLock lock(*mutex.get());
+            batch = read_params.batch();
+            return TimestampedStorageGeneration{
+                StorageGeneration::FromString("abc"), absl::Now()};
+          }},
+      std::forward<Option>(option)...);
+}
+
+// Test passing of Read batch into VirtualChunked ReadParameters
+// No Batch argument used in tensorstore::Read
+// results in no_batch set in virtual_batch
+TEST(VirtualChunkedTest, ReadNoBatch) {
+  auto virtual_batch = Batch{Batch::no_batch};
+  auto virtual_chunked =
+      BatchSettingView(virtual_batch, tensorstore::dtype_v<int>,
+                       tensorstore::Schema::Shape({2, 3}),
+                       tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
+
+  auto data = tensorstore::Read(virtual_chunked).result();
+  auto virtual_batch_view = Batch::View(virtual_batch);
+  EXPECT_TRUE(virtual_batch_view.impl_ == nullptr);
+}
+
+// No Batch argument passed to tensorstore::Read
+// results in no_batch set in virtual_batch
+TEST(VirtualChunkedTest, ReadNoBatchArgument) {
+  auto batch = Batch{tensorstore::no_batch};
+  auto batch_view = Batch::View(batch);
+  auto virtual_batch = Batch{Batch::no_batch};
+  auto virtual_chunked =
+      BatchSettingView(virtual_batch, tensorstore::dtype_v<int>,
+                       tensorstore::Schema::Shape({2, 3}),
+                       tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
+
+  auto read_future = tensorstore::Read(virtual_chunked, batch);
+  batch.Release();
+  auto data = read_future.result();
+
+  auto virtual_batch_view = Batch::View(virtual_batch);
+  EXPECT_TRUE(batch_view.impl_ == nullptr);
+  EXPECT_TRUE(virtual_batch_view.impl_ == nullptr);
+}
+
+// Batch argument passed to tensorstore::Read
+// is reflected in virtual_batch
+TEST(VirtualChunkedTest, ReadBatchArgument) {
+  auto batch = Batch::New();
+  auto batch_view = Batch::View(batch);
+  auto virtual_batch = Batch{Batch::no_batch};
+  auto virtual_chunked =
+      BatchSettingView(virtual_batch, tensorstore::dtype_v<int>,
+                       tensorstore::Schema::Shape({2, 3}),
+                       tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
+  auto read_future = tensorstore::Read(virtual_chunked, batch);
+  batch.Release();
+  auto data = read_future.result();
+
+  auto virtual_batch_view = Batch::View(virtual_batch);
+  EXPECT_FALSE(batch_view.impl_ == nullptr);
+  EXPECT_FALSE(virtual_batch_view.impl_ == nullptr);
+  EXPECT_EQ(batch_view.impl_, virtual_batch_view.impl_);
 }
 
 }  // namespace
