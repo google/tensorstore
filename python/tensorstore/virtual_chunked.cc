@@ -106,7 +106,7 @@ Read may be fulfilled with cached data no older than the specified bound.
         return std::optional<Batch>{std::nullopt};
       },
       R"(
-Batch associated with read request.
+Batch associated with the read request.
 )");
 }
 
