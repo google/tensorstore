@@ -15,6 +15,7 @@
 #include "tensorstore/virtual_chunked.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -592,15 +593,15 @@ TEST(VirtualChunkedTest, NonAtomicSingleChunk) {
 template <typename... Option>
 Result<tensorstore::TensorStore<void, dynamic_rank,
                                 tensorstore::ReadWriteMode::read>>
-BatchSettingView(Batch& batch, Option&&... option) {
+BatchSettingView(std::optional<Batch::View>& output_batch, Option&&... option) {
   auto mutex = std::make_shared<absl::Mutex>();
   return tensorstore::VirtualChunked(
       tensorstore::NonSerializable{
-          [mutex, &batch](auto output, auto read_params)
+          [mutex, &output_batch](auto output, auto read_params)
               -> Future<TimestampedStorageGeneration> {
             tensorstore::InitializeArray(output);
             absl::MutexLock lock(*mutex.get());
-            batch = read_params.batch();
+            if (auto b = read_params.batch(); b) output_batch = b;
             return TimestampedStorageGeneration{
                 StorageGeneration::FromString("abc"), absl::Now()};
           }},
@@ -609,27 +610,25 @@ BatchSettingView(Batch& batch, Option&&... option) {
 
 // Test passing of Read batch into VirtualChunked ReadParameters
 // No Batch argument used in tensorstore::Read
-// results in no_batch set in virtual_batch
+// results in output_batch not set
 TEST(VirtualChunkedTest, ReadNoBatch) {
-  auto virtual_batch = Batch{Batch::no_batch};
+  std::optional<Batch::View> output_batch{std::nullopt};
   auto virtual_chunked =
-      BatchSettingView(virtual_batch, tensorstore::dtype_v<int>,
+      BatchSettingView(output_batch, tensorstore::dtype_v<int>,
                        tensorstore::Schema::Shape({2, 3}),
                        tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
 
   auto data = tensorstore::Read(virtual_chunked).result();
-  auto virtual_batch_view = Batch::View(virtual_batch);
-  EXPECT_TRUE(virtual_batch_view.impl_ == nullptr);
+  EXPECT_FALSE(output_batch.has_value());
 }
 
 // No Batch argument passed to tensorstore::Read
-// results in no_batch set in virtual_batch
+// results in output_batch not set
 TEST(VirtualChunkedTest, ReadNoBatchArgument) {
+  std::optional<Batch::View> output_batch{std::nullopt};
   auto batch = Batch{tensorstore::no_batch};
-  auto batch_view = Batch::View(batch);
-  auto virtual_batch = Batch{Batch::no_batch};
   auto virtual_chunked =
-      BatchSettingView(virtual_batch, tensorstore::dtype_v<int>,
+      BatchSettingView(output_batch, tensorstore::dtype_v<int>,
                        tensorstore::Schema::Shape({2, 3}),
                        tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
 
@@ -637,29 +636,31 @@ TEST(VirtualChunkedTest, ReadNoBatchArgument) {
   batch.Release();
   auto data = read_future.result();
 
-  auto virtual_batch_view = Batch::View(virtual_batch);
-  EXPECT_TRUE(batch_view.impl_ == nullptr);
-  EXPECT_TRUE(virtual_batch_view.impl_ == nullptr);
+  EXPECT_FALSE(output_batch.has_value());
+
 }
 
 // Batch argument passed to tensorstore::Read
-// is reflected in virtual_batch
+// is reflected in output_batch
 TEST(VirtualChunkedTest, ReadBatchArgument) {
+  std::optional<Batch::View> output_batch{std::nullopt};
   auto batch = Batch::New();
-  auto batch_view = Batch::View(batch);
-  auto virtual_batch = Batch{Batch::no_batch};
+  Batch::View batch_view{batch};
   auto virtual_chunked =
-      BatchSettingView(virtual_batch, tensorstore::dtype_v<int>,
+      BatchSettingView(output_batch, tensorstore::dtype_v<int>,
                        tensorstore::Schema::Shape({2, 3}),
                        tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
   auto read_future = tensorstore::Read(virtual_chunked, batch);
   batch.Release();
   auto data = read_future.result();
 
-  auto virtual_batch_view = Batch::View(virtual_batch);
+  EXPECT_TRUE(output_batch.has_value());
+  auto output_batch_view = output_batch.value();
+
+  // Implementations are set and match each other
   EXPECT_FALSE(batch_view.impl_ == nullptr);
-  EXPECT_FALSE(virtual_batch_view.impl_ == nullptr);
-  EXPECT_EQ(batch_view.impl_, virtual_batch_view.impl_);
+  EXPECT_FALSE(output_batch_view.impl_ == nullptr);
+  EXPECT_EQ(batch_view.impl_, output_batch_view.impl_);
 }
 
 }  // namespace
