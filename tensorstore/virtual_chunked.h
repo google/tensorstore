@@ -243,23 +243,31 @@
 /// no different than binding the transaction to an existing virtual chunked
 /// view.
 
-#include <functional>
 #include <type_traits>
 
 #include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/batch.h"
-#include "tensorstore/box.h"
 #include "tensorstore/context.h"
+#include "tensorstore/driver/driver.h"
+#include "tensorstore/index.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/function.h"
 #include "tensorstore/staleness_bound.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/option.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace virtual_chunked {
