@@ -30,6 +30,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
