@@ -557,7 +557,9 @@ class DataCacheBase
         [](std::string& out, DimensionIndex dim, Index grid_index) {
           absl::StrAppend(&out, grid_index);
         },
-        rank, grid_indices.subspan(0, rank));
+        rank,
+        grid_indices.subspan(
+            0, std::min<ptrdiff_t>(grid_indices.size(), rank)));
     return key;
   }
 
