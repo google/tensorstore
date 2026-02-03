@@ -118,7 +118,7 @@ class ZarrDriverSpec
 
   static inline const auto default_json_binder = jb::Sequence(
       jb::Validate(
-          [](const auto& options, auto* obj) {
+          [](const auto& options, auto* obj) -> absl::Status {
             if (obj->schema.dtype().valid()) {
               return ValidateDataType(obj->schema.dtype());
             }
@@ -128,7 +128,7 @@ class ZarrDriverSpec
       jb::Member(
           "metadata",
           jb::Validate(
-              [](const auto& options, auto* obj) {
+              [](const auto& options, auto* obj) -> absl::Status {
                 if (obj->metadata_constraints.data_type) {
                   if (auto dtype = GetScalarDataType(
                           *obj->metadata_constraints.data_type)) {
@@ -153,7 +153,7 @@ class ZarrDriverSpec
       jb::Member("open_as_void", jb::Projection<&ZarrDriverSpec::open_as_void>(
                   jb::DefaultValue<jb::kNeverIncludeDefaults>(
                       [](auto* v) { *v = false; }))),
-      jb::Initialize([](auto* obj) {
+      jb::Initialize([](auto* obj) -> absl::Status {
         // Validate that field and open_as_void are mutually exclusive
         if (obj->open_as_void && !obj->selected_field.empty()) {
           return absl::InvalidArgumentError(
