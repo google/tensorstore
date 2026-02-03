@@ -62,6 +62,7 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/staleness_bound.h"
