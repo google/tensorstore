@@ -647,12 +647,12 @@ TEST(VirtualChunkedTest, ReadNoBatchArgument) {
 // is reflected in output_batch
 TEST(VirtualChunkedTest, ReadBatchArgument) {
   std::optional<Batch::View> output_batch{std::nullopt};
-  auto batch = Batch::New();
-  Batch::View batch_view{batch};
   auto virtual_chunked =
       BatchSettingView(output_batch, tensorstore::dtype_v<int>,
                        tensorstore::Schema::Shape({2, 3}),
                        tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
+  auto batch = Batch::New();
+  Batch::View batch_view{batch};
   EXPECT_FALSE(output_batch.has_value());
   auto read_future = tensorstore::Read(virtual_chunked, batch);
   batch.Release();
