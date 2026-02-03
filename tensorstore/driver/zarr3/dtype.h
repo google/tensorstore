@@ -137,13 +137,13 @@ absl::Status ValidateDType(ZarrDType& dtype);
 /// unstructured scalar array, otherwise `std::nullopt`.
 std::optional<DataType> GetScalarDataType(const ZarrDType& dtype);
 
-  /// Parses a Zarr 3 data type string.
-  ///
-  /// \error `absl::StatusCode::kInvalidArgument` if `dtype` is not valid.
-  Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype);
+/// Parses a Zarr 3 data type string.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if `dtype` is not valid.
+Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype);
 
-  /// Chooses a zarr data type corresponding to `dtype`.
-  Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype);
+/// Chooses a zarr data type corresponding to `dtype`.
+Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype);
 
 }  // namespace internal_zarr3
 }  // namespace tensorstore
