@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -31,14 +30,16 @@
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
-#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_receiver_utils.h"
 #include "tensorstore/driver/read_request.h"
 #include "tensorstore/driver/write_request.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
+#include "tensorstore/driver/zarr3/dtype.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"

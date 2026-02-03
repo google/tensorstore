@@ -29,6 +29,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/read_request.h"
 #include "tensorstore/driver/write_request.h"
