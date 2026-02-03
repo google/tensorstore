@@ -28,6 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -77,9 +78,10 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
     if (!absl::SimpleAtoi(suffix, &num_bits) ||
         num_bits == 0 ||
         num_bits % 8 != 0) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          dtype, " data type is invalid; expected r<N> where N is a positive "
-                 "multiple of 8"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "%s data type is invalid; expected r<N> where N is a positive "
+          "multiple of 8",
+          dtype));
     }
     Index num_bytes = num_bits / 8;
     return ZarrDType::BaseDType{std::string(dtype),
@@ -89,18 +91,18 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
 
   // Handle bare "r" - must have a number after it
   if (dtype.size() >= 1 && dtype[0] == 'r') {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        dtype, " data type is invalid; expected r<N> where N is a positive "
-               "multiple of 8"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "%s data type is invalid; expected r<N> where N is a positive "
+        "multiple of 8",
+        dtype));
   }
 
   constexpr std::string_view kSupported =
       "bool, uint8, uint16, uint32, uint64, int8, int16, int32, int64, "
       "bfloat16, float16, float32, float64, complex64, complex128, r<N>";
-  return absl::InvalidArgumentError(
-      tensorstore::StrCat(dtype, " data type is not one of the supported "
-                                 "data types: ",
-                          kSupported));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "%s data type is not one of the supported data types: %s", dtype,
+      kSupported));
 }
 
 namespace {
