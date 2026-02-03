@@ -27,6 +27,7 @@ tensorstore_cc_library(
         "//tensorstore:open_mode",
         "//tensorstore:open_options",
         "//tensorstore:rank",
+        "//tensorstore:schema",
         "//tensorstore:staleness_bound",
         "//tensorstore:strided_layout",
         "//tensorstore:transaction",
