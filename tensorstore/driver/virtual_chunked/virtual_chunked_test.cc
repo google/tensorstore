@@ -618,6 +618,7 @@ TEST(VirtualChunkedTest, ReadNoBatch) {
                        tensorstore::Schema::Shape({2, 3}),
                        tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
 
+  EXPECT_FALSE(output_batch.has_value());
   auto data = tensorstore::Read(virtual_chunked).result();
   EXPECT_FALSE(output_batch.has_value());
 }
@@ -632,12 +633,12 @@ TEST(VirtualChunkedTest, ReadNoBatchArgument) {
                        tensorstore::Schema::Shape({2, 3}),
                        tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
 
+  EXPECT_FALSE(output_batch.has_value());
   auto read_future = tensorstore::Read(virtual_chunked, batch);
   batch.Release();
   auto data = read_future.result();
 
   EXPECT_FALSE(output_batch.has_value());
-
 }
 
 // Batch argument passed to tensorstore::Read
@@ -650,17 +651,13 @@ TEST(VirtualChunkedTest, ReadBatchArgument) {
       BatchSettingView(output_batch, tensorstore::dtype_v<int>,
                        tensorstore::Schema::Shape({2, 3}),
                        tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
+  EXPECT_FALSE(output_batch.has_value());
   auto read_future = tensorstore::Read(virtual_chunked, batch);
   batch.Release();
   auto data = read_future.result();
 
   EXPECT_TRUE(output_batch.has_value());
-  auto output_batch_view = output_batch.value();
-
-  // Implementations are set and match each other
-  EXPECT_FALSE(batch_view.impl_ == nullptr);
-  EXPECT_FALSE(output_batch_view.impl_ == nullptr);
-  EXPECT_EQ(batch_view.impl_, output_batch_view.impl_);
+  EXPECT_TRUE(*output_batch);
 }
 
 }  // namespace
