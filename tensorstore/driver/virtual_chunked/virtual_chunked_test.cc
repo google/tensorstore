@@ -601,7 +601,7 @@ BatchSettingView(std::optional<Batch::View>& output_batch, Option&&... option) {
               -> Future<TimestampedStorageGeneration> {
             tensorstore::InitializeArray(output);
             absl::MutexLock lock(*mutex.get());
-            if (auto b = read_params.batch(); b) output_batch = b;
+            output_batch = read_params.batch();
             return TimestampedStorageGeneration{
                 StorageGeneration::FromString("abc"), absl::Now()};
           }},
@@ -620,7 +620,8 @@ TEST(VirtualChunkedTest, ReadNoBatch) {
 
   EXPECT_FALSE(output_batch.has_value());
   auto data = tensorstore::Read(virtual_chunked).result();
-  EXPECT_FALSE(output_batch.has_value());
+  EXPECT_TRUE(output_batch.has_value());
+  EXPECT_FALSE(*output_batch);
 }
 
 // No Batch argument passed to tensorstore::Read
@@ -638,7 +639,8 @@ TEST(VirtualChunkedTest, ReadNoBatchArgument) {
   batch.Release();
   auto data = read_future.result();
 
-  EXPECT_FALSE(output_batch.has_value());
+  EXPECT_TRUE(output_batch.has_value());
+  EXPECT_FALSE(*output_batch);
 }
 
 // Batch argument passed to tensorstore::Read
