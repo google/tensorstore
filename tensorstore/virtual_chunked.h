@@ -243,8 +243,8 @@
 /// no different than binding the transaction to an existing virtual chunked
 /// view.
 
-#include <utility>
 #include <type_traits>
+#include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
