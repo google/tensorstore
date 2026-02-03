@@ -296,38 +296,6 @@ Result<ZarrDType> ParseDType(const nlohmann::json& value) {
   return dtype;
 }
 
-bool operator==(const ZarrDType::BaseDType& a,
-                const ZarrDType::BaseDType& b) {
-  return a.encoded_dtype == b.encoded_dtype && a.dtype == b.dtype &&
-         a.flexible_shape == b.flexible_shape;
-}
-
-bool operator!=(const ZarrDType::BaseDType& a,
-                const ZarrDType::BaseDType& b) {
-  return !(a == b);
-}
-
-bool operator==(const ZarrDType::Field& a, const ZarrDType::Field& b) {
-  return static_cast<const ZarrDType::BaseDType&>(a) ==
-             static_cast<const ZarrDType::BaseDType&>(b) &&
-         a.outer_shape == b.outer_shape && a.name == b.name &&
-         a.field_shape == b.field_shape &&
-         a.num_inner_elements == b.num_inner_elements &&
-         a.byte_offset == b.byte_offset && a.num_bytes == b.num_bytes;
-}
-
-bool operator!=(const ZarrDType::Field& a, const ZarrDType::Field& b) {
-  return !(a == b);
-}
-
-bool operator==(const ZarrDType& a, const ZarrDType& b) {
-  return a.has_fields == b.has_fields &&
-         a.bytes_per_outer_element == b.bytes_per_outer_element &&
-         a.fields == b.fields;
-}
-
-bool operator!=(const ZarrDType& a, const ZarrDType& b) { return !(a == b); }
-
 void to_json(::nlohmann::json& out, const ZarrDType::Field& field) {
   using array_t = ::nlohmann::json::array_t;
   if (field.outer_shape.empty()) {

@@ -66,6 +66,14 @@ struct ZarrDType {
     /// For "flexible" data types that are themselves arrays, this specifies the
     /// shape.  For regular data types, this is empty.
     std::vector<Index> flexible_shape;
+
+    friend bool operator==(const BaseDType& a, const BaseDType& b) {
+      return a.encoded_dtype == b.encoded_dtype && a.dtype == b.dtype &&
+             a.flexible_shape == b.flexible_shape;
+    }
+    friend bool operator!=(const BaseDType& a, const BaseDType& b) {
+      return !(a == b);
+    }
   };
 
   /// Decoded representation of a single field.
@@ -92,6 +100,18 @@ struct ZarrDType {
     /// Number of bytes occupied by this field within an "outer" element
     /// (derived value).
     Index num_bytes;
+
+    friend bool operator==(const Field& a, const Field& b) {
+      return static_cast<const BaseDType&>(a) ==
+                 static_cast<const BaseDType&>(b) &&
+             a.outer_shape == b.outer_shape && a.name == b.name &&
+             a.field_shape == b.field_shape &&
+             a.num_inner_elements == b.num_inner_elements &&
+             a.byte_offset == b.byte_offset && a.num_bytes == b.num_bytes;
+    }
+    friend bool operator!=(const Field& a, const Field& b) {
+      return !(a == b);
+    }
   };
 
   /// Equal to `true` if the zarr "dtype" was specified as an array, in which
@@ -110,16 +130,16 @@ struct ZarrDType {
 
   friend void to_json(::nlohmann::json& out,  // NOLINT
                       const ZarrDType& dtype);
-};
 
-bool operator==(const ZarrDType::BaseDType& a,
-                const ZarrDType::BaseDType& b);
-bool operator!=(const ZarrDType::BaseDType& a,
-                const ZarrDType::BaseDType& b);
-bool operator==(const ZarrDType::Field& a, const ZarrDType::Field& b);
-bool operator!=(const ZarrDType::Field& a, const ZarrDType::Field& b);
-bool operator==(const ZarrDType& a, const ZarrDType& b);
-bool operator!=(const ZarrDType& a, const ZarrDType& b);
+  friend bool operator==(const ZarrDType& a, const ZarrDType& b) {
+    return a.has_fields == b.has_fields &&
+           a.bytes_per_outer_element == b.bytes_per_outer_element &&
+           a.fields == b.fields;
+  }
+  friend bool operator!=(const ZarrDType& a, const ZarrDType& b) {
+    return !(a == b);
+  }
+};
 
 /// Parses a zarr metadata "dtype" JSON specification.
 ///
