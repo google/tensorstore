@@ -19,14 +19,18 @@
 /// Support for encoding/decoding the JSON metadata for zarr arrays
 /// See: https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#metadata
 
+#include <stddef.h>
+
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
-#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"

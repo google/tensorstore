@@ -20,9 +20,16 @@
 /// See: https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#data-type
 
 #include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include <nlohmann/json.hpp>
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 

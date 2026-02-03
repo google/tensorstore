@@ -25,6 +25,7 @@
 #include <string_view>
 #include <utility>
 
+#include <nlohmann/json.hpp>
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
@@ -32,7 +33,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"

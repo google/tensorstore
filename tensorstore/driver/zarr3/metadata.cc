@@ -20,6 +20,7 @@
 #include <array>
 #include <cassert>
 #include <charconv>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -31,18 +32,16 @@
 #include <utility>
 #include <vector>
 
-#include <cstring>
-
+#include <nlohmann/json.hpp>
 #include "absl/algorithm/container.h"
-#include "absl/strings/escaping.h"
 #include "absl/base/casts.h"
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
@@ -78,6 +77,7 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"

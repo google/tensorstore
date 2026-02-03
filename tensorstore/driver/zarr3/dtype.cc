@@ -16,15 +16,27 @@
 
 #include <stddef.h>
 
+#include <algorithm>
+#include <limits>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
 
+#include <nlohmann/json.hpp>
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/numbers.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
