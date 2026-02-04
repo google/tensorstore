@@ -12186,6 +12186,12 @@ class VirtualChunkedReadParameters:
     """
 
     @property
+    def batch(self) -> Batch | None:
+        """
+        Batch associated with the read request.
+        """
+
+    @property
     def if_not_equal(self) -> bytes:
         """
         Cached generation, read request can be skipped if no newer data is available.

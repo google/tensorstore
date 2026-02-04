@@ -30,6 +30,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
@@ -61,6 +62,7 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/staleness_bound.h"
@@ -237,7 +239,8 @@ void VirtualChunkedCache::DoRead(EntryOrNode& node,
   auto& executor = cache.executor();
   // `node` is guaranteed to remain valid until `ReadSuccess` or `ReadError`
   // is called.  Therefore we don't need to separately hold a reference.
-  executor([&node, staleness_bound = request.staleness_bound] {
+  executor([&node, staleness_bound = request.staleness_bound,
+            batch = Batch(request.batch)] {
     auto& entry = GetOwningEntry(node);
     auto& cache = GetOwningCache(entry);
     const auto& component_spec = cache.grid().components.front();
@@ -267,6 +270,7 @@ void VirtualChunkedCache::DoRead(EntryOrNode& node,
       read_params.if_not_equal_ = lock.stamp().generation;
     }
     read_params.staleness_bound_ = staleness_bound;
+    read_params.batch_ = std::move(batch);
     auto read_future =
         cache.read_function_(ConstDataTypeCast<void>(std::move(partial_array)),
                              std::move(read_params));

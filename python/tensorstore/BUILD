@@ -1231,6 +1231,7 @@ pybind11_cc_library(
         ":type_name_override",
         "//tensorstore",
         "//tensorstore:array",
+        "//tensorstore:batch",
         "//tensorstore:container_kind",
         "//tensorstore:context",
         "//tensorstore:rank",

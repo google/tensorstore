@@ -16,6 +16,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore",
         "//tensorstore:array",
+        "//tensorstore:batch",
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",
@@ -27,7 +28,9 @@ tensorstore_cc_library(
         "//tensorstore:open_mode",
         "//tensorstore:open_options",
         "//tensorstore:rank",
+        "//tensorstore:schema",
         "//tensorstore:staleness_bound",
+        "//tensorstore:static_cast",
         "//tensorstore:strided_layout",
         "//tensorstore:transaction",
         "//tensorstore/driver",
@@ -51,7 +54,6 @@ tensorstore_cc_library(
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
-        "//tensorstore/util:option",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
@@ -70,6 +72,7 @@ tensorstore_cc_test(
     deps = [
         "//tensorstore",
         "//tensorstore:array",
+        "//tensorstore:batch",
         "//tensorstore:chunk_layout",
         "//tensorstore:context",
         "//tensorstore:data_type",

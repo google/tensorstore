@@ -243,22 +243,32 @@
 /// no different than binding the transaction to an existing virtual chunked
 /// view.
 
-#include <functional>
 #include <type_traits>
+#include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/time/time.h"
 #include "tensorstore/array.h"
-#include "tensorstore/box.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
+#include "tensorstore/driver/driver.h"
+#include "tensorstore/index.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/function.h"
 #include "tensorstore/staleness_bound.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/option.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace virtual_chunked {
@@ -278,11 +288,14 @@ class ReadParameters {
   /// Read may be fulfilled with cached data no older than the specified bound.
   absl::Time staleness_bound() const { return staleness_bound_; }
 
-  // Treat as private:
+  /// Batch associated with the read request.
+  Batch::View batch() const { return batch_; }
 
+  // Treat as private:
   Executor executor_;
   StorageGeneration if_not_equal_;
   absl::Time staleness_bound_;
+  Batch batch_{no_batch};
 };
 
 /// Type-erased function called to read a single chunk.
