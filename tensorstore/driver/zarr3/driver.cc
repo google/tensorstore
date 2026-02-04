@@ -998,7 +998,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 
     // Get the original dtype for void access encoding (needed by EncodeChunk).
     // For non-structured types, this is the single field's dtype.
-    DataType original_dtype = metadata.data_type.fields.size() > 0
+    DataType original_dtype = !metadata.data_type.fields.empty()
                                   ? metadata.data_type.fields[0].dtype
                                   : DataType{};
 

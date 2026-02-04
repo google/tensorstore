@@ -72,7 +72,8 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
     return make_dtype(dtype_v<::tensorstore::dtypes::complex128_t>);
 
   // Handle r<N> raw bits type where N is number of bits (must be multiple of 8)
-  if (dtype.size() > 1 && dtype[0] == 'r' && absl::ascii_isdigit(dtype[1])) {
+  if (!dtype.empty() && dtype[0] == 'r' && dtype.size() > 1 &&
+      absl::ascii_isdigit(dtype[1])) {
     std::string_view suffix = dtype.substr(1);
     Index num_bits = 0;
     if (!absl::SimpleAtoi(suffix, &num_bits) ||
@@ -90,7 +91,7 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   }
 
   // Handle bare "r" - must have a number after it
-  if (dtype.size() >= 1 && dtype[0] == 'r') {
+  if (!dtype.empty() && dtype[0] == 'r') {
     return absl::InvalidArgumentError(absl::StrFormat(
         "%s data type is invalid; expected r<N> where N is a positive "
         "multiple of 8",
