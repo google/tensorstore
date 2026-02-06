@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/array.h"
@@ -60,22 +61,21 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
-// TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
-// AbslStringify support, allowing use of %v format specifier.
 absl::Status SubChunkRankMismatch(span<const Index> sub_chunk_shape,
                                   DimensionIndex outer_rank) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "sharding_indexed sub-chunk shape of ", sub_chunk_shape,
-      " is not compatible with array of rank ", outer_rank));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "sharding_indexed sub-chunk shape of %s is not compatible with array of "
+      "rank %d",
+      absl::FormatStreamed(sub_chunk_shape), outer_rank));
 }
 
-// TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
-// AbslStringify support, allowing use of %v format specifier.
 absl::Status SubChunkShapeMismatch(span<const Index> sub_chunk_shape,
                                    span<const Index> chunk_shape) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "sharding_indexed sub-chunk shape of ", sub_chunk_shape,
-      " does not evenly divide chunk shape of  ", chunk_shape));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "sharding_indexed sub-chunk shape of %s does not evenly divide chunk "
+      "shape of %s",
+      absl::FormatStreamed(sub_chunk_shape),
+      absl::FormatStreamed(chunk_shape)));
 }
 
 namespace {

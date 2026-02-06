@@ -259,20 +259,19 @@ absl::Status ValidateDType(ZarrDType& dtype) {
             dtype.fields.begin(), dtype.fields.begin() + field_i,
             [&](const ZarrDType::Field& f) { return f.name == field.name; })) {
       return absl::InvalidArgumentError(absl::StrFormat(
-          "Field name %s occurs more than once", QuoteString(field.name)));
+          "Field name %v occurs more than once", QuoteString(field.name)));
     }
     field.field_shape.resize(field.flexible_shape.size() +
-                             field.outer_shape.size());ß
+                             field.outer_shape.size());
     std::copy(field.flexible_shape.begin(), field.flexible_shape.end(),
               std::copy(field.outer_shape.begin(), field.outer_shape.end(),
                         field.field_shape.begin()));
 
     field.num_inner_elements = ProductOfExtents(span(field.field_shape));
     if (field.num_inner_elements == std::numeric_limits<Index>::max()) {
-      // TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
-      // AbslStringify support, allowing use of %v format specifier.
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Product of dimensions ", span(field.field_shape), " is too large"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Product of dimensions %s is too large",
+          absl::FormatStreamed(span(field.field_shape))));
     }
     if (internal::MulOverflow(field.num_inner_elements,
                               static_cast<Index>(field.dtype->size),

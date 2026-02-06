@@ -481,7 +481,7 @@ constexpr auto UnknownExtensionAttributesJsonBinder =
           }
         }
         return absl::InvalidArgumentError(absl::StrFormat(
-            "Unsupported metadata field %s is not marked "
+            "Unsupported metadata field %v is not marked "
             "{\"must_understand\": false}",
             tensorstore::QuoteString(key)));
       }
@@ -821,7 +821,7 @@ Result<size_t> GetFieldIndex(const ZarrDType& dtype,
   }
   if (!dtype.has_fields) {
     return absl::FailedPreconditionError(absl::StrFormat(
-        "Requested field %s but dtype does not have named fields",
+        "Requested field %v but dtype does not have named fields",
         QuoteString(selected_field)));
   }
   for (size_t field_index = 0; field_index < dtype.fields.size();
@@ -829,7 +829,7 @@ Result<size_t> GetFieldIndex(const ZarrDType& dtype,
     if (dtype.fields[field_index].name == selected_field) return field_index;
   }
   return absl::FailedPreconditionError(absl::StrFormat(
-      "Requested field %s is not one of: %s", QuoteString(selected_field),
+      "Requested field %v is not one of: %s", QuoteString(selected_field),
       GetFieldNames(dtype)));
 }
 
@@ -1103,13 +1103,11 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
         tensorstore::MakeCopy(std::move(broadcast_fill_value),
                               skip_repeated_elements, field.dtype));
     if (!AreArraysIdenticallyEqual(converted_fill_value, fill_value)) {
-      auto binder = FillValueJsonBinder{metadata.data_type};
-      // TODO(BrianMichellß): Convert to absl::StrFormat once SharedArray has
-      // AbslStringify support, allowing use of %v format specifier.
-      return absl::FailedPreconditionError(tensorstore::StrCat(
-          "Invalid fill_value: schema requires fill value of ",
-          schema_fill_value, ", but metadata specifies fill value of ",
-          fill_value));
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "Invalid fill_value: schema requires fill value of %s, but metadata "
+          "specifies fill value of %s",
+          absl::FormatStreamed(schema_fill_value),
+          absl::FormatStreamed(fill_value)));
     }
   }
 
