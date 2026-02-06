@@ -173,7 +173,7 @@ absl::Status CodecResolveError(const ZarrCodecSpec& codec_spec,
                                const absl::Status& status) {
   return tensorstore::MaybeAnnotateStatus(
       status, absl::StrFormat(
-                  "Error %s through %s", message,
+                  "Error %s through codec %s", message,
                   jb::ToJson(&codec_spec, ZarrCodecJsonBinder).value().dump()));
 }
 }  // namespace

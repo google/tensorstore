@@ -23,6 +23,7 @@
 
 #include <cassert>
 #include <iosfwd>
+#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -118,8 +119,6 @@ constexpr inline bool IsBoxLikeExplicitlyConvertibleToRank<
                                        Rank);
 
 namespace internal_box {
-std::ostream& PrintToOstream(std::ostream& os,
-                             const BoxView<dynamic_rank, false>& view);
 bool AreEqual(const BoxView<dynamic_rank, false>& box_a,
               const BoxView<dynamic_rank, false>& box_b);
 
@@ -129,6 +128,23 @@ bool IsEmpty(tensorstore::span<const Index, Rank> shape) {
     if (size == 0) return true;
   }
   return false;
+}
+
+template <typename S, typename BoxType>
+void AbslStringifyImpl(S& sink, BoxType view) {
+  sink.Append("{origin={");
+  auto origin = view.origin();
+  for (size_t i = 0; i < origin.size(); ++i) {
+    if (i != 0) sink.Append(", ");
+    absl::Format(&sink, "%d", origin[i]);
+  }
+  sink.Append("}, shape={");
+  auto shape = view.shape();
+  for (size_t i = 0; i < shape.size(); ++i) {
+    if (i != 0) sink.Append(", ");
+    absl::Format(&sink, "%d", shape[i]);
+  }
+  sink.Append("}}");
 }
 
 template <bool Const>
@@ -389,8 +405,11 @@ class Box : public internal_box::BoxStorage<Rank> {
   }
 
   /// Prints to an `std::ostream`.
+  template <typename S, DimensionIndex R>
+  friend void AbslStringify(S& sink, const Box<R>& box);
+
   friend std::ostream& operator<<(std::ostream& os, const Box& box) {
-    return internal_box::PrintToOstream(os, box);
+    return os << absl::StreamFormat("%v", box);
   }
 
   /// Slices a type with an index domain a box.
@@ -439,8 +458,8 @@ Box(const Index (&shape)[Rank]) -> Box<Rank>;
 template <typename Origin, typename Shape,
           std::enable_if_t<(IsIndexConvertibleVector<Origin> &&
                             IsIndexConvertibleVector<Shape>)>* = nullptr>
-Box(const Origin& origin,
-    const Shape& shape) -> Box<SpanStaticExtent<Origin, Shape>::value>;
+Box(const Origin& origin, const Shape& shape)
+    -> Box<SpanStaticExtent<Origin, Shape>::value>;
 
 template <DimensionIndex Rank>
 Box(const Index (&origin)[Rank], const Index (&shape)[Rank]) -> Box<Rank>;
@@ -652,8 +671,11 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
     std::fill_n(shape().begin(), rank(), interval.size());
   }
 
+  template <typename S, DimensionIndex R, bool M>
+  friend void AbslStringify(S& sink, const BoxView<R, M>& box);
+
   friend std::ostream& operator<<(std::ostream& os, const BoxView& view) {
-    return internal_box::PrintToOstream(os, view);
+    return os << absl::StreamFormat("%v", view);
   }
 
   /// Slices a supported type by a box.
@@ -666,7 +688,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
     return ApplyIndexTransform(*this,
                                std::forward<Transformable>(transformable));
   }
-};  // namespace tensorstore
+};
 
 BoxView(DimensionIndex rank) -> BoxView<>;
 
@@ -703,8 +725,18 @@ BoxView(Origin&& origin, Shape&& shape)
                (IsMutableIndexVector<Origin> && IsMutableIndexVector<Shape>)>;
 
 template <DimensionIndex Rank>
-BoxView(const Index (&origin)[Rank],
-        const Index (&shape)[Rank]) -> BoxView<Rank>;
+BoxView(const Index (&origin)[Rank], const Index (&shape)[Rank])
+    -> BoxView<Rank>;
+
+template <typename S, DimensionIndex R>
+inline void AbslStringify(S& sink, const Box<R>& box) {
+  internal_box::AbslStringifyImpl(sink, BoxView<dynamic_rank, false>(box));
+}
+
+template <typename S, DimensionIndex R, bool M>
+inline void AbslStringify(S& sink, const BoxView<R, M>& box) {
+  internal_box::AbslStringifyImpl(sink, BoxView<dynamic_rank, false>(box));
+}
 
 template <DimensionIndex Rank, bool Mutable>
 struct StaticCastTraits<BoxView<Rank, Mutable>>

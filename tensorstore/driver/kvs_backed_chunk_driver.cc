@@ -30,6 +30,7 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
@@ -180,18 +181,19 @@ absl::Status ShapeConstraintError(DimensionIndex output_dim,
                                   DimensionIndex affected_exclusive_max) {
   assert(affected_inclusive_min != affected_exclusive_max);
   if (affected_inclusive_min < affected_exclusive_max) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Resize operation would also affect output dimension ", output_dim,
-        " over the interval ",
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Resize operation would also affect output dimension %d over the "
+        "interval %v but `resize_tied_bounds` was not specified",
+        output_dim,
         IndexInterval::UncheckedHalfOpen(affected_inclusive_min,
-                                         affected_exclusive_max),
-        " but `resize_tied_bounds` was not specified"));
+                                         affected_exclusive_max)));
   }
-  return absl::FailedPreconditionError(tensorstore::StrCat(
-      "Resize operation would also affect output dimension ", output_dim,
-      " over the out-of-bounds interval ",
-      IndexInterval::UncheckedHalfOpen(affected_exclusive_max,
-                                       affected_inclusive_min)));
+  return absl::FailedPreconditionError(
+      absl::StrFormat("Resize operation would also affect output dimension %d "
+                      "over the out-of-bounds interval %v",
+                      output_dim,
+                      IndexInterval::UncheckedHalfOpen(
+                          affected_exclusive_max, affected_inclusive_min)));
 }
 
 IndexInterval GetNewIndexInterval(IndexInterval existing,
@@ -267,15 +269,15 @@ absl::Status ValidateExpandShrinkConstraints(
         cur_interval, new_inclusive_min[i], new_exclusive_max[i]);
     if (shrink_only && !Contains(cur_interval, new_interval)) {
       return absl::FailedPreconditionError(
-          tensorstore::StrCat("Resize operation would expand output dimension ",
-                              i, " from ", cur_interval, " to ", new_interval,
-                              " but `shrink_only` was specified"));
+          absl::StrFormat("Resize operation would expand output dimension %d "
+                          "from %v to %v but `shrink_only` was specified",
+                          i, cur_interval, new_interval));
     }
     if (expand_only && !Contains(new_interval, cur_interval)) {
       return absl::FailedPreconditionError(
-          tensorstore::StrCat("Resize operation would shrink output dimension ",
-                              i, " from ", cur_interval, " to ", new_interval,
-                              " but `expand_only` was specified"));
+          absl::StrFormat("Resize operation would shrink output dimension %d "
+                          "from %v to %v but `expand_only` was specified",
+                          i, cur_interval, new_interval));
     }
   }
   return absl::OkStatus();

@@ -26,6 +26,7 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
@@ -179,7 +180,7 @@ void GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
   const auto handle_key = [&](std::string key,
                               tensorstore::span<const Index> grid_indices) {
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GRID_STORAGE_STATISTICS_DEBUG)
-        << "key: " << tensorstore::QuoteString(key);
+        << "key: " << QuoteString(key);
     if (internal::AddOverflow<Index>(total_chunks, 1, &total_chunks)) {
       return absl::OutOfRangeError(
           "Integer overflow computing number of chunks");
@@ -210,8 +211,9 @@ void GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
         << "key_range: " << key_range << ", grid_bounds=" << grid_bounds;
     Index cur_total_chunks = grid_bounds.num_elements();
     if (cur_total_chunks == std::numeric_limits<Index>::max()) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Integer overflow computing number of chunks in ", grid_bounds));
+      return absl::OutOfRangeError(
+          absl::StrFormat("Integer overflow computing number of chunks in %s",
+                          absl::FormatStreamed(grid_bounds)));
     }
     if (internal::AddOverflow(total_chunks, cur_total_chunks, &total_chunks)) {
       return absl::OutOfRangeError(

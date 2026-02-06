@@ -15,6 +15,7 @@
 #include "tensorstore/virtual_chunked.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -25,6 +26,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -51,6 +53,7 @@
 
 namespace {
 
+using ::tensorstore::Batch;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::dynamic_rank;
 using ::tensorstore::Future;
@@ -115,7 +118,7 @@ LoggingView(std::vector<RequestLayout>& requests, Option&&... option) {
           [mutex, &requests](auto output, auto read_params)
               -> Future<TimestampedStorageGeneration> {
             tensorstore::InitializeArray(output);
-            absl::MutexLock lock(*mutex.get());
+            absl::MutexLock lock(*mutex);
             requests.emplace_back(output.layout());
             return TimestampedStorageGeneration{
                 StorageGeneration::FromString("abc"), absl::Now()};
@@ -585,6 +588,57 @@ TEST(VirtualChunkedTest, NonAtomicSingleChunk) {
   }
 
   TENSORSTORE_ASSERT_OK(future);
+}
+
+template <typename... Option>
+Result<tensorstore::TensorStore<void, dynamic_rank,
+                                tensorstore::ReadWriteMode::read>>
+BatchSettingView(std::optional<Batch::View>& output_batch, Option&&... option) {
+  auto mutex = std::make_shared<absl::Mutex>();
+  return tensorstore::VirtualChunked(
+      tensorstore::NonSerializable{
+          [mutex, &output_batch](auto output, auto read_params)
+              -> Future<TimestampedStorageGeneration> {
+            tensorstore::InitializeArray(output);
+            absl::MutexLock lock(*mutex);
+            output_batch = read_params.batch();
+            return TimestampedStorageGeneration{
+                StorageGeneration::FromString("abc"), absl::Now()};
+          }},
+      std::forward<Option>(option)...);
+}
+
+TEST(VirtualChunkedTest, ReadNoBatch) {
+  std::optional<Batch::View> output_batch{std::nullopt};
+  auto virtual_chunked =
+      BatchSettingView(output_batch, tensorstore::dtype_v<int>,
+                       tensorstore::Schema::Shape({2, 3}),
+                       tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
+
+  EXPECT_FALSE(output_batch.has_value());
+  auto data = tensorstore::Read(virtual_chunked).result();
+
+  EXPECT_TRUE(output_batch.has_value());
+  EXPECT_FALSE(*output_batch);
+}
+
+TEST(VirtualChunkedTest, ReadWithBatch) {
+  std::optional<Batch::View> output_batch{std::nullopt};
+  auto virtual_chunked =
+      BatchSettingView(output_batch, tensorstore::dtype_v<int>,
+                       tensorstore::Schema::Shape({2, 3}),
+                       tensorstore::ChunkLayout::ReadChunkShape({2, 1}));
+
+  auto batch = Batch::New();
+  auto read_future = tensorstore::Read(virtual_chunked, batch);
+  // Asynchronous read which is deferred until the batch is released, so the
+  // output_batch can be checked immediately with consistent results.
+  EXPECT_FALSE(output_batch.has_value());
+  batch.Release();
+  auto data = read_future.result();
+
+  EXPECT_TRUE(output_batch.has_value());
+  EXPECT_TRUE(*output_batch);
 }
 
 }  // namespace

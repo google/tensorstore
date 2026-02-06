@@ -32,7 +32,10 @@
 #include "absl/base/optimization.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_permutation.h"
@@ -56,7 +59,6 @@
 #include "tensorstore/util/small_bit_set.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // Uncomment the line below to debug `ChooseChunkSizeFromAspectRatio`.
 //
@@ -96,9 +98,10 @@ struct OriginValueTraits {
     if (internal::MulOverflow(stride, value, &new_value) ||
         internal::AddOverflow(new_value, offset, &new_value) ||
         !IsFiniteIndex(new_value)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Integer overflow transforming input origin ", value, " by offset ",
-          offset, " and stride ", stride));
+      return absl::OutOfRangeError(
+          absl::StrFormat("Integer overflow transforming input origin %d by "
+                          "offset %d and stride %d",
+                          value, offset, stride));
     }
     return new_value;
   }
@@ -108,9 +111,10 @@ struct OriginValueTraits {
     Index new_value;
     if (internal::SubOverflow(value, offset, &new_value) ||
         !IsFiniteIndex(new_value)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Integer overflow transforming output origin ", value, " by offset ",
-          offset, " and stride ", stride));
+      return absl::OutOfRangeError(
+          absl::StrFormat("Integer overflow transforming output origin %d by "
+                          "offset %d and stride %d",
+                          value, offset, stride));
     }
     new_value = CeilOfRatio(((stride > 0) ? new_value : new_value - 1), stride);
     return new_value;
@@ -130,8 +134,8 @@ struct ShapeValueTraits {
     Index new_value;
     if (stride == std::numeric_limits<Index>::min() ||
         internal::MulOverflow(std::abs(stride), value, &new_value)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Integer overflow computing abs(", stride, ") * ", value));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Integer overflow computing abs(%d) * %d", stride, value));
     }
     return new_value;
   }
@@ -332,8 +336,8 @@ bool HasAnyHardConstraints(const Storage& impl) {
 
 absl::Status RankMismatchError(DimensionIndex new_rank,
                                DimensionIndex existing_rank) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Rank ", new_rank, " does not match existing rank ", existing_rank));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Rank %d does not match existing rank %d", new_rank, existing_rank));
 }
 
 /// Ensures that `ptr` is a unique reference to constraints storage with the
@@ -366,9 +370,9 @@ absl::Status EnsureRank(StoragePtr& ptr, DimensionIndex rank,
 }
 template <typename T, typename U>
 absl::Status MismatchError(const T& existing_value, const U& new_value) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "New hard constraint (", new_value,
-      ") does not match existing hard constraint (", existing_value, ")"));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "New hard constraint (%s) does not match existing hard constraint (%s)",
+      absl::FormatStreamed(new_value), absl::FormatStreamed(existing_value)));
 }
 
 /// Merges additional per-dimension constraints from `in_vector` into
@@ -401,9 +405,10 @@ absl::Status MergeVectorInto(
       if (!dims_to_check[i]) continue;
       Element x = in_vector[i];
       if (x != Traits::kDefaultValue && out_vector[i] != x) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "New hard constraint (", x, ") for dimension ", i,
-            " does not match existing hard constraint (", out_vector[i], ")"));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "New hard constraint (%v) for dimension %d does not match "
+            "existing hard constraint (%v)",
+            x, i, out_vector[i]));
       }
     }
   }
@@ -447,8 +452,9 @@ absl::Status ValidateAndMergeVectorInto(
   for (DimensionIndex i = 0; i < in_vector.size(); ++i) {
     const Element value = in_vector[i];
     if (!Traits::IsValid(value)) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Invalid value for dimension ", i, ": ", in_vector));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Invalid value for dimension %d: %v", i,
+                          absl::FormatStreamed(in_vector)));
     }
     if (Traits::IsSoftConstraintValue(value)) {
       in_vector.hard_constraint[i] = false;
@@ -516,8 +522,8 @@ absl::Status SetInnerOrderInternal(ChunkLayout& self,
                                    ChunkLayout::InnerOrder value,
                                    StoragePtr& storage_to_be_destroyed) {
   if (!IsValidPermutation(value)) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid permutation: ", value));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid permutation: %v", absl::FormatStreamed(value)));
   }
   const DimensionIndex rank = value.size();
   TENSORSTORE_RETURN_IF_ERROR(
@@ -572,7 +578,8 @@ absl::Status SetChunkShape(ChunkLayout& self,
   TENSORSTORE_RETURN_IF_ERROR(
       SetChunkShapeInternal(self, value, usage, storage_to_be_destroyed),
       tensorstore::MaybeAnnotateStatus(
-          _, tensorstore::StrCat("Error setting ", usage, "_chunk shape")));
+          _, absl::StrFormat("Error setting %s_chunk shape",
+                             absl::FormatStreamed(usage))));
   return absl::OkStatus();
 }
 
@@ -596,8 +603,8 @@ absl::Status SetChunkAspectRatio(ChunkLayout& self,
   TENSORSTORE_RETURN_IF_ERROR(
       SetChunkAspectRatioInternal(self, value, usage, storage_to_be_destroyed),
       tensorstore::MaybeAnnotateStatus(
-          _,
-          tensorstore::StrCat("Error setting ", usage, "_chunk aspect_ratio")));
+          _, absl::StrFormat("Error setting %s_chunk aspect_ratio",
+                             absl::FormatStreamed(usage))));
   return absl::OkStatus();
 }
 
@@ -608,7 +615,7 @@ absl::Status SetChunkElementsInternal(Index& elements,
   if (value.valid()) {
     if (value < 0) {
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Invalid value: ", value.value));
+          absl::StrFormat("Invalid value: %d", value.value));
     }
     if (elements != kImplicit) {
       if (!value.hard_constraint) return absl::OkStatus();
@@ -644,7 +651,7 @@ absl::Status SetChunkElements(ChunkLayout& self,
   TENSORSTORE_RETURN_IF_ERROR(
       SetChunkElementsInternal(self, value, usage, storage_to_be_destroyed),
       tensorstore::MaybeAnnotateStatus(
-          _, tensorstore::StrCat("Error setting ", usage, "_chunk elements")));
+          _, absl::StrFormat("Error setting %v_chunk elements", usage)));
   return absl::OkStatus();
 }
 
@@ -1192,9 +1199,10 @@ static absl::Status TransformInputVector(
     TENSORSTORE_ASSIGN_OR_RETURN(
         value, Traits::TransformInputValue(value, map.offset(), map.stride()),
         MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Error transforming input dimension ",
-                                   input_dim, " -> output dimension ",
-                                   output_dim)));
+            _,
+            absl::StrFormat(
+                "Error transforming input dimension %d -> output dimension %d",
+                input_dim, output_dim)));
     out_vec[output_dim] = value;
     // The output constraint is a hard constraint if, and only if, the input
     // constraint is a hard constraint.
@@ -1205,8 +1213,8 @@ static absl::Status TransformInputVector(
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     if (in_vec[input_dim] == Traits::kDefaultValue) continue;
     if (!remaining_in_hard_constraint[input_dim]) continue;
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "No output dimension corresponds to input dimension ", input_dim));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "No output dimension corresponds to input dimension %d", input_dim));
   }
   return absl::OkStatus();
 }
@@ -1271,9 +1279,10 @@ static absl::Status TransformOutputVector(
     TENSORSTORE_ASSIGN_OR_RETURN(
         value, Traits::TransformOutputValue(value, map.offset(), map.stride()),
         MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Error transforming output dimension ",
-                                   output_dim, " -> input dimension ",
-                                   input_dim)));
+            _,
+            absl::StrFormat(
+                "Error transforming output dimension %d -> input dimension %d",
+                output_dim, input_dim)));
     in_vec[input_dim] = value;
     // The input constraint is a hard constraint if, and only if, the output
     // constraint is a hard constraint.
@@ -1345,9 +1354,10 @@ Result<ChunkLayout> ApplyIndexTransform(IndexTransformView<> transform,
   const DimensionIndex output_constraints_rank = output_constraints.rank();
   if (!RankConstraint::EqualOrUnspecified(output_constraints_rank,
                                           transform.output_rank())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Cannot transform constraints of rank ", output_constraints_rank,
-        " by index transform of rank ", input_rank, " -> ", output_rank));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Cannot transform constraints of rank %d by index "
+                        "transform of rank %d -> %d",
+                        output_constraints_rank, input_rank, output_rank));
   }
   if (output_constraints_rank <= 0) return output_constraints;
   ChunkLayout input_constraints;
@@ -1387,8 +1397,9 @@ Result<ChunkLayout> ApplyIndexTransform(IndexTransformView<> transform,
             *output_storage, *input_constraints.storage_, one_to_one_input_dims,
             transform, usage_index),
         tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Error transforming ",
-                                   static_cast<Usage>(usage_index), "_chunk")));
+            _, absl::StrFormat(
+                   "Error transforming %s_chunk",
+                   absl::FormatStreamed(static_cast<Usage>(usage_index)))));
   }
   return input_constraints;
 }
@@ -1403,9 +1414,10 @@ Result<ChunkLayout> ApplyInverseIndexTransform(IndexTransformView<> transform,
   const DimensionIndex input_constraints_rank = input_constraints.rank();
   if (!RankConstraint::EqualOrUnspecified(input_constraints_rank,
                                           transform.input_rank())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Cannot transform constraints of rank ", input_constraints_rank,
-        " by index transform of rank ", input_rank, " -> ", output_rank));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Cannot transform constraints of rank %d by index "
+                        "transform of rank %d -> %d",
+                        input_constraints_rank, input_rank, output_rank));
   }
   if (input_constraints_rank <= 0) return input_constraints;
   ChunkLayout output_constraints;
@@ -1443,8 +1455,9 @@ Result<ChunkLayout> ApplyInverseIndexTransform(IndexTransformView<> transform,
                                       *output_constraints.storage_, transform,
                                       usage_index),
         tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Error transforming ",
-                                   static_cast<Usage>(usage_index), "_chunk")));
+            _, absl::StrFormat(
+                   "Error transforming %s_chunk",
+                   absl::FormatStreamed(static_cast<Usage>(usage_index)))));
   }
   return output_constraints;
 }
@@ -1622,9 +1635,9 @@ absl::Status ChooseChunkGridOrigin(
   // origin to that.
   if (!origin_constraints.empty()) {
     if (origin_constraints.size() != rank) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Rank of constraints (", origin_constraints.size(),
-          ") does not match rank of domain (", rank, ")"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Rank of constraints (%d) does not match rank of domain (%d)",
+          origin_constraints.size(), rank));
     }
     std::copy_n(origin_constraints.begin(), rank, grid_origin.begin());
   } else {
@@ -1646,8 +1659,8 @@ absl::Status ChooseChunkGridOrigin(
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto interval, IndexInterval::Sized(origin_value, chunk_shape[i]),
         tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Invalid chunk constraints for dimension ",
-                                   i)));
+            _,
+            absl::StrFormat("Invalid chunk constraints for dimension %d", i)));
     grid_origin[i] = interval.inclusive_min();
   }
   return absl::OkStatus();
@@ -1661,9 +1674,9 @@ absl::Status InitializeChunkShape(ChunkLayout::ChunkShapeBase shape_constraints,
   DimensionSet hard_constraint = false;
   if (shape_constraints.valid()) {
     if (shape_constraints.size() != rank) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Rank of constraints (", shape_constraints.size(),
-                              ") does not match rank of domain (", rank, ")"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Rank of constraints (%d) does not match rank of domain (%d)",
+          shape_constraints.size(), rank));
     }
     std::copy_n(shape_constraints.begin(), rank, chunk_shape.begin());
     hard_constraint = shape_constraints.hard_constraint;
@@ -1680,9 +1693,9 @@ absl::Status InitializeChunkShape(ChunkLayout::ChunkShapeBase shape_constraints,
     if (chunk_size == -1) {
       IndexInterval bounds = domain[i];
       if (!IsFinite(bounds)) {
-        return absl::InvalidArgumentError(
-            tensorstore::StrCat("Cannot match chunk size for dimension ", i,
-                                " to unbounded domain ", bounds));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Cannot match chunk size for dimension %d to unbounded domain %v",
+            i, bounds));
       }
       chunk_size = std::max(Index(1), bounds.size());
     }
@@ -1707,9 +1720,9 @@ absl::Status CompleteChunkShapeFromAspectRatio(
     double aspect_ratio[kMaxRank];
     if (aspect_ratio_constraints.valid()) {
       if (aspect_ratio_constraints.size() != rank) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Rank of constraints (", aspect_ratio_constraints.size(),
-            ") does not match rank of domain (", rank, ")"));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Rank of constraints (%d) does not match rank of domain (%d)",
+            aspect_ratio_constraints.size(), rank));
       }
       std::copy_n(aspect_ratio_constraints.begin(), rank, aspect_ratio);
       for (DimensionIndex i = 0; i < rank; ++i) {
@@ -1838,9 +1851,10 @@ absl::Status ChooseReadWriteChunkShapes(
     const bool read_hard_constraint = read_shape_hard_constraint[i];
     const bool write_hard_constraint = write_shape_hard_constraint[i];
     if (read_hard_constraint && write_hard_constraint) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Incompatible chunk size constraints for dimension ", i,
-          ": read size of ", read_size, ", write size of ", write_size));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Incompatible chunk size constraints for dimension %d: read size of "
+          "%d, write size of %d",
+          i, read_size, write_size));
     }
     if (read_hard_constraint && !write_hard_constraint) {
       // Ensure write_size is a multiple of read_size
@@ -1901,12 +1915,13 @@ absl::Status ChunkLayout::Finalize() {
   // Validate grid_origin
   for (DimensionIndex dim = 0; dim < rank; ++dim) {
     if (!impl.grid_origin_hard_constraint_[dim]) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "No grid_origin hard constraint for dimension ", dim));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "No grid_origin hard constraint for dimension %d", dim));
     }
     if (!IsFiniteIndex(origin[dim])) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Invalid grid_origin: ", origin));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Invalid grid_origin: %v",
+          absl::FormatStreamed(tensorstore::span(origin, rank))));
     }
   }
 
@@ -1924,8 +1939,10 @@ absl::Status ChunkLayout::Finalize() {
         }
         if (!IndexInterval::ValidSized(origin_value, size_value) ||
             !IsFiniteIndex(origin_value + size_value)) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Invalid origin/shape: origin=", origin, ", shape=", shape));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Invalid origin/shape: origin=%v, shape=%v",
+              absl::FormatStreamed(tensorstore::span(origin, rank)),
+              absl::FormatStreamed(shape)));
         }
         if (size_value == 0 && usage == Usage::kRead) {
           auto write_shape =
@@ -1948,7 +1965,8 @@ absl::Status ChunkLayout::Finalize() {
     }();
     if (!status.ok()) {
       return tensorstore::MaybeAnnotateStatus(
-          status, tensorstore::StrCat("Invalid ", usage, " chunk grid"));
+          status, absl::StrFormat("Invalid %s chunk grid",
+                                  absl::FormatStreamed(usage)));
     }
   }
 
@@ -1959,9 +1977,10 @@ absl::Status ChunkLayout::Finalize() {
     const Index write_size = write_chunk_shape[dim];
     if (read_size == 0) continue;
     if ((write_size % read_size) != 0) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "write chunk shape ", write_chunk_shape,
-          " is not a multiple of read chunk shape ", read_chunk_shape));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "write chunk shape %v is not a multiple of read chunk shape %v",
+          absl::FormatStreamed(write_chunk_shape),
+          absl::FormatStreamed(read_chunk_shape)));
     }
   }
 
@@ -1980,12 +1999,17 @@ constexpr auto UsageJsonBinder() {
 
 }  // namespace
 
-std::ostream& operator<<(std::ostream& os, ChunkLayout::Usage usage) {
-  std::string_view s;
-  UsageJsonBinder()(/*is_loading=*/std::false_type{},
-                    /*options=*/jb::NoOptions{}, &usage, &s)
-      .IgnoreError();
-  return os << s;
+/* static */
+const char* ChunkLayout::ToString(Usage usage) {
+  switch (usage) {
+    case Usage::kWrite:
+      return "write";
+    case Usage::kRead:
+      return "read";
+    case Usage::kCodec:
+      return "codec";
+  }
+  return "unknown";
 }
 
 Result<ChunkLayout::Usage> ChunkLayout::ParseUsage(std::string_view s) {
@@ -2113,9 +2137,9 @@ absl::Status ChunkLayout::GetChunkTemplate(Usage usage,
     return absl::OkStatus();
   }
   if (rank != box.rank()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Rank of chunk layout (", rank, ") does not match expected rank (",
-        box.rank(), ")"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Rank of chunk layout (%d) does not match expected rank (%d)", rank,
+        box.rank()));
   }
   auto grid_origin = this->grid_origin();
   auto shape = (*this)[usage].shape();
@@ -2128,8 +2152,9 @@ absl::Status ChunkLayout::GetChunkTemplate(Usage usage,
     TENSORSTORE_ASSIGN_OR_RETURN(
         box[i], IndexInterval::Sized(grid_origin[i], shape[i]),
         tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat(
-                   "Incompatible grid origin/chunk shape for dimension ", i)));
+            _,
+            absl::StrFormat(
+                "Incompatible grid origin/chunk shape for dimension %d", i)));
   }
   return absl::OkStatus();
 }

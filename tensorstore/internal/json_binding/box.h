@@ -18,6 +18,7 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
@@ -97,24 +98,26 @@ struct BoxBinderImpl {
     if (origin_it == j_obj->end() || shape_it == j_obj->end() ||
         !shape_it->second.template get_ptr<::nlohmann::json::array_t*>() ||
         !origin_it->second.template get_ptr<::nlohmann::json::array_t*>()) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Expected \"shape\" and \"origin\" as members of box: ", j->dump()));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Expected \"shape\" and \"origin\" as members of box: %s",
+          j->dump()));
     }
     if (shape_it->second.template get_ptr<::nlohmann::json::array_t*>()
             ->size() !=
         origin_it->second.template get_ptr<::nlohmann::json::array_t*>()
             ->size()) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Expected \"shape\" and \"origin\" have the same rank: ", j->dump()));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Expected \"shape\" and \"origin\" have the same rank: %s",
+          j->dump()));
     }
     if constexpr (Rank != dynamic_rank) {
       if (shape_it->second.template get_ptr<::nlohmann::json::array_t*>()
                   ->size() != Rank ||
           origin_it->second.template get_ptr<::nlohmann::json::array_t*>()
                   ->size() != Rank) {
-        return absl::InvalidArgumentError(
-            tensorstore::StrCat("Expected \"shape\" and \"origin\" have rank ",
-                                Rank, ", got: ", j->dump()));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected \"shape\" and \"origin\" have rank %d, got: %s", Rank,
+            j->dump()));
       }
     }
 

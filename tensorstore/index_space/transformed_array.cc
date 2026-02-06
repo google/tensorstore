@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/data_type_conversion.h"
@@ -55,9 +56,9 @@ namespace internal_index_space {
 
 std::string DescribeTransformedArrayForCast(DataType dtype,
                                             DimensionIndex rank) {
-  return tensorstore::StrCat(
-      "transformed array with ", StaticCastTraits<DataType>::Describe(dtype),
-      " and ", StaticCastTraits<DimensionIndex>::Describe(rank));
+  return absl::StrFormat("transformed array with %v and %v",
+                         StaticCastTraits<DataType>::Describe(dtype),
+                         StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 namespace {
@@ -111,9 +112,9 @@ Result<TransformRep::Ptr<>> MakeTransformFromStridedLayoutAndTransform(
     TransformRep::Ptr<> transform) {
   if (!transform) return MakeTransformFromStridedLayout(layout);
   if (transform->output_rank != layout.rank()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Transform output rank (", transform->output_rank,
-        ") does not equal array rank (", layout.rank(), ")"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Transform output rank (%d) does not equal array rank (%d)",
+        transform->output_rank, layout.rank()));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       transform, PropagateExplicitBoundsToTransform(layout.domain(),

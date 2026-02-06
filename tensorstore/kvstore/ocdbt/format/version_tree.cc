@@ -22,6 +22,7 @@
 #include <limits>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -46,7 +47,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -54,8 +54,8 @@ namespace internal_ocdbt {
 Result<CommitTime> CommitTime::FromAbslTime(absl::Time time) {
   if (time < absl::FromUnixNanos(0) ||
       time > absl::FromUnixNanos(std::numeric_limits<int64_t>::max())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Cannot represent ", time, " as 64-bit nanoseconds since Unix epoch."));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Cannot represent %v as 64-bit nanoseconds since Unix epoch.", time));
   }
   return CommitTime(absl::ToUnixNanos(time));
 }
@@ -278,8 +278,20 @@ std::ostream& operator<<(std::ostream& os, const VersionNodeReference& e) {
 }
 
 std::ostream& operator<<(std::ostream& os, const VersionTreeNode::Entries& e) {
-  std::visit([&](const auto& entries) { os << tensorstore::span(entries); }, e);
-  return os;
+  return std::visit(
+      [&os](const auto& entries) -> std::ostream& {
+        os << "{";
+        bool first = true;
+        for (const auto& entry : entries) {
+          if (!first) {
+            os << ", ";
+          }
+          first = false;
+          os << entry;
+        }
+        return os << "}";
+      },
+      e);
 }
 
 GenerationNumber VersionTreeNode::generation_number() const {
@@ -322,9 +334,10 @@ absl::Status ValidateVersionTreeLeafNodeEntries(
                             entry.root_height, entry.generation_number));
       }
       if (entry.root.statistics != BtreeNodeStatistics{}) {
-        return absl::DataLossError(tensorstore::StrCat(
-            "non-zero statistics ", entry.root.statistics,
-            " for empty generation_number[", i, "]=", entry.generation_number));
+        return absl::DataLossError(absl::StrFormat(
+            "non-zero statistics %s for empty generation_number[%d]=%d",
+            absl::FormatStreamed(entry.root.statistics), i,
+            entry.generation_number));
       }
     }
     if (entry.generation_number == 0) {
@@ -494,8 +507,7 @@ Result<VersionSpec> ParseVersionSpecFromUrl(std::string_view s) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto version_spec, get_result(),
       tensorstore::MaybeAnnotateStatus(
-          _, tensorstore::StrCat("Invalid OCDBT version: ",
-                                 tensorstore::QuoteString(s))));
+          _, absl::StrFormat("Invalid OCDBT version: %v", QuoteString(s))));
   return version_spec;
 }
 
@@ -503,9 +515,8 @@ Result<CommitTime> ParseCommitTimeFromUrl(std::string_view s) {
   absl::Time time;
   std::string error;
   if (!absl::ParseTime(kCommitTimeFormat, s, &time, &error)) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid OCDBT commit time ",
-                            tensorstore::QuoteString(s), ": ", error));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid OCDBT commit time %v: %s", QuoteString(s), error));
   }
   return CommitTime::FromAbslTime(time);
 }

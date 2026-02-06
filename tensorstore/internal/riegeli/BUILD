@@ -69,9 +69,9 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:utf8",
         "//tensorstore/util:quote_string",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
         "@riegeli//riegeli/bytes:reader",
         "@riegeli//riegeli/bytes:writer",
         "@riegeli//riegeli/varint:varint_reading",

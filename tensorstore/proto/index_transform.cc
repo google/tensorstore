@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -54,36 +55,36 @@ Result<IndexDomain<>> ParseIndexDomainFromProto(
   }();
   if (rank < 0 || rank > kMaxRank) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Expected rank to be in the range [0, ", kMaxRank,
-                            "], but is: ", rank));
+        absl::StrFormat("Expected rank to be in the range [0, %d], but is: %d",
+                        kMaxRank, rank));
   }
 
   if (!RankConstraint::EqualOrUnspecified(rank_constraint, rank)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Expected rank to be ", rank_constraint, ", but is: ", rank));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Expected rank to be %d, but is: %d", rank_constraint, rank));
   }
 
   if (proto.origin_size() > 0 && proto.origin_size() != rank) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Proto origin must include ", rank, " items"));
+        absl::StrFormat("Proto origin must include %d items", rank));
   }
   if (proto.shape_size() > 0 && proto.shape_size() != rank) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Proto shape must include ", rank, " items"));
+        absl::StrFormat("Proto shape must include %d items", rank));
   }
   if (proto.labels_size() > 0 && proto.labels_size() != rank) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Proto labels must include ", rank, " items"));
+        absl::StrFormat("Proto labels must include %d items", rank));
   }
   if (proto.implicit_lower_bound_size() > 0 &&
       proto.implicit_lower_bound_size() != rank) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Proto implicit_lower_bound must include ", rank, " items"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Proto implicit_lower_bound must include %d items", rank));
   }
   if (proto.implicit_upper_bound_size() > 0 &&
       proto.implicit_upper_bound_size() != rank) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Proto implicit_upper_bound must include ", rank, " items"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Proto implicit_upper_bound must include %d items", rank));
   }
 
   IndexDomainBuilder builder(rank);
@@ -129,15 +130,15 @@ Result<IndexTransform<>> ParseIndexTransformFromProto(
   }();
 
   if (output_rank < 0 || output_rank > kMaxRank) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Expected output_rank to be in the range [0, ",
-                            kMaxRank, "], but is: ", output_rank));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Expected output_rank to be in the range [0, %d], but is: %d", kMaxRank,
+        output_rank));
   }
   if (!RankConstraint::EqualOrUnspecified(output_rank_constraint,
                                           output_rank)) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Expected output_rank to be ",
-                            output_rank_constraint, ", but is: ", output_rank));
+        absl::StrFormat("Expected output_rank to be %d, but is: %d",
+                        output_rank_constraint, output_rank));
   }
 
   IndexTransformBuilder builder(rank, output_rank);
@@ -146,7 +147,8 @@ Result<IndexTransform<>> ParseIndexTransformFromProto(
   } else {
     if (proto.output_size() != output_rank) {
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Proto output expected ", output_rank, " items"));
+          absl::StrFormat("Proto output expected %d items, but has %d",
+                          output_rank, proto.output_size()));
     }
     for (DimensionIndex output_dim = 0; output_dim < output_rank;
          ++output_dim) {

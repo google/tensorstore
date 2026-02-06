@@ -26,6 +26,7 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/json.h"
@@ -113,9 +114,9 @@ absl::Status TaggedVariantBinderImpl(std::true_type is_loading,
   T tag;
   TENSORSTORE_RETURN_IF_ERROR(tag_binder(is_loading, options, &tag, j));
   if (!((tags[Is] == tag) || ...)) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Failed to parse tag name, expected one of: ",
-        absl::StrJoin(tags, ", "), ", but received: ", absl::StrCat(tag)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Failed to parse tag name, expected one of: %s, but received: %v",
+        absl::StrJoin(tags, ", "), tag));
   }
   absl::Status s;
   ((tags[Is] == tag &&

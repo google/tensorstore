@@ -10,8 +10,8 @@ cc_library(
     name = "s2n_tls",
     hdrs = glob(["api/**/*.h"]),
     includes = ["api"],
-    deps = [":s2n_tls_impl"],
     visibility = ["//visibility:public"],
+    deps = [":s2n_tls_impl"],
 )
 
 exports_files(
@@ -34,12 +34,15 @@ cc_library(
         "utils/*.c",
     ]),
     hdrs = glob(["api/**/*.h"]),
-    includes = ["api", "."],
     copts = select({
         "@rules_cc//cc/compiler:msvc-cl": ["/FI$(location :utils/s2n_prelude.h)"],
         "//conditions:default": [
             "-include$(location :utils/s2n_prelude.h)",
         ],
     }),
+    includes = [
+        ".",
+        "api",
+    ],
     deps = ["@boringssl//:crypto"],
 )

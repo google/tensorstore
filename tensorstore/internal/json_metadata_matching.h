@@ -23,9 +23,9 @@
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -35,10 +35,9 @@ namespace internal {
 template <typename T, typename U>
 absl::Status MetadataMismatchError(std::string_view name, const T& expected,
                                    const U& actual) {
-  return absl::FailedPreconditionError(
-      tensorstore::StrCat("Expected ", tensorstore::QuoteString(name), " of ",
-                          ::nlohmann::json(expected).dump(),
-                          " but received: ", ::nlohmann::json(actual).dump()));
+  return absl::FailedPreconditionError(absl::StrFormat(
+      "Expected %v of %s but received: %s", QuoteString(name),
+      ::nlohmann::json(expected).dump(), ::nlohmann::json(actual).dump()));
 }
 
 /// Validates that the (key, value) pairs of `expected` are a subset of the

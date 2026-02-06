@@ -28,6 +28,7 @@
 #include "absl/flags/marshalling.h"
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include <half.hpp>
@@ -100,28 +101,29 @@ absl::Status ComputeQuantilesValidator(const InputArray& input,
   // validate input and output shapes.
   std::vector<std::string> errors;
   if (input.rank() != 2) {
-    errors.push_back(tensorstore::StrCat("expected input rank 2, got ",
-                                         static_cast<int>(input.rank())));
+    errors.push_back(absl::StrFormat("expected input rank 2, got %d",
+                                     static_cast<int>(input.rank())));
   }
   if (output.rank() != 2) {
-    errors.push_back(tensorstore::StrCat("expected output rank 2, got ",
-                                         static_cast<int>(output.rank())));
+    errors.push_back(absl::StrFormat("expected output rank 2, got %d",
+                                     static_cast<int>(output.rank())));
   }
   if (shape[1] == 0) {
     errors.push_back("input rank 1 has zero size");
   }
   if (shape[0] != output.domain().shape()[0]) {
     errors.push_back(
-        tensorstore::StrCat("expected dimension 0 shape matching, got input ",
-                            shape[0], " vs. ", output.domain().shape()[0]));
+        tensorstore::StrCat("expected dimension 0 shape matching %d, got %d",
+                            shape[0], output.domain().shape()[0]));
   }
   if (output.domain().shape()[1] != quantiles.size()) {
     errors.push_back(
-        tensorstore::StrCat("expected output dimension 1 to match q, got ",
-                            output.domain().shape()[1]));
+        absl::StrFormat("expected output dimension 1 to match %d, got %d",
+                        quantiles.size(), output.domain().shape()[1]));
   }
   if (!errors.empty()) {
-    return absl::InvalidArgumentError(absl::StrJoin(errors, ", "));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "tensorstore validation failed: %s", absl::StrJoin(errors, ", ")));
   }
   return absl::OkStatus();
 }
@@ -264,8 +266,8 @@ absl::Status ValidateRun(const InputArray& input, const OutputArray& output,
   }
 
   if (!errors.empty()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "tensorstore validation failed: ", absl::StrJoin(errors, ", ")));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "tensorstore validation failed: %s", absl::StrJoin(errors, ", ")));
   }
   return absl::OkStatus();
 }

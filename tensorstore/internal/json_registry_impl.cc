@@ -26,6 +26,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -33,14 +34,13 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_registry {
 
 absl::Status GetJsonUnregisteredError(std::string_view id) {
   return absl::InvalidArgumentError(
-      tensorstore::StrCat(QuoteString(id), " is not registered"));
+      absl::StrFormat("%v is not registered", QuoteString(id)));
 }
 
 void JsonRegistryImpl::Register(std::unique_ptr<Entry> entry, bool alias) {

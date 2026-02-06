@@ -106,14 +106,13 @@ class JsonPointerMatcherImpl
   }
 
   void DescribeTo(std::ostream* os) const override {
-    *os << "has sub value " << tensorstore::QuoteString(sub_value_pointer_)
-        << " that ";
+    *os << "has sub value " << QuoteString(sub_value_pointer_) << " that ";
     sub_value_matcher_.DescribeTo(os);
   }
 
   void DescribeNegationTo(std::ostream* os) const override {
-    *os << "does not have sub value "
-        << tensorstore::QuoteString(sub_value_pointer_) << " that ";
+    *os << "does not have sub value " << QuoteString(sub_value_pointer_)
+        << " that ";
     sub_value_matcher_.DescribeTo(os);
   }
 

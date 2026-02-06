@@ -26,6 +26,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "tensorstore/internal/ascii_set.h"
@@ -160,7 +161,7 @@ absl::Status EnsureSchema(const ParsedGenericUri& parsed_uri,
                           std::string_view scheme) {
   if (parsed_uri.scheme != scheme) {
     return absl::InvalidArgumentError(
-        absl::StrCat("Scheme \"", scheme, ":\" not present in url"));
+        absl::StrFormat("Scheme \"%s:\" not present in url", scheme));
   }
   return absl::OkStatus();
 }
@@ -169,7 +170,7 @@ absl::Status EnsureSchemaWithAuthorityDelimiter(
     const ParsedGenericUri& parsed_uri, std::string_view scheme) {
   if (parsed_uri.scheme != scheme || !parsed_uri.has_authority_delimiter) {
     return absl::InvalidArgumentError(
-        absl::StrCat("Scheme \"", scheme, "://\" not present in url"));
+        absl::StrFormat("Scheme \"%s://\" not present in url", scheme));
   }
   return absl::OkStatus();
 }
@@ -236,8 +237,8 @@ std::optional<HostPort> SplitHostPort(std::string_view host_port) {
 
 Result<std::string> OsPathToFileUri(std::string_view path) {
   if (!IsAbsolutePath(path)) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "file: URIs do not support relative paths: ", QuoteString(path)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "file: URIs do not support relative paths: %v", QuoteString(path)));
   }
 
   std::string_view authority_part;
@@ -268,8 +269,8 @@ Result<std::string> FileUriToOsPath(ParsedGenericUri parsed) {
 
   if (parsed.path.empty() || parsed.path[0] != '/') {
     return absl::InvalidArgumentError(
-        absl::StrCat("file: URIs do not support relative paths: ",
-                     QuoteString(parsed.path)));
+        absl::StrFormat("file: URIs do not support relative paths: %v",
+                        QuoteString(parsed.path)));
   }
 
 #ifdef _WIN32
@@ -277,8 +278,9 @@ Result<std::string> FileUriToOsPath(ParsedGenericUri parsed) {
       IsWindowsDriveLetter(uri_path)) {
     // Translate windows drive letter paths.
     if (uri_path.size() > 2 && uri_path[2] != '/') {
-      return absl::InvalidArgumentError(absl::StrCat(
-          "file: URIs do not support relative paths: ", QuoteString(uri_path)));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("file: URIs do not support relative paths: %v",
+                          QuoteString(uri_path)));
     }
     return LexicalNormalizePath(PercentDecode(uri_path));
   } else if (!parsed.authority.empty()) {

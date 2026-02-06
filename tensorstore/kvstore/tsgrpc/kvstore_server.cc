@@ -367,7 +367,7 @@ class ListHandler final
   void OnCancel() final { cancel_(); }
 
   void OnWriteDone(bool ok) final {
-    absl::MutexLock l(&mu_);
+    absl::MutexLock l(mu_);
     in_flight_msg_ = nullptr;
     MaybeWrite();
   }
@@ -426,7 +426,7 @@ class ListHandler final
   /// AnyFlowReceiver methods.
   [[maybe_unused]] friend void set_starting(
       internal::IntrusivePtr<ListHandler>& self, AnyCancelReceiver cancel) {
-    absl::MutexLock l(&self->mu_);
+    absl::MutexLock l(self->mu_);
     self->cancel_ = std::move(cancel);
     self->done_ = false;
     self->current_ = std::make_unique<ListResponse>();
@@ -435,7 +435,7 @@ class ListHandler final
 
   [[maybe_unused]] friend void set_value(
       internal::IntrusivePtr<ListHandler>& self, ListEntry entry) {
-    absl::MutexLock l(&self->mu_);
+    absl::MutexLock l(self->mu_);
     auto* e = self->current_->add_entry();
     e->set_key(entry.key);
     e->set_size(entry.size);
@@ -450,14 +450,14 @@ class ListHandler final
 
   [[maybe_unused]] friend void set_error(
       internal::IntrusivePtr<ListHandler>& self, absl::Status s) {
-    absl::MutexLock l(&self->mu_);
+    absl::MutexLock l(self->mu_);
     self->cancel_ = [] {};
     self->status_ = s;
   }
 
   [[maybe_unused]] friend void set_stopping(
       internal::IntrusivePtr<ListHandler>& self) {
-    absl::MutexLock l(&self->mu_);
+    absl::MutexLock l(self->mu_);
     self->done_ = true;
     self->MaybeWrite();
   }

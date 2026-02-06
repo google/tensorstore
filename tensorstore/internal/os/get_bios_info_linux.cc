@@ -51,9 +51,9 @@ Result<std::string> GetGcpProductName() {
                              QuoteString(path));
   }
   if (!S_ISREG(info.st_mode)) {
-    return absl::UnknownError(absl::StrCat("error reading bios info in ",
-                                           QuoteString(path),
-                                           " is not a regular file"));
+    return absl::UnknownError(
+        absl::StrFormat("error reading bios info in %v is not a regular file",
+                        QuoteString(path)));
   }
 
   std::ifstream product_name_file(path);

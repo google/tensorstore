@@ -14,12 +14,12 @@
 
 #include "tensorstore/serialization/serialization.h"
 
-#include <cstring>
+#include <cassert>
 #include <string_view>
+#include <utility>
 
 #include "absl/status/status.h"
-#include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
+#include "absl/strings/str_format.h"
 
 namespace tensorstore {
 namespace serialization {
@@ -48,7 +48,7 @@ absl::Status DecodeError() {
 }
 
 absl::Status DecodeError(std::string_view message) {
-  return absl::DataLossError(tensorstore::StrCat("Error decoding: ", message));
+  return absl::DataLossError(absl::StrFormat("Error decoding: %s", message));
 }
 
 namespace internal_serialization {

@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/driver/chunk.h"
@@ -50,14 +51,11 @@ namespace internal_zarr3 {
 
 namespace {
 namespace jb = ::tensorstore::internal_json_binding;
-
-// TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
-// AbslStringify support, allowing use of %v format specifier.
-absl::Status InvalidPermutationError(span<const DimensionIndex> order,
-                                     DimensionIndex rank) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      order, " is not a valid dimension permutation for a rank ", rank,
-      " array"));
+absl::Status InvalidPermutationError(
+    tensorstore::span<const DimensionIndex> order, DimensionIndex rank) {
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "%s is not a valid dimension permutation for a rank %d array",
+      absl::FormatStreamed(order), rank));
 }
 
 constexpr auto OrderJsonBinder() {
@@ -65,11 +63,10 @@ constexpr auto OrderJsonBinder() {
       jb::Validate(
           [](const auto& options, auto* obj) {
             if (!IsValidPermutation(*obj)) {
-              // TODO(BrianMichell): Convert to absl::StrFormat once
-              // tensorstore::span has AbslStringify support.
-              return absl::InvalidArgumentError(
-                  tensorstore::StrCat(span<const DimensionIndex>(*obj),
-                                      " is not a valid permutation"));
+              return absl::InvalidArgumentError(absl::StrFormat(
+                  "%s is not a valid permutation",
+                  absl::FormatStreamed(
+                      tensorstore::span<const DimensionIndex>(*obj))));
             }
             return absl::OkStatus();
           },

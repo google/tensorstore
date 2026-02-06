@@ -27,6 +27,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
@@ -981,9 +982,8 @@ absl::Status PrePartitionIndexTransformOverGrid(
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     const IndexInterval domain = index_transform.input_domain()[input_dim];
     if (!IsFinite(domain)) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Input dimension ", input_dim,
-                              " has unbounded domain ", domain, "."));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Input dimension %d has unbounded domain %v.", input_dim, domain));
     }
   }
 
@@ -1000,8 +1000,8 @@ absl::Status PrePartitionIndexTransformOverGrid(
                       .status();
     if (!status.ok()) {
       return MaybeAnnotateStatus(
-          status, tensorstore::StrCat("Computing range of output dimension ",
-                                      output_dim));
+          status, absl::StrFormat("Computing range of output dimension %d",
+                                  output_dim));
     }
   }
 

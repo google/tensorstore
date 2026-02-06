@@ -29,6 +29,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "re2/re2.h"
 #include "tensorstore/internal/ascii_set.h"
@@ -111,17 +112,16 @@ Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
   }
   for (char c : field_name) {
     if (!IsTchar(c)) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Invalid HTTP char ", c,
-          " in header field name: ", tensorstore::QuoteString(field_name)));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Invalid HTTP char %c in header field name: %v", c,
+                          QuoteString(field_name)));
     }
   }
   // Check the header field value.
   static LazyRE2 kFieldPattern = {"([\t\x20-\x7e\x80-\xff]*)", RE2::Latin1};
   if (!RE2::FullMatch(field_value, *kFieldPattern)) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid HTTP header field value: ",
-                            tensorstore::QuoteString(field_value)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid HTTP header field value: %v", QuoteString(field_value)));
   }
   return std::make_pair(field_name, absl::StripAsciiWhitespace(field_value));
 }
@@ -130,8 +130,8 @@ Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
     std::string_view header) {
   size_t idx = header.find(':');
   if (idx == std::string_view::npos) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid HTTP header: ", tensorstore::QuoteString(header)));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid HTTP header: %v", QuoteString(header)));
   }
   return ValidateHttpHeader(header.substr(0, idx), header.substr(idx + 1));
 }

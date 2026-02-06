@@ -63,7 +63,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 /// specializations
 #include "absl/base/attributes.h"
@@ -141,8 +140,8 @@ class ZipKvStore
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
   std::string DescribeKey(std::string_view key) override {
-    return tensorstore::StrCat(QuoteString(key), " in ",
-                               base_.driver->DescribeKey(base_.path));
+    return absl::StrCat(QuoteString(key), " in ",
+                        base_.driver->DescribeKey(base_.path));
   }
 
   void ListImpl(ListOptions options, ListReceiver receiver) override;

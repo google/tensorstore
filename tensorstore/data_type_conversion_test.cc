@@ -20,6 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
@@ -74,9 +75,9 @@ void TestUnsupported() {
 template <typename To, typename From>
 Result<To> TestConversion(
     From from, DataTypeConversionFlags flags = DataTypeConversionFlags{}) {
-  SCOPED_TRACE(
-      StrCat("TestConversion<To=", dtype_v<To>, ", From=", dtype_v<From>, ">")
-          .c_str());
+  SCOPED_TRACE(absl::StrFormat("TestConversion<To=%v, From=%v>", dtype_v<To>,
+                               dtype_v<From>)
+                   .c_str());
   flags = flags | kSupported;
   if constexpr (!std::is_same_v<To, From>) {
     EXPECT_EQ(flags, (DataTypeConversionTraits<From, To>::flags));

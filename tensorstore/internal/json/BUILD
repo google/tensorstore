@@ -13,10 +13,10 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@nlohmann_json//:json",
     ],
 )
@@ -68,6 +68,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@nlohmann_json//:json",
     ],
 )

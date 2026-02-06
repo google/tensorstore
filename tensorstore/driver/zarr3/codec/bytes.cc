@@ -119,10 +119,10 @@ Result<ZarrArrayToBytesCodec::Ptr> BytesCodecSpec::Resolve(
   const bool is_endian_invariant =
       internal::IsEndianInvariantDataType(decoded.dtype);
   if (!options.constraints && !is_endian_invariant && !options.endianness) {
-    return absl::InvalidArgumentError(absl::StrFormat(
-        "\"bytes\" codec requires that \"endian\" option is specified for "
-        "data type %v",
-        decoded.dtype));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("\"bytes\" codec requires that \"endian\" option "
+                        "is specified for data type %v",
+                        decoded.dtype));
   }
   encoded.item_bits = decoded.dtype.size() * 8;
   DimensionIndex rank = decoded.rank;

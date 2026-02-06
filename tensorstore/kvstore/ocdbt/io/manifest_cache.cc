@@ -485,8 +485,8 @@ void ReadNumberedManifest(NumberedManifestCache::Entry* entry,
                                      DecodeManifest(read_result.value),
                                      set_error(_, "decoding"));
         if (manifest.config.manifest_kind != ManifestKind::kSingle) {
-          set_error(absl::DataLossError(tensorstore::StrCat(
-                        "Expected single-file manifest kind, but received: ",
+          set_error(absl::DataLossError(absl::StrFormat(
+                        "Expected single-file manifest kind, but received: %v",
                         manifest.config.manifest_kind)),
                     "decoding");
           return;

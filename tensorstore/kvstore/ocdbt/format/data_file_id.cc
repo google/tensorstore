@@ -57,8 +57,7 @@ DataFileId GenerateDataFileId(std::string_view prefix) {
 }
 
 std::ostream& operator<<(std::ostream& os, const DataFileId& x) {
-  return os << tensorstore::QuoteString(x.base_path) << "+"
-            << tensorstore::QuoteString(x.relative_path);
+  return os << QuoteString(x.base_path) << "+" << QuoteString(x.relative_path);
 }
 
 }  // namespace internal_ocdbt

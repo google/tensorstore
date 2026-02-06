@@ -29,6 +29,7 @@
 #include <utility>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/util/span.h"
 

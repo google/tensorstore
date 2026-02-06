@@ -66,6 +66,7 @@ LIBAOM_HEADERS = select({
             "aom_ports/ppc.h",
             "av1/common/ppc/*.h",
         ],
+        allow_empty = True,
         exclude = [
             "**/*arm.h",
             "**/mips/**",
@@ -76,7 +77,6 @@ LIBAOM_HEADERS = select({
             "**/*sse4_1.h",
             "**/*ssse3.h",
         ],
-        allow_empty = True,
     ),
 })
 
@@ -212,21 +212,21 @@ cc_library(
     linkstatic = 1,
     textual_hdrs = LIBAOM_HEADERS,
     deps = [
+        ":args_helper",
         ":codec",
+        ":config",
         ":dsp",
+        ":fastfeat",
         ":mem",
         ":scale",
-        ":config",
-        ":fastfeat",
         ":vector",
-        ":args_helper",
     ] + select({
         "@platforms//cpu:arm64": [],
         "@platforms//cpu:ppc": [],
         "@platforms//cpu:x86_64": [
             ":av1_x86_asm",
-            ":av1_x86_sse42",
             ":av1_x86_avx",
+            ":av1_x86_sse42",
         ],
     }) + select({
         ":have_avx2_intrinsics": [":av1_x86_avx2"],
@@ -238,11 +238,11 @@ cc_library(
 nasm_cc_library(
     name = "av1_x86_asm",
     srcs = AV1_ASM,
+    hdrs = NASM_HDRS,
     copts = [
         "-w+all",
         "-w-reloc-rel-dword",
     ],
-    hdrs = NASM_HDRS,
     alwayslink = 1,
 )
 
@@ -313,11 +313,11 @@ cc_library(
 nasm_cc_library(
     name = "dsp_x86_asm",
     srcs = DSP_ASM,
+    hdrs = NASM_HDRS,
     copts = [
         "-w+all",
         "-w-reloc-rel-dword",
     ],
-    hdrs = NASM_HDRS,
     alwayslink = 1,
 )
 
@@ -393,9 +393,9 @@ cc_library(
     includes = ["aom"],
     textual_hdrs = LIBAOM_HEADERS,
     deps = [
-        ":mem",
-        ":config",
         ":args_helper",
+        ":config",
+        ":mem",
     ] + select({
         "@platforms//cpu:arm64": [],
         "@platforms//cpu:ppc": [],
@@ -411,11 +411,11 @@ nasm_cc_library(
     srcs = [
         "aom_ports/float.asm",
     ],
+    hdrs = NASM_HDRS,
     copts = [
         "-w+all",
         "-w-reloc-rel-dword",
     ],
-    hdrs = NASM_HDRS,
     alwayslink = 1,
 )
 

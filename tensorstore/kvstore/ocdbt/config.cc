@@ -22,6 +22,7 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "riegeli/zstd/zstd_writer.h"
@@ -113,9 +114,9 @@ absl::Status ValidateConfig(const Config& config,
   const auto validate = [&](const char* name, const auto& config_value,
                             const auto& constraint_value) -> absl::Status {
     if (constraint_value && *constraint_value != config_value) {
-      return absl::FailedPreconditionError(tensorstore::StrCat(
-          "Configuration mismatch on ", name, ": expected ",
-          ::nlohmann::json(*constraint_value).dump(), " but received ",
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "Configuration mismatch on %s: expected %s but received %s", name,
+          ::nlohmann::json(*constraint_value).dump(),
           ::nlohmann::json(config_value).dump()));
     }
     return absl::OkStatus();

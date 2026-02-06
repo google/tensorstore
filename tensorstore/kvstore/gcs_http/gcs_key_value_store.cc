@@ -272,8 +272,8 @@ struct GcsKeyValueStoreSpecData {
                  jb::Projection<&GcsKeyValueStoreSpecData::bucket>(jb::Validate(
                      [](const auto& options, const std::string* x) {
                        if (!IsValidBucketName(*x)) {
-                         return absl::InvalidArgumentError(absl::StrCat(
-                             "Invalid GCS bucket name: ", QuoteString(*x)));
+                         return absl::InvalidArgumentError(absl::StrFormat(
+                             "Invalid GCS bucket name: %v", QuoteString(*x)));
                        }
                        return absl::OkStatus();
                      }))),
@@ -311,7 +311,7 @@ class GcsKeyValueStoreSpec
   absl::Status NormalizeSpec(std::string& path) override {
     if (!path.empty() && !IsValidObjectName(path)) {
       return absl::InvalidArgumentError(
-          absl::StrCat("Invalid GCS path: ", QuoteString(path)));
+          absl::StrFormat("Invalid GCS path: %v", QuoteString(path)));
     }
     return absl::OkStatus();
   }
@@ -1174,8 +1174,8 @@ struct ListTask : public RateLimiterNode,
     auto payload = response->payload;
     auto j = internal::ParseJson(payload.Flatten());
     if (j.is_discarded()) {
-      return absl::InternalError(absl::StrCat(
-          "Failed to parse response metadata: ", payload.Flatten()));
+      return absl::InternalError(absl::StrFormat(
+          "Failed to parse response metadata: %s", payload.Flatten()));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto parsed_payload,
@@ -1275,8 +1275,8 @@ Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
       internal::EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Invalid GCS bucket name: ", QuoteString(parsed.authority)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid GCS bucket name: %v", QuoteString(parsed.authority)));
   }
   auto decoded_path = parsed.path.empty()
                           ? std::string()

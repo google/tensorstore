@@ -17,10 +17,10 @@ tensorstore_cc_library(
     hdrs = ["blosc.h"],
     deps = [
         "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/strings:string_view",
         "@abseil-cpp//absl/types:optional",
         "@org_blosc_cblosc//:blosc",

@@ -80,8 +80,8 @@ absl::Time MakeMSDOSTime(uint16_t date, uint16_t time) {
 
 // These could have different implementations for central headers vs.
 // local headers.
-absl::Status ReadExtraField_Zip64_0001(riegeli::Reader &reader,
-                                       uint16_t tag_size, ZipEntry &entry) {
+absl::Status ReadExtraField_Zip64_0001(riegeli::Reader& reader,
+                                       uint16_t tag_size, ZipEntry& entry) {
   assert(tag_size >= 8);
 
   entry.is_zip64 = true;
@@ -108,8 +108,8 @@ absl::Status ReadExtraField_Zip64_0001(riegeli::Reader &reader,
   return absl::InvalidArgumentError("Failed to read ZIP64 extra field");
 }
 
-absl::Status ReadExtraField_Unix_000D(riegeli::Reader &reader,
-                                      uint16_t tag_size, ZipEntry &entry) {
+absl::Status ReadExtraField_Unix_000D(riegeli::Reader& reader,
+                                      uint16_t tag_size, ZipEntry& entry) {
   assert(tag_size >= 12);
   uint32_t ignored32;
   uint32_t mtime;
@@ -126,8 +126,8 @@ absl::Status ReadExtraField_Unix_000D(riegeli::Reader &reader,
   return absl::OkStatus();
 }
 
-absl::Status ReadExtraField_NTFS_000A(riegeli::Reader &reader,
-                                      uint16_t tag_size, ZipEntry &entry) {
+absl::Status ReadExtraField_NTFS_000A(riegeli::Reader& reader,
+                                      uint16_t tag_size, ZipEntry& entry) {
   assert(tag_size >= 8);
   uint32_t ignored32;
   if (!ReadLittleEndian32(reader, ignored32)) {
@@ -161,8 +161,8 @@ absl::Status ReadExtraField_NTFS_000A(riegeli::Reader &reader,
   return absl::OkStatus();
 }
 
-absl::Status ReadExtraField_Unix_5455(riegeli::Reader &reader,
-                                      uint16_t tag_size, ZipEntry &entry) {
+absl::Status ReadExtraField_Unix_5455(riegeli::Reader& reader,
+                                      uint16_t tag_size, ZipEntry& entry) {
   assert(tag_size >= 1);
 
   uint8_t flags = 0;
@@ -191,7 +191,7 @@ absl::Status ReadExtraField_Unix_5455(riegeli::Reader &reader,
       "Failed to read unix timestamp extra field");
 }
 
-absl::Status ReadExtraField(riegeli::Reader &reader, ZipEntry &entry) {
+absl::Status ReadExtraField(riegeli::Reader& reader, ZipEntry& entry) {
   // These could have different implementations for central headers vs.
   // local headers.
   uint16_t tag, tag_size;
@@ -230,8 +230,8 @@ absl::Status ReadExtraField(riegeli::Reader &reader, ZipEntry &entry) {
 
 }  // namespace
 
-absl::Status ReadEOCD64Locator(riegeli::Reader &reader,
-                               ZipEOCD64Locator &locator) {
+absl::Status ReadEOCD64Locator(riegeli::Reader& reader,
+                               ZipEOCD64Locator& locator) {
   if (!reader.Pull(ZipEOCD64Locator::kRecordSize)) {
     return absl::InvalidArgumentError(
         "ZIP EOCD64 Locator Entry insufficient data available");
@@ -257,7 +257,7 @@ absl::Status ReadEOCD64Locator(riegeli::Reader &reader,
   return absl::OkStatus();
 }
 
-absl::Status ReadEOCD64(riegeli::Reader &reader, ZipEOCD &eocd) {
+absl::Status ReadEOCD64(riegeli::Reader& reader, ZipEOCD& eocd) {
   if (!reader.Pull(ZipEOCD::kEOCD64RecordSize)) {
     return absl::InvalidArgumentError(
         "ZIP EOCD Entry insufficient data available");
@@ -318,7 +318,7 @@ absl::Status ReadEOCD64(riegeli::Reader &reader, ZipEOCD &eocd) {
   return absl::OkStatus();
 }
 
-absl::Status ReadEOCD(riegeli::Reader &reader, ZipEOCD &eocd) {
+absl::Status ReadEOCD(riegeli::Reader& reader, ZipEOCD& eocd) {
   if (!reader.Pull(ZipEOCD::kEOCDRecordSize)) {
     return absl::InvalidArgumentError(
         "ZIP EOCD Entry insufficient data available");
@@ -383,12 +383,12 @@ absl::Status ReadEOCD(riegeli::Reader &reader, ZipEOCD &eocd) {
 // TODO: Modify kvstore::ReadResult to include the returned range as well
 // as the size of the file.
 
-std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader &reader,
-                                                    ZipEOCD &eocd,
+std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader& reader,
+                                                    ZipEOCD& eocd,
                                                     int64_t offset_adjustment) {
   // Try and find the EOCD, which should exist in all ZIP files.
   if (!internal::FindLast(
-          reader, std::string_view(reinterpret_cast<const char *>(kEOCDLiteral),
+          reader, std::string_view(reinterpret_cast<const char*>(kEOCDLiteral),
                                    sizeof(kEOCDLiteral)))) {
     return absl::InvalidArgumentError("Failed to find valid ZIP EOCD");
   }
@@ -453,8 +453,8 @@ std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader &reader,
 // --------------------------------------------------------------------------
 
 // 4.3.12
-absl::Status ReadCentralDirectoryEntry(riegeli::Reader &reader,
-                                       ZipEntry &entry) {
+absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
+                                       ZipEntry& entry) {
   if (!reader.Pull(ZipEntry::kCentralRecordSize)) {
     return absl::InvalidArgumentError(
         "ZIP Central Directory Entry insufficient data available");
@@ -537,7 +537,7 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader &reader,
 }
 
 // 4.3.7
-absl::Status ReadLocalEntry(riegeli::Reader &reader, ZipEntry &entry) {
+absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
   if (!reader.Pull(ZipEntry::kLocalRecordSize)) {
     return absl::InvalidArgumentError(
         "ZIP Local Entry insufficient data available");
@@ -603,13 +603,12 @@ absl::Status ReadLocalEntry(riegeli::Reader &reader, ZipEntry &entry) {
 }
 
 /// Returns whether the ZIP entry can be read.
-absl::Status ValidateEntryIsSupported(const ZipEntry &entry) {
+absl::Status ValidateEntryIsSupported(const ZipEntry& entry) {
   if (entry.flags & 0x01 ||                 // encryption
       entry.flags & (uint16_t{1} << 6) ||   // strong encryption
       entry.flags & (uint16_t{1} << 13) ||  // header encryption
       entry.compression_method == ZipCompression::kAes) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("ZIP encryption is not supported"));
+    return absl::InvalidArgumentError("ZIP encryption is not supported");
   }
   if (entry.compression_method != ZipCompression::kStore &&
       entry.compression_method != ZipCompression::kDeflate &&
@@ -617,8 +616,8 @@ absl::Status ValidateEntryIsSupported(const ZipEntry &entry) {
       entry.compression_method != ZipCompression::kZStd &&
       entry.compression_method != ZipCompression::kXZ) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("ZIP compression method ", entry.compression_method,
-                            " is not supported"));
+        absl::StrFormat("ZIP compression method %d is not supported",
+                        static_cast<int>(entry.compression_method)));
   }
   if (absl::EndsWith(entry.filename, "/")) {
     return absl::InvalidArgumentError("ZIP directory entries cannot be read");
@@ -628,7 +627,7 @@ absl::Status ValidateEntryIsSupported(const ZipEntry &entry) {
 }
 
 tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
-    riegeli::Reader *reader, ZipEntry &entry) {
+    riegeli::Reader* reader, ZipEntry& entry) {
   assert(reader != nullptr);
 
   // reader position should be at the beginning of the compressed file data.
@@ -682,14 +681,14 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
     }
   }
 
-  using Reader = riegeli::LimitingReader<riegeli::Reader *>;
+  using Reader = riegeli::LimitingReader<riegeli::Reader*>;
   return std::make_unique<Reader>(
       reader, riegeli::LimitingReaderBase::Options().set_exact_length(
                   entry.compressed_size));
 }
 
 tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetReader(
-    riegeli::Reader *reader, ZipEntry &entry) {
+    riegeli::Reader* reader, ZipEntry& entry) {
   TENSORSTORE_ASSIGN_OR_RETURN(std::unique_ptr<riegeli::Reader> base_reader,
                                GetRawReader(reader, entry));
 

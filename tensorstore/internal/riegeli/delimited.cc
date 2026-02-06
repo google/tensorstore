@@ -17,10 +17,10 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace serialization {
@@ -28,8 +28,8 @@ namespace serialization {
 bool ReadDelimitedUtf8(riegeli::Reader& reader, std::string& dest) {
   if (!serialization::ReadDelimited(reader, dest)) return false;
   if (!internal::IsValidUtf8(dest)) {
-    reader.Fail(absl::DataLossError(tensorstore::StrCat(
-        "String is not valid utf-8: ", tensorstore::QuoteString(dest))));
+    reader.Fail(absl::DataLossError(absl::StrFormat(
+        "String is not valid utf-8: %v", tensorstore::QuoteString(dest))));
     return false;
   }
   return true;

@@ -164,6 +164,9 @@ tensorstore_pytest_test(
 doctest_test(
     name = "doctest_test",
     srcs = glob(["python/**/*.rst"]),
+    tags = [
+        "skip-windows",
+    ],
 )
 
 tensorstore_cc_library(

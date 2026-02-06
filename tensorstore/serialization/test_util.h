@@ -47,8 +47,7 @@ void TestSerializationRoundTrip(const T& value,
   T decoded;
   auto decode_status = DecodeBatch(encoded, decoded, serializer);
   if (!decode_status.ok()) {
-    TENSORSTORE_ASSERT_OK(decode_status)
-        << "Encoded: " << tensorstore::QuoteString(encoded);
+    TENSORSTORE_ASSERT_OK(decode_status) << "Encoded: " << QuoteString(encoded);
   }
   EXPECT_EQ(decoded, value);
 }

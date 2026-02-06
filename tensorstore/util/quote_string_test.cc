@@ -16,6 +16,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 
 namespace {
 
@@ -23,9 +25,13 @@ using ::tensorstore::QuoteString;
 using ::testing::StrEq;
 
 TEST(QuoteStringTest, Basic) {
-  EXPECT_THAT(QuoteString("abc "), StrEq("\"abc \""));
-  EXPECT_THAT(QuoteString("a\"b\n\x01"), StrEq("\"a\\\"b\\n\\x01\""));
-  EXPECT_THAT(QuoteString("'"), StrEq("\"\\'\""));
+  EXPECT_THAT(absl::StrCat(QuoteString("abc ")), StrEq("\"abc \""));
+  EXPECT_THAT(absl::StrCat(QuoteString("a\"b\n\x01")),
+              StrEq("\"a\\\"b\\n\\x01\""));
+
+  EXPECT_THAT(absl::StrCat(QuoteString("'")), StrEq("\"\\'\""));
+  EXPECT_THAT(absl::StrFormat("%v", QuoteString("'")), StrEq("\"\\'\""));
+  EXPECT_THAT(QuoteString("'").ToString(), StrEq("\"\\'\""));
 }
 
 }  // namespace

@@ -16,6 +16,7 @@
 
 #include "google/protobuf/duration.pb.h"
 #include "google/protobuf/timestamp.pb.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -50,10 +51,10 @@ tensorstore::Result<absl::Time> ProtoToAbslTime(
   // Otherwise validate according to: google/protobuf/timestamp.proto
   // sec must be [0001-01-01T00:00:00Z, 9999-12-31T23:59:59.999999999Z]
   if (sec < -62135596800 || sec > 253402300799) {
-    return absl::InvalidArgumentError(tensorstore::StrCat("seconds=", sec));
+    return absl::InvalidArgumentError(absl::StrFormat("seconds=%d", sec));
   }
   if (ns < 0 || ns > 999999999) {
-    return absl::InvalidArgumentError(tensorstore::StrCat("nanos=", ns));
+    return absl::InvalidArgumentError(absl::StrFormat("nanos=%d", ns));
   }
   return absl::FromUnixSeconds(sec) + absl::Nanoseconds(ns);
 }
@@ -85,14 +86,14 @@ Result<absl::Duration> ProtoToAbslDuration(
   }
   const auto ns = proto.nanos();
   if (sec < -315576000000 || sec > 315576000000) {
-    return absl::InvalidArgumentError(tensorstore::StrCat("seconds=", sec));
+    return absl::InvalidArgumentError(absl::StrFormat("seconds=%d", sec));
   }
   if (ns < -999999999 || ns > 999999999) {
-    return absl::InvalidArgumentError(tensorstore::StrCat("nanos=", ns));
+    return absl::InvalidArgumentError(absl::StrFormat("nanos=%d", ns));
   }
   if ((sec < 0 && ns > 0) || (sec > 0 && ns < 0)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Sign mismatch between seconds=", sec, ", nanos=", ns));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Sign mismatch between seconds=%d, nanos=%d", sec, ns));
   }
   return absl::Seconds(sec) + absl::Nanoseconds(ns);
 }

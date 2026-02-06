@@ -15,6 +15,7 @@
 #include "tensorstore/serialization/registry.h"
 
 #include "absl/log/absl_log.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -37,8 +38,8 @@ bool Registry::Encode(EncodeSink& sink, const void* value,
                       const std::type_info& type) {
   auto it = by_type_.find(std::type_index(type));
   if (it == by_type_.end()) {
-    sink.Fail(absl::InternalError(tensorstore::StrCat(
-        "Dynamic type not registered for serialization: ", type.name())));
+    sink.Fail(absl::InternalError(absl::StrFormat(
+        "Dynamic type not registered for serialization: %s", type.name())));
     return false;
   }
   auto& entry = **it;
@@ -50,8 +51,8 @@ bool Registry::Decode(DecodeSource& source, void* value) {
   if (!serialization::Decode(source, id)) return false;
   auto it = by_id_.find(id);
   if (it == by_id_.end()) {
-    source.Fail(absl::DataLossError(tensorstore::StrCat(
-        "Dynamic id not registered for serialization: ", id)));
+    source.Fail(absl::DataLossError(absl::StrFormat(
+        "Dynamic id not registered for serialization: %s", id)));
     return false;
   }
   auto& entry = **it;

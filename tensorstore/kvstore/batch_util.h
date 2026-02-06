@@ -310,11 +310,10 @@ void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
       } else if (inclusive_min < coalesced_byte_range.inclusive_min ||
                  exclusive_max > coalesced_byte_range.exclusive_max ||
                  inclusive_min >= coalesced_byte_range.exclusive_max) {
-        r.promise.SetResult(absl::OutOfRangeError(
-            tensorstore::StrCat("Requested byte range ", r.byte_range,
-                                " is not valid for returned value of size ",
-                                read_result.value.size(), " with byte range ",
-                                coalesced_byte_range)));
+        r.promise.SetResult(absl::OutOfRangeError(absl::StrFormat(
+            "Requested byte range %v is not valid for returned value of size "
+            "%d with byte range %v",
+            r.byte_range, read_result.value.size(), coalesced_byte_range)));
         continue;
       } else {
         sub_read_result.value = read_result.value.Subcord(

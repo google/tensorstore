@@ -84,8 +84,8 @@ bool IsFile(const std::string& filename) {
 Result<std::string> GetEnvironmentVariableFileName() {
   auto env = GetEnv(kGoogleApplicationCredentials);
   if (!env || !IsFile(*env)) {
-    return absl::NotFoundError(tensorstore::StrCat(
-        "$", kGoogleApplicationCredentials, " is not set or corrupt."));
+    return absl::NotFoundError(absl::StrFormat("$%s is not set or corrupt.",
+                                               kGoogleApplicationCredentials));
   }
   return *env;
 }

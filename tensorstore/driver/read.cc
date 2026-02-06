@@ -32,6 +32,7 @@
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/alignment.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -58,6 +59,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {

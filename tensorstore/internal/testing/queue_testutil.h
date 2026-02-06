@@ -21,6 +21,7 @@
 #include <optional>
 #include <utility>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -32,27 +33,35 @@ namespace internal {
 template <typename T>
 class ConcurrentQueue {
  public:
-  void push(T x) {
-    absl::MutexLock lock(&mutex_);
+  void push(T x) ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock lock(mutex_);
     queue_.push_back(std::move(x));
   }
 
-  T pop() {
-    absl::MutexLock lock(&mutex_);
+  T pop() ABSL_LOCKS_EXCLUDED(mutex_) {
+    return pop_with_timeout(absl::Seconds(5));
+  }
+
+  T pop_with_timeout(absl::Duration timeout) ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock lock(mutex_);
     // If 5 seconds isn't enough, assume the test has failed.  This avoids
     // delaying failure until the entire test times out.
-    ABSL_CHECK(mutex_.AwaitWithTimeout(
-        absl::Condition(
-            +[](std::deque<T>* q) { return !q->empty(); }, &queue_),
-        absl::Seconds(5)));
+    if (timeout > absl::ZeroDuration()) {
+      ABSL_CHECK(mutex_.AwaitWithTimeout(
+          absl::Condition(
+              +[](std::deque<T>* q) { return !q->empty(); }, &queue_),
+          timeout));
+    } else {
+      ABSL_CHECK(!queue_.empty());
+    }
     T x = std::move(queue_.front());
     queue_.pop_front();
     return x;
   }
 
-  std::optional<T> pop_nonblock() {
+  std::optional<T> pop_nonblock() ABSL_LOCKS_EXCLUDED(mutex_) {
     std::optional<T> x;
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     if (!queue_.empty()) {
       x.emplace(std::move(queue_.front()));
       queue_.pop_front();
@@ -63,19 +72,22 @@ class ConcurrentQueue {
   /// Returns the size.
   ///
   /// Requires external synchronization to ensure a meaningful result.
-  size_t size() {
-    absl::MutexLock lock(&mutex_);
+  size_t size() ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock lock(mutex_);
     return queue_.size();
   }
 
   /// Returns `true` if empty.
   ///
   /// Requires external synchronization to ensure a meaningful result.
-  bool empty() { return size() == 0; }
+  bool empty() ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock lock(mutex_);
+    return queue_.empty();
+  }
 
   /// Removes all elements from the queue.
-  std::deque<T> pop_all() {
-    absl::MutexLock lock(&mutex_);
+  std::deque<T> pop_all() ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock lock(mutex_);
     return std::exchange(queue_, {});
   }
 

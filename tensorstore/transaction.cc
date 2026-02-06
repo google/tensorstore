@@ -27,6 +27,7 @@
 #include "absl/base/optimization.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/types/compare.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/transaction_impl.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -421,8 +421,8 @@ absl::Status TransactionState::Node::MarkAsTerminal() {
 absl::Status TransactionState::Node::GetAtomicError(
     std::string_view a_description, std::string_view b_description) {
   return absl::InvalidArgumentError(
-      tensorstore::StrCat("Cannot ", a_description, " and ", b_description,
-                          " as single atomic transaction"));
+      absl::StrFormat("Cannot %s and %s as single atomic transaction",
+                      a_description, b_description));
 }
 
 absl::Status TransactionState::Node::Register() {

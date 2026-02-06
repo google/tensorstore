@@ -24,9 +24,9 @@
 
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -40,7 +40,7 @@ Result<IndirectDataKind> ParseIndirectDataKind(std::string_view label) {
     return IndirectDataKind::kVersionNode;
   }
   return absl::InvalidArgumentError(
-      tensorstore::StrCat("Invalid indirect data kind: ", label));
+      absl::StrFormat("Invalid indirect data kind: %s", label));
 }
 
 std::string_view IndirectDataKindToString(IndirectDataKind kind) {
@@ -114,8 +114,8 @@ absl::Status IndirectDataReference::Validate(bool allow_missing) const {
     if (internal::AddOverflow(offset, length, &end_offset) ||
         end_offset >
             static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
-      return absl::DataLossError(
-          tensorstore::StrCat("Invalid offset/length pair in ", *this));
+      return absl::DataLossError(absl::StrFormat(
+          "Invalid offset/length pair in %s", absl::FormatStreamed(*this)));
     }
   }
   return absl::OkStatus();

@@ -35,6 +35,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/metrics/registry.h"
@@ -1862,7 +1863,7 @@ TEST(MapFutureValueTest, ValueToError) {
   auto b = MapFutureValue(
       InlineExecutor{},
       [](int x) -> Result<int> {
-        return absl::UnknownError(tensorstore::StrCat("Got value: ", x));
+        return absl::UnknownError(absl::StrFormat("Got value: %d", x));
       },
       a);
   EXPECT_THAT(b.result(),

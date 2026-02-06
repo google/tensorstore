@@ -45,18 +45,6 @@ cc_library(
         "@platforms//os:windows": ["LZMA_API_STATIC"],
         "//conditions:default": [],
     }),
-    linkopts = select({
-        "@platforms//os:android": [],
-        "@platforms//os:windows": [],
-        "@platforms//os:none": [],
-        "//conditions:default": ["-lpthread"],
-    }),
-    linkstatic = select({
-        "@platforms//os:windows": True,
-        "//conditions:default": False,
-    }),
-    strip_include_prefix = "src/liblzma/api",
-    visibility = ["//visibility:public"],
     implementation_deps = [
         ":config",
         ":src_common",
@@ -69,6 +57,18 @@ cc_library(
         ":src_liblzma_rangecoder",
         ":src_liblzma_simple",
     ],
+    linkopts = select({
+        "@platforms//os:android": [],
+        "@platforms//os:windows": [],
+        "@platforms//os:none": [],
+        "//conditions:default": ["-lpthread"],
+    }),
+    linkstatic = select({
+        "@platforms//os:windows": True,
+        "//conditions:default": False,
+    }),
+    strip_include_prefix = "src/liblzma/api",
+    visibility = ["//visibility:public"],
 )
 
 # Generate config.h from config_generic.h
@@ -93,7 +93,6 @@ cc_library(
         ],
     }),
     hdrs = glob(["src/common/*.h"]),
-    strip_include_prefix = "src/common",
     defines = select({
         "@platforms//os:windows": ["LZMA_API_STATIC"],
         "//conditions:default": [],
@@ -102,6 +101,7 @@ cc_library(
         "@platforms//os:windows": ["TUKLIB_GETTEXT=0"],
         "//conditions:default": [],
     }),
+    strip_include_prefix = "src/common",
     deps = [
         ":config",
         ":src_liblzma",
@@ -112,7 +112,10 @@ cc_library(
 
 cc_library(
     name = "src_liblzma",
-    hdrs = glob(["src/liblzma/common/*.h", "src/liblzma/lzma/*.h"]),
+    hdrs = glob([
+        "src/liblzma/common/*.h",
+        "src/liblzma/lzma/*.h",
+    ]),
     strip_include_prefix = "src/liblzma",
 )
 

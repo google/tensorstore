@@ -14,19 +14,23 @@
 
 #include "tensorstore/rank.h"
 
-#include "tensorstore/util/str_cat.h"
+#include <string>
+
+#include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/index.h"
 
 namespace tensorstore {
 
 std::string StaticCastTraits<DimensionIndex>::Describe(DimensionIndex value) {
   if (value == dynamic_rank) return "dynamic rank";
-  return tensorstore::StrCat("rank of ", value);
+  return absl::StrFormat("rank of %d", value);
 }
 
 absl::Status ValidateRank(DimensionIndex rank) {
   if (!IsValidRank(rank)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Rank ", rank, " is outside valid range [0, ", kMaxRank, "]"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Rank %d is outside valid range [0, %d]", rank, kMaxRank));
   }
   return absl::OkStatus();
 }

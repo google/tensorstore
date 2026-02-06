@@ -17,14 +17,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 
 #include "absl/status/status.h"
-#include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include <blosc.h>
@@ -41,7 +39,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -160,9 +157,9 @@ constexpr auto CodecBinder() {
   return jb::Validate([](const auto& options, std::string* cname) {
     if (cname->find('\0') != std::string::npos ||
         blosc_compname_to_compcode(cname->c_str()) == -1) {
-      return absl::InvalidArgumentError(absl::StrFormat(
-          "Expected one of %s but received: %s", blosc_list_compressors(),
-          QuoteString(*cname)));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Expected one of %s but received: %v",
+                          blosc_list_compressors(), QuoteString(*cname)));
     }
     return absl::OkStatus();
   });

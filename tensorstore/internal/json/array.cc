@@ -23,6 +23,7 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
@@ -169,23 +170,25 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
       // The new element is not an array: handle leaf case.
       if (!array.data()) allocate_array();
       if (nesting_level != array.rank()) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected rank-", array.rank(),
-            " array, but found non-array element ", j->dump(), " at position ",
-            span(&shape_or_position[0], nesting_level), "."));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected rank-%d array, but found non-array "
+            "element %s at position "
+            "%s.",
+            array.rank(), j->dump(),
+            absl::FormatStreamed(span(&shape_or_position[0], nesting_level))));
       }
       TENSORSTORE_RETURN_IF_ERROR(
           decode_element(*j, pointer.get()),
           MaybeAnnotateStatus(
-              _,
-              tensorstore::StrCat("Error parsing array element at position ",
-                                  span(&shape_or_position[0], nesting_level))));
+              _, absl::StrFormat("Error parsing array element at position %s",
+                                 absl::FormatStreamed(span(
+                                     &shape_or_position[0], nesting_level)))));
       pointer += byte_stride;
     } else {
       // The new element is an array: handle another nesting level.
       if (nesting_level == kMaxRank) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Nesting level exceeds maximum rank of ", kMaxRank));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Nesting level exceeds maximum rank of %d", kMaxRank));
       }
       path[nesting_level++] = j_array;
       const Index size = j_array->size();
@@ -197,16 +200,19 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
           return array;
         }
       } else if (nesting_level > static_cast<size_t>(array.rank())) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected rank-", array.rank(), " array, but found array element ",
-            j->dump(), " at position ",
-            span(&shape_or_position[0], nesting_level - 1), "."));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected rank-%d array, but found array element %s at position "
+            "%s.",
+            array.rank(), j->dump(),
+            absl::FormatStreamed(
+                span(&shape_or_position[0], nesting_level - 1))));
       } else if (array.shape()[nesting_level - 1] != size) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected array of shape ", array.shape(),
-            ", but found array element ", j->dump(), " of length ", size,
-            " at position ", span(&shape_or_position[0], nesting_level - 1),
-            "."));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected array of shape %s, but found array "
+            "element %s of length %d at position %s.",
+            absl::FormatStreamed(array.shape()), j->dump(), size,
+            absl::FormatStreamed(
+                span(&shape_or_position[0], nesting_level - 1))));
       }
 
       // Process first element of the array.
@@ -243,8 +249,8 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
   auto convert = internal::GetDataTypeConverter(
       array.dtype(), dtype_v<::tensorstore::dtypes::json_t>);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Conversion from ", array.dtype(), " to JSON is not implemented"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Conversion from %v to JSON is not implemented", array.dtype()));
   }
   bool error = false;
   absl::Status status;
@@ -277,8 +283,8 @@ Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
   auto convert = internal::GetDataTypeConverter(
       dtype_v<::tensorstore::dtypes::json_t>, dtype);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Conversion from JSON to ", dtype, " is not implemented"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Conversion from JSON to %v is not implemented", dtype));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto array,
@@ -305,9 +311,9 @@ Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
             }
           }));
   if (rank_constraint != dynamic_rank && array.rank() != rank_constraint) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Array rank (", array.rank(), ") does not match expected rank (",
-        rank_constraint, ")"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Array rank (%d) does not match expected rank (%d)",
+                        array.rank(), rank_constraint));
   }
   return array;
 }

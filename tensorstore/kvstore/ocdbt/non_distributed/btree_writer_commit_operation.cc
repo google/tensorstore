@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -30,6 +31,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
+#include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
@@ -177,7 +179,7 @@ void BtreeWriterCommitOperationBase::InteriorNodeTraversalState::
     ApplyMutations() {
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "ApplyMutations: existing inclusive_min="
-      << tensorstore::QuoteString(
+      << QuoteString(
              tensorstore::StrCat(parent_state_->existing_subtree_key_prefix_,
                                  existing_relative_child_key_))
       << ", height=" << static_cast<int>(this->height_)

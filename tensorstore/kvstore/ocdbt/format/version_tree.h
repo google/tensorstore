@@ -36,6 +36,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
@@ -105,8 +106,8 @@ struct CommitTime {
   friend std::ostream& operator<<(std::ostream& os, CommitTime x);
 
   template <typename Sink>
-  friend void AbslStringify(Sink&& sink, CommitTime x) {
-    sink.Append(absl::FormatTime(static_cast<absl::Time>(x)));
+  friend void AbslStringify(Sink& sink, CommitTime x) {
+    absl::Format(&sink, "%v", static_cast<absl::Time>(x));
   }
 };
 

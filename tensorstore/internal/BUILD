@@ -274,6 +274,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -345,6 +346,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util:utf8_string",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@nlohmann_json//:json",
         "@riegeli//riegeli/bytes:reader",
         "@riegeli//riegeli/bytes:writer",
@@ -523,6 +525,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/hash",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -629,6 +632,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )
@@ -706,10 +710,12 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@nlohmann_json//:json",
     ],
 )
@@ -747,12 +753,12 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
         "@nlohmann_json//:json",
     ],
@@ -1545,6 +1551,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/container:fixed_array",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -1567,8 +1574,8 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal/json:same",
         "//tensorstore/util:quote_string",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@nlohmann_json//:json",
     ],
 )
@@ -1621,6 +1628,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 

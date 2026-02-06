@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/strings/str_format.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/type_name_override.h"
@@ -98,8 +99,8 @@ template <typename Element, DimensionIndex Rank = dynamic_rank>
 SharedArray<Element, Rank> UncheckedArrayFromNumpy(pybind11::array array_obj) {
   const DimensionIndex rank = array_obj.ndim();
   if (rank > kMaxRank) {
-    throw pybind11::value_error(tensorstore::StrCat(
-        "Array of rank ", rank, " is not supported by tensorstore"));
+    throw pybind11::value_error(absl::StrFormat(
+        "Array of rank %d is not supported by tensorstore", rank));
   }
   SharedArray<Element, Rank> array;
   array.layout().set_rank(StaticRankCast<Rank, unchecked>(rank));

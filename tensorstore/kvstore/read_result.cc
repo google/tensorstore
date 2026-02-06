@@ -40,7 +40,7 @@ std::ostream& operator<<(std::ostream& os, ReadResult::State state) {
 std::ostream& operator<<(std::ostream& os, const ReadResult& x) {
   os << "{value=";
   if (x.state == ReadResult::kValue) {
-    os << tensorstore::QuoteString(absl::Cord(x.value).Flatten());
+    os << QuoteString(absl::Cord(x.value).Flatten());
   } else {
     os << x.state;
   }

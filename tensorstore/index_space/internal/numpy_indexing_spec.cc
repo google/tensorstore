@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
@@ -83,10 +84,10 @@ Result<DimensionIndex> GetNumEllipsisDims(const NumpyIndexingSpec& spec,
   const DimensionIndex num_ellipsis_dims =
       selection_rank - spec.num_output_dims - spec.num_new_dims;
   if (num_ellipsis_dims < 0 || (!spec.has_ellipsis && num_ellipsis_dims != 0)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Indexing expression requires ",
-        spec.num_output_dims + spec.num_new_dims,
-        " dimensions but selection has ", selection_rank, " dimensions"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Indexing expression requires %d dimensions but selection has %d "
+        "dimensions",
+        spec.num_output_dims + spec.num_new_dims, selection_rank));
   }
   return num_ellipsis_dims;
 }
@@ -502,8 +503,8 @@ Result<IndexTransform<>> ToIndexTransform(
                                  /*translate_origin_to=*/kImplicit, s->start,
                                  s->stop, s->step, &new_domain, &offset),
           tensorstore::MaybeAnnotateStatus(
-              _, tensorstore::StrCat("Computing interval slice for dimension ",
-                                     output_dim)));
+              _, absl::StrFormat("Computing interval slice for dimension %d",
+                                 output_dim)));
       implicit_lower_bounds[input_dim] = new_domain.implicit_lower();
       implicit_upper_bounds[input_dim] = new_domain.implicit_upper();
       input_origin[input_dim] = new_domain.inclusive_min();
@@ -551,10 +552,10 @@ Result<IndexTransform<>> ToIndexTransform(const NumpyIndexingSpec& spec,
   const DimensionIndex output_rank = output_space.rank();
   assert(spec.usage == NumpyIndexingSpec::Usage::kDirect);
   if (spec.num_output_dims > output_rank) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Indexing expression requires ", spec.num_output_dims,
-        " dimensions, and cannot be applied to a domain of rank ",
-        output_rank));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Indexing expression requires %d dimensions, and "
+                        "cannot be applied to a domain of rank %d",
+                        spec.num_output_dims, output_rank));
   }
   const DimensionIndex num_ellipsis_dims = output_rank - spec.num_output_dims;
   const DimensionIndex input_rank = spec.num_input_dims + num_ellipsis_dims;

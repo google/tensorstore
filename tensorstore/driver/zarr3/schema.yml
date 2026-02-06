@@ -11,7 +11,7 @@ allOf:
       description: |
         Specifies constraints on the metadata, as in the `zarr.json metadata
         file
-        <https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#array-metadata>`__,
+        <https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#array-metadata>`__,
         except that all members are optional and codecs may be left
         partially-specified, in which case default options are chosen
         automatically.  When creating a new array, the new metadata is obtained
@@ -254,7 +254,7 @@ definitions:
     title: Default chunk key encoding.
     description: |
       Refer to `the zarr v3 spec
-      <https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#chunk-key-encoding>`__
+      <https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#chunk-key-encoding>`__
       for details.
     allOf:
     - $ref: driver/zarr3/ChunkKeyEncoding
@@ -277,7 +277,7 @@ definitions:
     title: Zarr v2-compatible chunk key encoding.
     description: |
       Refer to `the zarr v3 spec
-      <https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#chunk-key-encoding>`__
+      <https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#chunk-key-encoding>`__
       for details.
     allOf:
     - $ref: driver/zarr3/ChunkKeyEncoding
@@ -347,7 +347,7 @@ definitions:
     description: |
       .. seealso::
 
-         `Bytes codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/endian/v1.0.html>`__
+         `Bytes codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/bytes/>`__
     allOf:
     - $ref: 'driver/zarr3/SingleCodec'
     - type: object
@@ -372,7 +372,7 @@ definitions:
     description: |
       .. seealso::
 
-         `Sharding codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/sharding-indexed/v1.0.html>`__
+         `Sharding codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/sharding-indexed/>`__
     allOf:
     - $ref: 'driver/zarr3/SingleCodec'
     - type: object
@@ -422,7 +422,7 @@ definitions:
     description: |
       .. seealso::
 
-         `Transpose codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/transpose/v1.0.html>`__
+         `Transpose codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/transpose/>`__
     allOf:
     - $ref: 'driver/zarr3/SingleCodec'
     - type: object
@@ -470,7 +470,7 @@ definitions:
     description: |
       .. seealso::
 
-         `CRC-32C codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/crc32c/v1.0.html>`__
+         `CRC-32C codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/crc32c/>`__
     allOf:
     - $ref: 'driver/zarr3/SingleCodec'
     - type: object
@@ -489,7 +489,7 @@ definitions:
     description: |
       .. seealso::
 
-         `Gzip codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/gzip/v1.0.html>`__
+         `Gzip codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/gzip/>`__
     allOf:
     - $ref: 'driver/zarr3/SingleCodec'
     - type: object
@@ -518,7 +518,7 @@ definitions:
     description: |
       .. seealso::
 
-         `Blosc codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/blosc/v1.0.html>`__
+         `Blosc codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/blosc/>`__
     allOf:
     - $ref: 'driver/zarr3/SingleCodec'
     - type: object

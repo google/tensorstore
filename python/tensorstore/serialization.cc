@@ -33,6 +33,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
@@ -392,9 +393,9 @@ class PickleDecodeSource final : public serialization::DecodeSource {
         reinterpret_cast<DecodableObject*>(python_object.ptr())->cpp_data;
     if (data.type_info) {
       if (*data.type_info != type) {
-        Fail(absl::InvalidArgumentError(tensorstore::StrCat(
-            "Type mismatch for indirect object, received ",
-            data.type_info->name(), " but expected ", type.name())));
+        Fail(absl::InvalidArgumentError(absl::StrFormat(
+            "Type mismatch for indirect object, received %s but expected %s",
+            data.type_info->name(), type.name())));
         return false;
       }
     } else {

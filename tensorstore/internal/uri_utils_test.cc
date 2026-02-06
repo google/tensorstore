@@ -15,6 +15,7 @@
 #include "tensorstore/internal/uri_utils.h"
 
 #include <optional>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -40,6 +41,7 @@ using ::tensorstore::internal::PercentEncodeUriComponent;
 using ::tensorstore::internal::PercentEncodeUriPath;
 using ::tensorstore::internal::SplitHostPort;
 using ::tensorstore::internal_testing::OnWindows;
+using ::testing::StrEq;
 
 namespace tensorstore::internal {
 
@@ -52,21 +54,30 @@ inline bool operator==(const HostPort& a, const HostPort& b) {
 
 namespace {
 
+std::string Get7BitAscii() {
+  std::string tmp;
+  tmp.reserve(128);
+  for (int i = 0; i < 128; i++) {
+    tmp.push_back(static_cast<char>(i));
+  }
+  return tmp;
+}
+
 TEST(PercentDecodeTest, NoOp) {
   std::string_view s = "abcd %zz %%";
-  EXPECT_THAT(PercentDecode(s), ::testing::Eq(s));
+  EXPECT_THAT(PercentDecode(s), StrEq(s));
 }
 
 TEST(PercentDecodeTest, EscapeSequenceInMiddle) {
-  EXPECT_THAT(PercentDecode("abc%20efg"), ::testing::Eq("abc efg"));
+  EXPECT_THAT(PercentDecode("abc%20efg"), StrEq("abc efg"));
 }
 
 TEST(PercentDecodeTest, EscapeSequenceAtEnd) {
-  EXPECT_THAT(PercentDecode("abc%20"), ::testing::Eq("abc "));
+  EXPECT_THAT(PercentDecode("abc%20"), StrEq("abc "));
 }
 
 TEST(PercentDecodeTest, EscapeSequenceLetter) {
-  EXPECT_THAT(PercentDecode("abc%fF"), ::testing::Eq("abc\xff"));
+  EXPECT_THAT(PercentDecode("abc%fF"), StrEq("abc\xff"));
 }
 
 TEST(PercentEncodeReservedTest, Basic) {
@@ -80,12 +91,21 @@ TEST(PercentEncodeReservedTest, Basic) {
       "/ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "/01234.56789";
 
-  EXPECT_THAT(PercentEncodeReserved(s, kMyUnreservedChars), ::testing::Eq(s));
+  EXPECT_THAT(PercentEncodeReserved(s, kMyUnreservedChars), StrEq(s));
 
   std::string_view t = "-_!~*'()";
 
   EXPECT_THAT(PercentEncodeReserved(t, kMyUnreservedChars),
-              ::testing::Eq("%2D%5F%21%7E%2A%27%28%29"));
+              StrEq("%2D%5F%21%7E%2A%27%28%29"));
+}
+
+TEST(PercentEncodeUriPathTest, Ascii) {
+  EXPECT_THAT(
+      PercentEncodeUriPath(Get7BitAscii()),
+      StrEq("%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F%10%11%12%13%14%"
+            "15%16%17%18%19%1A%1B%1C%1D%1E%1F%20!%22%23$%25&'()*+,-./"
+            "0123456789:;%3C=%3E%3F@ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%5D%5E_%"
+            "60abcdefghijklmnopqrstuvwxyz%7B%7C%7D~%7F"));
 }
 
 TEST(PercentEncodeUriPathTest, NoOp) {
@@ -94,15 +114,20 @@ TEST(PercentEncodeUriPathTest, NoOp) {
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "0123456789"
       "-_.!~*'():@&=+$,;/";
-  EXPECT_THAT(PercentEncodeUriPath(s), ::testing::Eq(s));
-}
-
-TEST(PercentEncodeUriPathTest, Percent) {
-  EXPECT_THAT(PercentEncodeUriPath("%"), ::testing::Eq("%25"));
+  EXPECT_THAT(PercentEncodeUriPath(s), StrEq(s));
 }
 
 TEST(PercentEncodeUriPathTest, NonAscii) {
-  EXPECT_THAT(PercentEncodeUriPath("\xff"), ::testing::Eq("%FF"));
+  EXPECT_THAT(PercentEncodeUriPath("\xff"), StrEq("%FF"));
+}
+
+TEST(PercentEncodeKvStoreUriPathTest, Ascii) {
+  EXPECT_THAT(
+      PercentEncodeKvStoreUriPath(Get7BitAscii()),
+      StrEq("%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F%10%11%12%13%14%"
+            "15%16%17%18%19%1A%1B%1C%1D%1E%1F%20!%22%23$%25&'()*+,-./"
+            "0123456789:;%3C=%3E%3F%40ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%5D%5E_%"
+            "60abcdefghijklmnopqrstuvwxyz%7B%7C%7D~%7F"));
 }
 
 TEST(PercentEncodeKvStoreUriPathTest, NoOp) {
@@ -111,19 +136,20 @@ TEST(PercentEncodeKvStoreUriPathTest, NoOp) {
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "0123456789"
       "-_.!~*'():&=+$,;/";
-  EXPECT_THAT(PercentEncodeKvStoreUriPath(s), ::testing::Eq(s));
-}
-
-TEST(PercentEncodeKvStoreUriPathTest, Percent) {
-  EXPECT_THAT(PercentEncodeKvStoreUriPath("%"), ::testing::Eq("%25"));
+  EXPECT_THAT(PercentEncodeKvStoreUriPath(s), StrEq(s));
 }
 
 TEST(PercentEncodeKvStoreUriPathTest, NonAscii) {
-  EXPECT_THAT(PercentEncodeKvStoreUriPath("\xff"), ::testing::Eq("%FF"));
+  EXPECT_THAT(PercentEncodeKvStoreUriPath("\xff"), StrEq("%FF"));
 }
 
-TEST(PercentEncodeKvStoreUriPathTest, At) {
-  EXPECT_THAT(PercentEncodeKvStoreUriPath("@"), ::testing::Eq("%40"));
+TEST(PercentEncodeUriComponentTest, Ascii) {
+  EXPECT_THAT(
+      PercentEncodeUriComponent(Get7BitAscii()),
+      StrEq("%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F%10%11%12%13%14%"
+            "15%16%17%18%19%1A%1B%1C%1D%1E%1F%20!%22%23%24%25%26'()*%2B%2C-.%"
+            "2F0123456789%3A%3B%3C%3D%3E%3F%40ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%"
+            "5D%5E_%60abcdefghijklmnopqrstuvwxyz%7B%7C%7D~%7F"));
 }
 
 TEST(PercentEncodeUriComponentTest, NoOp) {
@@ -132,15 +158,11 @@ TEST(PercentEncodeUriComponentTest, NoOp) {
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "0123456789"
       "-_.!~*'()";
-  EXPECT_THAT(PercentEncodeUriComponent(s), ::testing::Eq(s));
-}
-
-TEST(PercentEncodeUriComponentTest, Percent) {
-  EXPECT_THAT(PercentEncodeUriComponent("%"), ::testing::Eq("%25"));
+  EXPECT_THAT(PercentEncodeUriComponent(s), StrEq(s));
 }
 
 TEST(PercentEncodeUriComponentTest, NonAscii) {
-  EXPECT_THAT(PercentEncodeUriComponent("\xff"), ::testing::Eq("%FF"));
+  EXPECT_THAT(PercentEncodeUriComponent("\xff"), StrEq("%FF"));
 }
 
 TEST(ParseGenericUriTest, InvalidPathOnly) {

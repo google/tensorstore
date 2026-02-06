@@ -40,14 +40,14 @@ absl::Status ExpectedError(const ::nlohmann::json& j,
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Expected ", type_name, ", but member is missing"));
   }
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Expected ", type_name, ", but received: ", j.dump()));
+  return absl::InvalidArgumentError(
+      absl::StrFormat("Expected %s, but received: %s", type_name, j.dump()));
 }
 
 absl::Status ValidationError(const ::nlohmann::json& j,
                              std::string_view type_name) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Validation of ", type_name, " failed, received: ", j.dump()));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Validation of %s failed, received: %s", type_name, j.dump()));
 }
 
 template <typename T>

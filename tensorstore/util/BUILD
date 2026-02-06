@@ -395,6 +395,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:concurrent",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
         "@google_benchmark//:benchmark",
         "@googletest//:gtest_main",
@@ -512,7 +513,10 @@ tensorstore_cc_library(
     name = "quote_string",
     srcs = ["quote_string.cc"],
     hdrs = ["quote_string.h"],
-    deps = ["@abseil-cpp//absl/strings"],
+    deps = [
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/strings",
+    ],
 )
 
 tensorstore_cc_test(
@@ -521,6 +525,8 @@ tensorstore_cc_test(
     srcs = ["quote_string_test.cc"],
     deps = [
         ":quote_string",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )
@@ -707,6 +713,7 @@ tensorstore_cc_library(
         ":span",
         "//tensorstore/internal/meta:type_traits",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -837,10 +844,7 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "mxfloat",
     hdrs = ["mxfloat.h"],
-    deps = [
-        ":float8",
-        "@abseil-cpp//absl/base",
-    ],
+    deps = [":float8"],
 )
 
 tensorstore_cc_test(
@@ -867,5 +871,30 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
         "@net_sourceforge_half//:half",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "generic_stringify",
+    hdrs = ["generic_stringify.h"],
+    deps = [
+        "//tensorstore/internal/meta:requires",
+        "//tensorstore/internal/meta:type_traits",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/strings:string_view",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "generic_stringify_test",
+    srcs = ["generic_stringify_test.cc"],
+    deps = [
+        ":generic_stringify",
+        ":result",
+        ":span",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
     ],
 )

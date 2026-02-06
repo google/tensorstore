@@ -344,7 +344,7 @@ void RegisterTensorStoreDriverSpecRoundtripTest(
   const auto RegisterVariant = [&](TransactionMode mode) {
     RegisterGoogleTestCaseDynamically(
         "TensorStoreDriverSpecRoundtripTest",
-        tensorstore::StrCat(options.test_name, "/transaction_mode=", mode),
+        absl::StrFormat("%s/transaction_mode=%v", options.test_name, mode),
         [=] { TestTensorStoreDriverSpecRoundtrip(options, mode); });
   };
   RegisterVariant(no_transaction);

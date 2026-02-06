@@ -17,16 +17,22 @@
 
 #include <stddef.h>
 
+#include <cassert>
 #include <cstddef>  // std::nullptr_t
+#include <limits>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <variant>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
@@ -111,6 +117,15 @@ class DimensionIdentifier {
   /// Prints to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os,
                                   const DimensionIdentifier& x);
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const DimensionIdentifier& x) {
+    if (x.label().data()) {
+      absl::Format(&sink, "%v", QuoteString(x.label()));
+    } else {
+      absl::Format(&sink, "%d", x.index());
+    }
+  }
 
  private:
   DimensionIndex index_ = std::numeric_limits<DimensionIndex>::max();
@@ -203,6 +218,14 @@ struct DimRangeSpec {
   /// `inclusive_start` and `exclusive_stop` are omitted if equal to
   /// `std::nullopt` and `step` is omitted if equal to `1`.
   friend std::ostream& operator<<(std::ostream& os, const DimRangeSpec& spec);
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const DimRangeSpec& spec) {
+    if (spec.inclusive_start) absl::Format(&sink, "%d", *spec.inclusive_start);
+    sink.Append(":");
+    if (spec.exclusive_stop) absl::Format(&sink, "%d", *spec.exclusive_stop);
+    if (spec.step != 1) absl::Format(&sink, ":%d", spec.step);
+  }
 
   /// Compares two `DimRangeSpec` objects for equality.
   friend bool operator==(const DimRangeSpec& a, const DimRangeSpec& b);

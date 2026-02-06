@@ -24,6 +24,8 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
@@ -48,9 +50,9 @@ namespace tensorstore {
 namespace internal_index_space {
 std::string DescribeTransformForCast(DimensionIndex input_rank,
                                      DimensionIndex output_rank) {
-  return tensorstore::StrCat(
-      "index transform with input ",
-      StaticCastTraits<DimensionIndex>::Describe(input_rank), " and output ",
+  return absl::StrFormat(
+      "index transform with input %s and output %s",
+      StaticCastTraits<DimensionIndex>::Describe(input_rank),
       StaticCastTraits<DimensionIndex>::Describe(output_rank));
 }
 std::string DescribeDomainForCast(DimensionIndex rank) {
@@ -77,10 +79,10 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
       internal_index_space::IsUnlabeled(domain_labels);
   if (domain_unlabeled || internal_index_space::IsUnlabeled(transform_labels)) {
     if (slice_rank != input_rank) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Rank of index domain (", slice_rank,
-          ") must match rank of slice target (", input_rank,
-          ") when the index domain or slice target is unlabeled"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Rank of index domain (%d) must match rank of slice target (%d) when "
+          "the index domain or slice target is unlabeled",
+          slice_rank, input_rank));
     }
     std::iota(&transform_dims[0], &transform_dims[slice_rank],
               DimensionIndex(0));
@@ -114,11 +116,10 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
       transform_dims[i] = j;
     }
     if (next_potentially_unlabeled_dim != 0 && input_rank != slice_rank) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Rank (", slice_rank,
-          ") of index domain containing unlabeled dimensions must "
-          "equal slice target rank (",
-          input_rank, ")"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Rank (%d) of index domain containing unlabeled dimensions must "
+          "equal slice target rank (%d)",
+          slice_rank, input_rank));
     }
   }
   bool domain_is_empty = false;
@@ -129,10 +130,10 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
         d.optionally_implicit_domain().effective_interval();
     const IndexInterval new_domain = domain[i];
     if (!Contains(orig_domain, new_domain)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Cannot slice target dimension ", j, " {",
-          d.index_domain_dimension<view>(), "} with index domain dimension ", i,
-          " {", domain[i], "}"));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Cannot slice target dimension %d {%v} with index domain dimension "
+          "%d {%v}",
+          j, d.index_domain_dimension<view>(), i, domain[i]));
     }
     if (new_domain.empty()) domain_is_empty = true;
     d.domain() = new_domain;
@@ -152,8 +153,8 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
   assert(transform.valid());
   if (transform.input_rank() != domain.rank()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Rank of index domain (", transform.input_rank(),
-                            ") must match rank of box (", domain.rank(), ")"));
+        absl::StrFormat("Rank of index domain (%d) must match rank of box (%d)",
+                        transform.input_rank(), domain.rank()));
   }
   TransformRep::Ptr<> rep =
       MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
@@ -165,9 +166,9 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
     const IndexInterval new_domain = domain[i];
     if (new_domain.empty()) domain_is_empty = true;
     if (!Contains(orig_domain, new_domain)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Cannot slice dimension ", i, " {", d.index_domain_dimension<view>(),
-          "} with interval {", domain[i], "}"));
+      return absl::OutOfRangeError(
+          absl::StrFormat("Cannot slice dimension %d {%v} with interval {%v}",
+                          i, d.index_domain_dimension<view>(), domain[i]));
     }
     d.domain() = new_domain;
     d.implicit_lower_bound() = false;
@@ -272,21 +273,21 @@ absl::Status ValidateInputDimensionResize(
   if (requested_inclusive_min != kImplicit &&
       requested_inclusive_min != -kInfIndex &&
       !IsFiniteIndex(requested_inclusive_min)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid requested inclusive min value ", requested_inclusive_min));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid requested inclusive min value %d", requested_inclusive_min));
   }
   if (requested_exclusive_max != kImplicit &&
       requested_exclusive_max != kInfIndex + 1 &&
       !IsFiniteIndex(requested_exclusive_max - 1)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid requested exclusive max value ", requested_exclusive_max));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid requested exclusive max value %d", requested_exclusive_max));
   }
   if (requested_inclusive_min != kImplicit &&
       requested_exclusive_max != kImplicit &&
       requested_inclusive_min > requested_exclusive_max) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid requested bounds [", requested_inclusive_min, ", ",
-        requested_exclusive_max, ")"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid requested bounds [%d, %d)",
+                        requested_inclusive_min, requested_exclusive_max));
   }
   if (!input_domain.implicit_lower() && requested_inclusive_min != kImplicit) {
     return absl::InvalidArgumentError("Cannot change explicit lower bound");
@@ -324,8 +325,8 @@ absl::Status PropagateInputDomainResizeToOutput(
             requested_input_inclusive_min[input_dim],
             requested_input_exclusive_max[input_dim]),
         MaybeAnnotateStatus(
-            _, tensorstore::StrCat(
-                   "Invalid resize request for input dimension ", input_dim)));
+            _, absl::StrFormat("Invalid resize request for input dimension %d",
+                               input_dim)));
   }
 
   bool is_noop_value = true;
@@ -347,10 +348,10 @@ absl::Status PropagateInputDomainResizeToOutput(
     if (requested_min != kImplicit || requested_max != kImplicit) {
       is_noop_value = false;
       if (std::abs(map.stride()) != 1) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Output dimension ", output_dim,
-            " depends on resized input dimension ", input_dim,
-            " with non-unit stride of ", map.stride()));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Output dimension %d depends on resized input dimension %d with "
+            "non-unit stride of %d",
+            output_dim, input_dim, map.stride()));
       }
 
       Result<OptionallyImplicitIndexInterval> output_bounds =
@@ -363,9 +364,9 @@ absl::Status PropagateInputDomainResizeToOutput(
       if (!output_bounds) {
         return MaybeAnnotateStatus(
             output_bounds.status(),
-            tensorstore::StrCat(
-                "Error propagating bounds for output dimension ", output_dim,
-                " from requested bounds for input dimension ", input_dim));
+            absl::StrFormat("Error propagating bounds for output dimension %d "
+                            "from requested bounds for input dimension %d",
+                            output_dim, input_dim));
       }
       if (!output_bounds->implicit_lower()) {
         new_output_inclusive_min[output_dim] = output_bounds->inclusive_min();
@@ -390,9 +391,9 @@ absl::Status PropagateInputDomainResizeToOutput(
     switch (map.method()) {
       case OutputIndexMethod::constant:
         if (!IsFiniteIndex(map.offset())) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Output dimension ", output_dim,
-              " has constant map with invalid offset ", map.offset()));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Output dimension %d has constant map with invalid offset %d",
+              output_dim, map.offset()));
         }
         if (!can_resize_tied_bounds) {
           output_inclusive_min_constraint[output_dim] = map.offset();
@@ -403,16 +404,17 @@ absl::Status PropagateInputDomainResizeToOutput(
         const DimensionIndex input_dim = map.input_dimension();
         if (!can_resize_tied_bounds) {
           if (num_input_dim_deps[input_dim]++ != 0) {
-            return absl::InvalidArgumentError(
-                tensorstore::StrCat("Input dimension ", input_dim,
-                                    " corresponds to a diagonal but "
-                                    "`resize_tied_bounds` was not specified"));
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Input dimension %d corresponds to a diagonal but "
+                "`resize_tied_bounds` was not specified",
+                input_dim));
           }
           if (std::abs(map.stride()) != 1) {
-            return absl::InvalidArgumentError(tensorstore::StrCat(
-                "Output dimension ", output_dim, " depends on input dimension ",
-                input_dim, " with non-unit stride of ", map.stride(),
-                " but `resize_tied_bounds` was not specified"));
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Output dimension %d depends on input dimension %d with "
+                "non-unit stride of %d but `resize_tied_bounds` was not "
+                "specified",
+                output_dim, input_dim, map.stride()));
           }
 
           Result<OptionallyImplicitIndexInterval> output_bounds =
@@ -421,10 +423,10 @@ absl::Status PropagateInputDomainResizeToOutput(
           if (!output_bounds) {
             return MaybeAnnotateStatus(
                 output_bounds.status(),
-                tensorstore::StrCat(
-                    "Error propagating bounds for output dimension ",
-                    output_dim, " from existing bounds for input dimension ",
-                    input_dim));
+                absl::StrFormat(
+                    "Error propagating bounds for output dimension "
+                    "%d from existing bounds for input dimension %d",
+                    output_dim, input_dim));
           }
           if (!output_bounds->implicit_lower()) {
             output_inclusive_min_constraint[output_dim] =
@@ -441,10 +443,10 @@ absl::Status PropagateInputDomainResizeToOutput(
         // TODO(jbms): Consider treating rank-0 index array as constant map, and
         // maybe also handle other special cases (such as diagonal of size 1).
         if (!can_resize_tied_bounds) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Output dimension ", output_dim,
-              " has index array map but `resize_tied_bounds` was "
-              "not specified"));
+          return absl::InvalidArgumentError(
+              absl::StrFormat("Output dimension %d has index array map but "
+                              "`resize_tied_bounds` was not specified",
+                              output_dim));
         }
         break;
     }
@@ -479,7 +481,7 @@ inline Result<IndexDomain<>> MergeIndexDomainsImpl(IndexDomainView<> a,
     }();
     if (!status.ok()) {
       return tensorstore::MaybeAnnotateStatus(
-          status, tensorstore::StrCat("Mismatch in dimension ", i));
+          status, absl::StrFormat("Mismatch in dimension %d", i));
     }
   }
   internal_index_space::DebugCheckInvariants(new_rep.get());
@@ -494,8 +496,9 @@ Result<IndexDomain<>> MergeIndexDomains(IndexDomainView<> a,
       MergeIndexDomainsImpl(a, b, MergeOptionallyImplicitIndexIntervals);
   if (!result.ok()) {
     return tensorstore::MaybeAnnotateStatus(
-        result.status(), tensorstore::StrCat("Cannot merge index domain ", a,
-                                             " with index domain ", b));
+        result.status(),
+        absl::StrFormat("Cannot merge index domain %s with index domain %s",
+                        absl::FormatStreamed(a), absl::FormatStreamed(b)));
   }
   return result;
 }
@@ -508,8 +511,9 @@ Result<IndexDomain<>> HullIndexDomains(IndexDomainView<> a,
           -> Result<OptionallyImplicitIndexInterval> { return Hull(a, b); });
   if (!result.ok()) {
     return tensorstore::MaybeAnnotateStatus(
-        result.status(), tensorstore::StrCat("Cannot hull index domain ", a,
-                                             " with index domain ", b));
+        result.status(),
+        absl::StrFormat("Cannot hull index domain %s with index domain %s",
+                        absl::FormatStreamed(a), absl::FormatStreamed(b)));
   }
   return result;
 }
@@ -524,8 +528,9 @@ Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
       });
   if (!result.ok()) {
     return tensorstore::MaybeAnnotateStatus(
-        result.status(), tensorstore::StrCat("Cannot intersect index domain ",
-                                             a, " with index domain ", b));
+        result.status(),
+        absl::StrFormat("Cannot intersect index domain %s with index domain %s",
+                        absl::FormatStreamed(a), absl::FormatStreamed(b)));
   }
   return result;
 }
@@ -550,8 +555,9 @@ Result<IndexDomain<>> ConstrainIndexDomain(IndexDomainView<> a,
       });
   if (!result.ok()) {
     return tensorstore::MaybeAnnotateStatus(
-        result.status(), tensorstore::StrCat("Cannot constrain index domain ",
-                                             a, " with index domain ", b));
+        result.status(),
+        absl::StrFormat("Cannot constrain index domain %s with index domain %s",
+                        absl::FormatStreamed(a), absl::FormatStreamed(b)));
   }
   return result;
 }

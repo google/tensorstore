@@ -48,6 +48,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@riegeli//riegeli/varint:varint_reading",
         "@riegeli//riegeli/varint:varint_writing",
     ],
@@ -200,7 +201,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/meta:type_traits",
-        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -267,12 +268,13 @@ tensorstore_cc_library(
         "//tensorstore/util:small_bit_set",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -356,7 +358,6 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",
@@ -366,6 +367,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
         "@nlohmann_json//:json",
@@ -453,6 +455,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@net_sourceforge_half//:half",
         "@nlohmann_json//:json",
     ],
@@ -473,6 +476,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
     ],
@@ -515,8 +519,8 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -598,7 +602,7 @@ tensorstore_cc_test(
     srcs = ["open_mode_test.cc"],
     deps = [
         ":open_mode",
-        "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )
@@ -651,7 +655,8 @@ tensorstore_cc_library(
         ":static_cast",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -785,9 +790,9 @@ tensorstore_cc_library(
     hdrs = ["static_cast.h"],
     deps = [
         "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -830,6 +835,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -893,9 +899,9 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -914,11 +920,11 @@ tensorstore_cc_library(
         "//tensorstore/serialization",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
         "@abseil-cpp//absl/types:compare",
@@ -933,8 +939,8 @@ tensorstore_cc_test(
         ":transaction",
         "//tensorstore/util:future",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )
@@ -1034,6 +1040,7 @@ tensorstore_cc_library(
         ":index_interval",
         ":json_serialization_options",
         ":rank",
+        ":strided_layout",
         "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:output_index_method",
@@ -1056,6 +1063,7 @@ tensorstore_cc_library(
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@nlohmann_json//:json",
     ],
 )

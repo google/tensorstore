@@ -124,8 +124,8 @@ tensorstore_cc_library(
     hdrs = ["peer_address.h"],
     deps = [
         "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@grpc//:grpc++",
         "@re2",
     ],
