@@ -25,7 +25,7 @@ def repo():
     maybe(
         http_archive,
         name = "bazel_skylib",
-        strip_prefix = "bazel-skylib-1.8.1",
-        urls = mirror_url("https://github.com/bazelbuild/bazel-skylib/archive/1.8.1.tar.gz"),
-        sha256 = "f4819e3725302ac3e12771c4a32d70fdfe458b8e0e84bb9bc6989253fc5d18f1",
+        strip_prefix = "bazel-skylib-1.9.0",
+        urls = mirror_url("https://github.com/bazelbuild/bazel-skylib/archive/1.9.0.tar.gz"),
+        sha256 = "d9b87903b95e412d37d41a2fa6b0b44b8ba52122c3880512674b26facfc985a2",
     )

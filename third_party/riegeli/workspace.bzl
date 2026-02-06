@@ -27,10 +27,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "riegeli",
-        doc_version = "20250607-c4d1f27",
-        urls = mirror_url("https://github.com/google/riegeli/archive/4214a733e7aad4654cc789e3b1ff4687f923323d.tar.gz"),  # master(2025-08-19)
-        sha256 = "06c618ffa11be504b561a0103bdd469ceae6b3b6b844bba5d581bdffc7301f4f",
-        strip_prefix = "riegeli-4214a733e7aad4654cc789e3b1ff4687f923323d",
+        doc_version = "20260206-43b1456",
+        urls = mirror_url("https://github.com/google/riegeli/archive/43b1456a2341b18e3506ad3c01c0f6bf7e37221d.tar.gz"),  # master(2026-02-06)
+        sha256 = "abc1b8a081329395b0968441e66a154bd96bcc64c1eaadb55539bddeb65ca878",
+        strip_prefix = "riegeli-43b1456a2341b18e3506ad3c01c0f6bf7e37221d",
         repo_mapping = {
             "@net_zstd": "@zstd",
             "@com_google_googleapis": "@googleapis",

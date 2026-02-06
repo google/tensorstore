@@ -27,11 +27,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "abseil-cpp",
-        doc_version = "20250811-274c81389",
+        doc_version = "20260206-1296124",
         doc_homepage = "https://abseil.io/",
-        urls = mirror_url("https://github.com/abseil/abseil-cpp/archive/274c81389f97afc612d76dc7cb5d38144cd9647f.tar.gz"),  # master(2025-08-11)
-        sha256 = "fb285607088cde65b5849b57dff42342a26e4e3e578e1f64fa2f895d04b0fe85",
-        strip_prefix = "abseil-cpp-274c81389f97afc612d76dc7cb5d38144cd9647f",
+        urls = mirror_url("https://github.com/abseil/abseil-cpp/archive/12961243df63faac8289c3abc79e5e417b50aa6b.tar.gz"),  # master(2026-02-06)
+        sha256 = "6646e253172d94dbd0fdca0ef6853c90272415d9321e4e163d2b0f7482419509",
+        strip_prefix = "abseil-cpp-12961243df63faac8289c3abc79e5e417b50aa6b",
         repo_mapping = {
             "@com_google_googletest": "@googletest",
         },
@@ -66,6 +66,8 @@ ABSL_CMAKE_MAPPING = {
     "//absl/container:inlined_vector": "absl::inlined_vector",
     "//absl/container:node_hash_map": "absl::node_hash_map",
     "//absl/container:node_hash_set": "absl::node_hash_set",
+    "//absl/container:linked_hash_map": "absl::linked_hash_map",
+    "//absl/container:linked_hash_set": "absl::linked_hash_set",
     "//absl/crc:crc32c": "absl::crc32c",
     "//absl/debugging:debugging": "absl::debugging",
     "//absl/debugging:failure_signal_handler": "absl::failure_signal_handler",

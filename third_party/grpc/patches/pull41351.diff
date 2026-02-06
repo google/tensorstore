@@ -1,0 +1,44 @@
+---
+ include/grpc/event_engine/memory_request.h | 2 ++
+ src/core/channelz/v2tov1/property_list.cc  | 1 +
+ src/core/util/glob.cc                      | 2 ++
+ 3 files changed, 5 insertions(+)
+
+diff --git a/include/grpc/event_engine/memory_request.h b/include/grpc/event_engine/memory_request.h
+index 76bcbb2036113..ad8cab842ed5e 100644
+--- a/include/grpc/event_engine/memory_request.h
++++ b/include/grpc/event_engine/memory_request.h
+@@ -17,6 +17,8 @@
+ #include <grpc/support/port_platform.h>
+ #include <stddef.h>
+ 
++#include <string>
++
+ #include "absl/strings/string_view.h"
+ 
+ namespace grpc_event_engine {
+diff --git a/src/core/channelz/v2tov1/property_list.cc b/src/core/channelz/v2tov1/property_list.cc
+index e38320e35be87..371084395cb5a 100644
+--- a/src/core/channelz/v2tov1/property_list.cc
++++ b/src/core/channelz/v2tov1/property_list.cc
+@@ -15,6 +15,7 @@
+ #include "src/core/channelz/v2tov1/property_list.h"
+ 
+ #include <cstdint>
++#include <limits>
+ #include <optional>
+ #include <string>
+ 
+diff --git a/src/core/util/glob.cc b/src/core/util/glob.cc
+index 1b1c16e23d360..22e54259f06e7 100644
+--- a/src/core/util/glob.cc
++++ b/src/core/util/glob.cc
+@@ -12,6 +12,8 @@
+ // See the License for the specific language governing permissions and
+ // limitations under the License.
+ 
++#include <algorithm>
++
+ #include "absl/strings/string_view.h"
+ 
+ namespace grpc_core {

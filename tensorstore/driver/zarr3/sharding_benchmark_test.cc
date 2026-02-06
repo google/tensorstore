@@ -160,8 +160,9 @@ void BM_Read(benchmark::State& state) {
                           helper.total_bytes);
 }
 
-template <typename Bench>
-void DefineArgs(Bench* bench) {
+using benchmark::Benchmark;
+
+void DefineArgs(Benchmark* bench) {
   for (int cache_pool_size : {0, 64 * 1024 * 1024}) {
     for (auto chunk_size : {16, 32, 64, 128}) {
       for (auto parallelism : {1, 8, 32}) {

@@ -378,6 +378,15 @@ def _munge_type_stubs_file(
   ast.fix_missing_locations(stub_ast)
   content = ast.unparse(stub_ast)
   content = content.replace("typing.Tuple[", "tuple[")
+  # Patch inconsistencies in pybind11 stub differences.
+  content = content.replace("typing.SupportsInt", "int")
+  content = content.replace("typing.SupportsFloat", "float")
+  content = content.replace("typing.Iterator", "collections.abc.Iterator")
+  content = content.replace("numpy.dtype[typing.Any]", "numpy.dtype")
+  content = content.replace(
+      "parse_tensorstore_flags(argv: list[",
+      "parse_tensorstore_flags(argv: collections.abc.Sequence[",
+  )
   content = black.format_str(content, mode=black.Mode())
   return content
 
@@ -466,6 +475,7 @@ def main():
         file=sys.stderr,
     )
     sys.exit(1)
+
 
 if __name__ == "__main__":
   main()

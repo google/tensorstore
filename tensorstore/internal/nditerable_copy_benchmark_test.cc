@@ -217,13 +217,14 @@ void BM_Copy(benchmark::State& state) {
                           inner);
 }
 
-template <typename Bench>
-void DefineArgs(Bench* benchmark) {
-  benchmark->Args({1, 32 * 1024});
-  benchmark->Args({500, 100});
-  benchmark->Args({500, 64});
-  benchmark->Args({1000, 32});
-  benchmark->Args({2000, 16});
+using benchmark::Benchmark;
+
+void DefineArgs(Benchmark* bench) {
+  bench->Args({1, 32 * 1024});
+  bench->Args({500, 100});
+  bench->Args({500, 64});
+  bench->Args({1000, 32});
+  bench->Args({2000, 16});
 }
 
 BENCHMARK(BM_Copy<kNDIter>)->Apply(DefineArgs);

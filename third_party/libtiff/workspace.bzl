@@ -27,10 +27,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "libtiff",
-        urls = mirror_url("https://download.osgeo.org/libtiff/tiff-4.7.0.tar.gz"),
-        sha256 = "67160e3457365ab96c5b3286a0903aa6e78bdc44c4bc737d2e486bcecb6ba976",
+        urls = mirror_url("https://download.osgeo.org/libtiff/tiff-4.7.1.tar.gz"),
+        sha256 = "f698d94f3103da8ca7438d84e0344e453fe0ba3b7486e04c5bf7a9a3fabe9b69",
         doc_version = "4.7.0",
-        strip_prefix = "tiff-4.7.0",
+        strip_prefix = "tiff-4.7.1",
         build_file = Label("//third_party:libtiff/libtiff.BUILD.bazel"),
         system_build_file = Label("//third_party:libtiff/system.BUILD.bazel"),
         remove_paths = ["VERSION"],

@@ -12,6 +12,7 @@ cc_library(
         "source/*.c",
         "source/shared/ed25519.c",
         "source/shared/lccrypto_common.c",
+        "source/shared/ref_hkdf.c",
     ]) + select({
         "@platforms//os:windows": glob([
             "source/windows/*.c",

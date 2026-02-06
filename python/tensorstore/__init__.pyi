@@ -1592,7 +1592,7 @@ class Dim:
           inclusive_max
         """
 
-    def __iter__(self) -> typing.Iterator:
+    def __iter__(self) -> collections.abc.Iterator:
         """
         Enables iteration over the indices contained in the interval.
 
@@ -9891,7 +9891,7 @@ class TensorStore(Indexable):
 
     def __array__(
         self,
-        dtype: numpy.dtype[typing.Any] | None = None,
+        dtype: numpy.dtype | None = None,
         copy: bool | None = None,
         context: typing.Any | None = None,
     ) -> numpy.ndarray:
@@ -12351,7 +12351,7 @@ class dtype:
         """
 
     @property
-    def numpy_dtype(self) -> numpy.dtype[typing.Any]:
+    def numpy_dtype(self) -> numpy.dtype:
         """
         NumPy data type corresponding to this TensorStore data type.
 
@@ -13540,7 +13540,7 @@ def overlay(
     """
 
 
-def parse_tensorstore_flags(argv: list[str]) -> None:
+def parse_tensorstore_flags(argv: collections.abc.Sequence[str]) -> None:
     """
     Parses and initializes internal tensorstore flags from argv.
 

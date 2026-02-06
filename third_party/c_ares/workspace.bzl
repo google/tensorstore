@@ -27,9 +27,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "c-ares",
-        sha256 = "dcd919635f01b7c8c9c2f5fb38063cd86500f7c6d4d32ecf4deff5e3497fb157",
-        strip_prefix = "c-ares-1.34.5",
-        urls = mirror_url("https://github.com/c-ares/c-ares/archive/v1.34.5.tar.gz"),
+        sha256 = "4358939ff800b13b92f37d5fdda003718101faedfbdee792d6b79ddc1a53d890",
+        strip_prefix = "c-ares-1.34.6",
+        urls = mirror_url("https://github.com/c-ares/c-ares/archive/v1.34.6.tar.gz"),
         build_file = Label("//third_party:c_ares/cares.BUILD.bazel"),
         system_build_file = Label("//third_party:c_ares/system.BUILD.bazel"),
         cmake_name = "c-ares",

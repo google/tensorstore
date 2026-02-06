@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_compression",
-        sha256 = "d89fca17a37de762dc34f332d2da402343078da8dbd2224c46a11a88adddf754",
-        strip_prefix = "aws-c-compression-0.3.1",
-        urls = mirror_url("https://github.com/awslabs/aws-c-compression/archive/v0.3.1.tar.gz"),
+        sha256 = "f93f5a5d8b3fee3a6d97b14ba279efacd4d4016ef9cc7dc4be7d43519ecfbe93",
+        strip_prefix = "aws-c-compression-0.3.2",
+        urls = mirror_url("https://github.com/awslabs/aws-c-compression/archive/v0.3.2.tar.gz"),
         build_file = Label("//third_party:aws_c_compression/aws_c_compression.BUILD.bazel"),
         cmake_name = "aws_c_compression",
         cmake_target_mapping = {

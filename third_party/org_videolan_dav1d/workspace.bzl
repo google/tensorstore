@@ -27,9 +27,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_videolan_dav1d",
-        sha256 = "fa635e2bdb25147b1384007c83e15de44c589582bb3b9a53fc1579cb9d74b695",
-        strip_prefix = "dav1d-1.5.1",
-        urls = mirror_url("https://github.com/videolan/dav1d/archive/1.5.1.tar.gz"),
+        sha256 = "cbe212b02faf8c6eed5b6d55ef8a6e363aaab83f15112e960701a9c3df813686",
+        strip_prefix = "dav1d-1.5.3",
+        urls = mirror_url("https://github.com/videolan/dav1d/archive/1.5.3.tar.gz"),
         build_file = Label("//third_party:org_videolan_dav1d/dav1d.BUILD.bazel"),
         cmake_name = "dav1d",
         bazel_to_cmake = {},

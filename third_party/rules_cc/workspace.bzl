@@ -25,9 +25,9 @@ def repo():
     maybe(
         http_archive,
         name = "rules_cc",
-        urls = mirror_url("https://github.com/bazelbuild/rules_cc/archive/0.1.4.tar.gz"),
-        strip_prefix = "rules_cc-0.1.4",
-        sha256 = "0d3b4f984c4c2e1acfd1378e0148d35caf2ef1d9eb95b688f8e19ce0c41bdf5b",
+        urls = mirror_url("https://github.com/bazelbuild/rules_cc/archive/0.2.16.tar.gz"),
+        strip_prefix = "rules_cc-0.2.16",
+        sha256 = "458b658277ba51b4730ea7a2020efdf1c6dcadf7d30de72e37f4308277fa8c01",
         repo_mapping = {
             "@protobuf": "@com_google_protobuf",
         },

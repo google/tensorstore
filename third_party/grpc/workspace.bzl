@@ -33,6 +33,7 @@ def repo():
             Label("//third_party:grpc/patches/fix_trigraph.diff"),
             # Fixes, including https://github.com/grpc/grpc/issues/34482
             Label("//third_party:grpc/patches/update_build_system.diff"),
+            Label("//third_party:grpc/patches/pull41351.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {

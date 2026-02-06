@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_cal",
-        sha256 = "f9f3bc6a069e2efe25fcdf73e4d2b16b5608c327d2eb57c8f7a8524e9e1fcad0",
-        strip_prefix = "aws-c-cal-0.9.2",
-        urls = mirror_url("https://github.com/awslabs/aws-c-cal/archive/v0.9.2.tar.gz"),
+        sha256 = "80b7c6087b0af461b4483e4c9483aea2e0dac5d9fb2289b057159ea6032409e1",
+        strip_prefix = "aws-c-cal-0.9.13",
+        urls = mirror_url("https://github.com/awslabs/aws-c-cal/archive/v0.9.13.tar.gz"),
         build_file = Label("//third_party:aws_c_cal/aws_c_cal.BUILD.bazel"),
         cmake_name = "aws_c_cal",
         cmake_target_mapping = {
