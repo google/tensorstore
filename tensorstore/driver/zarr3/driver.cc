@@ -31,6 +31,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
@@ -385,9 +386,9 @@ class DataCacheBase
     auto existing_key = existing_metadata.GetCompatibilityKey();
     auto new_key = new_metadata.GetCompatibilityKey();
     if (existing_key == new_key) return absl::OkStatus();
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Updated zarr metadata ", new_key,
-        " is incompatible with existing metadata ", existing_key));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Updated zarr metadata %s is incompatible with existing metadata %s",
+        new_key, existing_key));
   }
 
   void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,

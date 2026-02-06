@@ -60,6 +60,8 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
+// TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
+// AbslStringify support, allowing use of %v format specifier.
 absl::Status SubChunkRankMismatch(span<const Index> sub_chunk_shape,
                                   DimensionIndex outer_rank) {
   return absl::InvalidArgumentError(tensorstore::StrCat(
@@ -67,6 +69,8 @@ absl::Status SubChunkRankMismatch(span<const Index> sub_chunk_shape,
       " is not compatible with array of rank ", outer_rank));
 }
 
+// TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
+// AbslStringify support, allowing use of %v format specifier.
 absl::Status SubChunkShapeMismatch(span<const Index> sub_chunk_shape,
                                    span<const Index> chunk_shape) {
   return absl::InvalidArgumentError(tensorstore::StrCat(

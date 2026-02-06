@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/array.h"
@@ -52,8 +53,8 @@ namespace internal_zarr3 {
 
 namespace {
 absl::Status InvalidDataTypeError(DataType dtype) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Data type ", dtype, " not compatible with \"bytes\" codec"));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Data type %v not compatible with \"bytes\" codec", dtype));
 }
 
 class BytesCodec : public ZarrArrayToBytesCodec {
@@ -118,23 +119,27 @@ Result<ZarrArrayToBytesCodec::Ptr> BytesCodecSpec::Resolve(
   const bool is_endian_invariant =
       internal::IsEndianInvariantDataType(decoded.dtype);
   if (!options.constraints && !is_endian_invariant && !options.endianness) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("\"bytes\" codec requires that \"endian\" option "
-                            "is specified for data type ",
-                            decoded.dtype));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "\"bytes\" codec requires that \"endian\" option is specified for "
+        "data type %v",
+        decoded.dtype));
   }
   encoded.item_bits = decoded.dtype.size() * 8;
   DimensionIndex rank = decoded.rank;
   if (decoded.codec_chunk_shape) {
+    // TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
+    // AbslStringify support, allowing use of %v format specifier.
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "\"bytes\" codec does not support codec_chunk_shape (",
         span<const Index>(decoded.codec_chunk_shape->data(), rank),
-        " was specified"));
+        " was specified)"));
   }
   if (decoded.inner_order) {
     auto& decoded_inner_order = *decoded.inner_order;
     for (DimensionIndex i = 0; i < rank; ++i) {
       if (decoded_inner_order[i] != i) {
+        // TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
+        // AbslStringify support, allowing use of %v format specifier.
         return absl::InvalidArgumentError(tensorstore::StrCat(
             "\"bytes\" codec does not support inner_order of ",
             span<const DimensionIndex>(decoded_inner_order.data(), rank)));
@@ -206,6 +211,8 @@ Result<ZarrArrayToBytesCodec::PreparedState::Ptr> BytesCodec::Prepare(
   int64_t bytes = dtype_.size();
   for (auto size : decoded_shape) {
     if (internal::MulOverflow(size, bytes, &bytes)) {
+      // TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
+      // AbslStringify support, allowing use of %v format specifier.
       return absl::OutOfRangeError(tensorstore::StrCat(
           "Integer overflow computing encoded size of array of shape ",
           decoded_shape));

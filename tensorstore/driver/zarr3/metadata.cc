@@ -116,9 +116,9 @@ std::string GetSupportedDataTypes() {
 
 absl::Status ValidateDataType(DataType dtype) {
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        dtype, " data type is not one of the supported data types: ",
-        GetSupportedDataTypes()));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "%v data type is not one of the supported data types: %s",
+        dtype, GetSupportedDataTypes()));
   }
   return absl::OkStatus();
 }
@@ -296,17 +296,17 @@ absl::Status FillValueJsonBinder::operator()(
       }
       std::string b64_decoded;
       if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected valid base64-encoded fill value, but received: ",
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected valid base64-encoded fill value, but received: %s",
             j->dump()));
       }
       // Verify size matches expected byte array size
       Index expected_size = dtype.fields[0].num_inner_elements;
       if (static_cast<Index>(b64_decoded.size()) != expected_size) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected ", expected_size,
-            " base64-encoded bytes for fill_value, but received ",
-            b64_decoded.size(), " bytes"));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected %d base64-encoded bytes for fill_value, but received "
+            "%d bytes",
+            expected_size, b64_decoded.size()));
       }
       // Create fill value array
       auto fill_arr = AllocateArray(dtype.fields[0].field_shape, c_order,
@@ -323,17 +323,17 @@ absl::Status FillValueJsonBinder::operator()(
       // Decode base64-encoded fill value for entire struct
       std::string b64_decoded;
       if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected valid base64-encoded fill value, but received: ",
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected valid base64-encoded fill value, but received: %s",
             j->dump()));
       }
       // Verify size matches expected struct size
       if (static_cast<Index>(b64_decoded.size()) !=
           dtype.bytes_per_outer_element) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected ", dtype.bytes_per_outer_element,
-            " base64-encoded bytes for fill_value, but received ",
-            b64_decoded.size(), " bytes"));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Expected %d base64-encoded bytes for fill_value, but received "
+            "%d bytes",
+            dtype.bytes_per_outer_element, b64_decoded.size()));
       }
       // Extract per-field fill values from decoded bytes
       for (size_t i = 0; i < dtype.fields.size(); ++i) {
@@ -347,7 +347,7 @@ absl::Status FillValueJsonBinder::operator()(
     } else if (j->is_array()) {
       if (j->size() != dtype.fields.size()) {
         return internal_json::ExpectedError(
-            *j, tensorstore::StrCat("array of size ", dtype.fields.size()));
+            *j, absl::StrFormat("array of size %d", dtype.fields.size()));
       }
       for (size_t i = 0; i < dtype.fields.size(); ++i) {
         TENSORSTORE_RETURN_IF_ERROR(
@@ -480,9 +480,10 @@ constexpr auto UnknownExtensionAttributesJsonBinder =
             continue;
           }
         }
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Unsupported metadata field ", tensorstore::QuoteString(key),
-            " is not marked {\"must_understand\": false}"));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Unsupported metadata field %s is not marked "
+            "{\"must_understand\": false}",
+            tensorstore::QuoteString(key)));
       }
       return absl::OkStatus();
     });
@@ -813,23 +814,23 @@ Result<size_t> GetFieldIndex(const ZarrDType& dtype,
 
   if (selected_field.empty()) {
     if (dtype.fields.size() != 1) {
-      return absl::FailedPreconditionError(tensorstore::StrCat(
-          "Must specify a \"field\" that is one of: ", GetFieldNames(dtype)));
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "Must specify a \"field\" that is one of: %s", GetFieldNames(dtype)));
     }
     return 0;
   }
   if (!dtype.has_fields) {
-    return absl::FailedPreconditionError(
-        tensorstore::StrCat("Requested field ", QuoteString(selected_field),
-                            " but dtype does not have named fields"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Requested field %s but dtype does not have named fields",
+        QuoteString(selected_field)));
   }
   for (size_t field_index = 0; field_index < dtype.fields.size();
        ++field_index) {
     if (dtype.fields[field_index].name == selected_field) return field_index;
   }
-  return absl::FailedPreconditionError(
-      tensorstore::StrCat("Requested field ", QuoteString(selected_field),
-                          " is not one of: ", GetFieldNames(dtype)));
+  return absl::FailedPreconditionError(absl::StrFormat(
+      "Requested field %s is not one of: %s", QuoteString(selected_field),
+      GetFieldNames(dtype)));
 }
 
 SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
@@ -1056,10 +1057,10 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
   const auto& field = metadata.data_type.fields[field_index];
 
   if (!RankConstraint::EqualOrUnspecified(schema.rank(), info.chunked_rank)) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Rank specified by schema (", schema.rank(),
-        ") does not match rank specified by metadata (", info.chunked_rank,
-        ")"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Rank specified by schema (%d) does not match rank specified by "
+        "metadata (%d)",
+        schema.rank(), info.chunked_rank));
   }
 
   if (schema.domain().valid()) {
@@ -1075,9 +1076,9 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
 
   if (auto dtype = schema.dtype();
       !IsPossiblySameDataType(field.dtype, dtype)) {
-    return absl::FailedPreconditionError(
-        tensorstore::StrCat("data_type from metadata (", field.dtype,
-                            ") does not match dtype in schema (", dtype, ")"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "data_type from metadata (%v) does not match dtype in schema (%v)",
+        field.dtype, dtype));
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
@@ -1103,7 +1104,8 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
                               skip_repeated_elements, field.dtype));
     if (!AreArraysIdenticallyEqual(converted_fill_value, fill_value)) {
       auto binder = FillValueJsonBinder{metadata.data_type};
-      // Error message generation might be tricky with binder
+      // TODO(BrianMichellß): Convert to absl::StrFormat once SharedArray has
+      // AbslStringify support, allowing use of %v format specifier.
       return absl::FailedPreconditionError(tensorstore::StrCat(
           "Invalid fill_value: schema requires fill value of ",
           schema_fill_value, ", but metadata specifies fill value of ",

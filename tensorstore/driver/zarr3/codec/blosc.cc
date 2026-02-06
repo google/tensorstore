@@ -160,9 +160,9 @@ constexpr auto CodecBinder() {
   return jb::Validate([](const auto& options, std::string* cname) {
     if (cname->find('\0') != std::string::npos ||
         blosc_compname_to_compcode(cname->c_str()) == -1) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Expected one of ", blosc_list_compressors(),
-                              " but received: ", QuoteString(*cname)));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Expected one of %s but received: %s", blosc_list_compressors(),
+          QuoteString(*cname)));
     }
     return absl::OkStatus();
   });

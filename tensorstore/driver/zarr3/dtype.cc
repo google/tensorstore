@@ -132,8 +132,9 @@ absl::Status ParseFieldsArray(const nlohmann::json& fields_json,
             x,
             [&](ptrdiff_t size) {
               if (size < 2 || size > 3) {
-                return absl::InvalidArgumentError(tensorstore::StrCat(
-                    "Expected array of size 2 or 3, but received: ", x.dump()));
+                return absl::InvalidArgumentError(absl::StrFormat(
+                    "Expected array of size 2 or 3, but received: %s",
+                    x.dump()));
               }
               return absl::OkStatus();
             },
@@ -143,8 +144,8 @@ absl::Status ParseFieldsArray(const nlohmann::json& fields_json,
                   if (internal_json::JsonRequireValueAs(v, &field.name).ok()) {
                     if (!field.name.empty()) return absl::OkStatus();
                   }
-                  return absl::InvalidArgumentError(tensorstore::StrCat(
-                      "Expected non-empty string, but received: ", v.dump()));
+                  return absl::InvalidArgumentError(absl::StrFormat(
+                      "Expected non-empty string, but received: %s", v.dump()));
                 case 1: {
                   std::string dtype_string;
                   TENSORSTORE_RETURN_IF_ERROR(
@@ -238,9 +239,9 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
           ParseBaseDType(type_name));
       return out;
     }
-    return absl::InvalidArgumentError(tensorstore::StrCat(
+    return absl::InvalidArgumentError(absl::StrFormat(
         "Expected string, array, or object with 'name' and 'configuration', "
-        "but received: ",
+        "but received: %s",
         value.dump()));
   }
   // Handle array format: [["field1", "type1"], ["field2", "type2"], ...]
@@ -257,17 +258,19 @@ absl::Status ValidateDType(ZarrDType& dtype) {
     if (std::any_of(
             dtype.fields.begin(), dtype.fields.begin() + field_i,
             [&](const ZarrDType::Field& f) { return f.name == field.name; })) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Field name ", QuoteString(field.name), " occurs more than once"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Field name %s occurs more than once", QuoteString(field.name)));
     }
     field.field_shape.resize(field.flexible_shape.size() +
-                             field.outer_shape.size());
+                             field.outer_shape.size());ß
     std::copy(field.flexible_shape.begin(), field.flexible_shape.end(),
               std::copy(field.outer_shape.begin(), field.outer_shape.end(),
                         field.field_shape.begin()));
 
     field.num_inner_elements = ProductOfExtents(span(field.field_shape));
     if (field.num_inner_elements == std::numeric_limits<Index>::max()) {
+      // TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
+      // AbslStringify support, allowing use of %v format specifier.
       return absl::InvalidArgumentError(tensorstore::StrCat(
           "Product of dimensions ", span(field.field_shape), " is too large"));
     }
@@ -378,7 +381,7 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
     return base_dtype;
   }
   return absl::InvalidArgumentError(
-      tensorstore::StrCat("Data type not supported: ", dtype));
+      absl::StrFormat("Data type not supported: %v", dtype));
 }
 
 }  // namespace internal_zarr3

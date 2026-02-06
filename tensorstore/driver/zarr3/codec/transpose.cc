@@ -50,6 +50,9 @@ namespace internal_zarr3 {
 
 namespace {
 namespace jb = ::tensorstore::internal_json_binding;
+
+// TODO(BrianMichell): Convert to absl::StrFormat once tensorstore::span has
+// AbslStringify support, allowing use of %v format specifier.
 absl::Status InvalidPermutationError(span<const DimensionIndex> order,
                                      DimensionIndex rank) {
   return absl::InvalidArgumentError(tensorstore::StrCat(
@@ -62,6 +65,8 @@ constexpr auto OrderJsonBinder() {
       jb::Validate(
           [](const auto& options, auto* obj) {
             if (!IsValidPermutation(*obj)) {
+              // TODO(BrianMichell): Convert to absl::StrFormat once
+              // tensorstore::span has AbslStringify support.
               return absl::InvalidArgumentError(
                   tensorstore::StrCat(span<const DimensionIndex>(*obj),
                                       " is not a valid permutation"));
