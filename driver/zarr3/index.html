@@ -6193,7 +6193,7 @@ chunks equal to the fill value may be represented as missing chunks.</p>
 <dt class="sig sig-object highlight json" id="json-driver/zarr3.metadata">
 <span class="sig-name descname"><span class="pre">metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-driver/zarr3/Metadata" title="driver/zarr3/Metadata (JSON type)"><span class="pre">driver/zarr3/Metadata</span></a></span><a class="headerlink" href="#json-driver/zarr3.metadata" title="Link to this definition">¶</a></dt>
 <dd><span><p>Zarr v3 array metadata.</p>
-  </span><p>Specifies constraints on the metadata, as in the <a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#array-metadata">zarr.json metadata
+  </span><p>Specifies constraints on the metadata, as in the <a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#array-metadata">zarr.json metadata
 file</a>,
 except that all members are optional and codecs may be left
 partially-specified, in which case default options are chosen
@@ -6489,7 +6489,7 @@ to <code class="code highlight json docutils literal highlight-json"><span class
 <dd><span><p>Transposes the dimensions of an array.</p>
   </span><div class="seealso admonition">
 <p class="admonition-title">See also</p>
-<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/transpose/v1.0.html">Transpose codec specification</a></p>
+<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/transpose/">Transpose codec specification</a></p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/zarr3/Codec/transpose">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/zarr3/Codec/transpose" title="Permalink to this headline">¶</a></dt>
@@ -6557,7 +6557,7 @@ recommended to instead just specify a permutation explicitly.</p>
 <dd><span><p>Fixed-size encoding for numeric types.</p>
   </span><div class="seealso admonition">
 <p class="admonition-title">See also</p>
-<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/endian/v1.0.html">Bytes codec specification</a></p>
+<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/bytes/">Bytes codec specification</a></p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/zarr3/Codec/bytes">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/zarr3/Codec/bytes" title="Permalink to this headline">¶</a></dt>
@@ -6607,7 +6607,7 @@ recommended to instead just specify a permutation explicitly.</p>
 <dd><span><p>Sharding codec that enables hierarchical chunking.</p>
   </span><div class="seealso admonition">
 <p class="admonition-title">See also</p>
-<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/sharding-indexed/v1.0.html">Sharding codec specification</a></p>
+<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/sharding-indexed/">Sharding codec specification</a></p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/zarr3/Codec/sharding_indexed">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/zarr3/Codec/sharding_indexed" title="Permalink to this headline">¶</a></dt>
@@ -6690,7 +6690,7 @@ recommended to instead just specify a permutation explicitly.</p>
 <dd><span><p>Specifies <a class="reference external" href="https://zlib.net">gzip</a> compression.</p>
   </span><div class="seealso admonition">
 <p class="admonition-title">See also</p>
-<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/gzip/v1.0.html">Gzip codec specification</a></p>
+<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/gzip/">Gzip codec specification</a></p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/zarr3/Codec/gzip">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/zarr3/Codec/gzip" title="Permalink to this headline">¶</a></dt>
@@ -6731,7 +6731,7 @@ recommended to instead just specify a permutation explicitly.</p>
 <dd><span><p>Specifies <a class="reference external" href="https://github.com/Blosc/c-blosc">Blosc</a> compression.</p>
   </span><div class="seealso admonition">
 <p class="admonition-title">See also</p>
-<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/blosc/v1.0.html">Blosc codec specification</a></p>
+<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/blosc/">Blosc codec specification</a></p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/zarr3/Codec/blosc">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/zarr3/Codec/blosc" title="Permalink to this headline">¶</a></dt>
@@ -6891,7 +6891,7 @@ compression speed.</p>
 <dd><span><p>Appends a CRC-32C checksum to detect data corruption.</p>
   </span><div class="seealso admonition">
 <p class="admonition-title">See also</p>
-<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/crc32c/v1.0.html">CRC-32C codec specification</a></p>
+<p><a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/codecs/crc32c/">CRC-32C codec specification</a></p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/zarr3/Codec/crc32c">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/zarr3/Codec/crc32c" title="Permalink to this headline">¶</a></dt>
@@ -6970,7 +6970,7 @@ encoding.</p>
 <dt class="sig sig-object highlight json" id="json-driver/zarr3/ChunkKeyEncoding.default">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">driver/zarr3/ChunkKeyEncoding.default</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-driver/zarr3/ChunkKeyEncoding.default" title="Link to this definition">¶</a></dt>
 <dd><span><p>Default chunk key encoding.</p>
-  </span><p>Refer to <a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#chunk-key-encoding">the zarr v3 spec</a>
+  </span><p>Refer to <a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#chunk-key-encoding">the zarr v3 spec</a>
 for details.</p>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/zarr3/ChunkKeyEncoding.default">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/zarr3/ChunkKeyEncoding.default" title="Permalink to this headline">¶</a></dt>
@@ -7011,7 +7011,7 @@ for details.</p>
 <dt class="sig sig-object highlight json" id="json-driver/zarr3/ChunkKeyEncoding.v2">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">driver/zarr3/ChunkKeyEncoding.v2</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-driver/zarr3/ChunkKeyEncoding.v2" title="Link to this definition">¶</a></dt>
 <dd><span><p>Zarr v2-compatible chunk key encoding.</p>
-  </span><p>Refer to <a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#chunk-key-encoding">the zarr v3 spec</a>
+  </span><p>Refer to <a class="reference external" href="https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#chunk-key-encoding">the zarr v3 spec</a>
 for details.</p>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/zarr3/ChunkKeyEncoding.v2">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/zarr3/ChunkKeyEncoding.v2" title="Permalink to this headline">¶</a></dt>
