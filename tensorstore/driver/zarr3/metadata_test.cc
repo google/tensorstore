@@ -51,6 +51,7 @@ namespace {
 namespace jb = ::tensorstore::internal_json_binding;
 
 using ::tensorstore::ChunkLayout;
+using ::tensorstore::DataType;
 using ::tensorstore::CodecSpec;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
@@ -68,6 +69,7 @@ using ::tensorstore::dtypes::float32_t;
 using ::tensorstore::dtypes::float64_t;
 using ::tensorstore::internal::uint_t;
 using ::tensorstore::internal_zarr3::FillValueJsonBinder;
+using ::tensorstore::internal_zarr3::ZarrDType;
 using ::tensorstore::internal_zarr3::ZarrMetadata;
 using ::tensorstore::internal_zarr3::ZarrMetadataConstraints;
 using ::testing::HasSubstr;
@@ -90,13 +92,30 @@ using ::testing::MatchesRegex;
   };
 }
 
+ZarrDType MakeScalarZarrDType(DataType dtype) {
+  ZarrDType dtype_info;
+  dtype_info.has_fields = false;
+  dtype_info.fields.resize(1);
+  auto& field = dtype_info.fields[0];
+  field.dtype = dtype;
+  field.encoded_dtype = std::string(dtype.name());
+  field.outer_shape.clear();
+  field.flexible_shape.clear();
+  field.field_shape.clear();
+  field.num_inner_elements = 1;
+  field.byte_offset = 0;
+  field.num_bytes = dtype->size;
+  return dtype_info;
+}
+
 TEST(MetadataTest, ParseValid) {
   auto json = GetBasicMetadata();
   tensorstore::TestJsonBinderRoundTripJsonOnly<ZarrMetadata>({json});
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
   EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
   EXPECT_THAT(metadata.chunk_shape, ::testing::ElementsAre(1, 2, 3));
-  EXPECT_THAT(metadata.data_type, tensorstore::dtype_v<uint16_t>);
+  ASSERT_EQ(metadata.data_type.fields.size(), 1);
+  EXPECT_EQ(tensorstore::dtype_v<uint16_t>, metadata.data_type.fields[0].dtype);
   EXPECT_THAT(metadata.dimension_names,
               ::testing::ElementsAre("a", std::nullopt, ""));
   EXPECT_THAT(metadata.user_attributes, MatchesJson({{"a", "b"}, {"c", "d"}}));
@@ -115,7 +134,8 @@ TEST(MetadataTest, ParseValidNoDimensionNames) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
   EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
   EXPECT_THAT(metadata.chunk_shape, ::testing::ElementsAre(1, 2, 3));
-  EXPECT_THAT(metadata.data_type, tensorstore::dtype_v<uint16_t>);
+  ASSERT_EQ(metadata.data_type.fields.size(), 1);
+  EXPECT_EQ(tensorstore::dtype_v<uint16_t>, metadata.data_type.fields[0].dtype);
   EXPECT_THAT(metadata.dimension_names,
               ::testing::ElementsAre(std::nullopt, std::nullopt, std::nullopt));
   EXPECT_THAT(metadata.user_attributes, MatchesJson({{"a", "b"}, {"c", "d"}}));
@@ -418,7 +438,7 @@ Result<std::shared_ptr<const ZarrMetadata>> TestGetNewMetadata(
   TENSORSTORE_RETURN_IF_ERROR(status);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto constraints, ZarrMetadataConstraints::FromJson(constraints_json));
-  return GetNewMetadata(constraints, schema);
+  return GetNewMetadata(constraints, schema, /*selected_field=*/{}, /*open_as_void=*/false);
 }
 
 TEST(GetNewMetadataTest, DuplicateDimensionNames) {
@@ -486,7 +506,9 @@ TEST(MetadataTest, DataTypes) {
     }
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
                                      ZarrMetadata::FromJson(json));
-    EXPECT_EQ(tensorstore::GetDataType(data_type_name), metadata.data_type);
+    ASSERT_FALSE(metadata.data_type.fields.empty());
+    EXPECT_EQ(tensorstore::GetDataType(data_type_name),
+              metadata.data_type.fields[0].dtype);
   }
 }
 
@@ -503,18 +525,20 @@ TEST(MetadataTest, InvalidDataType) {
 template <typename T>
 void TestFillValue(std::vector<std::pair<T, ::nlohmann::json>> cases,
                    bool skip_to_json = false) {
-  auto binder = FillValueJsonBinder{dtype_v<T>};
+  FillValueJsonBinder binder(MakeScalarZarrDType(dtype_v<T>));
   for (const auto& [value, json] : cases) {
     SharedArray<const void> expected_fill_value =
         tensorstore::MakeScalarArray(value);
     if (!skip_to_json) {
-      EXPECT_THAT(jb::ToJson(expected_fill_value, binder),
+      std::vector<SharedArray<const void>> vec{expected_fill_value};
+      EXPECT_THAT(jb::ToJson(vec, binder),
                   ::testing::Optional(MatchesJson(json)))
           << "value=" << value << ", json=" << json;
     }
-    EXPECT_THAT(jb::FromJson<SharedArray<const void>>(json, binder),
-                ::testing::Optional(
-                    tensorstore::MatchesArrayIdentically(expected_fill_value)))
+    EXPECT_THAT(
+        jb::FromJson<std::vector<SharedArray<const void>>>(json, binder),
+        ::testing::Optional(::testing::ElementsAre(
+            tensorstore::MatchesArrayIdentically(expected_fill_value))))
         << "json=" << json;
   }
 }
@@ -522,10 +546,11 @@ void TestFillValue(std::vector<std::pair<T, ::nlohmann::json>> cases,
 template <typename T>
 void TestFillValueInvalid(
     std::vector<std::pair<::nlohmann::json, std::string>> cases) {
-  auto binder = FillValueJsonBinder{dtype_v<T>};
+  FillValueJsonBinder binder(MakeScalarZarrDType(dtype_v<T>));
   for (const auto& [json, matcher] : cases) {
     EXPECT_THAT(
-        jb::FromJson<SharedArray<const void>>(json, binder).status(),
+        jb::FromJson<std::vector<SharedArray<const void>>>(json, binder)
+            .status(),
         StatusIs(absl::StatusCode::kInvalidArgument, MatchesRegex(matcher)))
         << "json=" << json;
   }
