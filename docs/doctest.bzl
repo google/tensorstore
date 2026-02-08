@@ -25,6 +25,7 @@ def _write_wrapper_impl(ctx):
     ctx.actions.run_shell(
         outputs = [ctx.outputs.executable],
         inputs = [ctx.file.runfiles_library],
+        mnemonic = "TensorstoreDoctestWrapperGen",
         command = "( " +  #
                   "echo '#!/bin/bash'; " +  #
                   "echo 'set -eu'; " +
