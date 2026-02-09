@@ -26,7 +26,7 @@ def repo():
         third_party_http_archive,
         name = "org_blosc_cblosc",
         strip_prefix = "c-blosc-c8072c21dcce8daf6dd19a0bbae8c53458ad68cc",
-        urls = mirror_url("https://github.com/Blosc/c-blosc/archive/c8072c21dcce8daf6dd19a0bbae8c53458ad68cc.tar.gz"),
+        urls = mirror_url("https://github.com/Blosc/c-blosc/archive/c8072c21dcce8daf6dd19a0bbae8c53458ad68cc.tar.gz"),  # main(2025-08-26)
         sha256 = "339b6b42a72991314abf9fbadaeff0c34955c1fafa1710fdfcef45d1bc03c030",
         build_file = Label("//third_party:org_blosc_cblosc/cblosc.BUILD.bazel"),
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),

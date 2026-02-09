@@ -1,4 +1,4 @@
-# Copyright 2023 The TensorStore Authors
+# Copyright 2026 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,12 @@ load(
     "mirror_url",
 )
 
+# Version 1.24.5 is the last version that supports WORKSPACE builds.
 def repo():
     maybe(
         http_archive,
         name = "build_bazel_apple_support",
-        urls = mirror_url("https://github.com/bazelbuild/apple_support/releases/download/1.17.1/apple_support.1.17.1.tar.gz"),
-        sha256 = "b53f6491e742549f13866628ddffcc75d1f3b2d6987dc4f14a16b242113c890b",
+        urls = mirror_url("https://github.com/bazelbuild/apple_support/archive/1.24.5.tar.gz"),
+        sha256 = "e5179535c56801ab43379deb6acfbca17da65f0b05d95e9b7565d2ae1cd22411",
+        strip_prefix = "apple_support-1.24.5",
     )

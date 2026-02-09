@@ -53,9 +53,12 @@ rules_proto_toolchains()
 # Register build_bazel_apple_support toolchains, which are needed for cross-compilaton
 # macOS. Unfortunately this (small) repo will have to be downloaded in all
 # cases, even though it is only needed on macOS when cross-compiling.
-load("@build_bazel_apple_support//crosstool:setup.bzl", "apple_cc_configure")
+load(
+    "@build_bazel_apple_support//lib:repositories.bzl",
+    "apple_support_dependencies",
+)
 
-apple_cc_configure()
+apple_support_dependencies()
 
 # Define LLVM toolchain used for extracting C++ API documentation information
 load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
