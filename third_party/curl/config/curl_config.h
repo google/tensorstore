@@ -1,21 +1,6 @@
 #ifndef EXTERNAL_CURL_INCLUDE_CURL_CONFIG_H_
 #define EXTERNAL_CURL_INCLUDE_CURL_CONFIG_H_
 
-#if !defined(_WIN32) && !defined(__APPLE__)
-#include <openssl/opensslv.h>
-#if defined(OPENSSL_IS_BORINGSSL)
-#define HAVE_BORINGSSL 1
-#define HAVE_OPENSSL_CRYPTO_H 1
-#define HAVE_OPENSSL_ERR_H 1
-#define HAVE_OPENSSL_PEM_H 1
-#define HAVE_OPENSSL_PKCS12_H 1
-#define HAVE_OPENSSL_RSA_H 1
-#define HAVE_OPENSSL_SRP 1
-#define HAVE_OPENSSL_SSL_H 1
-#define HAVE_OPENSSL_X509_H 1
-#endif
-#endif
-
 #define CURL_DISABLE_AWS 1
 #define CURL_DISABLE_DICT 1
 #define CURL_DISABLE_FILE 1
@@ -39,6 +24,7 @@
 #define CURL_DISABLE_WEBSOCKETS 1
 
 #define USE_NGHTTP2 1
+#define USE_IPV6 1
 
 #if defined(_WIN32)
 #include "lib/config-win32.h"
@@ -55,7 +41,8 @@
 #define HAVE_SYS_FILIO_H 1
 #define HAVE_SYS_SOCKIO_H 1
 #define CURL_OS "x86_64-apple-darwin15.5.0"
-#define USE_SECTRANSP 1
+#define HAVE_LIBSSL 1
+#define USE_OPENSSL 1
 #else
 /* #  undef CURL_CA_BUNDLE "/etc/ssl/certs/ca-certificates.crt" */
 #define GETSERVBYPORT_R_ARGS 6
@@ -69,7 +56,6 @@
 #define HAVE_GETHOSTBYNAME_R 1
 #define HAVE_GETHOSTBYNAME_R_6 1
 #define HAVE_GETSERVBYPORT_R 1
-#define HAVE_LIBSSL 1
 #define HAVE_MALLOC_H 1
 #define HAVE_MSG_NOSIGNAL 1
 #define HAVE_LINUX_TCP_H 1
@@ -81,6 +67,7 @@
 #define HAVE_TERMIOS_H 1
 #define CURL_OS "x86_64-pc-linux-gnu"
 #define RANDOM_FILE "/dev/urandom"
+#define HAVE_LIBSSL 1
 #define USE_OPENSSL 1
 #endif
 
@@ -225,16 +212,6 @@
 #define HAVE_ZSTD 1
 #define HAVE_ZSTD_H 1
 #define LT_OBJDIR ".libs/"
-#define PACKAGE "curl"
-#define PACKAGE_BUGREPORT \
-  "a suitable curl mailing list: https://curl.haxx.se/mail/"
-
-
-#define PACKAGE_NAME "curl"
-#define PACKAGE_STRING "curl -"
-#define PACKAGE_TARNAME "curl"
-#define PACKAGE_URL ""
-#define PACKAGE_VERSION "-"
 #define RECV_TYPE_ARG1 int
 #define RECV_TYPE_ARG2 void*
 #define RECV_TYPE_ARG3 size_t
@@ -264,11 +241,37 @@
 #define STDC_HEADERS 1
 #define STRERROR_R_TYPE_ARG3 size_t
 #define TIME_WITH_SYS_TIME 1
-#define VERSION "-"
 
 #ifndef _DARWIN_USE_64_BIT_INODE
 #define _DARWIN_USE_64_BIT_INODE 1
 #endif
 #endif
+
+#if defined(HAVE_LIBSSL) && defined(USE_OPENSSL)
+#include <openssl/opensslv.h>
+#if defined(OPENSSL_IS_BORINGSSL)
+#define HAVE_BORINGSSL 1
+#define HAVE_OPENSSL_CRYPTO_H 1
+#define HAVE_OPENSSL_ERR_H 1
+#define HAVE_OPENSSL_PEM_H 1
+#define HAVE_OPENSSL_PKCS12_H 1
+#define HAVE_OPENSSL_RSA_H 1
+#define HAVE_OPENSSL_SRP 1
+#define HAVE_OPENSSL_SSL_H 1
+#define HAVE_OPENSSL_X509_H 1
+// #define HAVE_SSL_SET0_WBIO 1
+// #define HAVE_SSL_SET_QUIC_TLS_CBS 1
+#endif
+#endif
+
+#define PACKAGE "curl"
+#define PACKAGE_NAME "curl"
+#define PACKAGE_STRING "curl -"
+#define PACKAGE_TARNAME "curl"
+#define PACKAGE_URL ""
+#define PACKAGE_VERSION "-"
+#define VERSION "-"
+#define PACKAGE_BUGREPORT \
+  "a suitable curl mailing list: https://curl.haxx.se/mail/"
 
 #endif  // EXTERNAL_CURL_INCLUDE_CURL_CONFIG_H_

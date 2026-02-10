@@ -60,45 +60,15 @@ LOCAL_DEFINES = (
 
 cc_library(
     name = "curl",
-    srcs = glob(
-               include = [
-                   "lib/**/*.c",
-               ],
-               exclude = [
-                   "lib/socks_sspi.c",
-                   "lib/system_win32.c",
-                   "lib/vauth/spnego_sspi.c",
-                   "lib/vtls/openssl.c",
-                   "lib/vtls/schannel.c",
-                   "lib/vtls/schannel_verify.c",
-                   "lib/vtls/sectransp.c",
-               ],
-           ) +
-           select(
-               {
-                   "@platforms//os:osx": [
-                       "lib/vtls/sectransp.c",
-                   ],
-                   "@platforms//os:ios": [
-                       "lib/vtls/sectransp.c",
-                   ],
-                   "@platforms//os:windows": [
-                       "lib/socks_sspi.c",
-                       "lib/system_win32.c",
-                       "lib/vauth/spnego_sspi.c",
-                       "lib/vtls/schannel.c",
-                       "lib/vtls/schannel_verify.c",
-                   ],
-                   "//conditions:default": [
-                       "lib/vtls/openssl.c",
-                   ],
-               },
-           ),
-    hdrs = glob(
-        [
-            "include/curl/*.h",
-        ],
-    ) + [
+    srcs = glob([
+        "lib/*.c",
+        "lib/vssh/*.c",
+        "lib/vquic/*.c",
+        "lib/vtls/*.c",
+        "lib/vauth/*.c",
+        "lib/curlx/*.c",
+    ]),
+    hdrs = glob(["include/curl/*.h"]) + [
         "include/curl_config.h",
     ],
     copts = select(
@@ -152,6 +122,7 @@ cc_library(
                            "-DEFAULTLIB:crypt32.lib",
                            "-DEFAULTLIB:Normaliz.lib",
                            "-DEFAULTLIB:bcrypt.lib",
+                           "-DEFAULTLIB:Secur32.lib",
                        ],
                        "//conditions:default": [
                            "-lrt",
@@ -166,6 +137,7 @@ cc_library(
                            "-lcrypt32",
                            "-lNormaliz",
                            "-lbcrypt",
+                           "-lSecur32",
                        ],
                        "//conditions:default": [],
                    },
