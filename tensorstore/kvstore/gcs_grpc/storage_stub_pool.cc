@@ -165,7 +165,7 @@ std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
   size = ChannelsForAddress(address, size);
   std::string key = absl::StrFormat("%d/%s", size, address);
 
-  absl::MutexLock lock(&global_mu);
+  absl::MutexLock lock(global_mu);
   auto& pool = (*shared_pool)[key];
   if (pool == nullptr) {
     ABSL_LOG_IF(INFO, gcs_grpc_logging)
