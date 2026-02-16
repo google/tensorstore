@@ -68,7 +68,7 @@ void TensorstoreTiffErrorHandler(thandle_t data, const char* file,
 
   if (data) {
     auto* hook = GetLibTIFFErrorHook();
-    absl::MutexLock l(&hook->mutex_);
+    absl::MutexLock l(hook->mutex_);
     if (auto it = hook->live_.find(data); it != hook->live_.end()) {
       reinterpret_cast<LibTiffErrorBase*>(data)->error_.Update(
           absl::InvalidArgumentError(std::string(buf)));
@@ -77,7 +77,7 @@ void TensorstoreTiffErrorHandler(thandle_t data, const char* file,
 }
 
 void LibTIFFErrorHook::MaybeInstall(LibTiffErrorBase* handle) {
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(mutex_);
   if (live_.empty()) {
     warning_handler_ = TIFFSetWarningHandlerExt(TensorstoreTiffWarningHandler);
     error_handler_ = TIFFSetErrorHandlerExt(TensorstoreTiffErrorHandler);
@@ -86,7 +86,7 @@ void LibTIFFErrorHook::MaybeInstall(LibTiffErrorBase* handle) {
 }
 
 void LibTIFFErrorHook::MaybeUninstall(LibTiffErrorBase* handle) {
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(mutex_);
   live_.erase(handle);
   if (live_.empty()) {
     TIFFSetWarningHandlerExt(warning_handler_);
