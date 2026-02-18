@@ -108,9 +108,8 @@ Result<std::string> SignWithRSA256(std::string_view private_key,
   }
 
   std::string signature;
-  absl::WebSafeBase64Escape(
-      std::string_view(reinterpret_cast<char*>(sig.get()), sig_len),
-      &signature);
+  signature = absl::WebSafeBase64Escape(
+      std::string_view(reinterpret_cast<char*>(sig.get()), sig_len));
 
   return std::move(signature);
 }
@@ -125,7 +124,7 @@ std::string BuildJWTHeader(std::string_view key_id) {
   };
 
   std::string encoded_header;
-  absl::WebSafeBase64Escape(assertion_header.dump(), &encoded_header);
+  encoded_header = absl::WebSafeBase64Escape(assertion_header.dump());
   return encoded_header;
 }
 
@@ -144,7 +143,7 @@ std::string BuildJWTClaimBody(std::string_view client_email,
   };
 
   std::string encoded_payload;
-  absl::WebSafeBase64Escape(assertion_payload.dump(), &encoded_payload);
+  encoded_payload = absl::WebSafeBase64Escape(assertion_payload.dump());
   return encoded_payload;
 }
 
