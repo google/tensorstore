@@ -127,7 +127,7 @@ definitions:
       :literal:`gs://` KvStore URL scheme
     description: |
       Google Cloud Storage-based key-value stores may be specified using the
-      :file:`gs://{bucket}/{path}` URL syntax, as supported by `gsutil
+      :file:`gs://{bucket}/{path}` URL syntax, as supported by `gcloud storage
       <https://cloud.google.com/storage/docs/gsutil>`__.
 
       .. admonition:: Examples
