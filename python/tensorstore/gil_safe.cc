@@ -68,13 +68,13 @@ void SetupExitHandler() {
         // operations.
         {
           GilScopedRelease gil;
-          exit_block_mutex.Lock();
+          exit_block_mutex.lock();
         }
       }));
 }
 
 bool TryAcquireExitBlock() noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  while (!exit_block_mutex.ReaderTryLock()) {
+  while (!exit_block_mutex.try_lock_shared()) {
     if (python_exiting.load(std::memory_order_acquire)) {
       return false;
     }
@@ -83,7 +83,7 @@ bool TryAcquireExitBlock() noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
 }
 
 void ReleaseExitBlock() noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  exit_block_mutex.ReaderUnlock();
+  exit_block_mutex.unlock_shared();
 }
 
 ExitSafeGilScopedAcquire::ExitSafeGilScopedAcquire() {
