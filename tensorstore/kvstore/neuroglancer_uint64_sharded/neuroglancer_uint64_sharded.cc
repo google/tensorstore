@@ -563,7 +563,7 @@ class ShardedKeyValueStoreWriteCache
     void RecordEntryWritebackError(
         internal_kvstore::ReadModifyWriteEntry& entry,
         absl::Status error) override {
-      absl::MutexLock lock(&mutex_);
+      absl::MutexLock lock(mutex_);
       if (apply_status_.ok()) {
         apply_status_ = std::move(error);
       }
