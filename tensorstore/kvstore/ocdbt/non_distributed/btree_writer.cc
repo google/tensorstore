@@ -198,7 +198,7 @@ void CommitOperation::StagePending(WriteStager& stager) {
   auto& writer = *writer_;
   PendingRequests pending;
   {
-    absl::MutexLock lock(&writer.mutex_);
+    absl::MutexLock lock(writer.mutex_);
     pending = std::exchange(writer.pending_, {});
   }
 

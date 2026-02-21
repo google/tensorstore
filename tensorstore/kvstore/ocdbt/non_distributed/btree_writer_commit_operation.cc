@@ -213,7 +213,7 @@ void BtreeWriterCommitOperationBase::UpdateParent(
       std::move(encoded_nodes));
 
   {
-    absl::MutexLock lock(&parent_state.mutex_);
+    absl::MutexLock lock(parent_state.mutex_);
 
     // Remove `existing_relative_child_key` from the parent node.
     {
