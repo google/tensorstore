@@ -2935,7 +2935,7 @@ Overload:
       py::arg("other"));
 
   cls.def(py::pickle(
-      [](const OutputIndexMap& self) {
+      [](const OutputIndexMap& self) -> py::tuple {
         switch (self.method) {
           case OutputIndexMethod::constant:
             return py::make_tuple(self.method, self.offset);

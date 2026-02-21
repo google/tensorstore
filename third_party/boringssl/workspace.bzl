@@ -27,10 +27,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "boringssl",
-        strip_prefix = "boringssl-0.20250818.0",
-        doc_version = "0.20250818",
-        urls = mirror_url("https://github.com/google/boringssl/archive/0.20250818.0.tar.gz"),  # 0.20250415.0
-        sha256 = "64529449ef458381346b163302523a1fb876e5b667bec4a4bd38d0d2fff8b42b",
+        strip_prefix = "boringssl-0.20260211.0",
+        doc_version = "0.20260211",
+        urls = mirror_url("https://github.com/google/boringssl/archive/0.20260211.0.tar.gz"),  # 0.20260211.0
+        sha256 = "52e2d96759d483e384e3964a2513781ea05cb6b2d677f1f8f5a4049aea30535d",
         system_build_file = Label("//third_party:boringssl/system.BUILD.bazel"),
         cmake_name = "OpenSSL",
         cmake_target_mapping = {

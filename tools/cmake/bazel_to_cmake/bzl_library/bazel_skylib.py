@@ -25,6 +25,8 @@ from .. import native_rules_genrule
 from ..cmake_builder import CMakeBuilder
 from ..cmake_provider import CMakeAddDependenciesProvider
 from ..cmake_provider import default_providers
+from ..cmake_repository import PROJECT_BINARY_DIR
+from ..cmake_repository import PROJECT_SOURCE_DIR
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..starlark.bazel_target import TargetId
@@ -41,6 +43,7 @@ from ..starlark.select import Select
 from ..starlark.toolchain import CMAKE_TOOLCHAIN
 from ..util import cmake_is_true
 from ..util import cmake_is_windows
+from ..util import make_relative_path
 from ..util import quote_list
 from ..util import quote_path
 from ..util import quote_string
@@ -183,13 +186,14 @@ def _expand_template_impl(
   state: EvaluationState = _context.access(EvaluationState)
 
   cmake_target_pair = state.generate_cmake_target_pair(_target).with_alias(None)
-  out_file = str(_context.get_generated_file_path(_out_target))
+  path = _context.get_generated_file_path(_out_target)
+  str_path = str(path)
 
   _context.add_analyzed_target(
       _out_target,
       TargetInfo(
           CMakeAddDependenciesProvider(cmake_target_pair.dep),
-          FilesProvider([out_file]),
+          FilesProvider([str_path]),
       ),
   )
 
@@ -224,25 +228,41 @@ def _expand_template_impl(
   add_dependencies.add(CMakeTarget(script_path.as_posix()))
   add_dependencies.add(CMakeTarget(subs_path.as_posix()))
 
-  quoted_output = quote_path(out_file)
+  quoted_path = quote_path(str_path)
 
   out = io.StringIO()
 
   out.write(f"""
 # expand_template({_target.as_label()})
 add_custom_command(
-OUTPUT {quoted_output}
+OUTPUT {quoted_path}
 COMMAND ${{Python3_EXECUTABLE}} {quote_path(script_path)}
         {quote_path(template_path)}
         {quote_path(subs_path)}
-        {quoted_output}
+        {quoted_path}
 VERBATIM
 DEPENDS {quote_list(sorted(add_dependencies))}
-COMMENT "Generating {out_file}"
+COMMENT "Generating {str_path}"
 )
-set_source_files_properties({quoted_output} PROPERTIES GENERATED TRUE)
-add_custom_target({cmake_target_pair.target} DEPENDS {quoted_output})
+set_source_files_properties({quoted_path} PROPERTIES GENERATED TRUE)
+add_custom_target({cmake_target_pair.target} DEPENDS {quoted_path})
 """)
+
+  # If the generated file is a source file, add a target_include_directory
+  # See equivalent code in emit_filegroup.py
+  # These are INTERFACE includes since they are header-only libraries.
+  if path.suffix in (".proto", ".h", ".hpp", ".inc"):
+    repo = state.workspace.all_repositories.get(_target.repository_id)
+    c, _ = make_relative_path(
+        path,
+        (PROJECT_SOURCE_DIR, repo.source_directory),
+        (PROJECT_BINARY_DIR, repo.cmake_binary_dir),
+    )
+    if c is not None:
+      out.write(
+          f"set_target_properties({cmake_target_pair.target} PROPERTIES "
+          f"INTERFACE_INCLUDE_DIRECTORIES {quote_string(c)})\n"
+      )
 
   _context.access(CMakeBuilder).addtext(out.getvalue())
   _context.add_analyzed_target(

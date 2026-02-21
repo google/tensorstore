@@ -576,21 +576,15 @@ cfl_predict_lbd_fn cfl_get_predict_lbd_fn_c(TX_SIZE tx_size);
 #define cfl_get_predict_lbd_fn cfl_get_predict_lbd_fn_c
 
 cfl_subtract_average_fn cfl_get_subtract_average_fn_c(TX_SIZE tx_size);
-cfl_subtract_average_fn cfl_get_subtract_average_fn_vsx(TX_SIZE tx_size);
-#define cfl_get_subtract_average_fn cfl_get_subtract_average_fn_vsx
+#define cfl_get_subtract_average_fn cfl_get_subtract_average_fn_c
 
 void av1_rtcd(void);
 
 #include "config/aom_config.h"
 
 #ifdef RTCD_C
-#include "aom_ports/ppc.h"
 static void setup_rtcd_internal(void)
 {
-  int flags = ppc_simd_caps();
-
-  (void)flags;
-
 }
 #endif
 

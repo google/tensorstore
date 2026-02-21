@@ -14,6 +14,7 @@ COMMENT "Generating ${TEST_BINDIR}/config2.h"
 )
 set_source_files_properties("${TEST_BINDIR}/config2.h" PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_config2_h DEPENDS "${TEST_BINDIR}/config2.h")
+target_include_directories(CMakeProject_config2_h INTERFACE "${PROJECT_BINARY_DIR}")
 
 # genrule(@bazel_skylib_test_repo//:config_copy_rule)
 add_custom_command(
@@ -37,3 +38,14 @@ target_sources(CMakeProject_config_copy_rule INTERFACE
 target_include_directories(CMakeProject_config_copy_rule INTERFACE
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_config_copy_rule genrule__CMakeProject_config_copy_rule)
+
+# cc_library(@bazel_skylib_test_repo//:config_cc_library)
+add_library(CMakeProject_config_cc_library INTERFACE)
+target_link_libraries(CMakeProject_config_cc_library INTERFACE
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_config_cc_library INTERFACE
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_config_cc_library INTERFACE cxx_std_17)
+add_dependencies(CMakeProject_config_cc_library "CMakeProject_config2_h" "CMakeProject_config_copy_rule")
+add_library(CMakeProject::config_cc_library ALIAS CMakeProject_config_cc_library)

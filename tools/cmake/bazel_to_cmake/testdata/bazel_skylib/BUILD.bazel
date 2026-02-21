@@ -37,6 +37,15 @@ copy_file(
     allow_symlink = True,
 )
 
+cc_library(
+    name = "config_cc_library",
+    hdrs = [
+        "config.h",
+        "config2.h",
+        "config3.h",
+    ],
+)
+
 # Config settings
 
 config_setting(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, Alliance for Open Media. All rights reserved
+ * Copyright (c) 2026, Alliance for Open Media. All rights reserved.
  *
  * This source code is subject to the terms of the BSD 2 Clause License and
  * the Alliance for Open Media Patent License 1.0. If the BSD 2 Clause License
@@ -8,12 +8,6 @@
  * Media Patent License 1.0 was not distributed with this source code in the
  * PATENTS file, you can obtain it at www.aomedia.org/license/patent.
  */
-
-#define VERSION_MAJOR 3
-#define VERSION_MINOR 2
-#define VERSION_PATCH 0
-#define VERSION_EXTRA "tensorstore"
-#define VERSION_PACKED \
-  ((VERSION_MAJOR << 16) | (VERSION_MINOR << 8) | (VERSION_PATCH))
-#define VERSION_STRING_NOSP "3.2.0-tensorstore"
-#define VERSION_STRING " 3.2.0-tensorstore"
+#include "aom/aom_codec.h"
+static const char* const cfg = "cmake ../../ -G \"Unix Makefiles\" -DAOM_TARGET_CPU=generic -DCONFIG_SVT_AV1=0 -DCONFIG_MULTITHREAD=0 -DFORCE_HIGHBITDEPTH_DECODING=0 -DCONFIG_SIZE_LIMIT=1 -DDECODE_HEIGHT_LIMIT=12288 -DDECODE_WIDTH_LIMIT=12288 -DCONFIG_HIGHWAY=0 -DENABLE_DOCS=0";
+const char *aom_codec_build_config(void) {return cfg;}

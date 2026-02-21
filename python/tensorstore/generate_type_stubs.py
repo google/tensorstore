@@ -387,6 +387,14 @@ def _munge_type_stubs_file(
       "parse_tensorstore_flags(argv: list[",
       "parse_tensorstore_flags(argv: collections.abc.Sequence[",
   )
+  content = content.replace(
+      "int | typing.SupportsIndex",
+      "int",
+  )
+  content = content.replace(
+      "float | typing.SupportsIndex",
+      "float",
+  )
   content = black.format_str(content, mode=black.Mode())
   return content
 

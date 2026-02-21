@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_auth",
-        sha256 = "39000bff55fe8c82265b9044a966ab37da5c192a775e1b68b6fcba7e7f9882fb",
-        strip_prefix = "aws-c-auth-0.9.5",
-        urls = mirror_url("https://github.com/awslabs/aws-c-auth/archive/v0.9.5.tar.gz"),
+        sha256 = "2448e939d924731a891bec34f6da764d3a34afd52b9f5a3e614bb1bf96e6452d",
+        strip_prefix = "aws-c-auth-0.9.6",
+        urls = mirror_url("https://github.com/awslabs/aws-c-auth/archive/v0.9.6.tar.gz"),
         build_file = Label("//third_party:aws_c_auth/aws_c_auth.BUILD.bazel"),
         cmake_name = "aws_c_auth",
         cmake_target_mapping = {

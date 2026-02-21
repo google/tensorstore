@@ -27,10 +27,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "re2",
-        strip_prefix = "re2-2024-07-02",
-        urls = mirror_url("https://github.com/google/re2/releases/download/2024-07-02/re2-2024-07-02.tar.gz"),
-        sha256 = "eb2df807c781601c14a260a507a5bb4509be1ee626024cb45acbd57cb9d4032b",
-        doc_version = "2024-07-02",
+        strip_prefix = "re2-2025-11-05",
+        urls = mirror_url("https://github.com/google/re2/releases/download/2025-11-05/re2-2025-11-05.tar.gz"),
+        sha256 = "87f6029d2f6de8aa023654240a03ada90e876ce9a4676e258dd01ea4c26ffd67",
+        doc_version = "2025-11-05",
         # Cloned from the repo in place of patching the bundled BUILD.bazel
         build_file = Label("//third_party:re2/re2.BUILD.bazel"),
         cmake_name = "Re2",

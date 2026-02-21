@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_checksums",
-        sha256 = "e624754cc57e0da28e643e89fc76bcc86cb0c359ead0745bae643f910b2bcfa7",
-        strip_prefix = "aws-checksums-0.2.8",
-        urls = mirror_url("https://github.com/awslabs/aws-checksums/archive/v0.2.8.tar.gz"),
+        sha256 = "cb6509f75e42ee25c372a6d379e8582ce5179e5335183842e808f7d8abb0c314",
+        strip_prefix = "aws-checksums-0.2.10",
+        urls = mirror_url("https://github.com/awslabs/aws-checksums/archive/v0.2.10.tar.gz"),
         build_file = Label("//third_party:aws_checksums/aws_checksums.BUILD.bazel"),
         cmake_name = "aws_checksums",
         cmake_target_mapping = {

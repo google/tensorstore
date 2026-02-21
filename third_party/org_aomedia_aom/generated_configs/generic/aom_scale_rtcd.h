@@ -74,13 +74,8 @@ void aom_scale_rtcd(void);
 #include "config/aom_config.h"
 
 #ifdef RTCD_C
-#include "aom_ports/ppc.h"
 static void setup_rtcd_internal(void)
 {
-  int flags = ppc_simd_caps();
-
-  (void)flags;
-
 }
 #endif
 

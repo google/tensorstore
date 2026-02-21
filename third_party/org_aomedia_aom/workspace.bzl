@@ -22,23 +22,21 @@ load(
 )
 
 # source = https://aomedia.googlesource.com/aom/
-
+# See also https://chromium.googlesource.com/chromium/src/+/refs/heads/main/third_party/libaom
 def repo():
     maybe(
         third_party_http_archive,
         name = "org_aomedia_aom",
-        urls = mirror_url("https://aomedia.googlesource.com/aom/+archive/d730cef03ac754f2b6a233e926cd925d8ce8de81.tar.gz"),  # main(2022-11-01)
+        doc_version = "3.13.1",
+        urls = mirror_url("https://aomedia.googlesource.com/aom/+archive/d772e334cc724105040382a977ebb10dfd393293.tar.gz"),
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
-        sha256 = "7f87960be61edb846e25b7d10e4e41aef6d652f62270e19172e7cafae9b536ad",
+        sha256 = "5a36e9eaeaa4b9a437db6b1285dd12c038fa541ea716d9a68bf2a0de9d609eb6",
         build_file = Label("//third_party:org_aomedia_aom/libaom.BUILD.bazel"),
-        patches = [
-            # https://bugs.chromium.org/p/aomedia/issues/detail?id=3395
-            Label("//third_party:org_aomedia_aom/patches/fix-3395.diff"),
-        ],
-        patch_args = ["-p1"],
         cmake_name = "aom",
         cmake_languages = ["ASM"],
-        bazel_to_cmake = {},
+        bazel_to_cmake = {
+            "aliased_targets_only": True,
+        },
         cmake_target_mapping = {
             "//:libaom": "AOM::AOM",
         },

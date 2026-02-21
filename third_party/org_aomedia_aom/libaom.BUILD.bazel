@@ -2,9 +2,9 @@
 #   The libaom package is the reference codec for AV1 and AVIF.
 #
 
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_nasm//nasm:nasm_cc_library.bzl", "nasm_cc_library")
 
@@ -16,69 +16,239 @@ exports_files(["LICENSE"])
 
 # used for textual_hdrs, since libaom is a bit imprecise about include boundaries.
 LIBAOM_HEADERS_PATTERN = [
-    "aom/*.h",
-    "aom/internal/*.h",
     "aom_dsp/*.h",
     "aom_dsp/**/*.h",
     "aom_mem/*.h",
     "aom_mem/include/*.h",
     "aom_ports/*.h",
     "aom_scale/*.h",
+    "aom_scale/generic/*.h",
     "aom_util/*.h",
+    "aom/*.h",
+    "aom/internal/*.h",
     "av1/*.h",
-    "av1/common/*.h",
-    "av1/encoder/*.h",
-    "av1/decoder/*.h",
+    "av1/**/*.h",
+    "av1/**/*.inc",
     "common/*.h",
+]
+
+_PATTERN_UNSUPPORTED = [
+    "**/*_mips*",
+    "**/riscv/**",
+    "**/*_rvv*",
+]
+
+_PATTERN_ARM = [
+    "**/arm/**",
+    "**/arm.h",
+    "**/*_arm*",
+    "**/*_neon*",
+    "**/*_sve*",
+    "**/*_sve2*",
+]
+
+_PATTERN_X86 = [
+    "**/x86/**",
+    "**/x86.h",
+    "**/*_avx*",
+    "**/*_avx2*",
+    "**/*_sse2*",
+    "**/*_sse2_x86_64*",
+    "**/*_sse3*",
+    "**/*_sse4_1*",
+    "**/*_sse4_2*",
+    "**/*_ssse3*",
+    "**/*_ssse3_x86_64*",
+]
+
+_PATTERN_PPC = [
+    "**/ppc.h",
+    "**/ppc/**",
+    "**/*_ppc*",
 ]
 
 LIBAOM_HEADERS = select({
     "@platforms//cpu:arm64": glob(
-        LIBAOM_HEADERS_PATTERN + [
-            "av1/common/arm/*.h",
-            "aom_dsp/arm/*.h",
-        ],
-        exclude = [
-            "aom_ports/ppc.h",
-            "**/mips/**",
-            "**/*x86.h",
-            "**/*avx2.h",
-            "**/*sse2.h",
-            "**/*sse4.h",
-            "**/*sse4_1.h",
-            "**/*ssse3.h",
-        ],
+        include = LIBAOM_HEADERS_PATTERN,
+        allow_empty = True,
+        exclude = _PATTERN_UNSUPPORTED + _PATTERN_PPC + _PATTERN_X86,
     ),
     "@platforms//cpu:x86_64": glob(
-        LIBAOM_HEADERS_PATTERN + [
-            "av1/common/x86/*.h",
-            "av1/encoder/x86/*.h",
-            "aom_dsp/x86/*.h",
-        ],
-        exclude = [
-            "aom_ports/ppc.h",
-            "**/mips/**",
-            "**/*arm.h",
-        ],
+        include = LIBAOM_HEADERS_PATTERN,
+        allow_empty = True,
+        exclude = _PATTERN_UNSUPPORTED + _PATTERN_PPC + _PATTERN_ARM,
     ),
     "@platforms//cpu:ppc": glob(
-        LIBAOM_HEADERS_PATTERN + [
-            "aom_ports/ppc.h",
-            "av1/common/ppc/*.h",
-        ],
+        include = LIBAOM_HEADERS_PATTERN,
         allow_empty = True,
-        exclude = [
-            "**/*arm.h",
-            "**/mips/**",
-            "**/*x86.h",
-            "**/*avx2.h",
-            "**/*sse2.h",
-            "**/*sse4.h",
-            "**/*sse4_1.h",
-            "**/*ssse3.h",
-        ],
+        exclude = _PATTERN_UNSUPPORTED + _PATTERN_X86 + _PATTERN_ARM,
     ),
 })
+
+cc_library(
+    name = "libaom",
+    hdrs = LIBAOM_HEADERS,
+    implementation_deps = [
+        ":aom",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "config",
+    srcs = [
+        "config/aom_config.c",
+    ] + select({
+        "@platforms//cpu:arm64": ["aom_ports/aarch64_cpudetect.c"],
+        "@platforms//cpu:ppc": ["aom_ports/ppc_cpudetect.c"],
+        "//conditions:default": [],
+    }),
+    hdrs = [
+        "config/aom_config.h",
+        "config/aom_dsp_rtcd.h",
+        "config/aom_scale_rtcd.h",
+        "config/aom_version.h",
+        "config/av1_rtcd.h",
+        # Non-config headers.
+        "third_party/fastfeat/fast.h",
+        "third_party/vector/vector.h",
+    ],
+    includes = select({
+        "@platforms//cpu:arm64": ["av1/encoder/arm"],
+        "//conditions:default": [],
+    }),
+    textual_hdrs = LIBAOM_HEADERS,
+)
+
+# ------------------------------------------------------------------------------
+
+# Select / update the generated config files by platform.
+GENERATED_CONFIGS = [
+    (":have_avx2_intrinsics", "x86_64_avx2"),
+    (":not_have_avx2_intrinsics", "x86_64"),
+    ("@platforms//cpu:arm64", "arm64"),
+    ("@platforms//cpu:ppc", "ppc"),
+    ("//conditions:default", "generic"),
+]
+
+[
+    copy_file(
+        name = "copy_{tag}".format(tag = file.replace(".", "_")),
+        src = select({
+            condition: "@tensorstore//third_party:org_aomedia_aom/generated_configs/{config}/{file}".format(
+                config = config,
+                file = file,
+            )
+            for condition, config in GENERATED_CONFIGS
+        }),
+        out = "config/{file}".format(file = file),
+    )
+    for file in [
+        "aom_scale_rtcd.h",
+        "aom_config.c",
+        "av1_rtcd.h",
+        "aom_dsp_rtcd.h",
+    ]
+]
+
+expand_template(
+    name = "config_h_tmpl",
+    out = "config/aom_config.h",
+    substitutions = select({
+        ":compiler_msvc": {
+            "HAVE_PTHREAD_H 1": "HAVE_PTHREAD_H 0",
+            "HAVE_UNISTD_H 1": "HAVE_UNISTD_H 0",
+            "CONFIG_GCC 1": "CONFIG_GCC 0",
+            "CONFIG_MSVS 0": "CONFIG_MSVS 1",
+        },
+        "//conditions:default": {},
+    }),
+    template = select({
+        condition: "@tensorstore//third_party:org_aomedia_aom/generated_configs/{config}/aom_config.h".format(
+            config = config,
+        )
+        for condition, config in GENERATED_CONFIGS
+    }),
+)
+
+expand_template(
+    name = "config_asm_tmpl",
+    out = "config/aom_config.asm",
+    substitutions = select({
+        "@platforms//os:windows": {
+            "HAVE_PTHREAD_H equ 1": "HAVE_PTHREAD_H equ 0",
+            "HAVE_UNISTD_H equ 1": "HAVE_UNISTD_H equ 0",
+        },
+        "//conditions:default": {},
+    }),
+    template = select({
+        condition: "@tensorstore//third_party:org_aomedia_aom/generated_configs/{config}/aom_config.asm".format(
+            config = config,
+        )
+        for condition, config in GENERATED_CONFIGS
+    }),
+)
+
+copy_file(
+    name = "copy_aom_version_h",
+    src = "@tensorstore//third_party:org_aomedia_aom/generated_configs/aom_version.h",
+    out = "config/aom_version.h",
+)
+
+# ------------------------------------------------------------------------------
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
+)
+
+# Constraints that indicates whether avx2 intrinsics can be used (subject to
+# runtime CPU detection).
+#
+# mingw gcc does not correctly align the stack to 32 bytes, which makes
+# avx2 intrinsics unusable.
+#
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+selects.config_setting_group(
+    name = "have_avx2_intrinsics",
+    match_all = [
+        ":avx2_compiler_allowlist",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+selects.config_setting_group(
+    name = "not_have_avx2_intrinsics",
+    match_all = [
+        "@rules_cc//cc/compiler:mingw-gcc",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+selects.config_setting_group(
+    name = "avx2_compiler_allowlist",
+    match_any = [
+        "@rules_cc//cc/compiler:clang",
+        "@rules_cc//cc/compiler:clang-cl",
+        "@rules_cc//cc/compiler:gcc",
+        ":compiler_msvc",
+    ],
+)
+
+# Note clang+linux is required to enable arm sve/sve2 functions.
+# gcc and clang+macos are missing the required <arm_neon_sve_bridge.h> header,
+# and there is no SVE/SVE2 support on windows yet.
+#
+#selects.config_setting_group(
+#    name = "have_sve2_intrinsics",
+#    match_all = [
+#        "@platforms//cpu:arm64",
+#        "@rules_cc//cc/compiler:clang",
+#    ],
+#)
+alias(
+    name = "have_sve2_intrinsics",
+    actual = "@platforms//:incompatible",
+)
 
 LIBAOM_COPTS = select({
     ":compiler_msvc": [
@@ -99,41 +269,47 @@ LIBAOM_COPTS = select({
     ],
     # armv7 may need -fpu=neon as well.
     "//conditions:default": [],
+}) + select({
+    "@platforms//os:macos": [
+        "-Wno-int-conversion",
+        "-Wincompatible-pointer-types",
+    ],
+    "//conditions:default": [],
 })
 
-ARCH_DICT = {
-    # While aom has implementations for various architectures, this build
-    # assumes that every processor has -msse through -msse4.2, inclusive.
-    "sse42": select({
-        ":compiler_msvc": [
-            "-D__SSE__",
-            "-D__SSE2__",
-            "-D__SSE3__",
-            "-D__SSSE3__",
-            "-D__SSE4__",
-            "-D__SSE4_1__",
-            "-D__SSE4_2__",
-        ],
-        "//conditions:default": [
-            "-msse",
-            "-msse2",
-            "-msse3",
-            "-mssse3",
-            "-msse4",
-            "-msse4a",
-            "-msse4.1",
-            "-msse4.2",
-        ],
-    }),
-    "avx": select({
-        ":compiler_msvc": ["/arch:AVX"],
-        "//conditions:default": ["-mavx"],
-    }),
-    "avx2": select({
-        ":compiler_msvc": ["/arch:AVX2"],
-        "//conditions:default": ["-mavx2"],
-    }),
-}
+# While aom has implementations for various architectures, this build
+# assumes that every processor has -msse through -msse4.2, inclusive.
+LIBAOM_COPTS_BASELINE = select({
+    ":compiler_msvc": [
+        "-D__SSE__",
+        "-D__SSE2__",
+        "-D__SSE3__",
+        "-D__SSSE3__",
+        "-D__SSE4__",
+        "-D__SSE4_1__",
+        "-D__SSE4_2__",
+    ],
+    "//conditions:default": [
+        "-msse",
+        "-msse2",
+        "-msse3",
+        "-mssse3",
+        "-msse4",
+        "-msse4a",
+        "-msse4.1",
+        "-msse4.2",
+    ],
+})
+
+LIBAOM_COPTS_AVX = select({
+    ":compiler_msvc": ["/arch:AVX"],
+    "//conditions:default": ["-mavx"],
+})
+
+LIBAOM_COPTS_AVX2 = select({
+    ":compiler_msvc": ["/arch:AVX2"],
+    "//conditions:default": ["-mavx2"],
+})
 
 NASM_HDRS = [
     "config/aom_config.asm",
@@ -141,455 +317,788 @@ NASM_HDRS = [
     "third_party/x86inc/x86inc.asm",
 ]
 
-cc_library(
-    name = "libaom",
-    hdrs = LIBAOM_HEADERS,
-    visibility = ["//visibility:public"],
-    deps = [
-        ":av1",
-    ],
-)
-
-# AV1 section
-AV1_SRCS = glob(
-    include = [
-        "av1/*.c",
-        "av1/common/*.c",
-        "av1/decoder/*.c",
-        "av1/encoder/*.c",
-    ],
-    exclude = [
-        "av1/decoder/inspection.c",
-        "av1/encoder/av1_temporal_denoiser.c",
-        "av1/encoder/tune_butteraugli.c",
-        "av1/encoder/tune_vmaf.c",
-    ],
-) + select({
-    "@platforms//cpu:arm64": glob(
-        include = [
-            "av1/common/arm/*.c",
-            "av1/encoder/arm/**/*.c",
-        ],
-        exclude = [
-            "av1/encoder/arm/neon/av1_temporal_denoiser_neon.c",
-        ],
-    ),
-    "@platforms//cpu:ppc": glob(
-        include = [
-            "av1/common/ppc/*.c",
-        ],
-    ),
-    "//conditions:default": [],
-})
-
-AV1_ASM = glob(["av1/encoder/x86/*.asm"])
-
-AV1_SRC_PATTERNS = {
-    "sse42": [
-        "av1/encoder/x86/*_sse2.c",
-        "av1/common/x86/*_sse2.c",
-        "av1/encoder/x86/*_sse3.c",
-        "av1/encoder/x86/*_ssse3.c",
-        "av1/common/x86/*_ssse3.c",
-        "av1/encoder/x86/*_sse4.c",
-        "av1/common/x86/*_sse4.c",
-        "av1/encoder/x86/*_sse42.c",
-    ],
-    "avx": [
-        "third_party/SVT-AV1/*.h",
-    ],
-    "avx2": [
-        "av1/encoder/x86/*_avx2.c",
-        "av1/common/x86/*_avx2.c",
-        "third_party/SVT-AV1/*.h",
-    ],
-}
-
-cc_library(
-    name = "av1",
-    srcs = AV1_SRCS,
-    copts = LIBAOM_COPTS,
-    linkstatic = 1,
-    textual_hdrs = LIBAOM_HEADERS,
-    deps = [
-        ":args_helper",
-        ":codec",
-        ":config",
-        ":dsp",
-        ":fastfeat",
-        ":mem",
-        ":scale",
-        ":vector",
-    ] + select({
-        "@platforms//cpu:arm64": [],
-        "@platforms//cpu:ppc": [],
-        "@platforms//cpu:x86_64": [
-            ":av1_x86_asm",
-            ":av1_x86_avx",
-            ":av1_x86_sse42",
-        ],
-    }) + select({
-        ":have_avx2_intrinsics": [":av1_x86_avx2"],
-        "//conditions:default": [],
-    }),
-    alwayslink = 1,
-)
-
-nasm_cc_library(
-    name = "av1_x86_asm",
-    srcs = AV1_ASM,
-    hdrs = NASM_HDRS,
-    copts = [
-        "-w+all",
-        "-w-reloc-rel-dword",
-    ],
-    alwayslink = 1,
-)
-
-[
-    cc_library(
-        name = "av1_x86_{arch}".format(arch = arch),
-        srcs = glob(
-            include = AV1_SRC_PATTERNS[arch],
-            exclude = [
-                "av1/encoder/x86/av1_temporal_denoiser_sse2.c",
-            ],
-        ),
-        copts = LIBAOM_COPTS + ARCH_DICT[arch],
-        textual_hdrs = LIBAOM_HEADERS,
-        deps = [
-            ":config",
-            ":vector",
-        ],
-        alwayslink = 1,
-    )
-    for arch in AV1_SRC_PATTERNS.keys()
+NASM_COPTS = [
+    "-w+all",
+    "-w-reloc-rel-dword",
 ]
 
-# DSP section
-DSP_SRCS = glob(
-    include = ["aom_dsp/*.c"],
-    exclude = [
-        "aom_dsp/butteraugli.c",
-        "aom_dsp/vmaf.c",
-    ],
-) + select({
-    "@platforms//cpu:arm64": glob(["aom_dsp/arm/*_neon.c"]),
-    "@platforms//cpu:x86_64": ["aom_dsp/x86/aom_asm_stubs.c"],
-    "//conditions:default": [],
-})
-
-DSP_ASM = glob(["aom_dsp/x86/*.asm"])
-
-DSP_SRC_PATTERNS = {
-    "sse42": [
-        "aom_dsp/x86/*_sse2.c",
-        "aom_dsp/x86/*_ssse3.c",
-        "aom_dsp/x86/*_sse4.c",
-    ],
-    "avx": ["aom_dsp/x86/*_avx.c"],
-    "avx2": ["aom_dsp/x86/*_avx2.c"],
-}
+# ------------------------------------------------------------------------------
+# AUTOGENERATED BELOW THIS LINE by update_build.py
 
 cc_library(
-    name = "dsp",
-    srcs = DSP_SRCS,
-    copts = LIBAOM_COPTS,
-    textual_hdrs = LIBAOM_HEADERS,
-    deps = [
-        ":config",
-        ":fastfeat",
-        ":vector",
-    ] + select({
-        "@platforms//cpu:arm64": [],
-        "@platforms//cpu:ppc": [],
-        "@platforms//cpu:x86_64": [
-            ":dsp_x86_asm",
-        ] + [":dsp_x86_{x}".format(x = x) for x in DSP_SRC_PATTERNS.keys()],
-    }),
-    alwayslink = 1,
-)
-
-nasm_cc_library(
-    name = "dsp_x86_asm",
-    srcs = DSP_ASM,
-    hdrs = NASM_HDRS,
-    copts = [
-        "-w+all",
-        "-w-reloc-rel-dword",
-    ],
-    alwayslink = 1,
-)
-
-[
-    cc_library(
-        name = "dsp_x86_{arch}".format(arch = arch),
-        srcs = glob(DSP_SRC_PATTERNS[arch]),
-        copts = LIBAOM_COPTS + ARCH_DICT[arch],
-        textual_hdrs = LIBAOM_HEADERS,
-        deps = [
-            ":config",
-        ],
-        alwayslink = 1,
-    )
-    for arch in DSP_SRC_PATTERNS.keys()
-]
-
-# Other
-
-cc_library(
-    name = "scale",
-    srcs = glob([
-        "aom_scale/*.c",
-        "aom_scale/generic/*.c",
-    ]),
-    hdrs = [
-        "aom_scale/aom_scale.h",
-    ],
-    copts = LIBAOM_COPTS,
-    textual_hdrs = LIBAOM_HEADERS,
-    deps = [
-        ":config",
-        ":mem",
-    ],
-    alwayslink = 1,
-)
-
-CODEC_SRCS = glob(["aom/src/*.c"]) + [
-    "config/aom_config.c",
-    "aom_util/aom_thread.c",
-    "aom_util/debug_util.c",
-] + select({
-    "@platforms//cpu:arm64": [
-        "aom_ports/arm_cpudetect.c",
-    ],
-    "@platforms//cpu:ppc": [
-        "aom_ports/ppc_cpudetect.c",
-    ],
-    "//conditions:default": [],
-})
-
-CODEC_HDRS = glob([
-    "aom/internal/*.h",
-    "aom/*.h",
-]) + [
-    "aom_util/aom_thread.h",
-    "aom_util/debug_util.h",
-] + select({
-    "@platforms//cpu:arm64": [
-        "aom_ports/arm.h",
-    ],
-    "@platforms//cpu:ppc": [
-        "aom_ports/ppc.h",
-    ],
-    "//conditions:default": [],
-})
-
-cc_library(
-    name = "codec",
-    srcs = CODEC_SRCS,
-    hdrs = CODEC_HDRS,
-    copts = LIBAOM_COPTS,
-    includes = ["aom"],
-    textual_hdrs = LIBAOM_HEADERS,
-    deps = [
-        ":args_helper",
-        ":config",
-        ":mem",
-    ] + select({
-        "@platforms//cpu:arm64": [],
-        "@platforms//cpu:ppc": [],
-        "//conditions:default": [
-            ":codec_x86_asm",
-        ],
-    }),
-    alwayslink = 1,
-)
-
-nasm_cc_library(
-    name = "codec_x86_asm",
+    name = "aom_intrinsics_avx2",
     srcs = [
+        "aom_dsp/flow_estimation/x86/corner_match_avx2.c",
+        "aom_dsp/flow_estimation/x86/disflow_avx2.c",
+        "aom_dsp/x86/adaptive_quantize_avx2.c",
+        "aom_dsp/x86/aom_convolve_copy_avx2.c",
+        "aom_dsp/x86/aom_subpixel_8t_intrin_avx2.c",
+        "aom_dsp/x86/avg_intrin_avx2.c",
+        "aom_dsp/x86/blend_a64_mask_avx2.c",
+        "aom_dsp/x86/blk_sse_sum_avx2.c",
+        "aom_dsp/x86/fft_avx2.c",
+        "aom_dsp/x86/highbd_adaptive_quantize_avx2.c",
+        "aom_dsp/x86/highbd_convolve_avx2.c",
+        "aom_dsp/x86/highbd_loopfilter_avx2.c",
+        "aom_dsp/x86/highbd_quantize_intrin_avx2.c",
+        "aom_dsp/x86/highbd_sad_avx2.c",
+        "aom_dsp/x86/highbd_variance_avx2.c",
+        "aom_dsp/x86/intrapred_avx2.c",
+        "aom_dsp/x86/loopfilter_avx2.c",
+        "aom_dsp/x86/masked_sad_intrin_avx2.c",
+        "aom_dsp/x86/obmc_sad_avx2.c",
+        "aom_dsp/x86/obmc_variance_avx2.c",
+        "aom_dsp/x86/quantize_avx2.c",
+        "aom_dsp/x86/sad4d_avx2.c",
+        "aom_dsp/x86/sad_avx2.c",
+        "aom_dsp/x86/sad_impl_avx2.c",
+        "aom_dsp/x86/sse_avx2.c",
+        "aom_dsp/x86/subtract_avx2.c",
+        "aom_dsp/x86/sum_squares_avx2.c",
+        "aom_dsp/x86/variance_avx2.c",
+        "aom_dsp/x86/variance_impl_avx2.c",
+        "av1/common/x86/av1_inv_txfm_avx2.c",
+        "av1/common/x86/cdef_block_avx2.c",
+        "av1/common/x86/cfl_avx2.c",
+        "av1/common/x86/convolve_2d_avx2.c",
+        "av1/common/x86/convolve_avx2.c",
+        "av1/common/x86/highbd_convolve_2d_avx2.c",
+        "av1/common/x86/highbd_inv_txfm_avx2.c",
+        "av1/common/x86/highbd_jnt_convolve_avx2.c",
+        "av1/common/x86/highbd_warp_affine_avx2.c",
+        "av1/common/x86/highbd_wiener_convolve_avx2.c",
+        "av1/common/x86/jnt_convolve_avx2.c",
+        "av1/common/x86/reconinter_avx2.c",
+        "av1/common/x86/resize_avx2.c",
+        "av1/common/x86/selfguided_avx2.c",
+        "av1/common/x86/warp_plane_avx2.c",
+        "av1/common/x86/wiener_convolve_avx2.c",
+        "av1/encoder/x86/av1_fwd_txfm2d_avx2.c",
+        "av1/encoder/x86/av1_highbd_quantize_avx2.c",
+        "av1/encoder/x86/av1_k_means_avx2.c",
+        "av1/encoder/x86/av1_quantize_avx2.c",
+        "av1/encoder/x86/cnn_avx2.c",
+        "av1/encoder/x86/encodetxb_avx2.c",
+        "av1/encoder/x86/error_intrin_avx2.c",
+        "av1/encoder/x86/highbd_block_error_intrin_avx2.c",
+        "av1/encoder/x86/highbd_fwd_txfm_avx2.c",
+        "av1/encoder/x86/highbd_temporal_filter_avx2.c",
+        "av1/encoder/x86/ml_avx2.c",
+        "av1/encoder/x86/pickrst_avx2.c",
+        "av1/encoder/x86/rdopt_avx2.c",
+        "av1/encoder/x86/temporal_filter_avx2.c",
+        "av1/encoder/x86/wedge_utils_avx2.c",
+    ],
+    copts = LIBAOM_COPTS + LIBAOM_COPTS_AVX2,
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "aom_intrinsics_neon",
+    srcs = [
+        "aom_dsp/arm/aom_convolve8_neon.c",
+        "aom_dsp/arm/aom_convolve_copy_neon.c",
+        "aom_dsp/arm/aom_scaled_convolve8_neon.c",
+        "aom_dsp/arm/avg_neon.c",
+        "aom_dsp/arm/avg_pred_neon.c",
+        "aom_dsp/arm/blend_a64_mask_neon.c",
+        "aom_dsp/arm/blk_sse_sum_neon.c",
+        "aom_dsp/arm/fwd_txfm_neon.c",
+        "aom_dsp/arm/hadamard_neon.c",
+        "aom_dsp/arm/highbd_avg_neon.c",
+        "aom_dsp/arm/highbd_avg_pred_neon.c",
+        "aom_dsp/arm/highbd_blend_a64_hmask_neon.c",
+        "aom_dsp/arm/highbd_blend_a64_mask_neon.c",
+        "aom_dsp/arm/highbd_blend_a64_vmask_neon.c",
+        "aom_dsp/arm/highbd_convolve8_neon.c",
+        "aom_dsp/arm/highbd_hadamard_neon.c",
+        "aom_dsp/arm/highbd_intrapred_neon.c",
+        "aom_dsp/arm/highbd_loopfilter_neon.c",
+        "aom_dsp/arm/highbd_masked_sad_neon.c",
+        "aom_dsp/arm/highbd_obmc_sad_neon.c",
+        "aom_dsp/arm/highbd_obmc_variance_neon.c",
+        "aom_dsp/arm/highbd_quantize_neon.c",
+        "aom_dsp/arm/highbd_sad_neon.c",
+        "aom_dsp/arm/highbd_sadxd_neon.c",
+        "aom_dsp/arm/highbd_sse_neon.c",
+        "aom_dsp/arm/highbd_subpel_variance_neon.c",
+        "aom_dsp/arm/highbd_variance_neon.c",
+        "aom_dsp/arm/intrapred_neon.c",
+        "aom_dsp/arm/loopfilter_neon.c",
+        "aom_dsp/arm/masked_sad_neon.c",
+        "aom_dsp/arm/obmc_sad_neon.c",
+        "aom_dsp/arm/obmc_variance_neon.c",
+        "aom_dsp/arm/sad_neon.c",
+        "aom_dsp/arm/sadxd_neon.c",
+        "aom_dsp/arm/sse_neon.c",
+        "aom_dsp/arm/subpel_variance_neon.c",
+        "aom_dsp/arm/subtract_neon.c",
+        "aom_dsp/arm/sum_squares_neon.c",
+        "aom_dsp/arm/variance_neon.c",
+        "aom_dsp/flow_estimation/arm/disflow_neon.c",
+        "av1/common/arm/av1_convolve_horiz_rs_neon.c",
+        "av1/common/arm/av1_convolve_scale_neon.c",
+        "av1/common/arm/av1_inv_txfm_neon.c",
+        "av1/common/arm/av1_txfm_neon.c",
+        "av1/common/arm/blend_a64_hmask_neon.c",
+        "av1/common/arm/blend_a64_vmask_neon.c",
+        "av1/common/arm/cdef_block_neon.c",
+        "av1/common/arm/cfl_neon.c",
+        "av1/common/arm/compound_convolve_neon.c",
+        "av1/common/arm/convolve_neon.c",
+        "av1/common/arm/highbd_compound_convolve_neon.c",
+        "av1/common/arm/highbd_convolve_horiz_rs_neon.c",
+        "av1/common/arm/highbd_convolve_neon.c",
+        "av1/common/arm/highbd_convolve_scale_neon.c",
+        "av1/common/arm/highbd_inv_txfm_neon.c",
+        "av1/common/arm/highbd_reconinter_neon.c",
+        "av1/common/arm/highbd_reconintra_neon.c",
+        "av1/common/arm/highbd_warp_plane_neon.c",
+        "av1/common/arm/highbd_wiener_convolve_neon.c",
+        "av1/common/arm/reconinter_neon.c",
+        "av1/common/arm/reconintra_neon.c",
+        "av1/common/arm/resize_neon.c",
+        "av1/common/arm/selfguided_neon.c",
+        "av1/common/arm/warp_plane_neon.c",
+        "av1/common/arm/wiener_convolve_neon.c",
+        "av1/encoder/arm/av1_error_neon.c",
+        "av1/encoder/arm/av1_fwd_txfm2d_neon.c",
+        "av1/encoder/arm/av1_highbd_quantize_neon.c",
+        "av1/encoder/arm/av1_k_means_neon.c",
+        "av1/encoder/arm/cnn_neon.c",
+        "av1/encoder/arm/encodetxb_neon.c",
+        "av1/encoder/arm/hash_arm_crc32.c",
+        "av1/encoder/arm/highbd_fwd_txfm_neon.c",
+        "av1/encoder/arm/highbd_pickrst_neon.c",
+        "av1/encoder/arm/highbd_rdopt_neon.c",
+        "av1/encoder/arm/highbd_temporal_filter_neon.c",
+        "av1/encoder/arm/hybrid_fwd_txfm_neon.c",
+        "av1/encoder/arm/ml_neon.c",
+        "av1/encoder/arm/pickrst_neon.c",
+        "av1/encoder/arm/quantize_neon.c",
+        "av1/encoder/arm/rdopt_neon.c",
+        "av1/encoder/arm/reconinter_enc_neon.c",
+        "av1/encoder/arm/temporal_filter_neon.c",
+        "av1/encoder/arm/wedge_utils_neon.c",
+    ],
+    copts = LIBAOM_COPTS,
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "aom_intrinsics_neon_dotprod",
+    srcs = [
+        "aom_dsp/arm/aom_convolve8_neon_dotprod.c",
+        "aom_dsp/arm/aom_scaled_convolve8_neon_dotprod.c",
+        "aom_dsp/arm/highbd_variance_neon_dotprod.c",
+        "aom_dsp/arm/sad_neon_dotprod.c",
+        "aom_dsp/arm/sadxd_neon_dotprod.c",
+        "aom_dsp/arm/sse_neon_dotprod.c",
+        "aom_dsp/arm/sum_squares_neon_dotprod.c",
+        "aom_dsp/arm/variance_neon_dotprod.c",
+        "av1/common/arm/av1_convolve_scale_neon_dotprod.c",
+        "av1/common/arm/compound_convolve_neon_dotprod.c",
+        "av1/common/arm/convolve_neon_dotprod.c",
+        "av1/common/arm/resize_neon_dotprod.c",
+        "av1/encoder/arm/temporal_filter_neon_dotprod.c",
+    ],
+    copts = LIBAOM_COPTS + ["-march=armv8.2-a+dotprod"],
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "aom_intrinsics_neon_i8mm",
+    srcs = [
+        "aom_dsp/arm/aom_convolve8_neon_i8mm.c",
+        "aom_dsp/arm/aom_scaled_convolve8_neon_i8mm.c",
+        "av1/common/arm/av1_convolve_scale_neon_i8mm.c",
+        "av1/common/arm/compound_convolve_neon_i8mm.c",
+        "av1/common/arm/convolve_neon_i8mm.c",
+        "av1/common/arm/resize_neon_i8mm.c",
+        "av1/common/arm/warp_plane_neon_i8mm.c",
+    ],
+    copts = LIBAOM_COPTS + ["-march=armv8.2-a+dotprod+i8mm"],
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "aom_intrinsics_sse4_2",
+    srcs = [
+        "aom_dsp/flow_estimation/x86/corner_match_sse4.c",
+        "aom_dsp/flow_estimation/x86/disflow_sse4.c",
+        "aom_dsp/x86/adaptive_quantize_sse2.c",
+        "aom_dsp/x86/aom_convolve_copy_sse2.c",
+        "aom_dsp/x86/aom_subpixel_8t_intrin_ssse3.c",
+        "aom_dsp/x86/avg_intrin_sse2.c",
+        "aom_dsp/x86/avg_intrin_sse4.c",
+        "aom_dsp/x86/blend_a64_hmask_sse4.c",
+        "aom_dsp/x86/blend_a64_mask_sse4.c",
+        "aom_dsp/x86/blend_a64_vmask_sse4.c",
+        "aom_dsp/x86/blk_sse_sum_sse2.c",
+        "aom_dsp/x86/fft_sse2.c",
+        "aom_dsp/x86/fwd_txfm_sse2.c",
+        "aom_dsp/x86/highbd_adaptive_quantize_sse2.c",
+        "aom_dsp/x86/highbd_convolve_sse2.c",
+        "aom_dsp/x86/highbd_convolve_ssse3.c",
+        "aom_dsp/x86/highbd_intrapred_sse2.c",
+        "aom_dsp/x86/highbd_loopfilter_sse2.c",
+        "aom_dsp/x86/highbd_quantize_intrin_sse2.c",
+        "aom_dsp/x86/highbd_subtract_sse2.c",
+        "aom_dsp/x86/highbd_variance_sse2.c",
+        "aom_dsp/x86/highbd_variance_sse4.c",
+        "aom_dsp/x86/intrapred_sse2.c",
+        "aom_dsp/x86/intrapred_sse4.c",
+        "aom_dsp/x86/intrapred_ssse3.c",
+        "aom_dsp/x86/loopfilter_sse2.c",
+        "aom_dsp/x86/masked_sad_intrin_ssse3.c",
+        "aom_dsp/x86/masked_variance_intrin_ssse3.c",
+        "aom_dsp/x86/obmc_sad_sse4.c",
+        "aom_dsp/x86/obmc_variance_sse4.c",
+        "aom_dsp/x86/quantize_sse2.c",
+        "aom_dsp/x86/quantize_ssse3.c",
+        "aom_dsp/x86/sse_sse4.c",
+        "aom_dsp/x86/sum_squares_sse2.c",
+        "aom_dsp/x86/variance_impl_ssse3.c",
+        "aom_dsp/x86/variance_sse2.c",
+        "aom_dsp/x86/variance_ssse3.c",
+        "av1/common/x86/av1_convolve_horiz_rs_sse4.c",
+        "av1/common/x86/av1_convolve_scale_sse4.c",
+        "av1/common/x86/av1_inv_txfm_ssse3.c",
+        "av1/common/x86/av1_txfm_sse4.c",
+        "av1/common/x86/cdef_block_sse4.c",
+        "av1/common/x86/cfl_sse2.c",
+        "av1/common/x86/cfl_ssse3.c",
+        "av1/common/x86/convolve_2d_sse2.c",
+        "av1/common/x86/convolve_sse2.c",
+        "av1/common/x86/filterintra_sse4.c",
+        "av1/common/x86/highbd_convolve_2d_sse4.c",
+        "av1/common/x86/highbd_convolve_2d_ssse3.c",
+        "av1/common/x86/highbd_inv_txfm_sse4.c",
+        "av1/common/x86/highbd_jnt_convolve_sse4.c",
+        "av1/common/x86/highbd_warp_plane_sse4.c",
+        "av1/common/x86/highbd_wiener_convolve_ssse3.c",
+        "av1/common/x86/intra_edge_sse4.c",
+        "av1/common/x86/jnt_convolve_sse2.c",
+        "av1/common/x86/jnt_convolve_ssse3.c",
+        "av1/common/x86/reconinter_sse4.c",
+        "av1/common/x86/reconinter_ssse3.c",
+        "av1/common/x86/resize_sse2.c",
+        "av1/common/x86/resize_ssse3.c",
+        "av1/common/x86/selfguided_sse4.c",
+        "av1/common/x86/warp_plane_sse4.c",
+        "av1/common/x86/wiener_convolve_sse2.c",
+        "av1/encoder/x86/av1_fwd_txfm1d_sse4.c",
+        "av1/encoder/x86/av1_fwd_txfm2d_sse4.c",
+        "av1/encoder/x86/av1_fwd_txfm_sse2.c",
+        "av1/encoder/x86/av1_highbd_quantize_sse4.c",
+        "av1/encoder/x86/av1_k_means_sse2.c",
+        "av1/encoder/x86/av1_quantize_sse2.c",
+        "av1/encoder/x86/encodetxb_sse2.c",
+        "av1/encoder/x86/encodetxb_sse4.c",
+        "av1/encoder/x86/error_intrin_sse2.c",
+        "av1/encoder/x86/hash_sse42.c",
+        "av1/encoder/x86/highbd_block_error_intrin_sse2.c",
+        "av1/encoder/x86/highbd_fwd_txfm_sse4.c",
+        "av1/encoder/x86/highbd_temporal_filter_sse2.c",
+        "av1/encoder/x86/ml_sse3.c",
+        "av1/encoder/x86/pickrst_sse4.c",
+        "av1/encoder/x86/rdopt_sse4.c",
+        "av1/encoder/x86/reconinter_enc_sse2.c",
+        "av1/encoder/x86/temporal_filter_sse2.c",
+        "av1/encoder/x86/wedge_utils_sse2.c",
+    ],
+    copts = LIBAOM_COPTS + LIBAOM_COPTS_BASELINE,
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "aom_intrinsics_sve",
+    srcs = [
+        "aom_dsp/arm/avg_sve.c",
+        "aom_dsp/arm/blk_sse_sum_sve.c",
+        "aom_dsp/arm/highbd_convolve8_sve.c",
+        "aom_dsp/arm/highbd_sse_sve.c",
+        "aom_dsp/arm/highbd_variance_sve.c",
+        "aom_dsp/arm/sum_squares_sve.c",
+        "aom_dsp/flow_estimation/arm/disflow_sve.c",
+        "av1/common/arm/highbd_warp_plane_sve.c",
+        "av1/common/arm/warp_plane_sve.c",
+        "av1/encoder/arm/av1_error_sve.c",
+        "av1/encoder/arm/highbd_pickrst_sve.c",
+        "av1/encoder/arm/pickrst_sve.c",
+        "av1/encoder/arm/wedge_utils_sve.c",
+    ],
+    copts = LIBAOM_COPTS + ["-march=armv8.2-a+dotprod+i8mm+sve"],
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "aom_intrinsics_sve2",
+    srcs = [
+        "av1/common/arm/convolve_sve2.c",
+        "av1/common/arm/highbd_compound_convolve_sve2.c",
+        "av1/common/arm/highbd_convolve_sve2.c",
+    ],
+    copts = LIBAOM_COPTS + ["-march=armv9-a+i8mm+sve2"],
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "aom_intrinsics_vsx",
+    srcs = [
+        "av1/common/ppc/cfl_ppc.c",
+    ],
+    copts = LIBAOM_COPTS,
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+nasm_cc_library(
+    name = "aom_intrinsics_nasm",
+    srcs = [
+        "aom_dsp/x86/aom_high_subpixel_8t_sse2.asm",
+        "aom_dsp/x86/aom_high_subpixel_bilinear_sse2.asm",
+        "aom_dsp/x86/aom_subpixel_8t_ssse3.asm",
+        "aom_dsp/x86/aom_subpixel_bilinear_ssse3.asm",
+        "aom_dsp/x86/fwd_txfm_ssse3_x86_64.asm",
+        "aom_dsp/x86/highbd_intrapred_asm_sse2.asm",
+        "aom_dsp/x86/highbd_sad4d_sse2.asm",
+        "aom_dsp/x86/highbd_sad_sse2.asm",
+        "aom_dsp/x86/highbd_subpel_variance_impl_sse2.asm",
+        "aom_dsp/x86/highbd_variance_impl_sse2.asm",
+        "aom_dsp/x86/intrapred_asm_sse2.asm",
+        "aom_dsp/x86/quantize_ssse3_x86_64.asm",
+        "aom_dsp/x86/sad4d_sse2.asm",
+        "aom_dsp/x86/sad_sse2.asm",
+        "aom_dsp/x86/ssim_sse2_x86_64.asm",
+        "aom_dsp/x86/subpel_variance_ssse3.asm",
+        "aom_dsp/x86/subtract_sse2.asm",
         "aom_ports/float.asm",
+        "av1/encoder/x86/av1_quantize_ssse3_x86_64.asm",
+        "av1/encoder/x86/dct_sse2.asm",
+        "av1/encoder/x86/error_sse2.asm",
     ],
     hdrs = NASM_HDRS,
-    copts = [
-        "-w+all",
-        "-w-reloc-rel-dword",
-    ],
+    copts = NASM_COPTS,
     alwayslink = 1,
 )
 
 cc_library(
-    name = "mem",
-    srcs = glob([
-        "aom_mem/*.c",
-        "aom_mem/include/*.h",
-    ]) + [
-        "aom/aom_integer.h",
-    ],
-    hdrs = [
-        "aom_mem/aom_mem.h",
-    ],
-    copts = LIBAOM_COPTS,
-    includes = ["aom_mem"],
-    deps = [":config"],
-    alwayslink = 1,
-)
-
-cc_library(
-    name = "args_helper",
+    name = "aom_intrinsics_avx",
     srcs = [
+        "aom_dsp/x86/aom_quantize_avx.c",
+    ],
+    copts = LIBAOM_COPTS + LIBAOM_COPTS_AVX,
+    deps = [
+        ":config",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "aom",
+    srcs = [
+        "aom/src/aom_codec.c",
+        "aom/src/aom_decoder.c",
+        "aom/src/aom_encoder.c",
+        "aom/src/aom_image.c",
+        "aom/src/aom_integer.c",
+        "aom_dsp/aom_convolve.c",
+        "aom_dsp/aom_dsp_rtcd.c",
+        "aom_dsp/avg.c",
+        "aom_dsp/binary_codes_reader.c",
+        "aom_dsp/binary_codes_writer.c",
+        "aom_dsp/bitreader.c",
+        "aom_dsp/bitreader_buffer.c",
+        "aom_dsp/bitwriter.c",
+        "aom_dsp/bitwriter_buffer.c",
+        "aom_dsp/blend_a64_hmask.c",
+        "aom_dsp/blend_a64_mask.c",
+        "aom_dsp/blend_a64_vmask.c",
+        "aom_dsp/blk_sse_sum.c",
+        "aom_dsp/entcode.c",
+        "aom_dsp/entdec.c",
+        "aom_dsp/entenc.c",
+        "aom_dsp/fft.c",
+        "aom_dsp/flow_estimation/corner_detect.c",
+        "aom_dsp/flow_estimation/corner_match.c",
+        "aom_dsp/flow_estimation/disflow.c",
+        "aom_dsp/flow_estimation/flow_estimation.c",
+        "aom_dsp/flow_estimation/ransac.c",
+        "aom_dsp/fwd_txfm.c",
+        "aom_dsp/grain_table.c",
+        "aom_dsp/intrapred.c",
+        "aom_dsp/loopfilter.c",
+        "aom_dsp/noise_model.c",
+        "aom_dsp/noise_util.c",
+        "aom_dsp/odintrin.c",
+        "aom_dsp/psnr.c",
+        "aom_dsp/pyramid.c",
+        "aom_dsp/quantize.c",
+        "aom_dsp/sad.c",
+        "aom_dsp/sad_av1.c",
+        "aom_dsp/sse.c",
+        "aom_dsp/ssim.c",
+        "aom_dsp/subtract.c",
+        "aom_dsp/sum_squares.c",
+        "aom_dsp/variance.c",
+        "aom_mem/aom_mem.c",
+        "aom_scale/aom_scale_rtcd.c",
+        "aom_scale/generic/yv12config.c",
+        "aom_scale/generic/yv12extend.c",
+        "aom_util/aom_thread.c",
+        "av1/arg_defs.c",
+        "av1/av1_cx_iface.c",
+        "av1/av1_dx_iface.c",
+        "av1/common/alloccommon.c",
+        "av1/common/av1_inv_txfm1d.c",
+        "av1/common/av1_inv_txfm2d.c",
+        "av1/common/av1_loopfilter.c",
+        "av1/common/av1_rtcd.c",
+        "av1/common/av1_txfm.c",
+        "av1/common/blockd.c",
+        "av1/common/cdef.c",
+        "av1/common/cdef_block.c",
+        "av1/common/cfl.c",
+        "av1/common/common_data.c",
+        "av1/common/convolve.c",
+        "av1/common/debugmodes.c",
+        "av1/common/entropy.c",
+        "av1/common/entropymode.c",
+        "av1/common/entropymv.c",
+        "av1/common/frame_buffers.c",
+        "av1/common/idct.c",
+        "av1/common/mvref_common.c",
+        "av1/common/obu_util.c",
+        "av1/common/pred_common.c",
+        "av1/common/quant_common.c",
+        "av1/common/reconinter.c",
+        "av1/common/reconintra.c",
+        "av1/common/resize.c",
+        "av1/common/restoration.c",
+        "av1/common/scale.c",
+        "av1/common/scan.c",
+        "av1/common/seg_common.c",
+        "av1/common/thread_common.c",
+        "av1/common/tile_common.c",
+        "av1/common/timing.c",
+        "av1/common/txb_common.c",
+        "av1/common/warped_motion.c",
+        "av1/decoder/decodeframe.c",
+        "av1/decoder/decodemv.c",
+        "av1/decoder/decoder.c",
+        "av1/decoder/decodetxb.c",
+        "av1/decoder/detokenize.c",
+        "av1/decoder/grain_synthesis.c",
+        "av1/decoder/obu.c",
+        "av1/encoder/allintra_vis.c",
+        "av1/encoder/aq_complexity.c",
+        "av1/encoder/aq_cyclicrefresh.c",
+        "av1/encoder/aq_variance.c",
+        "av1/encoder/av1_fwd_txfm1d.c",
+        "av1/encoder/av1_fwd_txfm2d.c",
+        "av1/encoder/av1_noise_estimate.c",
+        "av1/encoder/av1_quantize.c",
+        "av1/encoder/bitstream.c",
+        "av1/encoder/cnn.c",
+        "av1/encoder/compound_type.c",
+        "av1/encoder/context_tree.c",
+        "av1/encoder/cost.c",
+        "av1/encoder/dwt.c",
+        "av1/encoder/encode_strategy.c",
+        "av1/encoder/encodeframe.c",
+        "av1/encoder/encodeframe_utils.c",
+        "av1/encoder/encodemb.c",
+        "av1/encoder/encodemv.c",
+        "av1/encoder/encoder.c",
+        "av1/encoder/encoder_utils.c",
+        "av1/encoder/encodetxb.c",
+        "av1/encoder/ethread.c",
+        "av1/encoder/extend.c",
+        "av1/encoder/external_partition.c",
+        "av1/encoder/firstpass.c",
+        "av1/encoder/global_motion.c",
+        "av1/encoder/global_motion_facade.c",
+        "av1/encoder/gop_structure.c",
+        "av1/encoder/hash.c",
+        "av1/encoder/hash_motion.c",
+        "av1/encoder/hybrid_fwd_txfm.c",
+        "av1/encoder/interp_search.c",
+        "av1/encoder/intra_mode_search.c",
+        "av1/encoder/level.c",
+        "av1/encoder/lookahead.c",
+        "av1/encoder/mcomp.c",
+        "av1/encoder/ml.c",
+        "av1/encoder/motion_search_facade.c",
+        "av1/encoder/mv_prec.c",
+        "av1/encoder/nonrd_opt.c",
+        "av1/encoder/nonrd_pickmode.c",
+        "av1/encoder/palette.c",
+        "av1/encoder/partition_search.c",
+        "av1/encoder/partition_strategy.c",
+        "av1/encoder/pass2_strategy.c",
+        "av1/encoder/pickcdef.c",
+        "av1/encoder/picklpf.c",
+        "av1/encoder/pickrst.c",
+        "av1/encoder/ratectrl.c",
+        "av1/encoder/rd.c",
+        "av1/encoder/rdopt.c",
+        "av1/encoder/reconinter_enc.c",
+        "av1/encoder/segmentation.c",
+        "av1/encoder/speed_features.c",
+        "av1/encoder/superres_scale.c",
+        "av1/encoder/svc_layercontext.c",
+        "av1/encoder/temporal_filter.c",
+        "av1/encoder/tokenize.c",
+        "av1/encoder/tpl_model.c",
+        "av1/encoder/tx_search.c",
+        "av1/encoder/txb_rdopt.c",
+        "av1/encoder/var_based_part.c",
+        "av1/encoder/wedge_utils.c",
         "common/args_helper.c",
-    ],
-    hdrs = ["common/args_helper.h"],
-    copts = LIBAOM_COPTS,
-    textual_hdrs = LIBAOM_HEADERS,
-    deps = [":config"],
-    alwayslink = 1,
-)
-
-# Utils
-
-cc_library(
-    name = "fastfeat",
-    srcs = [
         "third_party/fastfeat/fast.c",
         "third_party/fastfeat/fast_9.c",
         "third_party/fastfeat/nonmax.c",
-    ],
-    hdrs = [
-        "third_party/fastfeat/fast.h",
-    ],
-    copts = LIBAOM_COPTS,
-)
-
-cc_library(
-    name = "vector",
-    srcs = [
         "third_party/vector/vector.c",
     ],
     hdrs = [
+        "aom/aom.h",
+        "aom/aom_codec.h",
+        "aom/aom_decoder.h",
+        "aom/aom_encoder.h",
+        "aom/aom_external_partition.h",
+        "aom/aom_frame_buffer.h",
+        "aom/aom_image.h",
+        "aom/aom_integer.h",
+        "aom/aomcx.h",
+        "aom/aomdx.h",
+        "aom/internal/aom_codec_internal.h",
+        "aom/internal/aom_image_internal.h",
+        "aom_dsp/aom_dsp_common.h",
+        "aom_dsp/aom_filter.h",
+        "aom_dsp/aom_simd.h",
+        "aom_dsp/aom_simd_inline.h",
+        "aom_dsp/binary_codes_reader.h",
+        "aom_dsp/binary_codes_writer.h",
+        "aom_dsp/bitreader.h",
+        "aom_dsp/bitreader_buffer.h",
+        "aom_dsp/bitwriter.h",
+        "aom_dsp/bitwriter_buffer.h",
+        "aom_dsp/blend.h",
+        "aom_dsp/entcode.h",
+        "aom_dsp/entdec.h",
+        "aom_dsp/entenc.h",
+        "aom_dsp/fft_common.h",
+        "aom_dsp/grain_params.h",
+        "aom_dsp/grain_table.h",
+        "aom_dsp/intrapred_common.h",
+        "aom_dsp/noise_model.h",
+        "aom_dsp/noise_util.h",
+        "aom_dsp/odintrin.h",
+        "aom_dsp/prob.h",
+        "aom_dsp/psnr.h",
+        "aom_dsp/quantize.h",
+        "aom_dsp/recenter.h",
+        "aom_dsp/simd/v128_intrinsics.h",
+        "aom_dsp/simd/v128_intrinsics_c.h",
+        "aom_dsp/simd/v256_intrinsics.h",
+        "aom_dsp/simd/v256_intrinsics_c.h",
+        "aom_dsp/simd/v64_intrinsics.h",
+        "aom_dsp/simd/v64_intrinsics_c.h",
+        "aom_dsp/ssim.h",
+        "aom_dsp/txfm_common.h",
+        "aom_dsp/variance.h",
+        "aom_dsp/x86/convolve_common_intrin.h",
+        "aom_mem/aom_mem.h",
+        "aom_mem/include/aom_mem_intrnl.h",
+        "aom_scale/yv12config.h",
+        "aom_util/aom_pthread.h",
+        "aom_util/aom_thread.h",
+        "aom_util/endian_inl.h",
+        "av1/arg_defs.h",
+        "av1/av1_cx_iface.h",
+        "av1/av1_iface_common.h",
+        "av1/common/alloccommon.h",
+        "av1/common/av1_common_int.h",
+        "av1/common/av1_inv_txfm1d.h",
+        "av1/common/av1_inv_txfm1d_cfg.h",
+        "av1/common/av1_loopfilter.h",
+        "av1/common/av1_txfm.h",
+        "av1/common/blockd.h",
+        "av1/common/cdef.h",
+        "av1/common/cdef_block.h",
+        "av1/common/cfl.h",
+        "av1/common/common.h",
+        "av1/common/common_data.h",
+        "av1/common/convolve.h",
+        "av1/common/entropy.h",
+        "av1/common/entropymode.h",
+        "av1/common/entropymv.h",
+        "av1/common/enums.h",
+        "av1/common/filter.h",
+        "av1/common/frame_buffers.h",
+        "av1/common/idct.h",
+        "av1/common/mv.h",
+        "av1/common/mvref_common.h",
+        "av1/common/obu_util.h",
+        "av1/common/pred_common.h",
+        "av1/common/quant_common.h",
+        "av1/common/reconinter.h",
+        "av1/common/reconintra.h",
+        "av1/common/resize.h",
+        "av1/common/restoration.h",
+        "av1/common/scale.h",
+        "av1/common/scan.h",
+        "av1/common/seg_common.h",
+        "av1/common/thread_common.h",
+        "av1/common/tile_common.h",
+        "av1/common/timing.h",
+        "av1/common/token_cdfs.h",
+        "av1/common/txb_common.h",
+        "av1/common/warped_motion.h",
+        "av1/decoder/decodeframe.h",
+        "av1/decoder/decodemv.h",
+        "av1/decoder/decoder.h",
+        "av1/decoder/decodetxb.h",
+        "av1/decoder/detokenize.h",
+        "av1/decoder/dthread.h",
+        "av1/decoder/grain_synthesis.h",
+        "av1/decoder/obu.h",
+        "av1/encoder/allintra_vis.h",
+        "av1/encoder/aq_complexity.h",
+        "av1/encoder/aq_cyclicrefresh.h",
+        "av1/encoder/aq_variance.h",
+        "av1/encoder/av1_fwd_txfm1d.h",
+        "av1/encoder/av1_fwd_txfm1d_cfg.h",
+        "av1/encoder/av1_noise_estimate.h",
+        "av1/encoder/av1_quantize.h",
+        "av1/encoder/bitstream.h",
+        "av1/encoder/block.h",
+        "av1/encoder/cnn.h",
+        "av1/encoder/compound_type.h",
+        "av1/encoder/context_tree.h",
+        "av1/encoder/cost.h",
+        "av1/encoder/dwt.h",
+        "av1/encoder/enc_enums.h",
+        "av1/encoder/encode_strategy.h",
+        "av1/encoder/encodeframe.h",
+        "av1/encoder/encodeframe_utils.h",
+        "av1/encoder/encodemb.h",
+        "av1/encoder/encodemv.h",
+        "av1/encoder/encoder.h",
+        "av1/encoder/encoder_alloc.h",
+        "av1/encoder/encoder_utils.h",
+        "av1/encoder/encodetxb.h",
+        "av1/encoder/ethread.h",
+        "av1/encoder/extend.h",
+        "av1/encoder/external_partition.h",
+        "av1/encoder/firstpass.h",
+        "av1/encoder/global_motion.h",
+        "av1/encoder/global_motion_facade.h",
+        "av1/encoder/gop_structure.h",
+        "av1/encoder/grain_test_vectors.h",
+        "av1/encoder/hash.h",
+        "av1/encoder/hash_motion.h",
+        "av1/encoder/hybrid_fwd_txfm.h",
+        "av1/encoder/interp_search.h",
+        "av1/encoder/intra_mode_search.h",
+        "av1/encoder/intra_mode_search_utils.h",
+        "av1/encoder/level.h",
+        "av1/encoder/lookahead.h",
+        "av1/encoder/mcomp.h",
+        "av1/encoder/mcomp_structs.h",
+        "av1/encoder/ml.h",
+        "av1/encoder/model_rd.h",
+        "av1/encoder/motion_search_facade.h",
+        "av1/encoder/mv_prec.h",
+        "av1/encoder/nonrd_opt.h",
+        "av1/encoder/palette.h",
+        "av1/encoder/partition_search.h",
+        "av1/encoder/partition_strategy.h",
+        "av1/encoder/pass2_strategy.h",
+        "av1/encoder/pickcdef.h",
+        "av1/encoder/picklpf.h",
+        "av1/encoder/pickrst.h",
+        "av1/encoder/ratectrl.h",
+        "av1/encoder/rc_utils.h",
+        "av1/encoder/rd.h",
+        "av1/encoder/rdopt.h",
+        "av1/encoder/rdopt_data_defs.h",
+        "av1/encoder/rdopt_utils.h",
+        "av1/encoder/reconinter_enc.h",
+        "av1/encoder/segmentation.h",
+        "av1/encoder/sorting_network.h",
+        "av1/encoder/speed_features.h",
+        "av1/encoder/superres_scale.h",
+        "av1/encoder/svc_layercontext.h",
+        "av1/encoder/temporal_filter.h",
+        "av1/encoder/tokenize.h",
+        "av1/encoder/tpl_model.h",
+        "av1/encoder/tx_search.h",
+        "av1/encoder/txb_rdopt.h",
+        "av1/encoder/txb_rdopt_utils.h",
+        "av1/encoder/var_based_part.h",
+        "av1/ratectrl_rtc.h",
+        "common/args_helper.h",
+        "third_party/fastfeat/fast.h",
         "third_party/vector/vector.h",
     ],
     copts = LIBAOM_COPTS,
-)
-
-# Config section
-
-cc_library(
-    name = "config",
-    hdrs = [
-        "config/aom_config.h",
-        "config/aom_dsp_rtcd.h",
-        "config/aom_scale_rtcd.h",
-        "config/aom_version.h",
-        "config/av1_rtcd.h",
-    ],
-)
-
-CONFIG_SUBSTITUTIONS = select({
-    "@platforms//cpu:arm64": {"${ARM64}": "1"},
-    "//conditions:default": {"${ARM64}": "0"},
-}) | select({
-    "@platforms//cpu:ppc": {"${PPC}": "1"},
-    "//conditions:default": {"${PPC}": "0"},
-}) | select({
-    "@platforms//cpu:x86_64": {"${X86_64}": "1"},
-    "//conditions:default": {"${X86_64}": "0"},
-}) | select({
-    "@platforms//os:windows": {"${PTHREAD}": "0"},
-    "//conditions:default": {"${PTHREAD}": "1"},
-}) | select({
-    ":have_avx2_intrinsics": {"${HAVE_AVX2}": "1"},
-    "//conditions:default": {"${HAVE_AVX2}": "0"},
-})
-
-expand_template(
-    name = "config_h_tmpl",
-    out = "config/aom_config.h",
-    substitutions = CONFIG_SUBSTITUTIONS,
-    template = "@tensorstore//third_party:org_aomedia_aom/aom_config.h.template",
-)
-
-expand_template(
-    name = "config_asm_tmpl",
-    out = "config/aom_config.asm",
-    substitutions = CONFIG_SUBSTITUTIONS,
-    template = "@tensorstore//third_party:org_aomedia_aom/aom_config.asm.template",
-)
-
-expand_template(
-    name = "config_version_tmpl",
-    out = "config/aom_version.h",
-    substitutions = CONFIG_SUBSTITUTIONS,
-    template = "@tensorstore//third_party:org_aomedia_aom/aom_version.h.template",
-)
-
-write_file(
-    name = "config_c_tmpl",
-    out = "config/aom_config.c",
-    content = [
-        "/*",
-        " * Copyright (c) 2016, Alliance for Open Media. All rights reserved",
-        " *",
-        " * This source code is subject to the terms of the BSD 2 Clause License and",
-        " * the Alliance for Open Media Patent License 1.0. If the BSD 2 Clause License",
-        " * was not distributed with this source code in the LICENSE file, you can",
-        " * obtain it at www.aomedia.org/license/software. If the Alliance for Open",
-        " * Media Patent License 1.0 was not distributed with this source code in the",
-        " * PATENTS file, you can obtain it at www.aomedia.org/license/patent.",
-        " */",
-        "#include \"aom/aom_codec.h\"",
-        "static const char* const cfg = \"bazel build @org_aomedia_aom//:all\";",
-        "const char *aom_codec_build_config(void) {return cfg;}",
-        "",
-    ],
-    newline = "unix",
-)
-
-GENERATED_CONFIGS = [
-    ("@platforms//cpu:arm64", "arm64"),
-    ("@platforms//cpu:ppc", "ppc"),
-    (":have_avx2_intrinsics", "x86_64_avx2"),
-    ("//conditions:default", "x86_64"),
-]
-
-[
-    copy_file(
-        name = "copy_{tag}".format(tag = tag),
-        src = select({
-            condition: "@tensorstore//third_party:org_aomedia_aom/generated_configs/{config}/{tag}.h".format(
-                config = config,
-                tag = tag,
-            )
-            for condition, config in GENERATED_CONFIGS
-        }),
-        out = "config/{tag}.h".format(tag = tag),
-    )
-    for tag in [
-        "aom_dsp_rtcd",
-        "aom_scale_rtcd",
-        "av1_rtcd",
-    ]
-]
-
-# Constraint that indicates whether avx2 intrinsics can be used (subject to
-# runtime CPU detection).
-alias(
-    name = "have_avx2_intrinsics",
-    actual = select({
-        # mingw gcc does not correctly align the stack to 32 bytes, which makes
-        # avx2 intrinsics unusable.
-        #
-        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
-        "@rules_cc//cc/compiler:mingw-gcc": "@platforms//:incompatible",
-
-        # Enable by default on x86_64.
-        "//conditions:default": "@platforms//cpu:x86_64",
+    deps = [
+        ":config",
+    ] + select({
+        "//conditions:default": [],
+        ":have_avx2_intrinsics": [
+            ":aom_intrinsics_avx2",
+        ],
+    }) + select({
+        "//conditions:default": [],
+        "@platforms//cpu:arm64": [
+            ":aom_intrinsics_neon",
+            ":aom_intrinsics_neon_dotprod",
+            ":aom_intrinsics_neon_i8mm",
+        ],
+    }) + select({
+        "//conditions:default": [],
+        "@platforms//cpu:x86_64": [
+            ":aom_intrinsics_avx",
+            ":aom_intrinsics_nasm",
+            ":aom_intrinsics_sse4_2",
+        ],
+    }) + select({
+        "//conditions:default": [],
+        ":have_sve2_intrinsics": [
+            ":aom_intrinsics_sve",
+            ":aom_intrinsics_sve2",
+        ],
+    }) + select({
+        "//conditions:default": [],
+        "@platforms//cpu:ppc": [
+            ":aom_intrinsics_vsx",
+        ],
     }),
-)
-
-alias(
-    name = "compiler_msvc",
-    actual = "@rules_cc//cc/compiler:msvc-cl",
+    alwayslink = 1,
 )

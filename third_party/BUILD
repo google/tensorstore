@@ -15,7 +15,8 @@ filegroup(
 filegroup(
     name = "templates",
     srcs = glob([
-        "**/*.template",
+        "**/*.c",
+        "**/*.asm",
         "**/*.h",
     ]),
 )
