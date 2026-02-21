@@ -351,7 +351,7 @@ Result<internal::TransformedDriverSpec> ArrayDriver::GetBoundSpec(
   driver_spec->context_binding_state_ = ContextBindingState::bound;
   SharedArray<const void> array;
   {
-    absl::ReaderMutexLock lock(&mutex_);
+    absl::ReaderMutexLock lock(mutex_);
     TENSORSTORE_ASSIGN_OR_RETURN(
         array, tensorstore::TransformArray<zero_origin>(
                    data_, transform, {skip_repeated_elements, must_allocate}));
