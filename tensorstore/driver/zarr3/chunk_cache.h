@@ -18,6 +18,8 @@
 #include <stddef.h>
 
 #include <memory>
+#include <numeric>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -27,10 +29,12 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/read_request.h"
 #include "tensorstore/driver/write_request.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
+#include "tensorstore/driver/zarr3/dtype.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/cache/cache.h"
@@ -72,6 +76,7 @@ class ZarrChunkCache {
   virtual const Executor& executor() const = 0;
 
   struct ReadRequest : internal::DriverReadRequest {
+    size_t component_index = 0;
     absl::Time staleness_bound;
     bool fill_missing_data_reads;
   };
@@ -81,6 +86,7 @@ class ZarrChunkCache {
                                     IndexTransform<>>&& receiver) = 0;
 
   struct WriteRequest : internal::DriverWriteRequest {
+    size_t component_index = 0;
     bool store_data_equal_to_fill_value;
   };
 
@@ -154,7 +160,12 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
 
   explicit ZarrLeafChunkCache(kvstore::DriverPtr store,
                               ZarrCodecChain::PreparedState::Ptr codec_state,
-                              internal::CachePool::WeakPtr data_cache_pool);
+                              ZarrDType dtype,
+                              internal::CachePool::WeakPtr data_cache_pool,
+                              bool open_as_void,
+                              bool original_is_structured,
+                              DataType original_dtype,
+                              bool grid_has_void_dimension = true);
 
   void Read(ZarrChunkCache::ReadRequest request,
             AnyFlowReceiver<absl::Status, internal::ReadChunk,
@@ -181,6 +192,11 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
   kvstore::Driver* GetKvStoreDriver() override;
 
   ZarrCodecChain::PreparedState::Ptr codec_state_;
+  ZarrDType dtype_;
+  bool open_as_void_;
+  bool original_is_structured_;
+  DataType original_dtype_;  // Original dtype for void access encoding
+  bool grid_has_void_dimension_;  // Whether grid().chunk_shape includes bytes dim
 };
 
 /// Chunk cache for a Zarr array where each chunk is a shard.
@@ -190,7 +206,12 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
  public:
   explicit ZarrShardedChunkCache(kvstore::DriverPtr store,
                                  ZarrCodecChain::PreparedState::Ptr codec_state,
-                                 internal::CachePool::WeakPtr data_cache_pool);
+                                 ZarrDType dtype,
+                                 internal::CachePool::WeakPtr data_cache_pool,
+                                 bool open_as_void,
+                                 bool original_is_structured,
+                                 DataType original_dtype,
+                                 bool grid_has_void_dimension = true);
 
   const ZarrShardingCodec::PreparedState& sharding_codec_state() const {
     return static_cast<const ZarrShardingCodec::PreparedState&>(
@@ -239,6 +260,10 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
 
   kvstore::DriverPtr base_kvstore_;
   ZarrCodecChain::PreparedState::Ptr codec_state_;
+  ZarrDType dtype_;
+  bool open_as_void_;
+  bool original_is_structured_;
+  DataType original_dtype_;  // Original dtype for void access encoding
 
   // Data cache pool, if it differs from `this->pool()` (which is equal to the
   // metadata cache pool).
@@ -253,13 +278,41 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
   explicit ZarrShardSubChunkCache(
       kvstore::DriverPtr store, Executor executor,
       ZarrShardingCodec::PreparedState::Ptr sharding_state,
-      internal::CachePool::WeakPtr data_cache_pool)
+      ZarrDType dtype, internal::CachePool::WeakPtr data_cache_pool,
+      bool open_as_void, bool original_is_structured, DataType original_dtype)
       : ChunkCacheImpl(std::move(store),
                        ZarrCodecChain::PreparedState::Ptr(
                            sharding_state->sub_chunk_codec_state),
-                       std::move(data_cache_pool)),
+                       std::move(dtype), std::move(data_cache_pool),
+                       open_as_void, original_is_structured, original_dtype,
+                       /*grid_has_void_dimension=*/false),
         sharding_state_(std::move(sharding_state)),
-        executor_(std::move(executor)) {}
+        executor_(std::move(executor)) {
+    // For void access on non-structured types, create a modified grid
+    // with the bytes dimension added to the component shape.
+    // The grid's chunk_shape stays the same (determines cell layout).
+    if (ChunkCacheImpl::open_as_void_ &&
+        !ChunkCacheImpl::original_is_structured_) {
+      const auto& original_grid = *sharding_state_->sub_chunk_grid;
+      const auto& orig_comp = original_grid.components[0];
+      // Component chunk_shape gets bytes dimension, grid chunk_shape doesn't
+      std::vector<Index> void_comp_shape = orig_comp.chunk_shape;
+      void_comp_shape.push_back(ChunkCacheImpl::dtype_.bytes_per_outer_element);
+      // Create zero fill value with the void shape
+      auto fill_value = AllocateArray(void_comp_shape, c_order, value_init,
+                                       dtype_v<tensorstore::dtypes::byte_t>);
+      // chunked_to_cell_dimensions maps the grid dimensions to cell dimensions
+      // (the bytes dimension is unchunked, so not included here)
+      std::vector<DimensionIndex> chunked_to_cell(original_grid.chunk_shape.size());
+      std::iota(chunked_to_cell.begin(), chunked_to_cell.end(), 0);
+      internal::ChunkGridSpecification::ComponentList components;
+      components.emplace_back(
+          internal::AsyncWriteArray::Spec{std::move(fill_value),
+                                          Box<>(void_comp_shape.size())},
+          void_comp_shape, std::move(chunked_to_cell));
+      void_grid_.emplace(std::move(components));
+    }
+  }
 
   const internal::LexicographicalGridIndexKeyParser& GetChunkStorageKeyParser()
       override {
@@ -267,6 +320,9 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
   }
 
   const internal::ChunkGridSpecification& grid() const override {
+    if (void_grid_) {
+      return *void_grid_;
+    }
     return *sharding_state_->sub_chunk_grid;
   }
   const Executor& executor() const override { return executor_; }
@@ -275,6 +331,7 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
 
   ZarrShardingCodec::PreparedState::Ptr sharding_state_;
   Executor executor_;
+  std::optional<internal::ChunkGridSpecification> void_grid_;
 };
 
 // Creates a `ZarrChunkCache` for the specified `codec_chain`.

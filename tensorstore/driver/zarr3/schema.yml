@@ -17,6 +17,25 @@ allOf:
         automatically.  When creating a new array, the new metadata is obtained
         by combining these metadata constraints with any `Schema` constraints.
       $ref: driver/zarr3/Metadata
+    field:
+      oneOf:
+        - type: string
+        - type: "null"
+      title: Name of field to open.
+      description: |
+        Must be specified if the `.metadata.data_type` specified in the array
+        metadata has more than one field.  Cannot be specified together with
+        :json:`"open_as_void": true`.
+      default: null
+    open_as_void:
+      type: boolean
+      default: false
+      title: Raw byte access mode.
+      description: |
+        When true, opens the array as raw bytes instead of interpreting it
+        as structured data. The resulting array will have an additional
+        dimension representing the byte layout of each element.  Cannot be
+        :json:`true` if `.field` is also specified.
 examples:
 - driver: zarr3
   kvstore:

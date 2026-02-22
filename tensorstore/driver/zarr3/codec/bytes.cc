@@ -127,18 +127,19 @@ Result<ZarrArrayToBytesCodec::Ptr> BytesCodecSpec::Resolve(
   encoded.item_bits = decoded.dtype.size() * 8;
   DimensionIndex rank = decoded.rank;
   if (decoded.codec_chunk_shape) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "\"bytes\" codec does not support codec_chunk_shape (",
-        span<const Index>(decoded.codec_chunk_shape->data(), rank),
-        " was specified"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "\"bytes\" codec does not support codec_chunk_shape (%s was specified)",
+        absl::FormatStreamed(
+            span<const Index>(decoded.codec_chunk_shape->data(), rank))));
   }
   if (decoded.inner_order) {
     auto& decoded_inner_order = *decoded.inner_order;
     for (DimensionIndex i = 0; i < rank; ++i) {
       if (decoded_inner_order[i] != i) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "\"bytes\" codec does not support inner_order of ",
-            span<const DimensionIndex>(decoded_inner_order.data(), rank)));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "\"bytes\" codec does not support inner_order of %s",
+            absl::FormatStreamed(
+                span<const DimensionIndex>(decoded_inner_order.data(), rank))));
       }
     }
   }
@@ -207,9 +208,9 @@ Result<ZarrArrayToBytesCodec::PreparedState::Ptr> BytesCodec::Prepare(
   int64_t bytes = dtype_.size();
   for (auto size : decoded_shape) {
     if (internal::MulOverflow(size, bytes, &bytes)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Integer overflow computing encoded size of array of shape ",
-          decoded_shape));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Integer overflow computing encoded size of array of shape %s",
+          absl::FormatStreamed(decoded_shape)));
     }
   }
   auto state = internal::MakeIntrusivePtr<BytesCodecPreparedState>();
