@@ -907,6 +907,32 @@
   
   
     <li class="md-nav__item">
+      <a href="tensorstore.StatusBuilder.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::StatusBuilder (C++ class) — StatusBuilder is a builder object for constructing absl::Status objects, with methods to override the status code, augment the error message, and attach payloads."><span>Status<wbr>Builder</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="tensorstore.MaybeAnnotateStatus.html" class="md-nav__link">
         
   
@@ -1450,19 +1476,40 @@ if it is an error status.</p>
 <span class="p">}</span>
 </code></pre></div>
 </div>
-<p>An optional second argument specifies the return expression in the case of
-an error.  A variable <code class="code highlight cpp docutils literal highlight-cpp"><span class="n">_</span></code> is bound to the value of the first expression
-is in scope within this expression.  For example:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">TENSORSTORE_RETURN_IF_ERROR</span><span class="p">(</span><span class="n">GetSomeStatus</span><span class="p">(),</span>
-<span class="w">                            </span><span class="n">MaybeAnnotateStatus</span><span class="p">(</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;In Bar&quot;</span><span class="p">));</span>
+<p>The <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="TENSORSTORE_RETURN_IF_ERROR (C macro) — Causes the containing function to return the specified absl::Status value if it is an error status."><span class="n">TENSORSTORE_RETURN_IF_ERROR</span></a></code> macro implicitly returns a
+<code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.StatusBuilder.html#c:&#64;N&#64;tensorstore&#64;S&#64;StatusBuilder" title="tensorstore::StatusBuilder (C++ class) — StatusBuilder is a builder object for constructing absl::Status objects, with methods to override the status code, augment the error message, and attach payloads."><span class="n">StatusBuilder</span></a></code> object which may be used to further modify the
+status. A <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.StatusBuilder.html#c:&#64;N&#64;tensorstore&#64;S&#64;StatusBuilder" title="tensorstore::StatusBuilder (C++ class) — StatusBuilder is a builder object for constructing absl::Status objects, with methods to override the status code, augment the error message, and attach payloads."><span class="n">StatusBuilder</span></a></code> is implicitly convertible to an
+<code class="cpp-expr sig sig-inline cpp highlight"><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status" title="C++ class"><span class="n">Status</span></a></code>, however when used in lambdas the return type may need to be
+explicitly specified as <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status" title="C++ class"><span class="n">Status</span></a></code>.</p>
+<p>To explicitly convert to <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status" title="C++ class"><span class="n">Status</span></a></code> use <code class="code highlight cpp docutils literal highlight-cpp"><span class="p">.</span><span class="n">BuildStatus</span><span class="p">()</span></code>, or use
+the <code class="code highlight cpp docutils literal highlight-cpp"><span class="p">.</span><span class="n">With</span><span class="p">()</span></code> method return a different type (including void).</p>
+<p>Example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">TENSORSTORE_RETURN_IF_ERROR</span><span class="p">(</span><span class="n">GetSomeStatus</span><span class="p">())</span>
+<span class="w">    </span><span class="p">.</span><span class="n">Format</span><span class="p">(</span><span class="s">&quot;In Bar&quot;</span><span class="p">);</span>
 
-<span class="n">TENSORSTORE_RETURN_IF_ERROR</span><span class="p">(</span><span class="n">GetSomeStatus</span><span class="p">(),</span>
-<span class="w">                            </span><span class="n">MakeReadyFuture</span><span class="p">(</span><span class="n">_</span><span class="p">));</span>
+<span class="n">TENSORSTORE_RETURN_IF_ERROR</span><span class="p">(</span><span class="n">GetSomeStatus</span><span class="p">())</span>
+<span class="w">    </span><span class="p">.</span><span class="n">Format</span><span class="p">(</span><span class="s">&quot;In Bar&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="n">With</span><span class="p">([</span><span class="o">&amp;</span><span class="p">](</span><span class="n">absl</span><span class="o">::</span><span class="n">Status</span><span class="w"> </span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">future</span><span class="p">.</span><span class="n">SetResult</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">s</span><span class="p">));</span><span class="w"> </span><span class="p">});</span>
+
+<span class="k">auto</span><span class="w"> </span><span class="n">my_lambda</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[]()</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">absl</span><span class="o">::</span><span class="n">Status</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">TENSORSTORE_RETURN_IF_ERROR</span><span class="p">(</span><span class="n">GetSomeStatus</span><span class="p">());</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">absl</span><span class="o">::</span><span class="n">OkStatus</span><span class="p">();</span>
+<span class="p">};</span>
+</code></pre></div>
+</div>
+<p>There is also a 2-argument form of <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="TENSORSTORE_RETURN_IF_ERROR (C macro) — Causes the containing function to return the specified absl::Status value if it is an error status."><span class="n">TENSORSTORE_RETURN_IF_ERROR</span></a></code> where
+the second argument is an error expression which is evaluated only if
+the first argument is an error.  When invoked with two arguments, <code class="code highlight cpp docutils literal highlight-cpp"><span class="n">_</span></code> is
+bound to the <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.StatusBuilder.html#c:&#64;N&#64;tensorstore&#64;S&#64;StatusBuilder" title="tensorstore::StatusBuilder (C++ class) — StatusBuilder is a builder object for constructing absl::Status objects, with methods to override the status code, augment the error message, and attach payloads."><span class="n">StatusBuilder</span></a></code>. The second argument must be a
+valid expression for the right-hand side of a <code class="code highlight cpp docutils literal highlight-cpp"><span class="k">return</span></code> statement.</p>
+<p>Example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">TENSORSTORE_RETURN_IF_ERROR</span><span class="p">(</span><span class="n">GetSomeStatus</span><span class="p">(),</span>
+<span class="w">                            </span><span class="n">_</span><span class="p">.</span><span class="n">Format</span><span class="p">(</span><span class="s">&quot;In Bar&quot;</span><span class="p">));</span>
 </code></pre></div>
 </div>
 <div class="warning admonition">
 <p class="admonition-title">Warning</p>
-<p>The <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status" title="C++ class"><span class="n">Status</span></a></code> expression must not contain any commas outside
+<p>The first argument must not contain any commas outside
 parentheses (such as in a template argument list); if necessary, to
 ensure this, it may be wrapped in additional parentheses as needed.</p>
 </div>
