@@ -86,12 +86,27 @@ struct S3PathFormatter {
   }
 };
 
+// Path-style URL for custom S3-compatible endpoints: {endpoint}/{bucket}
 struct S3CustomFormatter {
   std::string endpoint;
 
   std::string GetEndpoint(std::string_view bucket,
                           std::string_view aws_region) const {
     return absl::StrFormat("%s/%s", endpoint, bucket);
+  }
+};
+
+// Virtual-hosted-style URL for custom endpoints: {scheme}://{bucket}.{host}
+// Required by S3-compatible providers that reject path-style requests
+// (e.g. CoreWeave cwobject.com returns PathStyleRequestNotAllowed).
+struct S3CustomVirtualHostFormatter {
+  std::string endpoint;
+
+  std::string GetEndpoint(std::string_view bucket,
+                          std::string_view aws_region) const {
+    auto parsed = internal::ParseGenericUri(endpoint);
+    return absl::StrFormat("%s://%s.%s", parsed.scheme, bucket,
+                           parsed.authority);
   }
 };
 
@@ -166,8 +181,20 @@ bool IsAwsS3Endpoint(std::string_view endpoint) {
 
 std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     std::string_view bucket, std::string aws_region, std::string_view endpoint,
-    std::string host_header) {
+    std::string host_header, std::string_view addressing_style) {
   ABSL_CHECK(!bucket.empty());
+
+  if (!addressing_style.empty() && addressing_style != "path" &&
+      addressing_style != "virtual") {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid addressing_style: ", QuoteString(addressing_style),
+        ". Must be \"path\" or \"virtual\"."));
+  }
+
+  if (addressing_style == "virtual" && endpoint.empty()) {
+    return absl::InvalidArgumentError(
+        "\"addressing_style\" \"virtual\" requires \"endpoint\" to be set");
+  }
 
   if (!host_header.empty() && endpoint.empty()) {
     return absl::InvalidArgumentError(
@@ -229,11 +256,17 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
   }
 
   if (!aws_region.empty()) {
-    // Endpoint and aws_region are specified; assume a non-virtual signing
-    // header is allowed.
-    S3CustomFormatter formatter{std::string(endpoint)};
+    std::string resolved_endpoint;
+    if (addressing_style == "virtual") {
+      resolved_endpoint = S3CustomVirtualHostFormatter{std::string(endpoint)}
+                              .GetEndpoint(bucket, aws_region);
+    } else {
+      resolved_endpoint =
+          S3CustomFormatter{std::string(endpoint)}.GetEndpoint(bucket,
+                                                               aws_region);
+    }
     return S3EndpointRegion{
-        formatter.GetEndpoint(bucket, aws_region),
+        std::move(resolved_endpoint),
         aws_region,
         ConditionalWriteHeuristic(endpoint, {}),
     };
@@ -244,6 +277,7 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
 
 Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string bucket, std::string_view endpoint, std::string host_header,
+    std::string_view addressing_style,
     std::shared_ptr<internal_http::HttpTransport> transport) {
   assert(!bucket.empty());
   assert(transport);
@@ -285,8 +319,21 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
         .future;
   }
 
-  // Issue a HEAD request against the endpoint+bucket, which should work for
-  // mock S3 backends like localstack or minio.
+  if (addressing_style == "virtual") {
+    S3CustomVirtualHostFormatter formatter{std::string(endpoint)};
+    std::string head_url = formatter.GetEndpoint(bucket, {});
+    auto request = HttpRequestBuilder("HEAD", std::move(head_url))
+                       .AddHostHeader(host_header)
+                       .BuildRequest();
+    return PromiseFuturePair<S3EndpointRegion>::LinkValue(
+               ResolveHost<S3CustomVirtualHostFormatter>{
+                   std::move(bucket), "us-east-1",
+                   S3CustomVirtualHostFormatter{std::string(endpoint)}},
+               transport->IssueRequest(std::move(request), {}))
+        .future;
+  }
+
+  // Path-style: issue a HEAD request against {endpoint}/{bucket}.
   auto request =
       HttpRequestBuilder("HEAD", absl::StrFormat("%s/%s", endpoint, bucket))
           .AddHostHeader(host_header)

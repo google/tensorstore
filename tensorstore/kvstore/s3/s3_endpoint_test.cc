@@ -161,23 +161,23 @@ TEST(ResolveEndpointRegion, Basic) {
   S3EndpointRegion ehr;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       ehr,
-      ResolveEndpointRegion("testbucket", {}, {}, mock_transport).result());
+      ResolveEndpointRegion("testbucket", {}, {}, {}, mock_transport).result());
 
   EXPECT_THAT(ehr.endpoint, "https://testbucket.s3.us-east-1.amazonaws.com");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
   EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kEnabled);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      ehr,
-      ResolveEndpointRegion("test.bucket", {}, {}, mock_transport).result());
+      ehr, ResolveEndpointRegion("test.bucket", {}, {}, {}, mock_transport)
+               .result());
 
   EXPECT_THAT(ehr.endpoint, "https://s3.us-east-1.amazonaws.com/test.bucket");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
   EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kEnabled);
 
-  // With endpoint
+  // With endpoint (path-style, default)
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      ehr, ResolveEndpointRegion("test.bucket", "http://localhost:1234", {},
+      ehr, ResolveEndpointRegion("test.bucket", "http://localhost:1234", {}, {},
                                  mock_transport)
                .result());
 
@@ -188,7 +188,7 @@ TEST(ResolveEndpointRegion, Basic) {
   // With endpoint & host_header
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       ehr, ResolveEndpointRegion("test.bucket", "http://localhost:1234",
-                                 "s3.localhost.com", mock_transport)
+                                 "s3.localhost.com", {}, mock_transport)
                .result());
 
   EXPECT_THAT(ehr.endpoint, "http://localhost:1234/test.bucket");
@@ -197,7 +197,7 @@ TEST(ResolveEndpointRegion, Basic) {
 
   // With ceph endpoint
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      ehr, ResolveEndpointRegion("test.bucket", "http://localhost.ceph", {},
+      ehr, ResolveEndpointRegion("test.bucket", "http://localhost.ceph", {}, {},
                                  mock_transport)
                .result());
 
@@ -212,8 +212,64 @@ TEST(ResolveEndpointRegion, Error) {
           {"HEAD https://testbucket.s3.amazonaws.com",
            absl::InternalError("Mock error")}});
   EXPECT_THAT(
-      ResolveEndpointRegion("testbucket", {}, {}, mock_transport).result(),
+      ResolveEndpointRegion("testbucket", {}, {}, {}, mock_transport).result(),
       StatusIs(absl::StatusCode::kInternal, "Mock error"));
+}
+
+TEST(ValidateEndpointTest, VirtualHostAddressing) {
+  // Virtual-hosted with custom endpoint + region: immediately resolved.
+  EXPECT_THAT(
+      ValidateEndpoint("mybucket", "us-west-2", "https://cwobject.com", {},
+                        "virtual"),
+      ::testing::VariantWith<S3EndpointRegion>(
+          S3EndpointRegion{"https://mybucket.cwobject.com", "us-west-2",
+                           ConditionalWriteMode::kDefault}));
+
+  // Virtual-hosted with http endpoint and port.
+  EXPECT_THAT(
+      ValidateEndpoint("mybucket", "us-east-1", "http://s3.example.com:9000",
+                        {}, "virtual"),
+      ::testing::VariantWith<S3EndpointRegion>(
+          S3EndpointRegion{"http://mybucket.s3.example.com:9000", "us-east-1",
+                           ConditionalWriteMode::kDefault}));
+
+  // Explicit "path" addressing_style behaves same as default.
+  EXPECT_THAT(
+      ValidateEndpoint("mybucket", "us-east-1", "http://my.host", {}, "path"),
+      ::testing::VariantWith<S3EndpointRegion>(
+          S3EndpointRegion{"http://my.host/mybucket", "us-east-1",
+                           ConditionalWriteMode::kDefault}));
+
+  // Error: virtual without endpoint.
+  EXPECT_THAT(ValidateEndpoint("mybucket", "us-east-1", {}, {}, "virtual"),
+              ::testing::VariantWith<absl::Status>(
+                  StatusIs(absl::StatusCode::kInvalidArgument)));
+
+  // Error: invalid addressing_style value.
+  EXPECT_THAT(
+      ValidateEndpoint("mybucket", "us-east-1", "http://my.host", {}, "bogus"),
+      ::testing::VariantWith<absl::Status>(
+          StatusIs(absl::StatusCode::kInvalidArgument)));
+}
+
+TEST(ResolveEndpointRegion, VirtualHostAddressing) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // Virtual-hosted HEAD goes to bucket.endpoint
+          {"HEAD https://mybucket.cwobject.com",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-west-2"}}}},
+      });
+
+  S3EndpointRegion ehr;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      ehr, ResolveEndpointRegion("mybucket", "https://cwobject.com", {},
+                                 "virtual", mock_transport)
+               .result());
+
+  EXPECT_THAT(ehr.endpoint, "https://mybucket.cwobject.com");
+  EXPECT_THAT(ehr.aws_region, "us-west-2");
+  EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDefault);
 }
 
 }  // namespace
