@@ -271,7 +271,7 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
     return PromiseFuturePair<S3EndpointRegion>::LinkValue(
                ResolveHost<S3CustomFormatter>{
                    std::move(bucket), "us-east-1",
-                   S3CustomFormatter{std::string(endpoint)}},
+                   std::move(formatter)},
                transport->IssueRequest(std::move(request), {}))
         .future;
   }
@@ -325,7 +325,7 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
   return PromiseFuturePair<S3EndpointRegion>::LinkValue(
              ResolveHost<S3CustomFormatter>{
                  std::move(bucket), "us-east-1",
-                 S3CustomFormatter{std::string(endpoint)}},
+                 std::move(formatter)},
              transport->IssueRequest(std::move(request), {}))
       .future;
 }

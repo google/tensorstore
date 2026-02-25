@@ -230,11 +230,11 @@ struct S3KeyValueStoreSpecData {
           "bucket",
           jb::Projection<&S3KeyValueStoreSpecData::bucket>(jb::Validate(
               [](const auto& options, const std::string* x) {
-                if (!x->empty() && !IsValidBucketName(*x)) {
-                  return absl::InvalidArgumentError(absl::StrFormat(
-                      "Invalid S3 bucket name: %v", QuoteString(*x)));
+                if (x->empty() || IsValidBucketName(*x)) {
+                  return absl::OkStatus();
                 }
-                return absl::OkStatus();
+                return absl::InvalidArgumentError(absl::StrFormat(
+                    "Invalid S3 bucket name: %v", QuoteString(*x)));
               },
               jb::DefaultValue([](auto* v) { *v = ""; })))),
       jb::Member("requester_pays",
