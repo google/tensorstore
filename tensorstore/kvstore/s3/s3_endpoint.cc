@@ -98,16 +98,15 @@ bool EndpointContainsBucket(std::string_view endpoint,
 }
 
 // Custom endpoint URL construction for S3-compatible providers.
-// Normally uses path-style: {endpoint}/{bucket}
-// When the endpoint already contains the bucket as a hostname prefix
-// (virtual-hosted URL, e.g. "https://mybucket.cwobject.com"), the
-// endpoint is returned as-is to avoid double-prepending the bucket.
+// When bucket is empty or the endpoint hostname already starts with
+// "{bucket}." (virtual-hosted URL), the endpoint is returned as-is.
+// Otherwise uses path-style: {endpoint}/{bucket}.
 struct S3CustomFormatter {
   std::string endpoint;
 
   std::string GetEndpoint(std::string_view bucket,
                           std::string_view aws_region) const {
-    if (EndpointContainsBucket(endpoint, bucket)) {
+    if (bucket.empty() || EndpointContainsBucket(endpoint, bucket)) {
       return endpoint;
     }
     return absl::StrFormat("%s/%s", endpoint, bucket);
@@ -186,25 +185,34 @@ bool IsAwsS3Endpoint(std::string_view endpoint) {
 std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     std::string_view bucket, std::string aws_region, std::string_view endpoint,
     std::string host_header) {
-  ABSL_CHECK(!bucket.empty());
+  // When bucket is empty, the endpoint must be specified and is used as-is
+  // as the full base URL (virtual-hosted-style).
+  if (bucket.empty() && endpoint.empty()) {
+    return absl::InvalidArgumentError(
+        "\"bucket\" must be specified when \"endpoint\" is not set");
+  }
 
   if (!host_header.empty() && endpoint.empty()) {
     return absl::InvalidArgumentError(
         "\"host_header\" cannot be set without also setting \"endpoint\"");
   }
 
-  // For old-style buckets, default to us-east-1
-  if (internal_kvstore_s3::ClassifyBucketName(bucket) ==
-      internal_kvstore_s3::BucketNameType::kOldUSEast1) {
-    if (!aws_region.empty() && aws_region != "us-east-1") {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Bucket ", QuoteString(bucket),
-          " requires aws_region \"us-east-1\", not ", QuoteString(aws_region)));
+  // For non-empty bucket: classify and potentially force us-east-1.
+  if (!bucket.empty()) {
+    if (internal_kvstore_s3::ClassifyBucketName(bucket) ==
+        internal_kvstore_s3::BucketNameType::kOldUSEast1) {
+      if (!aws_region.empty() && aws_region != "us-east-1") {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Bucket ", QuoteString(bucket),
+            " requires aws_region \"us-east-1\", not ",
+            QuoteString(aws_region)));
+      }
+      aws_region = "us-east-1";
     }
-    aws_region = "us-east-1";
   }
 
   if (endpoint.empty()) {
+    // Bucket must be non-empty here (checked above).
     if (!aws_region.empty()) {
       if (!absl::StrContains(bucket, ".")) {
         // Use virtual host addressing.
@@ -231,7 +239,7 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     return absl::OkStatus();
   }
 
-  // Endpoint is specified.
+  // Endpoint is specified. Validate URL format.
   auto parsed = internal_uri::ParseGenericUri(endpoint);
   if (parsed.scheme != "http" && parsed.scheme != "https") {
     return absl::InvalidArgumentError(
@@ -262,8 +270,24 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
 Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string bucket, std::string_view endpoint, std::string host_header,
     std::shared_ptr<internal_http::HttpTransport> transport) {
-  assert(!bucket.empty());
   assert(transport);
+
+  // When bucket is empty, the endpoint is the full virtual-hosted URL.
+  if (bucket.empty()) {
+    assert(!endpoint.empty());
+    S3CustomFormatter formatter{std::string(endpoint)};
+    std::string head_url = formatter.GetEndpoint(bucket, {});
+    auto request = HttpRequestBuilder("HEAD", std::move(head_url))
+                       .AddHostHeader(host_header)
+                       .BuildRequest();
+    return PromiseFuturePair<S3EndpointRegion>::LinkValue(
+               ResolveHost<S3CustomFormatter>{
+                   std::move(bucket), "us-east-1",
+                   S3CustomFormatter{std::string(endpoint)}},
+               transport->IssueRequest(std::move(request), {}))
+        .future;
+  }
+
   assert(IsValidBucketName(bucket));
 
   // TODO: Handle retries, and sign the request.

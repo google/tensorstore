@@ -226,15 +226,17 @@ struct S3KeyValueStoreSpecData {
   constexpr static auto default_json_binder = jb::Object(
       // Bucket is specified in the `spec` since it identifies the resource
       // being accessed.
-      jb::Member("bucket",
-                 jb::Projection<&S3KeyValueStoreSpecData::bucket>(jb::Validate(
-                     [](const auto& options, const std::string* x) {
-                       if (!IsValidBucketName(*x)) {
-                         return absl::InvalidArgumentError(absl::StrFormat(
-                             "Invalid S3 bucket name: %v", QuoteString(*x)));
-                       }
-                       return absl::OkStatus();
-                     }))),
+      jb::Member(
+          "bucket",
+          jb::Projection<&S3KeyValueStoreSpecData::bucket>(jb::Validate(
+              [](const auto& options, const std::string* x) {
+                if (!x->empty() && !IsValidBucketName(*x)) {
+                  return absl::InvalidArgumentError(absl::StrFormat(
+                      "Invalid S3 bucket name: %v", QuoteString(*x)));
+                }
+                return absl::OkStatus();
+              },
+              jb::DefaultValue([](auto* v) { *v = ""; })))),
       jb::Member("requester_pays",
                  jb::Projection<&S3KeyValueStoreSpecData::requester_pays>(
                      jb::DefaultValue([](auto* v) { *v = false; }))),
@@ -277,7 +279,7 @@ class S3KeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    if (data_.endpoint) {
+    if (data_.endpoint || data_.bucket.empty()) {
       return absl::UnimplementedError(
           "S3 URL syntax not supported with explicit endpoint");
     }

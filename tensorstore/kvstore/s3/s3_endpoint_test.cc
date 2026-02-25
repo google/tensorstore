@@ -260,6 +260,77 @@ TEST(ResolveEndpointRegion, BucketInEndpointHostname) {
   EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDefault);
 }
 
+TEST(ValidateEndpointTest, EmptyBucket) {
+  // Empty bucket + no endpoint => error.
+  EXPECT_THAT(ValidateEndpoint("", {}, {}, {}),
+              ::testing::VariantWith<absl::Status>(
+                  StatusIs(absl::StatusCode::kInvalidArgument)));
+
+  // Empty bucket + no endpoint, even with region => error.
+  EXPECT_THAT(ValidateEndpoint("", "us-west-2", {}, {}),
+              ::testing::VariantWith<absl::Status>(
+                  StatusIs(absl::StatusCode::kInvalidArgument)));
+
+  // Empty bucket + endpoint + region => immediately resolved, endpoint as-is.
+  EXPECT_THAT(
+      ValidateEndpoint("", "us-west-2", "https://mybucket.cwobject.com", {}),
+      ::testing::VariantWith<S3EndpointRegion>(
+          S3EndpointRegion{"https://mybucket.cwobject.com", "us-west-2",
+                           ConditionalWriteMode::kDefault}));
+
+  // Empty bucket + endpoint, no region => OkStatus (needs resolution).
+  EXPECT_THAT(
+      ValidateEndpoint("", {}, "https://mybucket.cwobject.com", {}),
+      ::testing::VariantWith<absl::Status>(absl::OkStatus()));
+
+  // Empty bucket + endpoint + host_header + region => resolved.
+  EXPECT_THAT(
+      ValidateEndpoint("", "us-east-1", "https://mybucket.cwobject.com",
+                       "mybucket.cwobject.com"),
+      ::testing::VariantWith<S3EndpointRegion>(
+          S3EndpointRegion{"https://mybucket.cwobject.com", "us-east-1",
+                           ConditionalWriteMode::kDefault}));
+}
+
+TEST(ResolveEndpointRegion, EmptyBucket) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"HEAD https://mybucket.cwobject.com",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-west-2"}}}},
+      });
+
+  S3EndpointRegion ehr;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      ehr,
+      ResolveEndpointRegion("", "https://mybucket.cwobject.com", {},
+                            mock_transport)
+          .result());
+
+  EXPECT_THAT(ehr.endpoint, "https://mybucket.cwobject.com");
+  EXPECT_THAT(ehr.aws_region, "us-west-2");
+  EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDefault);
+}
+
+TEST(ResolveEndpointRegion, EmptyBucketNoRegionHeader) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"HEAD https://mybucket.cwobject.com",
+           HttpResponse{200, absl::Cord(), HeaderMap{}}},
+      });
+
+  S3EndpointRegion ehr;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      ehr,
+      ResolveEndpointRegion("", "https://mybucket.cwobject.com", {},
+                            mock_transport)
+          .result());
+
+  // Falls back to default "us-east-1".
+  EXPECT_THAT(ehr.endpoint, "https://mybucket.cwobject.com");
+  EXPECT_THAT(ehr.aws_region, "us-east-1");
+}
+
 TEST(ResolveEndpointRegion, Error) {
   auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
       DefaultMockHttpTransport::Responses{
