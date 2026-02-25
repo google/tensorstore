@@ -86,27 +86,15 @@ struct S3PathFormatter {
   }
 };
 
-// Returns true if the endpoint hostname already starts with "{bucket}.",
-// i.e. the user passed a virtual-hosted URL like
-// "https://mybucket.cwobject.com" for bucket "mybucket".
-bool EndpointContainsBucket(std::string_view endpoint,
-                            std::string_view bucket) {
-  auto parsed = internal::ParseGenericUri(endpoint);
-  return absl::StartsWith(parsed.authority, bucket) &&
-         parsed.authority.size() > bucket.size() &&
-         parsed.authority[bucket.size()] == '.';
-}
-
 // Custom endpoint URL construction for S3-compatible providers.
-// When bucket is empty or the endpoint hostname already starts with
-// "{bucket}." (virtual-hosted URL), the endpoint is returned as-is.
-// Otherwise uses path-style: {endpoint}/{bucket}.
+// When bucket is empty, the endpoint is returned as-is (the caller provided
+// a virtual-hosted URL). Otherwise uses path-style: {endpoint}/{bucket}.
 struct S3CustomFormatter {
   std::string endpoint;
 
   std::string GetEndpoint(std::string_view bucket,
                           std::string_view aws_region) const {
-    if (bucket.empty() || EndpointContainsBucket(endpoint, bucket)) {
+    if (bucket.empty()) {
       return endpoint;
     }
     return absl::StrFormat("%s/%s", endpoint, bucket);

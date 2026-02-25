@@ -84,10 +84,6 @@ bool IsAwsS3Endpoint(std::string_view endpoint);
 /// directly as the full base URL for all S3 operations, supporting
 /// virtual-hosted-style S3 endpoints (e.g. "https://mybucket.cwobject.com").
 ///
-/// When the endpoint hostname already contains the bucket name as a prefix
-/// (e.g. "https://mybucket.cwobject.com" for bucket "mybucket"), the bucket
-/// is not appended to the path.
-///
 /// Returns an absl::Status or an S3EndpointRegion.
 /// When the return value holds:
 /// * An error status: The validation failed.

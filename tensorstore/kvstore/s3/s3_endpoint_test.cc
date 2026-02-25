@@ -132,40 +132,6 @@ TEST(ValidateEndpointTest, Basic) {
                   StatusIs(absl::StatusCode::kInvalidArgument)));
 }
 
-TEST(ValidateEndpointTest, BucketInEndpointHostname) {
-  // When the endpoint hostname starts with "{bucket}.", the bucket is not
-  // appended to the path (virtual-hosted-style URL passed directly).
-  EXPECT_THAT(
-      ValidateEndpoint("mybucket", "us-west-2",
-                        "https://mybucket.cwobject.com", {}),
-      ::testing::VariantWith<S3EndpointRegion>(
-          S3EndpointRegion{"https://mybucket.cwobject.com", "us-west-2",
-                           ConditionalWriteMode::kDefault}));
-
-  // With port in endpoint.
-  EXPECT_THAT(
-      ValidateEndpoint("mybucket", "us-east-1",
-                        "http://mybucket.s3.example.com:9000", {}),
-      ::testing::VariantWith<S3EndpointRegion>(
-          S3EndpointRegion{"http://mybucket.s3.example.com:9000", "us-east-1",
-                           ConditionalWriteMode::kDefault}));
-
-  // Bucket name is a prefix of hostname but NOT followed by '.': should still
-  // use path-style.
-  EXPECT_THAT(
-      ValidateEndpoint("my", "us-east-1", "http://myhost.example.com", {}),
-      ::testing::VariantWith<S3EndpointRegion>(
-          S3EndpointRegion{"http://myhost.example.com/my", "us-east-1",
-                           ConditionalWriteMode::kDefault}));
-
-  // Normal path-style still works.
-  EXPECT_THAT(
-      ValidateEndpoint("mybucket", "us-east-1", "http://my.host", {}),
-      ::testing::VariantWith<S3EndpointRegion>(
-          S3EndpointRegion{"http://my.host/mybucket", "us-east-1",
-                           ConditionalWriteMode::kDefault}));
-}
-
 // Mock-based tests for s3.
 TEST(ResolveEndpointRegion, Basic) {
   auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
@@ -238,26 +204,6 @@ TEST(ResolveEndpointRegion, Basic) {
   EXPECT_THAT(ehr.endpoint, "http://localhost.ceph/test.bucket");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
   EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDisabled);
-}
-
-TEST(ResolveEndpointRegion, BucketInEndpointHostname) {
-  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
-      DefaultMockHttpTransport::Responses{
-          // HEAD goes to the endpoint as-is (bucket already in hostname).
-          {"HEAD https://mybucket.cwobject.com",
-           HttpResponse{200, absl::Cord(),
-                        HeaderMap{{"x-amz-bucket-region", "us-west-2"}}}},
-      });
-
-  S3EndpointRegion ehr;
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      ehr, ResolveEndpointRegion("mybucket", "https://mybucket.cwobject.com",
-                                 {}, mock_transport)
-               .result());
-
-  EXPECT_THAT(ehr.endpoint, "https://mybucket.cwobject.com");
-  EXPECT_THAT(ehr.aws_region, "us-west-2");
-  EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDefault);
 }
 
 TEST(ValidateEndpointTest, EmptyBucket) {
