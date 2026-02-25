@@ -86,27 +86,31 @@ struct S3PathFormatter {
   }
 };
 
-// Path-style URL for custom S3-compatible endpoints: {endpoint}/{bucket}
+// Returns true if the endpoint hostname already starts with "{bucket}.",
+// i.e. the user passed a virtual-hosted URL like
+// "https://mybucket.cwobject.com" for bucket "mybucket".
+bool EndpointContainsBucket(std::string_view endpoint,
+                            std::string_view bucket) {
+  auto parsed = internal::ParseGenericUri(endpoint);
+  return absl::StartsWith(parsed.authority, bucket) &&
+         parsed.authority.size() > bucket.size() &&
+         parsed.authority[bucket.size()] == '.';
+}
+
+// Custom endpoint URL construction for S3-compatible providers.
+// Normally uses path-style: {endpoint}/{bucket}
+// When the endpoint already contains the bucket as a hostname prefix
+// (virtual-hosted URL, e.g. "https://mybucket.cwobject.com"), the
+// endpoint is returned as-is to avoid double-prepending the bucket.
 struct S3CustomFormatter {
   std::string endpoint;
 
   std::string GetEndpoint(std::string_view bucket,
                           std::string_view aws_region) const {
+    if (EndpointContainsBucket(endpoint, bucket)) {
+      return endpoint;
+    }
     return absl::StrFormat("%s/%s", endpoint, bucket);
-  }
-};
-
-// Virtual-hosted-style URL for custom endpoints: {scheme}://{bucket}.{host}
-// Required by S3-compatible providers that reject path-style requests
-// (e.g. CoreWeave cwobject.com returns PathStyleRequestNotAllowed).
-struct S3CustomVirtualHostFormatter {
-  std::string endpoint;
-
-  std::string GetEndpoint(std::string_view bucket,
-                          std::string_view aws_region) const {
-    auto parsed = internal::ParseGenericUri(endpoint);
-    return absl::StrFormat("%s://%s.%s", parsed.scheme, bucket,
-                           parsed.authority);
   }
 };
 
@@ -181,20 +185,8 @@ bool IsAwsS3Endpoint(std::string_view endpoint) {
 
 std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     std::string_view bucket, std::string aws_region, std::string_view endpoint,
-    std::string host_header, std::string_view addressing_style) {
+    std::string host_header) {
   ABSL_CHECK(!bucket.empty());
-
-  if (!addressing_style.empty() && addressing_style != "path" &&
-      addressing_style != "virtual") {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid addressing_style: ", QuoteString(addressing_style),
-        ". Must be \"path\" or \"virtual\"."));
-  }
-
-  if (addressing_style == "virtual" && endpoint.empty()) {
-    return absl::InvalidArgumentError(
-        "\"addressing_style\" \"virtual\" requires \"endpoint\" to be set");
-  }
 
   if (!host_header.empty() && endpoint.empty()) {
     return absl::InvalidArgumentError(
@@ -256,17 +248,9 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
   }
 
   if (!aws_region.empty()) {
-    std::string resolved_endpoint;
-    if (addressing_style == "virtual") {
-      resolved_endpoint = S3CustomVirtualHostFormatter{std::string(endpoint)}
-                              .GetEndpoint(bucket, aws_region);
-    } else {
-      resolved_endpoint =
-          S3CustomFormatter{std::string(endpoint)}.GetEndpoint(bucket,
-                                                               aws_region);
-    }
+    S3CustomFormatter formatter{std::string(endpoint)};
     return S3EndpointRegion{
-        std::move(resolved_endpoint),
+        formatter.GetEndpoint(bucket, aws_region),
         aws_region,
         ConditionalWriteHeuristic(endpoint, {}),
     };
@@ -277,7 +261,6 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
 
 Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string bucket, std::string_view endpoint, std::string host_header,
-    std::string_view addressing_style,
     std::shared_ptr<internal_http::HttpTransport> transport) {
   assert(!bucket.empty());
   assert(transport);
@@ -319,25 +302,14 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
         .future;
   }
 
-  if (addressing_style == "virtual") {
-    S3CustomVirtualHostFormatter formatter{std::string(endpoint)};
-    std::string head_url = formatter.GetEndpoint(bucket, {});
-    auto request = HttpRequestBuilder("HEAD", std::move(head_url))
-                       .AddHostHeader(host_header)
-                       .BuildRequest();
-    return PromiseFuturePair<S3EndpointRegion>::LinkValue(
-               ResolveHost<S3CustomVirtualHostFormatter>{
-                   std::move(bucket), "us-east-1",
-                   S3CustomVirtualHostFormatter{std::string(endpoint)}},
-               transport->IssueRequest(std::move(request), {}))
-        .future;
-  }
-
-  // Path-style: issue a HEAD request against {endpoint}/{bucket}.
-  auto request =
-      HttpRequestBuilder("HEAD", absl::StrFormat("%s/%s", endpoint, bucket))
-          .AddHostHeader(host_header)
-          .BuildRequest();
+  // Issue a HEAD request against the custom endpoint.
+  // S3CustomFormatter handles both path-style and virtual-hosted endpoints
+  // (when the bucket is already in the hostname).
+  S3CustomFormatter formatter{std::string(endpoint)};
+  std::string head_url = formatter.GetEndpoint(bucket, {});
+  auto request = HttpRequestBuilder("HEAD", std::move(head_url))
+                     .AddHostHeader(host_header)
+                     .BuildRequest();
   return PromiseFuturePair<S3EndpointRegion>::LinkValue(
              ResolveHost<S3CustomFormatter>{
                  std::move(bucket), "us-east-1",

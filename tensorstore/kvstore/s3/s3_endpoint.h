@@ -80,9 +80,9 @@ bool IsAwsS3Endpoint(std::string_view endpoint);
 /// Validate the bucket, endpoint and host_header parameters.
 /// When possible, constructs an S3EndpointRegion from the driver config.
 ///
-/// `addressing_style` controls URL construction for custom endpoints:
-///   - "" or "path": path-style (default): {endpoint}/{bucket}
-///   - "virtual": virtual-hosted-style: {bucket}.{endpoint_host}
+/// When the endpoint hostname already contains the bucket name as a prefix
+/// (e.g. "https://mybucket.cwobject.com" for bucket "mybucket"), the bucket
+/// is not appended to the path, supporting virtual-hosted-style S3 endpoints.
 ///
 /// Returns an absl::Status or an S3EndpointRegion.
 /// When the return value holds:
@@ -93,7 +93,7 @@ bool IsAwsS3Endpoint(std::string_view endpoint);
 ///   requests.
 std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     std::string_view bucket, std::string aws_region, std::string_view endpoint,
-    std::string host_header, std::string_view addressing_style = {});
+    std::string host_header);
 
 /// Resolve an endpoint to fill a S3EndpointRegion.
 /// This issues a request to AWS to determine the proper endpoint, host_header,
@@ -102,7 +102,6 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
 ///   ValidateEndpoint has returned an `absl::OkStatus`.
 Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string bucket, std::string_view endpoint, std::string host_header,
-    std::string_view addressing_style,
     std::shared_ptr<internal_http::HttpTransport> transport);
 
 }  // namespace internal_kvstore_s3

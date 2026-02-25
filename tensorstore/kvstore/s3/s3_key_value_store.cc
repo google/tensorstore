@@ -208,7 +208,6 @@ struct S3KeyValueStoreSpecData {
   std::optional<std::string> endpoint;
   std::optional<std::string> host_header;
   std::string aws_region;
-  std::string addressing_style;
   std::optional<bool> use_conditional_write;
 
   Context::Resource<AwsCredentialsResource> aws_credentials;
@@ -219,9 +218,9 @@ struct S3KeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.bucket, x.requester_pays, x.endpoint, x.host_header,
-             x.aws_region, x.addressing_style, x.use_conditional_write,
-             x.aws_credentials, x.request_concurrency, x.rate_limiter,
-             x.retries, x.data_copy_concurrency);
+             x.aws_region, x.use_conditional_write, x.aws_credentials,
+             x.request_concurrency, x.rate_limiter, x.retries,
+             x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -245,9 +244,6 @@ struct S3KeyValueStoreSpecData {
                  jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
       jb::Member("aws_region",
                  jb::Projection<&S3KeyValueStoreSpecData::aws_region>(
-                     jb::DefaultValue([](auto* v) { *v = ""; }))),
-      jb::Member("addressing_style",
-                 jb::Projection<&S3KeyValueStoreSpecData::addressing_style>(
                      jb::DefaultValue([](auto* v) { *v = ""; }))),
       jb::Member(
           "use_conditional_write",
@@ -1358,8 +1354,7 @@ Future<const S3EndpointRegion> S3KeyValueStore::MaybeResolveRegion() {
       !spec_.endpoint.has_value() || spec_.endpoint.value().empty()
           ? std::string_view{}
           : std::string_view(spec_.endpoint.value()),
-      spec_.host_header.value_or(std::string{}), spec_.addressing_style,
-      transport_);
+      spec_.host_header.value_or(std::string{}), transport_);
   resolve_ehr_.ExecuteWhenReady([](ReadyFuture<const S3EndpointRegion> ready) {
     if (!ready.status().ok()) {
       ABSL_LOG_IF(INFO, s3_logging)
@@ -1390,7 +1385,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
 
   auto result = internal_kvstore_s3::ValidateEndpoint(
       data_.bucket, data_.aws_region, data_.endpoint.value_or(std::string{}),
-      driver->host_header_, data_.addressing_style);
+      driver->host_header_);
   if (auto* status = std::get_if<absl::Status>(&result);
       status != nullptr && !status->ok()) {
     return std::move(*status);
