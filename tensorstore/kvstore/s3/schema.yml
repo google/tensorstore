@@ -77,7 +77,6 @@ allOf:
       description: |-
         Specifies or references a previously defined `Context.data_copy_concurrency`.
       default: data_copy_concurrency
-  required: []
 definitions:
   s3_request_concurrency:
     $id: Context.s3_request_concurrency
