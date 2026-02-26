@@ -32,7 +32,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
@@ -213,7 +213,7 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
   }
 
   // Endpoint is specified.
-  auto parsed = internal::ParseGenericUri(endpoint);
+  auto parsed = internal_uri::ParseGenericUri(endpoint);
   if (parsed.scheme != "http" && parsed.scheme != "https") {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Endpoint ", endpoint, " has invalid scheme ",

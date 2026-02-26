@@ -184,6 +184,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:path",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:tagged_ptr",
+        "//tensorstore/internal:utf8",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/container:intrusive_red_black_tree",
         "//tensorstore/internal/json_binding",

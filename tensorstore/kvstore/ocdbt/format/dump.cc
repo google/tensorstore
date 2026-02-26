@@ -25,13 +25,13 @@
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "re2/re2.h"
-#include "tensorstore/internal/ascii_set.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_variant.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/ascii_set.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
@@ -59,9 +59,11 @@ Result<LabeledIndirectDataReference> LabeledIndirectDataReference::Parse(
         "Invalid indirect data reference: %v", tensorstore::QuoteString(s)));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(r.kind, ParseIndirectDataKind(label));
-  r.location.file_id.base_path = internal::PercentDecode(encoded_base_path);
-  r.location.file_id.relative_path =
-      internal::PercentDecode(encoded_relative_path);
+  TENSORSTORE_ASSIGN_OR_RETURN(r.location.file_id.base_path,
+                               internal_uri::PercentDecode(encoded_base_path));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      r.location.file_id.relative_path,
+      internal_uri::PercentDecode(encoded_relative_path));
   TENSORSTORE_RETURN_IF_ERROR(r.location.Validate(/*allow_missing=*/false));
   return r;
 }
@@ -84,7 +86,7 @@ constexpr auto ConfigBinder = jb::Compose<ConfigConstraints>(
       return absl::OkStatus();
     });
 
-static inline constexpr internal::AsciiSet
+static inline constexpr internal_uri::AsciiSet
     kLabeledIndirectDataReferenceUnreservedChars{
         "abcdefghijklmnopqrstuvwxyz"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -111,11 +113,11 @@ constexpr auto LabeledIndirectDataReferenceBinder =
         } else {
           *j = tensorstore::StrCat(
               IndirectDataKindToString(obj->kind), ":",
-              internal::PercentEncodeReserved(
+              internal_uri::PercentEncode(
                   obj->location.file_id.base_path,
                   kLabeledIndirectDataReferenceUnreservedChars),
               ":",
-              internal::PercentEncodeReserved(
+              internal_uri::PercentEncode(
                   obj->location.file_id.relative_path,
                   kLabeledIndirectDataReferenceUnreservedChars),
               ":", obj->location.offset, ":", obj->location.length);

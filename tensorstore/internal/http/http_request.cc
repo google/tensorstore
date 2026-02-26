@@ -27,7 +27,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_header.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/status.h"
 
@@ -166,7 +166,7 @@ HttpRequestBuilder::MaybeAddStalenessBoundCacheControlHeader(
 
 HttpRequestBuilder& HttpRequestBuilder::AddHostHeader(std::string_view host) {
   if (host.empty()) {
-    host = internal::ParseGenericUri(request_.url).authority;
+    host = internal_uri::ParseGenericUri(request_.url).authority;
   }
   return AddHeader("host", host);
 }

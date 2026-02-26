@@ -32,6 +32,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/driver_kind_registry.h"
+#include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/quote_string.h"
@@ -85,6 +86,10 @@ Result<kvstore::Spec> GetSpecFromUrlImpl(std::string_view url, Arg&&... arg) {
   if (url.empty()) {
     return absl::InvalidArgumentError("URL must be non-empty");
   }
+  if (!internal::IsValidUtf8(url)) {
+    return absl::InvalidArgumentError("URL contains invalid UTF-8 sequence");
+  }
+
   std::string buffer;
   std::string_view scheme =
       *(absl::StrSplit(url, absl::MaxSplits(':', 1)).begin());

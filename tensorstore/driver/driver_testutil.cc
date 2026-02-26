@@ -72,7 +72,7 @@
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/path.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
@@ -176,7 +176,7 @@ void TestTensorStoreDriverSpecRoundtrip(
     // Generate the replacement url and strip off the "file://" prefix.
     static constexpr size_t kFileUriPrefixLen =
         std::string_view("file://").size();
-    auto file_uri = internal::OsPathToFileUri(tempdir->path());
+    auto file_uri = internal_uri::OsPathToFileUri(tempdir->path());
     TENSORSTORE_ASSERT_OK(file_uri.status());
     options.url = absl::StrReplaceAll(
         options.url, {{tempdir_key, file_uri->substr(kFileUriPrefixLen)}});

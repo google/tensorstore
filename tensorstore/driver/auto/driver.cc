@@ -32,7 +32,7 @@
 #include "tensorstore/internal/driver_kind_registry.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -264,10 +264,9 @@ internal::TransformedDriverSpec MakeAutoSpec(kvstore::Spec&& base) {
 
 Result<internal::TransformedDriverSpec> ParseAutoUrl(std::string_view url,
                                                      kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchema(parsed, AutoDriverSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoPathOrQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(EnsureSchema(parsed, AutoDriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoPathOrQueryOrFragment(parsed));
   return MakeAutoSpec(std::move(base));
 }
 

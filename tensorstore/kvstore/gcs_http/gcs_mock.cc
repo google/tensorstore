@@ -40,18 +40,20 @@
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
-using ::tensorstore::internal_http::HeaderMap;
-
 namespace tensorstore {
 namespace {
 
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_uri::ParseGenericUri;
+using ::tensorstore::internal_uri::PercentDecode;
 
 const char kInvalidLongBody[] =
     R"({"error": {"code": 400,  "message": "Invalid long value: '$0'." }})";
@@ -123,7 +125,7 @@ Result<HttpResponse> GCSMockStorageBucket::IssueRequest(
 std::variant<std::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   bool is_upload = false;
-  auto parsed = internal::ParseGenericUri(request.url);
+  auto parsed = ParseGenericUri(request.url);
   if (parsed.scheme != "https") {
     return {};
   }
@@ -163,7 +165,11 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
          absl::StrSplit(parsed.query, absl::ByChar('&'))) {
       std::pair<std::string_view, std::string_view> split =
           absl::StrSplit(kv, absl::MaxSplits('=', 1));
-      params[split.first] = internal::PercentDecode(split.second);
+      auto decoded = PercentDecode(split.second);
+      if (!decoded.ok()) {
+        return std::move(decoded.status());
+      }
+      params[split.first] = *std::move(decoded);
     }
   }
 
@@ -352,7 +358,7 @@ GCSMockStorageBucket::HandleGetRequest(
     const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/get
   path.remove_prefix(3);  // remove /o/
-  std::string name = internal::PercentDecode(path);
+  TENSORSTORE_ASSIGN_OR_RETURN(std::string name, PercentDecode(path));
 
   QueryParameters parsed_parameters;
   {
@@ -405,7 +411,7 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
                                           const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/delete
   path.remove_prefix(3);  // remove /o/
-  std::string name = internal::PercentDecode(path);
+  TENSORSTORE_ASSIGN_OR_RETURN(std::string name, PercentDecode(path));
 
   QueryParameters parsed_parameters;
   {
@@ -455,9 +461,9 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
       {"id",
        tensorstore::StrCat(bucket_, "/", object.name, "/", object.generation)},
       {"selfLink",
-       tensorstore::StrCat("https://www.googleapis.com/storage/v1/b/", bucket_,
-                           "/o/",
-                           internal::PercentEncodeUriComponent(object.name))},
+       tensorstore::StrCat(
+           "https://www.googleapis.com/storage/v1/b/", bucket_, "/o/",
+           internal_uri::PercentEncodeUriComponent(object.name))},
       {"name", object.name},
       {"bucket", bucket_},
       {"generation", tensorstore::StrCat(object.generation)},
@@ -471,7 +477,7 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
       {"mediaLink",
        tensorstore::StrCat("https://www.googleapis.com/download/storage/v1/b/",
                            bucket_, "/o/",
-                           internal::PercentEncodeUriComponent(object.name),
+                           internal_uri::PercentEncodeUriComponent(object.name),
                            "?generation=", object.generation, "&alt=media")},
   };
 }

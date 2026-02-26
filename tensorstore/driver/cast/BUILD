@@ -50,9 +50,9 @@ tensorstore_cc_library(
         "//tensorstore/internal:lock_collection",
         "//tensorstore/internal:nditerable",
         "//tensorstore/internal:nditerable_data_type_conversion",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/meta:type_traits",
+        "//tensorstore/internal/uri:parse",
         "//tensorstore/kvstore",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
@@ -65,6 +65,7 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:any_receiver",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
     alwayslink = 1,
 )

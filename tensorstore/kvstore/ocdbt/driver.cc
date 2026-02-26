@@ -41,7 +41,8 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/ref_counted_string.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
@@ -233,7 +234,7 @@ Result<std::string> OcdbtDriverSpec::ToUrl(std::string_view path) const {
   }
   return absl::StrCat(base_url, "|", id, ":", version_string.empty() ? "" : "@",
                       version_string, version_string.empty() ? "" : "/",
-                      internal::PercentEncodeKvStoreUriPath(path));
+                      internal_uri::PercentEncodeKvStoreUriPath(path));
 }
 
 Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
@@ -548,12 +549,12 @@ Future<kvstore::ReadResult> OcdbtDriver::TransactionalRead(
 
 namespace {
 Result<kvstore::Spec> ParseOcdbtUrl(std::string_view url, kvstore::Spec base) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   if (parsed.scheme != OcdbtDriverSpec::id) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Scheme \"%s:\" not present in url", OcdbtDriverSpec::id));
   }
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  TENSORSTORE_RETURN_IF_ERROR(internal_uri::EnsureNoQueryOrFragment(parsed));
   std::string_view encoded_path = parsed.path;
   std::optional<VersionSpec> version_spec;
   if (!encoded_path.empty() && encoded_path[0] == '@') {
@@ -565,7 +566,8 @@ Result<kvstore::Spec> ParseOcdbtUrl(std::string_view url, kvstore::Spec base) {
                        ? std::string_view{}
                        : encoded_path.substr(version_end + 1);
   }
-  std::string path = internal::PercentDecode(encoded_path);
+  TENSORSTORE_ASSIGN_OR_RETURN(std::string path,
+                               internal_uri::PercentDecode(encoded_path));
   auto driver_spec = internal::MakeIntrusivePtr<OcdbtDriverSpec>();
   internal::EnsureDirectoryPath(base.path);
   driver_spec->data_.base = std::move(base);

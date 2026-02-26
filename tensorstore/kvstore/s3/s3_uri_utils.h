@@ -18,35 +18,28 @@
 #include <string>
 #include <string_view>
 
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/ascii_set.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
 // See description of function UriEncode at this URL
 // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-static inline constexpr internal::AsciiSet kUriUnreservedChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    "-._~"};
-
+//
 // NOTE: Only adds "/" to kUriUnreservedChars
-static inline constexpr internal::AsciiSet kUriKeyUnreservedChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    "/-._~"};
+static inline constexpr internal_uri::AsciiSet kUriKeyUnreservedChars =
+    internal_uri::kUnreserved | internal_uri::AsciiSet{"/"};
 
 inline std::string S3UriEncode(std::string_view src) {
   std::string dest;
-  internal::PercentEncodeReserved(src, dest, kUriUnreservedChars);
+  internal_uri::PercentEncode(src, internal_uri::kUnreserved, dest);
   return dest;
 }
 
 inline std::string S3UriObjectKeyEncode(std::string_view src) {
   std::string dest;
-  internal::PercentEncodeReserved(src, dest, kUriKeyUnreservedChars);
+  internal_uri::PercentEncode(src, kUriKeyUnreservedChars, dest);
   return dest;
 }
 

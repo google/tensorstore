@@ -122,7 +122,8 @@
 #include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/path.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
@@ -271,7 +272,7 @@ class FileKeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    return internal::OsPathToFileUri(path);
+    return internal_uri::OsPathToFileUri(path);
   }
 };
 
@@ -893,8 +894,8 @@ Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
 }
 
 Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_ASSIGN_OR_RETURN(auto path, internal::FileUriToOsPath(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto path, FileUriToOsPath(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
   driver_spec->data_.file_io_concurrency =
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();

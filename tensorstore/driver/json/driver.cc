@@ -57,7 +57,8 @@
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/unowned_to_shared.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -312,7 +313,7 @@ class JsonDriverSpec
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
     return tensorstore::StrCat(
         base_url, "|", id, ":",
-        internal::PercentEncodeKvStoreUriPath(json_pointer));
+        internal_uri::PercentEncodeKvStoreUriPath(json_pointer));
   }
 
   Future<internal::Driver::Handle> Open(
@@ -611,18 +612,18 @@ void JsonDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
 
 Result<internal::TransformedDriverSpec> ParseJsonUrl(std::string_view url,
                                                      kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchema(parsed, JsonDriverSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(EnsureSchema(parsed, JsonDriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<JsonDriverSpec>();
   driver_spec->store = std::move(base);
   driver_spec->data_copy_concurrency =
       decltype(driver_spec->data_copy_concurrency)::DefaultSpec();
   driver_spec->cache_pool = decltype(driver_spec->cache_pool)::DefaultSpec();
   driver_spec->data_staleness.bounded_by_open_time = true;
-  driver_spec->json_pointer =
-      internal::PercentDecode(parsed.authority_and_path);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      driver_spec->json_pointer,
+      internal_uri::PercentDecode(parsed.authority_and_path));
   TENSORSTORE_RETURN_IF_ERROR(
       tensorstore::json_pointer::Validate(driver_spec->json_pointer));
   return internal::TransformedDriverSpec{std::move(driver_spec)};

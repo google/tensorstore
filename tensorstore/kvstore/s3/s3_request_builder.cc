@@ -43,13 +43,13 @@
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
 
-using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal_aws::AwsCredentials;
 using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_uri::ParseGenericUri;
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

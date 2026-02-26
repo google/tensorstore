@@ -10,11 +10,11 @@ tensorstore_cc_library(
     hdrs = ["common.h"],
     deps = [
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/aws:aws_api",
         "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/aws:http_mocking",
         "//tensorstore/internal/aws:string_view",
+        "//tensorstore/internal/uri:parse",
         "@abseil-cpp//absl/strings",
         "@aws_c_auth",
         "@aws_c_common",

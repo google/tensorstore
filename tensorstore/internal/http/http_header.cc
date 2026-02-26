@@ -32,7 +32,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "re2/re2.h"
-#include "tensorstore/internal/ascii_set.h"
+#include "tensorstore/internal/uri/ascii_set.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
@@ -55,7 +55,7 @@ namespace {
 //                   DIGIT / ALPHA
 //  token          = 1*tchar
 //
-static inline constexpr internal::AsciiSet kTChar{
+static inline constexpr internal_uri::AsciiSet kTChar{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"

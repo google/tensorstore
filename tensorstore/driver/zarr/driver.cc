@@ -57,7 +57,8 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
@@ -603,11 +604,12 @@ std::string EncodeChunkIndices(span<const Index> indices,
 namespace {
 Result<internal::TransformedDriverSpec> ParseZarrUrl(std::string_view url,
                                                      kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, kUrlScheme));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(internal_uri::EnsureSchema(parsed, kUrlScheme));
+  TENSORSTORE_RETURN_IF_ERROR(internal_uri::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<ZarrDriverSpec>();
-  driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
+  TENSORSTORE_RETURN_IF_ERROR(driver_spec->InitializeFromUrl(
+      std::move(base), parsed.authority_and_path));
   driver_spec->metadata_key = kDefaultMetadataKey;
   return internal::TransformedDriverSpec{std::move(driver_spec)};
 }

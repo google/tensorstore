@@ -36,7 +36,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/source_location.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
@@ -126,7 +126,7 @@ class GcsGrpcKeyValueStoreSpec
           "URL representation does not support test endpoints");
     }
     return tensorstore::StrCat(id, "://", data_.bucket, "/",
-                               internal::PercentEncodeKvStoreUriPath(path));
+                               internal_uri::PercentEncodeKvStoreUriPath(path));
   }
 };
 

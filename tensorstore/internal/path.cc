@@ -25,7 +25,7 @@
 #include "absl/strings/match.h"  // IWYU pragma: keep
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "tensorstore/internal/ascii_set.h"  // IWYU pragma: keep
+#include "tensorstore/internal/uri/ascii_set.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace {
@@ -37,7 +37,7 @@ bool IsWindowsDriveLetter(std::string_view path) {
   return path.length() >= 2 && path[1] == ':' && absl::ascii_isalpha(path[0]);
 }
 
-static constexpr internal::AsciiSet kIllegalUNCCharacters{"<>:/\\\"|'?*"};
+static constexpr internal_uri::AsciiSet kIllegalUNCCharacters{"<>:/\\\"|'?*"};
 
 #else
 constexpr inline bool IsDirSeparator(char c) { return c == '/'; }

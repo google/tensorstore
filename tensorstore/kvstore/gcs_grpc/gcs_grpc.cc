@@ -49,7 +49,8 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
@@ -83,7 +84,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
@@ -104,7 +104,6 @@ namespace jb = tensorstore::internal_json_binding;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_gcs_grpc::GetSharedStorageStubPool;
-using ::tensorstore::internal_gcs_grpc::StorageStubPool;
 using ::tensorstore::internal_storage_gcs::ExperimentalGcsGrpcCredentials;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
@@ -112,7 +111,6 @@ using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
-using ::tensorstore::kvstore::SupportedFeatures;
 
 namespace tensorstore {
 namespace internal_gcs_grpc {
@@ -369,17 +367,19 @@ Future<kvstore::DriverPtr> GcsGrpcKeyValueStoreSpec::DoOpen() const {
 namespace {
 
 Result<kvstore::Spec> ParseGcsGrpcUrl(std::string_view url) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchemaWithAuthorityDelimiter(
-      parsed, GcsGrpcKeyValueStoreSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(
+      EnsureSchemaWithAuthorityDelimiter(parsed, GcsGrpcKeyValueStoreSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Invalid GCS bucket name: %v", QuoteString(parsed.authority)));
   }
-  auto decoded_path = parsed.path.empty()
-                          ? std::string()
-                          : internal::PercentDecode(parsed.path.substr(1));
+  std::string decoded_path;
+  if (!parsed.path.empty()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        decoded_path, internal_uri::PercentDecode(parsed.path.substr(1)));
+  }
 
   auto driver_spec = internal::MakeIntrusivePtr<GcsGrpcKeyValueStoreSpec>();
   driver_spec->data_.bucket = std::string(parsed.authority);

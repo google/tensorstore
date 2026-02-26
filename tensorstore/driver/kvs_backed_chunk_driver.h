@@ -107,7 +107,8 @@ struct KvsDriverSpec : public internal::DriverSpec,
 
   // Initialize from a URL with the specified base kvstore and
   // optional encoded path.
-  void InitializeFromUrl(kvstore::Spec&& base, std::string_view encoded_path);
+  absl::Status InitializeFromUrl(kvstore::Spec&& base,
+                                 std::string_view encoded_path);
 
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<internal::DriverSpec>(x),

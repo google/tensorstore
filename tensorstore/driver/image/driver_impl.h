@@ -62,7 +62,8 @@
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -70,6 +71,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
@@ -201,10 +203,9 @@ class ImageDriverSpec
 
   static Result<internal::TransformedDriverSpec> ParseUrl(
       std::string_view url, kvstore::Spec&& base) {
-    auto parsed = internal::ParseGenericUri(url);
-    TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, id));
-    TENSORSTORE_RETURN_IF_ERROR(
-        internal::EnsureNoPathOrQueryOrFragment(parsed));
+    auto parsed = internal_uri::ParseGenericUri(url);
+    TENSORSTORE_RETURN_IF_ERROR(EnsureSchema(parsed, id));
+    TENSORSTORE_RETURN_IF_ERROR(EnsureNoPathOrQueryOrFragment(parsed));
 
     auto driver_spec = internal::MakeIntrusivePtr<SpecType>();
     TENSORSTORE_RETURN_IF_ERROR(

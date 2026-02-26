@@ -29,7 +29,7 @@
 #include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -45,9 +45,11 @@ using ::tensorstore::internal_http::HttpResponse;
 // Construct the refresh token payload once when the OAuth2AuthProvider
 // is created & cache the value.
 std::string MakePayload(const internal_oauth2::RefreshToken& creds) {
-  auto client_id = internal::PercentEncodeUriComponent(creds.client_id);
-  auto client_secret = internal::PercentEncodeUriComponent(creds.client_secret);
-  auto refresh_token = internal::PercentEncodeUriComponent(creds.refresh_token);
+  auto client_id = internal_uri::PercentEncodeUriComponent(creds.client_id);
+  auto client_secret =
+      internal_uri::PercentEncodeUriComponent(creds.client_secret);
+  auto refresh_token =
+      internal_uri::PercentEncodeUriComponent(creds.refresh_token);
   return tensorstore::StrCat(
       "grant_type=refresh_token", "&client_id=", client_id,
       "&client_secret=", client_secret, "&refresh_token=", refresh_token);

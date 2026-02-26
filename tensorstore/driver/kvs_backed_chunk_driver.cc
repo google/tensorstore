@@ -61,7 +61,7 @@
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/unowned_to_shared.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -752,12 +752,14 @@ Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
   return transform;
 }
 
-void KvsDriverSpec::InitializeFromUrl(kvstore::Spec&& base,
-                                      std::string_view encoded_path) {
+absl::Status KvsDriverSpec::InitializeFromUrl(kvstore::Spec&& base,
+                                              std::string_view encoded_path) {
   store = std::move(base);
   internal::EnsureDirectoryPath(store.path);
   if (!encoded_path.empty()) {
-    store.path += internal::PercentDecode(encoded_path);
+    TENSORSTORE_ASSIGN_OR_RETURN(std::string subpath,
+                                 internal_uri::PercentDecode(encoded_path));
+    store.path.append(subpath);
     internal::EnsureDirectoryPath(store.path);
   }
   data_copy_concurrency = decltype(data_copy_concurrency)::DefaultSpec();
@@ -766,6 +768,7 @@ void KvsDriverSpec::InitializeFromUrl(kvstore::Spec&& base,
   fill_value_mode.fill_missing_data_reads = true;
   fill_value_mode.store_data_equal_to_fill_value = false;
   this->open = true;
+  return absl::OkStatus();
 }
 
 absl::Status KvsDriverSpec::ApplyOptions(SpecOptions&& options) {

@@ -38,8 +38,8 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -171,7 +171,7 @@ class MemoryDriverSpec
 
   Result<std::string> ToUrl(std::string_view path) const override {
     return tensorstore::StrCat(id, "://",
-                               internal::PercentEncodeKvStoreUriPath(path));
+                               internal_uri::PercentEncodeKvStoreUriPath(path));
   }
 };
 
@@ -506,15 +506,16 @@ absl::Status MemoryDriver::TransactionalDeleteRange(
 }
 
 Result<kvstore::Spec> ParseMemoryUrl(std::string_view url) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchemaWithAuthorityDelimiter(
-      parsed, MemoryDriverSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(
+      EnsureSchemaWithAuthorityDelimiter(parsed, MemoryDriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<MemoryDriverSpec>();
   driver_spec->data_.memory_key_value_store =
       Context::Resource<MemoryKeyValueStoreResource>::DefaultSpec();
-  return {std::in_place, std::move(driver_spec),
-          internal::PercentDecode(parsed.authority_and_path)};
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      std::string path, internal_uri::PercentDecode(parsed.authority_and_path));
+  return {std::in_place, std::move(driver_spec), std::move(path)};
 }
 
 }  // namespace

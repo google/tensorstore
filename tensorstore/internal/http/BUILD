@@ -45,8 +45,9 @@ tensorstore_cc_library(
     deps = [
         ":http_header",
         "//tensorstore/internal:source_location",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/internal/uri:parse",
+        "//tensorstore/internal/uri:percent_coder",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
@@ -72,7 +73,7 @@ tensorstore_cc_library(
     srcs = ["http_header.cc"],
     hdrs = ["http_header.h"],
     deps = [
-        "//tensorstore/internal:ascii_set",
+        "//tensorstore/internal/uri:ascii_set",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",

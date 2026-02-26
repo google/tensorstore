@@ -53,7 +53,8 @@
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
@@ -263,7 +264,8 @@ struct S3KeyValueStoreSpecData {
 };
 
 std::string GetS3Url(std::string_view bucket, std::string_view path) {
-  return tensorstore::StrCat(kUriScheme, "://", bucket, "/", S3UriEncode(path));
+  return tensorstore::StrCat(kUriScheme, "://", bucket, "/",
+                             internal_uri::PercentEncodeKvStoreUriPath(path));
 }
 
 class S3KeyValueStoreSpec
@@ -1398,18 +1400,19 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
 }
 
 Result<kvstore::Spec> ParseS3Url(std::string_view url) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+      EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Invalid S3 bucket name: %v", QuoteString(parsed.authority)));
   }
-  auto decoded_path = parsed.path.empty()
-                          ? std::string()
-                          : internal::PercentDecode(parsed.path.substr(1));
-
+  std::string decoded_path;
+  if (!parsed.path.empty()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        decoded_path, internal_uri::PercentDecode(parsed.path.substr(1)));
+  }
   auto driver_spec = internal::MakeIntrusivePtr<S3KeyValueStoreSpec>();
   driver_spec->data_.bucket = std::string(parsed.authority);
   driver_spec->data_.requester_pays = false;

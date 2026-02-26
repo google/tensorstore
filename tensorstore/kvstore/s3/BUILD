@@ -29,7 +29,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:source_location",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/aws:aws_api",
         "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/cache_key",
@@ -41,6 +40,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/rate_limiter",
         "//tensorstore/internal/thread:schedule_at",
+        "//tensorstore/internal/uri:parse",
+        "//tensorstore/internal/uri:percent_coder",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:byte_range",
@@ -155,7 +156,10 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "s3_uri_utils",
     hdrs = ["s3_uri_utils.h"],
-    deps = ["//tensorstore/internal:uri_utils"],
+    deps = [
+        "//tensorstore/internal/uri:ascii_set",
+        "//tensorstore/internal/uri:percent_coder",
+    ],
 )
 
 tensorstore_cc_library(
@@ -194,11 +198,11 @@ tensorstore_cc_library(
     ],
     deps = [
         ":s3_uri_utils",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal/http",
         "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/internal/uri:parse",
         "//tensorstore/kvstore:byte_range",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_check",
@@ -257,9 +261,9 @@ tensorstore_cc_library(
     hdrs = ["s3_endpoint.h"],
     deps = [
         ":validate",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:http_header",
+        "//tensorstore/internal/uri:parse",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
@@ -380,7 +384,6 @@ tensorstore_cc_library(
     hdrs = ["aws_credentials_spec.h"],
     deps = [
         "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/aws:aws_api",
         "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/aws/credentials:common",
@@ -388,6 +391,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/meta:type_traits",
+        "//tensorstore/internal/uri:parse",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",

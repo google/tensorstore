@@ -118,11 +118,11 @@ tensorstore_cc_library(
     deps = [
         ":format",
         "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:ascii_set",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/json:value_as",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/uri:ascii_set",
+        "//tensorstore/internal/uri:percent_coder",
         "//tensorstore/kvstore/ocdbt:config",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",

@@ -181,8 +181,8 @@ tensorstore_cc_library(
     deps = [
         ":collect",
         ":metadata",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
+        "//tensorstore/internal/uri:ascii_set",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/functional:function_ref",

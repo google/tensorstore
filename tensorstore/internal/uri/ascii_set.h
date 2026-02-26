@@ -1,4 +1,3 @@
-
 // Copyright 2020 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_ASCII_SET_H_
-#define TENSORSTORE_INTERNAL_ASCII_SET_H_
+#ifndef TENSORSTORE_INTERNAL_URI_ASCII_SET_H_
+#define TENSORSTORE_INTERNAL_URI_ASCII_SET_H_
 
 #include <stdint.h>
 
+#include <cassert>
 #include <string_view>
 
 namespace tensorstore {
-namespace internal {
+namespace internal_uri {
 
 /// Set of ASCII characters (0-127) represented as a bit vector.
 class AsciiSet {
@@ -36,12 +36,6 @@ class AsciiSet {
     }
   }
 
-  /// Adds a character to the set.
-  constexpr void Set(char c) {
-    auto uc = static_cast<unsigned char>(c);
-    bitvec_[(uc & 64) ? 1 : 0] |= static_cast<uint64_t>(1) << (uc & 63);
-  }
-
   /// Returns `true` if `c` is in the set.
   constexpr bool Test(char c) const {
     auto uc = static_cast<unsigned char>(c);
@@ -49,11 +43,40 @@ class AsciiSet {
     return (bitvec_[(uc & 64) ? 1 : 0] >> (uc & 63)) & 1;
   }
 
+  constexpr bool operator()(char c) const { return Test(c); }
+
+  friend constexpr AsciiSet operator|(AsciiSet a, AsciiSet b) {
+    a.bitvec_[0] |= b.bitvec_[0];
+    a.bitvec_[1] |= b.bitvec_[1];
+    return a;
+  }
+  friend constexpr AsciiSet operator&(AsciiSet a, AsciiSet b) {
+    a.bitvec_[0] &= b.bitvec_[0];
+    a.bitvec_[1] &= b.bitvec_[1];
+    return a;
+  }
+  friend constexpr AsciiSet operator^(AsciiSet a, AsciiSet b) {
+    a.bitvec_[0] ^= b.bitvec_[0];
+    a.bitvec_[1] ^= b.bitvec_[1];
+    return a;
+  }
+  friend constexpr AsciiSet operator~(AsciiSet a) {
+    a.bitvec_[0] ^= 0xFFFFFFFFFFFFFFFF;
+    a.bitvec_[1] ^= 0xFFFFFFFFFFFFFFFF;
+    return a;
+  }
+
  private:
+  // Adds a character to the set.
+  constexpr void Set(char c) {
+    auto uc = static_cast<unsigned char>(c);
+    bitvec_[(uc & 64) ? 1 : 0] |= static_cast<uint64_t>(1) << (uc & 63);
+  }
+
   uint64_t bitvec_[2];
 };
 
-}  // namespace internal
+}  // namespace internal_uri
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_ASCII_SET_H_
+#endif  // TENSORSTORE_INTERNAL_URI_ASCII_SET_H_

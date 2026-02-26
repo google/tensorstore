@@ -62,11 +62,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "ascii_set",
-    hdrs = ["ascii_set.h"],
-)
-
-tensorstore_cc_library(
     name = "global_initializer",
     hdrs = ["global_initializer.h"],
     deps = ["//tensorstore/internal/preprocessor:cat"],
@@ -1373,7 +1368,7 @@ tensorstore_cc_library(
     srcs = ["path.cc"],
     hdrs = ["path.h"],
     deps = [
-        ":ascii_set",
+        "//tensorstore/internal/uri:ascii_set",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -1612,35 +1607,6 @@ tensorstore_cc_test(
     srcs = ["ref_counted_string_test.cc"],
     deps = [
         ":ref_counted_string",
-        "@googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "uri_utils",
-    srcs = ["uri_utils.cc"],
-    hdrs = ["uri_utils.h"],
-    deps = [
-        ":ascii_set",
-        ":path",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/strings:str_format",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "uri_utils_test",
-    srcs = ["uri_utils_test.cc"],
-    deps = [
-        ":ascii_set",
-        ":uri_utils",
-        "//tensorstore/internal/testing:on_windows",
-        "//tensorstore/util:status_testutil",
-        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )

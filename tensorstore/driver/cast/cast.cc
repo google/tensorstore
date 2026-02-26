@@ -21,6 +21,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
@@ -45,7 +46,7 @@
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
@@ -493,15 +494,14 @@ Result<TransformedDriverSpec> MakeCastDriverSpec(TransformedDriverSpec base,
 namespace {
 Result<internal::TransformedDriverSpec> ParseCastUrl(
     std::string_view url, TransformedDriverSpec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchema(parsed, internal_cast_driver::CastDriverSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+      EnsureSchema(parsed, internal_cast_driver::CastDriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   auto dtype = GetDataType(parsed.authority_and_path);
   if (!dtype.valid()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Unsuppported data type: ",
-                     tensorstore::QuoteString(parsed.authority_and_path)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Unsuppported data type: %v", QuoteString(parsed.authority_and_path)));
   }
   return MakeCastDriverSpec(std::move(base), dtype);
 }

@@ -40,7 +40,8 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
@@ -129,7 +130,7 @@ class ZipKvStoreSpec
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url,
                                  data_.base.driver->ToUrl(data_.base.path));
     return absl::StrCat(base_url, "|", id, ":",
-                        internal::PercentEncodeKvStoreUriPath(path));
+                        internal_uri::PercentEncodeKvStoreUriPath(path));
   }
 };
 
@@ -411,13 +412,14 @@ void ZipKvStore::ListImpl(ListOptions options, ListReceiver receiver) {
 }
 
 Result<kvstore::Spec> ParseZipUrl(std::string_view url, kvstore::Spec base) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   if (parsed.scheme != ZipKvStoreSpec::id || parsed.has_authority_delimiter) {
     return absl::InvalidArgumentError(absl::StrCat(
         "Scheme \"", ZipKvStoreSpec::id, ":\" not present in url"));
   }
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
-  std::string path = internal::PercentDecode(parsed.path);
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
+  TENSORSTORE_ASSIGN_OR_RETURN(std::string path,
+                               internal_uri::PercentDecode(parsed.path));
   auto driver_spec = internal::MakeIntrusivePtr<ZipKvStoreSpec>();
   driver_spec->data_.base = std::move(base);
   driver_spec->data_.cache_pool =
