@@ -267,7 +267,6 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
-        "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",

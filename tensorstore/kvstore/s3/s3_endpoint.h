@@ -80,6 +80,10 @@ bool IsAwsS3Endpoint(std::string_view endpoint);
 /// Validate the bucket, endpoint and host_header parameters.
 /// When possible, constructs an S3EndpointRegion from the driver config.
 ///
+/// When bucket is empty, endpoint must be specified. The endpoint URL is used
+/// directly as the full base URL for all S3 operations, supporting
+/// virtual-hosted-style S3 endpoints (e.g. "https://mybucket.cwobject.com").
+///
 /// Returns an absl::Status or an S3EndpointRegion.
 /// When the return value holds:
 /// * An error status: The validation failed.
@@ -92,10 +96,11 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     std::string host_header);
 
 /// Resolve an endpoint to fill a S3EndpointRegion.
-/// This issues a request to AWS to determine the proper endpoint, host_header,
-/// and aws_region for a given bucket.
+/// This issues a request to determine the proper endpoint and aws_region.
+/// When bucket is empty, the endpoint is used directly as the resolved URL.
 /// Pre:
 ///   ValidateEndpoint has returned an `absl::OkStatus`.
+///   If bucket is empty, endpoint must be non-empty.
 Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string bucket, std::string_view endpoint, std::string host_header,
     std::shared_ptr<internal_http::HttpTransport> transport);
