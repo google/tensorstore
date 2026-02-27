@@ -989,18 +989,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#json-kvstore/s3.bucket" class="md-nav__link">
-    
-      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
-    
-    <span class="md-ellipsis">
-      <span title="kvstore/s3.bucket (JSON member) — AWS S3 Storage bucket."><span>bucket</span></span>
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1036,6 +1024,18 @@
     
     <span class="md-ellipsis">
       <span title="kvstore/s3.context (JSON member)"><span>context</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/s3.bucket" class="md-nav__link">
+    
+      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
+    
+    <span class="md-ellipsis">
+      <span title="kvstore/s3.bucket (JSON member) — AWS S3 Storage bucket."><span>bucket</span></span>
     </span>
   </a>
   
@@ -2175,18 +2175,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#json-kvstore/s3.bucket" class="md-nav__link">
-    
-      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
-    
-    <span class="md-ellipsis">
-      <span title="kvstore/s3.bucket (JSON member) — AWS S3 Storage bucket."><span>bucket</span></span>
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2222,6 +2210,18 @@
     
     <span class="md-ellipsis">
       <span title="kvstore/s3.context (JSON member)"><span>context</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/s3.bucket" class="md-nav__link">
+    
+      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
+    
+    <span class="md-ellipsis">
+      <span title="kvstore/s3.bucket (JSON member) — AWS S3 Storage bucket."><span>bucket</span></span>
     </span>
   </a>
   
@@ -3258,12 +3258,6 @@ when using <code class="docutils literal notranslate"><span class="pre">s3</span
 <span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;s3&quot;</span></code><a class="headerlink" href="#json-kvstore/s3.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/s3.bucket">
-<span class="sig-name descname"><span class="pre">bucket</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/s3.bucket" title="Link to this definition">¶</a></dt>
-<dd><span><p>AWS S3 Storage bucket.</p>
-  </span></dd></dl>
-
 </dd>
 </dl>
 <dl class="field-list">
@@ -3280,6 +3274,16 @@ should end with <code class="code highlight json docutils literal highlight-json
 <dt class="sig sig-object highlight json" id="json-kvstore/s3.context">
 <span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-kvstore/s3.context" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies context resources that augment/override the parent context.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/s3.bucket">
+<span class="sig-name descname"><span class="pre">bucket</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;&quot;</span></code><a class="headerlink" href="#json-kvstore/s3.bucket" title="Link to this definition">¶</a></dt>
+<dd><span><p>AWS S3 Storage bucket.</p>
+  </span><p>S3 bucket name. May be empty when <a class="reference internal" href="#json-kvstore/s3.endpoint" title="kvstore/s3.endpoint (JSON member) — S3 server endpoint to use in place of the public Amazon S3 endpoints."><code class="xref json json-schema docutils literal notranslate"><span class="pre">endpoint</span></code></a> is a
+virtual-hosted-style URL that already includes the bucket
+(e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;https://mybucket.s3.us-west-2.amazonaws.com&quot;</span></code> or
+<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;https://mybucket.cwobject.com&quot;</span></code>).</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -3302,10 +3306,18 @@ determined automatically.</p>
 <dt class="sig sig-object highlight json" id="json-kvstore/s3.endpoint">
 <span class="sig-name descname"><span class="pre">endpoint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/s3.endpoint" title="Link to this definition">¶</a></dt>
 <dd><span><p>S3 server endpoint to use in place of the public Amazon S3 endpoints.</p>
-  </span><p>Must be an http or https URL.</p>
+  </span><p>Must be an http or https URL. When <a class="reference internal" href="#json-kvstore/s3.bucket" title="kvstore/s3.bucket (JSON member) — AWS S3 Storage bucket."><code class="xref json json-schema docutils literal notranslate"><span class="pre">bucket</span></code></a> is empty,
+the endpoint is used directly as the full base URL for all S3
+operations (virtual-hosted-style).</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">&quot;http://localhost:1234&quot;</span>
+</code></pre></div>
+</div>
+</div>
+<div class="example admonition">
+<p class="admonition-title">Example</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">&quot;https://mybucket.cwobject.com&quot;</span>
 </code></pre></div>
 </div>
 </div>
