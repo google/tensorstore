@@ -223,46 +223,61 @@ struct S3KeyValueStoreSpecData {
              x.data_copy_concurrency);
   };
 
-  constexpr static auto default_json_binder = jb::Object(
-      // Bucket is specified in the `spec` since it identifies the resource
-      // being accessed.
-      jb::Member(
-          "bucket",
-          jb::Projection<&S3KeyValueStoreSpecData::bucket>(jb::Validate(
-              [](const auto& options, const std::string* x) {
-                if (x->empty() || IsValidBucketName(*x)) {
-                  return absl::OkStatus();
-                }
-                return absl::InvalidArgumentError(absl::StrFormat(
-                    "Invalid S3 bucket name: %v", QuoteString(*x)));
-              },
-              jb::DefaultValue([](auto* v) { *v = ""; })))),
-      jb::Member("requester_pays",
-                 jb::Projection<&S3KeyValueStoreSpecData::requester_pays>(
-                     jb::DefaultValue([](auto* v) { *v = false; }))),
-      jb::Member("host_header",
-                 jb::Projection<&S3KeyValueStoreSpecData::host_header>()),
-      jb::Member("endpoint",
-                 jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
-      jb::Member("aws_region",
-                 jb::Projection<&S3KeyValueStoreSpecData::aws_region>(
-                     jb::DefaultValue([](auto* v) { *v = ""; }))),
-      jb::Member(
-          "use_conditional_write",
-          jb::Projection<&S3KeyValueStoreSpecData::use_conditional_write>()),
-      jb::Member(AwsCredentialsResource::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::aws_credentials>()),
-      jb::Member(
-          S3ConcurrencyResource::id,
-          jb::Projection<&S3KeyValueStoreSpecData::request_concurrency>()),
-      jb::Member(S3RateLimiterResource::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::rate_limiter>()),
-      jb::Member(S3RequestRetries::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::retries>()),
-      jb::Member(DataCopyConcurrencyResource::id,
-                 jb::Projection<
-                     &S3KeyValueStoreSpecData::data_copy_concurrency>()) /**/
-  );
+  constexpr static auto default_json_binder = jb::Validate(
+      [](const auto& options, const auto* x) {
+        if (!x->bucket.empty() && !IsValidBucketName(x->bucket)) {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Invalid S3 bucket name: %v", QuoteString(x->bucket)));
+        }
+        if (!x->endpoint || x->endpoint->empty()) {
+          if (x->bucket.empty()) {
+            return absl::InvalidArgumentError(
+                "\"bucket\" must be specified when \"endpoint\" is not set");
+          }
+          if (x->host_header && !x->host_header->empty()) {
+            return absl::InvalidArgumentError(
+                "\"host_header\" cannot be set without also setting "
+                "\"endpoint\"");
+          }
+        }
+        return absl::OkStatus();
+      },
+      jb::Object(
+          jb::Member(
+              "bucket",
+              jb::Projection<&S3KeyValueStoreSpecData::bucket>(
+                  jb::DefaultValue([](auto* v) { *v = ""; }))),
+          jb::Member("requester_pays",
+                     jb::Projection<&S3KeyValueStoreSpecData::requester_pays>(
+                         jb::DefaultValue([](auto* v) { *v = false; }))),
+          jb::Member("host_header",
+                     jb::Projection<&S3KeyValueStoreSpecData::host_header>()),
+          jb::Member("endpoint",
+                     jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
+          jb::Member("aws_region",
+                     jb::Projection<&S3KeyValueStoreSpecData::aws_region>(
+                         jb::DefaultValue([](auto* v) { *v = ""; }))),
+          jb::Member(
+              "use_conditional_write",
+              jb::Projection<
+                  &S3KeyValueStoreSpecData::use_conditional_write>()),
+          jb::Member(
+              AwsCredentialsResource::id,
+              jb::Projection<&S3KeyValueStoreSpecData::aws_credentials>()),
+          jb::Member(
+              S3ConcurrencyResource::id,
+              jb::Projection<
+                  &S3KeyValueStoreSpecData::request_concurrency>()),
+          jb::Member(
+              S3RateLimiterResource::id,
+              jb::Projection<&S3KeyValueStoreSpecData::rate_limiter>()),
+          jb::Member(S3RequestRetries::id,
+                     jb::Projection<&S3KeyValueStoreSpecData::retries>()),
+          jb::Member(
+              DataCopyConcurrencyResource::id,
+              jb::Projection<
+                  &S3KeyValueStoreSpecData::data_copy_concurrency>()) /**/
+      ));
 };
 
 std::string GetS3Url(std::string_view bucket, std::string_view path) {
