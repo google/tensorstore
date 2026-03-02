@@ -75,7 +75,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
@@ -253,7 +252,7 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
 
         auto supported_manifest_features =
             driver->base_.driver->GetSupportedFeatures(KeyRange::Prefix(
-                tensorstore::StrCat(driver->base_.path, "manifest.")));
+                absl::StrCat(driver->base_.path, "manifest.")));
 
         driver->cache_pool_ = spec->data_.cache_pool;
         driver->data_copy_concurrency_ = spec->data_.data_copy_concurrency;
@@ -484,11 +483,11 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
 }
 
 std::string OcdbtDriver::DescribeKey(std::string_view key) {
-  return tensorstore::StrCat(
+  return absl::StrCat(
       tensorstore::QuoteString(key), " in ",
       version_spec_
-          ? tensorstore::StrCat("version ",
-                                FormatVersionSpecForUrl(*version_spec_), " of ")
+          ? absl::StrCat("version ", FormatVersionSpecForUrl(*version_spec_),
+                         " of ")
           : std::string{},
       "OCDBT database at ", io_handle_->DescribeLocation());
 }

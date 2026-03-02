@@ -23,7 +23,7 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_join.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
@@ -45,6 +45,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -161,18 +162,16 @@ struct AutoOpenState {
                     matches_future) mutable {
               auto& matches = matches_future.value();
               if (matches.empty()) {
-                promise.SetResult(
-                    absl::FailedPreconditionError(tensorstore::StrCat(
-                        "Failed to detect format for ",
-                        self->store.driver->DescribeKey(self->store.path))));
+                promise.SetResult(absl::FailedPreconditionError(absl::StrFormat(
+                    "Failed to detect format for %v",
+                    self->store.driver->DescribeKey(self->store.path))));
                 return;
               }
               if (matches.size() != 1) {
-                promise.SetResult(
-                    absl::FailedPreconditionError(tensorstore::StrCat(
-                        "Multiple possible formats detected for ",
-                        self->store.driver->DescribeKey(self->store.path), ": ",
-                        absl::StrJoin(matches, ", "))));
+                promise.SetResult(absl::FailedPreconditionError(absl::StrFormat(
+                    "Multiple possible formats detected for %v: %v",
+                    self->store.driver->DescribeKey(self->store.path),
+                    GenericStringify(matches))));
                 return;
               }
               ApplyDetectedMatch(std::move(self), std::move(promise),

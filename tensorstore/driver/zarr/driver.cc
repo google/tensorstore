@@ -28,6 +28,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -73,7 +74,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -161,10 +161,10 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                    DimensionSeparator* value) {
                   auto& sep = obj->partial_metadata.dimension_separator;
                   if (sep && *sep != *value) {
-                    return absl::InvalidArgumentError(tensorstore::StrCat(
-                        "value (", ::nlohmann::json(*value).dump(),
-                        ") does not match value in metadata (",
-                        ::nlohmann::json(*sep).dump(), ")"));
+                    return absl::InvalidArgumentError(absl::StrFormat(
+                        "value (%v) does not match value in metadata (%v)",
+                        ::nlohmann::json(*value).dump(),
+                        ::nlohmann::json(*sep).dump()));
                   }
                   sep = *value;
                   return absl::OkStatus();
@@ -233,11 +233,11 @@ Result<SharedArray<const void>> ZarrDriverSpec::GetFillValue(
     return SharedArray<const void>(fill_value);
   }
 
-  const DimensionIndex output_rank = transform.output_rank();
+  DimensionIndex output_rank = transform.output_rank();
   if (output_rank < fill_value.rank()) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Transform with output rank ", output_rank,
-                            " is not compatible with metadata"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Transform with output rank %d does not match metadata rank %d",
+        output_rank, fill_value.rank()));
   }
   Index pseudo_shape[kMaxRank];
   std::fill_n(pseudo_shape, output_rank - fill_value.rank(), kInfIndex + 1);
@@ -272,9 +272,9 @@ absl::Status DataCache::ValidateMetadataCompatibility(
   if (IsMetadataCompatible(existing_metadata, new_metadata)) {
     return absl::OkStatus();
   }
-  return absl::FailedPreconditionError(tensorstore::StrCat(
-      "Updated zarr metadata ", ::nlohmann::json(new_metadata).dump(),
-      " is incompatible with existing metadata ",
+  return absl::FailedPreconditionError(absl::StrFormat(
+      "Updated zarr metadata %v is incompatible with existing metadata %v",
+      ::nlohmann::json(new_metadata).dump(),
       ::nlohmann::json(existing_metadata).dump()));
 }
 

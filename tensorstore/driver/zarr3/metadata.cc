@@ -79,7 +79,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -112,8 +111,8 @@ std::string GetSupportedDataTypes() {
 
 absl::Status ValidateDataType(DataType dtype) {
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        dtype, " data type is not one of the supported data types: ",
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "%v data type is not one of the supported data types: %s", dtype,
         GetSupportedDataTypes()));
   }
   return absl::OkStatus();
@@ -317,9 +316,10 @@ constexpr auto UnknownExtensionAttributesJsonBinder =
             continue;
           }
         }
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Unsupported metadata field ", tensorstore::QuoteString(key),
-            " is not marked {\"must_understand\": false}"));
+        return absl::InvalidArgumentError(
+            absl::StrFormat("Unsupported metadata field %v is not marked "
+                            "{\"must_understand\": false}",
+                            QuoteString(key)));
       }
       return absl::OkStatus();
     });
@@ -732,9 +732,10 @@ CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata) {
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
                                     const Schema& schema) {
   if (!RankConstraint::EqualOrUnspecified(metadata.rank, schema.rank())) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Rank specified by schema (", schema.rank(),
-        ") does not match rank specified by metadata (", metadata.rank, ")"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Rank specified by schema (%v) does not match rank specified by "
+        "metadata (%v)",
+        schema.rank(), metadata.rank));
   }
 
   if (schema.domain().valid()) {
@@ -744,9 +745,9 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
 
   if (auto dtype = schema.dtype();
       !IsPossiblySameDataType(metadata.data_type, dtype)) {
-    return absl::FailedPreconditionError(
-        tensorstore::StrCat("data_type from metadata (", metadata.data_type,
-                            ") does not match dtype in schema (", dtype, ")"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "data_type from metadata (%v) does not match dtype in schema (%v)",
+        metadata.data_type, dtype));
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
@@ -773,10 +774,10 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
       auto binder = FillValueJsonBinder{metadata.data_type};
       auto schema_json = jb::ToJson(converted_fill_value, binder).value();
       auto metadata_json = jb::ToJson(metadata.fill_value, binder).value();
-      return absl::FailedPreconditionError(tensorstore::StrCat(
-          "Invalid fill_value: schema requires fill value of ",
-          schema_json.dump(), ", but metadata specifies fill value of ",
-          metadata_json.dump()));
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "Invalid fill_value: schema requires fill value of %s, but metadata "
+          "specifies fill value of %s",
+          schema_json.dump(), metadata_json.dump()));
     }
   }
 

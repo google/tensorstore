@@ -27,6 +27,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -220,9 +221,9 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     auto existing_key = existing_metadata.GetCompatibilityKey();
     auto new_key = new_metadata.GetCompatibilityKey();
     if (existing_key == new_key) return absl::OkStatus();
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Updated N5 metadata ", new_key,
-        " is incompatible with existing metadata ", existing_key));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Updated N5 metadata %v is incompatible with existing metadata %v",
+        new_key, existing_key));
   }
 
   void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,

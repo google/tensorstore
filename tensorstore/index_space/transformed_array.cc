@@ -44,12 +44,12 @@
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -168,9 +168,9 @@ Result<bool> IterateOverTransformedArrays(
     for (size_t i = 0; i < Arity; ++i) {
       transformed_ranks[i] = transformed_arrays[i].domain().rank();
     }
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Transformed array input ranks ",
-                            span(transformed_ranks), " do not all match"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Transformed array input ranks %v do not all match",
+        GenericStringify(tensorstore::span(transformed_ranks))));
   }
 
   // Compute input_bounds.

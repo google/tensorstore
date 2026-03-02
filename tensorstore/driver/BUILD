@@ -162,6 +162,7 @@ tensorstore_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:extents",
         "//tensorstore/util:future",
+        "//tensorstore/util:generic_stringify",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span",

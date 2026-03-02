@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/box.h"
@@ -57,9 +58,9 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -213,8 +214,9 @@ struct DriverReadIntoNewInitiateOp {
         std::move(source_transform_future.value());
 
     if (!IsFinite(source_transform.domain())) {
-      promise.SetResult(absl::InvalidArgumentError(tensorstore::StrCat(
-          "Read requires a finite domain, got ", source_transform.domain())));
+      promise.SetResult(absl::InvalidArgumentError(
+          absl::StrFormat("Read requires a finite domain, got %v",
+                          GenericStringify(source_transform.domain()))));
       return;
     }
 

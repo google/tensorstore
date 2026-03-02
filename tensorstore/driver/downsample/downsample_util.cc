@@ -24,6 +24,7 @@
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -43,7 +44,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_downsample {
@@ -188,8 +188,8 @@ absl::Status PropagateUnitStrideSingleInputDimensionMapDownsampling(
   if (internal::MulOverflow(original_offset, output_downsample_factor,
                             &new_output_map.offset())) {
     return absl::OutOfRangeError(
-        tensorstore::StrCat("Integer overflow computing output offset ",
-                            original_offset, " * ", output_downsample_factor));
+        absl::StrFormat("Integer overflow computing output offset %d * %d",
+                        original_offset, output_downsample_factor));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto bounds_interval,
@@ -199,8 +199,8 @@ absl::Status PropagateUnitStrideSingleInputDimensionMapDownsampling(
       bounds_interval, output_downsample_factor, DownsampleMethod::kMean);
   if (!Contains(input_bounds, input_interval)) {
     return absl::OutOfRangeError(
-        tensorstore::StrCat("Propagated bounds interval ", input_bounds,
-                            " does not contain ", input_interval));
+        absl::StrFormat("Propagated bounds interval %v does not contain %v",
+                        input_bounds, input_interval));
   }
   propagated.input_downsample_factors[new_input_dim] = output_downsample_factor;
   new_output_map.SetSingleInputDimension(new_input_dim);
@@ -250,9 +250,9 @@ absl::Status PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
                               output_map.stride(), &adjusted_offset) ||
         internal::AddOverflow(adjusted_offset, output_map.offset(),
                               &adjusted_offset)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Integer overflow computing offset ", output_map.offset(), " + ",
-          input_interval.inclusive_min(), " * ", output_map.stride()));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Integer overflow computing offset %d + %d * %d", output_map.offset(),
+          input_interval.inclusive_min(), output_map.stride()));
     }
     return PropagateUnitStrideSingleInputDimensionMapDownsampling(
         /*original_offset=*/adjusted_offset, /*original_stride=*/1,
@@ -276,15 +276,15 @@ absl::Status PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
   Index adjusted_offset;
   if (internal::MulOverflow(output_map.stride(), output_downsample_factor,
                             &adjusted_stride)) {
-    return absl::OutOfRangeError(tensorstore::StrCat(
-        "Integer overflow computing stride ", output_map.stride(), " * ",
-        output_downsample_factor));
+    return absl::OutOfRangeError(
+        absl::StrFormat("Integer overflow computing stride %d * %d",
+                        output_map.stride(), output_downsample_factor));
   }
   if (internal::MulOverflow(output_map.offset(), output_downsample_factor,
                             &adjusted_offset)) {
-    return absl::OutOfRangeError(tensorstore::StrCat(
-        "Integer overflow computing offset ", output_map.offset(), " * ",
-        output_downsample_factor));
+    return absl::OutOfRangeError(
+        absl::StrFormat("Integer overflow computing offset %d * %d",
+                        output_map.offset(), output_downsample_factor));
   }
   if (!input_interval.empty()) {
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -295,9 +295,10 @@ absl::Status PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
         output_range,
         ShiftInterval(output_range, output_downsample_factor - 1, 0));
     if (!Contains(output_base_bounds, output_range)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Output bounds interval ", output_base_bounds,
-          " does not contain output range interval ", output_range));
+      return absl::OutOfRangeError(
+          absl::StrFormat("Output bounds interval %v does not contain output "
+                          "range interval %v",
+                          output_base_bounds, output_range));
     }
   }
   // Use `new_index_array_data.byte_strides` as temporary buffer for calling
@@ -397,15 +398,15 @@ absl::Status PropagateIndexArrayMapDownsampling(
   Index adjusted_offset;
   if (internal::MulOverflow(output_map.stride(), output_downsample_factor,
                             &adjusted_stride)) {
-    return absl::OutOfRangeError(tensorstore::StrCat(
-        "Integer overflow computing stride ", output_map.stride(), " * ",
-        output_downsample_factor));
+    return absl::OutOfRangeError(
+        absl::StrFormat("Integer overflow computing stride %d * %d",
+                        output_map.stride(), output_downsample_factor));
   }
   if (internal::MulOverflow(output_map.offset(), output_downsample_factor,
                             &adjusted_offset)) {
-    return absl::OutOfRangeError(tensorstore::StrCat(
-        "Integer overflow computing offset ", output_map.offset(), " * ",
-        output_downsample_factor));
+    return absl::OutOfRangeError(
+        absl::StrFormat("Integer overflow computing offset %d * %d",
+                        output_map.offset(), output_downsample_factor));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto padded_output_interval,
@@ -566,8 +567,8 @@ absl::Status PropagateIndexTransformDownsampling(
           break;
         }
         if (!IsFinite(input_interval)) {
-          status = absl::InvalidArgumentError(tensorstore::StrCat(
-              "Input domain ", input_interval, " is not finite"));
+          status = absl::InvalidArgumentError(
+              absl::StrFormat("Input domain %v is not finite", input_interval));
           break;
         }
         if (input_interval.empty()) {

@@ -195,7 +195,7 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   }
 error:
   return absl::InvalidArgumentError(
-      tensorstore::StrCat("Unsupported zarr dtype: ", QuoteString(dtype)));
+      absl::StrFormat("Unsupported zarr dtype: %v", QuoteString(dtype)));
 }
 
 namespace {
@@ -286,8 +286,8 @@ absl::Status ValidateDType(ZarrDType& dtype) {
     if (std::any_of(
             dtype.fields.begin(), dtype.fields.begin() + field_i,
             [&](const ZarrDType::Field& f) { return f.name == field.name; })) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Field name ", QuoteString(field.name), " occurs more than once"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Field name %v occurs more than once", QuoteString(field.name)));
     }
     field.field_shape.resize(field.flexible_shape.size() +
                              field.outer_shape.size());
@@ -297,8 +297,9 @@ absl::Status ValidateDType(ZarrDType& dtype) {
 
     field.num_inner_elements = ProductOfExtents(span(field.field_shape));
     if (field.num_inner_elements == std::numeric_limits<Index>::max()) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Product of dimensions ", span(field.field_shape), " is too large"));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Product of dimensions %v is too large",
+                          absl::FormatStreamed(span(field.field_shape))));
     }
     if (internal::MulOverflow(field.num_inner_elements,
                               static_cast<Index>(field.dtype->size),
@@ -441,7 +442,7 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
       break;
     default:
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Data type not supported: ", dtype));
+          absl::StrFormat("Data type not supported: %v", dtype));
   }
   return base_dtype;
 }

@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -61,11 +62,11 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // TODO(jbms): Encoding/decoding from JSON does not support string values that
 // are not valid UTF-8.  Furthermore, `::nlohmann::json::dump` throws an
@@ -434,9 +435,9 @@ Future<internal::Driver::Handle> ArrayDriverSpec::Open(
   }
   if (IndexDomainView<> domain = schema.domain();
       domain.valid() && domain.box() != array.domain()) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Mismatch between domain in schema { ", domain,
-                            " } and array { ", array.domain(), " }"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Mismatch between domain in schema { %v } and array { %v }",
+        GenericStringify(domain), array.domain()));
   }
   if (auto schema_chunk_layout = schema.chunk_layout();
       schema_chunk_layout.rank() != dynamic_rank) {
@@ -446,8 +447,7 @@ Future<internal::Driver::Handle> ArrayDriverSpec::Open(
     if (chunk_layout.write_chunk_shape().hard_constraint ||
         chunk_layout.read_chunk_shape().hard_constraint ||
         chunk_layout.codec_chunk_shape().hard_constraint) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("chunking not supported"));
+      return absl::InvalidArgumentError("chunking not supported");
     }
   }
   DimensionUnitsVector dimension_units(array.rank());
@@ -474,9 +474,9 @@ Result<internal::Driver::Handle> MakeArrayDriver(
   if (options.dimension_units.empty()) {
     options.dimension_units.resize(array.rank());
   } else if (options.dimension_units.size() != array.rank()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Dimension units ", DimensionUnitsToString(options.dimension_units),
-        " not valid for array of rank ", array.rank()));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Dimension units %v not valid for array of rank %d",
+        DimensionUnitsToString(options.dimension_units), array.rank()));
   }
   auto transform = tensorstore::IdentityTransform(array.shape());
   SharedArray<void, dynamic_rank, zero_origin> zero_origin_array;

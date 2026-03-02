@@ -126,8 +126,8 @@ struct ResolveHost {
     auto bucket_region_it = headers.find(kAmzBucketRegionHeader);
     if (bucket_region_it == headers.end() && default_aws_region.empty()) {
       // TODO: Get the message from the response body, if any.
-      promise.SetResult(absl::FailedPreconditionError(tensorstore::StrCat(
-          "Failed to resolve aws_region for bucket ", QuoteString(bucket))));
+      promise.SetResult(absl::FailedPreconditionError(absl::StrFormat(
+          "Failed to resolve aws_region for bucket %v", QuoteString(bucket))));
       return;
     }
 
@@ -183,9 +183,9 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
              internal_kvstore_s3::BucketNameType::kOldUSEast1) {
     // Force the aws_region to us-east-1 for old-style buckets.
     if (!aws_region.empty() && aws_region != "us-east-1") {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Bucket ", QuoteString(bucket),
-          " requires aws_region \"us-east-1\", not ", QuoteString(aws_region)));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Bucket %v requires aws_region \"us-east-1\", not %v",
+                          QuoteString(bucket), QuoteString(aws_region)));
     }
     aws_region = "us-east-1";
   }
@@ -233,16 +233,16 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
   auto parsed = internal_uri::ParseGenericUri(endpoint);
   if (parsed.scheme != "http" && parsed.scheme != "https") {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Endpoint ", endpoint, " has invalid scheme ",
-                            parsed.scheme, ". Should be http(s)."));
+        absl::StrFormat("Endpoint %v has invalid scheme %v. Should be http(s).",
+                        endpoint, parsed.scheme));
   }
   if (!parsed.query.empty()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Query in endpoint unsupported ", endpoint));
+        absl::StrFormat("Query in endpoint unsupported %v", endpoint));
   }
   if (!parsed.fragment.empty()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Fragment in endpoint unsupported ", endpoint));
+        absl::StrFormat("Fragment in endpoint unsupported %v", endpoint));
   }
 
   if (!aws_region.empty()) {
