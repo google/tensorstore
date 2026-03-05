@@ -1009,6 +1009,30 @@
   
   
     <li class="md-nav__item">
+      <a href="tensorstore.Array.html#formatting" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    <span>Formatting</span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="tensorstore.Array.html#related-constants" class="md-nav__link">
         
   
@@ -1087,30 +1111,6 @@
   
   <span class="md-ellipsis">
     <span>Copy functions</span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.Array.html#formatting" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    <span>Formatting</span>
     
   </span>
   
@@ -1658,6 +1658,8 @@
 </dt>
 <dt class="sig sig-object highlight cpp">
 <span class="k">friend</span><span class="w">&nbsp;</span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/io/basic_ostream" title="std::ostream (C++ standard type alias)"><span class="n">ostream</span></a><span class="w">&amp;&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><a class="desctype reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array" title="tensorstore::Array (C++ class) — Represents a pointer to an in-memory multi-dimensional array with an arbitrary strided layout."><span class="n">Array</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array-p-ElementTagType" title="tensorstore::Array::ElementTagType (C++ type template parameter) — Must satisfy IsElementTag."><span class="n">ElementTagType</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array-p-Rank" title="tensorstore::Array::Rank (C++ non-type template parameter) — The compile-time rank of the array, dynamic_rank if the rank is to be specified at run time, if LayoutContainerKind == view, dynamic_rank(n) for n &gt;= 0 to indicate a rank specified at run time with inline layout storage for ranks k &lt;= n."><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array-p-OriginKind" title="tensorstore::Array::OriginKind (C++ non-type template parameter) — Equal to zero_origin or offset_origin."><span class="n">OriginKind</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array-p-LayoutContainerKind" title="tensorstore::Array::LayoutContainerKind (C++ non-type template parameter) — Equal to container or view."><span class="n">LayoutContainerKind</span></a><span class="p">&gt;</span><span class="p">::<br>&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span class="sig-name descname"><span class="k">operator</span><span class="o">&lt;&lt;</span></span><span class="p">(</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/io/basic_ostream" title="std::ostream (C++ standard type alias)"><span class="n">ostream</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::Array::operator&lt;&lt;::os (C++ function parameter)"><span class="n sig-param">os</span></a></span><span class="p">,&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array" title="tensorstore::Array (C++ class) — Represents a pointer to an in-memory multi-dimensional array with an arbitrary strided layout."><span class="n">Array</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::Array::operator&lt;&lt;::array (C++ function parameter)"><span class="n sig-param">array</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<span class="k">template&nbsp;</span><span class="p">&lt;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::Array::AbslStringify::Sink (C++ type template parameter)"><span class="n">Sink</span></a></span></span><span class="p">&gt;<br></span><span class="k">friend</span><span class="w">&nbsp;</span><span class="kt">void</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><a class="desctype reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array" title="tensorstore::Array (C++ class) — Represents a pointer to an in-memory multi-dimensional array with an arbitrary strided layout."><span class="n">Array</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array-p-ElementTagType" title="tensorstore::Array::ElementTagType (C++ type template parameter) — Must satisfy IsElementTag."><span class="n">ElementTagType</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array-p-Rank" title="tensorstore::Array::Rank (C++ non-type template parameter) — The compile-time rank of the array, dynamic_rank if the rank is to be specified at run time, if LayoutContainerKind == view, dynamic_rank(n) for n &gt;= 0 to indicate a rank specified at run time with inline layout storage for ranks k &lt;= n."><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array-p-OriginKind" title="tensorstore::Array::OriginKind (C++ non-type template parameter) — Equal to zero_origin or offset_origin."><span class="n">OriginKind</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array-p-LayoutContainerKind" title="tensorstore::Array::LayoutContainerKind (C++ non-type template parameter) — Equal to container or view."><span class="n">LayoutContainerKind</span></a><span class="p">&gt;</span><span class="p">::<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span class="sig-name descname"><span class="n">AbslStringify</span></span><span class="p">(</span><span><a class="desctype reference internal" href="#" title="tensorstore::Array::AbslStringify::Sink (C++ type template parameter)"><span class="n">Sink</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::Array::AbslStringify::sink (C++ function parameter)"><span class="n sig-param">sink</span></a></span><span class="p">,&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Array.html#c:&#64;N&#64;tensorstore&#64;ST&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ArrayOriginKind#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;Array" title="tensorstore::Array (C++ class) — Represents a pointer to an in-memory multi-dimensional array with an arbitrary strided layout."><span class="n">Array</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::Array::AbslStringify::array (C++ function parameter)"><span class="n sig-param">array</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Prints the array to an <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/io/basic_ostream" title="std::ostream (C++ standard type alias)"><span class="n">ostream</span></a></code>.</p>
 </dd></dl>
 
