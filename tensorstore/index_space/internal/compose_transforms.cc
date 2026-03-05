@@ -309,9 +309,7 @@ Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
 
   /// Annotate error with transforms.
   auto format_transform = [](TransformRep* rep) {
-    std::ostringstream os;
-    internal_index_space::PrintToOstream(os, rep);
-    std::string str = os.str();
+    std::string str = internal_index_space::PrintToString(rep);
     absl::StrReplaceAll({{"\n", " "}}, &str);
     return absl::Cord(str);
   };

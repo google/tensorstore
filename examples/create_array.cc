@@ -13,14 +13,18 @@
 // limitations under the License.
 
 #include <iostream>
+#include <string>
+#include <vector>
 
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/util/iterate_over_index_range.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 
 namespace {
 
@@ -30,9 +34,9 @@ struct X {
   float a;
   int b;
 
-  friend std::ostream& operator<<(std::ostream& os, const X& x) {
-    os << "<" << x.a << ", " << x.b << ">";
-    return os;
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const X& x) {
+    absl::Format(&sink, "<%v, %v>", x.a, x.b);
   }
 };
 

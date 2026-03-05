@@ -31,9 +31,7 @@ bool operator==(const ImageInfo& a, const ImageInfo& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const ImageInfo& info) {
-  return os << absl::StrFormat(
-             "{.width=%d, .height=%d, .num_components=%d, .dtype=%s}",
-             info.width, info.height, info.num_components, info.dtype.name());
+  return os << absl::StreamFormat("%v", info);
 }
 
 size_t ImageRequiredBytes(const ImageInfo& a) {

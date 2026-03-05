@@ -59,7 +59,7 @@ bool StridedLayoutsEqual(StridedLayoutView<dynamic_rank, offset_origin> a,
 }  // namespace internal_strided_layout
 
 std::ostream& operator<<(std::ostream& os, ArrayOriginKind origin_kind) {
-  return os << (origin_kind == zero_origin ? "zero" : "offset");
+  return os << absl::StreamFormat("%v", origin_kind);
 }
 
 namespace internal_strided_layout {

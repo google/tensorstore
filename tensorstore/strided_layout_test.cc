@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
@@ -965,6 +966,9 @@ TEST(StridedLayoutTest, PrintToOstream) {
   EXPECT_EQ(
       "{domain={origin={0, 0, 0}, shape={3, 4, 5}}, byte_strides={2, 6, 24}}",
       tensorstore::StrCat(layout));
+  EXPECT_EQ(
+      "{domain={origin={0, 0, 0}, shape={3, 4, 5}}, byte_strides={2, 6, 24}}",
+      absl::StrCat(layout));
 }
 
 TEST(StridedLayoutViewTest, PrintToOstream) {
@@ -972,6 +976,9 @@ TEST(StridedLayoutViewTest, PrintToOstream) {
   EXPECT_EQ(
       "{domain={origin={0, 0, 0}, shape={3, 4, 5}}, byte_strides={2, 6, 24}}",
       tensorstore::StrCat(StridedLayoutView<>(layout)));
+  EXPECT_EQ(
+      "{domain={origin={0, 0, 0}, shape={3, 4, 5}}, byte_strides={2, 6, 24}}",
+      absl::StrCat(StridedLayoutView<>(layout)));
 }
 
 TEST(StridedLayoutTest, Domain) {
@@ -1142,7 +1149,9 @@ TEST(StridedLayoutTest, DynamicLayoutCastNoOp) {
 
 TEST(ArrayOriginKindTest, PrintToOstream) {
   EXPECT_EQ("zero", tensorstore::StrCat(zero_origin));
+  EXPECT_EQ("zero", absl::StrCat(zero_origin));
   EXPECT_EQ("offset", tensorstore::StrCat(offset_origin));
+  EXPECT_EQ("offset", absl::StrCat(offset_origin));
 }
 
 TEST(StridedLayoutTest, IsContiguousLayout) {

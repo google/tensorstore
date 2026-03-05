@@ -38,11 +38,12 @@ enum class DriverKind {
 // Returns the name of a driver kind for use in error messages.
 std::string_view DriverKindToStringView(DriverKind x);
 
+std::ostream& operator<<(std::ostream& os, DriverKind x);
+
 template <typename Sink>
 void AbslStringify(Sink& sink, DriverKind x) {
-  return sink.Append(DriverKindToStringView(x));
+  sink.Append(DriverKindToStringView(x));
 }
-std::ostream& operator<<(std::ostream& os, DriverKind x);
 
 // Registers a driver identifier.  These are called automatically by the kvstore
 // and TensorStore driver registration classes.
@@ -88,7 +89,7 @@ std::string_view UrlSchemeKindToStringView(UrlSchemeKind x);
 
 template <typename Sink>
 void AbslStringify(Sink& sink, UrlSchemeKind x) {
-  return sink.Append(UrlSchemeKindToStringView(x));
+  sink.Append(UrlSchemeKindToStringView(x));
 }
 std::ostream& operator<<(std::ostream& os, UrlSchemeKind x);
 

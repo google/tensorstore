@@ -23,6 +23,7 @@
 #include "absl/base/attributes.h"
 #include "absl/base/config.h"
 #include "absl/base/nullability.h"
+#include "absl/strings/str_format.h"
 
 namespace tensorstore {
 
@@ -41,8 +42,13 @@ enum class endian {
 #endif
 };
 
+template <typename Sink>
+void AbslStringify(Sink& sink, endian e) {
+  sink.Append(e == endian::little ? "<" : ">");
+}
+
 inline std::ostream& operator<<(std::ostream& os, endian e) {
-  return os << (e == endian::little ? '<' : '>');
+  return os << absl::StreamFormat("%v", e);
 }
 
 namespace endian_internal {

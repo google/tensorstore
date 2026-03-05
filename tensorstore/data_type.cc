@@ -56,8 +56,7 @@ static_assert(
 static_assert(std::is_same_v<unsigned int, ::tensorstore::dtypes::uint32_t>);
 
 std::ostream& operator<<(std::ostream& os, DataType r) {
-  if (r.valid()) return os << r.name();
-  return os << "<unspecified>";
+  return os << absl::StreamFormat("%v", r);
 }
 
 void* AllocateAndConstruct(ptrdiff_t n, ElementInitialization initialization,

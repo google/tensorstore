@@ -26,6 +26,7 @@
 
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
@@ -163,7 +164,7 @@ class ChunkLayout {
   ///
   /// \relates Usage
   friend std::ostream& operator<<(std::ostream& os, Usage usage) {
-    return os << ToString(usage);
+    return os << absl::StreamFormat("%v", usage);
   }
 
   template <typename S>
@@ -957,6 +958,11 @@ class ChunkLayout {
     return !(a == b);
   }
   friend std::ostream& operator<<(std::ostream& os, const ChunkLayout& x);
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ChunkLayout& x) {
+    absl::Format(&sink, "%v", ::nlohmann::json(x).dump());
+  }
 
   /// "Pipeline" operator.
   ///

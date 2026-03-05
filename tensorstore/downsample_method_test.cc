@@ -1,4 +1,4 @@
-// Copyright 2020 The TensorStore Authors
+// Copyright 2026 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,22 @@
 
 #include "tensorstore/downsample_method.h"
 
-#include <ostream>
+#include <string>
 
-#include "absl/strings/str_format.h"
+#include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
 
-namespace tensorstore {
+namespace {
 
-std::ostream& operator<<(std::ostream& os, DownsampleMethod method) {
-  return os << absl::StreamFormat("%v", method);
+using ::tensorstore::DownsampleMethod;
+
+TEST(DownsampleMethodTest, AbslStringify) {
+  EXPECT_EQ("stride", absl::StrCat(DownsampleMethod::kStride));
+  EXPECT_EQ("mean", absl::StrCat(DownsampleMethod::kMean));
+  EXPECT_EQ("median", absl::StrCat(DownsampleMethod::kMedian));
+  EXPECT_EQ("mode", absl::StrCat(DownsampleMethod::kMode));
+  EXPECT_EQ("min", absl::StrCat(DownsampleMethod::kMin));
+  EXPECT_EQ("max", absl::StrCat(DownsampleMethod::kMax));
 }
 
-}  // namespace tensorstore
+}  // namespace

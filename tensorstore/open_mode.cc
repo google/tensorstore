@@ -17,6 +17,7 @@
 #include <ostream>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 
 namespace tensorstore {
 
@@ -36,29 +37,11 @@ std::string_view to_string(ReadWriteMode mode) {
 }
 
 std::ostream& operator<<(std::ostream& os, ReadWriteMode mode) {
-  return os << to_string(mode);
+  return os << absl::StreamFormat("%v", mode);
 }
 
 std::ostream& operator<<(std::ostream& os, OpenMode mode) {
-  const char* sep = "";
-  constexpr const char* kSep = "|";
-  if (!!(mode & OpenMode::open)) {
-    os << "open";
-    sep = kSep;
-  }
-  if (!!(mode & OpenMode::create)) {
-    os << sep << "create";
-    sep = kSep;
-  }
-  if (!!(mode & OpenMode::delete_existing)) {
-    os << sep << "delete_existing";
-    sep = kSep;
-  }
-  if (!!(mode & OpenMode::assume_metadata)) {
-    os << sep << "assume_metadata";
-    sep = kSep;
-  }
-  return os;
+  return os << absl::StreamFormat("%v", mode);
 }
 
 namespace internal {

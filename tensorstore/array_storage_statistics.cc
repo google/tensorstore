@@ -16,6 +16,8 @@
 
 #include <ostream>
 
+#include "absl/strings/str_format.h"
+
 namespace tensorstore {
 
 bool operator==(const ArrayStorageStatistics& a,
@@ -25,20 +27,7 @@ bool operator==(const ArrayStorageStatistics& a,
 }
 
 std::ostream& operator<<(std::ostream& os, const ArrayStorageStatistics& a) {
-  os << "{not_stored=";
-  if (a.mask & ArrayStorageStatistics::query_not_stored) {
-    os << a.not_stored;
-  } else {
-    os << "<unknown>";
-  }
-  os << ", fully_stored=";
-  if (a.mask & ArrayStorageStatistics::query_fully_stored) {
-    os << a.fully_stored;
-  } else {
-    os << "<unknown>";
-  }
-  os << "}";
-  return os;
+  return os << absl::StreamFormat("%v", a);
 }
 
 }  // namespace tensorstore

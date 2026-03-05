@@ -200,6 +200,19 @@ class Spec {
   ContextBindingState context_binding_state() const;
 
   friend std::ostream& operator<<(std::ostream& os, const Spec& spec);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Spec& spec) {
+    Spec copy = spec;
+    copy.UnbindContext();
+    JsonSerializationOptions options;
+    options.preserve_bound_context_resources_ = true;
+    auto json_result = copy.ToJson(options);
+    if (!json_result.ok()) {
+      absl::Format(&sink, "<unprintable spec: %v>", json_result.status());
+    } else {
+      absl::Format(&sink, "%v", json_result->dump());
+    }
+  }
 
   /// Compares for equality via JSON representation, except that bound context
   /// resources are compared by identity.

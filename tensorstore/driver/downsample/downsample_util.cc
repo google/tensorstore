@@ -50,8 +50,7 @@ namespace internal_downsample {
 
 std::ostream& operator<<(std::ostream& os,
                          const PropagatedIndexTransformDownsampling& x) {
-  return os << "transform=" << x.transform << "\ninput_downsample_factors="
-            << absl::StrJoin(x.input_downsample_factors, ",");
+  return os << absl::StreamFormat("%v", x);
 }
 
 namespace {

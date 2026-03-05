@@ -12,11 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <ostream>
+#include <utility>
+#include <vector>
+
 #include <benchmark/benchmark.h>
 #include "absl/log/absl_check.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
@@ -24,6 +35,7 @@
 namespace {
 
 using ::tensorstore::DimensionIndex;
+using ::tensorstore::GenericStringify;
 using ::tensorstore::Index;
 using ::tensorstore::IterationConstraints;
 using ::tensorstore::span;
@@ -34,11 +46,13 @@ struct BenchmarkArrayConfig {
   std::vector<DimensionIndex> order;
   std::vector<bool> indexed;
 };
-std::ostream& operator<<(std::ostream& os, const BenchmarkArrayConfig& config) {
-  return os << "s=" << span(config.shape) << ", o=" << span(config.order)
-            << ", i="
-            << span(std::vector<int>(config.indexed.begin(),
-                                     config.indexed.end()));
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const BenchmarkArrayConfig& config) {
+  absl::Format(&sink, "s=%v, o=%v, i=%v", GenericStringify(config.shape),
+               GenericStringify(config.order),
+               GenericStringify(std::vector<int>(config.indexed.begin(),
+                                                 config.indexed.end())));
 }
 
 tensorstore::TransformedSharedArray<char> Allocate(
@@ -75,12 +89,13 @@ struct BenchmarkConfig {
   BenchmarkArrayConfig source, dest;
 };
 
-std::ostream& operator<<(std::ostream& os, const BenchmarkConfig& config) {
-  os << span(config.copy_shape);
-  if (config.constraints.order_constraint())
-    os << "[" << config.constraints.order_constraint().order() << "]";
-  os << ": src={" << config.source << "}, dst={" << config.dest << "}";
-  return os;
+template <typename Sink>
+void AbslStringify(Sink& sink, const BenchmarkConfig& config) {
+  absl::Format(&sink, "%v", GenericStringify(config.copy_shape));
+  if (config.constraints.order_constraint()) {
+    absl::Format(&sink, "[%v]", config.constraints.order_constraint().order());
+  }
+  absl::Format(&sink, ": src={%v}, dst={%v}", config.source, config.dest);
 }
 
 void BenchmarkCopy(const BenchmarkConfig& config, ::benchmark::State& state) {
@@ -105,7 +120,7 @@ void BenchmarkCopy(const BenchmarkConfig& config, ::benchmark::State& state) {
 struct RegisterIterateBenchmarks {
   static void Register(const BenchmarkConfig& config) {
     ::benchmark::RegisterBenchmark(
-        tensorstore::StrCat("IterateOverTransformedArrays: ", config).c_str(),
+        absl::StrCat("IterateOverTransformedArrays: ", config).c_str(),
         [config](auto& state) { BenchmarkCopy(config, state); });
   }
 

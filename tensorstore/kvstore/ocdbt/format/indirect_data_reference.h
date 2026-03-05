@@ -47,6 +47,11 @@ std::string_view IndirectDataKindToString(IndirectDataKind kind);
 
 std::ostream& operator<<(std::ostream& os, IndirectDataKind kind);
 
+template <typename Sink>
+void AbslStringify(Sink& sink, IndirectDataKind kind) {
+  absl::Format(&sink, "%v", IndirectDataKindToString(kind));
+}
+
 /// In-memory representation of a given byte range within a given data file.
 struct IndirectDataReference {
   DataFileId file_id;
@@ -96,6 +101,11 @@ struct IndirectDataReference {
   /// Prints a debugging representation.
   friend std::ostream& operator<<(std::ostream& os,
                                   const IndirectDataReference& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const IndirectDataReference& x) {
+    absl::Format(&sink, "{file_id=%v, offset=%v, length=%v}", x.file_id,
+                 x.offset, x.length);
+  }
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.file_id, x.offset, x.length);
   };

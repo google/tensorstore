@@ -17,7 +17,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
-#include <nlohmann/json_fwd.hpp>
+#include "absl/strings/str_cat.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
@@ -226,6 +227,7 @@ TEST(SpecTest, PrintToOstream) {
   };
   Spec spec = Spec::FromJson(spec_json).value();
   EXPECT_EQ(spec_json.dump(), tensorstore::StrCat(spec));
+  EXPECT_EQ(spec_json.dump(), absl::StrCat(spec));
 }
 
 TEST(SpecTest, UnknownRankApplyIndexTransform) {

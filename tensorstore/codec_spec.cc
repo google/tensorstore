@@ -20,6 +20,7 @@
 
 #include "absl/base/no_destructor.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -105,9 +106,7 @@ Result<CodecSpec> CodecSpec::Merge(CodecSpec a, CodecSpec b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const CodecSpec& codec) {
-  auto json_result = codec.ToJson();
-  if (!json_result.ok()) return os << "<unprintable>";
-  return os << json_result->dump();
+  return os << absl::StreamFormat("%v", codec);
 }
 
 namespace internal {

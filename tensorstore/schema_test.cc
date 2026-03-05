@@ -25,6 +25,7 @@
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -821,6 +822,18 @@ TEST(SchemaSerializationTest, SerializationRoundTrip) {
           {"fill_value", 5},
       }));
   tensorstore::serialization::TestSerializationRoundTrip(schema);
+}
+
+TEST(SchemaTest, AbslStringify) {
+  using DimensionUnits = tensorstore::Schema::DimensionUnits;
+  using tensorstore::Unit;
+  EXPECT_EQ("[]", absl::StrCat(DimensionUnits()));
+  EXPECT_EQ("[\"nm\", \"2 nm\"]",
+            absl::StrCat(DimensionUnits({Unit(1, "nm"), Unit(2, "nm")})));
+
+  tensorstore::Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::dtype_v<int32_t>));
+  EXPECT_EQ("{\"dtype\":\"int32\"}", absl::StrCat(schema));
 }
 
 }  // namespace

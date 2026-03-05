@@ -65,24 +65,11 @@ Result<IndexInterval> IndexInterval::Sized(Index inclusive_min, Index size) {
 
 std::ostream& operator<<(std::ostream& os,
                          const OptionallyImplicitIndexInterval& x) {
-  if (x.inclusive_min() == -kInfIndex) {
-    os << "(-inf";
-  } else {
-    os << '[' << x.inclusive_min();
-  }
-  if (x.implicit_lower()) os << '*';
-  os << ", ";
-  if (x.inclusive_max() == +kInfIndex) {
-    os << "+inf";
-  } else {
-    os << x.exclusive_max();
-  }
-  if (x.implicit_upper()) os << '*';
-  return os << ")";
+  return os << absl::StreamFormat("%v", x);
 }
 
 std::ostream& operator<<(std::ostream& os, IndexInterval x) {
-  return os << OptionallyImplicitIndexInterval(x, false, false);
+  return os << absl::StreamFormat("%v", x);
 }
 
 namespace {
@@ -117,15 +104,12 @@ bool operator==(const IndexDomainDimension<container>& a,
 
 std::ostream& operator<<(std::ostream& os,
                          const IndexDomainDimension<view>& x) {
-  if (!x.label().empty()) {
-    os << QuoteString(x.label()) << ": ";
-  }
-  return os << x.optionally_implicit_interval();
+  return os << absl::StreamFormat("%v", x);
 }
 
 std::ostream& operator<<(std::ostream& os,
                          const IndexDomainDimension<container>& x) {
-  return os << IndexDomainDimension<view>(x);
+  return os << absl::StreamFormat("%v", x);
 }
 
 bool AreCompatibleOrUnbounded(IndexInterval a, IndexInterval b) {

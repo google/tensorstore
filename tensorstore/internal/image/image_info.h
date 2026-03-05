@@ -16,9 +16,11 @@
 #define TENSORSTORE_INTERNAL_IMAGE_IMAGE_INFO_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <iosfwd>
 
+#include "absl/strings/str_format.h"
 #include "tensorstore/data_type.h"
 
 namespace tensorstore {
@@ -39,6 +41,12 @@ struct ImageInfo {
     return !(a == b);
   }
   friend std::ostream& operator<<(std::ostream& os, const ImageInfo& info);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ImageInfo& info) {
+    absl::Format(
+        &sink, "{.width=%d, .height=%d, .num_components=%d, .dtype=%s}",
+        info.width, info.height, info.num_components, info.dtype.name());
+  }
 };
 
 /// Returns the size of the buffer (in bytes) required to decode the image

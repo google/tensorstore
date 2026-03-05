@@ -14,12 +14,12 @@
 
 #include "tensorstore/util/execution/collecting_sender.h"
 
-#include <ostream>
 #include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
@@ -33,14 +33,17 @@ struct X {
   explicit X(int value) : value(value) {}
 
   int value;
-
-  friend std::ostream& operator<<(std::ostream& os, const std::vector<X>& vec) {
-    for (auto v : vec) {
-      os << v.value << ' ';
-    }
-    return os;
-  }
 };
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const X& x) {
+  absl::Format(&sink, "%d", x.value);
+}
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const std::vector<X>& vec) {
+  sink.Append(absl::StrJoin(vec, " "));
+}
 
 TEST(CollectingSenderTest, SuccessX) {
   std::vector<std::string> log;
@@ -50,7 +53,7 @@ TEST(CollectingSenderTest, SuccessX) {
       tensorstore::internal::MakeCollectingSender<std::vector<X>>(
           tensorstore::RangeFlowSender<tensorstore::span<int>>{input}),
       tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_value: 1 2 3 4 "));
+  EXPECT_THAT(log, ::testing::ElementsAre("set_value: 1 2 3 4"));
 }
 
 struct Y {

@@ -194,6 +194,7 @@ struct OptionalByteRangeRequest {
       absl::Format(&sink, "[%d, ?)", r.inclusive_min);
     }
   }
+
   friend std::ostream& operator<<(std::ostream& os,
                                   const OptionalByteRangeRequest& r) {
     return os << absl::StreamFormat("%v", r);

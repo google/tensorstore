@@ -140,21 +140,9 @@ constexpr inline bool IsPairAssignable =
 /// `std::is_convertible_v<From, To> || std::is_void_v<To>`.
 template <typename From, typename To>
 constexpr inline bool IsConvertibleOrVoid = std::is_convertible_v<From, To>;
-
 template <typename From>
 constexpr inline bool IsConvertibleOrVoid<From, void> = true;
 
-/// Bool-valued metafunction that evaluates to `true` if there is a suitable
-/// `operator<<` overload for writing a value of type `const T &` to an
-/// `std::ostream`.
-template <typename T, typename = void>
-constexpr inline bool IsOstreamable = false;
-
-template <typename T>
-constexpr inline bool
-    IsOstreamable<T, std::void_t<decltype(std::declval<std::ostream&>()
-                                          << std ::declval<const T&>())>> =
-        true;
 
 template <typename Qualified, typename T>
 struct CopyQualifiersHelper {

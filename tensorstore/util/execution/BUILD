@@ -98,6 +98,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:has_ostream_operator",
         "@abseil-cpp//absl/synchronization",
     ],
 )
@@ -122,6 +123,7 @@ tensorstore_cc_test(
         ":sender_util",
         "//tensorstore/util:span",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )

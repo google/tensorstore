@@ -24,6 +24,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
@@ -664,6 +665,7 @@ TEST(IndexDomainTest, SubDomain) {
 
 TEST(IndexDomainTest, PrintToOstream) {
   EXPECT_EQ("<invalid index domain>", tensorstore::StrCat(IndexDomain<2>()));
+  EXPECT_EQ("<invalid index domain>", absl::StrCat(IndexDomain<2>()));
   auto d2 = IndexDomainBuilder<2>()
                 .origin({1, 2})
                 .shape({3, 4})
@@ -674,6 +676,7 @@ TEST(IndexDomainTest, PrintToOstream) {
                 .value();
 
   EXPECT_EQ(R"({ "x": [1*, 4), "y": [2, 6*) })", tensorstore::StrCat(d2));
+  EXPECT_EQ(R"({ "x": [1*, 4), "y": [2, 6*) })", absl::StrCat(d2));
 }
 
 static_assert(IsIndexDomain<bool> == false);
@@ -1174,6 +1177,17 @@ TEST(TranslateOutputDimensionsByTest, Basic) {
                                    .Finalize());
   EXPECT_THAT(TranslateOutputDimensionsBy(orig_transform, {{1, 2, 3}}),
               ::testing::Optional(expected_transform));
+}
+
+TEST(IndexTransformTest, AbslStringify) {
+  auto t = IdentityTransform(1);
+  EXPECT_EQ(
+      "Rank 1 -> 1 index space transform:\n"
+      "  Input domain:\n"
+      "    0: (-inf*, +inf*)\n"
+      "  Output index maps:\n"
+      "    out[0] = 0 + 1 * in[0]\n",
+      absl::StrCat(t));
 }
 
 }  // namespace

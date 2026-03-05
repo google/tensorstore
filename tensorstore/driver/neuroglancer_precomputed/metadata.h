@@ -36,6 +36,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
@@ -115,8 +116,13 @@ struct ScaleMetadata {
   };
 
   friend std::string_view to_string(Encoding e);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, Encoding e) {
+    sink.Append(to_string(e));
+  }
+
   friend std::ostream& operator<<(std::ostream& os, Encoding e) {
-    return os << std::string(to_string(e));
+    return os << absl::StreamFormat("%v", e);
   }
 
   friend void to_json(::nlohmann::json& out,  // NOLINT

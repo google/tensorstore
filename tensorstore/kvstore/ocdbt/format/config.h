@@ -15,12 +15,16 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_FORMAT_CONFIG_H_
 #define TENSORSTORE_KVSTORE_OCDBT_FORMAT_CONFIG_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <array>
 #include <iosfwd>
+#include <string_view>
 #include <variant>
 
+#include "absl/strings/escaping.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/util/apply_members/std_array.h"
 
 namespace tensorstore {
@@ -34,6 +38,12 @@ struct Uuid {
   static Uuid Generate();
 
   friend std::ostream& operator<<(std::ostream& os, const Uuid& value);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Uuid& value) {
+    sink.Append(absl::BytesToHexString(
+        std::string_view(reinterpret_cast<const char*>(value.value.data()),
+                         value.value.size())));
+  }
   friend bool operator==(const Uuid& a, const Uuid& b) {
     return a.value == b.value;
   }
@@ -57,6 +67,8 @@ struct Config {
   constexpr static ManifestKind kMaxManifestKind = ManifestKind::kNumbered;
 
   friend std::ostream& operator<<(std::ostream& os, ManifestKind);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, ManifestKind);
 
   /// Unique identifier of the database.
   Uuid uuid;
@@ -77,6 +89,8 @@ struct Config {
     friend bool operator==(NoCompression, NoCompression) { return true; }
     friend bool operator!=(NoCompression, NoCompression) { return false; }
     friend std::ostream& operator<<(std::ostream& os, NoCompression);
+    template <typename Sink>
+    friend void AbslStringify(Sink& sink, NoCompression);
   };
 
   struct ZstdCompression {
@@ -86,6 +100,8 @@ struct Config {
       return !(a == b);
     }
     friend std::ostream& operator<<(std::ostream& os, ZstdCompression x);
+    template <typename Sink>
+    friend void AbslStringify(Sink& sink, ZstdCompression x);
 
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
       return f(x.level);
@@ -99,9 +115,49 @@ struct Config {
   Compression compression = ZstdCompression{0};
 
   friend std::ostream& operator<<(std::ostream& os, const Compression& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Compression& x);
   friend bool operator==(const Config& a, const Config& b);
   friend bool operator!=(const Config& a, const Config& b) { return !(a == b); }
   friend std::ostream& operator<<(std::ostream& os, const Config& x);
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Config& x) {
+    absl::Format(&sink,
+                 "{uuid=%v, manifest_kind=%v, max_inline_value_bytes=%v, "
+                 "max_decoded_node_bytes=%v, version_tree_arity_log2=%v, "
+                 "compression=%v}",
+                 x.uuid, x.manifest_kind, x.max_inline_value_bytes,
+                 x.max_decoded_node_bytes,
+                 static_cast<int>(x.version_tree_arity_log2), x.compression);
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Compression& x) {
+    std::visit([&](const auto& v) { absl::Format(&sink, "%v", v); }, x);
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, ZstdCompression x) {
+    absl::Format(&sink, "zstd{level=%v}", x.level);
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, NoCompression) {
+    sink.Append("raw");
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, ManifestKind x) {
+    switch (x) {
+      case ManifestKind::kSingle:
+        sink.Append("single");
+        break;
+      case ManifestKind::kNumbered:
+        sink.Append("numbered");
+        break;
+    }
+  }
 };
 
 using ManifestKind = Config::ManifestKind;

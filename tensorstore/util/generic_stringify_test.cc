@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -75,13 +76,6 @@ TEST(GenericStringifyTest, Optional) {
   EXPECT_THAT(absl::StrCat(GenericStringify(opt_null)), StrEq("null"));
 }
 
-TEST(GenericStringifyTest, Result) {
-  EXPECT_THAT(absl::StrCat(GenericStringify(Result<int>(1))), StrEq("<OK: 1>"));
-  EXPECT_THAT(absl::StrCat(GenericStringify(
-                  Result<int>(absl::InvalidArgumentError("Test")))),
-              testing::StartsWith("<INVALID_ARGUMENT: Test"));
-}
-
 TEST(GenericStringifyTest, Pair) {
   EXPECT_THAT(
       absl::StrCat(GenericStringify(std::pair<int, std::string>(1, "a"))),
@@ -112,8 +106,7 @@ struct OstreamablePoint {
   int x;
   int y;
 
-  [[maybe_unused]] friend std::ostream& operator<<(std::ostream& os,
-                                                   const OstreamablePoint& p) {
+  friend std::ostream& operator<<(std::ostream& os, const OstreamablePoint& p) {
     return os << "P(" << p.x << "," << p.y << ")";
   }
 };

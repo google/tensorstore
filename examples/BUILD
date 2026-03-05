@@ -50,12 +50,14 @@ tensorstore_cc_binary(
     srcs = ["create_array.cc"],
     deps = [
         "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore/index_space:dim_expression",
-        "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/util:iterate_over_index_range",
-        "//tensorstore/util:status",
+        "//tensorstore/util:span",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 

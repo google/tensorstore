@@ -178,15 +178,20 @@ class Schema {
     template <size_t N>
     explicit DimensionUnits(const std::optional<Unit> (&s)[N])
         : tensorstore::span<const std::optional<Unit>>(s) {}
-    friend std::ostream& operator<<(std::ostream& os, DimensionUnits u);
-    friend bool operator==(DimensionUnits a, DimensionUnits b);
-    friend bool operator!=(DimensionUnits a, DimensionUnits b) {
-      return !(a == b);
-    }
     bool valid() const { return !this->empty(); }
 
     explicit operator DimensionUnitsVector() const {
       return DimensionUnitsVector(this->begin(), this->end());
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, DimensionUnits u);
+    template <typename Sink>
+    friend void AbslStringify(Sink& sink, DimensionUnits u) {
+      sink.Append(DimensionUnitsToString(u));
+    }
+    friend bool operator==(DimensionUnits a, DimensionUnits b);
+    friend bool operator!=(DimensionUnits a, DimensionUnits b) {
+      return !(a == b);
     }
   };
 
@@ -286,6 +291,15 @@ class Schema {
   friend bool operator!=(const Schema& a, const Schema& b) { return !(a == b); }
 
   friend std::ostream& operator<<(std::ostream& os, const Schema& schema);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Schema& schema) {
+    auto json_result = schema.ToJson();
+    if (!json_result.ok()) {
+      sink.Append("<unprintable>");
+    } else {
+      sink.Append(json_result->dump());
+    }
+  }
 
  private:
   ChunkLayout& MutableLayoutInternal();

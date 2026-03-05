@@ -15,10 +15,12 @@
 #ifndef TENSORSTORE_RESIZE_OPTIONS_H_
 #define TENSORSTORE_RESIZE_OPTIONS_H_
 
+#include <stddef.h>
+
 #include <iosfwd>
-#include <type_traits>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/batch.h"
@@ -77,6 +79,22 @@ constexpr inline bool operator!(ResolveBoundsMode a) {
 /// \relates ResolveBoundsMode
 /// \id ResolveBoundsMode
 std::ostream& operator<<(std::ostream& os, ResolveBoundsMode mode);
+
+template <typename Sink>
+void AbslStringify(Sink& sink, ResolveBoundsMode mode) {
+  constexpr const char* kModeNames[] = {
+      "fix_resizable_bounds",
+  };
+  const char* sep = "";
+  constexpr const char* kSep = "|";
+  for (size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
+    if (static_cast<int>(mode) & (1 << i)) {
+      sink.Append(sep);
+      sink.Append(kModeNames[i]);
+      sep = kSep;
+    }
+  }
+}
 
 /// Specifies options for TensorStore ResolveBounds operations.
 ///
@@ -168,6 +186,25 @@ constexpr inline bool operator!(ResizeMode a) { return !static_cast<int>(a); }
 /// \relates ResizeMode
 /// \id ResizeMode
 std::ostream& operator<<(std::ostream& os, ResizeMode mode);
+
+template <typename Sink>
+void AbslStringify(Sink& sink, ResizeMode mode) {
+  constexpr const char* kModeNames[] = {
+      "resize_metadata_only",
+      "resize_tied_bounds",
+      "expand_only",
+      "shrink_only",
+  };
+  const char* sep = "";
+  constexpr const char* kSep = "|";
+  for (size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
+    if (static_cast<int>(mode) & (1 << i)) {
+      sink.Append(sep);
+      sink.Append(kModeNames[i]);
+      sep = kSep;
+    }
+  }
+}
 
 /// Specifies options for resize operations.
 ///

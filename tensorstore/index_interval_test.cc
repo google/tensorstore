@@ -504,12 +504,14 @@ TEST(IndexIntervalTest, AreCompatibleOrUnbounded) {
                                IndexInterval::UncheckedClosed(1, kInfIndex)));
 }
 
-TEST(IndexIntervalTest, Ostream) {
+TEST(IndexIntervalTest, AbslStringify) {
   EXPECT_EQ("[1, 3)", absl::StrCat(IndexInterval::UncheckedClosed(1, 2)));
   EXPECT_EQ("(-inf, 3)",
             absl::StrCat(IndexInterval::UncheckedClosed(-kInfIndex, 2)));
   EXPECT_EQ("[7, +inf)",
             absl::StrCat(IndexInterval::UncheckedClosed(7, kInfIndex)));
+  auto interval = IndexInterval::UncheckedClosed(1, 2);
+  EXPECT_EQ("[1, 3)", absl::StrCat(IndexIntervalRef(interval)));
 }
 
 TEST(IndexIntervalTest, Hash) {
@@ -1410,7 +1412,7 @@ TEST(OptionallyImplicitIndexIntervalTest, EffectiveInterval) {
                 .effective_interval());
 }
 
-TEST(OptionallyImplicitIndexIntervalTest, Ostream) {
+TEST(OptionallyImplicitIndexIntervalTest, AbslStringify) {
   EXPECT_EQ("[1*, 3)", absl::StrCat(OptionallyImplicitIndexInterval{
                            IndexInterval::UncheckedClosed(1, 2), true, false}));
   EXPECT_EQ("(-inf, 3*)",

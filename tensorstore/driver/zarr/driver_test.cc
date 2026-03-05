@@ -29,6 +29,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json_fwd.hpp>
@@ -1953,25 +1954,35 @@ enum class RecheckOption {
   kExplicitEpochBound,
 };
 
-[[maybe_unused]]
-std::ostream& operator<<(std::ostream& os, RecheckOption recheck_option) {
+template <typename Sink>
+void AbslStringify(Sink& sink, RecheckOption recheck_option) {
   switch (recheck_option) {
     case RecheckOption::kExplicitBeforeModifyBound:
-      return os << "kExplicitBeforeModifyBound";
+      sink.Append("kExplicitBeforeModifyBound");
+      break;
     case RecheckOption::kExplicitOpenTimeBound:
-      return os << "kExplicitOpenTimeBound";
+      sink.Append("kExplicitOpenTimeBound");
+      break;
     case RecheckOption::kExplicitFutureBound:
-      return os << "kExplicitFutureBound";
+      sink.Append("kExplicitFutureBound");
+      break;
     case RecheckOption::kNeverRecheck:
-      return os << "kNeverRecheck";
+      sink.Append("kNeverRecheck");
+      break;
     case RecheckOption::kAlwaysRecheck:
-      return os << "kAlwaysRecheck";
+      sink.Append("kAlwaysRecheck");
+      break;
     case RecheckOption::kOpen:
-      return os << "kOpen";
+      sink.Append("kOpen");
+      break;
     case RecheckOption::kExplicitEpochBound:
-      return os << "kExplicitEpochBound";
+      sink.Append("kExplicitEpochBound");
+      break;
   }
-  ABSL_UNREACHABLE();  // COV_NF_LINE
+}
+
+std::ostream& operator<<(std::ostream& os, RecheckOption recheck_option) {
+  return os << absl::StreamFormat("%v", recheck_option);
 }
 
 ::nlohmann::json GetRecheckBound(absl::Time before_modify_time,

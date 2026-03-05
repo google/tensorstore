@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/has_ostream_operator.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/notification.h"
 #include "tensorstore/internal/meta/type_traits.h"
@@ -42,7 +43,7 @@ struct LoggingReceiver {
 
   template <typename... V>
   void set_value(V&&... v) {
-    if constexpr ((... && internal::IsOstreamable<V>)) {
+    if constexpr ((... && absl::HasOstreamOperator<V>::value)) {
       log->push_back(tensorstore::StrCat(
           "set_value: ", absl::StrJoin(std::make_tuple(std::forward<V>(v)...),
                                        ", ", absl::StreamFormatter())));

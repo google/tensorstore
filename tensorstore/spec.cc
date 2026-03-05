@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
@@ -98,17 +99,7 @@ ContextBindingState Spec::context_binding_state() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Spec& spec) {
-  Spec copy = spec;
-  copy.UnbindContext();
-  JsonSerializationOptions options;
-  options.preserve_bound_context_resources_ = true;
-  auto json_result = copy.ToJson(options);
-  if (!json_result.ok()) {
-    os << "<unprintable spec: " << json_result.status() << ">";
-  } else {
-    os << json_result->dump();
-  }
-  return os;
+  return os << absl::StreamFormat("%v", spec);
 }
 
 bool operator==(const Spec& a, const Spec& b) {

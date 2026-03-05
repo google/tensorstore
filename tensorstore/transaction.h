@@ -116,6 +116,24 @@ constexpr inline TransactionMode& operator|=(TransactionMode& a,
 /// \relates TransactionMode
 std::ostream& operator<<(std::ostream& os, TransactionMode mode);
 
+template <typename Sink>
+void AbslStringify(Sink& sink, TransactionMode mode) {
+  switch (mode) {
+    case TransactionMode::no_transaction_mode:
+      sink.Append("no_transaction_mode");
+      break;
+    case TransactionMode::isolated:
+      sink.Append("isolated");
+      break;
+    case TransactionMode::atomic_isolated:
+      sink.Append("atomic_isolated");
+      break;
+    default:
+      absl::Format(&sink, "unknown(%v)", static_cast<int>(mode));
+      break;
+  }
+}
+
 /// Shared handle to a transaction.
 ///
 /// \ingroup core

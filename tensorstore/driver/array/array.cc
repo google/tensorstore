@@ -436,8 +436,8 @@ Future<internal::Driver::Handle> ArrayDriverSpec::Open(
   if (IndexDomainView<> domain = schema.domain();
       domain.valid() && domain.box() != array.domain()) {
     return absl::InvalidArgumentError(absl::StrFormat(
-        "Mismatch between domain in schema { %v } and array { %v }",
-        GenericStringify(domain), array.domain()));
+        "Mismatch between domain in schema { %v } and array { %v }", domain,
+        array.domain()));
   }
   if (auto schema_chunk_layout = schema.chunk_layout();
       schema_chunk_layout.rank() != dynamic_rank) {

@@ -155,6 +155,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/util:endian",
+        "@abseil-cpp//absl/strings:str_format",
         "@blake3",
     ],
 )

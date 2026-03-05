@@ -26,10 +26,10 @@
 #include <utility>
 
 #include "absl/strings/has_absl_stringify.h"
+#include "absl/strings/has_ostream_operator.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "tensorstore/internal/meta/requires.h"
-#include "tensorstore/internal/meta/type_traits.h"
 
 namespace tensorstore {
 namespace internal_stringify {
@@ -39,18 +39,6 @@ constexpr bool generic_stringify_false = false;
 
 template <typename Sink, typename T>
 void GenericStringifyImpl(Sink& sink, const T& v);
-
-template <typename Sink, typename ResultLike>
-void GenericStringifyResult(Sink& sink, const ResultLike& v) {
-  sink.Append("<");
-  if (v.ok()) {
-    sink.Append("OK: ");
-    GenericStringifyImpl(sink, *v);
-  } else {
-    GenericStringifyImpl(sink, v.status());
-  }
-  sink.Append(">");
-}
 
 template <typename Sink, class... Ts>
 void GenericStringifyTuple(Sink& sink, const std::tuple<Ts...>& tuple) {
@@ -86,7 +74,7 @@ void GenericStringifyOptional(Sink& sink, const std::optional<T>& v) {
 }
 
 template <typename Sink, typename Iterator>
-void GenericStringifyContainer(Sink& sink, Iterator begin, Iterator end) {
+void GenericStringifyContainerIter(Sink& sink, Iterator begin, Iterator end) {
   sink.Append("{");
   if (begin != end) {
     GenericStringifyImpl(sink, *begin++);
@@ -94,6 +82,19 @@ void GenericStringifyContainer(Sink& sink, Iterator begin, Iterator end) {
   for (; begin != end; ++begin) {
     sink.Append(", ");
     GenericStringifyImpl(sink, *begin);
+  }
+  sink.Append("}");
+}
+
+template <typename Sink, typename Container>
+void GenericStringifyContainerN(Sink& sink, const Container& container,
+                                size_t n) {
+  sink.Append("{");
+  for (size_t i = 0; i < n; ++i) {
+    if (i > 0) {
+      sink.Append(", ");
+    }
+    GenericStringifyImpl(sink, container[i]);
   }
   sink.Append("}");
 }
@@ -153,15 +154,21 @@ void GenericStringifyImpl(Sink& sink, const T& v) {
       internal_meta::Requires<const T>(
           [&](auto&& w)
               -> decltype((
-                  GenericStringifyContainer)(std::declval<absl::FormatSink&>(),
-                                             w.cbegin(), w.cend())) {})) {
+                  GenericStringifyContainerIter)(std::declval<
+                                                     absl::FormatSink&>(),
+                                                 w.cbegin(), w.cend())) {})) {
     // For containers, use `{ elem0, ..., elemN }`.
-    GenericStringifyContainer(sink, v.cbegin(), v.cend());
-  } else if constexpr (internal_meta::Requires<const T>(
-                           [&](auto&& w) -> decltype(w.ok(), w.status(), *w) {
-                           })) {
-    GenericStringifyResult(sink, v);
-  } else if constexpr (internal::IsOstreamable<T>) {
+    GenericStringifyContainerIter(sink, v.cbegin(), v.cend());
+  } else if constexpr (
+      internal_meta::Requires<const T>(
+          [&](auto&& w)
+              -> decltype(w[0],
+                          (GenericStringifyContainerN)(std::declval<
+                                                           absl::FormatSink&>(),
+                                                       w, w.size())) {})) {
+    // For containers, use `{ elem0, ..., elemN }`.
+    GenericStringifyContainerN(sink, v, v.size());
+  } else if constexpr (absl::HasOstreamOperator<T>::value) {
     absl::Format(&sink, "%s", absl::FormatStreamed(v));
   } else {
     // Workaround for http://wg21.link/p2593.

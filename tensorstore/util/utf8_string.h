@@ -18,6 +18,7 @@
 #include <ostream>
 #include <string>
 
+#include "absl/strings/str_format.h"
 #include "tensorstore/serialization/fwd.h"
 
 namespace tensorstore {
@@ -50,8 +51,13 @@ struct Utf8String {
   }
 
   /// Prints the UTF-8 value to an `std::ostream`.
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Utf8String& s) {
+    absl::Format(&sink, "%v", s.utf8);
+  }
+
   friend std::ostream& operator<<(std::ostream& os, const Utf8String& s) {
-    return os << s.utf8;
+    return os << absl::StreamFormat("%v", s);
   }
 
   // Reflection support.

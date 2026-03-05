@@ -43,6 +43,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore/ocdbt:debug_defines",
         "//tensorstore/util:division",
         "//tensorstore/util:endian",
+        "//tensorstore/util:generic_stringify",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -101,9 +102,11 @@ tensorstore_cc_test(
     deps = [
         ":format",
         "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
@@ -178,6 +181,18 @@ tensorstore_cc_test(
         ":format",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "config_test",
+    size = "small",
+    srcs = ["config_test.cc"],
+    deps = [
+        ":format",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )

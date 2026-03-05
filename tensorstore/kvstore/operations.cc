@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -47,16 +48,7 @@ namespace tensorstore {
 namespace kvstore {
 
 std::ostream& operator<<(std::ostream& os, const ReadGenerationConditions& x) {
-  os << "{";
-  std::string_view sep = "";
-  if (x.if_not_equal) {
-    os << "if_not_equal=" << x.if_not_equal;
-    sep = ", ";
-  }
-  if (x.if_equal) {
-    os << sep << "if_equal=" << x.if_equal;
-  }
-  return os << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 // gtest output formatting.

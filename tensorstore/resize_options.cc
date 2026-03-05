@@ -19,40 +19,16 @@
 #include <ostream>
 
 #include "absl/base/macros.h"
+#include "absl/strings/str_format.h"
 
 namespace tensorstore {
 
 std::ostream& operator<<(std::ostream& os, ResolveBoundsMode mode) {
-  constexpr const char* kModeNames[] = {
-      "fix_resizable_bounds",
-  };
-  const char* sep = "";
-  constexpr const char* kSep = "|";
-  for (size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
-    if (static_cast<int>(mode) & (1 << i)) {
-      os << sep << kModeNames[i];
-      sep = kSep;
-    }
-  }
-  return os;
+  return os << absl::StreamFormat("%v", mode);
 }
 
 std::ostream& operator<<(std::ostream& os, ResizeMode mode) {
-  constexpr const char* kModeNames[] = {
-      "resize_metadata_only",
-      "resize_tied_bounds",
-      "expand_only",
-      "shrink_only",
-  };
-  const char* sep = "";
-  constexpr const char* kSep = "|";
-  for (size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
-    if (static_cast<int>(mode) & (1 << i)) {
-      os << sep << kModeNames[i];
-      sep = kSep;
-    }
-  }
-  return os;
+  return os << absl::StreamFormat("%v", mode);
 }
 
 }  // namespace tensorstore

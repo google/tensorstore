@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
@@ -47,6 +48,7 @@
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/iterate.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -531,8 +533,11 @@ class IndexTransform {
   /// This function is intended primarily for tests/debugging.
   friend std::ostream& operator<<(std::ostream& os,
                                   const IndexTransform& transform) {
-    internal_index_space::PrintToOstream(os, Access::rep(transform));
-    return os;
+    return os << absl::StreamFormat("%v", transform);
+  }
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const IndexTransform& transform) {
+    sink.Append(internal_index_space::PrintToString(Access::rep(transform)));
   }
 
   /// Restricts the domain of an index transform by a box of the same rank.

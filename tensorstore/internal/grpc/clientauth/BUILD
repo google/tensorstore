@@ -7,7 +7,10 @@ licenses(["notice"])
 tensorstore_cc_library(
     name = "access_token",
     hdrs = ["access_token.h"],
-    deps = ["@abseil-cpp//absl/time"],
+    deps = [
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+    ],
 )
 
 tensorstore_cc_library(

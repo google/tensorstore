@@ -45,6 +45,11 @@ enum class ContiguousLayoutOrder {
 /// \id ContiguousLayoutOrder
 std::ostream& operator<<(std::ostream& os, ContiguousLayoutOrder order);
 
+template <typename Sink>
+void AbslStringify(Sink& sink, ContiguousLayoutOrder order) {
+  sink.Append(order == ContiguousLayoutOrder::c ? "C" : "F");
+}
+
 /// \relates ContiguousLayoutOrder
 constexpr ContiguousLayoutOrder c_order = ContiguousLayoutOrder::c;
 constexpr ContiguousLayoutOrder row_major_order =

@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
@@ -39,6 +40,8 @@ TEST(ReadProgressTest, Comparison) {
 TEST(ReadProgressTest, Ostream) {
   EXPECT_EQ("{ total_elements=2, copied_elements=1 }",
             tensorstore::StrCat(ReadProgress{2, 1}));
+  EXPECT_EQ("{ total_elements=2, copied_elements=1 }",
+            absl::StrCat(ReadProgress{2, 1}));
 }
 
 TEST(WriteProgressTest, Comparison) {
@@ -59,8 +62,10 @@ TEST(WriteProgressTest, Comparison) {
 }
 
 TEST(WriteProgressTest, Ostream) {
-  EXPECT_EQ("{ total_elements=3, copied_elements=2, committed_elements=1 }",
-            tensorstore::StrCat(WriteProgress{3, 2, 1}));
+  EXPECT_EQ("{ total_elements=2, copied_elements=1, committed_elements=0 }",
+            tensorstore::StrCat(WriteProgress{2, 1, 0}));
+  EXPECT_EQ("{ total_elements=2, copied_elements=1, committed_elements=0 }",
+            absl::StrCat(WriteProgress{2, 1, 0}));
 }
 
 TEST(CopyProgressTest, Comparison) {
@@ -85,6 +90,10 @@ TEST(CopyProgressTest, Ostream) {
       "{ total_elements=4, read_elements=3, copied_elements=2, "
       "committed_elements=1 }",
       tensorstore::StrCat(CopyProgress{4, 3, 2, 1}));
+  EXPECT_EQ(
+      "{ total_elements=4, read_elements=3, copied_elements=2, "
+      "committed_elements=1 }",
+      absl::StrCat(CopyProgress{4, 3, 2, 1}));
 }
 
 }  // namespace

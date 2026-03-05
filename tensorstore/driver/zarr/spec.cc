@@ -517,7 +517,7 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
       return absl::InvalidArgumentError(absl::StrFormat(
           "Invalid fill_value: schema requires fill value of %v, "
           "but metadata specifies no fill value",
-          GenericStringify(schema_fill_value)));
+          schema_fill_value));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto broadcast_fill_value,
@@ -530,8 +530,7 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
       return absl::InvalidArgumentError(absl::StrFormat(
           "Invalid fill_value: schema requires fill value of %v, "
           "but metadata specifies fill value of %v",
-          GenericStringify(converted_fill_value),
-          GenericStringify(fill_value)));
+          converted_fill_value, fill_value));
     }
   }
 

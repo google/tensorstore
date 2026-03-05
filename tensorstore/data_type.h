@@ -71,6 +71,8 @@
 #include "absl/base/casts.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/has_ostream_operator.h"
+#include "absl/strings/str_format.h"
 #include <half.hpp>
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
@@ -788,6 +790,7 @@ class DataType {
 
   /// Prints `name()` if `valid() == true`, otherwise prints `"<unspecified>"`.
   friend std::ostream& operator<<(std::ostream& os, DataType r);
+
   template <typename Sink>
   friend void AbslStringify(Sink& sink, DataType r) {
     if (r.valid()) {
@@ -893,7 +896,7 @@ struct DataTypeSimpleOperationsImpl {
   }
 
   static void AppendToString(std::string* result, const void* ptr) {
-    if constexpr (internal::IsOstreamable<T>) {
+    if constexpr (absl::HasOstreamOperator<T>::value) {
       tensorstore::StrAppend(result, *static_cast<const T*>(ptr));
     }
   }
@@ -1317,9 +1320,8 @@ class StaticDataType {
   }
 
   friend std::ostream& operator<<(std::ostream& os, StaticDataType r) {
-    return os << DataType(r);
+    return os << absl::StreamFormat("%v", r);
   }
-
   template <typename Sink>
   friend void AbslStringify(Sink& sink, StaticDataType r) {
     sink.Append(r.name());

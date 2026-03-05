@@ -1501,7 +1501,7 @@ bool operator==(const ChunkLayout& a, const ChunkLayout& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const ChunkLayout& x) {
-  return os << ::nlohmann::json(x).dump();
+  return os << absl::StreamFormat("%v", x);
 }
 
 namespace internal {

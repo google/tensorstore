@@ -913,5 +913,12 @@ TYPED_TEST(Float8CastTest, CastThroughFloat) {
   }
 }
 
+TEST(Float8StringifyTest, AbslStringify) {
+  EXPECT_EQ("1", absl::StrCat(Float8e4m3fn(1.0f)));
+  EXPECT_EQ("0.5", absl::StrCat(Float8e4m3fn(0.5f)));
+  EXPECT_EQ("1", absl::StrCat(Float8e5m2(1.0f)));
+  EXPECT_EQ("0.5", absl::StrCat(Float8e5m2(0.5f)));
+}
+
 }  // namespace
 }  // namespace tensorstore

@@ -29,6 +29,7 @@
 #include <ostream>
 #include <type_traits>
 
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/division.h"
@@ -139,10 +140,19 @@ class Rational {
   friend constexpr bool operator!=(I i, Rational t) { return !(t == i); }
 
   /// Formats a rational number to an ostream.
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, Rational x) {
+    if (x.is_nan()) {
+      sink.Append("nan");
+    } else if (x.d_ == 1) {
+      absl::Format(&sink, "%d", x.n_);
+    } else {
+      absl::Format(&sink, "%d/%d", x.n_, x.d_);
+    }
+  }
+
   friend std::ostream& operator<<(std::ostream& os, Rational x) {
-    if (x.is_nan()) return os << "nan";
-    if (x.d_ == 1) return os << x.n_;
-    return os << x.n_ << '/' << x.d_;
+    return os << absl::StreamFormat("%v", x);
   }
 
   /// No-op.
@@ -298,8 +308,8 @@ class Rational {
 
   /// Divides two rational numbers.
   ///
-  /// Returns `nan()` if either input is `nan()`, if overflow occurs, or if the
-  /// divisor is 0.
+  /// Returns `nan()` if either input is `nan()`, if overflow occurs, or if
+  /// the divisor is 0.
   friend constexpr Rational operator/(Rational t, Rational r) {
     if (t.is_nan() || r.is_nan() || r.n_ == 0) return nan();
     I gcd1 = GreatestCommonDivisor(t.n_, r.n_);
@@ -361,8 +371,8 @@ class Rational {
     if (t.d_ == 1) return t.n_ < r;
     if (r.d_ == 1) return t < r.n_;
 
-    // Determine relative order by expanding each value to its simple continued
-    // fraction representation using the Euclidean GCD algorithm.
+    // Determine relative order by expanding each value to its simple
+    // continued fraction representation using the Euclidean GCD algorithm.
 
     ContinuedFraction ts{t}, rs{r};
     bool reverse = false;
@@ -416,8 +426,8 @@ class Rational {
     }
 
     // Compare with just the quotient, since the remainder always bumps the
-    // value up.  [Since q = floor(n/d), and if n/d < i then q < i, if n/d == i
-    // then q == i, if n/d == i + r/d then q == i, and if n/d >= i + 1 then
+    // value up.  [Since q = floor(n/d), and if n/d < i then q < i, if n/d ==
+    // i then q == i, if n/d == i + r/d then q == i, and if n/d >= i + 1 then
     // q >= i + 1 > i; therefore n/d < i iff q < i.]
     return q < i;
   }
@@ -476,8 +486,8 @@ class Rational {
   /// \param numerator_a[out] Set to the new numerator of `a`.
   /// \param numerator_b[out] Set to the new numerator of `b`.
   /// \param denominator[out] Set to the new denominator of `a` and `b`.
-  /// \returns `true` on success (i.e. no overflow occurs), `false` if overflow
-  ///     occurs or either `a` or `b` is NaN.
+  /// \returns `true` on success (i.e. no overflow occurs), `false` when
+  ///     overflow occurs or either `a` or `b` is NaN.
   [[nodiscard]] static constexpr bool UnifyDenominators(Rational a, Rational b,
                                                         I& numerator_a,
                                                         I& numerator_b,
@@ -497,8 +507,8 @@ class Rational {
   ///
   /// Values that cannot be represented exactly are rounded.
   ///
-  /// To obtain an approximation with a smaller denominator, call `Approximate`
-  /// on the result of this function.
+  /// To obtain an approximation with a smaller denominator, call
+  /// `Approximate` on the result of this function.
   static Rational FromDouble(double value) {
     if (!std::isfinite(value)) return nan();
     constexpr int max_exponent = sizeof(I) * CHAR_BIT - 2;

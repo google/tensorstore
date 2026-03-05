@@ -155,9 +155,9 @@ constexpr auto KvStackLayerJsonBinder() {
       }
       size_t longest_prefix = LongestPrefix(obj->key_range).size();
       if (dataobj.strip_prefix.value_or(0) > longest_prefix) {
-        return absl::InvalidArgumentError(absl::StrFormat(
-            "Invalid strip_prefix of %d for range %v", *dataobj.strip_prefix,
-            GenericStringify(obj->key_range)));
+        return absl::InvalidArgumentError(
+            absl::StrFormat("Invalid strip_prefix of %d for range %v",
+                            *dataobj.strip_prefix, obj->key_range));
       }
       obj->strip_prefix_length = dataobj.strip_prefix.value_or(longest_prefix);
     }

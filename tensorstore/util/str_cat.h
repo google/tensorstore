@@ -28,9 +28,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/strings/has_ostream_operator.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -102,7 +101,7 @@ auto ToAlphaNumOrString(const T& x) {
   } else if constexpr (std::is_convertible_v<T, absl::AlphaNum> &&
                        !std::is_enum_v<T>) {
     return x;
-  } else if constexpr (internal::IsOstreamable<T>) {
+  } else if constexpr (absl::HasOstreamOperator<T>::value) {
     return StringifyUsingOstream(x);
   } else if constexpr (Requires<const T>(
                            [](auto&& v) -> decltype(StringifyPair(v)) {})) {
@@ -130,9 +129,11 @@ auto ToAlphaNumOrString(const T& x) {
 /// \requires `Element` supports ostream insertion.
 /// \relates span
 /// \id span
-template <typename Element, ptrdiff_t N>
-std::enable_if_t<internal::IsOstreamable<Element>, std::ostream&> operator<<(
-    std::ostream& os, ::tensorstore::span<Element, N> s) {
+template <typename Element, ptrdiff_t N,
+          std::enable_if_t<absl::HasOstreamOperator<Element>::value>* = nullptr>
+// NONITPICK: absl::HasOstreamOperator<Element>
+// NONITPICK: absl::HasOstreamOperator<Element>::value
+std::ostream& operator<<(std::ostream& os, ::tensorstore::span<Element, N> s) {
   os << "{";
   ptrdiff_t size = s.size();
   for (ptrdiff_t i = 0; i < size; ++i) {

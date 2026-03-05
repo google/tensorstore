@@ -54,18 +54,22 @@ TEST(UnitTest, Compare) {
   EXPECT_NE(c, d);
 }
 
-TEST(UnitTest, Ostream) {
-  EXPECT_EQ("5.5 nm", tensorstore::StrCat(Unit(5.5, "nm")));
-  EXPECT_EQ("nm", tensorstore::StrCat(Unit(1, "nm")));
-  EXPECT_EQ("5", tensorstore::StrCat(Unit(5, "")));
-  EXPECT_EQ("1", tensorstore::StrCat(Unit(1, "")));
-}
-
 TEST(UnitTest, ConvertToString) {
   EXPECT_EQ("5.5 nm", Unit(5.5, "nm").to_string());
   EXPECT_EQ("nm", Unit(1, "nm").to_string());
   EXPECT_EQ("5", Unit(5, "").to_string());
   EXPECT_EQ("1", Unit(1, "").to_string());
+
+  EXPECT_EQ("5.5 nm", tensorstore::StrCat(Unit(5.5, "nm")));
+  EXPECT_EQ("5 nm", tensorstore::StrCat(Unit(5, "nm")));
+  EXPECT_EQ("nm", tensorstore::StrCat(Unit(1, "nm")));
+  EXPECT_EQ("5", tensorstore::StrCat(Unit(5, "")));
+  EXPECT_EQ("1", tensorstore::StrCat(Unit(1, "")));
+
+  EXPECT_EQ("5.5 nm", absl::StrCat(Unit(5.5, "nm")));
+  EXPECT_EQ("5 nm", absl::StrCat(Unit(5, "nm")));
+  EXPECT_EQ("nm", absl::StrCat(Unit(1, "nm")));
+  EXPECT_EQ("5", absl::StrCat(Unit(5, "")));
   EXPECT_EQ("1", absl::StrCat(Unit(1, "")));
 }
 

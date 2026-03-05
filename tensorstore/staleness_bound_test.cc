@@ -1,4 +1,4 @@
-// Copyright 2020 The TensorStore Authors
+// Copyright 2026 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/util/quote_string.h"
+#include "tensorstore/staleness_bound.h"
 
-#include <ostream>
-#include <string_view>
+#include <string>
 
-#include "absl/strings/escaping.h"
-#include "absl/strings/string_view.h"
+#include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
+#include "absl/time/time.h"
 
-namespace tensorstore {
-namespace internal {
+namespace {
 
-std::ostream& PrintQuotedString(std::ostream& os, std::string_view v) {
-  return os << '"' << absl::CHexEscape(v) << '"';
+using ::tensorstore::StalenessBound;
+
+TEST(StalenessBoundTest, AbslStringify) {
+  auto now = absl::FromUnixSeconds(1000);
+  EXPECT_EQ("1970-01-01T00:16:40+00:00", absl::StrCat(StalenessBound(now)));
+  EXPECT_EQ("infinite-future", absl::StrCat(StalenessBound()));
 }
 
-}  // namespace internal
-}  // namespace tensorstore
+}  // namespace

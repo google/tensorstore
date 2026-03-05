@@ -19,6 +19,7 @@
 #include "absl/base/optimization.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/path.h"
@@ -29,17 +30,9 @@
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 
-namespace {
 namespace jb = tensorstore::internal_json_binding;
-constexpr auto HashFunctionBinder = [](auto is_loading, const auto& options,
-                                       auto* obj, auto* j) {
-  using HashFunction = ShardingSpec::HashFunction;
-  return jb::Enum<HashFunction, const char*>({
-      {HashFunction::identity, "identity"},
-      {HashFunction::murmurhash3_x86_128, "murmurhash3_x86_128"},
-  })(is_loading, options, obj, j);
-};
 
+namespace {
 constexpr auto DefaultableDataEncodingJsonBinder =
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
       using DataEncoding = ShardingSpec::DataEncoding;
@@ -49,6 +42,16 @@ constexpr auto DefaultableDataEncodingJsonBinder =
     };
 }  // namespace
 
+TENSORSTORE_DEFINE_JSON_BINDER(HashFunctionJsonBinder, [](auto is_loading,
+                                                          const auto& options,
+                                                          auto* obj, auto* j) {
+  using HashFunction = ShardingSpec::HashFunction;
+  return jb::Enum<HashFunction, const char*>({
+      {HashFunction::identity, "identity"},
+      {HashFunction::murmurhash3_x86_128, "murmurhash3_x86_128"},
+  })(is_loading, options, obj, j);
+})
+
 TENSORSTORE_DEFINE_JSON_BINDER(
     DataEncodingJsonBinder, jb::Enum<ShardingSpec::DataEncoding, const char*>({
                                 {ShardingSpec::DataEncoding::raw, "raw"},
@@ -56,24 +59,21 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                             }))
 
 std::ostream& operator<<(std::ostream& os, ShardingSpec::HashFunction x) {
-  // `ToJson` is guaranteed not to fail for this type.
-  return os << jb::ToJson(x, HashFunctionBinder).value();
+  return os << absl::StreamFormat("%v", x);
 }
 
 void to_json(::nlohmann::json& out,  // NOLINT
              ShardingSpec::HashFunction x) {
   // `ToJson` is guaranteed not to fail for this type.
-  out = jb::ToJson(x, HashFunctionBinder).value();
+  out = jb::ToJson(x, HashFunctionJsonBinder).value();
 }
 
 std::ostream& operator<<(std::ostream& os, ShardingSpec::DataEncoding x) {
-  // `ToJson` is guaranteed not to fail for this type.
-  return os << jb::ToJson(x, DataEncodingJsonBinder).value();
+  return os << absl::StreamFormat("%v", x);
 }
 
 std::ostream& operator<<(std::ostream& os, const ShardingSpec& x) {
-  // `ToJson` is guaranteed not to fail for this type.
-  return os << jb::ToJson(x).value();
+  return os << absl::StreamFormat("%v", x);
 }
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ShardingSpec, [](auto is_loading,
@@ -94,7 +94,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ShardingSpec, [](auto is_loading,
                        jb::Integer<int>(0, 64 - obj->minishard_bits));
                  })),
       jb::Member("hash", jb::Projection(&ShardingSpec::hash_function,
-                                        HashFunctionBinder)),
+                                        HashFunctionJsonBinder)),
       jb::Member("data_encoding",
                  jb::Projection(&ShardingSpec::data_encoding,
                                 DefaultableDataEncodingJsonBinder)),

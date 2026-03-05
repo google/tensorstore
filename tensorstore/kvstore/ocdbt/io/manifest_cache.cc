@@ -196,14 +196,14 @@ void SetWritebackError(ManifestCache::TransactionNode* node,
 struct DumpListEntries {
   ::tensorstore::span<kvstore::ListEntry> entries;
 
-  [[maybe_unused]] friend std::ostream& operator<<(std::ostream& os,
-                                                   DumpListEntries s) {
-    os << "{";
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, DumpListEntries s) {
+    sink.Append("{");
     for (ptrdiff_t i = 0; i < s.entries.size(); ++i) {
-      if (i != 0) os << ", ";
-      os << s.entries[i].key;
+      if (i != 0) sink.Append(", ");
+      sink.Append(s.entries[i].key);
     }
-    return os << "}";
+    sink.Append("}");
   }
 };
 

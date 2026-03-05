@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "absl/log/absl_check.h"
+#include "absl/strings/str_format.h"
 #include <openssl/rand.h>
 #include "tensorstore/internal/ref_counted_string.h"
 #include "tensorstore/util/quote_string.h"
@@ -57,7 +58,7 @@ DataFileId GenerateDataFileId(std::string_view prefix) {
 }
 
 std::ostream& operator<<(std::ostream& os, const DataFileId& x) {
-  return os << QuoteString(x.base_path) << "+" << QuoteString(x.relative_path);
+  return os << absl::StreamFormat("%v", x);
 }
 
 }  // namespace internal_ocdbt

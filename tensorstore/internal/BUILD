@@ -283,7 +283,19 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "driver_kind_registry_test",
+    size = "small",
+    srcs = ["driver_kind_registry_test.cc"],
+    deps = [
+        ":driver_kind_registry",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -537,12 +549,13 @@ tensorstore_cc_test(
         "//tensorstore:index_interval",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/util:dimension_set",
+        "//tensorstore/util:generic_stringify",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )
@@ -1607,6 +1620,7 @@ tensorstore_cc_test(
     srcs = ["ref_counted_string_test.cc"],
     deps = [
         ":ref_counted_string",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )

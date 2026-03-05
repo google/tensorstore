@@ -16,25 +16,28 @@
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSFORM_REP_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <atomic>
-#include <iosfwd>
-#include <memory>
+#include <cassert>
 #include <string>
+#include <type_traits>
+#include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/output_index_method.h"
-#include "tensorstore/index_space/transform_array_constraints.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
-#include "tensorstore/util/division.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -569,17 +572,15 @@ bool AreDomainsEqual(TransformRep* a, TransformRep* b);
 /// \param b Pointer to a transform, may be `nullptr`.
 bool AreEqual(TransformRep* a, TransformRep* b);
 
-/// Writes a string representation of `transform` to `os`.
+/// Returns a string representation of `transform`.
 ///
-/// \param os The output stream.
 /// \param transform Pointer to the representation, may be `nullptr`.
-void PrintToOstream(std::ostream& os, TransformRep* transform);
+std::string PrintToString(TransformRep* transform);
 
-/// Writes a string representation of the domain of `transform` to `os`.
+/// Returns a string representation of the domain of `transform`.
 ///
-/// \param os The output stream.
 /// \param transform Pointer to the representation, may be `nullptr`.
-void PrintDomainToOstream(std::ostream& os, TransformRep* transform);
+std::string PrintDomainToString(TransformRep* transform);
 
 /// Returns the set of input dimensions on which any index array output index
 /// map depends.

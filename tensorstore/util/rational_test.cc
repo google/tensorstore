@@ -24,6 +24,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
@@ -381,6 +382,12 @@ TEST(ApproximateTest, Simple) {
   EXPECT_EQ(R(311, 99), R::FromDouble(pi).Approximate(100));
   EXPECT_EQ(R(355, 113), R::FromDouble(pi).Approximate(1000));
   EXPECT_EQ(R(312689, 99532), R::FromDouble(pi).Approximate(100000));
+}
+
+TEST(RationalTest, AbslStringify) {
+  EXPECT_EQ("3/4", absl::StrCat(Rational<int>(3, 4)));
+  EXPECT_EQ("-3/4", absl::StrCat(Rational<int>(-3, 4)));
+  EXPECT_EQ("3", absl::StrCat(Rational<int>(3, 1)));
 }
 
 }  // namespace

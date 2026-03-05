@@ -117,13 +117,12 @@ class DimensionIdentifier {
   /// Prints to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os,
                                   const DimensionIdentifier& x);
-
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const DimensionIdentifier& x) {
     if (x.label().data()) {
       absl::Format(&sink, "%v", QuoteString(x.label()));
     } else {
-      absl::Format(&sink, "%d", x.index());
+      absl::Format(&sink, "%v", x.index());
     }
   }
 
@@ -221,10 +220,10 @@ struct DimRangeSpec {
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const DimRangeSpec& spec) {
-    if (spec.inclusive_start) absl::Format(&sink, "%d", *spec.inclusive_start);
+    if (spec.inclusive_start) absl::Format(&sink, "%v", *spec.inclusive_start);
     sink.Append(":");
-    if (spec.exclusive_stop) absl::Format(&sink, "%d", *spec.exclusive_stop);
-    if (spec.step != 1) absl::Format(&sink, ":%d", spec.step);
+    if (spec.exclusive_stop) absl::Format(&sink, "%v", *spec.exclusive_stop);
+    if (spec.step != 1) absl::Format(&sink, ":%v", spec.step);
   }
 
   /// Compares two `DimRangeSpec` objects for equality.

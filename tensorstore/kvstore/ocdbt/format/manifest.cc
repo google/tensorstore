@@ -245,12 +245,7 @@ bool operator==(const Manifest& a, const Manifest& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Manifest& e) {
-  os << "{config=" << e.config;
-  if (e.config.manifest_kind == ManifestKind::kSingle) {
-    os << ", versions=" << tensorstore::span(e.versions)
-       << ", version_tree_nodes=" << tensorstore::span(e.version_tree_nodes);
-  }
-  return os << "}";
+  return os << absl::StreamFormat("%v", e);
 }
 
 std::string GetManifestPath(std::string_view base_path) {

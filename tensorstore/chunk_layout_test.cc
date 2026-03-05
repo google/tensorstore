@@ -29,6 +29,7 @@
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
@@ -1438,6 +1439,10 @@ TEST(ChunkLayoutTest, CopyOnWriteWithRankNotSet) {
 TEST(ChunkLayoutTest, Ostream) {
   ChunkLayout a;
   EXPECT_EQ("{}", tensorstore::StrCat(a));
+  EXPECT_EQ("{}", absl::StrCat(a));
+  EXPECT_EQ("read", absl::StrCat(Usage::kRead));
+  EXPECT_EQ("write", absl::StrCat(Usage::kWrite));
+  EXPECT_EQ("codec", absl::StrCat(Usage::kCodec));
 }
 
 TEST(ChooseChunkGridTest, Rank0) {

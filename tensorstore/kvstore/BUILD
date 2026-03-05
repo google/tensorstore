@@ -70,7 +70,31 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "read_result_test",
+    size = "small",
+    srcs = ["read_result_test.cc"],
+    deps = [
+        ":kvstore",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "operations_test",
+    size = "small",
+    srcs = ["operations_test.cc"],
+    deps = [
+        ":generation",
+        ":kvstore",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )
@@ -97,6 +121,7 @@ tensorstore_cc_test(
     deps = [
         ":generation",
         "//tensorstore/serialization:test_util",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
     ],
@@ -110,6 +135,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:compare",
         "//tensorstore/util:quote_string",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/types:compare",
     ],
 )

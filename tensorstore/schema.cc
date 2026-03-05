@@ -552,7 +552,7 @@ bool operator==(Schema::DimensionUnits a, Schema::DimensionUnits b) {
 }
 
 std::ostream& operator<<(std::ostream& os, Schema::DimensionUnits u) {
-  return os << tensorstore::DimensionUnitsToString(u);
+  return os << absl::StreamFormat("%v", u);
 }
 
 namespace {
@@ -569,11 +569,7 @@ bool operator==(const Schema& a, const Schema& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Schema& schema) {
-  auto json_result = schema.ToJson();
-  if (!json_result.ok()) {
-    return os << "<unprintable>";
-  }
-  return os << json_result->dump();
+  return os << absl::StreamFormat("%v", schema);
 }
 
 ChunkLayout& Schema::MutableLayoutInternal() {

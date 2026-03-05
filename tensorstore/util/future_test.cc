@@ -994,22 +994,23 @@ TEST(FutureTest, NonMovableTypeSetReady) {
 }
 
 struct PrintTestStruct {
-  [[maybe_unused]] friend std::ostream& operator<<(std::ostream& os,
-                                                   const PrintTestStruct&) {
-    return os << "ostream";
-  }
-
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const PrintTestStruct&) {
     sink.Append("stringify");
   }
+
+  [[maybe_unused]] friend std::ostream& operator<<(std::ostream& os,
+                                                   const PrintTestStruct&) {
+    return os << "ostream";
+  }
 };
 
 TEST(FutureTest, OkPrinting) {
-  Future<PrintTestStruct> print_me = PrintTestStruct{};
+  Future<PrintTestStruct> print_me =
+      MakeReadyFuture<PrintTestStruct>(PrintTestStruct{});
   std::stringstream stream;
   stream << print_me;
-  EXPECT_EQ(stream.str(), "ostream");
+  EXPECT_EQ(stream.str(), "stringify");
   EXPECT_EQ(absl::StrCat(print_me), "stringify");
 }
 

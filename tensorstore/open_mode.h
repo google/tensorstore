@@ -106,6 +106,7 @@ constexpr inline OpenMode operator~(OpenMode a) {
 /// \relates OpenMode
 /// \id OpenMode
 std::ostream& operator<<(std::ostream& os, OpenMode mode);
+
 template <typename Sink>
 void AbslStringify(Sink& sink, OpenMode mode) {
   const char* sep = "";

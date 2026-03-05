@@ -650,16 +650,7 @@ Transaction::Transaction(TransactionMode mode) {
 }
 
 std::ostream& operator<<(std::ostream& os, TransactionMode mode) {
-  switch (mode) {
-    case TransactionMode::no_transaction_mode:
-      return os << "no_transaction_mode";
-    case TransactionMode::isolated:
-      return os << "isolated";
-    case TransactionMode::atomic_isolated:
-      return os << "atomic_isolated";
-    default:
-      return os << "unknown(" << static_cast<int>(mode) << ")";
-  }
+  return os << absl::StreamFormat("%v", mode);
 }
 
 namespace serialization {

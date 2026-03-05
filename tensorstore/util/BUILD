@@ -181,6 +181,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/meta:attributes",
         "//tensorstore/internal/meta:integer_types",
         "@abseil-cpp//absl/numeric:bits",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -280,6 +281,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/base:config",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:nullability",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -289,6 +291,7 @@ tensorstore_cc_test(
     deps = [
         ":endian",
         "@abseil-cpp//absl/base:config",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )
@@ -373,6 +376,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:has_ostream_operator",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
     ],
@@ -512,11 +516,11 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "quote_string",
-    srcs = ["quote_string.cc"],
     hdrs = ["quote_string.h"],
     deps = [
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -551,6 +555,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:has_ostream_operator",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -572,11 +577,11 @@ tensorstore_cc_test(
     ],
     deps = [
         ":result",
-        ":status",
         ":status_testutil",
         "//tensorstore/internal/meta:type_traits",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )
@@ -709,9 +714,8 @@ tensorstore_cc_library(
     hdrs = ["str_cat.h"],
     deps = [
         ":span",
-        "//tensorstore/internal/meta:type_traits",
         "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/strings:has_ostream_operator",
     ],
 )
 
@@ -737,6 +741,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:utf8",
         "//tensorstore/internal/riegeli:delimited",
         "//tensorstore/serialization",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -750,6 +755,7 @@ tensorstore_cc_test(
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )
@@ -760,6 +766,7 @@ tensorstore_cc_library(
     hdrs = ["unit.h"],
     deps = [
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@re2",
     ],
 )
@@ -788,6 +795,7 @@ tensorstore_cc_library(
         ":division",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/serialization",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -798,6 +806,7 @@ tensorstore_cc_test(
     deps = [
         ":rational",
         ":str_cat",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )
@@ -834,6 +843,7 @@ tensorstore_cc_library(
     deps = [
         ":bfloat16",
         "@abseil-cpp//absl/base",
+        "@abseil-cpp//absl/strings:str_format",
         "@net_sourceforge_half//:half",
         "@nlohmann_json//:json",
     ],
@@ -877,8 +887,8 @@ tensorstore_cc_library(
     hdrs = ["generic_stringify.h"],
     deps = [
         "//tensorstore/internal/meta:requires",
-        "//tensorstore/internal/meta:type_traits",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:has_ostream_operator",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/strings:string_view",
     ],
@@ -893,6 +903,7 @@ tensorstore_cc_test(
         ":span",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )

@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tensorstore/serialization/test_util.h"
 
@@ -24,6 +25,19 @@ namespace {
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+
+TEST(StorageGenerationTest, AbslStringify) {
+  EXPECT_EQ("Unknown", absl::StrCat(StorageGeneration::Unknown()));
+  EXPECT_EQ("NoValue", absl::StrCat(StorageGeneration::NoValue()));
+  EXPECT_EQ("\"abc\"", absl::StrCat(StorageGeneration::FromString("abc")));
+}
+
+TEST(TimestampedStorageGenerationTest, AbslStringify) {
+  auto now = absl::FromUnixSeconds(1000);
+  EXPECT_EQ("{generation=\"abc\", time=1970-01-01T00:16:40+00:00}",
+            absl::StrCat(TimestampedStorageGeneration{
+                StorageGeneration::FromString("abc"), now}));
+}
 
 TEST(StorageGenerationTest, Basic) {
   EXPECT_TRUE(StorageGeneration::IsUnknown(StorageGeneration::Unknown()));
