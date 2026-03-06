@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/log/absl_check.h"  // IWYU pragma: keep
@@ -89,10 +90,9 @@ absl::Status EnumeratePaths(
       root_directory, /*recurse_into=*/[](std::string_view) { return true; },
       /*on_item=*/
       [&](auto entry) {
-        auto status =
-            on_directory_entry(entry.GetFullPath(), entry.IsDirectory());
-        MaybeAddSourceLocation(status);
-        result.Update(status);
+        StatusBuilder status_builder(
+            on_directory_entry(entry.GetFullPath(), entry.IsDirectory()));
+        result.Update(std::move(status_builder).BuildStatus());
         return absl::OkStatus();
       });
   result.Update(status);

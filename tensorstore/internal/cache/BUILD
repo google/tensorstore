@@ -357,6 +357,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:generation",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
+        "//tensorstore/util:generic_stringify",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
@@ -367,6 +368,8 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/container:inlined_vector",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )

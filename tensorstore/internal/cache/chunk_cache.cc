@@ -28,6 +28,8 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/chunk.h"
@@ -55,6 +57,7 @@
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -161,7 +164,7 @@ struct ReadChunkImpl {
             component_index)};
     if (!fill_missing_data_reads && !read_array.valid()) {
       return absl::NotFoundError(
-          tensorstore::StrCat(entry->DescribeChunk(), " is missing"));
+          absl::StrFormat("%s is missing", entry->DescribeChunk()));
     }
     return grid.components[component_index].array_spec.GetReadNDIterable(
         std::move(read_array), domain, std::move(chunk_transform), arena);
@@ -236,7 +239,7 @@ struct ReadChunkTransactionImpl {
     }
     if (!fill_missing_data_reads && !read_array.valid()) {
       return absl::NotFoundError(
-          tensorstore::StrCat(entry.DescribeChunk(), " is missing"));
+          absl::StrFormat("%s is missing", entry.DescribeChunk()));
     }
     return component.GetReadNDIterable(component_spec.array_spec, domain,
                                        std::move(read_array), read_generation,
@@ -750,7 +753,7 @@ void ChunkCache::TransactionNode::InvalidateReadState() {
 }
 
 std::string ChunkCache::Entry::DescribeChunk() {
-  return tensorstore::StrCat("chunk ", this->cell_indices());
+  return absl::StrCat("chunk ", GenericStringify(this->cell_indices()));
 }
 
 }  // namespace internal

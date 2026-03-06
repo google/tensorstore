@@ -84,7 +84,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/container:fixed_array",
         "@abseil-cpp//absl/status",

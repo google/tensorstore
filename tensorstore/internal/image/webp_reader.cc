@@ -25,13 +25,13 @@
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // Include libwebp last
 #include <webp/decode.h>
@@ -129,8 +129,8 @@ absl::Status WebPReader::Context::Decode(tensorstore::span<unsigned char> dest,
                       reader_->available());
       reader_->move_cursor(reader_->available());
       if (status != VP8_STATUS_OK && status != VP8_STATUS_SUSPENDED) {
-        return absl::DataLossError(tensorstore::StrCat("Error decoding WEBP: ",
-                                                       VP8StatusDesc(status)));
+        return absl::DataLossError(
+            absl::StrFormat("Error decoding WEBP: %s", VP8StatusDesc(status)));
       }
     }
     if (!reader_->ok()) {

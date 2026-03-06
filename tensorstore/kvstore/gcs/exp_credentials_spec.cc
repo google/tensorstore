@@ -22,6 +22,7 @@
 #include <variant>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/clientauth/call_authentication.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
@@ -100,8 +100,8 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
       is_loading, options, &credentials, j));
 
   if (!credentials.empty() && !IsKnownCredential(credentials)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid credentials : ", QuoteString(credentials)));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid credentials: %v", QuoteString(credentials)));
   }
 
   Spec::Access config;
@@ -315,7 +315,7 @@ MakeGrpcAuthenticationStrategy(const Spec& spec, CaInfo ca_info) {
         return internal_grpc::CreateGoogleDefaultAuthenticationStrategy();
       }
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Unknown credentials : ", QuoteString(spec)));
+          absl::StrFormat("Unknown credentials: %v", QuoteString(spec)));
     }
 
     R operator()(const Spec::AccessToken& spec) {

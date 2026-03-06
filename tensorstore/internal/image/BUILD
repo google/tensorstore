@@ -333,7 +333,6 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",

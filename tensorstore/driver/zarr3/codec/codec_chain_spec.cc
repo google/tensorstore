@@ -51,7 +51,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -350,16 +349,6 @@ ZarrCodecChainSpec::Resolve(ArrayCodecResolveParameters&& decoded,
 }
 
 namespace {
-template <typename T, typename Binder>
-std::string MergeErrorMessage(const T& a, const T& b, const Binder& binder) {
-  return absl::StrFormat("Cannot merge zarr codec constraints %s and %s",
-                         jb::ToJson(a, binder).value().dump(),
-                         jb::ToJson(b, binder).value().dump());
-}
-std::string MergeErrorMessage(const ZarrCodecSpec& a, const ZarrCodecSpec& b) {
-  return MergeErrorMessage(ZarrCodecSpec::Ptr(&a), ZarrCodecSpec::Ptr(&b),
-                           ZarrCodecJsonBinder);
-}
 
 template <typename T>
 void EnsureMutableCodecSpec(internal::IntrusivePtr<const T>& ptr) {
@@ -389,8 +378,10 @@ absl::Status MergeZarrCodecSpecs(ZarrCodecSpec::Ptr& target,
     status = const_cast<ZarrCodecSpec&>(*target).MergeFrom(*source, strict);
   }
   if (status.ok()) return absl::OkStatus();
-  return tensorstore::MaybeAnnotateStatus(status,
-                                          MergeErrorMessage(*target, *source));
+  return StatusBuilder(status).SetPrepend().Format(
+      "Cannot merge zarr codec constraints %s and %s",
+      jb::ToJson(target, ZarrCodecJsonBinder).value().dump(),
+      jb::ToJson(source, ZarrCodecJsonBinder).value().dump());
 }
 
 template <typename T>
@@ -428,12 +419,13 @@ absl::Status MergeZarrCodecSpecs(std::vector<T>& targets,
   }
   if (size_mismatch) {
     // TODO: StatusBuilder
-    return tensorstore::MaybeAnnotateStatus(
-        absl::FailedPreconditionError(absl::StrFormat(
-            "Mismatch in number of %s codecs (%d vs %d)",
-            kIsArrayToArray ? "array -> array" : "bytes -> bytes",
-            targets.size(), sources.size())),
-        MergeErrorMessage(targets, sources, jb::Array(ZarrCodecJsonBinder)));
+    return StatusBuilder(absl::FailedPreconditionError(absl::StrFormat(
+        "Cannot merge zarr codec constraints %s and %s: "
+        "Mismatch in number of %s codecs (%d vs %d)",
+        jb::ToJson(targets, jb::Array(ZarrCodecJsonBinder)).value().dump(),
+        jb::ToJson(sources, jb::Array(ZarrCodecJsonBinder)).value().dump(),
+        kIsArrayToArray ? "array -> array" : "bytes -> bytes", targets.size(),
+        sources.size())));
   }
   for (size_t i = 0; i < merge_count; ++i) {
     TENSORSTORE_RETURN_IF_ERROR(

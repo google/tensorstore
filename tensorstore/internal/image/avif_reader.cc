@@ -26,6 +26,7 @@
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/types/optional.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
@@ -33,7 +34,6 @@
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 // Include libavif last
 #include <avif/avif.h>
@@ -269,8 +269,8 @@ absl::Status AvifDefaultDecodeRGB(avifImage* image, const ImageInfo& info,
   auto transform_result = avifImageYUVToRGB(image, &rgb_image);
   if (transform_result != AVIF_RESULT_OK) {
     return absl::DataLossError(
-        tensorstore::StrCat("Failed to convert AVIF YUV to RGB image: ",
-                            avifResultToString(transform_result)));
+        absl::StrFormat("Failed to convert AVIF YUV to RGB image: %s",
+                        avifResultToString(transform_result)));
   }
   return absl::OkStatus();
 }

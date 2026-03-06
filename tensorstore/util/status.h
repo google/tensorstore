@@ -18,7 +18,6 @@
 #include <stddef.h>
 
 #include <cassert>
-#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -27,7 +26,6 @@
 #include "absl/status/status.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/status_impl.h"
 
 namespace tensorstore {
 namespace internal {
@@ -63,34 +61,6 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
 }
 
 }  // namespace internal
-
-// Add a source location to the status.
-inline void MaybeAddSourceLocation(
-    absl::Status& status, SourceLocation loc = SourceLocation::current()) {
-  // Don't add locations to purely control flow status OBJECTS.
-  if (status.ok() || status.message().empty()) return;
-  internal_status::MaybeAddSourceLocationImpl(status, loc);
-}
-
-/// If status is not `absl::StatusCode::kOk`, then annotate the status
-/// message by appending the given message.
-///
-/// \ingroup error handling
-inline absl::Status MaybeAnnotateStatus(
-    absl::Status source, std::string_view message,
-    SourceLocation loc = SourceLocation::current()) {
-  return StatusBuilder(std::move(source), loc)
-      .SetPrepend()
-      .Format("%s", message);
-}
-inline absl::Status MaybeAnnotateStatus(
-    absl::Status source, std::string_view message, absl::StatusCode new_code,
-    SourceLocation loc = tensorstore::SourceLocation::current()) {
-  return StatusBuilder(std::move(source), loc)
-      .SetCode(new_code)
-      .SetPrepend()
-      .Format("%s", message);
-}
 
 /// Overload for the case of a bare absl::Status argument.
 ///
