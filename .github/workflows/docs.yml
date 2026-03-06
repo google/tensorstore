@@ -32,7 +32,7 @@ jobs:
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ runner.os }}-docs-${{ matrix.python-version }}-${{ hashFiles('third_party/pypa/workspace.bzl') }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/bazel/_bazel_*/cache/repos
@@ -43,7 +43,7 @@ jobs:
         shell: bash
       - run: zip -r docs_output.zip docs_output
       - name: Upload docs as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: docs
           path: docs_output.zip
