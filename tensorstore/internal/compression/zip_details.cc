@@ -52,10 +52,7 @@ namespace tensorstore {
 namespace internal_zip {
 namespace {
 
-using ::riegeli::ReadLittleEndian16;
-using ::riegeli::ReadLittleEndian32;
-using ::riegeli::ReadLittleEndian64;
-using ::riegeli::ReadLittleEndianSigned64;
+using ::riegeli::ReadLittleEndian;
 
 ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip_details");
 
@@ -90,17 +87,17 @@ absl::Status ReadExtraField_Zip64_0001(riegeli::Reader& reader,
   do {
     if (tag_size >= 8 &&
         entry.uncompressed_size == std::numeric_limits<uint32_t>::max()) {
-      if (!ReadLittleEndian64(reader, entry.uncompressed_size)) break;
+      if (!ReadLittleEndian<uint64_t>(reader, entry.uncompressed_size)) break;
       tag_size -= 8;
     }
     if (tag_size >= 8 &&
         entry.compressed_size == std::numeric_limits<uint32_t>::max()) {
-      if (!ReadLittleEndian64(reader, entry.compressed_size)) break;
+      if (!ReadLittleEndian<uint64_t>(reader, entry.compressed_size)) break;
       tag_size -= 8;
     }
     if (tag_size >= 8 &&
         entry.local_header_offset == std::numeric_limits<uint32_t>::max()) {
-      if (!ReadLittleEndian64(reader, entry.local_header_offset)) break;
+      if (!ReadLittleEndian<uint64_t>(reader, entry.local_header_offset)) break;
       tag_size -= 8;
     }
     // skip the disk number field
@@ -115,9 +112,9 @@ absl::Status ReadExtraField_Unix_000D(riegeli::Reader& reader,
   uint32_t ignored32;
   uint32_t mtime;
   uint32_t atime;
-  if (!ReadLittleEndian32(reader, atime) ||
-      !ReadLittleEndian32(reader, mtime) ||
-      !ReadLittleEndian32(reader, ignored32) /* uid+gid */) {
+  if (!ReadLittleEndian<uint32_t>(reader, atime) ||
+      !ReadLittleEndian<uint32_t>(reader, mtime) ||
+      !ReadLittleEndian<uint32_t>(reader, ignored32) /* uid+gid */) {
     return absl::InvalidArgumentError("Failed to read UNIX extra field");
   }
   // convert atime/mtime.
@@ -131,14 +128,14 @@ absl::Status ReadExtraField_NTFS_000A(riegeli::Reader& reader,
                                       uint16_t tag_size, ZipEntry& entry) {
   assert(tag_size >= 8);
   uint32_t ignored32;
-  if (!ReadLittleEndian32(reader, ignored32)) {
+  if (!ReadLittleEndian<uint32_t>(reader, ignored32)) {
     return absl::InvalidArgumentError("Failed to read NTFS extra field");
   }
   tag_size -= 4;
   uint16_t ntfs_tag, ntfs_size;
   while (tag_size > 4) {
-    if (!ReadLittleEndian16(reader, ntfs_tag) ||
-        !ReadLittleEndian16(reader, ntfs_size)) {
+    if (!ReadLittleEndian<uint16_t>(reader, ntfs_tag) ||
+        !ReadLittleEndian<uint16_t>(reader, ntfs_size)) {
       break;
     }
     tag_size -= 4;
@@ -147,9 +144,9 @@ absl::Status ReadExtraField_NTFS_000A(riegeli::Reader& reader,
       uint64_t mtime;
       uint64_t atime;
       uint64_t ctime;
-      if (!ReadLittleEndian64(reader, mtime) ||
-          !ReadLittleEndian64(reader, atime) ||
-          !ReadLittleEndian64(reader, ctime)) {
+      if (!ReadLittleEndian<uint64_t>(reader, mtime) ||
+          !ReadLittleEndian<uint64_t>(reader, atime) ||
+          !ReadLittleEndian<uint64_t>(reader, ctime)) {
         return absl::InvalidArgumentError("Failed to read NTFS extra field");
       }
 
@@ -172,17 +169,17 @@ absl::Status ReadExtraField_Unix_5455(riegeli::Reader& reader,
     if (!reader.ReadByte(flags)) break;
     --tag_size;
     if (flags & 0x01 && tag_size >= 4) {  // mtime
-      if (!ReadLittleEndian32(reader, tstamp)) break;
+      if (!ReadLittleEndian<uint32_t>(reader, tstamp)) break;
       tag_size -= 4;
       entry.mtime = absl::FromUnixSeconds(tstamp);
     }
     if (flags & 0x02 && tag_size >= 4) {  // atime
-      if (!ReadLittleEndian32(reader, tstamp)) break;
+      if (!ReadLittleEndian<uint32_t>(reader, tstamp)) break;
       tag_size -= 4;
       entry.atime = absl::FromUnixSeconds(tstamp);
     }
     if (flags & 0x04 && tag_size >= 4) {  // ctime
-      if (!ReadLittleEndian32(reader, tstamp)) break;
+      if (!ReadLittleEndian<uint32_t>(reader, tstamp)) break;
       tag_size -= 4;
     }
     return absl::OkStatus();
@@ -198,8 +195,8 @@ absl::Status ReadExtraField(riegeli::Reader& reader, ZipEntry& entry) {
   uint16_t tag, tag_size;
   absl::Status status;
   while (reader.ok()) {
-    if (!ReadLittleEndian16(reader, tag) ||
-        !ReadLittleEndian16(reader, tag_size)) {
+    if (!ReadLittleEndian<uint16_t>(reader, tag) ||
+        !ReadLittleEndian<uint16_t>(reader, tag_size)) {
       return absl::OkStatus();
     }
     ABSL_LOG_IF(INFO, zip_logging)
@@ -239,7 +236,7 @@ absl::Status ReadEOCD64Locator(riegeli::Reader& reader,
   }
 
   uint32_t signature;
-  ReadLittleEndian32(reader, signature);
+  ReadLittleEndian<uint32_t>(reader, signature);
   if (signature != 0x07064b50) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Failed to read ZIP64 End of Central Directory Locator signature %08x",
@@ -247,9 +244,9 @@ absl::Status ReadEOCD64Locator(riegeli::Reader& reader,
   }
 
   uint32_t ignored32;
-  ReadLittleEndian32(reader, locator.disk_number_with_cd);
-  ReadLittleEndianSigned64(reader, locator.cd_offset);
-  ReadLittleEndian32(reader, ignored32);
+  ReadLittleEndian<uint32_t>(reader, locator.disk_number_with_cd);
+  ReadLittleEndian<int64_t>(reader, locator.cd_offset);
+  ReadLittleEndian<uint32_t>(reader, ignored32);
   if (locator.cd_offset < 0) {
     ABSL_LOG_IF(INFO, zip_logging && !reader.ok()) << reader.status();
     return absl::InvalidArgumentError(
@@ -266,7 +263,7 @@ absl::Status ReadEOCD64(riegeli::Reader& reader, ZipEOCD& eocd) {
 
   auto eocd_pos = reader.pos();
   uint32_t signature;
-  ReadLittleEndian32(reader, signature);
+  ReadLittleEndian<uint32_t>(reader, signature);
   if (signature != 0x06064b50) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP64 Central Directory Entry signature");
@@ -274,7 +271,7 @@ absl::Status ReadEOCD64(riegeli::Reader& reader, ZipEOCD& eocd) {
 
   // Size = SizeOfFixedFields + SizeOfVariableData - 12.
   uint64_t eocd_size;
-  ReadLittleEndian64(reader, eocd_size);
+  ReadLittleEndian<uint64_t>(reader, eocd_size);
   if (eocd_size < 44 || !reader.Pull(eocd_size)) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP64 End of Central Directory");
@@ -290,14 +287,14 @@ absl::Status ReadEOCD64(riegeli::Reader& reader, ZipEOCD& eocd) {
   uint32_t disk_number;
   uint32_t disk_number_with_cd;
   uint64_t total_num_entries;
-  ReadLittleEndian16(oecd64_reader, version_madeby);
-  ReadLittleEndian16(oecd64_reader, version_needed_to_extract);
-  ReadLittleEndian32(oecd64_reader, disk_number);
-  ReadLittleEndian32(oecd64_reader, disk_number_with_cd);
-  ReadLittleEndian64(oecd64_reader, eocd.num_entries);
-  ReadLittleEndian64(oecd64_reader, total_num_entries);
-  ReadLittleEndianSigned64(oecd64_reader, eocd.cd_size);
-  ReadLittleEndianSigned64(oecd64_reader, eocd.cd_offset);
+  ReadLittleEndian<uint16_t>(oecd64_reader, version_madeby);
+  ReadLittleEndian<uint16_t>(oecd64_reader, version_needed_to_extract);
+  ReadLittleEndian<uint32_t>(oecd64_reader, disk_number);
+  ReadLittleEndian<uint32_t>(oecd64_reader, disk_number_with_cd);
+  ReadLittleEndian<uint64_t>(oecd64_reader, eocd.num_entries);
+  ReadLittleEndian<uint64_t>(oecd64_reader, total_num_entries);
+  ReadLittleEndian<int64_t>(oecd64_reader, eocd.cd_size);
+  ReadLittleEndian<int64_t>(oecd64_reader, eocd.cd_offset);
 
   if (disk_number != disk_number_with_cd ||
       eocd.num_entries != total_num_entries ||
@@ -311,7 +308,6 @@ absl::Status ReadEOCD64(riegeli::Reader& reader, ZipEOCD& eocd) {
 
   oecd64_reader.Seek(eocd_size);
   eocd.record_offset = eocd_pos;
-  // TODO: reader.VerifyEndAndClose()?
 
   // minizip-ng may adjust cd_offset (in mz_zip_read_cd) by verifying
   // a central directory signature exists at cd_offset, and adjusting the
@@ -326,7 +322,7 @@ absl::Status ReadEOCD(riegeli::Reader& reader, ZipEOCD& eocd) {
   }
   auto eocd_pos = reader.pos();
   uint32_t signature;
-  ReadLittleEndian32(reader, signature);
+  ReadLittleEndian<uint32_t>(reader, signature);
   if (signature != 0x06054b50) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP Central Directory Entry signature");
@@ -338,13 +334,13 @@ absl::Status ReadEOCD(riegeli::Reader& reader, ZipEOCD& eocd) {
   uint32_t cd_size;
   uint32_t cd_offset;
   uint16_t comment_length;
-  ReadLittleEndian16(reader, disk_number);
-  ReadLittleEndian16(reader, disk_number_with_cd);
-  ReadLittleEndian16(reader, num_entries);
-  ReadLittleEndian16(reader, total_num_entries);
-  ReadLittleEndian32(reader, cd_size);
-  ReadLittleEndian32(reader, cd_offset);
-  ReadLittleEndian16(reader, comment_length);
+  ReadLittleEndian<uint16_t>(reader, disk_number);
+  ReadLittleEndian<uint16_t>(reader, disk_number_with_cd);
+  ReadLittleEndian<uint16_t>(reader, num_entries);
+  ReadLittleEndian<uint16_t>(reader, total_num_entries);
+  ReadLittleEndian<uint32_t>(reader, cd_size);
+  ReadLittleEndian<uint32_t>(reader, cd_offset);
+  ReadLittleEndian<uint16_t>(reader, comment_length);
   if (num_entries != total_num_entries) {
     ABSL_LOG(INFO) << "ZIP num_entries mismatch " << num_entries << " vs "
                    << total_num_entries;
@@ -462,7 +458,7 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
   }
 
   uint32_t signature;
-  ReadLittleEndian32(reader, signature);
+  ReadLittleEndian<uint32_t>(reader, signature);
   if (signature != 0x02014b50) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP Central Directory Entry signature");
@@ -478,22 +474,22 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
   uint16_t last_mod_date;
   uint16_t ignored16;
   uint16_t compression_method;
-  ReadLittleEndian16(reader, entry.version_madeby);
-  ReadLittleEndian16(reader, ignored16);  // version needed
-  ReadLittleEndian16(reader, entry.flags);
-  ReadLittleEndian16(reader, compression_method);
-  ReadLittleEndian16(reader, last_mod_time);
-  ReadLittleEndian16(reader, last_mod_date);
-  ReadLittleEndian32(reader, entry.crc);
-  ReadLittleEndian32(reader, compressed_size);
-  ReadLittleEndian32(reader, uncompressed_size);
-  ReadLittleEndian16(reader, file_name_length);
-  ReadLittleEndian16(reader, extra_field_length);
-  ReadLittleEndian16(reader, file_comment_length);
-  ReadLittleEndian16(reader, ignored16);  // start disk_number
-  ReadLittleEndian16(reader, entry.internal_fa);
-  ReadLittleEndian32(reader, entry.external_fa);
-  ReadLittleEndian32(reader, relative_header_offset);
+  ReadLittleEndian<uint16_t>(reader, entry.version_madeby);
+  ReadLittleEndian<uint16_t>(reader, ignored16);  // version needed
+  ReadLittleEndian<uint16_t>(reader, entry.flags);
+  ReadLittleEndian<uint16_t>(reader, compression_method);
+  ReadLittleEndian<uint16_t>(reader, last_mod_time);
+  ReadLittleEndian<uint16_t>(reader, last_mod_date);
+  ReadLittleEndian<uint32_t>(reader, entry.crc);
+  ReadLittleEndian<uint32_t>(reader, compressed_size);
+  ReadLittleEndian<uint32_t>(reader, uncompressed_size);
+  ReadLittleEndian<uint16_t>(reader, file_name_length);
+  ReadLittleEndian<uint16_t>(reader, extra_field_length);
+  ReadLittleEndian<uint16_t>(reader, file_comment_length);
+  ReadLittleEndian<uint16_t>(reader, ignored16);  // start disk_number
+  ReadLittleEndian<uint16_t>(reader, entry.internal_fa);
+  ReadLittleEndian<uint32_t>(reader, entry.external_fa);
+  ReadLittleEndian<uint32_t>(reader, relative_header_offset);
 
   entry.compressed_size = compressed_size;
   entry.uncompressed_size = uncompressed_size;
@@ -518,7 +514,6 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
       return status;
     }
     extra_reader.Seek(extra_field_length);
-    // TODO: extra_reader.VerifyEndAndClose()
   }
 
   // Read central directory file comment.
@@ -545,7 +540,7 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
   }
 
   uint32_t signature;
-  ReadLittleEndian32(reader, signature);
+  ReadLittleEndian<uint32_t>(reader, signature);
   if (signature != 0x04034b50) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP Local Entry signature");
@@ -558,16 +553,16 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
   uint32_t compressed_size;
   uint16_t file_name_length = 0;
   uint16_t extra_field_length = 0;
-  ReadLittleEndian16(reader, ignored16);  // version needed
-  ReadLittleEndian16(reader, entry.flags);
-  ReadLittleEndian16(reader, compression_method);
-  ReadLittleEndian16(reader, last_mod_time);
-  ReadLittleEndian16(reader, last_mod_date);
-  ReadLittleEndian32(reader, entry.crc);
-  ReadLittleEndian32(reader, compressed_size);
-  ReadLittleEndian32(reader, uncompressed_size);
-  ReadLittleEndian16(reader, file_name_length);
-  ReadLittleEndian16(reader, extra_field_length);
+  ReadLittleEndian<uint16_t>(reader, ignored16);  // version needed
+  ReadLittleEndian<uint16_t>(reader, entry.flags);
+  ReadLittleEndian<uint16_t>(reader, compression_method);
+  ReadLittleEndian<uint16_t>(reader, last_mod_time);
+  ReadLittleEndian<uint16_t>(reader, last_mod_date);
+  ReadLittleEndian<uint32_t>(reader, entry.crc);
+  ReadLittleEndian<uint32_t>(reader, compressed_size);
+  ReadLittleEndian<uint32_t>(reader, uncompressed_size);
+  ReadLittleEndian<uint16_t>(reader, file_name_length);
+  ReadLittleEndian<uint16_t>(reader, extra_field_length);
 
   entry.version_madeby = 0;
   entry.internal_fa = 0;
@@ -597,7 +592,6 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
       return status;
     }
     extra_reader.Seek(extra_field_length);
-    // TODO: extra_reader.VerifyEndAndClose()
   }
 
   return absl::OkStatus();
@@ -652,8 +646,8 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
 
     /// 4.3.9  Data descriptor
     uint32_t signature, crc32;
-    ReadLittleEndian32(*reader, signature);
-    ReadLittleEndian32(*reader, crc32);
+    ReadLittleEndian<uint32_t>(*reader, signature);
+    ReadLittleEndian<uint32_t>(*reader, crc32);
     if (signature != 0x08074b50) {
       return absl::DataLossError(absl::StrFormat(
           "Failed to read ZIP DataDescriptor signature %08x", signature));
@@ -661,15 +655,15 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
     if (entry.crc == 0) entry.crc = crc32;
     if (entry.is_zip64) {
       uint64_t compressed_size, uncompressed_size;
-      ReadLittleEndian64(*reader, compressed_size);
-      ReadLittleEndian64(*reader, uncompressed_size);
+      ReadLittleEndian<uint64_t>(*reader, compressed_size);
+      ReadLittleEndian<uint64_t>(*reader, uncompressed_size);
       if (entry.compressed_size == 0) entry.compressed_size = compressed_size;
       if (entry.uncompressed_size == 0)
         entry.uncompressed_size = uncompressed_size;
     } else {
       uint32_t compressed_size, uncompressed_size;
-      ReadLittleEndian32(*reader, compressed_size);
-      ReadLittleEndian32(*reader, uncompressed_size);
+      ReadLittleEndian<uint32_t>(*reader, compressed_size);
+      ReadLittleEndian<uint32_t>(*reader, uncompressed_size);
       if (entry.compressed_size == 0) {
         entry.compressed_size = compressed_size;
       }

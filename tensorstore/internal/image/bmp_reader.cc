@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/image/bmp_reader.h"
 
+#include <stdint.h>
+
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -27,9 +29,7 @@ namespace tensorstore {
 namespace internal_image {
 namespace {
 
-using riegeli::ReadLittleEndian16;
-using riegeli::ReadLittleEndian32;
-using riegeli::ReadLittleEndianSigned32;
+using riegeli::ReadLittleEndian;
 
 // https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapfileheader
 struct BitmapFileHeader {
@@ -98,11 +98,11 @@ struct BitmapHeader {
 };
 
 absl::Status ReadBitmapHeaders(riegeli::Reader* reader, BitmapHeader& header) {
-  if (!ReadLittleEndian16(*reader, header.file_header.type) ||
-      !ReadLittleEndian32(*reader, header.file_header.size) ||
-      !ReadLittleEndian16(*reader, header.file_header.reserved1) ||
-      !ReadLittleEndian16(*reader, header.file_header.reserved2) ||
-      !ReadLittleEndian32(*reader, header.file_header.offset)) {
+  if (!ReadLittleEndian<uint16_t>(*reader, header.file_header.type) ||
+      !ReadLittleEndian<uint32_t>(*reader, header.file_header.size) ||
+      !ReadLittleEndian<uint16_t>(*reader, header.file_header.reserved1) ||
+      !ReadLittleEndian<uint16_t>(*reader, header.file_header.reserved2) ||
+      !ReadLittleEndian<uint32_t>(*reader, header.file_header.offset)) {
     return reader->StatusOrAnnotate(
         absl::InvalidArgumentError("Failed to read BMP file header"));
   }
@@ -111,7 +111,7 @@ absl::Status ReadBitmapHeaders(riegeli::Reader* reader, BitmapHeader& header) {
   }
 
   auto& dib = header.dib_header;
-  if (!ReadLittleEndian32(*reader, dib.header_size)) {
+  if (!ReadLittleEndian<uint32_t>(*reader, dib.header_size)) {
     return reader->StatusOrAnnotate(
         absl::InvalidArgumentError("Failed to read BMP DIB header"));
   }
@@ -126,37 +126,37 @@ absl::Status ReadBitmapHeaders(riegeli::Reader* reader, BitmapHeader& header) {
                   dib.header_size - 4));
 
   // Read all fields until failure.
-  ReadLittleEndianSigned32(hdr_reader, dib.width) &&
-      ReadLittleEndianSigned32(hdr_reader, dib.height) &&
-      ReadLittleEndian16(hdr_reader, dib.planes) &&
-      ReadLittleEndian16(hdr_reader, dib.bit_count) &&
-      ReadLittleEndian32(hdr_reader, dib.compression) &&
-      ReadLittleEndian32(hdr_reader, dib.raw_image_size) &&
-      ReadLittleEndianSigned32(hdr_reader, dib.xpels_per_meter) &&
-      ReadLittleEndianSigned32(hdr_reader, dib.ypels_per_meter) &&
-      ReadLittleEndian32(hdr_reader, dib.clr_used) &&
-      ReadLittleEndian32(hdr_reader, dib.clr_important) &&
-      ReadLittleEndian32(hdr_reader, dib.red_mask) &&
-      ReadLittleEndian32(hdr_reader, dib.green_mask) &&
-      ReadLittleEndian32(hdr_reader, dib.blue_mask) &&
-      ReadLittleEndian32(hdr_reader, dib.alpha_mask) &&
-      ReadLittleEndian32(hdr_reader, dib.cstype) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_red.x) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_red.y) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_red.z) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_green.x) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_green.y) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_green.z) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_blue.x) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_blue.y) &&
-      ReadLittleEndian32(hdr_reader, dib.endpoints_blue.z) &&
-      ReadLittleEndian32(hdr_reader, dib.gamma_red) &&
-      ReadLittleEndian32(hdr_reader, dib.gamma_green) &&
-      ReadLittleEndian32(hdr_reader, dib.gamma_blue) &&
-      ReadLittleEndian32(hdr_reader, dib.intent) &&
-      ReadLittleEndian32(hdr_reader, dib.profile_data) &&
-      ReadLittleEndian32(hdr_reader, dib.profile_size) &&
-      ReadLittleEndian32(hdr_reader, dib.reserved);
+  ReadLittleEndian<int32_t>(hdr_reader, dib.width) &&
+      ReadLittleEndian<int32_t>(hdr_reader, dib.height) &&
+      ReadLittleEndian<uint16_t>(hdr_reader, dib.planes) &&
+      ReadLittleEndian<uint16_t>(hdr_reader, dib.bit_count) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.compression) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.raw_image_size) &&
+      ReadLittleEndian<int32_t>(hdr_reader, dib.xpels_per_meter) &&
+      ReadLittleEndian<int32_t>(hdr_reader, dib.ypels_per_meter) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.clr_used) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.clr_important) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.red_mask) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.green_mask) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.blue_mask) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.alpha_mask) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.cstype) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_red.x) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_red.y) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_red.z) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_green.x) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_green.y) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_green.z) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_blue.x) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_blue.y) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.endpoints_blue.z) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.gamma_red) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.gamma_green) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.gamma_blue) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.intent) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.profile_data) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.profile_size) &&
+      ReadLittleEndian<uint32_t>(hdr_reader, dib.reserved);
 
   if (!hdr_reader.VerifyEndAndClose()) {
     return hdr_reader.status();

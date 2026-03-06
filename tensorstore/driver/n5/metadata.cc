@@ -238,8 +238,8 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
   riegeli::Reader* reader = &base_reader;
   uint16_t mode;
   uint16_t num_dims;
-  if (!riegeli::ReadBigEndian16(*reader, mode) ||
-      !riegeli::ReadBigEndian16(*reader, num_dims)) {
+  if (!riegeli::ReadBigEndian<uint16_t>(*reader, mode) ||
+      !riegeli::ReadBigEndian<uint16_t>(*reader, num_dims)) {
     return reader->status();
   }
   switch (mode) {
@@ -260,7 +260,7 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
   span<Index> encoded_shape(&encoded_shape_buffer[0], num_dims);
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     uint32_t size;
-    if (!riegeli::ReadBigEndian32(*reader, size)) {
+    if (!riegeli::ReadBigEndian<uint32_t>(*reader, size)) {
       return reader->status();
     }
     encoded_shape[i] = size;
@@ -312,12 +312,12 @@ Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
 
   // Write header
   // mode: 0x0 = default
-  if (!riegeli::WriteBigEndian16(0, *writer) ||
-      !riegeli::WriteBigEndian16(metadata.rank, *writer)) {
+  if (!riegeli::WriteBigEndian<uint16_t>(0, *writer) ||
+      !riegeli::WriteBigEndian<uint16_t>(metadata.rank, *writer)) {
     return writer->status();
   }
   for (DimensionIndex i = 0; i < array.rank(); ++i) {
-    if (!riegeli::WriteBigEndian32(array.shape()[i], *writer)) {
+    if (!riegeli::WriteBigEndian<uint32_t>(array.shape()[i], *writer)) {
       return writer->status();
     }
   }
