@@ -1429,32 +1429,6 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.MaybeAnnotateStatus.html" class="md-nav__link">
-        
-  
-  
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
-  
-  <span class="md-ellipsis">
-    <span title="tensorstore::MaybeAnnotateStatus (C++ function) — If status is not absl::StatusCode::kOk, then annotate the status message by appending the given message."><span>Maybe<wbr>Annotate<wbr>Status</span></span>
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="tensorstore.Result.html" class="md-nav__link">
         
   
@@ -1986,7 +1960,7 @@
 <p>The <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="tensorstore::StatusBuilder::With::adaptor (C++ function parameter)"><span class="n">adaptor</span></a></code> functor can be any callable that takes a <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.StatusBuilder.html#c:&#64;N&#64;tensorstore&#64;S&#64;StatusBuilder" title="tensorstore::StatusBuilder (C++ class) — StatusBuilder is a builder object for constructing absl::Status objects, with methods to override the status code, augment the error message, and attach payloads."><span class="n">StatusBuilder</span></a></code> or
 an <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status" title="C++ class"><span class="n">Status</span></a></code> as an argument. The primary use cases are applying
 policies, type conversions, and/or side effects on the StatusBuilder, or
-converting the returned value of the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="TENSORSTORE_RETURN_IF_ERROR.html#c:cpp_api_preprocessed.cc&#64;6598857&#64;macro&#64;TENSORSTORE_RETURN_IF_ERROR" title="TENSORSTORE_RETURN_IF_ERROR (C macro) — Causes the containing function to return the specified absl::Status value if it is an error status."><span class="n">TENSORSTORE_RETURN_IF_ERROR</span></a></code> macro
+converting the returned value of the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="TENSORSTORE_RETURN_IF_ERROR.html#c:cpp_api_preprocessed.cc&#64;6597818&#64;macro&#64;TENSORSTORE_RETURN_IF_ERROR" title="TENSORSTORE_RETURN_IF_ERROR (C macro) — Causes the containing function to return the specified absl::Status value if it is an error status."><span class="n">TENSORSTORE_RETURN_IF_ERROR</span></a></code> macro
 to another type.</p>
 <p>Example:</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="k">return</span><span class="w"> </span><span class="n">StatusBuilder</span><span class="p">(</span><span class="n">absl</span><span class="o">::</span><span class="n">StatusCode</span><span class="o">::</span><span class="n">kInvalidArgument</span><span class="p">)</span>
