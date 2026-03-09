@@ -36,7 +36,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -836,7 +835,7 @@ TEST(AsyncCacheTest, ConcurrentTransactionCommit) {
   static constexpr size_t kNumEntries = 2;
   tensorstore::internal::PinnedCacheEntry<TestCache> entries[kNumEntries];
   for (size_t i = 0; i < kNumEntries; ++i) {
-    entries[i] = GetCacheEntry(cache, tensorstore::StrCat(i));
+    entries[i] = GetCacheEntry(cache, absl::StrCat(i));
   }
   static constexpr size_t kNumTransactions = 3;
   std::vector<Transaction> transactions(kNumTransactions, no_transaction);

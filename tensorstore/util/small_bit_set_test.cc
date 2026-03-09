@@ -21,7 +21,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/util/str_cat.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 
 namespace {
 
@@ -264,8 +265,15 @@ TEST(SmallBitSetTest, FromUint) {
       "00000000"
       "00000000"
       "00000000",
-      tensorstore::StrCat(v));
-  EXPECT_EQ(0b11111111'11111111'11111111'11001000, (~v).to_uint());
+      absl::StrCat(v));
+
+  EXPECT_EQ(
+      "11101100"
+      "00000000"
+      "00000000"
+      "00000000",
+      absl::StrFormat("%v", absl::FormatStreamed(v)));
+
   auto v1 = BitSet::FromUint(0b101'1100);
   EXPECT_EQ(0b111'1111, (v | v1).to_uint());
   EXPECT_EQ(0b001'0100, (v & v1).to_uint());

@@ -48,7 +48,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace {
@@ -250,8 +249,8 @@ void TestApplyIndexTransformRandomInvertible(bool allow_new_dims) {
             gen, output_schema.domain(), transform_p);
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inverse_transform,
                                      InverseTransform(transform));
-    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
-    SCOPED_TRACE(tensorstore::StrCat("inverse_transform=", inverse_transform));
+    SCOPED_TRACE(absl::StrCat("transform=", transform));
+    SCOPED_TRACE(absl::StrCat("inverse_transform=", inverse_transform));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto input_schema,
                                      output_schema | transform);
 

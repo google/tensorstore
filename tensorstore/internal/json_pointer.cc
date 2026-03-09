@@ -32,7 +32,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace json_pointer {
@@ -63,7 +62,7 @@ absl::Status Validate(std::string_view s) {
 
   const auto parse_error = [&](const auto&... message) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat(message..., ": ", QuoteString(s)));
+        absl::StrCat(message..., ": ", QuoteString(s)));
   };
   if (s[0] != '/') {
     return parse_error("JSON Pointer does not start with '/'");

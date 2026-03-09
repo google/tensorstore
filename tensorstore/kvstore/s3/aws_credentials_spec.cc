@@ -38,7 +38,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
@@ -103,7 +102,7 @@ constexpr auto kEcsRoleBinder =  //
             auto parsed = internal_uri::ParseGenericUri(spec->endpoint);
             if (!parsed.authority.empty()) {
               if (!internal_uri::SplitHostPort(parsed.authority)) {
-                return absl::InvalidArgumentError(tensorstore::StrCat(
+                return absl::InvalidArgumentError(absl::StrCat(
                     "Invalid endpoint: ", QuoteString(spec->endpoint)));
               }
             }

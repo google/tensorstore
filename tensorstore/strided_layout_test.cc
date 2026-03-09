@@ -32,7 +32,6 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 /// TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY behaves similarly to
 /// `EXPECT_DEBUG_DEATH` except that `stmt` is not executed when not in debug
@@ -961,21 +960,15 @@ TEST(StridedLayoutTest, FortranOrderDynamic) {
   EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {2, 3 * 2, 3 * 4 * 2}), layout);
 }
 
-TEST(StridedLayoutTest, PrintToOstream) {
+TEST(StridedLayoutTest, AbslStringify) {
   auto layout = StridedLayout(ContiguousLayoutOrder::fortran, 2, {3, 4, 5});
-  EXPECT_EQ(
-      "{domain={origin={0, 0, 0}, shape={3, 4, 5}}, byte_strides={2, 6, 24}}",
-      tensorstore::StrCat(layout));
   EXPECT_EQ(
       "{domain={origin={0, 0, 0}, shape={3, 4, 5}}, byte_strides={2, 6, 24}}",
       absl::StrCat(layout));
 }
 
-TEST(StridedLayoutViewTest, PrintToOstream) {
+TEST(StridedLayoutViewTest, AbslStringify) {
   auto layout = StridedLayout(ContiguousLayoutOrder::fortran, 2, {3, 4, 5});
-  EXPECT_EQ(
-      "{domain={origin={0, 0, 0}, shape={3, 4, 5}}, byte_strides={2, 6, 24}}",
-      tensorstore::StrCat(StridedLayoutView<>(layout)));
   EXPECT_EQ(
       "{domain={origin={0, 0, 0}, shape={3, 4, 5}}, byte_strides={2, 6, 24}}",
       absl::StrCat(StridedLayoutView<>(layout)));
@@ -1147,10 +1140,8 @@ TEST(StridedLayoutTest, DynamicLayoutCastNoOp) {
   EXPECT_EQ(layout, layout2);
 }
 
-TEST(ArrayOriginKindTest, PrintToOstream) {
-  EXPECT_EQ("zero", tensorstore::StrCat(zero_origin));
+TEST(ArrayOriginKindTest, AbslStringify) {
   EXPECT_EQ("zero", absl::StrCat(zero_origin));
-  EXPECT_EQ("offset", tensorstore::StrCat(offset_origin));
   EXPECT_EQ("offset", absl::StrCat(offset_origin));
 }
 

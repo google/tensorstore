@@ -18,7 +18,6 @@
 #include "google/protobuf/timestamp.pb.h"
 #include <gtest/gtest.h>
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -58,7 +57,7 @@ TEST(EncodeDuration, Basic) {
   };
 
   auto test_roundtrip = [&](absl::Duration d) {
-    SCOPED_TRACE(tensorstore::StrCat("duration=", d));
+    SCOPED_TRACE(absl::StrCat("duration=", d));
     EXPECT_THAT(roundtrip(d), ::testing::Optional(d));
   };
 

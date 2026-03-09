@@ -69,11 +69,11 @@
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 /// Support for ApplyMembers protocols
 #include "tensorstore/internal/context_binding_vector.h"  // IWYU pragma: keep
@@ -596,7 +596,8 @@ absl::Status StackDriver::InitializeGridIndices(
   IterateOverIndexRange<>(
       grid_.shape(), [this](tensorstore::span<const Index> key) {
         if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
-          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: " << key;
+          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: "
+                         << GenericStringify(key);
         }
       });
 #endif
@@ -750,7 +751,7 @@ struct OpenLayerOp {
               self->grid_.cell_origin(iterator.output_grid_cell_indices());
           return absl::InvalidArgumentError(absl::StrFormat(
               "Cell with origin=%v missing layer mapping in \"stack\" driver",
-              absl::FormatStreamed(tensorstore::span(origin))));
+              GenericStringify(origin)));
         }
         iterator.Advance();
       }

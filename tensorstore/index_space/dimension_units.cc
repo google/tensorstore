@@ -34,7 +34,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {

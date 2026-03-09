@@ -24,18 +24,17 @@
 #include <utility>
 
 #include "absl/log/absl_check.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <openssl/rand.h>
 #include "tensorstore/internal/ref_counted_string.h"
-#include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
 
 std::string DataFileId::FullPath() const {
-  return tensorstore::StrCat(std::string_view(base_path),
-                             std::string_view(relative_path));
+  return absl::StrCat(std::string_view(base_path),
+                      std::string_view(relative_path));
 }
 
 DataFileId GenerateDataFileId(std::string_view prefix) {

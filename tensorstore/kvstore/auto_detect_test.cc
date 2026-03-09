@@ -24,6 +24,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/testing/json_gtest.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -489,7 +489,7 @@ TEST_F(AutoDetectTest, DirectoryMatcher) {
       AutoDetectDirectorySpec::SingleFile("scheme", "filename"));
 
   for (auto path : {"test/", "test"}) {
-    SCOPED_TRACE(tensorstore::StrCat("path=", path));
+    SCOPED_TRACE(absl::StrCat("path=", path));
 
     // Filename not found
     EXPECT_THAT(

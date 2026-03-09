@@ -98,7 +98,7 @@ struct Unit {
     } else if (unit.multiplier == 1) {
       sink.Append(unit.base_unit);
     } else {
-      absl::Format(&sink, "%v %v", unit.multiplier, unit.base_unit);
+      absl::Format(&sink, "%v %s", unit.multiplier, unit.base_unit);
     }
   }
 

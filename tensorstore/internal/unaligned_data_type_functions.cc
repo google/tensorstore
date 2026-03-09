@@ -24,7 +24,6 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/endian_elementwise_conversion.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {

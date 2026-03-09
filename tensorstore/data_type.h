@@ -71,6 +71,7 @@
 #include "absl/base/casts.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/has_absl_stringify.h"
 #include "absl/strings/has_ostream_operator.h"
 #include "absl/strings/str_format.h"
 #include <half.hpp>
@@ -86,7 +87,6 @@
 #include "tensorstore/util/int2.h"
 #include "tensorstore/util/int4.h"
 #include "tensorstore/util/mxfloat.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
 namespace tensorstore {
@@ -896,8 +896,11 @@ struct DataTypeSimpleOperationsImpl {
   }
 
   static void AppendToString(std::string* result, const void* ptr) {
-    if constexpr (absl::HasOstreamOperator<T>::value) {
-      tensorstore::StrAppend(result, *static_cast<const T*>(ptr));
+    if constexpr (absl::HasAbslStringify<T>::value) {
+      absl::StrAppendFormat(result, "%v", *static_cast<const T*>(ptr));
+    } else if constexpr (absl::HasOstreamOperator<T>::value) {
+      absl::StrAppendFormat(result, "%s",
+                            absl::FormatStreamed(*static_cast<const T*>(ptr)));
     }
   }
 };

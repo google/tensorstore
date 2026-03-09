@@ -33,6 +33,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -58,9 +59,9 @@
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal_metrics::MetricMetadata;
 
@@ -403,8 +404,8 @@ void ListNumberedManifests(NumberedManifestCache::Entry* entry,
   auto& cache = GetOwningCache(*entry);
   // Note: ':' is the ASCII character after '9'
   std::string_view key = entry->key();
-  options.range = KeyRange(tensorstore::StrCat(key, "manifest.0"),
-                           tensorstore::StrCat(key, "manifest.:"));
+  options.range = KeyRange(absl::StrCat(key, "manifest.0"),
+                           absl::StrCat(key, "manifest.:"));
   options.strip_prefix_length = key.size() + 9;  // Length of "manifest."
   // TODO(jbms): Support `staleness_bound`.  For now, we ignore it because
   // `List` doesn't currently return a timestamp for the results.
@@ -439,7 +440,7 @@ void ListNumberedManifests(NumberedManifestCache::Entry* entry,
         std::sort(versions_present.begin(), versions_present.end());
         ABSL_LOG_IF(INFO, ocdbt_logging)
             << "Numbered manifest versions present: "
-            << tensorstore::span(versions_present);
+            << GenericStringify(versions_present);
 
         execution::set_value(receiver, std::move(versions_present), time);
       }));
@@ -738,8 +739,8 @@ void NumberedManifestCache::TransactionNode::Commit() {
                          }));
     ABSL_LOG_IF(INFO, ocdbt_logging)
         << "Numbered manifest versions present: "
-        << tensorstore::span(versions_present)
-        << ", to delete: " << tensorstore::span(versions_to_delete);
+        << GenericStringify(versions_present)
+        << ", to delete: " << GenericStringify(versions_to_delete);
   }
 
   auto& cache = GetOwningCache(entry);

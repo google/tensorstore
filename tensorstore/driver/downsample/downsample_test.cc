@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -49,7 +50,6 @@
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace {
@@ -386,7 +386,7 @@ TEST(DownsampleTest, ErrorOpenWriteOnly) {
       {"array", {1, 2, 3, 4}},
   };
   for (auto mode : {ReadWriteMode::write, ReadWriteMode::read_write}) {
-    SCOPED_TRACE(tensorstore::StrCat("mode=", mode));
+    SCOPED_TRACE(absl::StrCat("mode=", mode));
     EXPECT_THAT(tensorstore::Open(
                     {
                         {"driver", "downsample"},

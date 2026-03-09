@@ -14,8 +14,14 @@
 
 #include "tensorstore/driver/downsample/downsample_array.h"
 
+#include <utility>
+
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample_nditerable.h"
 #include "tensorstore/driver/downsample/downsample_util.h"
@@ -27,6 +33,11 @@
 #include "tensorstore/internal/nditerable_array.h"
 #include "tensorstore/internal/nditerable_copy.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/internal/nditerable_util.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/generic_stringify.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -42,24 +53,26 @@ absl::Status ValidateDownsampleDomain(BoxView<> base_domain,
                                       DownsampleMethod method) {
   const DimensionIndex rank = base_domain.rank();
   if (rank != downsampled_domain.rank()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Cannot downsample domain ", base_domain, " to domain ",
-        downsampled_domain, " with different rank"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Cannot downsample domain %v to domain %v with different rank",
+        base_domain, downsampled_domain));
   }
   if (rank != downsample_factors.size()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Cannot downsample domain ", base_domain, " with downsample factors ",
-        downsample_factors, " of different rank"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Cannot downsample domain %v with downsample factors "
+                        "%v of different rank",
+                        base_domain, GenericStringify(downsample_factors)));
   }
   for (DimensionIndex i = 0; i < rank; ++i) {
     const auto expected_interval =
         DownsampleInterval(base_domain[i], downsample_factors[i], method);
     if (expected_interval != downsampled_domain[i]) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Cannot downsample array with domain ", base_domain, " by factors ",
-          downsample_factors, " with method ", method, " to array with domain ",
-          downsampled_domain, ": expected target dimension ", i,
-          " to have domain ", expected_interval));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Cannot downsample array with domain %v by factors %v with method %v "
+          "to array with domain %v: expected target dimension %d "
+          "to have domain %v",
+          base_domain, GenericStringify(downsample_factors),
+          GenericStringify(method), downsampled_domain, i, expected_interval));
     }
   }
   return absl::OkStatus();
@@ -72,9 +85,9 @@ absl::Status DownsampleArray(OffsetArrayView<const void> source,
                              span<const Index> downsample_factors,
                              DownsampleMethod method) {
   if (source.dtype() != target.dtype()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Source data type (", source.dtype(),
-        ") does not match target data type (", target.dtype(), ")"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Source data type (%v) does not match target data type (%v)",
+        source.dtype(), target.dtype()));
   }
 
   TENSORSTORE_RETURN_IF_ERROR(ValidateDownsampleMethod(source.dtype(), method));
@@ -122,9 +135,9 @@ absl::Status DownsampleTransformedArray(TransformedArrayView<const void> source,
                                         span<const Index> downsample_factors,
                                         DownsampleMethod method) {
   if (source.dtype() != target.dtype()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Source data type (", source.dtype(),
-        ") does not match target data type (", target.dtype(), ")"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Source data type (%v) does not match target data type (%v)",
+        source.dtype(), target.dtype()));
   }
 
   TENSORSTORE_RETURN_IF_ERROR(ValidateDownsampleMethod(source.dtype(), method));

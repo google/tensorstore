@@ -46,7 +46,6 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_log",
@@ -93,8 +92,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/http",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )

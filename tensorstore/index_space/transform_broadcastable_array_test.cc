@@ -29,13 +29,14 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/internal/testing/random_seed.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::tensorstore::DimensionIndex;
+using ::tensorstore::GenericStringify;
 using ::tensorstore::Index;
 using ::tensorstore::IndexDomain;
 using ::tensorstore::IndexDomainView;
@@ -57,10 +58,10 @@ void TestRoundTrip(IndexTransformView<> transform,
                    SharedArrayView<const void> input_array,
                    SharedArrayView<const void> output_array,
                    IndexDomainView<> output_domain) {
-  SCOPED_TRACE(tensorstore::StrCat(
+  SCOPED_TRACE(absl::StrCat(
       "transform=", transform, ", output_domain=", output_domain,
-      ", input_array.shape=", input_array.shape(),
-      ", output_array.shape=", output_array.shape()));
+      ", input_array.shape=", GenericStringify(input_array.shape()),
+      ", output_array.shape=", GenericStringify(output_array.shape())));
   EXPECT_THAT(
       TransformOutputBroadcastableArray(transform, output_array, output_domain),
       ::testing::Optional(input_array));
@@ -73,9 +74,9 @@ void TestRoundTrip(IndexTransformView<> transform,
                    SharedArrayView<const void> output_array,
                    IndexDomainView<> output_domain = IndexDomainView<>(),
                    bool test_inverse = false) {
-  SCOPED_TRACE(tensorstore::StrCat(
+  SCOPED_TRACE(absl::StrCat(
       "transform=", transform, ", output_domain=", output_domain,
-      ", output_array.shape=", output_array.shape()));
+      ", output_array.shape=", GenericStringify(output_array.shape())));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto input_array,
                                    TransformOutputBroadcastableArray(
                                        transform, output_array, output_domain));
@@ -101,7 +102,7 @@ SharedArray<int> MakeTestArray(span<const Index> shape) {
 
 TEST(RoundTripTest, IdentityTransform) {
   for (DimensionIndex rank = 0; rank <= 3; ++rank) {
-    SCOPED_TRACE(tensorstore::StrCat("rank=", rank));
+    SCOPED_TRACE(absl::StrCat("rank=", rank));
     std::vector<Index> shape(rank);
     for (DimensionIndex dim = 0; dim < rank; ++dim) {
       shape[dim] = dim + 2;

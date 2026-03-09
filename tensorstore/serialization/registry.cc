@@ -14,9 +14,14 @@
 
 #include "tensorstore/serialization/registry.h"
 
+#include <string_view>
+#include <typeindex>
+#include <typeinfo>
+
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/serialization/serialization.h"
 
 namespace tensorstore {
 namespace serialization {

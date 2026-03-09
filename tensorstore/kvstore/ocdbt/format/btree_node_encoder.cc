@@ -30,6 +30,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "riegeli/bytes/writer.h"
 #include "riegeli/varint/varint_writing.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -46,7 +47,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -222,9 +222,9 @@ bool EncodeEntriesInner(
 
   if (!is_root) {
     auto& first = entries[0];
-    tensorstore::StrAppend(
-        &info.inclusive_min_key,
-        first.existing ? existing_prefix : std::string_view{}, first.entry.key);
+    absl::StrAppend(&info.inclusive_min_key,
+                    first.existing ? existing_prefix : std::string_view{},
+                    first.entry.key);
   }
 
   if constexpr (std::is_same_v<Entry, InteriorNodeEntry>) {
@@ -253,17 +253,16 @@ bool EncodeEntriesInner(
 
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Encoding node: height=" << static_cast<int>(height)
-      << ", inclusive_min_key="
-      << tensorstore::QuoteString(info.inclusive_min_key)
+      << ", inclusive_min_key=" << QuoteString(info.inclusive_min_key)
       << ", excluded_prefix_length=" << info.excluded_prefix_length;
 
   if (ocdbt_logging.Level(1)) {
     for (auto& entry : entries) {
       ABSL_LOG(INFO) << "  Entry: key="
-                     << tensorstore::QuoteString(tensorstore::StrCat(
-                            entry.existing ? existing_prefix
-                                           : std::string_view(),
-                            entry.entry.key));
+                     << QuoteString(absl::StrCat(entry.existing
+                                                     ? existing_prefix
+                                                     : std::string_view(),
+                                                 entry.entry.key));
     }
   }
 

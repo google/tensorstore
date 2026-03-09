@@ -33,9 +33,9 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -226,7 +226,6 @@ TEST(SpecTest, PrintToOstream) {
        {{"input_inclusive_min", {0}}, {"input_exclusive_max", {3}}}},
   };
   Spec spec = Spec::FromJson(spec_json).value();
-  EXPECT_EQ(spec_json.dump(), tensorstore::StrCat(spec));
   EXPECT_EQ(spec_json.dump(), absl::StrCat(spec));
 }
 

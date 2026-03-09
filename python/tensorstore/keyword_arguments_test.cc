@@ -20,8 +20,11 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <string>
+
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "python/tensorstore/keyword_arguments.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -104,7 +107,7 @@ Overload:
            KeywordArgument<decltype(param_def)>... kwarg) {
           MyOptions options;
           ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
-          return tensorstore::StrCat(options.a, ", ", options.b);
+          return absl::StrCat(options.a, ", ", options.b);
         },
         doc.c_str(), py::arg("required_arg"), py::kw_only(),
         // Expands to a sequence of `py::arg` values specifying the name

@@ -27,6 +27,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/wrapping_writer.h"
@@ -46,10 +47,10 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace zarr3_sharding_indexed {
@@ -80,9 +81,10 @@ absl::Status ShardIndexEntry::Validate(EntryId entry_id,
   if (auto status = Validate(entry_id); !status.ok()) return status;
   auto byte_range = AsByteRange();
   if (byte_range.exclusive_max > total_size) {
-    return absl::DataLossError(tensorstore::StrCat(
-        "Shard index entry ", entry_id, " with byte range ", byte_range,
-        " is invalid for shard of size ", total_size));
+    return absl::DataLossError(
+        absl::StrFormat("Shard index entry %d with byte range %v is invalid "
+                        "for shard of size %d",
+                        entry_id, byte_range, total_size));
   }
   return absl::OkStatus();
 }
@@ -145,8 +147,8 @@ absl::Status ValidateGridShape(span<const Index> grid_shape) {
   }
   if (ProductOfExtents(grid_shape) > kMaxNumEntries) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("grid shape of ", grid_shape, " has more than ",
-                            kMaxNumEntries, " entries"));
+        absl::StrFormat("grid shape of %v has more than %d entries",
+                        GenericStringify(grid_shape), kMaxNumEntries));
   }
   return absl::OkStatus();
 }

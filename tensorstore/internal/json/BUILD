@@ -27,9 +27,9 @@ tensorstore_cc_library(
     hdrs = ["value_as.h"],
     deps = [
         "//tensorstore/internal/meta:type_traits",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@nlohmann_json//:json",
     ],
 )
@@ -40,7 +40,6 @@ tensorstore_cc_library(
     hdrs = ["pprint_python.h"],
     deps = [
         "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/strings",
         "@nlohmann_json//:json",
     ],
@@ -61,11 +60,11 @@ tensorstore_cc_library(
         "//tensorstore/internal:element_copy_function",
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/util:byte_strided_pointer",
+        "//tensorstore/util:generic_stringify",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",

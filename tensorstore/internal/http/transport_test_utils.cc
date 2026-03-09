@@ -52,8 +52,8 @@
 #include "absl/log/absl_log.h"
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace transport_test_utils {
@@ -225,8 +225,7 @@ std::string FormatSocketAddress(socket_t sock) {
   if (0 == getnameinfo((struct sockaddr*)&peer_addr, peer_len, hbuf,
                        sizeof(hbuf), sbuf, sizeof(sbuf),
                        NI_NUMERICHOST | NI_NUMERICSERV)) {
-    return tensorstore::StrCat(is_ipv6 ? "[" : "", hbuf, is_ipv6 ? "]:" : ":",
-                               sbuf);
+    return absl::StrCat(is_ipv6 ? "[" : "", hbuf, is_ipv6 ? "]:" : ":", sbuf);
   }
   return {};
 }

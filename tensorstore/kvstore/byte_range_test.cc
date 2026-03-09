@@ -24,7 +24,6 @@
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -68,8 +67,7 @@ TEST(ByteRangeTest, Comparison) {
 }
 
 TEST(ByteRangeTest, AbslStringify) {
-  EXPECT_EQ("[2, 7)", absl::StrCat(ByteRange{2, 7}));
-  EXPECT_EQ("[2, 7)", tensorstore::StrCat(ByteRange{2, 7}));
+  EXPECT_EQ("[1, 10)", absl::StrCat(ByteRange{1, 10}));
 }
 
 TEST(OptionalByteRangeRequestTest, DefaultConstruct) {

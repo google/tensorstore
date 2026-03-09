@@ -27,6 +27,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
@@ -38,10 +39,10 @@
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree_codec.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -249,7 +250,7 @@ std::ostream& operator<<(std::ostream& os, const Manifest& e) {
 }
 
 std::string GetManifestPath(std::string_view base_path) {
-  return tensorstore::StrCat(base_path, kManifestFilename);
+  return absl::StrCat(base_path, kManifestFilename);
 }
 
 std::string GetNumberedManifestPath(std::string_view base_path,

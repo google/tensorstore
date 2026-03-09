@@ -64,7 +64,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_cast_driver {
@@ -179,7 +178,7 @@ class CastDriverSpec
           "cast URL requires target dtype to be specified");
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, base.driver_spec->ToUrl());
-    return tensorstore::StrCat(base_url, "|", id, ":", target_dtype);
+    return absl::StrCat(base_url, "|", id, ":", target_dtype);
   }
 
   Future<internal::Driver::Handle> Open(

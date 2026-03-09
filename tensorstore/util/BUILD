@@ -48,7 +48,7 @@ tensorstore_cc_test(
     deps = [
         ":bit_span",
         ":bit_vec",
-        ":str_cat",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )
@@ -191,7 +191,8 @@ tensorstore_cc_test(
     srcs = ["small_bit_set_test.cc"],
     deps = [
         ":small_bit_set",
-        ":str_cat",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )
@@ -233,7 +234,6 @@ tensorstore_cc_library(
     deps = [
         ":byte_strided_pointer",
         ":element_traits",
-        ":str_cat",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:static_cast",
@@ -242,6 +242,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/container:compressed_tuple",
         "//tensorstore/internal/meta:type_traits",
         "@abseil-cpp//absl/meta:type_traits",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
@@ -395,7 +396,6 @@ tensorstore_cc_test(
         ":result",
         ":status",
         ":status_testutil",
-        ":str_cat",
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/internal/testing:concurrent",
         "@abseil-cpp//absl/status",
@@ -675,7 +675,6 @@ tensorstore_cc_test(
     deps = [
         ":status",
         ":status_testutil",
-        ":str_cat",
         "//tensorstore/internal:source_location",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
@@ -711,34 +710,10 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "str_cat",
-    hdrs = ["str_cat.h"],
-    deps = [
-        ":span",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/strings:has_ostream_operator",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "str_cat_test",
-    size = "small",
-    srcs = ["str_cat_test.cc"],
-    deps = [
-        ":span",
-        ":str_cat",
-        "@googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "utf8_string",
     srcs = ["utf8_string.cc"],
     hdrs = ["utf8_string.h"],
     deps = [
-        ":quote_string",
-        ":status",
-        ":str_cat",
         "//tensorstore/internal:utf8",
         "//tensorstore/internal/riegeli:delimited",
         "//tensorstore/serialization",
@@ -777,7 +752,6 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["unit_test.cc"],
     deps = [
-        ":str_cat",
         ":unit",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/internal/json_binding:unit",
@@ -785,6 +759,7 @@ tensorstore_cc_test(
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )
@@ -806,8 +781,8 @@ tensorstore_cc_test(
     srcs = ["rational_test.cc"],
     deps = [
         ":rational",
-        ":str_cat",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )
@@ -900,9 +875,7 @@ tensorstore_cc_test(
     srcs = ["generic_stringify_test.cc"],
     deps = [
         ":generic_stringify",
-        ":result",
         ":span",
-        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",

@@ -42,7 +42,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace kvstore {
@@ -90,7 +89,7 @@ Future<TimestampedStorageGeneration> Write(const KvStore& store,
                                            std::string_view key,
                                            std::optional<Value> value,
                                            WriteOptions options) {
-  auto full_key = tensorstore::StrCat(store.path, key);
+  auto full_key = absl::StrCat(store.path, key);
   if (store.transaction == no_transaction) {
     // Regular non-transactional write.
     return store.driver->Write(std::move(full_key), std::move(value),
@@ -124,7 +123,7 @@ Future<TimestampedStorageGeneration> WriteCommitted(const KvStore& store,
                                                     std::string_view key,
                                                     std::optional<Value> value,
                                                     WriteOptions options) {
-  auto full_key = tensorstore::StrCat(store.path, key);
+  auto full_key = absl::StrCat(store.path, key);
   if (store.transaction == no_transaction) {
     // Regular non-transactional write.
     return store.driver->Write(std::move(full_key), std::move(value),

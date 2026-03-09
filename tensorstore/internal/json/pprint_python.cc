@@ -22,7 +22,6 @@
 #include "absl/strings/escaping.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -182,7 +181,7 @@ std::string PrettyPrintJsonAsPythonRepr(
     PrettyPrintJsonAsPython(&pretty, *j, options);
     dotdotdot = "";
   }
-  tensorstore::StrAppend(&pretty, dotdotdot, suffix);
+  absl::StrAppend(&pretty, dotdotdot, suffix);
   return pretty;
 }
 

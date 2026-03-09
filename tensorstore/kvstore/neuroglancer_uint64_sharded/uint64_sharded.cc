@@ -15,17 +15,25 @@
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <ostream>
+#include <string>
+#include <string_view>
 
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/murmurhash3.h"
 #include "tensorstore/util/division.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -194,9 +202,10 @@ Result<ByteRange> GetAbsoluteShardByteRange(ByteRange relative_range,
                             &result.inclusive_min) ||
       internal::AddOverflow(relative_range.exclusive_max, offset,
                             &result.exclusive_max)) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Byte range ", relative_range,
-        " relative to the end of the shard index (", offset, ") is not valid"));
+    return absl::FailedPreconditionError(
+        absl::StrFormat("Byte range %v relative to the end of the shard index "
+                        "(%d) is not valid",
+                        relative_range, offset));
   }
   return result;
 }

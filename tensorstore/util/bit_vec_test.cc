@@ -24,8 +24,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/bit_span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 using ::tensorstore::BitSpan;
@@ -309,11 +309,12 @@ TEST(BitVecTest, BlocksInline) {
   for (int i : {0, 5, 17, 62}) {
     a[i] = true;
   }
-  EXPECT_THAT(a.blocks(), ::testing::ElementsAre(     //
-                              (uint64_t(1) << 0) |    //
-                              (uint64_t(1) << 5) |    //
-                              (uint64_t(1) << 17) |   //
-                              (uint64_t(1) << 62)));  //
+  constexpr uint64_t l = 1;
+  EXPECT_THAT(a.blocks(), ::testing::ElementsAre(  //
+                              (l << 0) |           //
+                              (l << 5) |           //
+                              (l << 17) |          //
+                              (l << 62)));         //
 }
 
 TEST(BitVecTest, BlocksLarge) {
@@ -321,14 +322,15 @@ TEST(BitVecTest, BlocksLarge) {
   for (int i : {0, 5, 17, 62, 90, 127}) {
     a[i] = true;
   }
+  constexpr uint64_t l = 1;
   EXPECT_THAT(a.blocks(),
-              ::testing::ElementsAre(           //
-                  (uint64_t(1) << 0) |          //
-                      (uint64_t(1) << 5) |      //
-                      (uint64_t(1) << 17) |     //
-                      (uint64_t(1) << 62),      //
-                  (uint64_t(1) << (90 - 64)) |  //
-                      (uint64_t(1) << (127 - 64))));
+              ::testing::ElementsAre(  //
+                  (l << 0) |           //
+                      (l << 5) |       //
+                      (l << 17) |      //
+                      (l << 62),       //
+                  (l << (90 - 64)) |   //
+                      (l << (127 - 64))));
 }
 
 TEST(BitVecTest, ResizeStatic) {
@@ -345,9 +347,8 @@ TEST(BitVecTest, ResizeStatic) {
 
 void TestResizeDynamic(ptrdiff_t orig_size, ptrdiff_t new_size,
                        std::vector<int> bits) {
-  SCOPED_TRACE(tensorstore::StrCat("orig_size=", orig_size,
-                                   ", new_size=", new_size,
-                                   ", bits=", ::testing::PrintToString(bits)));
+  SCOPED_TRACE(absl::StrCat("orig_size=", orig_size, ", new_size=", new_size,
+                            ", bits=", ::testing::PrintToString(bits)));
   BitVec<> b(orig_size);
   std::vector<bool> expected(orig_size);
   for (int i : bits) {

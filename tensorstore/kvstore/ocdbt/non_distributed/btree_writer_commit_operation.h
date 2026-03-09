@@ -67,6 +67,7 @@
 #include <cassert>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -75,6 +76,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
@@ -95,7 +97,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -245,13 +246,13 @@ void PartitionInteriorNodeMutations(
         new_key_range.inclusive_min = key_range.inclusive_min;
       } else {
         new_key_range.inclusive_min =
-            tensorstore::StrCat(existing_key_prefix, existing_entry.key);
+            absl::StrCat(existing_key_prefix, existing_entry.key);
       }
       if (existing_it == existing_entries.end()) {
         new_key_range.exclusive_max = key_range.exclusive_max;
       } else {
         new_key_range.exclusive_max =
-            tensorstore::StrCat(existing_key_prefix, existing_it->key);
+            absl::StrCat(existing_key_prefix, existing_it->key);
       }
       partition_callback(
           existing_entry, std::move(new_key_range),
@@ -684,11 +685,11 @@ class BtreeWriterCommitOperation : public BtreeWriterCommitOperationBase {
           .With([&](const absl::Status& status) {
             SetDeferredResult(promise, std::move(status));
           });
-      auto full_prefix = tensorstore::StrCat(
-          params.parent_state->existing_subtree_key_prefix_,
-          std::string_view(params.inclusive_min_key_suffix)
-              .substr(0, params.subtree_common_prefix_length),
-          node->key_prefix);
+      auto full_prefix =
+          absl::StrCat(params.parent_state->existing_subtree_key_prefix_,
+                       std::string_view(params.inclusive_min_key_suffix)
+                           .substr(0, params.subtree_common_prefix_length),
+                       node->key_prefix);
       VisitNode(VisitNodeParameters{
           std::move(params.parent_state), std::move(node),
           std::move(params.inclusive_min_key_suffix), std::move(full_prefix),
@@ -902,7 +903,7 @@ void BtreeWriterCommitOperation<MutationEntry>::VisitInteriorNode(
           absl::MutexLock lock(&self_state->mutex_);
           auto& mutation = self_state->mutations_.emplace_back();
           mutation.add = false;
-          mutation.entry.key = tensorstore::StrCat(
+          mutation.entry.key = absl::StrCat(
               self_state->existing_subtree_key_prefix_, existing_entry.key);
         }
       });

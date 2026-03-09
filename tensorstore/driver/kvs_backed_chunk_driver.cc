@@ -30,6 +30,7 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -83,9 +84,7 @@
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 #ifndef TENSORSTORE_KVS_DRIVER_DEBUG
 #define TENSORSTORE_KVS_DRIVER_DEBUG 0
@@ -286,7 +285,7 @@ absl::Status ValidateExpandShrinkConstraints(
 
 std::string GetMetadataMissingErrorMessage(
     MetadataCache::Entry* metadata_cache_entry) {
-  return tensorstore::StrCat(
+  return absl::StrCat(
       "Metadata at ",
       GetOwningCache(*metadata_cache_entry)
           .kvstore_driver()
@@ -1439,7 +1438,7 @@ Result<ResizeParameters> GetResizeParameters(
       }
       const Index new_inclusive_min = new_output_inclusive_min[output_dim];
       if (!ImplicitOrEqual(new_inclusive_min, dim_bounds.inclusive_min())) {
-        return absl::FailedPreconditionError(tensorstore::StrCat(
+        return absl::FailedPreconditionError(absl::StrCat(
             "Cannot change inclusive lower bound of output dimension ",
             output_dim, ", which is fixed at ", dim_bounds.inclusive_min(),
             ", to ", new_inclusive_min));
@@ -1453,7 +1452,7 @@ Result<ResizeParameters> GetResizeParameters(
       }
       const Index new_exclusive_max = new_output_exclusive_max[output_dim];
       if (!ImplicitOrEqual(new_exclusive_max, dim_bounds.exclusive_max())) {
-        return absl::FailedPreconditionError(tensorstore::StrCat(
+        return absl::FailedPreconditionError(absl::StrCat(
             "Cannot change exclusive upper bound of output dimension ",
             output_dim, ", which is fixed at ", dim_bounds.exclusive_max(),
             ", to ", new_exclusive_max));

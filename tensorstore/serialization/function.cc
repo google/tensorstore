@@ -20,10 +20,10 @@
 #include "absl/base/no_destructor.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace serialization {
@@ -68,7 +68,7 @@ bool DecodeSerializableFunction(DecodeSource& source,
   auto it = registry.find(RegisteredSerializableFunction::Key(signature, id));
   if (it == registry.end()) {
     source.Fail(absl::DataLossError(
-        tensorstore::StrCat("SerializableFunction not registered: ", id)));
+        absl::StrFormat("SerializableFunction not registered: %s", id)));
     return false;
   }
   return (*it)->decode(source, value);

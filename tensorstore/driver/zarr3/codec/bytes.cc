@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
@@ -43,10 +44,10 @@
 #include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/endian.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -127,18 +128,19 @@ Result<ZarrArrayToBytesCodec::Ptr> BytesCodecSpec::Resolve(
   encoded.item_bits = decoded.dtype.size() * 8;
   DimensionIndex rank = decoded.rank;
   if (decoded.codec_chunk_shape) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "\"bytes\" codec does not support codec_chunk_shape (",
-        span<const Index>(decoded.codec_chunk_shape->data(), rank),
-        " was specified"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "\"bytes\" codec does not support codec_chunk_shape (%v was specified)",
+        GenericStringify(
+            span<const Index>(decoded.codec_chunk_shape->data(), rank))));
   }
   if (decoded.inner_order) {
     auto& decoded_inner_order = *decoded.inner_order;
     for (DimensionIndex i = 0; i < rank; ++i) {
       if (decoded_inner_order[i] != i) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "\"bytes\" codec does not support inner_order of ",
-            span<const DimensionIndex>(decoded_inner_order.data(), rank)));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "\"bytes\" codec does not support inner_order of %v",
+            GenericStringify(
+                span<const DimensionIndex>(decoded_inner_order.data(), rank))));
       }
     }
   }
@@ -207,9 +209,9 @@ Result<ZarrArrayToBytesCodec::PreparedState::Ptr> BytesCodec::Prepare(
   int64_t bytes = dtype_.size();
   for (auto size : decoded_shape) {
     if (internal::MulOverflow(size, bytes, &bytes)) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Integer overflow computing encoded size of array of shape ",
-          decoded_shape));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Integer overflow computing encoded size of array of shape %v",
+          GenericStringify(decoded_shape)));
     }
   }
   auto state = internal::MakeIntrusivePtr<BytesCodecPreparedState>();

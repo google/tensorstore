@@ -30,6 +30,7 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
@@ -48,7 +49,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -79,7 +79,7 @@ struct DistributedFixture {
 
     assert(coordinator_server_.port() != 0);
     coordinator_address_ =
-        tensorstore::StrCat("localhost:", coordinator_server_.port());
+        absl::StrCat("localhost:", coordinator_server_.port());
 
     TENSORSTORE_CHECK_OK_AND_ASSIGN(
         context_spec,

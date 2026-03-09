@@ -320,11 +320,6 @@ struct LayoutStorageSelector<Rank, offset_origin, view> {
   using Access = LayoutAccess<offset_origin, Storage>;
 };
 
-/// Writes a string representation of `layout` to `os`.
-void PrintToOstream(
-    std::ostream& os,
-    const StridedLayout<dynamic_rank, offset_origin, view>& layout);
-
 std::string DescribeForCast(DimensionIndex rank);
 
 bool StridedLayoutsEqual(StridedLayoutView<dynamic_rank, offset_origin> a,

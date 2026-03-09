@@ -61,7 +61,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal_metrics::MetricMetadata;
 
@@ -549,7 +548,8 @@ void ChunkCache::Write(WriteRequest request, WriteChunkReceiver receiver) {
           auto cell_to_dest,
           ComposeTransforms(request.transform, iterator.cell_transform()));
       ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG)
-          << "grid_cell_indices=" << iterator.output_grid_cell_indices()
+          << "grid_cell_indices="
+          << GenericStringify(iterator.output_grid_cell_indices())
           << ", request.transform=" << request.transform
           << ", cell_transform=" << iterator.cell_transform()
           << ", cell_to_dest=" << cell_to_dest;

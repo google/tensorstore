@@ -46,7 +46,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zip {
@@ -729,8 +728,8 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetReader(
     default:
       break;
   }
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Unsupported ZIP compression method ", entry.compression_method));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Unsupported ZIP compression method %d", entry.compression_method));
 }
 
 }  // namespace internal_zip

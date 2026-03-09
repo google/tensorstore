@@ -26,6 +26,7 @@
 
 #include "absl/functional/any_invocable.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/support/client_callback.h"  // third_party
@@ -56,7 +57,6 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
@@ -115,7 +115,7 @@ class GcsGrpcKeyValueStoreSpec
   absl::Status NormalizeSpec(std::string& path) override {
     if (!path.empty() && !internal_storage_gcs::IsValidObjectName(path)) {
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Invalid GCS path: ", QuoteString(path)));
+          absl::StrFormat("Invalid GCS path: %v", QuoteString(path)));
     }
     return absl::OkStatus();
   }
@@ -125,8 +125,8 @@ class GcsGrpcKeyValueStoreSpec
       return absl::UnimplementedError(
           "URL representation does not support test endpoints");
     }
-    return tensorstore::StrCat(id, "://", data_.bucket, "/",
-                               internal_uri::PercentEncodeKvStoreUriPath(path));
+    return absl::StrCat(id, "://", data_.bucket, "/",
+                        internal_uri::PercentEncodeKvStoreUriPath(path));
   }
 };
 

@@ -26,6 +26,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/chunk_layout.h"
@@ -78,7 +79,6 @@
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -311,7 +311,7 @@ class JsonDriverSpec
 
   Result<std::string> ToUrl() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(
+    return absl::StrCat(
         base_url, "|", id, ":",
         internal_uri::PercentEncodeKvStoreUriPath(json_pointer));
   }

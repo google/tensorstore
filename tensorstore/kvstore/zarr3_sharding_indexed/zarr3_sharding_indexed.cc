@@ -29,6 +29,7 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -80,7 +81,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
@@ -136,7 +136,7 @@ class ShardIndexKeyValueStore : public kvstore::Driver {
   }
 
   std::string DescribeKey(std::string_view key) override {
-    return tensorstore::StrCat("shard index in ", base_->DescribeKey(key));
+    return absl::StrCat("shard index in ", base_->DescribeKey(key));
   }
 
   void GarbageCollectionVisit(
@@ -392,7 +392,7 @@ class ShardedKeyValueStoreWriteCache
 
     std::string DescribeKey(std::string_view key) override {
       auto& cache = GetOwningCache(*this);
-      return tensorstore::StrCat(
+      return absl::StrCat(
           DescribeInternalKey(key, cache.shard_index_params().grid_shape()),
           " in ",
           cache.kvstore_driver()->DescribeKey(cache.base_kvstore_path()));
@@ -1467,10 +1467,10 @@ Future<const void> ShardedKeyValueStore::DeleteRange(KeyRange range) {
 }
 
 std::string ShardedKeyValueStore::DescribeKey(std::string_view key) {
-  return tensorstore::StrCat(
-      zarr3_sharding_indexed::DescribeKey(key,
-                                          shard_index_params().grid_shape()),
-      " in ", base_kvstore_driver()->DescribeKey(base_kvstore_path()));
+  return absl::StrCat(zarr3_sharding_indexed::DescribeKey(
+                          key, shard_index_params().grid_shape()),
+                      " in ",
+                      base_kvstore_driver()->DescribeKey(base_kvstore_path()));
 }
 
 kvstore::SupportedFeatures ShardedKeyValueStore::GetSupportedFeatures(

@@ -29,6 +29,7 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
@@ -39,7 +40,6 @@
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 

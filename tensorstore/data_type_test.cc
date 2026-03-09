@@ -36,7 +36,6 @@
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -547,11 +546,6 @@ TEST(DataTypeTest, Name) {
 TEST(DataTypeTest, AbslStringify) {
   EXPECT_EQ("int64", absl::StrCat(dtype_v<int64_t>));
   EXPECT_EQ("<unspecified>", absl::StrCat(DataType()));
-}
-
-TEST(DataTypeTest, PrintToOstream) {
-  EXPECT_EQ("int64", StrCat(dtype_v<int64_t>));
-  EXPECT_EQ("<unspecified>", StrCat(DataType()));
 }
 
 TEST(DataTypeTest, GetDataType) {

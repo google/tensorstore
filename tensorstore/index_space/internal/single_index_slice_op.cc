@@ -34,7 +34,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -103,10 +102,9 @@ Result<SingletonSlicingInfo> GetSingletonSlicingInfo(
     const auto domain = original->input_dimension(original_input_dim)
                             .optionally_implicit_domain();
     if (!Contains(domain.effective_interval(), index)) {
-      tensorstore::StrAppend(&slice_error, (slice_error.empty() ? "" : ", "),
-                             "in input dimension ", original_input_dim,
-                             " index ", index, " is outside valid domain ",
-                             domain);
+      absl::StrAppend(&slice_error, (slice_error.empty() ? "" : ", "),
+                      "in input dimension ", original_input_dim, " index ",
+                      index, " is outside valid domain ", domain);
     }
     result->original_input_dimension_info[original_input_dim] =
         InputDimensionSingletonSliceInfo{-1, index};

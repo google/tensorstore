@@ -38,7 +38,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -82,9 +81,8 @@ void TestBtreeNodeRoundTrip(const Config& config, const BtreeNode& node) {
   auto& encoded_node = encoded_nodes[0];
   EXPECT_EQ(node.key_prefix, encoded_node.info.inclusive_min_key.substr(
                                  0, encoded_node.info.excluded_prefix_length));
-  SCOPED_TRACE(tensorstore::StrCat(
-      "data=",
-      tensorstore::QuoteString(std::string(encoded_node.encoded_node))));
+  SCOPED_TRACE(absl::StrCat("data=", tensorstore::QuoteString(std::string(
+                                         encoded_node.encoded_node))));
 
   std::visit(
       [&](const auto& entries) {
@@ -94,10 +92,9 @@ void TestBtreeNodeRoundTrip(const Config& config, const BtreeNode& node) {
             DecodeBtreeNode(encoded_nodes[0].encoded_node, /*base_path=*/{}));
 
         EXPECT_EQ(node.key_prefix,
-                  tensorstore::StrCat(
-                      encoded_node.info.inclusive_min_key.substr(
-                          0, encoded_node.info.excluded_prefix_length),
-                      decoded_node.key_prefix));
+                  absl::StrCat(encoded_node.info.inclusive_min_key.substr(
+                                   0, encoded_node.info.excluded_prefix_length),
+                               decoded_node.key_prefix));
         EXPECT_THAT(decoded_node.entries,
                     ::testing::VariantWith<std::vector<Entry>>(entries));
       },

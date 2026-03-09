@@ -24,6 +24,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr/metadata_testutil.h"
@@ -31,7 +32,6 @@
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -354,7 +354,7 @@ TEST(ChooseBaseDTypeTest, RoundTrip) {
   };
   // clang-format on
   for (auto dtype : kSupportedDataTypes) {
-    SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype));
+    SCOPED_TRACE(absl::StrFormat("dtype=%v", dtype));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_zarr_dtype,
                                      ChooseBaseDType(dtype));
     EXPECT_EQ(dtype, base_zarr_dtype.dtype);

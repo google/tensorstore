@@ -22,6 +22,7 @@
 
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -85,8 +86,13 @@ class ArrayElementMatcherImpl
         });
     if (!matches) {
       if (listener_interested) {
-        *listener << "whose element at " << tensorstore::span(mismatch_indices)
-                  << " doesn't match";
+        *listener << "whose element at {";
+        const char* separator = "";
+        for (auto index : mismatch_indices) {
+          *listener << separator << index;
+          separator = ", ";
+        }
+        *listener << "} doesn't match";
         const auto& explanation = explanations(mismatch_indices);
         if (!explanation.empty()) {
           *listener << ", " << explanation;
@@ -103,8 +109,13 @@ class ArrayElementMatcherImpl
             const std::string& explanation = explanations(indices);
             if (explanation.empty()) return;
             if (reason_printed) *listener << ",\nand ";
-            *listener << "whose element at " << tensorstore::span(indices)
-                      << " matches, " << explanation;
+            *listener << "whose element at {";
+            const char* separator = "";
+            for (auto index : indices) {
+              *listener << separator << index;
+              separator = ", ";
+            }
+            *listener << "} matches, " << explanation;
             reason_printed = true;
           });
     }
@@ -123,7 +134,13 @@ class ArrayElementMatcherImpl
                                 *os << ",\n";
                               }
                               is_first = false;
-                              *os << "element at " << indices << " ";
+                              *os << "element at {";
+                              const char* separator = "";
+                              for (auto index : indices) {
+                                *os << separator << index;
+                                separator = ", ";
+                              }
+                              *os << "} ";
                               element_matchers_(indices).DescribeTo(os);
                             });
     }
@@ -135,7 +152,13 @@ class ArrayElementMatcherImpl
         << element_matchers_.domain();
     IterateOverIndexRange(element_matchers_.domain(),
                           [&](tensorstore::span<const Index> indices) {
-                            *os << ", or\nelement at " << indices << " ";
+                            *os << ", or\nelement at {";
+                            const char* separator = "";
+                            for (auto index : indices) {
+                              *os << separator << index;
+                              separator = ", ";
+                            }
+                            *os << "} ";
                             element_matchers_(indices).DescribeNegationTo(os);
                           });
   }

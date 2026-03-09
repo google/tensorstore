@@ -17,12 +17,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/unit.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -59,12 +59,6 @@ TEST(UnitTest, ConvertToString) {
   EXPECT_EQ("nm", Unit(1, "nm").to_string());
   EXPECT_EQ("5", Unit(5, "").to_string());
   EXPECT_EQ("1", Unit(1, "").to_string());
-
-  EXPECT_EQ("5.5 nm", tensorstore::StrCat(Unit(5.5, "nm")));
-  EXPECT_EQ("5 nm", tensorstore::StrCat(Unit(5, "nm")));
-  EXPECT_EQ("nm", tensorstore::StrCat(Unit(1, "nm")));
-  EXPECT_EQ("5", tensorstore::StrCat(Unit(5, "")));
-  EXPECT_EQ("1", tensorstore::StrCat(Unit(1, "")));
 
   EXPECT_EQ("5.5 nm", absl::StrCat(Unit(5.5, "nm")));
   EXPECT_EQ("5 nm", absl::StrCat(Unit(5, "nm")));

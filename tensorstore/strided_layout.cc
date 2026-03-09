@@ -29,21 +29,13 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
-
 namespace internal_strided_layout {
-
-void PrintToOstream(
-    std::ostream& os,
-    const StridedLayoutView<dynamic_rank, offset_origin>& layout) {
-  os << "{domain=" << layout.domain()
-     << ", byte_strides=" << layout.byte_strides() << "}";
-}
 
 std::string DescribeForCast(DimensionIndex rank) {
   return absl::StrFormat("strided layout with %s",
@@ -139,9 +131,9 @@ absl::Status ValidateShapeBroadcast(
     const DimensionIndex target_dim =
         target_shape.size() - source_shape.size() + source_dim;
     if (target_dim < 0 || target_shape[target_dim] != source_size) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Cannot broadcast array of shape ", source_shape,
-                              " to target shape ", target_shape));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Cannot broadcast array of shape %v to target shape %v",
+          GenericStringify(source_shape), GenericStringify(target_shape)));
     }
   }
   return absl::OkStatus();

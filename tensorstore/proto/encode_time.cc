@@ -14,10 +14,14 @@
 
 #include "tensorstore/proto/encode_time.h"
 
+#include <cstdint>
+
 #include "google/protobuf/duration.pb.h"
 #include "google/protobuf/timestamp.pb.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include "tensorstore/util/str_cat.h"
+#include "absl/time/time.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal {

@@ -53,7 +53,7 @@ namespace ocdbt {
 ///       auto context,
 ///       tensorstore::Context::FromJson({
 ///         {"ocdbt_coordinator", {
-///           {"address", tensorstore::StrCat(server_hostname, ":", port)}
+///           {"address", absl::StrCat(server_hostname, ":", port)}
 ///         }}
 ///       }));
 ///

@@ -14,16 +14,29 @@
 
 #include "tensorstore/index_space/index_transform_testutil.h"
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
 #include <numeric>
 #include <random>
+#include <utility>
+#include <vector>
 
 #include "absl/algorithm/container.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/generic_stringify.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -89,8 +102,8 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
           i = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, -10, 10);
         }
         if (log) {
-          ABSL_LOG(INFO) << "AllDims().TranslateBy(" << span(translation)
-                         << ")";
+          ABSL_LOG(INFO) << "AllDims().TranslateBy("
+                         << GenericStringify(translation) << ")";
         }
         return (transform | AllDims().TranslateBy(translation)).value();
       }
@@ -159,7 +172,9 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
         std::vector<DimensionIndex> dims(transform.input_rank());
         std::iota(dims.begin(), dims.end(), DimensionIndex(0));
         std::shuffle(dims.begin(), dims.end(), gen);
-        if (log) ABSL_LOG(INFO) << "AllDims().Transpose(" << span(dims) << ")";
+        if (log)
+          ABSL_LOG(INFO) << "AllDims().Transpose("
+                         << GenericStringify(span(dims)) << ")";
         return (transform | AllDims().Transpose(dims)).value();
       }
       case ExpressionKind::kDiagonal: {

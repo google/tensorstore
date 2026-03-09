@@ -29,6 +29,7 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -153,9 +154,9 @@ absl::Status SetOutputIndexMapsAndValidateTransformRep(
         if (array_dim_size != input_size) {
           return absl::InvalidArgumentError(
               absl::StrFormat("Index array for output dimension %d has shape "
-                              "%s which does not match input_shape %s",
-                              output_dim, absl::FormatStreamed(shape),
-                              absl::FormatStreamed(input_shape)));
+                              "%v which does not match input_shape %v",
+                              output_dim, GenericStringify(shape),
+                              GenericStringify(input_shape)));
         }
         // Note: We exclude `array_dim_size == 0` case here because we need
         // to check the implicit bounds condition in that case.

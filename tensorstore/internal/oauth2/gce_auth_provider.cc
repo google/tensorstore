@@ -24,6 +24,8 @@
 
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
@@ -41,7 +43,6 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 ABSL_FLAG(std::optional<std::string>, tensorstore_gce_metadata_root,
           std::nullopt,
@@ -128,8 +129,8 @@ GceAuthProvider::GetDefaultServiceAccountInfoIfRunningOnGce(
   auto info_response = internal::ParseJson(response.payload.Flatten());
   if (info_response.is_discarded()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Failed to parse service account response: ",
-                            response.payload.Flatten()));
+        absl::StrFormat("Failed to parse service account response: %s",
+                        response.payload.Flatten()));
   }
   return jb::FromJson<ServiceAccountInfo>(info_response,
                                           ServiceAccountInfoBinder);
@@ -140,8 +141,8 @@ Result<BearerTokenWithExpiration> GceAuthProvider::Refresh() {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response,
       IssueRequest(
-          tensorstore::StrCat("/computeMetadata/v1/instance/service-accounts/",
-                              service_account_email_, "/token"),
+          absl::StrCat("/computeMetadata/v1/instance/service-accounts/",
+                       service_account_email_, "/token"),
           false));
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
   TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(

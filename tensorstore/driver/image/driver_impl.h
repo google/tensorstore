@@ -28,6 +28,8 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
@@ -82,10 +84,10 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"  // IWYU pragma: keep
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_image_driver {
@@ -118,7 +120,7 @@ class ImageDriverSpec
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(RankConstraint{3}));
     if (schema.codec().valid()) {
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("codec not supported by \"", id, "\" driver"));
+          absl::StrFormat("codec not supported by %v driver", QuoteString(id)));
     }
     if (schema.fill_value().valid()) {
       return absl::InvalidArgumentError(
@@ -198,7 +200,7 @@ class ImageDriverSpec
 
   Result<std::string> ToUrl() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(base_url, "|", id, ":");
+    return absl::StrCat(base_url, "|", id, ":");
   }
 
   static Result<internal::TransformedDriverSpec> ParseUrl(
@@ -435,10 +437,9 @@ Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
                      if (schema_domain.valid() &&
                          !MergeIndexDomains(schema_domain, transform.domain())
                               .ok()) {
-                       p.SetResult(absl::InvalidArgumentError(
-                           tensorstore::StrCat("Schema domain ", schema_domain,
-                                               " does not match image domain ",
-                                               transform.domain())));
+                       p.SetResult(absl::InvalidArgumentError(absl::StrFormat(
+                           "Schema domain %v does not match image domain %v",
+                           schema_domain, transform.domain())));
                        return;
                      }
 

@@ -35,7 +35,6 @@
 #include "tensorstore/internal/uri/ascii_set.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {

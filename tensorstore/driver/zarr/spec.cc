@@ -55,7 +55,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -137,9 +136,8 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
   }
   if (constraints.order && *constraints.order != metadata.order) {
     return MetadataMismatchError(
-        "order",
-        absl::StrFormat("%v", absl::FormatStreamed(*constraints.order)),
-        absl::StrFormat("%v", absl::FormatStreamed(metadata.order)));
+        "order", absl::StrFormat("%v", GenericStringify(*constraints.order)),
+        absl::StrFormat("%v", GenericStringify(metadata.order)));
   }
   if (constraints.dtype && ::nlohmann::json(*constraints.dtype) !=
                                ::nlohmann::json(metadata.dtype)) {

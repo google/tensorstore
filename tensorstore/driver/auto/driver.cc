@@ -23,6 +23,7 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_spec.h"
@@ -48,7 +49,6 @@
 #include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_auto_detect {
@@ -100,7 +100,7 @@ class AutoDriverSpec
 
   Result<std::string> ToUrl() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(base_url, "|", id, ":");
+    return absl::StrCat(base_url, "|", id, ":");
   }
 
   Future<internal::Driver::Handle> Open(

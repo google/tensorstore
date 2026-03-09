@@ -211,6 +211,8 @@ tensorstore_cc_library(
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:element_traits",
         "//tensorstore/util:future",
+        "//tensorstore/util:generic_stringify",
+        "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",

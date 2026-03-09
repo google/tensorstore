@@ -39,7 +39,6 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 

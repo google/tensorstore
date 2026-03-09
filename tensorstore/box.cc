@@ -27,7 +27,6 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/span.h"  // IWYU pragma: keep
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_box {

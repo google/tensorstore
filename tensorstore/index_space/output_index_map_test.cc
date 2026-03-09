@@ -23,7 +23,6 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -42,12 +41,11 @@ using ::tensorstore::StaticRank;
 using ::tensorstore::StridedLayout;
 
 TEST(OutputIndexMethodTest, Ostream) {
-  EXPECT_EQ("constant", tensorstore::StrCat(OutputIndexMethod::constant));
+  EXPECT_EQ("constant", absl::StrCat(OutputIndexMethod::constant));
   EXPECT_EQ("single_input_dimension",
-            tensorstore::StrCat(OutputIndexMethod::single_input_dimension));
-  EXPECT_EQ("array", tensorstore::StrCat(OutputIndexMethod::array));
-  EXPECT_EQ("<unknown>",
-            tensorstore::StrCat(static_cast<OutputIndexMethod>(-1)));
+            absl::StrCat(OutputIndexMethod::single_input_dimension));
+  EXPECT_EQ("array", absl::StrCat(OutputIndexMethod::array));
+  EXPECT_EQ("<unknown>", absl::StrCat(static_cast<OutputIndexMethod>(-1)));
 }
 
 TEST(OutputIndexMapTest, StaticRanks) {

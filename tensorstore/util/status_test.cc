@@ -25,7 +25,6 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/status_builder.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -40,7 +39,6 @@ TEST(StatusTest, StrCat) {
   const absl::Status s = absl::UnknownError("Message");
   EXPECT_THAT(s.ToString(), testing::HasSubstr("UNKNOWN: Message"));
   EXPECT_THAT(absl::StrCat(s), testing::HasSubstr("UNKNOWN: Message"));
-  EXPECT_THAT(tensorstore::StrCat(s), testing::HasSubstr("UNKNOWN: Message"));
 }
 
 TEST(StatusTest, StatusBuilderAnnotate) {
@@ -64,7 +62,7 @@ TEST(StatusTest, StatusBuilderAnnotate) {
 
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kUnknown,
                                HasSubstr("Annotated: Bar")));
-  EXPECT_THAT(tensorstore::StrCat(status), testing::HasSubstr("a='b'"));
+  EXPECT_THAT(absl::StrCat(status), testing::HasSubstr("a='b'"));
 }
 
 TEST(StatusTest, InvokeForStatus) {

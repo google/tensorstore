@@ -21,7 +21,9 @@
 #include <variant>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
@@ -31,10 +33,10 @@
 #include "tensorstore/index_space/internal/transpose.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -89,9 +91,9 @@ Result<IndexTransform<>> ApplyTranspose(IndexTransform<> transform,
                                         bool domain_only) {
   if (static_cast<DimensionIndex>(dimensions->size()) !=
       transform.input_rank()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Number of dimensions (", dimensions->size(),
-        ") must equal input_rank (", transform.input_rank(), ")."));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Number of dimensions (%d) must equal input_rank (%d).",
+                        dimensions->size(), transform.input_rank()));
   }
   TransformRep::Ptr<> rep = TransposeInputDimensions(
       TransformAccess::rep_ptr<container>(std::move(transform)), *dimensions,
@@ -107,10 +109,10 @@ Result<IndexTransform<>> ApplyTransposeTo(
   const DimensionIndex input_rank = transform.input_rank();
   if (static_cast<DimensionIndex>(dimensions->size()) !=
       target_dimensions.size()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Number of selected dimensions (", dimensions->size(),
-        ") must equal number of target dimensions (", target_dimensions.size(),
-        ")"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Number of selected dimensions (%d) must equal number "
+                        "of target dimensions (%d)",
+                        dimensions->size(), target_dimensions.size()));
   }
   // Specifies whether a given existing dimension index occurs in `*dimensions`.
   DimensionSet seen_existing_dim = false;
@@ -124,8 +126,8 @@ Result<IndexTransform<>> ApplyTransposeTo(
         const DimensionIndex target_dim,
         NormalizeDimensionIndex(target_dimensions[i], input_rank));
     if (permutation[target_dim] != -1) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Target dimension ", target_dim, " occurs more than once"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Target dimension %d occurs more than once", target_dim));
     }
     seen_existing_dim[orig_dim] = true;
     permutation[target_dim] = orig_dim;
@@ -170,7 +172,8 @@ Result<IndexTransform<>> ApplyTransposeToDynamic(
 }
 
 Result<IndexTransform<>> ApplyTranspose(
-    IndexTransform<> transform, span<const DynamicDimSpec> source_dim_specs,
+    IndexTransform<> transform,
+    tensorstore::span<const DynamicDimSpec> source_dim_specs,
     bool domain_only) {
   DimensionIndexBuffer source_dimensions;
   source_dimensions.reserve(transform.input_rank());
@@ -179,9 +182,10 @@ Result<IndexTransform<>> ApplyTranspose(
   if (source_dimensions.size() != transform.input_rank() ||
       !IsValidPermutation(source_dimensions)) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Source dimension list ", span(source_dimensions),
-                            " is not a valid dimension permutation for rank ",
-                            transform.input_rank()));
+        absl::StrFormat("Source dimension list %v is not a valid dimension "
+                        "permutation for rank %d",
+                        GenericStringify(tensorstore::span(source_dimensions)),
+                        transform.input_rank()));
   }
   return TransformAccess::Make<IndexTransform<>>(TransposeInputDimensions(
       TransformAccess::rep_ptr<container>(std::move(transform)),

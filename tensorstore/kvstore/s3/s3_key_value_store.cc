@@ -84,7 +84,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 #include "tinyxml2.h"
 
 // specializations
@@ -275,8 +274,8 @@ struct S3KeyValueStoreSpecData {
 };
 
 std::string GetS3Url(std::string_view bucket, std::string_view path) {
-  return tensorstore::StrCat(kUriScheme, "://", bucket, "/",
-                             internal_uri::PercentEncodeKvStoreUriPath(path));
+  return absl::StrCat(kUriScheme, "://", bucket, "/",
+                      internal_uri::PercentEncodeKvStoreUriPath(path));
 }
 
 class S3KeyValueStoreSpec
@@ -594,7 +593,7 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
        options = std::move(options)](auto promise,
                                      ReadyFuture<const S3EndpointRegion> ready,
                                      ReadyFuture<AwsCredentials> credentials) {
-        auto read_url = tensorstore::StrCat(ready.value().endpoint, "/", key);
+        auto read_url = absl::StrCat(ready.value().endpoint, "/", key);
 
         auto state = internal::MakeIntrusivePtr<ReadTask>(
             std::move(self), std::move(key), std::move(options),
@@ -1042,8 +1041,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
        value = std::move(value), options = std::move(options)](
           auto promise, ReadyFuture<const S3EndpointRegion> ready,
           ReadyFuture<AwsCredentials> credentials) {
-        std::string object_url =
-            tensorstore::StrCat(ready.value().endpoint, "/", key);
+        std::string object_url = absl::StrCat(ready.value().endpoint, "/", key);
 
         if (!value) {
           // Write with a std::nullopt value is a delete.
@@ -1286,7 +1284,7 @@ void S3KeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
           execution::set_error(state->receiver_, ready.status());
           return;
         }
-        state->resource_ = tensorstore::StrCat(ready.value().endpoint, "/");
+        state->resource_ = absl::StrCat(ready.value().endpoint, "/");
         state->endpoint_region_ = std::move(ready);
 
         auto credentials_future = state->owner_->GetCredentials();

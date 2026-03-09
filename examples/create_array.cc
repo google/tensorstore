@@ -23,6 +23,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/span.h"
 
@@ -155,7 +156,8 @@ int main(int argc, char** argv) {
     PrintCSVArray(array_ref);
 
     // The rank and shape of an array can be inspected:
-    std::cout << "rank=" << array_ref.rank() << " shape=" << array_ref.shape();
+    std::cout << "rank=" << array_ref.rank()
+              << " shape=" << tensorstore::GenericStringify(array_ref.shape());
   }
 
   // FIXME: We cannot create an array ref from a C++ std::array type.

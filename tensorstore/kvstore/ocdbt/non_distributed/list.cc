@@ -27,6 +27,7 @@
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -47,7 +48,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -196,7 +196,7 @@ struct ListOperation
     for (const auto& entry : entries) {
       VisitSubtree(op, entry.node, node.height - 1,
                    /*inclusive_min_key=*/
-                   tensorstore::StrCat(subtree_key_prefix, entry.key),
+                   absl::StrCat(subtree_key_prefix, entry.key),
                    /*subtree_common_prefix_length=*/subtree_key_prefix.size() +
                        entry.subtree_common_prefix_length);
     }
@@ -211,11 +211,9 @@ struct ListOperation
                                        key_range.exclusive_max);
     ABSL_LOG_IF(INFO, ocdbt_logging)
         << "VisitLeafNode: subtree_key_prefix="
-        << tensorstore::QuoteString(subtree_key_prefix)
-        << ", key_range=" << key_range << ", first node key="
-        << tensorstore::QuoteString(all_entries.front().key)
-        << ", last node key="
-        << tensorstore::QuoteString(all_entries.back().key)
+        << QuoteString(subtree_key_prefix) << ", key_range=" << key_range
+        << ", first node key=" << QuoteString(all_entries.front().key)
+        << ", last node key=" << QuoteString(all_entries.back().key)
         << ", num matches=" << entries.size();
     // Note: It is safe to access `all_entries.front()` and `all_entries.back()`
     // because B+tree nodes are guaranteed to have at least one entry.
@@ -237,9 +235,9 @@ struct KeyReceiverAdapter {
   }
 
   void set_value(std::string_view key_prefix,
-                 span<const LeafNodeEntry> entries) {
+                 tensorstore::span<const LeafNodeEntry> entries) {
     for (const auto& entry : entries) {
-      auto key = tensorstore::StrCat(
+      auto key = absl::StrCat(
           std::string_view(key_prefix)
               .substr(std::min(key_prefix.size(), strip_prefix_length)),
           std::string_view(entry.key).substr(

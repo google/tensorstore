@@ -72,6 +72,7 @@
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -330,7 +331,7 @@ Result<ZarrChunkLayout> ComputeChunkLayout(
   if (layout.num_outer_elements == std::numeric_limits<Index>::max()) {
     return absl::InvalidArgumentError(
         absl::StrFormat("Product of chunk dimensions %v is too large",
-                        absl::FormatStreamed(chunk_shape)));
+                        GenericStringify(chunk_shape)));
   }
   if (internal::MulOverflow(dtype.bytes_per_outer_element,
                             layout.num_outer_elements,

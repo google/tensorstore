@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/cache.h"
@@ -32,8 +33,6 @@
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -81,7 +80,7 @@ class CooperatorServerTest : public ::testing::Test {
     }
 
     std::string coordinator_address =
-        tensorstore::StrCat("localhost:", coordinator_server_.port());
+        absl::StrCat("localhost:", coordinator_server_.port());
 
     {
       internal_ocdbt_cooperator::Options options;

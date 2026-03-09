@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
 #include "absl/strings/cord_test_helpers.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -33,7 +34,6 @@
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -235,8 +235,8 @@ TEST(DecodeArrayTest, Uint16InPlaceLittleEndianUnaligned) {
 void TestConvertCordInplace(DataType dtype, endian endian_value,
                             ContiguousLayoutOrder order,
                             bool expected_inplace) {
-  SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype, ", order=", order,
-                                   ", endian=", endian_value));
+  SCOPED_TRACE(absl::StrCat("dtype=", dtype, ", order=", order,
+                            ", endian=", endian_value));
   auto orig_array = tensorstore::AllocateArray(
       {4, 5, 6}, order, tensorstore::default_init, dtype);
   EXPECT_EQ(1, orig_array.pointer().use_count());

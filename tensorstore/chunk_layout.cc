@@ -54,6 +54,7 @@
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/maybe_hard_constraint.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/small_bit_set.h"
@@ -371,8 +372,8 @@ absl::Status EnsureRank(StoragePtr& ptr, DimensionIndex rank,
 template <typename T, typename U>
 absl::Status MismatchError(const T& existing_value, const U& new_value) {
   return absl::InvalidArgumentError(absl::StrFormat(
-      "New hard constraint (%s) does not match existing hard constraint (%s)",
-      absl::FormatStreamed(new_value), absl::FormatStreamed(existing_value)));
+      "New hard constraint (%v) does not match existing hard constraint (%v)",
+      GenericStringify(new_value), GenericStringify(existing_value)));
 }
 
 /// Merges additional per-dimension constraints from `in_vector` into
@@ -454,7 +455,7 @@ absl::Status ValidateAndMergeVectorInto(
     if (!Traits::IsValid(value)) {
       return absl::InvalidArgumentError(
           absl::StrFormat("Invalid value for dimension %d: %v", i,
-                          absl::FormatStreamed(in_vector)));
+                          GenericStringify(in_vector)));
     }
     if (Traits::IsSoftConstraintValue(value)) {
       in_vector.hard_constraint[i] = false;
@@ -522,8 +523,8 @@ absl::Status SetInnerOrderInternal(ChunkLayout& self,
                                    ChunkLayout::InnerOrder value,
                                    StoragePtr& storage_to_be_destroyed) {
   if (!IsValidPermutation(value)) {
-    return absl::InvalidArgumentError(absl::StrFormat(
-        "Invalid permutation: %v", absl::FormatStreamed(value)));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid permutation: %v", GenericStringify(value)));
   }
   const DimensionIndex rank = value.size();
   TENSORSTORE_RETURN_IF_ERROR(
@@ -1903,9 +1904,9 @@ absl::Status ChunkLayout::Finalize() {
           "No grid_origin hard constraint for dimension %d", dim));
     }
     if (!IsFiniteIndex(origin[dim])) {
-      return absl::InvalidArgumentError(absl::StrFormat(
-          "Invalid grid_origin: %v",
-          absl::FormatStreamed(tensorstore::span(origin, rank))));
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Invalid grid_origin: %v",
+                          GenericStringify(tensorstore::span(origin, rank))));
     }
   }
 
@@ -1923,10 +1924,10 @@ absl::Status ChunkLayout::Finalize() {
         }
         if (!IndexInterval::ValidSized(origin_value, size_value) ||
             !IsFiniteIndex(origin_value + size_value)) {
-          return absl::InvalidArgumentError(absl::StrFormat(
-              "Invalid origin/shape: origin=%v, shape=%v",
-              absl::FormatStreamed(tensorstore::span(origin, rank)),
-              absl::FormatStreamed(shape)));
+          return absl::InvalidArgumentError(
+              absl::StrFormat("Invalid origin/shape: origin=%v, shape=%v",
+                              GenericStringify(tensorstore::span(origin, rank)),
+                              GenericStringify(shape)));
         }
         if (size_value == 0 && usage == Usage::kRead) {
           auto write_shape =
@@ -1959,8 +1960,8 @@ absl::Status ChunkLayout::Finalize() {
     if ((write_size % read_size) != 0) {
       return absl::InvalidArgumentError(absl::StrFormat(
           "write chunk shape %v is not a multiple of read chunk shape %v",
-          absl::FormatStreamed(write_chunk_shape),
-          absl::FormatStreamed(read_chunk_shape)));
+          GenericStringify(write_chunk_shape),
+          GenericStringify(read_chunk_shape)));
     }
   }
 

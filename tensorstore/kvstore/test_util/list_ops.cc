@@ -36,6 +36,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
 #include "riegeli/base/byte_fill.h"
@@ -54,7 +55,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -123,8 +123,8 @@ void TestKeyValueStoreTransactionalListOps(
   };
 
   auto verify = [&](const KeyRange& range, size_t strip_prefix_length) {
-    SCOPED_TRACE(tensorstore::StrCat(
-        "range=", range, ", strip_prefix_length=", strip_prefix_length));
+    SCOPED_TRACE(absl::StrFormat("range=%v, strip_prefix_length=%d", range,
+                                 strip_prefix_length));
     EXPECT_THAT(get_list(range, strip_prefix_length),
                 ::testing::Optional(::testing::UnorderedElementsAreArray(
                     get_reference_list(range, strip_prefix_length))));

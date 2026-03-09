@@ -114,7 +114,6 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {

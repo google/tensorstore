@@ -31,6 +31,7 @@
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -57,7 +58,6 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace {
@@ -170,8 +170,8 @@ class MemoryDriverSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    return tensorstore::StrCat(id, "://",
-                               internal_uri::PercentEncodeKvStoreUriPath(path));
+    return absl::StrCat(id, "://",
+                        internal_uri::PercentEncodeKvStoreUriPath(path));
   }
 };
 

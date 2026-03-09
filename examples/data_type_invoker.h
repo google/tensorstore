@@ -15,11 +15,13 @@
 #ifndef TENSORSTORE_EXAMPLES_DATA_TYPE_INVOKE_H_
 #define TENSORSTORE_EXAMPLES_DATA_TYPE_INVOKE_H_
 
+#include <type_traits>
+
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <half.hpp>
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore_examples {
 namespace internal {
@@ -45,7 +47,7 @@ struct DataTypeInvokerFn {
     }
 #undef INVOKE_WITH_TYPE
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Could not invoke with data type ", id));
+        absl::StrFormat("Could not invoke with data type %v", id));
   }
 };
 

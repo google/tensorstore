@@ -21,6 +21,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -34,7 +35,6 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -268,7 +268,7 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithStatus) {
                   [&](const float* a_ptr, float* b_ptr) {
                     if (*a_ptr != *b_ptr) {
                       status = absl::UnknownError(
-                          tensorstore::StrCat(*a_ptr, " ", *b_ptr));
+                          absl::StrFormat("%v %v", *a_ptr, *b_ptr));
                       return false;
                     }
                     *b_ptr = 0;

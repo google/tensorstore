@@ -22,13 +22,14 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -49,8 +50,9 @@ void TestJsonBinderRoundTrip(
     ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& [value, j] : round_trips) {
-    SCOPED_TRACE(tensorstore::StrCat("value=", ::testing::PrintToString(value),
-                                     ", j=", j));
+    SCOPED_TRACE(absl::StrFormat("value=%s, j=%v",
+                                 ::testing::PrintToString(value),
+                                 GenericStringify(j)));
     EXPECT_THAT(internal_json_binding::ToJson(value, binder, to_json_options),
                 ::testing::Optional(MatchesJson(j)));
     EXPECT_THAT(
@@ -79,7 +81,7 @@ void TestJsonBinderRoundTripJsonOnly(
     ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& j : round_trips) {
-    SCOPED_TRACE(tensorstore::StrCat("j=", j));
+    SCOPED_TRACE(absl::StrFormat("j=%v", GenericStringify(j)));
     auto result =
         internal_json_binding::FromJson<T>(j, binder, from_json_options);
     TENSORSTORE_EXPECT_OK(result) << "FromJson";
@@ -108,7 +110,8 @@ void TestJsonBinderRoundTripJsonOnlyInexact(
     ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& [a, b] : round_trips) {
-    SCOPED_TRACE(tensorstore::StrCat("a=", a, ", b=", b));
+    SCOPED_TRACE(absl::StrFormat("a=%v, b=%v", GenericStringify(a),
+                                 GenericStringify(b)));
     auto a_result =
         internal_json_binding::FromJson<T>(a, binder, from_json_options);
     TENSORSTORE_EXPECT_OK(a_result) << "FromJson: a=" << a;
@@ -143,7 +146,7 @@ void TestJsonBinderToJson(
     Binder binder = internal_json_binding::DefaultBinder<>,
     ToJsonOptions to_json_options = IncludeDefaults{false}) {
   for (const auto& [value, matcher] : to_json_cases) {
-    SCOPED_TRACE(tensorstore::StrCat("value=", value));
+    SCOPED_TRACE(absl::StrFormat("value=%v", GenericStringify(value)));
     EXPECT_THAT(internal_json_binding::ToJson(value, binder, to_json_options),
                 matcher);
   }
@@ -164,7 +167,7 @@ void TestJsonBinderFromJson(
     Binder binder = internal_json_binding::DefaultBinder<>,
     FromJsonOptions from_json_options = {}) {
   for (const auto& [j, matcher] : from_json_cases) {
-    SCOPED_TRACE(StrCat("j=", j));
+    SCOPED_TRACE(absl::StrFormat("j=%v", GenericStringify(j)));
     EXPECT_THAT(
         internal_json_binding::FromJson<T>(j, binder, from_json_options),
         matcher);

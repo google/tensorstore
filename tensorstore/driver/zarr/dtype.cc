@@ -26,6 +26,7 @@
 #include "absl/base/call_once.h"
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/data_type.h"
@@ -37,11 +38,11 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -299,7 +300,7 @@ absl::Status ValidateDType(ZarrDType& dtype) {
     if (field.num_inner_elements == std::numeric_limits<Index>::max()) {
       return absl::InvalidArgumentError(
           absl::StrFormat("Product of dimensions %v is too large",
-                          absl::FormatStreamed(span(field.field_shape))));
+                          GenericStringify(field.field_shape)));
     }
     if (internal::MulOverflow(field.num_inner_elements,
                               static_cast<Index>(field.dtype->size),
@@ -351,15 +352,15 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrDType, [](auto is_loading,
   return absl::OkStatus();
 })
 
-char EndianIndicator(tensorstore::endian e) {
-  return e == tensorstore::endian::little ? '<' : '>';
+const std::string_view EndianIndicator(tensorstore::endian e) {
+  return e == tensorstore::endian::little ? "<" : ">";
 }
 
 const ZarrDType::Field* ZarrDType::GetVoidField() const {
   absl::call_once(lazy_void_field_.once_, [this] {
     const Index nbytes = bytes_per_outer_element;
     lazy_void_field_.field_ =
-        Field{{/*encoded_dtype=*/tensorstore::StrCat("|V", nbytes),
+        Field{{/*encoded_dtype=*/absl::StrFormat("|V%d", nbytes),
                /*dtype=*/dtype_v<::tensorstore::dtypes::byte_t>,
                /*endian=*/endian::native,
                /*flexible_shape=*/{}},
@@ -379,10 +380,10 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
   base_dtype.dtype = dtype;
   const auto set_typestr = [&](std::string_view typestr, int size) {
     if (size > 1) {
-      base_dtype.encoded_dtype = tensorstore::StrCat(
-          EndianIndicator(base_dtype.endian), typestr, size);
+      base_dtype.encoded_dtype =
+          absl::StrCat(EndianIndicator(base_dtype.endian), typestr, size);
     } else {
-      base_dtype.encoded_dtype = tensorstore::StrCat("|", typestr, size);
+      base_dtype.encoded_dtype = absl::StrCat("|", typestr, size);
     }
   };
   switch (dtype.id()) {

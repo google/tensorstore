@@ -22,6 +22,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
@@ -38,7 +39,6 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -92,13 +92,12 @@ void TestVersioning(::nlohmann::json config_json, size_t num_writes) {
     UniqueNow(/*epsilon=*/absl::Nanoseconds(2));
     tensorstore::Transaction transaction(tensorstore::atomic_isolated);
     if (i != 0) {
-      TENSORSTORE_ASSERT_OK(
-          kvstore::Delete((ocdbt_store | transaction).value(),
-                          tensorstore::StrCat("key_", i - 1)));
+      TENSORSTORE_ASSERT_OK(kvstore::Delete((ocdbt_store | transaction).value(),
+                                            absl::StrCat("key_", i - 1)));
     }
     TENSORSTORE_ASSERT_OK(kvstore::Write(
-        (ocdbt_store | transaction).value(), tensorstore::StrCat("key_", i),
-        absl::Cord(tensorstore::StrCat("value_", i))));
+        (ocdbt_store | transaction).value(), absl::StrCat("key_", i),
+        absl::Cord(absl::StrCat("value_", i))));
     TENSORSTORE_ASSERT_OK(transaction.Commit());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto manifest,
@@ -112,7 +111,7 @@ void TestVersioning(::nlohmann::json config_json, size_t num_writes) {
       auto manifest,
       ReadManifest(static_cast<OcdbtDriver&>(*ocdbt_store.driver)));
   ASSERT_TRUE(manifest);
-  SCOPED_TRACE(tensorstore::StrCat(*manifest));
+  SCOPED_TRACE(absl::StrCat(*manifest));
 
   // Test unconstrained `ListVersionsFuture`.
   {
@@ -179,13 +178,13 @@ void TestVersioning(::nlohmann::json config_json, size_t num_writes) {
         EXPECT_THAT(kvstore::ListFuture(versioned_ocdbt_store).result(),
                     ::testing::Optional(::testing::ElementsAre()));
       } else {
-        auto expected_key = tensorstore::StrCat("key_", version_i - 1);
+        auto expected_key = absl::StrCat("key_", version_i - 1);
         EXPECT_THAT(kvstore::ListFuture(versioned_ocdbt_store).result(),
                     ::testing::Optional(::testing::ElementsAre(
                         MatchesListEntry(expected_key))));
         EXPECT_THAT(kvstore::Read(versioned_ocdbt_store, expected_key).result(),
-                    MatchesKvsReadResult(absl::Cord(
-                        tensorstore::StrCat("value_", version_i - 1))));
+                    MatchesKvsReadResult(
+                        absl::Cord(absl::StrCat("value_", version_i - 1))));
       }
     }
 
@@ -203,13 +202,13 @@ void TestVersioning(::nlohmann::json config_json, size_t num_writes) {
         EXPECT_THAT(kvstore::ListFuture(versioned_ocdbt_store).result(),
                     ::testing::Optional(::testing::ElementsAre()));
       } else {
-        auto expected_key = tensorstore::StrCat("key_", version_i - 1);
+        auto expected_key = absl::StrCat("key_", version_i - 1);
         EXPECT_THAT(kvstore::ListFuture(versioned_ocdbt_store).result(),
                     ::testing::Optional(::testing::ElementsAre(
                         MatchesListEntry(expected_key))));
         EXPECT_THAT(kvstore::Read(versioned_ocdbt_store, expected_key).result(),
-                    MatchesKvsReadResult(absl::Cord(
-                        tensorstore::StrCat("value_", version_i - 1))));
+                    MatchesKvsReadResult(
+                        absl::Cord(absl::StrCat("value_", version_i - 1))));
       }
     }
   }

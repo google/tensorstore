@@ -138,7 +138,7 @@ absl::Status ValidateMetadata(N5Metadata& metadata) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "\"blockSize\" of %v with data type of %v exceeds maximum chunk size "
         "of 2GB",
-        absl::FormatStreamed(span(metadata.chunk_shape)), metadata.dtype));
+        GenericStringify(metadata.chunk_shape), metadata.dtype));
   }
   return absl::OkStatus();
 }

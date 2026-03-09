@@ -26,6 +26,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/strip.h"
 #include "absl/time/clock.h"
@@ -67,7 +68,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 /// specializations
 #include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
@@ -178,7 +178,7 @@ struct HttpKeyValueStoreSpecData {
   std::string GetUrl(std::string_view path) const {
     if (path.empty()) return base_url;
     auto parsed = internal_uri::ParseGenericUri(base_url);
-    return tensorstore::StrCat(
+    return absl::StrCat(
         parsed.scheme, "://", absl::StripSuffix(parsed.authority_and_path, "/"),
         "/",
         internal_uri::PercentEncodeKvStoreUriPath(absl::StripPrefix(path, "/")),
@@ -214,10 +214,9 @@ class HttpKeyValueStoreSpec
     TENSORSTORE_ASSIGN_OR_RETURN(std::string decoded_common_suffix,
                                  internal_uri::PercentDecode(common_suffix));
 
-    auto base_url =
-        tensorstore::StrCat(parsed.scheme, "://", parsed.authority,
-                            absl::StripSuffix(path_prefix, "/"),
-                            parsed.query.empty() ? "" : "?", parsed.query);
+    auto base_url = absl::StrCat(parsed.scheme, "://", parsed.authority,
+                                 absl::StripSuffix(path_prefix, "/"),
+                                 parsed.query.empty() ? "" : "?", parsed.query);
 
     if (path.empty() || path == "/") {
       path = decoded_common_suffix;

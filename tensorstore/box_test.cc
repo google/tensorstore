@@ -30,7 +30,6 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -657,11 +656,11 @@ TEST(BoxTest, Print) {
   Index origin[] = {1, 2, 3};
   Index shape[] = {3, 4, 5};
   EXPECT_EQ("{origin={1, 2, 3}, shape={3, 4, 5}}",
-            tensorstore::StrCat(BoxView<>(origin, shape)));
+            absl::StrCat(BoxView<>(origin, shape)));
   EXPECT_EQ("{origin={1, 2, 3}, shape={3, 4, 5}}",
-            tensorstore::StrCat(Box<>(origin, shape)));
+            absl::StrCat(Box<>(origin, shape)));
   EXPECT_EQ("{origin={1, 2, 3}, shape={3, 4, 5}}",
-            tensorstore::StrCat(MutableBoxView<>(origin, shape)));
+            absl::StrCat(MutableBoxView<>(origin, shape)));
 
   Index large = 4611686018427387900LL;
   EXPECT_EQ("{origin={4611686018427387900}, shape={1}}",

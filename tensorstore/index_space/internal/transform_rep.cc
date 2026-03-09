@@ -54,7 +54,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -510,9 +509,9 @@ absl::Status TransformIndices(TransformRep* data,
   for (DimensionIndex i = 0; i < input_rank; ++i) {
     auto oi_interval = data->input_dimension(i).optionally_implicit_domain();
     if (!Contains(oi_interval.effective_interval(), input_indices[i])) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Index ", input_indices[i], " is not contained in the domain ",
-          oi_interval, " for input dimension ", i));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Index %d is not contained in the domain %v for input dimension %d",
+          input_indices[i], oi_interval, i));
     }
   }
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {

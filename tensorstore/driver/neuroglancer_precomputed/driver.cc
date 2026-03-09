@@ -91,9 +91,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {
@@ -205,7 +203,7 @@ class NeuroglancerPrecomputedDriverSpec
       }
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(base_url, "|", kUrlScheme, ":");
+    return absl::StrCat(base_url, "|", kUrlScheme, ":");
   }
 
   Future<internal::Driver::Handle> Open(
@@ -231,7 +229,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
   using Base::Base;
 
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
-    return tensorstore::StrCat(entry_key, kMetadataKey);
+    return absl::StrCat(entry_key, kMetadataKey);
   }
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -597,8 +595,8 @@ class UnshardedDataCache : public DataCacheBase {
           0, tensorstore::CeilOfRatio(scale.box.shape()[i], chunk_size));
     }
     const auto& component = grid.components[0];
-    std::string path = tensorstore::StrCat(this->GetBaseKvstorePath(),
-                                           this->scale_key_prefix_);
+    std::string path =
+        absl::StrCat(this->GetBaseKvstorePath(), this->scale_key_prefix_);
     if (!path.empty()) {
       path += '/';
     }

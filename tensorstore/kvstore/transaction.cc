@@ -34,6 +34,7 @@
 #include "absl/container/btree_map.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -721,7 +722,7 @@ void DeletedEntryDone(DeleteRangeEntry& dr_entry, bool error, size_t count) {
 }
 
 std::string DescribeEntry(MutationEntry& entry) {
-  return tensorstore::StrCat(
+  return absl::StrCat(
       entry.entry_type() == kReadModifyWrite ? "read/write " : "delete ",
       entry.multi_phase().DescribeKey(entry.key_));
 }

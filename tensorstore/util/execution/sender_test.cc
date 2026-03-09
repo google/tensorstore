@@ -73,7 +73,7 @@ TEST(ValueSenderTest, Basic) {
   tensorstore::execution::submit(
       tensorstore::ValueSender<int, std::string>{3, "hello"},
       tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_value: 3, hello"));
+  EXPECT_THAT(log, ::testing::ElementsAre("set_value: {3, hello}"));
 }
 
 /// Sender that adapts an existing `sender` to invoke its `submit` function with
@@ -113,7 +113,7 @@ TEST(SenderWithExecutorTest, SetValue) {
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
   std::move(queue[0])();
-  EXPECT_THAT(log, ::testing::ElementsAre("set_value: 3, hello"));
+  EXPECT_THAT(log, ::testing::ElementsAre("set_value: {3, hello}"));
 }
 
 TEST(SenderWithExecutorTest, SetError) {

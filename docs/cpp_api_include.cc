@@ -35,6 +35,8 @@
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/element_traits.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_builder.h"

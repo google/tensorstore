@@ -26,16 +26,17 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace zarr3_sharding_indexed {
@@ -78,8 +79,8 @@ Result<EntryId> KeyToEntryIdOrError(std::string_view key,
     return *entry_id;
   }
   return absl::InvalidArgumentError(
-      tensorstore::StrCat("Invalid key (grid_shape=", grid_shape,
-                          "): ", tensorstore::QuoteString(key)));
+      absl::StrFormat("Invalid key (grid_shape=%v): %v",
+                      GenericStringify(grid_shape), QuoteString(key)));
 }
 
 std::string EntryIdToKey(EntryId entry_id, span<const Index> grid_shape) {
@@ -186,15 +187,16 @@ std::string DescribeEntryId(EntryId entry_id, span<const Index> grid_shape) {
   Index indices[kMaxRank];
   span<Index> indices_span(&indices[0], grid_shape.size());
   GetContiguousIndices<c_order, Index>(entry_id, grid_shape, indices_span);
-  return tensorstore::StrCat("shard entry ", indices_span, "/", grid_shape);
+  return absl::StrFormat("shard entry %v/%v", GenericStringify(indices_span),
+                         GenericStringify(grid_shape));
 }
 
 std::string DescribeKey(std::string_view key, span<const Index> grid_shape) {
   if (auto entry_id = KeyToEntryId(key, grid_shape)) {
     return DescribeEntryId(*entry_id, grid_shape);
   }
-  return tensorstore::StrCat("invalid shard entry ",
-                             tensorstore::QuoteString(key), "/", grid_shape);
+  return absl::StrFormat("invalid shard entry %v/%v", QuoteString(key),
+                         GenericStringify(grid_shape));
 }
 
 std::string DescribeInternalKey(std::string_view key,

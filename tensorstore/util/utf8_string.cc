@@ -17,9 +17,6 @@
 #include "tensorstore/internal/riegeli/delimited.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace serialization {

@@ -51,7 +51,6 @@
 #include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 // proto
 #include "google/protobuf/empty.pb.h"
@@ -184,10 +183,10 @@ absl::Status ReadTask::HandleResponse(ReadObjectResponse& response) {
         (options_.byte_range.inclusive_min >= 0 &&
          response.content_range().start() !=
              options_.byte_range.inclusive_min)) {
-      return absl::OutOfRangeError(
-          tensorstore::StrCat("Requested byte range ", options_.byte_range,
-                              " was not satisfied by GCS object with size ",
-                              response.content_range().complete_length()));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Requested byte range %v was not satisfied by GCS "
+          "object with size %d",
+          options_.byte_range, response.content_range().complete_length()));
     }
   }
   if (response.has_checksummed_data() &&

@@ -63,7 +63,7 @@ TEST(BmpTest, Decode) {
                   reinterpret_cast<unsigned char*>(&pixel), sizeof(pixel))),
               IsOk());
 
-  EXPECT_EQ(0x6d4283, pixel) << absl::StrFormat(" %x", pixel);
+  EXPECT_EQ(0x6d4283, pixel) << absl::StreamFormat(" %x", pixel);
 }
 
 TEST(BmpTest, CorruptData) {

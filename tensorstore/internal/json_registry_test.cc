@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include "absl/base/no_destructor.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -27,7 +28,6 @@
 #include "tensorstore/internal/testing/json_gtest.h"  // IWYU pragma: keep
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -71,8 +71,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(MyInterfacePtr, [](auto is_loading,
 
 auto GetBinderWithCustomError() {
   return jb::Object(GetRegistry().MemberBinder("id", [](std::string_view id) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("custom error: ", id));
+    return absl::InvalidArgumentError(absl::StrFormat("custom error: %s", id));
   }));
 }
 

@@ -96,13 +96,13 @@
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -416,7 +416,8 @@ DriverRandomOperationTester::DriverRandomOperationTester(
 
 void DriverRandomOperationTester::TestBasicFunctionality(
     TransactionMode transaction_mode, size_t num_iterations) {
-  SCOPED_TRACE(tensorstore::StrCat("create_spec=", options.create_spec));
+  SCOPED_TRACE(
+      absl::StrFormat("create_spec=%v", GenericStringify(options.create_spec)));
   Transaction transaction(transaction_mode);
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -469,10 +470,10 @@ void DriverRandomOperationTester::TestBasicFunctionality(
     auto random_array = MakeRandomArray(gen, transform.domain().box(),
                                         options.initial_value.dtype());
     if (log) ABSL_LOG(INFO) << "i = " << i;
-    SCOPED_TRACE(tensorstore::StrCat("i=", i));
-    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
-    SCOPED_TRACE(tensorstore::StrCat("original_domain=",
-                                     options.initial_value.domain()));
+    SCOPED_TRACE(absl::StrFormat("i=%d", i));
+    SCOPED_TRACE(absl::StrFormat("transform=%v", transform));
+    SCOPED_TRACE(
+        absl::StrFormat("original_domain=%v", options.initial_value.domain()));
     auto write_future =
         tensorstore::Write(random_array, store | transform).commit_future;
     TENSORSTORE_ASSERT_OK(write_future.result());
@@ -554,7 +555,8 @@ void DriverRandomOperationTester::TestBasicFunctionality(
 void DriverRandomOperationTester::TestMultiTransactionWrite(
     TransactionMode mode, size_t num_transactions, size_t num_iterations,
     bool use_random_values) {
-  SCOPED_TRACE(tensorstore::StrCat("create_spec=", options.create_spec));
+  SCOPED_TRACE(
+      absl::StrFormat("create_spec=%v", GenericStringify(options.create_spec)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       tensorstore::Open(options.create_spec, tensorstore::OpenMode::create)
@@ -614,7 +616,8 @@ void DriverRandomOperationTester::TestMultiTransactionWrite(
 
 void DriverRandomOperationTester::TestConcurrentWrites(
     TransactionMode transaction_mode, size_t num_iterations) {
-  SCOPED_TRACE(tensorstore::StrCat("create_spec=", options.create_spec));
+  SCOPED_TRACE(
+      absl::StrFormat("create_spec=%v", GenericStringify(options.create_spec)));
   Transaction transaction(transaction_mode);
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -685,7 +688,8 @@ absl::Status TestDriverWriteReadChunks(
         "--chunk_shape or --chunk_bytes must be set.");
   }
 
-  ABSL_LOG(INFO) << "read/write shape " << span(chunk_shape, ts.rank());
+  ABSL_LOG(INFO) << "read/write shape "
+                 << GenericStringify(span(chunk_shape, ts.rank()));
   ABSL_LOG(INFO) << "Starting writes: " << options.repeat_writes
                  << ", total_write_bytes=" << options.total_write_bytes;
   for (int64_t i = 0; i < options.repeat_writes; i++) {
@@ -716,7 +720,7 @@ void ForEachChunk(BoxView<> domain, DataType dtype, absl::BitGenRef gen,
 
   const DimensionIndex rank = domain.rank();
   assert(rank == chunk_shape.size());
-  Index range_extent[kMaxRank] = {};
+  Index range_extent[kMaxRank] = {0};
   for (size_t i = 0; i < rank; i++) {
     range_extent[i] = domain.shape()[i] / chunk_shape[i];
   }
@@ -829,9 +833,9 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
                                    size_t num_iterations) {
     RegisterGoogleTestCaseDynamically(
         "TensorStoreDriverBasicFunctionalityTest",
-        tensorstore::StrCat(options.test_name, "/basic_functionality",
-                            "/transaction_mode=", mode,
-                            "/num_iterations=", num_iterations),
+        absl::StrFormat(
+            "%s/basic_functionality/transaction_mode=%v/num_iterations=%d",
+            options.test_name, GenericStringify(mode), num_iterations),
         [=] {
           std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
               "TENSORSTORE_INTERNAL_DRIVER_BASIC_FUNCTIONALITY")};
@@ -847,11 +851,11 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
                                               bool use_random_values) {
       RegisterGoogleTestCaseDynamically(
           "TensorStoreDriverBasicFunctionalityTest",
-          tensorstore::StrCat(options.test_name, "/multi_transaction_write",
-                              "/transaction_mode=", transaction_mode,
-                              "/num_transactions=", num_transactions,
-                              "/num_iterations=", num_iterations,
-                              "/use_random_values=", use_random_values),
+          absl::StrFormat(
+              "%s/multi_transaction_write/transaction_mode=%v/"
+              "num_transactions=%d/num_iterations=%d/use_random_values=%v",
+              options.test_name, GenericStringify(transaction_mode),
+              num_transactions, num_iterations, use_random_values),
           [=] {
             std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
                 "TENSORSTORE_INTERNAL_DRIVER_MULTI_TRANSACTION")};
@@ -921,10 +925,10 @@ void TestMetadataOnlyResize(const TestTensorStoreDriverResizeOptions& options,
       lower_and_upper_bounds[is_upper][dim_i] =
           lower_and_upper_bound_changes[is_upper][dim_i] =
               existing_value + offset;
-      SCOPED_TRACE(tensorstore::StrCat(
-          "dim_i=", dim_i, ", is_upper=", is_upper,
-          ", new_inclusive_min=", span(lower_and_upper_bound_changes[0]),
-          ", new_exclusive_max=", span(lower_and_upper_bound_changes[1])));
+      SCOPED_TRACE(absl::StrFormat(
+          "dim_i=%d, is_upper=%d, new_inclusive_min=%v, new_exclusive_max=%v",
+          dim_i, is_upper, GenericStringify(lower_and_upper_bound_changes[0]),
+          GenericStringify(lower_and_upper_bound_changes[1])));
       for (DimensionIndex j = 0; j < rank; ++j) {
         bounds[j] = IndexInterval::UncheckedHalfOpen(
             lower_and_upper_bounds[0][j], lower_and_upper_bounds[1][j]);
@@ -1062,8 +1066,7 @@ void TestResize(const TestTensorStoreDriverResizeOptions& options) {
     PickRandomSmallerChunkAlignedBounds(gen, orig_domain, write_chunk_template,
                                         new_bounds);
     ABSL_CHECK_NE(orig_bounds, new_bounds);
-    SCOPED_TRACE(tensorstore::StrCat("new_bounds=", new_bounds));
-
+    SCOPED_TRACE(absl::StrFormat("new_bounds=%v", new_bounds));
     std::map<std::string, absl::Cord> resized_map;
     std::map<std::string, absl::Cord> direct_map;
     {
@@ -1123,7 +1126,8 @@ void RegisterTensorStoreDriverResizeTest(
   const auto RegisterVariant = [&](TransactionMode mode) {
     RegisterGoogleTestCaseDynamically(
         "TensorStoreDriverMetadataResizeTest",
-        tensorstore::StrCat(options.test_name, "/transaction_mode=", mode),
+        absl::StrFormat("%s/transaction_mode=%v", options.test_name,
+                        GenericStringify(mode)),
         [=] { TestMetadataOnlyResize(options, mode); });
   };
   if (options.test_metadata) {
@@ -1262,8 +1266,8 @@ ReadChunk MakeArrayBackedReadChunk(TransformedArray<Shared<const void>> data) {
 
 void TestTensorStoreCreateWithSchemaImpl(::nlohmann::json json_spec,
                                          const Schema& schema) {
-  SCOPED_TRACE(tensorstore::StrCat("json=", json_spec));
-  SCOPED_TRACE(tensorstore::StrCat("schema=", schema));
+  SCOPED_TRACE(absl::StrFormat("json=%v", GenericStringify(json_spec)));
+  SCOPED_TRACE(absl::StrFormat("schema=%v", GenericStringify(schema)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       tensorstore::Open(json_spec, OpenMode::create, schema).result());
@@ -1273,7 +1277,7 @@ void TestTensorStoreCreateWithSchemaImpl(::nlohmann::json json_spec,
 
 void TestTensorStoreCreateCheckSchemaImpl(::nlohmann::json json_spec,
                                           const Schema& schema) {
-  SCOPED_TRACE(tensorstore::StrCat("json=", json_spec));
+  SCOPED_TRACE(absl::StrFormat("json=%v", GenericStringify(json_spec)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(json_spec, OpenMode::create).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_schema, store.schema());
@@ -1290,7 +1294,7 @@ void TestTensorStoreCreateCheckSchema(::nlohmann::json json_spec,
 }
 
 void TestSpecSchemaImpl(::nlohmann::json json_spec, const Schema& schema) {
-  SCOPED_TRACE(tensorstore::StrCat("json=", json_spec));
+  SCOPED_TRACE(absl::StrFormat("json=%v", GenericStringify(json_spec)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
                                    tensorstore::Spec::FromJson(json_spec));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_schema, spec.schema());
@@ -1526,9 +1530,9 @@ void TestTensorStoreUrlRoundtrip(::nlohmann::json json_spec,
 
 void TestTensorStoreSpecRoundtripNormalize(
     ::nlohmann::json json_spec, ::nlohmann::json normalized_json_spec) {
-  SCOPED_TRACE(tensorstore::StrCat("json_spec=", json_spec.dump()));
-  SCOPED_TRACE(tensorstore::StrCat("normalized_json_spec=",
-                                   normalized_json_spec.dump()));
+  SCOPED_TRACE(absl::StrFormat("json_spec=%s", json_spec.dump()));
+  SCOPED_TRACE(absl::StrFormat("normalized_json_spec=%v",
+                               GenericStringify(normalized_json_spec)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
                                    tensorstore::Spec::FromJson(json_spec));
   EXPECT_THAT(spec.ToJson(), IsOkAndHolds(MatchesJson(normalized_json_spec)));

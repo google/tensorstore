@@ -29,7 +29,6 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/version/version.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {

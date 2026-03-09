@@ -22,6 +22,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "re2/re2.h"
@@ -42,7 +43,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -111,7 +111,7 @@ constexpr auto LabeledIndirectDataReferenceBinder =
         if (obj->location.IsMissing()) {
           *j = ::nlohmann::json::value_t::discarded;
         } else {
-          *j = tensorstore::StrCat(
+          *j = absl::StrCat(  //
               IndirectDataKindToString(obj->kind), ":",
               internal_uri::PercentEncode(
                   obj->location.file_id.base_path,

@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -57,7 +58,6 @@
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -397,7 +397,7 @@ TEST(N5DriverTest, Resize) {
               {{"cache_pool",
                 {{"total_bytes_limit", enable_cache ? 10000000 : 0}}}})
               .value());
-      SCOPED_TRACE(tensorstore::StrCat("resize_mode=", resize_mode));
+      SCOPED_TRACE(absl::StrCat("resize_mode=", resize_mode));
       // Create the store.i
       ::nlohmann::json storage_spec{{"driver", "memory"}};
       ::nlohmann::json metadata_json = GetBasicResizeMetadata();
@@ -770,7 +770,7 @@ TEST(N5DriverTest, InvalidSpecInvalidMemberType) {
                                   tensorstore::ReadWriteMode::read_write)
                     .result(),
                 StatusIs(absl::StatusCode::kInvalidArgument,
-                         MatchesRegex(tensorstore::StrCat(
+                         MatchesRegex(absl::StrCat(
                              "Error parsing object member \"", member_name,
                              "\": Expected .*, but received: 5"))));
   }
@@ -1884,8 +1884,8 @@ TEST(DriverTest, ResolutionOnlyMetadataMismatch) {
 
 TEST(DriverTest, FillMissingDataReads) {
   for (bool fill_missing_data_reads : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
-                                     fill_missing_data_reads));
+    SCOPED_TRACE(
+        absl::StrCat("fill_missing_data_reads=", fill_missing_data_reads));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
         tensorstore::Open(
@@ -1920,8 +1920,8 @@ TEST(DriverTest, FillMissingDataReads) {
 // `store_data_equal_to_fill_value=true`.
 TEST(DriverTest, StoreDataEqualToFillValue) {
   for (bool store_data_equal_to_fill_value : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
-                                     store_data_equal_to_fill_value));
+    SCOPED_TRACE(absl::StrCat("store_data_equal_to_fill_value=",
+                              store_data_equal_to_fill_value));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store, tensorstore::Open({{"driver", "n5"},
                                        {"kvstore", "memory://"},

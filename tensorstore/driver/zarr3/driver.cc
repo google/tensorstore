@@ -77,7 +77,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -174,7 +173,7 @@ class ZarrDriverSpec
 
   Result<std::string> ToUrl() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(base_url, "|", id, ":");
+    return absl::StrCat(base_url, "|", id, ":");
   }
 
   Future<internal::Driver::Handle> Open(
@@ -201,7 +200,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 
   // Metadata is stored as JSON under the `zarr.json` key.
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
-    return tensorstore::StrCat(entry_key, kMetadataKey);
+    return absl::StrCat(entry_key, kMetadataKey);
   }
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -301,12 +300,12 @@ class DataCacheBase
     const DimensionIndex rank = metadata.rank;
     char separator = metadata.chunk_key_encoding.separator;
     if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
-      key = tensorstore::StrCat(
+      key = absl::StrCat(
           key_prefix_, "c",
           rank != 0 ? std::string_view(&separator, 1) : std::string_view());
     } else {
       if (rank == 0) {
-        return tensorstore::StrCat(key_prefix_, "0");
+        return absl::StrCat(key_prefix_, "0");
       }
       key = key_prefix_;
     }
@@ -350,19 +349,19 @@ class DataCacheBase
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
     if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
-      std::string key = tensorstore::StrCat(key_prefix_, "c");
+      std::string key = absl::StrCat(key_prefix_, "c");
       for (DimensionIndex i = 0; i < cell_indices.size(); ++i) {
-        tensorstore::StrAppend(
+        absl::StrAppend(
             &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
             cell_indices[i]);
       }
       return key;
     }
     // Use "0" for rank 0 as a special case.
-    std::string key = tensorstore::StrCat(
-        key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
+    std::string key =
+        absl::StrCat(key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
     for (DimensionIndex i = 1; i < cell_indices.size(); ++i) {
-      tensorstore::StrAppend(
+      absl::StrAppend(
           &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
           cell_indices[i]);
     }

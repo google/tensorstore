@@ -84,6 +84,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/mutex.h"
@@ -109,7 +110,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -415,7 +415,7 @@ struct CopySubtreeListReceiver {
     if (entries.empty()) return;
     absl::MutexLock lock(writer->mutex_);
     for (auto& entry : entries) {
-      auto key = tensorstore::StrCat(
+      auto key = absl::StrCat(
           add_prefix,
           std::string_view(key_prefix)
               .substr(std::min(key_prefix.size(), strip_prefix_length)),

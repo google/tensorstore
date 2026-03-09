@@ -23,6 +23,7 @@
 
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
@@ -32,7 +33,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_kvstore_gcs_http {
@@ -111,7 +111,7 @@ Result<ObjectMetadata> ParseObjectMetadata(std::string_view source) {
   auto json = internal::ParseJson(source);
   if (json.is_discarded()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Failed to parse object metadata: ", source));
+        absl::StrFormat("Failed to parse object metadata: %v", source));
   }
 
   return jb::FromJson<ObjectMetadata>(std::move(json));

@@ -25,7 +25,6 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/util/iterate.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -60,9 +59,9 @@ absl::Status ValidateAndIntersectBounds(BoxView<> inner,
     IndexIntervalRef outer_bounds = combined[dim];
     auto inner_bounds = inner[dim];
     if (!predicate(outer_bounds, inner_bounds)) {
-      tensorstore::StrAppend(&error, error.empty() ? "" : ", ", "in dimension ",
-                             dim, " bounds ", inner_bounds,
-                             " vs. propagated bounds, ", outer_bounds);
+      absl::StrAppend(&error, error.empty() ? "" : ", ", "in dimension ", dim,
+                      " bounds ", inner_bounds, " vs. propagated bounds, ",
+                      outer_bounds);
     } else {
       outer_bounds = Intersect(outer_bounds, inner_bounds);
     }

@@ -32,12 +32,12 @@
 #include "absl/base/optimization.h"
 #include "absl/debugging/leak_check.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/metric_impl.h"
 #include "tensorstore/internal/metrics/registry.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -164,7 +164,7 @@ class ABSL_CACHELINE_ALIGNED Histogram {
           [&](const auto&... item) {
             std::vector<std::string> fields;
             fields.reserve(sizeof...(item));
-            (fields.emplace_back(tensorstore::StrCat(item)), ...);
+            (fields.emplace_back(absl::StrCat(item)), ...);
             return cell.Collect(std::move(fields));
           },
           fields));

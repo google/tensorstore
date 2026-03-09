@@ -28,6 +28,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
@@ -39,7 +40,6 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 using ::tensorstore::ContiguousLayoutOrder;
@@ -83,7 +83,7 @@ TEST(ParseOrderTest, Failure) {
 void TestFillValueRoundTrip(
     const ::nlohmann::json& dtype, const ::nlohmann::json& encoded_fill_value,
     std::vector<tensorstore::SharedArray<const void>> fill_values) {
-  SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype.dump()));
+  SCOPED_TRACE(absl::StrCat("dtype=", dtype.dump()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed_dtype, ParseDType(dtype));
   std::vector<tensorstore::ArrayMatcher> fill_values_matcher;
   for (const auto& fill_value : fill_values) {
@@ -117,7 +117,7 @@ void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
 
   // Also test non-strict float values.
   {
-    SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype.dump()));
+    SCOPED_TRACE(absl::StrCat("dtype=", dtype.dump()));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed_dtype, ParseDType(dtype));
     std::vector<tensorstore::SharedArray<const void>> fill_values{
         MakeScalarArray<FloatType>(static_cast<FloatType>(1.0))};

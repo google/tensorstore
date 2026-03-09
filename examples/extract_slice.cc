@@ -28,6 +28,7 @@
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
@@ -52,15 +53,16 @@
 #include "tensorstore/spec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::tensorstore::Context;
+using ::tensorstore::GenericStringify;
 using ::tensorstore::Index;
 using ::tensorstore::internal_image::AvifWriter;
 using ::tensorstore::internal_image::ImageInfo;
@@ -86,13 +88,15 @@ absl::Status Validate(const InputArray& input) {
   // Validate shapes
   auto input_shape = input.domain().shape();
   if (input_shape[0] <= 0 || input_shape[1] <= 0) {
-    errors.push_back(tensorstore::StrCat("input.shape of ", input_shape,
-                                         " has invalid x,y dimensions"));
+    errors.push_back(absl::StrCat("input.shape of ",
+                                  GenericStringify(input_shape),
+                                  " has invalid x,y dimensions"));
   }
   auto c = input.rank() - 1;
   if (input.rank() > 2 && input_shape[c] != 1 && input_shape[c] != 3) {
-    errors.push_back(tensorstore::StrCat("input.shape of ", input_shape,
-                                         " has invalid c dimension"));
+    errors.push_back(absl::StrCat("input.shape of ",
+                                  GenericStringify(input_shape),
+                                  " has invalid c dimension"));
   }
 
   if (!errors.empty()) {

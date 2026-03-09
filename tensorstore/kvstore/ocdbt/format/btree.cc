@@ -28,6 +28,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -42,7 +43,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -254,13 +254,11 @@ absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
       [&](auto& entries) {
         if (ComparePrefixedKeyToUnprefixedKey{node.key_prefix}(
                 entries.front().key, inclusive_min_key) < 0) {
-          return absl::DataLossError(
-              tensorstore::StrCat("First key ",
-                                  tensorstore::QuoteString(tensorstore::StrCat(
-                                      node.key_prefix, entries.front().key)),
-                                  " is less than inclusive_min ",
-                                  tensorstore::QuoteString(inclusive_min_key),
-                                  " specified by parent node"));
+          return absl::DataLossError(absl::StrCat(
+              "First key ",
+              QuoteString(absl::StrCat(node.key_prefix, entries.front().key)),
+              " is less than inclusive_min ", QuoteString(inclusive_min_key),
+              " specified by parent node"));
         }
         return absl::OkStatus();
       },

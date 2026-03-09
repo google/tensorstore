@@ -43,6 +43,7 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
@@ -162,8 +163,8 @@ std::string DescribeForCast(DataType dtype, DimensionIndex rank) {
 
 absl::Status ArrayOriginCastError(tensorstore::span<const Index> shape) {
   return absl::InvalidArgumentError(absl::StrFormat(
-      "Cannot translate array with shape %s to have zero origin.",
-      absl::FormatStreamed(shape)));
+      "Cannot translate array with shape %v to have zero origin.",
+      GenericStringify(shape)));
 }
 
 }  // namespace internal_array
@@ -321,7 +322,7 @@ bool DecodeArray<OriginKind>::Decode(
   }
   if (data_type_constraint.valid() && data_type_constraint != dtype) {
     source.Fail(absl::DataLossError(
-        absl::StrFormat("Expected data type of %s but received: %s",
+        absl::StrFormat("Expected data type of %v but received: %v",
                         absl::FormatStreamed(data_type_constraint),
                         absl::FormatStreamed(dtype))));
     return false;
@@ -350,7 +351,7 @@ bool DecodeArray<OriginKind>::Decode(
       array.byte_strides()[i] = 1;
       if (internal::MulOverflow(num_bytes, array.shape()[i], &num_bytes)) {
         source.Fail(serialization::DecodeError(absl::StrFormat(
-            "Invalid array shape %s", absl::FormatStreamed(array.shape()))));
+            "Invalid array shape %v", GenericStringify(array.shape()))));
         return false;
       }
     }

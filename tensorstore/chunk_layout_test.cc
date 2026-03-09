@@ -49,10 +49,10 @@
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -63,6 +63,7 @@ using ::tensorstore::DimensionIndex;
 using ::tensorstore::DimensionSet;
 using ::tensorstore::Dims;
 using ::tensorstore::dynamic_rank;
+using ::tensorstore::GenericStringify;
 using ::tensorstore::Index;
 using ::tensorstore::IndexDomainBuilder;
 using ::tensorstore::IndexTransformBuilder;
@@ -175,11 +176,10 @@ void TestGridCorrespondence(absl::BitGenRef gen,
     }
   }
 
-  SCOPED_TRACE(tensorstore::StrCat("output_layout=", output_layout));
-  SCOPED_TRACE(tensorstore::StrCat("input_layout=", input_layout));
-  SCOPED_TRACE(
-      tensorstore::StrCat("output_chunk_divisors=",
-                          ::testing::PrintToString(output_chunk_divisors)));
+  SCOPED_TRACE(absl::StrCat("output_layout=", output_layout));
+  SCOPED_TRACE(absl::StrCat("input_layout=", input_layout));
+  SCOPED_TRACE(absl::StrCat("output_chunk_divisors=",
+                            ::testing::PrintToString(output_chunk_divisors)));
   absl::flat_hash_map<HierarchicalGridCell, HierarchicalGridCell>
       output_to_input_cell_map;
   absl::flat_hash_map<HierarchicalGridCell, HierarchicalGridCell>
@@ -191,8 +191,8 @@ void TestGridCorrespondence(absl::BitGenRef gen,
     TENSORSTORE_ASSERT_OK(transform.TransformIndices(input_pos, output_pos));
     auto input_cell = GetHierarchicalGridCell(input_layout, input_pos);
     auto output_cell = GetHierarchicalGridCell(output_layout, output_pos);
-    SCOPED_TRACE(tensorstore::StrCat("orig_output_cell=",
-                                     ::testing::PrintToString(output_cell)));
+    SCOPED_TRACE(absl::StrCat("orig_output_cell=",
+                              ::testing::PrintToString(output_cell)));
     for (Usage usage : ChunkLayout::kUsages) {
       const size_t usage_index = static_cast<size_t>(usage);
       for (DimensionIndex output_dim = 0; output_dim < output_rank;
@@ -202,14 +202,14 @@ void TestGridCorrespondence(absl::BitGenRef gen,
             out_cell, output_chunk_divisors[usage_index][output_dim]);
       }
     }
+    SCOPED_TRACE(absl::StrCat("input_pos=",
+                              GenericStringify(tensorstore::span(input_pos))));
+    SCOPED_TRACE(absl::StrCat("output_pos=",
+                              GenericStringify(tensorstore::span(output_pos))));
     SCOPED_TRACE(
-        tensorstore::StrCat("input_pos=", tensorstore::span(input_pos)));
+        absl::StrCat("input_cell=", ::testing::PrintToString(input_cell)));
     SCOPED_TRACE(
-        tensorstore::StrCat("output_pos=", tensorstore::span(output_pos)));
-    SCOPED_TRACE(tensorstore::StrCat("input_cell=",
-                                     ::testing::PrintToString(input_cell)));
-    SCOPED_TRACE(tensorstore::StrCat("output_cell=",
-                                     ::testing::PrintToString(output_cell)));
+        absl::StrCat("output_cell=", ::testing::PrintToString(output_cell)));
     auto input_it =
         output_to_input_cell_map.emplace(output_cell, input_cell).first;
     auto output_it =
@@ -522,7 +522,7 @@ TEST(ApplyIndexTransformTest, RandomInvertible) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto new_output_layout,
         ApplyInverseIndexTransform(transform, input_layout));
-    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
+    SCOPED_TRACE(absl::StrCat("transform=", transform));
     EXPECT_EQ(output_layout, new_output_layout)
         << "input_layout=" << input_layout;
     TestGridCorrespondence(gen, output_layout, input_layout, transform);
@@ -547,7 +547,7 @@ TEST(ApplyIndexTransformTest, RandomNonInvertibleUnaligned) {
             transform_p);
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto input_layout,
                                      output_layout | transform);
-    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
+    SCOPED_TRACE(absl::StrCat("transform=", transform));
     TestGridCorrespondence(gen, output_layout, input_layout, transform);
   }
 }
@@ -570,7 +570,7 @@ TEST(ApplyIndexTransformTest, RandomNonInvertibleAligned) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto output_layout,
         ApplyInverseIndexTransform(transform, input_layout));
-    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
+    SCOPED_TRACE(absl::StrCat("transform=", transform));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto new_input_layout, ApplyIndexTransform(transform, output_layout));
     EXPECT_EQ(input_layout, new_input_layout)
@@ -839,8 +839,8 @@ TEST(ChunkLayoutConstraintsTest, ApplyIndexTransformRandomInvertible) {
             gen, domain, transform_p);
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inverse_transform,
                                      InverseTransform(transform));
-    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
-    SCOPED_TRACE(tensorstore::StrCat("inverse_transform=", inverse_transform));
+    SCOPED_TRACE(absl::StrCat("transform=", transform));
+    SCOPED_TRACE(absl::StrCat("inverse_transform=", inverse_transform));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto input_constraints,
                                      output_constraints | transform);
 
@@ -1436,9 +1436,8 @@ TEST(ChunkLayoutTest, CopyOnWriteWithRankNotSet) {
                           })));
 }
 
-TEST(ChunkLayoutTest, Ostream) {
+TEST(ChunkLayoutTest, AbslStringify) {
   ChunkLayout a;
-  EXPECT_EQ("{}", tensorstore::StrCat(a));
   EXPECT_EQ("{}", absl::StrCat(a));
   EXPECT_EQ("read", absl::StrCat(Usage::kRead));
   EXPECT_EQ("write", absl::StrCat(Usage::kWrite));
