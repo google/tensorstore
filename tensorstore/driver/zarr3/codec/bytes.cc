@@ -129,13 +129,8 @@ Result<ZarrArrayToBytesCodec::Ptr> BytesCodecSpec::Resolve(
   DimensionIndex rank = decoded.rank;
   if (decoded.codec_chunk_shape) {
     return absl::InvalidArgumentError(absl::StrFormat(
-<<<<<<< v3_structs_and_void
-        "\"bytes\" codec does not support codec_chunk_shape (%s was specified)",
-        absl::FormatStreamed(
-=======
         "\"bytes\" codec does not support codec_chunk_shape (%v was specified)",
         GenericStringify(
->>>>>>> master
             span<const Index>(decoded.codec_chunk_shape->data(), rank))));
   }
   if (decoded.inner_order) {
@@ -143,13 +138,8 @@ Result<ZarrArrayToBytesCodec::Ptr> BytesCodecSpec::Resolve(
     for (DimensionIndex i = 0; i < rank; ++i) {
       if (decoded_inner_order[i] != i) {
         return absl::InvalidArgumentError(absl::StrFormat(
-<<<<<<< v3_structs_and_void
-            "\"bytes\" codec does not support inner_order of %s",
-            absl::FormatStreamed(
-=======
             "\"bytes\" codec does not support inner_order of %v",
             GenericStringify(
->>>>>>> master
                 span<const DimensionIndex>(decoded_inner_order.data(), rank))));
       }
     }
@@ -220,13 +210,8 @@ Result<ZarrArrayToBytesCodec::PreparedState::Ptr> BytesCodec::Prepare(
   for (auto size : decoded_shape) {
     if (internal::MulOverflow(size, bytes, &bytes)) {
       return absl::OutOfRangeError(absl::StrFormat(
-<<<<<<< v3_structs_and_void
-          "Integer overflow computing encoded size of array of shape %s",
-          absl::FormatStreamed(decoded_shape)));
-=======
           "Integer overflow computing encoded size of array of shape %v",
           GenericStringify(decoded_shape)));
->>>>>>> master
     }
   }
   auto state = internal::MakeIntrusivePtr<BytesCodecPreparedState>();

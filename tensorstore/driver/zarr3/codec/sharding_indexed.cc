@@ -61,23 +61,6 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
-<<<<<<< v3_structs_and_void
-absl::Status SubChunkRankMismatch(span<const Index> sub_chunk_shape,
-                                  DimensionIndex outer_rank) {
-  return absl::InvalidArgumentError(absl::StrFormat(
-      "sharding_indexed sub-chunk shape of %s is not compatible with array of "
-      "rank %d",
-      absl::FormatStreamed(sub_chunk_shape), outer_rank));
-}
-
-absl::Status SubChunkShapeMismatch(span<const Index> sub_chunk_shape,
-                                   span<const Index> chunk_shape) {
-  return absl::InvalidArgumentError(absl::StrFormat(
-      "sharding_indexed sub-chunk shape of %s does not evenly divide chunk "
-      "shape of %s",
-      absl::FormatStreamed(sub_chunk_shape),
-      absl::FormatStreamed(chunk_shape)));
-=======
 absl::Status SubChunkRankMismatch(
     tensorstore::span<const Index> sub_chunk_shape, DimensionIndex outer_rank) {
   return absl::InvalidArgumentError(
@@ -93,7 +76,6 @@ absl::Status SubChunkShapeMismatch(
       "sharding_indexed sub-chunk shape of %v does not evenly divide chunk "
       "shape of %v",
       GenericStringify(sub_chunk_shape), GenericStringify(chunk_shape)));
->>>>>>> master
 }
 
 namespace {

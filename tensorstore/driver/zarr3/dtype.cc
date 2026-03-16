@@ -35,10 +35,10 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -108,73 +108,182 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
 
 namespace {
 
+/// Validates that a fields array contains at least one field.
+///
+/// Per the Zarr v3 struct extension, the "fields" array MUST contain at least one field.
+///
+/// \param size The number of fields in the array.
+/// \param type_name The data type name for error messages ("struct" or
+///     "structured").
+/// \error `absl::StatusCode::kInvalidArgument` if `size < 1`.
+absl::Status ValidateFieldsArrayNotEmpty(const ptrdiff_t size,
+                                         const std::string_view type_name) {
+  if (size < 1) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("%s data type requires at least one field", type_name));
+  }
+  return absl::OkStatus();
+}
+
+/// Parses a single struct field.
+///
+/// Expected format: {"name": "field_name", "data_type": "float32"}
+///
+/// Note: Nested struct types and extension data types with configuration
+/// (e.g., numpy.datetime64) are valid per the Zarr v3 spec but are not
+/// currently supported by TensorStore.
+///
+/// \param field_json The JSON object representing a single field.
+/// \param field[out] Filled with the parsed field on success.
+/// \error `absl::StatusCode::kInvalidArgument` if `field_json` is not valid
+absl::Status ParseObjectField(const nlohmann::json& field_json,
+                              ZarrDType::Field& field) {
+  if (!field_json.is_object()) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "struct dtype requires fields as objects, but received: %s",
+        field_json.dump()));
+  }
+  if (!field_json.contains("name") || !field_json.contains("data_type")) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Field object must contain 'name' and 'data_type', but received: %s",
+        field_json.dump()));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal_json::JsonRequireValueAs(field_json["name"], &field.name));
+  if (field.name.empty()) {
+    return absl::InvalidArgumentError("Field 'name' must be non-empty");
+  }
+  const auto& data_type_json = field_json["data_type"];
+  if (data_type_json.is_object()) {
+    return absl::InvalidArgumentError(
+        "Nested struct types and extension data types with configuration are "
+        "not supported by TensorStore. Field 'data_type' must be a string.");
+  }
+  std::string dtype_string;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal_json::JsonRequireValueAs(data_type_json, &dtype_string));
+  TENSORSTORE_ASSIGN_OR_RETURN(static_cast<ZarrDType::BaseDType&>(field),
+                               ParseBaseDType(dtype_string));
+  return absl::OkStatus();
+}
+
+/// Parses a field in the legacy tuple format.
+///
+/// Expected format: ["name", "dtype"] or ["name", "dtype", shape]
+/// Used by "structured" (legacy format) and bare array format.
+///
+/// \param field_json The JSON array representing a single field.
+/// \param field[out] Filled with the parsed field on success.
+/// \error `absl::StatusCode::kInvalidArgument` if `field_json` is not a valid
+///     field tuple.
+absl::Status ParseTupleField(const nlohmann::json& field_json,
+                             ZarrDType::Field& field) {
+  if (!field_json.is_array()) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "structured dtype requires fields as arrays, but received: %s",
+        field_json.dump()));
+  }
+  return internal_json::JsonParseArray(
+      field_json,
+      [&](ptrdiff_t size) {
+        if (size < 2 || size > 3) {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Expected array of size 2 or 3, but received: %s",
+              field_json.dump()));
+        }
+        return absl::OkStatus();
+      },
+      [&](const ::nlohmann::json& element, ptrdiff_t i) -> absl::Status {
+        switch (i) {
+          case 0:
+            if (internal_json::JsonRequireValueAs(element, &field.name).ok()) {
+              if (!field.name.empty()) return absl::OkStatus();
+            }
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Expected non-empty string, but received: %s", element.dump()));
+          case 1: {
+            std::string dtype_string;
+            TENSORSTORE_RETURN_IF_ERROR(
+                internal_json::JsonRequireValueAs(element, &dtype_string));
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                static_cast<ZarrDType::BaseDType&>(field),
+                ParseBaseDType(dtype_string));
+            return absl::OkStatus();
+          }
+          case 2: {
+            return internal_json::JsonParseArray(
+                element,
+                [&](ptrdiff_t size) {
+                  field.outer_shape.resize(size);
+                  return absl::OkStatus();
+                },
+                [&](const ::nlohmann::json& dim_json, ptrdiff_t j) {
+                  return internal_json::JsonRequireInteger(
+                      dim_json, &field.outer_shape[j], /*strict=*/true, 1,
+                      kInfIndex);
+                });
+          }
+          default:
+            ABSL_UNREACHABLE();  // COV_NF_LINE
+        }
+      });
+}
+
+/// Parses the fields array for "struct" dtype.
+///
+/// Each field must be an object with "name" and "data_type" keys.
+///
+/// \param fields_json The JSON array of field objects.
+/// \param out[out] Filled with the parsed fields on success.
+/// \error `absl::StatusCode::kInvalidArgument` if the fields array is empty or
+///     contains invalid field objects.
+absl::Status ParseStructFieldsArray(const nlohmann::json& fields_json,
+                                    ZarrDType& out) {
+  out.has_fields = true;
+  return internal_json::JsonParseArray(
+      fields_json,
+      [&](ptrdiff_t size) {
+        TENSORSTORE_RETURN_IF_ERROR(ValidateFieldsArrayNotEmpty(size, "struct"));
+        out.fields.resize(size);
+        return absl::OkStatus();
+      },
+      [&](const ::nlohmann::json& field_json, ptrdiff_t field_i) {
+        return ParseObjectField(field_json, out.fields[field_i]);
+      });
+}
+
+/// Parses the fields array for "structured" dtype or bare array format (legacy).
+///
+/// Each field must be a tuple: ["name", "dtype"] or ["name", "dtype", shape].
+///
+/// \param fields_json The JSON array of field tuples.
+/// \param out[out] Filled with the parsed fields on success.
+/// \error `absl::StatusCode::kInvalidArgument` if the fields array is empty or
+///     contains invalid field tuples.
+absl::Status ParseStructuredFieldsArray(const nlohmann::json& fields_json,
+                                        ZarrDType& out) {
+  out.has_fields = true;
+  return internal_json::JsonParseArray(
+      fields_json,
+      [&](ptrdiff_t size) {
+        TENSORSTORE_RETURN_IF_ERROR(
+            ValidateFieldsArrayNotEmpty(size, "structured"));
+        out.fields.resize(size);
+        return absl::OkStatus();
+      },
+      [&](const ::nlohmann::json& field_json, ptrdiff_t field_i) {
+        return ParseTupleField(field_json, out.fields[field_i]);
+      });
+}
+
 /// Parses a zarr metadata "dtype" JSON specification, but does not compute any
 /// derived values, and does not check for duplicate field names.
 ///
 /// This is called by `ParseDType`.
 ///
 /// \param value The zarr metadata "dtype" JSON specification.
-/// \param out[out] Must be non-null.  Filled with the parsed dtype on success.
-/// \error `absl::StatusCode::kInvalidArgument' if `value` is invalid.
-// Helper to parse fields array (used by both array format and object format)
-absl::Status ParseFieldsArray(const nlohmann::json& fields_json,
-                               ZarrDType& out) {
-  out.has_fields = true;
-  return internal_json::JsonParseArray(
-      fields_json,
-      [&](ptrdiff_t size) {
-        out.fields.resize(size);
-        return absl::OkStatus();
-      },
-      [&](const ::nlohmann::json& x, ptrdiff_t field_i) {
-        auto& field = out.fields[field_i];
-        return internal_json::JsonParseArray(
-            x,
-            [&](ptrdiff_t size) {
-              if (size < 2 || size > 3) {
-                return absl::InvalidArgumentError(absl::StrFormat(
-                    "Expected array of size 2 or 3, but received: %s",
-                    x.dump()));
-              }
-              return absl::OkStatus();
-            },
-            [&](const ::nlohmann::json& v, ptrdiff_t i) {
-              switch (i) {
-                case 0:
-                  if (internal_json::JsonRequireValueAs(v, &field.name).ok()) {
-                    if (!field.name.empty()) return absl::OkStatus();
-                  }
-                  return absl::InvalidArgumentError(absl::StrFormat(
-                      "Expected non-empty string, but received: %s", v.dump()));
-                case 1: {
-                  std::string dtype_string;
-                  TENSORSTORE_RETURN_IF_ERROR(
-                      internal_json::JsonRequireValueAs(v, &dtype_string));
-                  TENSORSTORE_ASSIGN_OR_RETURN(
-                      static_cast<ZarrDType::BaseDType&>(field),
-                      ParseBaseDType(dtype_string));
-                  return absl::OkStatus();
-                }
-                case 2: {
-                  return internal_json::JsonParseArray(
-                      v,
-                      [&](ptrdiff_t size) {
-                        field.outer_shape.resize(size);
-                        return absl::OkStatus();
-                      },
-                      [&](const ::nlohmann::json& x, ptrdiff_t j) {
-                        return internal_json::JsonRequireInteger(
-                            x, &field.outer_shape[j], /*strict=*/true, 1,
-                            kInfIndex);
-                      });
-                }
-                default:
-                  ABSL_UNREACHABLE();  // COV_NF_LINE
-              }
-            });
-      });
-}
-
+/// \returns The parsed ZarrDType on success.
+/// \error `absl::StatusCode::kInvalidArgument` if `value` is invalid.
 Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
   ZarrDType out;
   if (value.is_string()) {
@@ -193,14 +302,26 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
       std::string type_name;
       TENSORSTORE_RETURN_IF_ERROR(
           internal_json::JsonRequireValueAs(value["name"], &type_name));
-      if (type_name == "structured") {
+      if (type_name == "struct") {
+        // Zarr v3 spec format: fields must be objects
         const auto& config = value["configuration"];
         if (!config.is_object() || !config.contains("fields")) {
           return absl::InvalidArgumentError(
-              "Structured data type requires 'configuration' object with "
+              "struct data type requires 'configuration' object with "
               "'fields' array");
         }
-        TENSORSTORE_RETURN_IF_ERROR(ParseFieldsArray(config["fields"], out));
+        TENSORSTORE_RETURN_IF_ERROR(ParseStructFieldsArray(config["fields"], out));
+        return out;
+      }
+      if (type_name == "structured") {
+        // Legacy format: fields must be tuples
+        const auto& config = value["configuration"];
+        if (!config.is_object() || !config.contains("fields")) {
+          return absl::InvalidArgumentError(
+              "structured data type requires 'configuration' object with "
+              "'fields' array");
+        }
+        TENSORSTORE_RETURN_IF_ERROR(ParseStructuredFieldsArray(config["fields"], out));
         return out;
       }
       if (type_name == "raw_bytes") {
@@ -244,8 +365,9 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
         "but received: %s",
         value.dump()));
   }
-  // Handle array format: [["field1", "type1"], ["field2", "type2"], ...]
-  TENSORSTORE_RETURN_IF_ERROR(ParseFieldsArray(value, out));
+  // Handle bare array format: [["field1", "type1"], ["field2", "type2"], ...]
+  // This is the legacy format, so fields must be tuples
+  TENSORSTORE_RETURN_IF_ERROR(ParseStructuredFieldsArray(value, out));
   return out;
 }
 
@@ -302,12 +424,10 @@ Result<ZarrDType> ParseDType(const nlohmann::json& value) {
 }
 
 void to_json(::nlohmann::json& out, const ZarrDType::Field& field) {
-  using array_t = ::nlohmann::json::array_t;
-  if (field.outer_shape.empty()) {
-    out = array_t{field.name, field.encoded_dtype};
-  } else {
-    out = array_t{field.name, field.encoded_dtype, field.outer_shape};
-  }
+  // Zarr v3 struct extension format: {"name": "x", "data_type": "float32"}
+  out = ::nlohmann::json::object();
+  out["name"] = field.name;
+  out["data_type"] = field.encoded_dtype;
 }
 
 void to_json(::nlohmann::json& out,  // NOLINT
@@ -315,7 +435,11 @@ void to_json(::nlohmann::json& out,  // NOLINT
   if (!dtype.has_fields) {
     out = dtype.fields[0].encoded_dtype;
   } else {
-    out = dtype.fields;
+    // Zarr v3 struct extension format: {"name": "struct", "configuration": {"fields": [...]}}
+    out = ::nlohmann::json::object();
+    out["name"] = "struct";
+    out["configuration"] = ::nlohmann::json::object();
+    out["configuration"]["fields"] = dtype.fields;
   }
 }
 

@@ -388,11 +388,7 @@ class DataCacheBase
     auto new_key = new_metadata.GetCompatibilityKey();
     if (existing_key == new_key) return absl::OkStatus();
     return absl::FailedPreconditionError(absl::StrFormat(
-<<<<<<< v3_structs_and_void
-        "Updated zarr metadata %s is incompatible with existing metadata %s",
-=======
         "Updated zarr metadata %v is incompatible with existing metadata %v",
->>>>>>> master
         new_key, existing_key));
   }
 
@@ -604,32 +600,19 @@ class DataCacheBase
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
     if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
-<<<<<<< v3_structs_and_void
-      std::string key = tensorstore::StrCat(key_prefix_, "c");
-      for (DimensionIndex i = 0; i < metadata.rank; ++i) {
-        tensorstore::StrAppend(
-=======
       std::string key = absl::StrCat(key_prefix_, "c");
       for (DimensionIndex i = 0; i < cell_indices.size(); ++i) {
         absl::StrAppend(
->>>>>>> master
             &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
             cell_indices[i]);
       }
       return key;
     }
     // Use "0" for rank 0 as a special case.
-<<<<<<< v3_structs_and_void
-    std::string key = tensorstore::StrCat(
-        key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
-    for (DimensionIndex i = 1; i < metadata.rank; ++i) {
-      tensorstore::StrAppend(
-=======
     std::string key =
         absl::StrCat(key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
     for (DimensionIndex i = 1; i < cell_indices.size(); ++i) {
       absl::StrAppend(
->>>>>>> master
           &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
           cell_indices[i]);
     }

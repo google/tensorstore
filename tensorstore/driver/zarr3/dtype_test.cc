@@ -27,8 +27,8 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/testing/json_gtest.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -98,8 +98,6 @@ void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {
   SCOPED_TRACE(json.dump());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(json));
   EXPECT_EQ(expected, dtype);
-  // Check round trip.
-  EXPECT_EQ(json, ::nlohmann::json(dtype));
 }
 
 TEST(ParseDType, SimpleStringBool) {
@@ -281,7 +279,7 @@ TEST(ChooseBaseDTypeTest, RoundTrip) {
       dtype_v<tensorstore::dtypes::char_t>,
   };
   for (auto dtype : kSupportedDataTypes) {
-    SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype));
+    SCOPED_TRACE(absl::StrCat("dtype=", dtype));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_zarr_dtype,
                                      ChooseBaseDType(dtype));
     // byte_t and char_t both encode as r8, which parses back to byte_t
@@ -306,6 +304,276 @@ TEST(ChooseBaseDTypeTest, Invalid) {
   EXPECT_THAT(ChooseBaseDType(dtype_v<::tensorstore::dtypes::string_t>),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Data type not supported: string")));
+}
+
+TEST(ParseDType, StructNameNewFormat) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                  {{"name", "y"}, {"data_type", "int16"}}})}}}};
+
+  ZarrDType expected{
+      /*.has_fields=*/true,
+      /*.fields=*/
+      {
+          {{
+               /*.encoded_dtype=*/"uint8",
+               /*.dtype=*/dtype_v<uint8_t>,
+               /*.flexible_shape=*/{},
+           },
+           /*.outer_shape=*/{},
+           /*.name=*/"x",
+           /*.field_shape=*/{},
+           /*.num_inner_elements=*/1,
+           /*.byte_offset=*/0,
+           /*.num_bytes=*/1},
+          {{
+               /*.encoded_dtype=*/"int16",
+               /*.dtype=*/dtype_v<int16_t>,
+               /*.flexible_shape=*/{},
+           },
+           /*.outer_shape=*/{},
+           /*.name=*/"y",
+           /*.field_shape=*/{},
+           /*.num_inner_elements=*/1,
+           /*.byte_offset=*/1,
+           /*.num_bytes=*/2},
+      },
+      /*.bytes_per_outer_element=*/3,
+  };
+
+  CheckDType(input, expected);
+
+  // Verify output uses Zarr v3 spec format
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(input));
+  ::nlohmann::json output = dtype;
+  EXPECT_EQ(output["name"], "struct");
+  EXPECT_TRUE(output.contains("configuration"));
+  EXPECT_TRUE(output["configuration"]["fields"].is_array());
+  EXPECT_EQ(output["configuration"]["fields"].size(), 2);
+  EXPECT_EQ(output["configuration"]["fields"][0]["name"], "x");
+  EXPECT_EQ(output["configuration"]["fields"][0]["data_type"], "uint8");
+}
+
+TEST(ParseDType, StructuredNameLegacy) {
+  // "structured" (legacy) with tuple format fields
+  ::nlohmann::json input = {
+      {"name", "structured"},
+      {"configuration",
+       {{"fields", ::nlohmann::json::array({{"a", "float32"}})}}}};
+
+  ZarrDType expected{
+      /*.has_fields=*/true,
+      /*.fields=*/
+      {
+          {{
+               /*.encoded_dtype=*/"float32",
+               /*.dtype=*/dtype_v<tensorstore::dtypes::float32_t>,
+               /*.flexible_shape=*/{},
+           },
+           /*.outer_shape=*/{},
+           /*.name=*/"a",
+           /*.field_shape=*/{},
+           /*.num_inner_elements=*/1,
+           /*.byte_offset=*/0,
+           /*.num_bytes=*/4},
+      },
+      /*.bytes_per_outer_element=*/4,
+  };
+
+  CheckDType(input, expected);
+}
+
+TEST(ParseDType, ObjectFieldFormat) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "field1"}, {"data_type", "uint32"}}})}}}};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(input));
+  ASSERT_EQ(dtype.fields.size(), 1);
+  EXPECT_EQ(dtype.fields[0].name, "field1");
+  EXPECT_EQ(dtype.fields[0].encoded_dtype, "uint32");
+  EXPECT_EQ(dtype.fields[0].dtype, dtype_v<uint32_t>);
+}
+
+TEST(ParseDType, StructuredWithTupleFields) {
+  // "structured" (legacy) requires tuple format fields
+  ::nlohmann::json input = {{"name", "structured"},
+                            {"configuration",
+                             {{"fields",
+                               ::nlohmann::json::array({{"field1", "uint32"}})}}}};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(input));
+  ASSERT_EQ(dtype.fields.size(), 1);
+  EXPECT_EQ(dtype.fields[0].name, "field1");
+  EXPECT_EQ(dtype.fields[0].dtype, dtype_v<uint32_t>);
+}
+
+TEST(ParseDType, StructWithTupleFieldsRejected) {
+  // "struct" (new) must NOT accept tuple format fields
+  ::nlohmann::json input = {{"name", "struct"},
+                            {"configuration",
+                             {{"fields",
+                               ::nlohmann::json::array({{"field1", "uint32"}})}}}};
+
+  EXPECT_THAT(ParseDType(input),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("struct dtype requires fields as objects")));
+}
+
+TEST(ParseDType, StructuredWithObjectFieldsRejected) {
+  // "structured" (legacy) must NOT accept object format fields
+  ::nlohmann::json input = {
+      {"name", "structured"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "field1"}, {"data_type", "uint32"}}})}}}};
+
+  EXPECT_THAT(ParseDType(input),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("structured dtype requires fields as arrays")));
+}
+
+TEST(ParseDType, StructWithMixedFieldsRejected) {
+  // "struct" with mixed formats should fail on the tuple field
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "obj_field"}, {"data_type", "int8"}},
+                                  {"tuple_field", "int16"}})}}}};
+
+  EXPECT_THAT(ParseDType(input),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("struct dtype requires fields as objects")));
+}
+
+TEST(ParseDType, ObjectFieldMissingName) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields", ::nlohmann::json::array({{{"data_type", "uint8"}}})}}}};
+
+  EXPECT_THAT(
+      ParseDType(input),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Field object must contain 'name' and 'data_type'")));
+}
+
+TEST(ParseDType, ObjectFieldMissingDataType) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields", ::nlohmann::json::array({{{"name", "x"}}})}}}};
+
+  EXPECT_THAT(
+      ParseDType(input),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Field object must contain 'name' and 'data_type'")));
+}
+
+TEST(ParseDType, ObjectFieldEmptyName) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", ""}, {"data_type", "uint8"}}})}}}};
+
+  EXPECT_THAT(ParseDType(input),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Field 'name' must be non-empty")));
+}
+
+TEST(ParseDType, StructEmptyFieldsRejected) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration", {{"fields", ::nlohmann::json::array()}}}};
+
+  EXPECT_THAT(ParseDType(input),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("struct data type requires at least one field")));
+}
+
+TEST(ParseDType, StructuredEmptyFieldsRejected) {
+  ::nlohmann::json input = {
+      {"name", "structured"},
+      {"configuration", {{"fields", ::nlohmann::json::array()}}}};
+
+  EXPECT_THAT(
+      ParseDType(input),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("structured data type requires at least one field")));
+}
+
+TEST(ParseDType, BareArrayEmptyFieldsRejected) {
+  ::nlohmann::json input = ::nlohmann::json::array();
+
+  EXPECT_THAT(
+      ParseDType(input),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("structured data type requires at least one field")));
+}
+
+TEST(ParseDType, NestedStructNotSupported) {
+  // Nested struct types are valid per Zarr v3 spec but not supported by
+  // TensorStore
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array(
+             {{{"name", "point"},
+               {"data_type",
+                {{"name", "struct"},
+                 {"configuration",
+                  {{"fields",
+                    ::nlohmann::json::array(
+                        {{{"name", "x"}, {"data_type", "float32"}},
+                         {{"name", "y"}, {"data_type", "float32"}}})}}}}}}})}}}};
+
+  EXPECT_THAT(ParseDType(input),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Nested struct types and extension data types "
+                                 "with configuration are not supported")));
+}
+
+TEST(ParseDType, ExtensionDataTypeWithConfigNotSupported) {
+  // Extension data types with configuration (e.g., numpy.datetime64) are valid
+  // per Zarr v3 spec but not supported by TensorStore
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array(
+             {{{"name", "timestamp"},
+               {"data_type",
+                {{"name", "numpy.datetime64"},
+                 {"configuration", {{"unit", "s"}, {"scale_factor", 1}}}}}}})}}}};
+
+  EXPECT_THAT(ParseDType(input),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Nested struct types and extension data types "
+                                 "with configuration are not supported")));
+}
+
+TEST(ParseDType, SerializationUsesNewFormat) {
+  ::nlohmann::json legacy_input =
+      ::nlohmann::json::array_t{{"x", "uint8"}, {"y", "int16"}};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(legacy_input));
+
+  ::nlohmann::json output = dtype;
+  EXPECT_EQ(output["name"], "struct");
+  EXPECT_TRUE(output.contains("configuration"));
+  EXPECT_TRUE(output["configuration"]["fields"].is_array());
+  EXPECT_EQ(output["configuration"]["fields"].size(), 2);
+  EXPECT_TRUE(output["configuration"]["fields"][0].is_object());
+  EXPECT_EQ(output["configuration"]["fields"][0]["name"], "x");
+  EXPECT_EQ(output["configuration"]["fields"][0]["data_type"], "uint8");
 }
 
 }  // namespace

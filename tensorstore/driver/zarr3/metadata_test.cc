@@ -649,4 +649,102 @@ TEST(FillValueTest, Float64) {
       /*other_nan_bits=*/0x7ff8000000000001);
 }
 
+TEST(FillValueTest, StructuredObjectFormat) {
+  // Create a structured dtype with two fields
+  ZarrDType dtype;
+  dtype.has_fields = true;
+  dtype.fields.resize(2);
+  dtype.fields[0].name = "x";
+  dtype.fields[0].dtype = dtype_v<uint8_t>;
+  dtype.fields[0].encoded_dtype = "uint8";
+  dtype.fields[0].byte_offset = 0;
+  dtype.fields[0].num_bytes = 1;
+  dtype.fields[0].num_inner_elements = 1;
+  dtype.fields[1].name = "y";
+  dtype.fields[1].dtype = dtype_v<int16_t>;
+  dtype.fields[1].encoded_dtype = "int16";
+  dtype.fields[1].byte_offset = 1;
+  dtype.fields[1].num_bytes = 2;
+  dtype.fields[1].num_inner_elements = 1;
+  dtype.bytes_per_outer_element = 3;
+
+  FillValueJsonBinder binder(dtype);
+
+  // Test parsing object format
+  ::nlohmann::json object_json = {{"x", 42}, {"y", -100}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto fill_values,
+      jb::FromJson<std::vector<SharedArray<const void>>>(object_json, binder));
+  ASSERT_EQ(fill_values.size(), 2);
+  EXPECT_EQ(*static_cast<const uint8_t*>(fill_values[0].data()), 42);
+  EXPECT_EQ(*static_cast<const int16_t*>(fill_values[1].data()), -100);
+
+  // Test serialization uses object format
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto output_json,
+                                   jb::ToJson(fill_values, binder));
+  EXPECT_TRUE(output_json.is_object());
+  EXPECT_EQ(output_json["x"], 42);
+  EXPECT_EQ(output_json["y"], -100);
+}
+
+TEST(FillValueTest, StructuredLegacyArrayFormat) {
+  // Create a structured dtype with two fields
+  ZarrDType dtype;
+  dtype.has_fields = true;
+  dtype.fields.resize(2);
+  dtype.fields[0].name = "a";
+  dtype.fields[0].dtype = dtype_v<int32_t>;
+  dtype.fields[0].encoded_dtype = "int32";
+  dtype.fields[0].byte_offset = 0;
+  dtype.fields[0].num_bytes = 4;
+  dtype.fields[0].num_inner_elements = 1;
+  dtype.fields[1].name = "b";
+  dtype.fields[1].dtype = dtype_v<float32_t>;
+  dtype.fields[1].encoded_dtype = "float32";
+  dtype.fields[1].byte_offset = 4;
+  dtype.fields[1].num_bytes = 4;
+  dtype.fields[1].num_inner_elements = 1;
+  dtype.bytes_per_outer_element = 8;
+
+  FillValueJsonBinder binder(dtype);
+
+  // Test parsing legacy array format
+  ::nlohmann::json array_json = {123, 1.5};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto fill_values,
+      jb::FromJson<std::vector<SharedArray<const void>>>(array_json, binder));
+  ASSERT_EQ(fill_values.size(), 2);
+  EXPECT_EQ(*static_cast<const int32_t*>(fill_values[0].data()), 123);
+  EXPECT_FLOAT_EQ(*static_cast<const float32_t*>(fill_values[1].data()), 1.5f);
+}
+
+TEST(FillValueTest, StructuredObjectOmittedFieldsError) {
+  // Create a structured dtype with two fields
+  ZarrDType dtype;
+  dtype.has_fields = true;
+  dtype.fields.resize(2);
+  dtype.fields[0].name = "present";
+  dtype.fields[0].dtype = dtype_v<int32_t>;
+  dtype.fields[0].encoded_dtype = "int32";
+  dtype.fields[0].byte_offset = 0;
+  dtype.fields[0].num_bytes = 4;
+  dtype.fields[0].num_inner_elements = 1;
+  dtype.fields[1].name = "omitted";
+  dtype.fields[1].dtype = dtype_v<int32_t>;
+  dtype.fields[1].encoded_dtype = "int32";
+  dtype.fields[1].byte_offset = 4;
+  dtype.fields[1].num_bytes = 4;
+  dtype.fields[1].num_inner_elements = 1;
+  dtype.bytes_per_outer_element = 8;
+
+  FillValueJsonBinder binder(dtype);
+
+  // Test parsing object format with only one field specified
+  ::nlohmann::json partial_json = {{"present", 42}};
+  EXPECT_THAT(
+      jb::FromJson<std::vector<SharedArray<const void>>>(partial_json, binder),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Missing required field \"omitted\"")));
+}
+
 }  // namespace

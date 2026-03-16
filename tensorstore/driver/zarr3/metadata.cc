@@ -116,13 +116,8 @@ std::string GetSupportedDataTypes() {
 absl::Status ValidateDataType(DataType dtype) {
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
     return absl::InvalidArgumentError(absl::StrFormat(
-<<<<<<< v3_structs_and_void
-        "%v data type is not one of the supported data types: %s",
-        dtype, GetSupportedDataTypes()));
-=======
         "%v data type is not one of the supported data types: %s", dtype,
         GetSupportedDataTypes()));
->>>>>>> master
   }
   return absl::OkStatus();
 }
@@ -322,9 +317,21 @@ absl::Status FillValueJsonBinder::operator()(
           DecodeSingle(*j, dtype.fields[0].dtype, (*obj)[0]));
     }
   } else {
-    // For structured types, handle both array format and base64-encoded string
-    if (j->is_string()) {
-      // Decode base64-encoded fill value for entire struct
+    // For structured types, handle object, array, and base64-encoded string
+    if (j->is_object()) {
+      // Zarr v3 struct extension format: {"field_name": value, ...}
+      for (size_t i = 0; i < dtype.fields.size(); ++i) {
+        const auto& field_name = dtype.fields[i].name;
+        if (j->contains(field_name)) {
+          TENSORSTORE_RETURN_IF_ERROR(
+              DecodeSingle((*j)[field_name], dtype.fields[i].dtype, (*obj)[i]));
+        } else {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Missing required field \"%s\" in fill_value object", field_name));
+        }
+      }
+    } else if (j->is_string()) {
+      // Legacy: decode base64-encoded fill value for entire struct
       std::string b64_decoded;
       if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
         return absl::InvalidArgumentError(absl::StrFormat(
@@ -349,6 +356,7 @@ absl::Status FillValueJsonBinder::operator()(
         (*obj)[i] = std::move(arr);
       }
     } else if (j->is_array()) {
+      // Legacy: array format [value1, value2, ...]
       if (j->size() != dtype.fields.size()) {
         return internal_json::ExpectedError(
             *j, absl::StrFormat("array of size %d", dtype.fields.size()));
@@ -358,8 +366,8 @@ absl::Status FillValueJsonBinder::operator()(
             DecodeSingle((*j)[i], dtype.fields[i].dtype, (*obj)[i]));
       }
     } else {
-      return internal_json::ExpectedError(*j,
-                                          "array or base64-encoded string");
+      return internal_json::ExpectedError(
+          *j, "object, array, or base64-encoded string");
     }
   }
   return absl::OkStatus();
@@ -372,13 +380,13 @@ absl::Status FillValueJsonBinder::operator()(
   if (dtype.fields.size() == 1) {
     return EncodeSingle((*obj)[0], dtype.fields[0].dtype, *j);
   }
-  // Structured fill value
-  *j = ::nlohmann::json::array();
+  // Structured fill value - use object format per spec
+  *j = ::nlohmann::json::object();
   for (size_t i = 0; i < dtype.fields.size(); ++i) {
     ::nlohmann::json item;
     TENSORSTORE_RETURN_IF_ERROR(
         EncodeSingle((*obj)[i], dtype.fields[i].dtype, item));
-    j->push_back(std::move(item));
+    (*j)[dtype.fields[i].name] = std::move(item);
   }
   return absl::OkStatus();
 }
@@ -484,17 +492,10 @@ constexpr auto UnknownExtensionAttributesJsonBinder =
             continue;
           }
         }
-<<<<<<< v3_structs_and_void
-        return absl::InvalidArgumentError(absl::StrFormat(
-            "Unsupported metadata field %v is not marked "
-            "{\"must_understand\": false}",
-            tensorstore::QuoteString(key)));
-=======
         return absl::InvalidArgumentError(
             absl::StrFormat("Unsupported metadata field %v is not marked "
                             "{\"must_understand\": false}",
                             QuoteString(key)));
->>>>>>> master
       }
       return absl::OkStatus();
     });
@@ -1062,24 +1063,15 @@ CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata) {
 }
 
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
-<<<<<<< v3_structs_and_void
                                     size_t field_index, const Schema& schema) {
   auto info = GetSpecRankAndFieldInfo(metadata, field_index);
   const auto& field = metadata.data_type.fields[field_index];
 
   if (!RankConstraint::EqualOrUnspecified(schema.rank(), info.chunked_rank)) {
     return absl::FailedPreconditionError(absl::StrFormat(
-        "Rank specified by schema (%d) does not match rank specified by "
-        "metadata (%d)",
-        schema.rank(), info.chunked_rank));
-=======
-                                    const Schema& schema) {
-  if (!RankConstraint::EqualOrUnspecified(metadata.rank, schema.rank())) {
-    return absl::FailedPreconditionError(absl::StrFormat(
         "Rank specified by schema (%v) does not match rank specified by "
         "metadata (%v)",
-        schema.rank(), metadata.rank));
->>>>>>> master
+        schema.rank(), info.chunked_rank));
   }
 
   if (schema.domain().valid()) {
@@ -1094,17 +1086,10 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
   }
 
   if (auto dtype = schema.dtype();
-<<<<<<< v3_structs_and_void
       !IsPossiblySameDataType(field.dtype, dtype)) {
     return absl::FailedPreconditionError(absl::StrFormat(
         "data_type from metadata (%v) does not match dtype in schema (%v)",
         field.dtype, dtype));
-=======
-      !IsPossiblySameDataType(metadata.data_type, dtype)) {
-    return absl::FailedPreconditionError(absl::StrFormat(
-        "data_type from metadata (%v) does not match dtype in schema (%v)",
-        metadata.data_type, dtype));
->>>>>>> master
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
@@ -1129,21 +1114,15 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
         tensorstore::MakeCopy(std::move(broadcast_fill_value),
                               skip_repeated_elements, field.dtype));
     if (!AreArraysIdenticallyEqual(converted_fill_value, fill_value)) {
-<<<<<<< v3_structs_and_void
-      return absl::FailedPreconditionError(absl::StrFormat(
-          "Invalid fill_value: schema requires fill value of %s, but metadata "
-          "specifies fill value of %s",
-          absl::FormatStreamed(schema_fill_value),
-          absl::FormatStreamed(fill_value)));
-=======
       auto binder = FillValueJsonBinder{metadata.data_type};
-      auto schema_json = jb::ToJson(converted_fill_value, binder).value();
-      auto metadata_json = jb::ToJson(metadata.fill_value, binder).value();
+      std::vector<SharedArray<const void>> schema_fill_vec{converted_fill_value};
+      std::vector<SharedArray<const void>> metadata_fill_vec{fill_value};
+      auto schema_json = jb::ToJson(schema_fill_vec, binder).value();
+      auto metadata_json = jb::ToJson(metadata_fill_vec, binder).value();
       return absl::FailedPreconditionError(absl::StrFormat(
           "Invalid fill_value: schema requires fill value of %s, but metadata "
           "specifies fill value of %s",
           schema_json.dump(), metadata_json.dump()));
->>>>>>> master
     }
   }
 
