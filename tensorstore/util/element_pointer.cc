@@ -16,15 +16,15 @@
 
 #include <string>
 
+#include "absl/strings/str_cat.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_element_pointer {
 
 std::string DescribeForCast(DataType dtype) {
-  return tensorstore::StrCat("pointer with ",
-                             StaticCastTraits<DataType>::Describe(dtype));
+  return absl::StrCat("pointer with ",
+                      StaticCastTraits<DataType>::Describe(dtype));
 }
 
 }  // namespace internal_element_pointer

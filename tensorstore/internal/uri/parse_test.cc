@@ -12,158 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 
 #include <optional>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/status/status.h"
-#include "tensorstore/internal/ascii_set.h"
-#include "tensorstore/internal/testing/on_windows.h"
-#include "tensorstore/util/status_testutil.h"
 
-using ::tensorstore::IsOkAndHolds;
-using ::tensorstore::StatusIs;
-using ::tensorstore::internal::AsciiSet;
-using ::tensorstore::internal::FileUriToOsPath;
-using ::tensorstore::internal::HostPort;
-using ::tensorstore::internal::OsPathToFileUri;
-using ::tensorstore::internal::ParseGenericUri;
-using ::tensorstore::internal::PercentDecode;
-using ::tensorstore::internal::PercentEncodeKvStoreUriPath;
-using ::tensorstore::internal::PercentEncodeReserved;
-using ::tensorstore::internal::PercentEncodeUriComponent;
-using ::tensorstore::internal::PercentEncodeUriPath;
-using ::tensorstore::internal::SplitHostPort;
-using ::tensorstore::internal_testing::OnWindows;
-using ::testing::StrEq;
-
-namespace tensorstore::internal {
-
-// Avoid a public implementation operator==.
-inline bool operator==(const HostPort& a, const HostPort& b) {
-  return std::tie(a.host, a.port) == std::tie(b.host, b.port);
-}
-
-}  // namespace tensorstore::internal
+using ::tensorstore::internal_uri::HostPort;
+using ::tensorstore::internal_uri::ParseGenericUri;
+using ::tensorstore::internal_uri::SplitHostPort;
 
 namespace {
-
-std::string Get7BitAscii() {
-  std::string tmp;
-  tmp.reserve(128);
-  for (int i = 0; i < 128; i++) {
-    tmp.push_back(static_cast<char>(i));
-  }
-  return tmp;
-}
-
-TEST(PercentDecodeTest, NoOp) {
-  std::string_view s = "abcd %zz %%";
-  EXPECT_THAT(PercentDecode(s), StrEq(s));
-}
-
-TEST(PercentDecodeTest, EscapeSequenceInMiddle) {
-  EXPECT_THAT(PercentDecode("abc%20efg"), StrEq("abc efg"));
-}
-
-TEST(PercentDecodeTest, EscapeSequenceAtEnd) {
-  EXPECT_THAT(PercentDecode("abc%20"), StrEq("abc "));
-}
-
-TEST(PercentDecodeTest, EscapeSequenceLetter) {
-  EXPECT_THAT(PercentDecode("abc%fF"), StrEq("abc\xff"));
-}
-
-TEST(PercentEncodeReservedTest, Basic) {
-  constexpr AsciiSet kMyUnreservedChars{
-      "abcdefghijklmnopqrstuvwxyz"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "0123456789/."};
-
-  std::string_view s =
-      "abcdefghijklmnopqrstuvwxyz"
-      "/ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "/01234.56789";
-
-  EXPECT_THAT(PercentEncodeReserved(s, kMyUnreservedChars), StrEq(s));
-
-  std::string_view t = "-_!~*'()";
-
-  EXPECT_THAT(PercentEncodeReserved(t, kMyUnreservedChars),
-              StrEq("%2D%5F%21%7E%2A%27%28%29"));
-}
-
-TEST(PercentEncodeUriPathTest, Ascii) {
-  EXPECT_THAT(
-      PercentEncodeUriPath(Get7BitAscii()),
-      StrEq("%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F%10%11%12%13%14%"
-            "15%16%17%18%19%1A%1B%1C%1D%1E%1F%20!%22%23$%25&'()*+,-./"
-            "0123456789:;%3C=%3E%3F@ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%5D%5E_%"
-            "60abcdefghijklmnopqrstuvwxyz%7B%7C%7D~%7F"));
-}
-
-TEST(PercentEncodeUriPathTest, NoOp) {
-  std::string_view s =
-      "abcdefghijklmnopqrstuvwxyz"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "0123456789"
-      "-_.!~*'():@&=+$,;/";
-  EXPECT_THAT(PercentEncodeUriPath(s), StrEq(s));
-}
-
-TEST(PercentEncodeUriPathTest, NonAscii) {
-  EXPECT_THAT(PercentEncodeUriPath("\xff"), StrEq("%FF"));
-}
-
-TEST(PercentEncodeKvStoreUriPathTest, Ascii) {
-  EXPECT_THAT(
-      PercentEncodeKvStoreUriPath(Get7BitAscii()),
-      StrEq("%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F%10%11%12%13%14%"
-            "15%16%17%18%19%1A%1B%1C%1D%1E%1F%20!%22%23$%25&'()*+,-./"
-            "0123456789:;%3C=%3E%3F%40ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%5D%5E_%"
-            "60abcdefghijklmnopqrstuvwxyz%7B%7C%7D~%7F"));
-}
-
-TEST(PercentEncodeKvStoreUriPathTest, NoOp) {
-  std::string_view s =
-      "abcdefghijklmnopqrstuvwxyz"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "0123456789"
-      "-_.!~*'():&=+$,;/";
-  EXPECT_THAT(PercentEncodeKvStoreUriPath(s), StrEq(s));
-}
-
-TEST(PercentEncodeKvStoreUriPathTest, NonAscii) {
-  EXPECT_THAT(PercentEncodeKvStoreUriPath("\xff"), StrEq("%FF"));
-}
-
-TEST(PercentEncodeUriComponentTest, Ascii) {
-  EXPECT_THAT(
-      PercentEncodeUriComponent(Get7BitAscii()),
-      StrEq("%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F%10%11%12%13%14%"
-            "15%16%17%18%19%1A%1B%1C%1D%1E%1F%20!%22%23%24%25%26'()*%2B%2C-.%"
-            "2F0123456789%3A%3B%3C%3D%3E%3F%40ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%"
-            "5D%5E_%60abcdefghijklmnopqrstuvwxyz%7B%7C%7D~%7F"));
-}
-
-TEST(PercentEncodeUriComponentTest, NoOp) {
-  std::string_view s =
-      "abcdefghijklmnopqrstuvwxyz"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "0123456789"
-      "-_.!~*'()";
-  EXPECT_THAT(PercentEncodeUriComponent(s), StrEq(s));
-}
-
-TEST(PercentEncodeUriComponentTest, NonAscii) {
-  EXPECT_THAT(PercentEncodeUriComponent("\xff"), StrEq("%FF"));
-}
 
 TEST(ParseGenericUriTest, InvalidPathOnly) {
   auto parsed = ParseGenericUri("/abc/def");
@@ -337,58 +200,6 @@ TEST(ParseHostPortTest, Basic) {
               ::testing::Optional(HostPort{"[::1]", "1"}));
   EXPECT_THAT(SplitHostPort("[::1"), ::testing::Eq(std::nullopt));
   EXPECT_THAT(SplitHostPort("[::1]::1"), ::testing::Eq(std::nullopt));
-}
-
-TEST(OsPathToUriPathTest, Basic) {
-  EXPECT_THAT(OsPathToFileUri(""),
-              StatusIs(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(OsPathToFileUri("foo"),
-              StatusIs(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(OsPathToFileUri("foo/"),
-              StatusIs(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(OsPathToFileUri("/"), IsOkAndHolds("file:///"));
-  EXPECT_THAT(OsPathToFileUri("/foo"), IsOkAndHolds("file:///foo"));
-  EXPECT_THAT(OsPathToFileUri("/foo/"), IsOkAndHolds("file:///foo/"));
-
-  EXPECT_THAT(OsPathToFileUri("c:/tmp"),
-              OnWindows(IsOkAndHolds("file:///c:/tmp"),
-                        StatusIs(absl::StatusCode::kInvalidArgument)));
-  EXPECT_THAT(OsPathToFileUri("c:/tmp/"),
-              OnWindows(IsOkAndHolds("file:///c:/tmp/"),
-                        StatusIs(absl::StatusCode::kInvalidArgument)));
-  EXPECT_THAT(OsPathToFileUri("c:\\tmp\\foo"),
-              OnWindows(IsOkAndHolds("file:///c:/tmp/foo"),
-                        StatusIs(absl::StatusCode::kInvalidArgument)));
-
-  EXPECT_THAT(OsPathToFileUri("//server/share/tmp"),
-              IsOkAndHolds(OnWindows("file://server/share/tmp",
-                                     "file:///server/share/tmp")));
-
-  EXPECT_THAT(OsPathToFileUri("\\\\server\\share\\tmp"),
-              OnWindows(IsOkAndHolds("file://server/share/tmp"),
-                        StatusIs(absl::StatusCode::kInvalidArgument)));
-}
-
-TEST(UriPathToOsPathTest, Basic) {
-  auto ToPath = [](std::string_view uri) {
-    return FileUriToOsPath(ParseGenericUri(uri));
-  };
-
-  EXPECT_THAT(ToPath(""), StatusIs(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(ToPath("foo"), StatusIs(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(ToPath("foo/"), StatusIs(absl::StatusCode::kInvalidArgument));
-
-  EXPECT_THAT(ToPath("file:///"), IsOkAndHolds("/"));
-  EXPECT_THAT(ToPath("file:///foo"), IsOkAndHolds("/foo"));
-  EXPECT_THAT(ToPath("file:///foo/"), IsOkAndHolds("/foo/"));
-  EXPECT_THAT(ToPath("file:///c:/tmp"),
-              IsOkAndHolds(OnWindows("c:/tmp", "/c:/tmp")));
-  EXPECT_THAT(ToPath("file:///c:/tmp/"),
-              IsOkAndHolds(OnWindows("c:/tmp/", "/c:/tmp/")));
-
-  EXPECT_THAT(ToPath("file://server/share/tmp"),
-              OnWindows(IsOkAndHolds("//server/share/tmp"),
-                        StatusIs(absl::StatusCode::kInvalidArgument)));
 }
 
 }  // namespace

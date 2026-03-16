@@ -18,8 +18,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/types/compare.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 using ::tensorstore::KeyRange;
@@ -152,9 +153,10 @@ TEST(KeyRangeTest, LongestPrefix) {
   EXPECT_EQ("\xff\xff", tensorstore::LongestPrefix(KeyRange("\xff\xff", "")));
 }
 
-TEST(KeyRangeTest, Ostream) {
-  EXPECT_EQ("[\"a\", \"b\")", tensorstore::StrCat(KeyRange("a", "b")));
-  EXPECT_EQ("[\"a\", \"ba\")", tensorstore::StrCat(KeyRange("a", "ba")));
+TEST(KeyRangeTest, AbslFormat) {
+  EXPECT_EQ("[\"a\", \"b\")",
+            absl::StrFormat("%v", absl::FormatStreamed(KeyRange("a", "b"))));
+  EXPECT_EQ("[\"a\", \"ba\")", absl::StrCat(KeyRange("a", "ba")));
 }
 
 TEST(KeyRangeTest, CompareKeyAndExclusiveMax) {

@@ -14,11 +14,16 @@
 
 #include "tensorstore/serialization/batch.h"
 
+#include <cstddef>
+#include <memory>
+#include <typeinfo>
+
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/writer.h"
+#include "tensorstore/internal/riegeli/delimited.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace serialization {

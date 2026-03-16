@@ -28,6 +28,8 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -57,7 +59,8 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
@@ -72,7 +75,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -86,8 +88,9 @@ using ::tensorstore::internal_kvs_backed_chunk_driver::KvsDriverSpec;
 constexpr const char kDefaultMetadataKey[] = ".zarray";
 constexpr std::string_view kUrlScheme = "zarr2";
 
-inline char GetDimensionSeparatorChar(DimensionSeparator dimension_separator) {
-  return dimension_separator == DimensionSeparator::kDotSeparated ? '.' : '/';
+inline constexpr std::string_view GetDimensionSeparatorChar(
+    DimensionSeparator dimension_separator) {
+  return dimension_separator == DimensionSeparator::kDotSeparated ? "." : "/";
 }
 
 DimensionSeparator GetDimensionSeparator(
@@ -160,10 +163,10 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                    DimensionSeparator* value) {
                   auto& sep = obj->partial_metadata.dimension_separator;
                   if (sep && *sep != *value) {
-                    return absl::InvalidArgumentError(tensorstore::StrCat(
-                        "value (", ::nlohmann::json(*value).dump(),
-                        ") does not match value in metadata (",
-                        ::nlohmann::json(*sep).dump(), ")"));
+                    return absl::InvalidArgumentError(absl::StrFormat(
+                        "value (%v) does not match value in metadata (%v)",
+                        ::nlohmann::json(*value).dump(),
+                        ::nlohmann::json(*sep).dump()));
                   }
                   sep = *value;
                   return absl::OkStatus();
@@ -232,11 +235,11 @@ Result<SharedArray<const void>> ZarrDriverSpec::GetFillValue(
     return SharedArray<const void>(fill_value);
   }
 
-  const DimensionIndex output_rank = transform.output_rank();
+  DimensionIndex output_rank = transform.output_rank();
   if (output_rank < fill_value.rank()) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Transform with output rank ", output_rank,
-                            " is not compatible with metadata"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Transform with output rank %d does not match metadata rank %d",
+        output_rank, fill_value.rank()));
   }
   Index pseudo_shape[kMaxRank];
   std::fill_n(pseudo_shape, output_rank - fill_value.rank(), kInfIndex + 1);
@@ -271,9 +274,9 @@ absl::Status DataCache::ValidateMetadataCompatibility(
   if (IsMetadataCompatible(existing_metadata, new_metadata)) {
     return absl::OkStatus();
   }
-  return absl::FailedPreconditionError(tensorstore::StrCat(
-      "Updated zarr metadata ", ::nlohmann::json(new_metadata).dump(),
-      " is incompatible with existing metadata ",
+  return absl::FailedPreconditionError(absl::StrFormat(
+      "Updated zarr metadata %v is incompatible with existing metadata %v",
+      ::nlohmann::json(new_metadata).dump(),
       ::nlohmann::json(existing_metadata).dump()));
 }
 
@@ -359,8 +362,8 @@ Result<absl::Cord> DataCache::EncodeChunk(
 }
 
 std::string DataCache::GetChunkStorageKey(span<const Index> cell_indices) {
-  return tensorstore::StrCat(
-      key_prefix_, EncodeChunkIndices(cell_indices, dimension_separator_));
+  return absl::StrCat(key_prefix_,
+                      EncodeChunkIndices(cell_indices, dimension_separator_));
 }
 
 absl::Status DataCache::GetBoundSpecData(
@@ -460,7 +463,7 @@ Result<std::string> ZarrDriverSpec::ToUrl() const {
         "zarr2 URL syntax not supported with open_as_void specified");
   }
   TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-  return tensorstore::StrCat(base_url, "|", kUrlScheme, ":");
+  return absl::StrCat(base_url, "|", kUrlScheme, ":");
 }
 
 Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
@@ -494,7 +497,7 @@ Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
                     /*chunk_shape=*/grid.chunk_shape,
                     /*shape=*/metadata->shape,
                     /*dimension_separator=*/
-                    GetDimensionSeparatorChar(cache->dimension_separator()),
+                    GetDimensionSeparatorChar(cache->dimension_separator())[0],
                     staleness_bound, request.options));
           }),
       std::move(promise), std::move(metadata_future));
@@ -510,7 +513,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
   }
 
   std::string GetMetadataCacheEntryKey() override {
-    return tensorstore::StrCat(spec().store.path, spec().metadata_key);
+    return absl::StrCat(spec().store.path, spec().metadata_key);
   }
 
   std::unique_ptr<internal_kvs_backed_chunk_driver::MetadataCache>
@@ -592,10 +595,10 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 std::string EncodeChunkIndices(span<const Index> indices,
                                DimensionSeparator dimension_separator) {
   // Use "0" for rank 0 as a special case.
-  const char separator = GetDimensionSeparatorChar(dimension_separator);
-  std::string key = (indices.empty() ? "0" : tensorstore::StrCat(indices[0]));
+  auto separator = GetDimensionSeparatorChar(dimension_separator);
+  std::string key = (indices.empty() ? "0" : absl::StrCat(indices[0]));
   for (DimensionIndex i = 1; i < indices.size(); ++i) {
-    tensorstore::StrAppend(&key, separator, indices[i]);
+    absl::StrAppend(&key, separator, indices[i]);
   }
   return key;
 }
@@ -603,11 +606,12 @@ std::string EncodeChunkIndices(span<const Index> indices,
 namespace {
 Result<internal::TransformedDriverSpec> ParseZarrUrl(std::string_view url,
                                                      kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, kUrlScheme));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(internal_uri::EnsureSchema(parsed, kUrlScheme));
+  TENSORSTORE_RETURN_IF_ERROR(internal_uri::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<ZarrDriverSpec>();
-  driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
+  TENSORSTORE_RETURN_IF_ERROR(driver_spec->InitializeFromUrl(
+      std::move(base), parsed.authority_and_path));
   driver_spec->metadata_key = kDefaultMetadataKey;
   return internal::TransformedDriverSpec{std::move(driver_spec)};
 }

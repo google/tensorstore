@@ -44,7 +44,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -57,8 +56,8 @@ std::string DescribeTransformForCast(DimensionIndex input_rank,
       StaticCastTraits<DimensionIndex>::Describe(output_rank));
 }
 std::string DescribeDomainForCast(DimensionIndex rank) {
-  return tensorstore::StrCat("index domain with ",
-                             StaticCastTraits<DimensionIndex>::Describe(rank));
+  return absl::StrFormat("index domain with %s",
+                         StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
@@ -486,7 +485,7 @@ Result<IndexDomain<>> MergeIndexDomains(IndexDomainView<> a,
       MergeIndexDomainsImpl(a, b, MergeOptionallyImplicitIndexIntervals);
   if (!result.ok()) {
     return StatusBuilder(std::move(result).status())
-        .Format("Cannot merge index domain %s with index domain %s",
+        .Format("Cannot merge index domain %v with index domain %v",
                 absl::FormatStreamed(a), absl::FormatStreamed(b));
   }
   return result;
@@ -500,7 +499,7 @@ Result<IndexDomain<>> HullIndexDomains(IndexDomainView<> a,
           -> Result<OptionallyImplicitIndexInterval> { return Hull(a, b); });
   if (!result.ok()) {
     return StatusBuilder(std::move(result).status())
-        .Format("Cannot hull index domain %s with index domain %s",
+        .Format("Cannot hull index domain %v with index domain %v",
                 absl::FormatStreamed(a), absl::FormatStreamed(b));
   }
   return result;
@@ -516,7 +515,7 @@ Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
       });
   if (!result.ok()) {
     return StatusBuilder(std::move(result).status())
-        .Format("Cannot intersect index domain %s with index domain %s",
+        .Format("Cannot intersect index domain %v with index domain %v",
                 absl::FormatStreamed(a), absl::FormatStreamed(b));
   }
   return result;
@@ -542,7 +541,7 @@ Result<IndexDomain<>> ConstrainIndexDomain(IndexDomainView<> a,
       });
   if (!result.ok()) {
     return StatusBuilder(std::move(result).status())
-        .Format("Cannot constrain index domain %s with index domain %s",
+        .Format("Cannot constrain index domain %v with index domain %v",
                 absl::FormatStreamed(a), absl::FormatStreamed(b));
   }
   return result;

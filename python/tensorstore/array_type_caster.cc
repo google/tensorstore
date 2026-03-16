@@ -45,9 +45,9 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -247,8 +247,8 @@ void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
   std::copy_n(array_obj.shape(), rank, shape);
   for (DimensionIndex i = 0; i < rank; ++i) {
     if (shape[i] < 0 || shape[i] > kMaxFiniteIndex) {
-      throw std::out_of_range(tensorstore::StrCat(
-          "Array shape[", i, "]=", shape[i], " is not valid"));
+      throw std::out_of_range(
+          absl::StrFormat("Array shape[%d]=%d is not valid", i, shape[i]));
     }
   }
   std::copy_n(array_obj.strides(), rank, byte_strides);
@@ -300,9 +300,10 @@ void CopyFromNumpyArray(pybind11::handle src, ArrayView<void> out) {
   ConvertToArray(src, &temp_src, /*data_type_constraint=*/out.dtype(),
                  /*min_rank=*/out.rank(), /*max_rank=*/out.rank());
   if (!internal::RangesEqual(temp_src.shape(), out.shape())) {
-    throw py::value_error(tensorstore::StrCat(
-        "Cannot copy source array of shape ", temp_src.shape(),
-        " to target array of shape ", out.shape()));
+    throw py::value_error(absl::StrFormat(
+        "Cannot copy source array of shape %v"
+        " to target array of shape %v",
+        GenericStringify(temp_src.shape()), GenericStringify(out.shape())));
   }
   CopyArray(temp_src, out);
 }

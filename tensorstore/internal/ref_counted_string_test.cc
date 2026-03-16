@@ -19,11 +19,16 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
 
 namespace {
 
 using ::tensorstore::internal::RefCountedString;
 using ::tensorstore::internal::RefCountedStringWriter;
+
+TEST(RefCountedStringTest, AbslStringify) {
+  EXPECT_EQ("abc", absl::StrCat(RefCountedString("abc")));
+}
 
 TEST(RefCountedStringTest, DefaultConstruct) {
   RefCountedString s;

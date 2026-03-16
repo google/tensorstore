@@ -25,6 +25,7 @@
 #include <utility>
 #include <variant>
 
+#include "absl/strings/str_format.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/tensorstore_module_components.h"
@@ -32,7 +33,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 // specializations
@@ -213,8 +213,8 @@ Example:
 )");
 
   cls.def("__repr__", [](const Unit& self) {
-    return tensorstore::StrCat("Unit(", self.multiplier, ", ",
-                               tensorstore::QuoteString(self.base_unit), ")");
+    return absl::StrFormat("Unit(%v, %v)", self.multiplier,
+                           QuoteString(self.base_unit));
   });
 
   cls.def(
@@ -234,7 +234,7 @@ Group:
 )");
 
   cls.def("__str__",
-          [](const Unit& self) { return tensorstore::StrCat(self); });
+          [](const Unit& self) { return absl::StrFormat("%v", self); });
 
   cls.def(
       "__mul__", [](Unit self, double multiplier) { return self * multiplier; },

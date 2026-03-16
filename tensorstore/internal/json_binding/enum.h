@@ -29,7 +29,6 @@
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -73,7 +72,7 @@ constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
     if constexpr (is_loading) {
       return internal_json::ExpectedError(
           *j,
-          tensorstore::StrCat(
+          absl::StrCat(
               "one of ",
               absl::StrJoin(values, ", ", [](std::string* out, const auto& p) {
                 *out += ::nlohmann::json(p.second).dump();

@@ -23,8 +23,10 @@
 #include <utility>
 
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace kvstore {
@@ -142,6 +144,32 @@ struct ReadResult {
   /// \relates State
   /// \id State
   friend std::ostream& operator<<(std::ostream& os, State state);
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ReadResult& x) {
+    if (x.state == ReadResult::kValue) {
+      absl::Format(&sink, "{value=%v",
+                   QuoteString(absl::Cord(x.value).Flatten()));
+    } else {
+      absl::Format(&sink, "{value=%v", x.state);
+    }
+    absl::Format(&sink, ", stamp=%v}", x.stamp);
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, State state) {
+    switch (state) {
+      case ReadResult::kUnspecified:
+        sink.Append("<unspecified>");
+        break;
+      case ReadResult::kMissing:
+        sink.Append("<missing>");
+        break;
+      case ReadResult::kValue:
+        sink.Append("<value>");
+        break;
+    }
+  }
 };
 
 }  // namespace kvstore

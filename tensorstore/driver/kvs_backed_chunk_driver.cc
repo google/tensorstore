@@ -30,6 +30,7 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -61,7 +62,7 @@
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/unowned_to_shared.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -83,9 +84,7 @@
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 #ifndef TENSORSTORE_KVS_DRIVER_DEBUG
 #define TENSORSTORE_KVS_DRIVER_DEBUG 0
@@ -286,7 +285,7 @@ absl::Status ValidateExpandShrinkConstraints(
 
 std::string GetMetadataMissingErrorMessage(
     MetadataCache::Entry* metadata_cache_entry) {
-  return tensorstore::StrCat(
+  return absl::StrCat(
       "Metadata at ",
       GetOwningCache(*metadata_cache_entry)
           .kvstore_driver()
@@ -752,12 +751,14 @@ Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
   return transform;
 }
 
-void KvsDriverSpec::InitializeFromUrl(kvstore::Spec&& base,
-                                      std::string_view encoded_path) {
+absl::Status KvsDriverSpec::InitializeFromUrl(kvstore::Spec&& base,
+                                              std::string_view encoded_path) {
   store = std::move(base);
   internal::EnsureDirectoryPath(store.path);
   if (!encoded_path.empty()) {
-    store.path += internal::PercentDecode(encoded_path);
+    TENSORSTORE_ASSIGN_OR_RETURN(std::string subpath,
+                                 internal_uri::PercentDecode(encoded_path));
+    store.path.append(subpath);
     internal::EnsureDirectoryPath(store.path);
   }
   data_copy_concurrency = decltype(data_copy_concurrency)::DefaultSpec();
@@ -766,6 +767,7 @@ void KvsDriverSpec::InitializeFromUrl(kvstore::Spec&& base,
   fill_value_mode.fill_missing_data_reads = true;
   fill_value_mode.store_data_equal_to_fill_value = false;
   this->open = true;
+  return absl::OkStatus();
 }
 
 absl::Status KvsDriverSpec::ApplyOptions(SpecOptions&& options) {
@@ -1436,7 +1438,7 @@ Result<ResizeParameters> GetResizeParameters(
       }
       const Index new_inclusive_min = new_output_inclusive_min[output_dim];
       if (!ImplicitOrEqual(new_inclusive_min, dim_bounds.inclusive_min())) {
-        return absl::FailedPreconditionError(tensorstore::StrCat(
+        return absl::FailedPreconditionError(absl::StrCat(
             "Cannot change inclusive lower bound of output dimension ",
             output_dim, ", which is fixed at ", dim_bounds.inclusive_min(),
             ", to ", new_inclusive_min));
@@ -1450,7 +1452,7 @@ Result<ResizeParameters> GetResizeParameters(
       }
       const Index new_exclusive_max = new_output_exclusive_max[output_dim];
       if (!ImplicitOrEqual(new_exclusive_max, dim_bounds.exclusive_max())) {
-        return absl::FailedPreconditionError(tensorstore::StrCat(
+        return absl::FailedPreconditionError(absl::StrCat(
             "Cannot change exclusive upper bound of output dimension ",
             output_dim, ", which is fixed at ", dim_bounds.exclusive_max(),
             ", to ", new_exclusive_max));

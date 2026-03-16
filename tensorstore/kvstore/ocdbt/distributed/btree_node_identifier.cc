@@ -20,6 +20,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/strings/str_format.h"
 #include <blake3.h>
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/util/endian.h"
@@ -28,8 +29,7 @@ namespace tensorstore {
 namespace internal_ocdbt {
 
 std::ostream& operator<<(std::ostream& os, const BtreeNodeIdentifier& x) {
-  return os << "{range=" << x.range << ", height=" << static_cast<int>(x.height)
-            << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 std::string BtreeNodeIdentifier::GetKey(

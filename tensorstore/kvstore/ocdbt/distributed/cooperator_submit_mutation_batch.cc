@@ -24,6 +24,7 @@
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
@@ -51,7 +52,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
@@ -324,7 +324,7 @@ void EnqueueWriteRequest(Cooperator& server,
     if (!status.ok()) {
       reactor->Finish(grpc::Status(
           grpc::StatusCode::INTERNAL,
-          tensorstore::StrCat("Failed to decode write request: ", status)));
+          absl::StrCat("Failed to decode write request: ", status)));
       return;
     }
   }

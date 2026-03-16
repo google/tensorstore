@@ -46,7 +46,6 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -355,8 +354,8 @@ TEST(TransformedArrayTest, MaterializeConstraints) {
   const auto TestCopyAndMaterialize =
       [&](tensorstore::TransformArrayConstraints constraints,
           std::vector<Index> expected_byte_strides) {
-        SCOPED_TRACE(tensorstore::StrCat("TestCopyAndMaterialize: constraints=",
-                                         constraints.value()));
+        SCOPED_TRACE(absl::StrCat("TestCopyAndMaterialize: constraints=",
+                                  constraints.value()));
         // Test Materialize
         {
           SCOPED_TRACE("Materialize");

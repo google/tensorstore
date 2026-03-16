@@ -27,9 +27,9 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/meta/type_traits.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json {
@@ -38,7 +38,7 @@ absl::Status ExpectedError(const ::nlohmann::json& j,
                            std::string_view type_name) {
   if (j.is_discarded()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Expected ", type_name, ", but member is missing"));
+        absl::StrFormat("Expected %s, but member is missing", type_name));
   }
   return absl::InvalidArgumentError(
       absl::StrFormat("Expected %s, but received: %s", type_name, j.dump()));
@@ -81,9 +81,9 @@ absl::Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
       return internal_json::ExpectedError(json, kTypeName);
     }
   }
-  return absl::InvalidArgumentError(
-      tensorstore::StrCat("Expected integer in the range [", min_value, ", ",
-                          max_value, "], but received: ", json.dump()));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Expected integer in the range [%d, %d], but received: %s", min_value,
+      max_value, json.dump()));
 }
 template struct JsonRequireIntegerImpl<int64_t>;
 template struct JsonRequireIntegerImpl<uint64_t>;

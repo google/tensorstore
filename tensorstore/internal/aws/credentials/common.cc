@@ -29,7 +29,7 @@
 #include "tensorstore/internal/aws/http_mocking.h"
 #include "tensorstore/internal/aws/string_view.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 
 namespace tensorstore {
 namespace internal_aws {
@@ -152,13 +152,13 @@ AwsCredentialsProvider MakeEcsRole(std::string_view endpoint,
         aws_credentials_provider_new_ecs_from_environment(allocator, &options));
   }
 
-  auto parsed = internal::ParseGenericUri(endpoint);
-  auto host_port = internal::SplitHostPort(parsed.authority);
+  auto parsed = internal_uri::ParseGenericUri(endpoint);
+  auto host_port = internal_uri::SplitHostPort(parsed.authority);
   if (!host_port) {
     return nullptr;
   }
   if (!parsed.authority.empty()) {
-    if (!internal::SplitHostPort(parsed.authority)) {
+    if (!internal_uri::SplitHostPort(parsed.authority)) {
       return nullptr;
     }
   }

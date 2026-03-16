@@ -28,6 +28,7 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
@@ -42,7 +43,6 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -109,9 +109,9 @@ Result<std::string> GetWellKnownFileName() {
   }
   if (!IsFile(result)) {
     return absl::NotFoundError(
-        tensorstore::StrCat("Could not find the credentials file in the "
-                            "standard gcloud location [",
-                            result, "]"));
+        absl::StrFormat("Could not find the credentials file in the standard "
+                        "gcloud location [%v]",
+                        result));
   }
   return result;
 }
@@ -169,8 +169,8 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
     }
 
     status = absl::UnknownError(
-        tensorstore::StrCat("Unexpected content of the JSON credentials file: ",
-                            *credentials_filename));
+        absl::StrFormat("Unexpected content of the JSON credentials file: %s",
+                        *credentials_filename));
   }
 
   // 3. Running on GCE?

@@ -18,10 +18,10 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -43,8 +43,8 @@ absl::Status ValidateResponseByteRange(
       // that a `Content-Encoding` header was set on the object. Fail the
       // request to indicate to the user that the request was inefficient.
       return absl::FailedPreconditionError(
-          tensorstore::StrCat("Requested byte range ", byte_range_request,
-                              " was ignored by server"));
+          absl::StrFormat("Requested byte range %v was ignored by server",
+                          absl::FormatStreamed(byte_range_request)));
     }
     total_size = response.payload.size();
     byte_range = {0, total_size};
@@ -65,10 +65,10 @@ absl::Status ValidateResponseByteRange(
          byte_range.exclusive_max != total_size)) {
       // Return an error when the response does not start at the requested
       // offset or when the response is smaller than the desired size.
-      return absl::OutOfRangeError(
-          tensorstore::StrCat("Requested byte range ", byte_range_request,
-                              " was not satisfied by response with byte range ",
-                              byte_range, " and total size ", total_size));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Requested byte range %v was not satisfied by response with byte "
+          "range %v and total size %v",
+          byte_range_request, byte_range, total_size));
     }
   }
   return absl::OkStatus();

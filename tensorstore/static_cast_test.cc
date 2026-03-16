@@ -24,10 +24,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -74,10 +74,12 @@ struct StaticCastTraits<X<Extent>> : public DefaultStaticCastTraits<X<Extent>> {
     return other.data.size() == Extent || Extent == tensorstore::dynamic_extent;
   }
 
-  static std::string Describe() { return StrCat("X with extent of ", Extent); }
+  static std::string Describe() {
+    return absl::StrFormat("X with extent of %d", Extent);
+  }
 
   static std::string Describe(const X<Extent>& value) {
-    return StrCat("X with extent of ", value.data.size());
+    return absl::StrFormat("X with extent of %d", value.data.size());
   }
 };
 
@@ -99,10 +101,12 @@ struct StaticCastTraits<Y<Extent>> {
     return other.data.size() == Extent || Extent == tensorstore::dynamic_extent;
   }
 
-  static std::string Describe() { return StrCat("Y with extent of ", Extent); }
+  static std::string Describe() {
+    return absl::StrFormat("Y with extent of %d", Extent);
+  }
 
   static std::string Describe(const Y<Extent>& value) {
-    return StrCat("Y with extent of ", value.data.size());
+    return absl::StrFormat("Y with extent of %d", value.data.size());
   }
 };
 

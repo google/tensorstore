@@ -92,6 +92,22 @@ struct ArrayStorageStatistics {
   /// Prints a debug representation.
   friend std::ostream& operator<<(std::ostream& os,
                                   const ArrayStorageStatistics& a);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ArrayStorageStatistics& a) {
+    sink.Append("{not_stored=");
+    if (a.mask & ArrayStorageStatistics::query_not_stored) {
+      absl::Format(&sink, "%v", a.not_stored);
+    } else {
+      sink.Append("<unknown>");
+    }
+    sink.Append(", fully_stored=");
+    if (a.mask & ArrayStorageStatistics::query_fully_stored) {
+      absl::Format(&sink, "%v", a.fully_stored);
+    } else {
+      sink.Append("<unknown>");
+    }
+    sink.Append("}");
+  }
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.mask, x.not_stored, x.fully_stored);

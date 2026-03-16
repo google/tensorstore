@@ -27,6 +27,7 @@
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/cache/async_cache.h"
@@ -37,11 +38,11 @@
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -132,9 +133,9 @@ void KvsBackedChunkCache::Entry::DoEncode(EncodeOptions options,
 std::string KvsBackedChunkCache::Entry::DescribeChunk() {
   auto& cache = GetOwningCache(*this);
   auto cell_indices = this->cell_indices();
-  return tensorstore::StrCat("chunk ", cell_indices, " stored at ",
-                             cache.kvstore_driver()->DescribeKey(
-                                 cache.GetChunkStorageKey(cell_indices)));
+  return absl::StrCat("chunk ", GenericStringify(cell_indices), " stored at ",
+                      cache.kvstore_driver()->DescribeKey(
+                          cache.GetChunkStorageKey(cell_indices)));
 }
 
 }  // namespace internal

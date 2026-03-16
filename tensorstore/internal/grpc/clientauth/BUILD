@@ -7,7 +7,10 @@ licenses(["notice"])
 tensorstore_cc_library(
     name = "access_token",
     hdrs = ["access_token.h"],
-    deps = ["@abseil-cpp//absl/time"],
+    deps = [
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+    ],
 )
 
 tensorstore_cc_library(
@@ -18,8 +21,8 @@ tensorstore_cc_library(
         ":access_token",
         ":authentication_strategy",
         ":create_channel",
-        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/uri:percent_coder",
         "//tensorstore/proto:encode_time",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",

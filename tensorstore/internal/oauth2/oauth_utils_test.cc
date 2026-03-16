@@ -18,10 +18,10 @@
 
 #include <gtest/gtest.h>
 #include "absl/strings/escaping.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/oauth2/fake_private_key.h"
 #include "tensorstore/internal/testing/json_gtest.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -42,8 +42,8 @@ std::string GetJsonKeyFileContents() {
       "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
       "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/foo-email%40foo-project.iam.gserviceaccount.com",
 )""";
-  return tensorstore::StrCat(kJsonKeyfilePrefix, "  \"private_key\": \"",
-                             absl::CEscape(GetFakePrivateKey()), "\" }");
+  return absl::StrCat(kJsonKeyfilePrefix, "  \"private_key\": \"",
+                      absl::CEscape(GetFakePrivateKey()), "\" }");
 }
 
 TEST(OAuthUtilTest, GoogleServiceAccountCredentials_Invalid) {

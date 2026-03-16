@@ -56,7 +56,7 @@ std::string_view IndirectDataKindToString(IndirectDataKind kind) {
 }
 
 std::ostream& operator<<(std::ostream& os, IndirectDataKind kind) {
-  return os << IndirectDataKindToString(kind);
+  return os << absl::StreamFormat("%v", kind);
 }
 
 void EncodeCacheKeyAdl(std::string* out, const IndirectDataReference& self) {
@@ -103,9 +103,9 @@ bool operator==(const IndirectDataReference& a,
                 const IndirectDataReference& b) {
   return a.file_id == b.file_id && a.offset == b.offset && a.length == b.length;
 }
+
 std::ostream& operator<<(std::ostream& os, const IndirectDataReference& x) {
-  return os << "{file_id=" << x.file_id << ", offset=" << x.offset
-            << ", length=" << x.length << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 absl::Status IndirectDataReference::Validate(bool allow_missing) const {

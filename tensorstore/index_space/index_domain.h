@@ -22,6 +22,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/strings/str_format.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
@@ -113,7 +114,7 @@ class IndexDomain {
   /// Can be called with a braced list, e.g. `IndexDomain({2, 3, 4})`.
   ///
   /// \id shape
-  explicit IndexDomain(span<const Index, Rank> shape)
+  explicit IndexDomain(tensorstore::span<const Index, Rank> shape)
       : rep_(internal_index_space::MakeIdentityTransform(
             shape,
             /*domain_only=*/true)) {}
@@ -413,8 +414,11 @@ class IndexDomain {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const IndexDomain& d) {
-    internal_index_space::PrintDomainToOstream(os, Access::rep(d));
-    return os;
+    return os << absl::StreamFormat("%v", d);
+  }
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const IndexDomain& d) {
+    sink.Append(internal_index_space::PrintDomainToString(Access::rep(d)));
   }
 
   /// Compares two index domains for equality.

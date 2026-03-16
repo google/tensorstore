@@ -34,6 +34,7 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "re2/re2.h"
@@ -71,7 +72,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -1499,8 +1499,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   for (bool underlying_atomic : {false, true}) {
     KvsBackedCacheBasicTransactionalTestOptions options;
     const int64_t num_entries = 100;
-    options.test_name = tensorstore::StrCat(
-        "ZarrShardingIndexed/underlying_atomic=", underlying_atomic);
+    options.test_name = absl::StrCat("ZarrShardingIndexed/underlying_atomic=",
+                                     underlying_atomic);
     options.get_store = [=] {
       return GetDefaultStore(
           tensorstore::GetMemoryKeyValueStore(/*atomic=*/underlying_atomic),

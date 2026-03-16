@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -94,6 +95,19 @@ struct ReadGenerationConditions {
 
   friend std::ostream& operator<<(std::ostream& os,
                                   const ReadGenerationConditions& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ReadGenerationConditions& x) {
+    sink.Append("{");
+    std::string_view sep = "";
+    if (x.if_not_equal) {
+      absl::Format(&sink, "if_not_equal=%v", x.if_not_equal);
+      sep = ", ";
+    }
+    if (x.if_equal) {
+      absl::Format(&sink, "%vif_equal=%v", sep, x.if_equal);
+    }
+    sink.Append("}");
+  }
 };
 
 /// Read options for non-transactional reads.

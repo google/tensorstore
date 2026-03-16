@@ -176,6 +176,13 @@ class IndexTransformGridPartition {
   std::vector<IndexArraySet> index_array_sets_;
 };
 
+template <typename Sink>
+void AbslStringify(Sink& sink,
+                   const IndexTransformGridPartition::StridedSet& s) {
+  absl::Format(&sink, "{grid_dimensions=%v, input_dimension=%v}",
+               s.grid_dimensions, s.input_dimension);
+}
+
 /// Allocates the `cell_transform` and initializes the portions that are the
 /// same for all grid cells.
 ///

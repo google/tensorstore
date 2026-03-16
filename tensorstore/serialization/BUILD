@@ -34,13 +34,13 @@ tensorstore_cc_library(
     hdrs = ["batch.h"],
     deps = [
         ":serialization",
+        "//tensorstore/internal/riegeli:delimited",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
+        "@riegeli//riegeli/bytes:reader",
         "@riegeli//riegeli/bytes:string_reader",
         "@riegeli//riegeli/bytes:string_writer",
         "@riegeli//riegeli/bytes:writer",
@@ -56,12 +56,12 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/internal/meta:type_traits",
-        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -134,9 +134,9 @@ tensorstore_cc_library(
     deps = [
         ":serialization",
         "//tensorstore/internal/container:heterogeneous_container",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
     ],
 )

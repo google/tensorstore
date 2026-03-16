@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "absl/strings/match.h"
+#include "absl/strings/str_format.h"
 #include "absl/types/compare.h"
 #include "tensorstore/internal/compare.h"
 #include "tensorstore/util/quote_string.h"
@@ -184,8 +185,7 @@ bool IntersectsPrefix(const KeyRange& a, std::string_view prefix) {
 }
 
 std::ostream& operator<<(std::ostream& os, const KeyRange& range) {
-  return os << "[" << QuoteString(range.inclusive_min) << ", "
-            << QuoteString(range.exclusive_max) << ")";
+  return os << absl::StreamFormat("%v", range);
 }
 
 KeyRange KeyRange::AddPrefix(std::string_view prefix, KeyRange range) {

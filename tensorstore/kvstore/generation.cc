@@ -137,19 +137,12 @@ StorageGeneration::MutationId StorageGeneration::AllocateMutationId() {
 }
 
 std::ostream& operator<<(std::ostream& os, const StorageGeneration& g) {
-  return os << g.DebugString();
+  return os << absl::StreamFormat("%v", g);
 }
 
 std::ostream& operator<<(std::ostream& os,
                          const TimestampedStorageGeneration& x) {
-  return os << "{generation="
-            << x.generation
-            // Use UTC time zone because calling LocalTimeZone (used by default
-            // if no time zone is specified) is excessively slow on Windows.
-            //
-            // https://github.com/abseil/abseil-cpp/issues/1760
-            << ", time=" << absl::FormatTime(x.time, absl::UTCTimeZone())
-            << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 bool StorageGeneration::Equivalent(std::string_view a, std::string_view b) {

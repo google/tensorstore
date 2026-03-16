@@ -61,7 +61,6 @@
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {
@@ -2157,8 +2156,8 @@ Args:
       // Comma-separated list of open modes that are `true`.
       bool first = true;
       ((!!(self.value.value & decltype(mode_info)::mode)
-            ? (tensorstore::StrAppend(&repr, first ? "" : ", ",
-                                      decltype(mode_info)::name, "=True"),
+            ? (absl::StrAppend(&repr, first ? "" : ", ",
+                               decltype(mode_info)::name, "=True"),
                (first = false))
             : true),
        ...);

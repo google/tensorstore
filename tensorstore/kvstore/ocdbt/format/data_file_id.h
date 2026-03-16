@@ -1,3 +1,5 @@
+#include "absl/strings/str_format.h"
+#include "tensorstore/util/quote_string.h"
 // Copyright 2023 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -60,6 +62,11 @@ struct DataFileId {
   };
 
   friend std::ostream& operator<<(std::ostream& os, const DataFileId& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const DataFileId& x) {
+    absl::Format(&sink, "%v+%v", QuoteString(x.base_path),
+                 QuoteString(x.relative_path));
+  }
 
   friend bool operator==(const DataFileId& a, const DataFileId& b) {
     return a.base_path == b.base_path && a.relative_path == b.relative_path;

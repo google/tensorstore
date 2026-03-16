@@ -69,11 +69,11 @@
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 /// Support for ApplyMembers protocols
 #include "tensorstore/internal/context_binding_vector.h"  // IWYU pragma: keep
@@ -237,17 +237,16 @@ Result<std::vector<IndexDomain<>>> GetEffectiveDomainsForLayers(
         auto effective_domain,
         internal_stack::GetEffectiveDomain(layers[layer_i]));
     if (!effective_domain.valid()) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Domain must be specified"));
+      return absl::InvalidArgumentError("Domain must be specified");
     }
     domains.emplace_back(std::move(effective_domain));
     // validate rank.
     if (layer_i == 0) {
       rank = domains.back().rank();
     } else if (domains.back().rank() != rank) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Layer domain ", domains.back(), " of rank ", domains.back().rank(),
-          " does not match layer 0 rank of ", rank));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Layer domain %v of rank %d does not match layer 0 rank of %d",
+          absl::FormatStreamed(domains.back()), domains.back().rank(), rank));
     }
     return absl::OkStatus();
   });
@@ -367,9 +366,9 @@ absl::Status ApplyLayerOptions(tensorstore::span<Layer> layers, Schema& schema,
       if (layer.is_open()) {
         if (options.open_mode != OpenMode{} &&
             !(options.open_mode & OpenMode::open)) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Open mode of ", options.open_mode,
-              " is not compatible with already-open layer"));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Open mode of %v is not compatible with already-open layer",
+              options.open_mode));
         }
         if (options.recheck_cached_data.specified() ||
             options.recheck_cached_metadata.specified()) {
@@ -597,7 +596,8 @@ absl::Status StackDriver::InitializeGridIndices(
   IterateOverIndexRange<>(
       grid_.shape(), [this](tensorstore::span<const Index> key) {
         if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
-          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: " << key;
+          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: "
+                         << GenericStringify(key);
         }
       });
 #endif
@@ -749,9 +749,9 @@ struct OpenLayerOp {
           // This cell is not backed by a layer, so report an error.
           auto origin =
               self->grid_.cell_origin(iterator.output_grid_cell_indices());
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Cell with origin=", tensorstore::span(origin),
-              " missing layer mapping in \"stack\" driver"));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Cell with origin=%v missing layer mapping in \"stack\" driver",
+              GenericStringify(origin)));
         }
         iterator.Advance();
       }
@@ -905,18 +905,19 @@ Result<internal::ReadWritePtr<StackDriver>> MakeDriverFromLayerSpecs(
           if (!dtype.valid()) {
             dtype = layer_dtype;
           } else if (dtype != layer_dtype) {
-            return absl::InvalidArgumentError(tensorstore::StrCat(
-                "Layer dtype of ", layer_dtype,
-                " does not match existing dtype of ", dtype));
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Layer dtype of %v does not match existing dtype of %v",
+                layer_dtype, dtype));
           }
         }
         DimensionIndex layer_rank = layer.transform.input_rank();
         if (common_rank == dynamic_rank) {
           common_rank = layer_rank;
         } else if (common_rank != layer_rank) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Layer domain ", layer.transform.domain(), " of rank ",
-              layer_rank, " does not match layer 0 rank of ", common_rank));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Layer domain %v of rank %d does not match layer 0 rank of %d",
+              absl::FormatStreamed(layer.transform.domain()), layer_rank,
+              common_rank));
         }
         return absl::OkStatus();
       });

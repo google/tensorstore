@@ -32,6 +32,8 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "riegeli/bytes/cord_reader.h"
 #include "tensorstore/array.h"
@@ -46,7 +48,6 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -242,10 +243,10 @@ INSTANTIATE_TEST_SUITE_P(
     All, ChunkEncodingTest, testing::ValuesIn(GenerateParams()),
     [](const testing::TestParamInfo<P>& info) {
       const auto& p = info.param;
-      auto encoding =
+      std::string encoding =
           p.metadata_json["scales"][0]["encoding"].get<std::string>();
-      return tensorstore::StrCat(encoding, "_", p.metadata_json["num_channels"],
-                                 "_", p.dtype.name());
+      size_t num_channels = p.metadata_json["num_channels"];
+      return absl::StrFormat("%s_%d_%v", encoding, num_channels, p.dtype);
     });
 
 }  // namespace

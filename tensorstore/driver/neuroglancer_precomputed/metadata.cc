@@ -67,11 +67,11 @@
 #include "tensorstore/serialization/std_map.h"  // IWYU pragma: keep
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {
@@ -166,7 +166,7 @@ absl::Status CheckScaleBounds(BoxView<3> box) {
   for (int i = 0; i < 3; ++i) {
     if (!IndexInterval::ValidSized(box.origin()[i], box.shape()[i]) ||
         !IsFinite(box[i])) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
+      return absl::InvalidArgumentError(absl::StrCat(
           "\"size\" of ", ::nlohmann::json(box.shape()).dump(),
           " and \"voxel_offset\" of ", ::nlohmann::json(box.origin()).dump(),
           " do not specify a valid region"));
@@ -184,7 +184,7 @@ absl::Status ValidateChunkSize(
   }
   const auto bits = GetCompressedZIndexBits(shape, chunk_size);
   if (bits[0] + bits[1] + bits[2] > 64) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
+    return absl::InvalidArgumentError(absl::StrCat(
         "\"size\" of ", ::nlohmann::json(shape).dump(),
         " with \"chunk_size\" of ", ::nlohmann::json(chunk_size).dump(),
         " is not compatible with sharded format because the chunk keys "
@@ -550,8 +550,7 @@ absl::Status ValidateMultiscaleConstraintsForOpen(
 }
 
 std::string GetScaleKeyFromResolution(span<const double, 3> resolution) {
-  return tensorstore::StrCat(resolution[0], "_", resolution[1], "_",
-                             resolution[2]);
+  return absl::StrCat(resolution[0], "_", resolution[1], "_", resolution[2]);
 }
 
 }  // namespace
@@ -591,7 +590,7 @@ absl::Status ValidateMetadataCompatibility(
     return MetadataMismatchError(kKeyId, existing_scale.key, new_scale.key);
   }
   if (!absl::c_linear_search(new_scale.chunk_sizes, chunk_size)) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
+    return absl::FailedPreconditionError(absl::StrCat(
         "Updated metadata is missing chunk size ",
         ::nlohmann::json(chunk_size).dump(), " for scale ", scale_index));
   }
@@ -997,9 +996,8 @@ absl::Status ValidateDimensionUnitsForResolution(
       if (!unit) continue;
       if (unit->multiplier != xyz_resolution[i]) {
         return absl::InvalidArgumentError(absl::StrFormat(
-            "Dimension units %s do not match \"resolution\" in metadata: %s",
-            DimensionUnitsToString(units),
-            absl::FormatStreamed(xyz_resolution)));
+            "Dimension units %s do not match \"resolution\" in metadata: %v",
+            DimensionUnitsToString(units), GenericStringify(xyz_resolution)));
       }
     }
   }
@@ -1152,8 +1150,8 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
     if (constraints.scale_index && *constraints.scale_index != 0 &&
         !assume_metadata) {
       return absl::FailedPreconditionError(
-          tensorstore::StrCat("Cannot create scale ", *constraints.scale_index,
-                              " in new multiscale volume"));
+          absl::StrCat("Cannot create scale ", *constraints.scale_index,
+                       " in new multiscale volume"));
     }
     new_metadata = std::make_shared<MultiscaleMetadata>();
     new_metadata->type = *constraints.multiscale.type;
@@ -1170,20 +1168,20 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
     if (constraints.scale_index) {
       if (*constraints.scale_index < existing_metadata->scales.size()) {
         // Scale index already exists
-        return absl::AlreadyExistsError(tensorstore::StrCat(
+        return absl::AlreadyExistsError(absl::StrCat(
             "Scale index ", *constraints.scale_index, " already exists"));
       }
       if (*constraints.scale_index != existing_metadata->scales.size()) {
-        return absl::FailedPreconditionError(tensorstore::StrCat(
-            "Scale index to create (", *constraints.scale_index,
-            ") must equal the existing number of scales (",
-            existing_metadata->scales.size(), ")"));
+        return absl::FailedPreconditionError(
+            absl::StrCat("Scale index to create (", *constraints.scale_index,
+                         ") must equal the existing number of scales (",
+                         existing_metadata->scales.size(), ")"));
       }
     } else {
       // Check if any existing scale has matching key
       for (const auto& scale : existing_metadata->scales) {
         if (scale.key == scale_key) {
-          return absl::AlreadyExistsError(tensorstore::StrCat(
+          return absl::AlreadyExistsError(absl::StrCat(
               "Scale with key ", QuoteString(scale_key), " already exists"));
         }
       }
@@ -1192,7 +1190,7 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
         // ambiguity.
         for (const auto& scale : existing_metadata->scales) {
           if (scale.resolution == *constraints.scale.resolution) {
-            return absl::AlreadyExistsError(tensorstore::StrCat(
+            return absl::AlreadyExistsError(absl::StrCat(
                 "Scale with resolution ",
                 ::nlohmann::json(scale.resolution).dump(), " already exists"));
           }
@@ -1265,8 +1263,8 @@ absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
   if (auto dtype = schema.dtype();
       !IsPossiblySameDataType(dtype, metadata.dtype)) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("data_type from metadata (", metadata.dtype,
-                            ") does not match dtype in schema (", dtype, ")"));
+        absl::StrCat("data_type from metadata (", metadata.dtype,
+                     ") does not match dtype in schema (", dtype, ")"));
   }
 
   if (auto schema_codec = schema.codec(); schema_codec.valid()) {
@@ -1302,7 +1300,7 @@ absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
             "chunk layout from metadata does not match chunk layout in schema");
     if (scale.encoding != ScaleMetadata::Encoding::compressed_segmentation &&
         chunk_layout.codec_chunk_shape().hard_constraint) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
+      return absl::InvalidArgumentError(absl::StrCat(
           "codec_chunk_shape not supported by ", scale.encoding, " encoding"));
     }
   }
@@ -1359,15 +1357,13 @@ Result<size_t> OpenScale(const MultiscaleMetadata& metadata,
       std::string_view sep = "";
       if (std::any_of(dimension_units.begin(), dimension_units.end(),
                       [](const auto& unit) { return unit.has_value(); })) {
-        tensorstore::StrAppend(
-            &explanation, "dimension_units=",
-            tensorstore::DimensionUnitsToString(dimension_units));
+        absl::StrAppend(&explanation, "dimension_units=",
+                        tensorstore::DimensionUnitsToString(dimension_units));
         sep = ", ";
       }
       if (constraints.scale.key) {
-        tensorstore::StrAppend(
-            &explanation, sep, kKeyId, "=",
-            tensorstore::QuoteString(*constraints.scale.key));
+        absl::StrAppend(&explanation, sep, kKeyId, "=",
+                        tensorstore::QuoteString(*constraints.scale.key));
       }
       return absl::NotFoundError(explanation);
     }
@@ -1397,7 +1393,7 @@ std::string ResolveScaleKey(std::string_view key_prefix,
 absl::Status ValidateDataType(DataType dtype) {
   assert(dtype.valid());
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
+    return absl::InvalidArgumentError(absl::StrCat(
         dtype, " data type is not one of the supported data types: ",
         GetSupportedDataTypes()));
   }

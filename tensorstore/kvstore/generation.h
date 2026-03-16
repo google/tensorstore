@@ -25,6 +25,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/serialization/fwd.h"
 
@@ -289,6 +290,10 @@ struct StorageGeneration {
 
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const StorageGeneration& g);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const StorageGeneration& g) {
+    sink.Append(g.DebugString());
+  }
 
   // ---------------------------------------------------
   // Tensorstore-internal details follow
@@ -523,6 +528,15 @@ struct TimestampedStorageGeneration {
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os,
                                   const TimestampedStorageGeneration& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const TimestampedStorageGeneration& x) {
+    // Use UTC time zone because calling LocalTimeZone (used by default
+    // if no time zone is specified) is excessively slow on Windows.
+    //
+    // https://github.com/abseil/abseil-cpp/issues/1760
+    absl::Format(&sink, "{generation=%v, time=%v}", x.generation,
+                 absl::FormatTime(x.time, absl::UTCTimeZone()));
+  }
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.generation, x.time);

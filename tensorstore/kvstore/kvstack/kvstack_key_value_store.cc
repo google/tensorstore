@@ -25,10 +25,10 @@
 #include <utility>
 #include <vector>
 
-#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
-#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
@@ -53,10 +53,10 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/cache_key/cache_key.h"
@@ -132,15 +132,15 @@ constexpr auto KvStackLayerJsonBinder() {
       if (dataobj.exact) {
         obj->key_range = KeyRange::Singleton(*dataobj.exact);
         if (dataobj.strip_prefix.value_or(0) > (*dataobj.exact).size()) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Invalid strip_prefix of ", *dataobj.strip_prefix, " for exact ",
-              QuoteString(*dataobj.prefix)));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Invalid strip_prefix of %d for exact %v", *dataobj.strip_prefix,
+              QuoteString(*dataobj.exact)));
         }
       } else if (dataobj.prefix) {
         obj->key_range = KeyRange::Prefix(*dataobj.prefix);
         if (dataobj.strip_prefix.value_or(0) > (*dataobj.prefix).size()) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Invalid strip_prefix of ", *dataobj.strip_prefix, " for prefix ",
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Invalid strip_prefix of %d for prefix %v", *dataobj.strip_prefix,
               QuoteString(*dataobj.prefix)));
         }
       } else {
@@ -155,9 +155,9 @@ constexpr auto KvStackLayerJsonBinder() {
       }
       size_t longest_prefix = LongestPrefix(obj->key_range).size();
       if (dataobj.strip_prefix.value_or(0) > longest_prefix) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Invalid strip_prefix of ", *dataobj.strip_prefix, " for range ",
-            obj->key_range));
+        return absl::InvalidArgumentError(
+            absl::StrFormat("Invalid strip_prefix of %d for range %v",
+                            *dataobj.strip_prefix, obj->key_range));
       }
       obj->strip_prefix_length = dataobj.strip_prefix.value_or(longest_prefix);
     }
@@ -277,7 +277,7 @@ class KvStack
   std::string DescribeKey(std::string_view key) override {
     auto it = layers_.range_containing(key);
     if (it == layers_.end()) {
-      return tensorstore::StrCat("kvstack[unmapped] ", QuoteString(key));
+      return absl::StrFormat("kvstack[unmapped] %v", QuoteString(key));
     }
 
     return it->value.kvstore.driver->DescribeKey(it->value.GetMappedKey(key));
@@ -313,7 +313,7 @@ class KvStack
     size_t strip_prefix_length;
 
     std::string GetMappedKey(std::string_view key) const {
-      return tensorstore::StrCat(kvstore.path, key.substr(strip_prefix_length));
+      return absl::StrCat(kvstore.path, key.substr(strip_prefix_length));
     }
     KeyRange GetMappedRange(KeyRange range) const {
       return KeyRange::AddPrefix(kvstore.path, KeyRange::RemovePrefixLength(
@@ -354,8 +354,8 @@ Future<ReadResult> KvStack::Read(Key key, ReadOptions options) {
     return ReadResult::Missing(absl::InfiniteFuture());
   }
   return it->value.kvstore.driver->Read(
-      tensorstore::StrCat(it->value.kvstore.path,
-                          key.substr(it->value.strip_prefix_length)),
+      absl::StrCat(it->value.kvstore.path,
+                   key.substr(it->value.strip_prefix_length)),
       std::move(options));
 }
 
@@ -368,8 +368,8 @@ Future<ReadResult> KvStack::TransactionalRead(
   }
   return it->value.kvstore.driver->TransactionalRead(
       transaction,
-      tensorstore::StrCat(it->value.kvstore.path,
-                          key.substr(it->value.strip_prefix_length)),
+      absl::StrCat(it->value.kvstore.path,
+                   key.substr(it->value.strip_prefix_length)),
       std::move(options));
 }
 
@@ -379,7 +379,7 @@ Future<TimestampedStorageGeneration> KvStack::Write(Key key,
   auto it = layers_.range_containing(key);
   if (it == layers_.end()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Key not found in any layers: ", QuoteString(key)));
+        absl::StrFormat("Key not found in any layers: %v", QuoteString(key)));
   }
   key = key.substr(it->value.strip_prefix_length);
   return kvstore::Write(it->value.kvstore, std::move(key), std::move(value),
@@ -402,7 +402,7 @@ absl::Status KvStack::ReadModifyWrite(internal::OpenTransactionPtr& transaction,
   auto it = layers_.range_containing(key);
   if (it == layers_.end()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Key not found in any layers: ", QuoteString(key)));
+        absl::StrFormat("Key not found in any layers: %v", QuoteString(key)));
   }
   return it->value.kvstore.driver->ReadModifyWrite(
       transaction, phase, it->value.GetMappedKey(key), source);
@@ -500,7 +500,7 @@ struct KvStackListState final
 
     [[maybe_unused]] friend void set_value(Receiver& self, ListEntry entry) {
       if (!self.v->prefix_to_add.empty()) {
-        entry.key = tensorstore::StrCat(self.v->prefix_to_add, entry.key);
+        entry.key = absl::StrCat(self.v->prefix_to_add, entry.key);
       }
       execution::set_value(self.state->receiver_, std::move(entry));
     }

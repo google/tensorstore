@@ -22,8 +22,10 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/strings/str_format.h"
 #include "absl/types/compare.h"
 #include "tensorstore/internal/compare.h"
+#include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 
@@ -137,6 +139,11 @@ class KeyRange {
 
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const KeyRange& range);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const KeyRange& range) {
+    absl::Format(&sink, "[%v, %v)", QuoteString(range.inclusive_min),
+                 QuoteString(range.exclusive_max));
+  }
 
   // Reflection support.
   static constexpr auto ApplyMembers = [](auto&& x, auto f) {

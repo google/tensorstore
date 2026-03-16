@@ -35,6 +35,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -89,6 +90,15 @@ struct Manifest {
     return !(a == b);
   }
   friend std::ostream& operator<<(std::ostream& os, const Manifest& e);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Manifest& e) {
+    absl::Format(&sink, "{config=%v", e.config);
+    if (e.config.manifest_kind == ManifestKind::kSingle) {
+      absl::Format(&sink, ", versions=%v, version_tree_nodes=%v", e.versions,
+                   e.version_tree_nodes);
+    }
+    sink.Append("}");
+  }
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.config, x.versions, x.version_tree_nodes);

@@ -99,13 +99,6 @@ Compile-time data type/rank/mode constraints
 
 .. cpp-apigen-group:: compile-time-constraints
 
-.. _cpp-api-string-utilities:
-
-String Utilities
-^^^^^^^^^^^^^^^^
-
-.. cpp-apigen-group:: string-utilities
-
 .. _cpp-api-index-vectors:
 
 Index vectors

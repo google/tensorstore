@@ -22,13 +22,14 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/has_ostream_operator.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/notification.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/generic_stringify.h"
 
 namespace tensorstore {
 
@@ -42,14 +43,16 @@ struct LoggingReceiver {
 
   template <typename... V>
   void set_value(V&&... v) {
-    if constexpr ((... && internal::IsOstreamable<V>)) {
-      log->push_back(tensorstore::StrCat(
-          "set_value: ", absl::StrJoin(std::make_tuple(std::forward<V>(v)...),
-                                       ", ", absl::StreamFormatter())));
+    if constexpr (sizeof...(v) == 0) {
+      log->push_back("set_value");
+    } else if constexpr (sizeof...(v) == 1) {
+      auto t = std::make_tuple(std::forward<V>(v)...);
+      log->push_back(
+          absl::StrFormat("set_value: %v", GenericStringify(std::get<0>(t))));
     } else {
-      log->push_back(tensorstore::StrCat(
-          "set_value: ",
-          absl::StrJoin(std::make_tuple(std::forward<V>(v)...), ", ")));
+      log->push_back(absl::StrFormat(
+          "set_value: %v",
+          GenericStringify(std::make_tuple(std::forward<V>(v)...))));
     }
   }
 
@@ -57,7 +60,7 @@ struct LoggingReceiver {
 
   template <typename E>
   void set_error(E&& e) {
-    log->push_back(tensorstore::StrCat("set_error: ", e));
+    log->push_back(absl::StrFormat("set_error: %v", e));
   }
 
   void set_cancel() { log->push_back("set_cancel"); }

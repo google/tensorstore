@@ -16,13 +16,12 @@
 
 #include <atomic>
 #include <memory>
-#include <type_traits>
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/batch.h"
-#include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -37,7 +36,6 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/lock_collection.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_copy.h"
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
@@ -59,7 +57,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -213,8 +210,8 @@ struct DriverReadIntoNewInitiateOp {
         std::move(source_transform_future.value());
 
     if (!IsFinite(source_transform.domain())) {
-      promise.SetResult(absl::InvalidArgumentError(tensorstore::StrCat(
-          "Read requires a finite domain, got ", source_transform.domain())));
+      promise.SetResult(absl::InvalidArgumentError(absl::StrFormat(
+          "Read requires a finite domain, got %v", source_transform.domain())));
       return;
     }
 

@@ -46,7 +46,7 @@ jobs:
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/cibuildwheel_bazel_cache/cache/repos
@@ -83,7 +83,7 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Publish to PyPI (main server)
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4, always use commit hash
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0, always use commit hash
         with:
           user: __token__
           password: ${{ secrets.pypi_token }}

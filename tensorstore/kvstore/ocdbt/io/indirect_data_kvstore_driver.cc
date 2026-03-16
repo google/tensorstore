@@ -24,6 +24,7 @@
 #include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -67,13 +67,13 @@ class IndirectDataKvStoreDriver : public kvstore::Driver {
   std::string DescribeKey(std::string_view key) override {
     IndirectDataReference ref;
     ABSL_CHECK(ref.DecodeCacheKey(key));
-    return tensorstore::StrCat(
+    return absl::StrCat(
         "Byte range ",
         ByteRange{static_cast<int64_t>(ref.offset),
                   static_cast<int64_t>(ref.offset + ref.length)},
         " of ",
         base_.driver->DescribeKey(
-            tensorstore::StrCat(base_.path, ref.file_id.FullPath())));
+            absl::StrCat(base_.path, ref.file_id.FullPath())));
   }
 
   void GarbageCollectionVisit(

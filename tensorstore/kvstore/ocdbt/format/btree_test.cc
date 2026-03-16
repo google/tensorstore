@@ -27,15 +27,17 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -43,12 +45,17 @@ using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::BtreeNode;
 using ::tensorstore::internal_ocdbt::BtreeNodeEncoder;
+using ::tensorstore::internal_ocdbt::BtreeNodeReference;
+using ::tensorstore::internal_ocdbt::BtreeNodeStatistics;
 using ::tensorstore::internal_ocdbt::Config;
+using ::tensorstore::internal_ocdbt::DataFileId;
 using ::tensorstore::internal_ocdbt::DecodeBtreeNode;
 using ::tensorstore::internal_ocdbt::EncodedNode;
+using ::tensorstore::internal_ocdbt::IndirectDataReference;
 using ::tensorstore::internal_ocdbt::InteriorNodeEntry;
 using ::tensorstore::internal_ocdbt::kMaxNodeArity;
 using ::tensorstore::internal_ocdbt::LeafNodeEntry;
+using ::tensorstore::internal_ocdbt::LeafNodeValueReference;
 using ::testing::HasSubstr;
 
 Result<std::vector<EncodedNode>> EncodeExistingNode(const Config& config,
@@ -74,9 +81,8 @@ void TestBtreeNodeRoundTrip(const Config& config, const BtreeNode& node) {
   auto& encoded_node = encoded_nodes[0];
   EXPECT_EQ(node.key_prefix, encoded_node.info.inclusive_min_key.substr(
                                  0, encoded_node.info.excluded_prefix_length));
-  SCOPED_TRACE(tensorstore::StrCat(
-      "data=",
-      tensorstore::QuoteString(std::string(encoded_node.encoded_node))));
+  SCOPED_TRACE(absl::StrCat("data=", tensorstore::QuoteString(std::string(
+                                         encoded_node.encoded_node))));
 
   std::visit(
       [&](const auto& entries) {
@@ -86,10 +92,9 @@ void TestBtreeNodeRoundTrip(const Config& config, const BtreeNode& node) {
             DecodeBtreeNode(encoded_nodes[0].encoded_node, /*base_path=*/{}));
 
         EXPECT_EQ(node.key_prefix,
-                  tensorstore::StrCat(
-                      encoded_node.info.inclusive_min_key.substr(
-                          0, encoded_node.info.excluded_prefix_length),
-                      decoded_node.key_prefix));
+                  absl::StrCat(encoded_node.info.inclusive_min_key.substr(
+                                   0, encoded_node.info.excluded_prefix_length),
+                               decoded_node.key_prefix));
         EXPECT_THAT(decoded_node.entries,
                     ::testing::VariantWith<std::vector<Entry>>(entries));
       },
@@ -319,6 +324,43 @@ TEST(BtreeNodeTest, MaxArity) {
             std::get<BtreeNode::LeafNodeEntries>(decoded_node1.entries).size());
   EXPECT_EQ(kMaxNodeArity / 2,
             std::get<BtreeNode::LeafNodeEntries>(decoded_node2.entries).size());
+}
+
+TEST(BtreeFormatTest, AbslStringify) {
+  BtreeNodeStatistics stats{10, 200, 30};
+  EXPECT_EQ("{num_indirect_value_bytes=10, num_tree_bytes=200, num_keys=30}",
+            absl::StrCat(stats));
+
+  BtreeNodeReference ref{IndirectDataReference{DataFileId{"", "file1"}, 2, 3},
+                         stats};
+  EXPECT_EQ(
+      "{location={file_id=\"\"+\"file1\", offset=2, length=3}, "
+      "statistics={num_indirect_value_bytes=10, num_tree_bytes=200, "
+      "num_keys=30}}",
+      absl::StrCat(ref));
+
+  LeafNodeEntry leaf_entry;
+  leaf_entry.key = "abc";
+  leaf_entry.value_reference = absl::Cord("def");
+  EXPECT_EQ("{key=\"abc\", value_reference=\"def\"}", absl::StrCat(leaf_entry));
+
+  leaf_entry.value_reference =
+      IndirectDataReference{DataFileId{"base", "file2"}, 5, 6};
+  EXPECT_EQ(
+      "{key=\"abc\", value_reference={file_id=\"base\"+\"file2\", offset=5, "
+      "length=6}}",
+      absl::StrCat(leaf_entry));
+
+  InteriorNodeEntry interior_entry;
+  interior_entry.key = "ghi";
+  interior_entry.subtree_common_prefix_length = 2;
+  interior_entry.node = ref;
+  EXPECT_EQ(
+      "{key=\"ghi\", subtree_common_prefix_length=2, "
+      "node={location={file_id=\"\"+\"file1\", offset=2, length=3}, "
+      "statistics={num_indirect_value_bytes=10, num_tree_bytes=200, "
+      "num_keys=30}}}",
+      absl::StrCat(interior_entry));
 }
 
 }  // namespace

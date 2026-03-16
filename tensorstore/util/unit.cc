@@ -16,22 +16,17 @@
 
 #include <ostream>
 #include <string>
+#include <string_view>
 
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "re2/re2.h"
 
 namespace tensorstore {
 
 std::ostream& operator<<(std::ostream& os, const Unit& unit) {
-  if (unit.base_unit.empty()) {
-    return os << unit.multiplier;
-  } else {
-    if (unit.multiplier != 1) {
-      os << unit.multiplier << ' ';
-    }
-    return os << unit.base_unit;
-  }
+  return os << absl::StreamFormat("%v", unit);
 }
 
 bool operator==(const Unit& a, const Unit& b) {

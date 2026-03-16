@@ -19,17 +19,19 @@
 
 #include <cstddef>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "absl/strings/has_absl_stringify.h"
+#include "absl/strings/has_ostream_operator.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "tensorstore/internal/meta/requires.h"
-#include "tensorstore/internal/meta/type_traits.h"
 
 namespace tensorstore {
 namespace internal_stringify {
@@ -40,16 +42,22 @@ constexpr bool generic_stringify_false = false;
 template <typename Sink, typename T>
 void GenericStringifyImpl(Sink& sink, const T& v);
 
-template <typename Sink, typename ResultLike>
-void GenericStringifyResult(Sink& sink, const ResultLike& v) {
-  sink.Append("<");
-  if (v.ok()) {
-    sink.Append("OK: ");
-    GenericStringifyImpl(sink, *v);
-  } else {
-    GenericStringifyImpl(sink, v.status());
+template <typename Sink>
+void GenericStringifyVectorBool(Sink& sink,
+                                const std::vector<bool>& container) {
+  // std::vector<bool> is specialized to store bits, so it does not support
+  // random access.
+  sink.Append("{");
+  bool first = true;
+  for (const bool v : container) {
+    if (first) {
+      sink.Append(v ? "1" : "0");
+      first = false;
+    } else {
+      sink.Append(v ? ", 1" : ", 0");
+    }
   }
-  sink.Append(">");
+  sink.Append("}");
 }
 
 template <typename Sink, class... Ts>
@@ -86,14 +94,28 @@ void GenericStringifyOptional(Sink& sink, const std::optional<T>& v) {
 }
 
 template <typename Sink, typename Iterator>
-void GenericStringifyContainer(Sink& sink, Iterator begin, Iterator end) {
+void GenericStringifyContainerIter(Sink& sink, Iterator begin, Iterator end) {
   sink.Append("{");
   if (begin != end) {
     GenericStringifyImpl(sink, *begin++);
   }
-  for (; begin != end; ++begin) {
+  for (; begin != end;) {
     sink.Append(", ");
-    GenericStringifyImpl(sink, *begin);
+    GenericStringifyImpl(sink, *begin++);
+  }
+  sink.Append("}");
+}
+
+template <typename Sink, typename Container>
+void GenericStringifyContainerN(Sink& sink, const Container& container,
+                                size_t n) {
+  // like std::array.
+  sink.Append("{");
+  for (size_t i = 0; i < n; ++i) {
+    if (i > 0) {
+      sink.Append(", ");
+    }
+    GenericStringifyImpl(sink, container[i]);
   }
   sink.Append("}");
 }
@@ -102,6 +124,7 @@ void GenericStringifyContainer(Sink& sink, Iterator begin, Iterator end) {
 template <typename Sink, typename T>
 void GenericStringifyImpl(Sink& sink, const T& v) {
   if constexpr (absl::HasAbslStringify<T>::value) {
+    // If T has an AbslStringify implementation, use it.
     AbslStringify(sink, v);
   } else if constexpr (std::is_same_v<T, std::nullptr_t>) {
     sink.Append("null");
@@ -118,14 +141,26 @@ void GenericStringifyImpl(Sink& sink, const T& v) {
     absl::Format(&sink, "%c", v);
   } else if constexpr (std::is_same_v<T, bool>) {
     sink.Append(v ? "true" : "false");
+  } else if constexpr (std::is_floating_point_v<T> || std::is_integral_v<T>) {
+    absl::Format(&sink, "%v", v);
+  } else if constexpr (absl::HasOstreamOperator<T>::value) {
+    // Order is significant here; we want user-defined operator<< to take
+    // precedence over the generic container formatting below.
+    // NOTE: nlohmann::json, for example, defines an operator<<, and those
+    // json types shouldn't be formatted as generic containers.
+    absl::Format(&sink, "%s", absl::FormatStreamed(v));
   } else if constexpr (std::is_enum_v<T>) {
-    // Non-streamable enum
+    // Non-streamable enum without an AbslStringify or operator<< implementation
+    // will be formatted as an integer.
     using I = typename std::underlying_type<T>::type;
     absl::Format(&sink, "%d", static_cast<I>(v));
-  } else if constexpr (std::is_floating_point_v<T>) {
-    absl::Format(&sink, "%f", v);
-  } else if constexpr (std::is_integral_v<T>) {
-    absl::Format(&sink, "%d", v);
+  } else if constexpr (
+      internal_meta::Requires<const T>(
+          [&](auto&& w)
+              -> decltype((
+                  GenericStringifyVectorBool)(std::declval<absl::FormatSink&>(),
+                                              w)) {})) {
+    GenericStringifyVectorBool(sink, v);
   } else if constexpr (
       internal_meta::Requires<const T>(
           [&](auto&& w)
@@ -153,16 +188,20 @@ void GenericStringifyImpl(Sink& sink, const T& v) {
       internal_meta::Requires<const T>(
           [&](auto&& w)
               -> decltype((
-                  GenericStringifyContainer)(std::declval<absl::FormatSink&>(),
-                                             w.cbegin(), w.cend())) {})) {
+                  GenericStringifyContainerIter)(std::declval<
+                                                     absl::FormatSink&>(),
+                                                 w.cbegin(), w.cend())) {})) {
     // For containers, use `{ elem0, ..., elemN }`.
-    GenericStringifyContainer(sink, v.cbegin(), v.cend());
-  } else if constexpr (internal_meta::Requires<const T>(
-                           [&](auto&& w) -> decltype(w.ok(), w.status(), *w) {
-                           })) {
-    GenericStringifyResult(sink, v);
-  } else if constexpr (internal::IsOstreamable<T>) {
-    absl::Format(&sink, "%s", absl::FormatStreamed(v));
+    GenericStringifyContainerIter(sink, v.cbegin(), v.cend());
+  } else if constexpr (
+      internal_meta::Requires<const T>(
+          [&](auto&& w)
+              -> decltype(w[0],
+                          (GenericStringifyContainerN)(std::declval<
+                                                           absl::FormatSink&>(),
+                                                       w, w.size())) {})) {
+    // For containers, use `{ elem0, ..., elemN }`.
+    GenericStringifyContainerN(sink, v, v.size());
   } else {
     // Workaround for http://wg21.link/p2593.
     static_assert(generic_stringify_false<T>, "Type is not stringifiable");
@@ -180,30 +219,31 @@ struct GenericStringify {
   friend void AbslStringify(Sink& sink, GenericStringify self) {
     GenericStringifyImpl(sink, self.v);
   }
+
+  friend std::ostream& operator<<(std::ostream& os, GenericStringify self) {
+    return os << absl::StreamFormat("%v", self);
+  }
 };
 
 struct GenericStringifyNiebloid {
   template <typename T>
   GenericStringify<const T&> operator()(const T& v) const {
-    static_assert(!absl::HasAbslStringify<T>::value,
-                  "Type already supports AbslStringify");
     return GenericStringify<const T&>{v};
   }
 };
 
 }  // namespace internal_stringify
 
-/// Allows passing arbitrary C++ value references to `absl::StrFormat`,
-/// `absl::StrCat`, and similar string formatting functions.
-///
-/// Example::
-///
-///   std::vector<int> v = {1, 2, 3};
-///   absl::StrFormat("%sv", GenericStringify(v));
-///
-/// \ingroup string-utilities
-inline constexpr internal_stringify::GenericStringifyNiebloid
-    GenericStringify{};
+// Allows passing arbitrary C++ value references to `absl::StrFormat`,
+// `absl::StrCat`, and similar string formatting functions.
+//
+// Example::
+//
+//   std::vector<int> v = {1, 2, 3};
+//   absl::StrFormat("%sv", GenericStringify(v));
+//
+inline constexpr auto GenericStringify =
+    internal_stringify::GenericStringifyNiebloid{};
 
 }  // namespace tensorstore
 

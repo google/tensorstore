@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/strings/str_format.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 
@@ -66,6 +67,11 @@ struct BtreeNodeIdentifier {
 
   friend std::ostream& operator<<(std::ostream& os,
                                   const BtreeNodeIdentifier& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const BtreeNodeIdentifier& x) {
+    absl::Format(&sink, "{range=%v, height=%v}", x.range,
+                 static_cast<int>(x.height));
+  }
 };
 
 }  // namespace internal_ocdbt

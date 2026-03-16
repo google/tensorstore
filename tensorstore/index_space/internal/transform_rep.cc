@@ -32,6 +32,7 @@
 #include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -53,7 +54,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -382,40 +382,41 @@ bool AreEqual(TransformRep* a, TransformRep* b) {
   return true;
 }
 
-void PrintToOstream(std::ostream& os, TransformRep* transform) {
+std::string PrintToString(TransformRep* transform) {
   if (!transform) {
-    os << "<Invalid index space transform>";
-    return;
+    return "<Invalid index space transform>";
   }
+  std::string result;
   const DimensionIndex input_rank = transform->input_rank;
   const DimensionIndex output_rank = transform->output_rank;
-  os << "Rank " << transform->input_rank << " -> " << transform->output_rank
-     << " index space transform:\n";
-  os << "  Input domain:\n";
+  absl::StrAppendFormat(&result, "Rank %d -> %d index space transform:\n",
+                        input_rank, output_rank);
+  absl::StrAppend(&result, "  Input domain:\n");
   const BoxView<> input_domain = transform->input_domain(input_rank);
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     const auto d = transform->input_dimension(input_dim);
-    os << "    " << input_dim << ": " << d.optionally_implicit_domain();
+    absl::StrAppendFormat(&result, "    %d: %v", input_dim,
+                          d.optionally_implicit_domain());
     if (!d.label().empty()) {
-      os << " " << QuoteString(d.label());
+      absl::StrAppendFormat(&result, " %v", QuoteString(d.label()));
     }
-    os << '\n';
+    absl::StrAppend(&result, "\n");
   }
-  span<const OutputIndexMap> maps =
-      transform->output_index_maps().first(output_rank);
+  auto maps = transform->output_index_maps().first(output_rank);
   Index index_array_shape[kMaxRank];  // Only first `input_rank` elements used.
-  os << "  Output index maps:\n";
+  absl::StrAppend(&result, "  Output index maps:\n");
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
     const auto& map = maps[output_dim];
-    os << "    out[" << output_dim << "] = " << map.offset();
+    absl::StrAppendFormat(&result, "    out[%d] = %d", output_dim,
+                          map.offset());
     if (map.method() != OutputIndexMethod::constant) {
-      os << " + " << map.stride() << " * ";
+      absl::StrAppendFormat(&result, " + %d * ", map.stride());
     }
     switch (map.method()) {
       case OutputIndexMethod::constant:
         break;
       case OutputIndexMethod::single_input_dimension:
-        os << "in[" << map.input_dimension() << "]";
+        absl::StrAppendFormat(&result, "in[%d]", map.input_dimension());
         break;
       case OutputIndexMethod::array: {
         const auto& index_array_data = map.index_array_data();
@@ -434,30 +435,37 @@ void PrintToOstream(std::ostream& os, TransformRep* transform) {
                                   index_array_data.byte_strides)),
             StridedLayoutView<>(input_rank, &index_array_shape[0],
                                 index_array_data.byte_strides));
-        os << "bounded(" << index_array_data.index_range
-           << ", array(in)), where array =\n";
-        os << "      " << index_array;
+        absl::StrAppendFormat(&result,
+                              "bounded(%v, array(in)), where array =\n",
+                              index_array_data.index_range);
+        absl::StrAppendFormat(&result, "      %v", index_array);
         break;
       }
     }
-    os << '\n';
+    absl::StrAppend(&result, "\n");
   }
+
+  return result;
 }
 
-void PrintDomainToOstream(std::ostream& os, TransformRep* transform) {
+std::string PrintDomainToString(TransformRep* transform) {
   if (!transform) {
-    os << "<invalid index domain>";
-    return;
+    return "<invalid index domain>";
   }
-  os << "{ ";
+  std::string result;
+  result.reserve(transform->input_rank * 20);
+  absl::StrAppend(&result, "{ ");
   for (DimensionIndex i = 0, rank = transform->input_rank; i < rank; ++i) {
-    if (i != 0) os << ", ";
+    if (i != 0) {
+      absl::StrAppend(&result, ", ");
+    }
     const InputDimensionRef dim_ref = transform->input_dimension(i);
     const IndexDomainDimension<view> d{dim_ref.optionally_implicit_domain(),
                                        dim_ref.label()};
-    os << d;
+    absl::StrAppend(&result, d);
   }
-  os << " }";
+  absl::StrAppend(&result, " }");
+  return result;
 }
 
 Result<Index> OutputIndexMap::operator()(
@@ -501,9 +509,9 @@ absl::Status TransformIndices(TransformRep* data,
   for (DimensionIndex i = 0; i < input_rank; ++i) {
     auto oi_interval = data->input_dimension(i).optionally_implicit_domain();
     if (!Contains(oi_interval.effective_interval(), input_indices[i])) {
-      return absl::OutOfRangeError(tensorstore::StrCat(
-          "Index ", input_indices[i], " is not contained in the domain ",
-          oi_interval, " for input dimension ", i));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Index %d is not contained in the domain %v for input dimension %d",
+          input_indices[i], oi_interval, i));
     }
   }
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {

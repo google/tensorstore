@@ -83,7 +83,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -117,8 +116,13 @@ std::string GetSupportedDataTypes() {
 absl::Status ValidateDataType(DataType dtype) {
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
     return absl::InvalidArgumentError(absl::StrFormat(
+<<<<<<< v3_structs_and_void
         "%v data type is not one of the supported data types: %s",
         dtype, GetSupportedDataTypes()));
+=======
+        "%v data type is not one of the supported data types: %s", dtype,
+        GetSupportedDataTypes()));
+>>>>>>> master
   }
   return absl::OkStatus();
 }
@@ -480,10 +484,17 @@ constexpr auto UnknownExtensionAttributesJsonBinder =
             continue;
           }
         }
+<<<<<<< v3_structs_and_void
         return absl::InvalidArgumentError(absl::StrFormat(
             "Unsupported metadata field %v is not marked "
             "{\"must_understand\": false}",
             tensorstore::QuoteString(key)));
+=======
+        return absl::InvalidArgumentError(
+            absl::StrFormat("Unsupported metadata field %v is not marked "
+                            "{\"must_understand\": false}",
+                            QuoteString(key)));
+>>>>>>> master
       }
       return absl::OkStatus();
     });
@@ -1051,6 +1062,7 @@ CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata) {
 }
 
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
+<<<<<<< v3_structs_and_void
                                     size_t field_index, const Schema& schema) {
   auto info = GetSpecRankAndFieldInfo(metadata, field_index);
   const auto& field = metadata.data_type.fields[field_index];
@@ -1060,6 +1072,14 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
         "Rank specified by schema (%d) does not match rank specified by "
         "metadata (%d)",
         schema.rank(), info.chunked_rank));
+=======
+                                    const Schema& schema) {
+  if (!RankConstraint::EqualOrUnspecified(metadata.rank, schema.rank())) {
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Rank specified by schema (%v) does not match rank specified by "
+        "metadata (%v)",
+        schema.rank(), metadata.rank));
+>>>>>>> master
   }
 
   if (schema.domain().valid()) {
@@ -1074,10 +1094,17 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
   }
 
   if (auto dtype = schema.dtype();
+<<<<<<< v3_structs_and_void
       !IsPossiblySameDataType(field.dtype, dtype)) {
     return absl::FailedPreconditionError(absl::StrFormat(
         "data_type from metadata (%v) does not match dtype in schema (%v)",
         field.dtype, dtype));
+=======
+      !IsPossiblySameDataType(metadata.data_type, dtype)) {
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "data_type from metadata (%v) does not match dtype in schema (%v)",
+        metadata.data_type, dtype));
+>>>>>>> master
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
@@ -1102,11 +1129,21 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
         tensorstore::MakeCopy(std::move(broadcast_fill_value),
                               skip_repeated_elements, field.dtype));
     if (!AreArraysIdenticallyEqual(converted_fill_value, fill_value)) {
+<<<<<<< v3_structs_and_void
       return absl::FailedPreconditionError(absl::StrFormat(
           "Invalid fill_value: schema requires fill value of %s, but metadata "
           "specifies fill value of %s",
           absl::FormatStreamed(schema_fill_value),
           absl::FormatStreamed(fill_value)));
+=======
+      auto binder = FillValueJsonBinder{metadata.data_type};
+      auto schema_json = jb::ToJson(converted_fill_value, binder).value();
+      auto metadata_json = jb::ToJson(metadata.fill_value, binder).value();
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "Invalid fill_value: schema requires fill value of %s, but metadata "
+          "specifies fill value of %s",
+          schema_json.dump(), metadata_json.dump()));
+>>>>>>> master
     }
   }
 

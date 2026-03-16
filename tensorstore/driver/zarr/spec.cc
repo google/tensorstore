@@ -49,12 +49,12 @@
 #include "tensorstore/schema.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -135,9 +135,9 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
                                  metadata.compressor);
   }
   if (constraints.order && *constraints.order != metadata.order) {
-    return MetadataMismatchError("order",
-                                 tensorstore::StrCat(*constraints.order),
-                                 tensorstore::StrCat(metadata.order));
+    return MetadataMismatchError(
+        "order", absl::StrFormat("%v", GenericStringify(*constraints.order)),
+        absl::StrFormat("%v", GenericStringify(metadata.order)));
   }
   if (constraints.dtype && ::nlohmann::json(*constraints.dtype) !=
                                ::nlohmann::json(metadata.dtype)) {
@@ -279,8 +279,9 @@ Result<ZarrMetadataPtr> GetNewMetadata(
         if (std::equal(inner_order.begin(), inner_order.end(), order)) {
           metadata->order = fortran_order;
         } else if (inner_order.hard_constraint) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Invalid \"inner_order\" constraint: ", inner_order));
+          return absl::InvalidArgumentError(
+              absl::StrFormat("Invalid \"inner_order\" constraint: %v",
+                              GenericStringify(inner_order)));
         }
       }
     }
@@ -491,8 +492,9 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
   if (auto dtype = schema.dtype();
       !IsPossiblySameDataType(dtype, field.dtype)) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("dtype from metadata (", field.dtype,
-                            ") does not match dtype in schema (", dtype, ")"));
+        absl::StrFormat("dtype from metadata (%v) does not match dtype in "
+                        "schema (%v)",
+                        field.dtype, dtype));
   }
 
   if (schema.domain().valid()) {
@@ -510,9 +512,10 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
   if (auto schema_fill_value = schema.fill_value(); schema_fill_value.valid()) {
     const auto& fill_value = metadata.fill_value[field_index];
     if (!fill_value.valid()) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Invalid fill_value: schema requires fill value of ",
-          schema_fill_value, ", but metadata specifies no fill value"));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Invalid fill_value: schema requires fill value of %v, "
+          "but metadata specifies no fill value",
+          schema_fill_value));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto broadcast_fill_value,
@@ -522,10 +525,10 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
         tensorstore::MakeCopy(std::move(broadcast_fill_value),
                               skip_repeated_elements, field.dtype));
     if (!AreArraysIdenticallyEqual(converted_fill_value, fill_value)) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Invalid fill_value: schema requires fill value of ",
-          converted_fill_value, ", but metadata specifies fill value of ",
-          fill_value));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Invalid fill_value: schema requires fill value of %v, "
+          "but metadata specifies fill value of %v",
+          converted_fill_value, fill_value));
     }
   }
 

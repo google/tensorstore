@@ -260,10 +260,7 @@ bool operator==(const BtreeGenerationReference& a,
 }
 
 std::ostream& operator<<(std::ostream& os, const BtreeGenerationReference& x) {
-  return os << "{root=" << x.root
-            << ", generation_number=" << x.generation_number
-            << ", root_height=" << static_cast<int>(x.root_height)
-            << ", commit_time=" << x.commit_time << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 bool operator==(const VersionNodeReference& a, const VersionNodeReference& b) {
@@ -274,28 +271,11 @@ bool operator==(const VersionNodeReference& a, const VersionNodeReference& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const VersionNodeReference& e) {
-  return os << "{location=" << e.location
-            << ", generation_number=" << e.generation_number
-            << ", height=" << static_cast<size_t>(e.height)
-            << ", num_generations=" << e.num_generations
-            << ", commit_time=" << e.commit_time << "}";
+  return os << absl::StreamFormat("%v", e);
 }
 
 std::ostream& operator<<(std::ostream& os, const VersionTreeNode::Entries& e) {
-  return std::visit(
-      [&os](const auto& entries) -> std::ostream& {
-        os << "{";
-        bool first = true;
-        for (const auto& entry : entries) {
-          if (!first) {
-            os << ", ";
-          }
-          first = false;
-          os << entry;
-        }
-        return os << "}";
-      },
-      e);
+  return os << absl::StreamFormat("%v", e);
 }
 
 GenerationNumber VersionTreeNode::generation_number() const {
@@ -312,11 +292,11 @@ bool operator==(const VersionTreeNode& a, const VersionTreeNode& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const VersionTreeNode& e) {
-  return os << "{height=" << e.height << ", entries=" << e.entries << "}";
+  return os << absl::StreamFormat("%v", e);
 }
 
 std::ostream& operator<<(std::ostream& os, CommitTime x) {
-  return os << static_cast<absl::Time>(x);
+  return os << absl::StreamFormat("%v", x);
 }
 
 absl::Status ValidateVersionTreeLeafNodeEntries(

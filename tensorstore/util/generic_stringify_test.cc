@@ -14,6 +14,7 @@
 
 #include "tensorstore/util/generic_stringify.h"
 
+#include <array>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -24,15 +25,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/util/result.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/util/span.h"
 
 namespace {
 
 using ::tensorstore::GenericStringify;
-using ::tensorstore::Result;
 using ::testing::StrEq;
 
 TEST(GenericStringifyTest, Null) {
@@ -50,8 +49,8 @@ TEST(GenericStringifyTest, String) {
 TEST(GenericStringifyTest, Numeric) {
   EXPECT_THAT(absl::StrCat(GenericStringify(1)), StrEq("1"));
   EXPECT_THAT(absl::StrCat(GenericStringify(1U)), StrEq("1"));
-  EXPECT_THAT(absl::StrCat(GenericStringify(1.5f)), StrEq("1.500000"));
-  EXPECT_THAT(absl::StrCat(GenericStringify(1.5)), StrEq("1.500000"));
+  EXPECT_THAT(absl::StrCat(GenericStringify(1.5f)), StrEq("1.5"));
+  EXPECT_THAT(absl::StrCat(GenericStringify(1.5)), StrEq("1.5"));
   EXPECT_THAT(absl::StrCat(GenericStringify('a')), StrEq("a"));
 }
 
@@ -75,13 +74,6 @@ TEST(GenericStringifyTest, Optional) {
   EXPECT_THAT(absl::StrCat(GenericStringify(opt_null)), StrEq("null"));
 }
 
-TEST(GenericStringifyTest, Result) {
-  EXPECT_THAT(absl::StrCat(GenericStringify(Result<int>(1))), StrEq("<OK: 1>"));
-  EXPECT_THAT(absl::StrCat(GenericStringify(
-                  Result<int>(absl::InvalidArgumentError("Test")))),
-              testing::StartsWith("<INVALID_ARGUMENT: Test"));
-}
-
 TEST(GenericStringifyTest, Pair) {
   EXPECT_THAT(
       absl::StrCat(GenericStringify(std::pair<int, std::string>(1, "a"))),
@@ -91,7 +83,7 @@ TEST(GenericStringifyTest, Pair) {
 TEST(GenericStringifyTest, Tuple) {
   EXPECT_THAT(absl::StrCat(GenericStringify(std::tuple<>{})), StrEq("{}"));
   EXPECT_THAT(absl::StrCat(GenericStringify(std::make_tuple(1, "a", 3.5))),
-              StrEq("{1, a, 3.500000}"));
+              StrEq("{1, a, 3.5}"));
 }
 
 struct MyStringifiable {
@@ -112,8 +104,7 @@ struct OstreamablePoint {
   int x;
   int y;
 
-  [[maybe_unused]] friend std::ostream& operator<<(std::ostream& os,
-                                                   const OstreamablePoint& p) {
+  friend std::ostream& operator<<(std::ostream& os, const OstreamablePoint& p) {
     return os << "P(" << p.x << "," << p.y << ")";
   }
 };
@@ -126,6 +117,16 @@ TEST(GenericStringifyTest, Ostreamable) {
 TEST(GenericStringifyTest, Vector) {
   std::vector<int> vec{1, 2, 3};
   EXPECT_THAT(absl::StrCat(GenericStringify(vec)), StrEq("{1, 2, 3}"));
+}
+
+TEST(GenericStringifyTest, VectorBool) {
+  std::vector<bool> vec{1, 0, 1, 1, 0};
+  EXPECT_THAT(absl::StrCat(GenericStringify(vec)), StrEq("{1, 0, 1, 1, 0}"));
+}
+
+TEST(GenericStringifyTest, Array) {
+  std::array<int, 3> arr{1, 0, 4};
+  EXPECT_THAT(absl::StrCat(GenericStringify(arr)), StrEq("{1, 0, 4}"));
 }
 
 TEST(GenericStringifyTest, Span) {

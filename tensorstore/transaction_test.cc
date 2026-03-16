@@ -776,4 +776,10 @@ TEST(TransactionTest, ReleaseFutureReferencesAfterRequestCommit) {
   weak_node->AbortDone();
 }
 
+TEST(TransactionTest, AbslStringify) {
+  EXPECT_EQ("no_transaction_mode", absl::StrCat(no_transaction));
+  EXPECT_EQ("isolated", absl::StrCat(TransactionMode::isolated));
+  EXPECT_EQ("atomic_isolated", absl::StrCat(TransactionMode::atomic_isolated));
+}
+
 }  // namespace

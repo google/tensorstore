@@ -26,6 +26,7 @@
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
@@ -41,9 +42,9 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/testing/random_seed.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -52,6 +53,7 @@ using ::tensorstore::BoxView;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Dims;
 using ::tensorstore::DownsampleMethod;
+using ::tensorstore::GenericStringify;
 using ::tensorstore::Index;
 using ::tensorstore::IndexInterval;
 using ::tensorstore::IndexTransformBuilder;
@@ -480,34 +482,36 @@ void TestPropagateIndexTransformDownsamplingInvariance(DimensionIndex rank) {
   tensorstore::internal::MakeRandomBoxParameters box_p;
   box_p.min_rank = box_p.max_rank = rank;
   auto base_bounds = tensorstore::internal::MakeRandomBox(gen, box_p);
-  SCOPED_TRACE(tensorstore::StrCat("base_bounds=", base_bounds));
+  SCOPED_TRACE(absl::StrFormat("base_bounds=%v", base_bounds));
   auto base_data = tensorstore::internal::MakeRandomArray(
       gen, base_bounds, tensorstore::dtype_v<uint8_t>);
-  SCOPED_TRACE(tensorstore::StrCat("base_data=", base_data));
+  SCOPED_TRACE(absl::StrFormat("base_data=%v", GenericStringify(base_data)));
   std::vector<Index> downsample_factors(rank);
   for (DimensionIndex i = 0; i < rank; ++i) {
     downsample_factors[i] =
         absl::Uniform<Index>(absl::IntervalClosedClosed, gen, 1, 2);
   }
-  SCOPED_TRACE(tensorstore::StrCat("downsample_factors=",
-                                   tensorstore::span(downsample_factors)));
+  SCOPED_TRACE(
+      absl::StrFormat("downsample_factors=%v",
+                      GenericStringify(tensorstore::span(downsample_factors))));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_data,
       DownsampleArray(base_data, downsample_factors, DownsampleMethod::kMean));
   Box<> downsampled_bounds(rank);
   DownsampleBounds(base_bounds, downsampled_bounds, downsample_factors,
                    DownsampleMethod::kMean);
-  SCOPED_TRACE(tensorstore::StrCat("downsampled_bounds=", downsampled_bounds));
+  SCOPED_TRACE(absl::StrFormat("downsampled_bounds=%v", downsampled_bounds));
   auto downsampled_transform = tensorstore::internal::MakeRandomIndexTransform(
       gen, downsampled_bounds, rank * 2);
   SCOPED_TRACE(
-      tensorstore::StrCat("downsampled_transform=", downsampled_transform));
+      absl::StrFormat("downsampled_transform=%v", downsampled_transform));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto propagated,
       PropagateIndexTransformDownsampling(downsampled_transform, base_bounds,
                                           downsample_factors));
-  SCOPED_TRACE(tensorstore::StrCat("propagated=", propagated));
-  SCOPED_TRACE(tensorstore::StrCat("downsampled_data=", downsampled_data));
+  SCOPED_TRACE(absl::StrFormat("propagated=%v", GenericStringify(propagated)));
+  SCOPED_TRACE(absl::StrFormat("downsampled_data=%v",
+                               GenericStringify(downsampled_data)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsample_then_transform,
       downsampled_data | downsampled_transform | tensorstore::Materialize());

@@ -23,7 +23,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_header.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/byte_range.h"
 
 namespace tensorstore {
@@ -69,7 +69,7 @@ class HttpRequestBuilder {
   /// The uri_encoder is used to encode query parameters.
   HttpRequestBuilder(std::string_view method, std::string base_url)
       : HttpRequestBuilder(method, base_url,
-                           internal::PercentEncodeUriComponent) {}
+                           internal_uri::PercentEncodeUriComponent) {}
 
   HttpRequestBuilder(std::string_view method, std::string base_url,
                      UriEncodeFunctor uri_encoder);

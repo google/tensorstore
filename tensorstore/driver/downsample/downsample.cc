@@ -25,6 +25,7 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -77,11 +78,11 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_downsample {
@@ -256,9 +257,9 @@ class DownsampleDriverSpec
     }
     if (domain.rank() != downsample_factors.size()) {
       // Should have already been validated.
-      return absl::InternalError(tensorstore::StrCat(
-          "Domain of base TensorStore has rank (", domain.rank(),
-          ") but expected ", downsample_factors.size()));
+      return absl::InternalError(absl::StrFormat(
+          "Domain of base TensorStore has rank (%d) but expected %d",
+          domain.rank(), downsample_factors.size()));
     }
     auto downsampled_domain = internal_downsample::DownsampleDomain(
         domain, downsample_factors, downsample_method);
@@ -1070,10 +1071,10 @@ Result<Driver::Handle> MakeDownsampleDriver(
     Driver::Handle base, tensorstore::span<const Index> downsample_factors,
     DownsampleMethod downsample_method) {
   if (downsample_factors.size() != base.transform.input_rank()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Number of downsample factors (", downsample_factors.size(),
-        ") does not match TensorStore rank (", base.transform.input_rank(),
-        ")"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Number of downsample factors (%d) does not match "
+        "TensorStore rank (%d)",
+        downsample_factors.size(), base.transform.input_rank()));
   }
   if (!(base.driver.read_write_mode() & ReadWriteMode::read)) {
     return absl::InvalidArgumentError(
@@ -1081,8 +1082,9 @@ Result<Driver::Handle> MakeDownsampleDriver(
   }
   if (std::any_of(downsample_factors.begin(), downsample_factors.end(),
                   [](Index factor) { return factor < 1; })) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Downsample factors ", downsample_factors, " are not all positive"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Downsample factors %v are not all positive",
+                        GenericStringify(downsample_factors)));
   }
   TENSORSTORE_RETURN_IF_ERROR(internal_downsample::ValidateDownsampleMethod(
       base.driver->dtype(), downsample_method));

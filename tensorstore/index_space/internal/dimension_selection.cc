@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
@@ -29,7 +30,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -38,8 +38,8 @@ absl::Status CheckAndNormalizeDimensions(
     DimensionIndex input_rank, tensorstore::span<DimensionIndex> dimensions) {
   if (dimensions.size() > input_rank) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Number of dimensions (", dimensions.size(),
-                            ") exceeds input rank (", input_rank, ")."));
+        absl::StrFormat("Number of dimensions (%d) exceeds input rank (%d).",
+                        dimensions.size(), input_rank));
   }
 
   std::vector<DimensionIndex> error_dimensions;
@@ -56,9 +56,9 @@ absl::Status CheckAndNormalizeDimensions(
     }
   }
   if (!error_dimensions.empty()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Input dimensions {", absl::StrJoin(error_dimensions, ", "),
-        "} specified more than once"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Input dimensions {%s} specified more than once",
+                        absl::StrJoin(error_dimensions, ", ")));
   }
 
   return absl::OkStatus();
@@ -154,8 +154,8 @@ Result<DimensionIndex> GetNumNewDimensions(const DimRangeSpec& spec) {
       }
     }
   }
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "`", spec, "` is not a valid specification for new dimensions"));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "`%v` is not a valid specification for new dimensions", spec));
 }
 }  // namespace
 

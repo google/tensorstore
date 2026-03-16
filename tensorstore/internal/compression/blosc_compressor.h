@@ -30,7 +30,6 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -49,8 +48,8 @@ class BloscCompressor : public JsonSpecifiedCompressor {
       if (cname->find('\0') != std::string::npos ||
           blosc_compname_to_compcode(cname->c_str()) == -1) {
         return absl::InvalidArgumentError(
-            tensorstore::StrCat("Expected one of ", blosc_list_compressors(),
-                                " but received: ", QuoteString(*cname)));
+            absl::StrFormat("Expected one of %s, but received: %v",
+                            blosc_list_compressors(), QuoteString(*cname)));
       }
       return absl::OkStatus();
     });

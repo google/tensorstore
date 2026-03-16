@@ -135,15 +135,21 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -268,12 +274,10 @@ constexpr auto BoundsBinder() {
         *obj = *value;
         return absl::OkStatus();
       }
-      // Uses the same format as internal_json::ExpectedError
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Expected 64-bit signed integer",
-                              kNegInfinity != 0 ? " or \"-inf\"" : "",
-                              kPosInfinity != 0 ? " or \"+inf\"" : "",
-                              ", but received: ", j->dump()));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Expected 64-bit signed integer%s%s, but received: %s",
+          kNegInfinity != 0 ? " or \"-inf\"" : "",
+          kPosInfinity != 0 ? " or \"+inf\"" : "", j->dump()));
     } else {
       if (kNegInfinity != 0 && *obj == kNegInfinity) {
         *j = "-inf";

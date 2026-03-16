@@ -29,6 +29,7 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
@@ -39,7 +40,6 @@
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -56,8 +56,7 @@ static_assert(
 static_assert(std::is_same_v<unsigned int, ::tensorstore::dtypes::uint32_t>);
 
 std::ostream& operator<<(std::ostream& os, DataType r) {
-  if (r.valid()) return os << r.name();
-  return os << "<unspecified>";
+  return os << absl::StreamFormat("%v", r);
 }
 
 void* AllocateAndConstruct(ptrdiff_t n, ElementInitialization initialization,

@@ -104,10 +104,11 @@ struct CommitTime {
   }
   friend bool operator!=(CommitTime a, CommitTime b) { return !(a == b); }
   friend std::ostream& operator<<(std::ostream& os, CommitTime x);
-
   template <typename Sink>
   friend void AbslStringify(Sink& sink, CommitTime x) {
-    absl::Format(&sink, "%v", static_cast<absl::Time>(x));
+    absl::Format(
+        &sink, "%v",
+        absl::FormatTime(static_cast<absl::Time>(x), absl::UTCTimeZone()));
   }
 };
 
@@ -135,6 +136,14 @@ struct BtreeGenerationReference {
   }
   friend std::ostream& operator<<(std::ostream& os,
                                   const BtreeGenerationReference& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const BtreeGenerationReference& x) {
+    absl::Format(&sink,
+                 "{root=%v, generation_number=%v, root_height=%v, "
+                 "commit_time=%v}",
+                 x.root, x.generation_number, static_cast<int>(x.root_height),
+                 x.commit_time);
+  }
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.root, x.generation_number, x.root_height, x.commit_time);
   };
@@ -165,6 +174,14 @@ struct VersionNodeReference {
   }
   friend std::ostream& operator<<(std::ostream& os,
                                   const VersionNodeReference& e);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const VersionNodeReference& e) {
+    absl::Format(&sink,
+                 "{location=%v, generation_number=%v, height=%v, "
+                 "num_generations=%v, commit_time=%v}",
+                 e.location, e.generation_number, static_cast<size_t>(e.height),
+                 e.num_generations, e.commit_time);
+  }
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.location, x.generation_number, x.commit_time);
   };
@@ -195,6 +212,10 @@ struct VersionTreeNode {
     return !(a == b);
   }
   friend std::ostream& operator<<(std::ostream& os, const VersionTreeNode& e);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const VersionTreeNode& e) {
+    absl::Format(&sink, "{height=%v, entries=%v}", e.height, e.entries);
+  }
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.height, x.version_tree_arity_log2, x.entries);
@@ -418,6 +439,24 @@ span<const VersionNodeReference>::iterator FindVersionUpperBound(
 /// `EncodeVersionTreeNode` to verify invariants before writing.
 void CheckVersionTreeNodeInvariants(const VersionTreeNode& node);
 #endif  // NDEBUG
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const VersionTreeNode::Entries& e) {
+  std::visit(
+      [&](const auto& entries) {
+        sink.Append("{");
+        bool first = true;
+        for (const auto& entry : entries) {
+          if (!first) {
+            sink.Append(", ");
+          }
+          first = false;
+          absl::Format(&sink, "%v", entry);
+        }
+        sink.Append("}");
+      },
+      e);
+}
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

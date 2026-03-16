@@ -39,7 +39,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -103,7 +102,7 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrlImpl(
     } else {
       // Add a colon to the end of `url`; The compound url syntax does not
       // require a colon after the scheme, however registered drivers do.
-      buffer = tensorstore::StrCat(url, ":");
+      buffer = absl::StrCat(url, ":");
       url = buffer;
     }
   }

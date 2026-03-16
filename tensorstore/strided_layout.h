@@ -32,6 +32,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
@@ -74,6 +75,11 @@ constexpr ArrayOriginKind offset_origin = ArrayOriginKind::offset;
 /// \relates ArrayOriginKind
 /// \id ArrayOriginKind
 std::ostream& operator<<(std::ostream& os, ArrayOriginKind origin_kind);
+
+template <typename Sink>
+void AbslStringify(Sink& sink, ArrayOriginKind origin_kind) {
+  sink.Append(origin_kind == zero_origin ? "zero" : "offset");
+}
 
 /// Returns `true` iff an array with origin kind `source` can be converted to an
 /// array with origin kind `target`.
@@ -313,11 +319,6 @@ struct LayoutStorageSelector<Rank, offset_origin, view> {
                                                    const Index, const Index>;
   using Access = LayoutAccess<offset_origin, Storage>;
 };
-
-/// Writes a string representation of `layout` to `os`.
-void PrintToOstream(
-    std::ostream& os,
-    const StridedLayout<dynamic_rank, offset_origin, view>& layout);
 
 std::string DescribeForCast(DimensionIndex rank);
 
@@ -791,10 +792,14 @@ class StridedLayout
   }
 
   /// Writes a string representation to `os`.
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const StridedLayout& layout) {
+    absl::Format(&sink, "{domain=%v, byte_strides={%s}}", layout.domain(),
+                 absl::StrJoin(layout.byte_strides(), ", "));
+  }
   friend std::ostream& operator<<(std::ostream& os,
                                   const StridedLayout& layout) {
-    internal_strided_layout::PrintToOstream(os, layout);
-    return os;
+    return os << absl::StreamFormat("%v", layout);
   }
 
   /// Compares the `domain` and `byte_strides`.

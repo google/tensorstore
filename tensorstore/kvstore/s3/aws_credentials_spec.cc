@@ -32,13 +32,12 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/meta/type_traits.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
@@ -100,10 +99,10 @@ constexpr auto kEcsRoleBinder =  //
                 "specified.");
           }
           if (!spec->endpoint.empty()) {
-            auto parsed = internal::ParseGenericUri(spec->endpoint);
+            auto parsed = internal_uri::ParseGenericUri(spec->endpoint);
             if (!parsed.authority.empty()) {
-              if (!internal::SplitHostPort(parsed.authority)) {
-                return absl::InvalidArgumentError(tensorstore::StrCat(
+              if (!internal_uri::SplitHostPort(parsed.authority)) {
+                return absl::InvalidArgumentError(absl::StrCat(
                     "Invalid endpoint: ", QuoteString(spec->endpoint)));
               }
             }

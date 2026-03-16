@@ -46,7 +46,7 @@
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/thread/schedule_at.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/gcs_http/gcs_mock.h"
@@ -88,6 +88,7 @@ using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_oauth2::GoogleAuthTestScope;
+using ::tensorstore::internal_uri::ParseGenericUri;
 using ::testing::HasSubstr;
 
 static constexpr char kDriver[] = "gcs";
@@ -96,8 +97,7 @@ static constexpr char kDriver[] = "gcs";
 class MetadataMockHelper {
  public:
   tensorstore::Result<HttpResponse> GetResponse(const HttpRequest& request) {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url);
-
+    auto parsed = ParseGenericUri(request.url);
     if (!absl::StartsWith(parsed.authority_and_path,
                           "metadata.google.internal/")) {
       return absl::UnimplementedError("Mock cannot satisfy the request.");
@@ -582,7 +582,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
   void IssueRequestWithHandler(const HttpRequest& request,
                                IssueRequestOptions options,
                                HttpResponseHandler* response_handler) final {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url);
+    auto parsed = ParseGenericUri(request.url);
 
     // Don't do concurrency test on auth requests, as those don't happen
     // concurrently.
@@ -666,7 +666,7 @@ class MyRateLimitedMockTransport : public MyMockTransport {
   void IssueRequestWithHandler(const HttpRequest& request,
                                IssueRequestOptions options,
                                HttpResponseHandler* response_handler) final {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url);
+    auto parsed = ParseGenericUri(request.url);
     if (absl::StartsWith(parsed.authority_and_path,
                          "metadata.google.internal/")) {
       MyMockTransport::IssueRequestWithHandler(request, std::move(options),

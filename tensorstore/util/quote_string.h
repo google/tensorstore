@@ -24,12 +24,10 @@
 #include "absl/base/attributes.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 
 namespace tensorstore {
-namespace internal {
-std::ostream& PrintQuotedString(std::ostream& os, std::string_view v);
-}  // namespace internal
 
 // Returns a representation using C++ string literal syntax (including opening
 // and closing quotes) of the contents of `s`.
@@ -40,6 +38,7 @@ std::ostream& PrintQuotedString(std::ostream& os, std::string_view v);
 //
 struct QuoteString {
   std::string_view s;
+
   explicit QuoteString(std::string_view sv ABSL_ATTRIBUTE_LIFETIME_BOUND)
       : s(sv) {}
 
@@ -53,8 +52,9 @@ struct QuoteString {
     sink.Append(absl::CHexEscape(v.s));
     sink.Append("\"");
   }
+
   friend std::ostream& operator<<(std::ostream& os, QuoteString v) {
-    return internal::PrintQuotedString(os, v.s);
+    return os << absl::StreamFormat("%v", v);
   }
 };
 

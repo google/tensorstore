@@ -20,6 +20,7 @@
 #include <string_view>
 #include <tuple>
 
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 
 namespace tensorstore {
@@ -31,10 +32,16 @@ struct AccessToken {
   std::string token;
   absl::Time expiration = absl::InfinitePast();
 
-  friend std::ostream& operator<<(std::ostream& os, const AccessToken& rhs) {
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const AccessToken& rhs) {
     // Tokens are truncated because they contain security secrets.
-    return os << "token=<" << std::string_view(rhs.token).substr(0, 32)
-              << ">, expiration=" << absl::FormatTime(rhs.expiration);
+    absl::Format(&sink, "token=<%s>, expiration=%s",
+                 std::string_view(rhs.token).substr(0, 32),
+                 absl::FormatTime(rhs.expiration));
+  }
+
+  friend std::ostream& operator<<(std::ostream& os, const AccessToken& rhs) {
+    return os << absl::StreamFormat("%v", rhs);
   }
 
   friend bool operator==(const AccessToken& lhs, const AccessToken& rhs) {

@@ -72,7 +72,8 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/internal/regular_grid.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
@@ -90,9 +91,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {
@@ -204,7 +203,7 @@ class NeuroglancerPrecomputedDriverSpec
       }
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(base_url, "|", kUrlScheme, ":");
+    return absl::StrCat(base_url, "|", kUrlScheme, ":");
   }
 
   Future<internal::Driver::Handle> Open(
@@ -230,7 +229,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
   using Base::Base;
 
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
-    return tensorstore::StrCat(entry_key, kMetadataKey);
+    return absl::StrCat(entry_key, kMetadataKey);
   }
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -596,8 +595,8 @@ class UnshardedDataCache : public DataCacheBase {
           0, tensorstore::CeilOfRatio(scale.box.shape()[i], chunk_size));
     }
     const auto& component = grid.components[0];
-    std::string path = tensorstore::StrCat(this->GetBaseKvstorePath(),
-                                           this->scale_key_prefix_);
+    std::string path =
+        absl::StrCat(this->GetBaseKvstorePath(), this->scale_key_prefix_);
     if (!path.empty()) {
       path += '/';
     }
@@ -989,12 +988,13 @@ Future<internal::Driver::Handle> NeuroglancerPrecomputedDriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseNeuroglancerPrecomputedUrl(
     std::string_view url, kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, kUrlScheme));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoPathOrQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(EnsureSchema(parsed, kUrlScheme));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoPathOrQueryOrFragment(parsed));
   auto driver_spec =
       internal::MakeIntrusivePtr<NeuroglancerPrecomputedDriverSpec>();
-  driver_spec->InitializeFromUrl(std::move(base), {});
+  TENSORSTORE_RETURN_IF_ERROR(
+      driver_spec->InitializeFromUrl(std::move(base), {}));
   return internal::TransformedDriverSpec{std::move(driver_spec)};
 }
 

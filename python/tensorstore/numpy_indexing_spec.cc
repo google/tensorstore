@@ -34,6 +34,7 @@
 
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/index.h"
@@ -49,7 +50,6 @@
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -223,14 +223,14 @@ std::string IndexingSpecRepr(const NumpyIndexingSpec& self) {
     if (i != 0) r += ",";
     const auto& term = self.terms[i];
     if (auto* index = std::get_if<Index>(&term)) {
-      tensorstore::StrAppend(&r, *index);
+      absl::StrAppend(&r, *index);
       continue;
     }
     if (auto* s = std::get_if<NumpyIndexingSpec::Slice>(&term)) {
-      if (s->start != kImplicit) tensorstore::StrAppend(&r, s->start);
+      if (s->start != kImplicit) absl::StrAppend(&r, s->start);
       r += ':';
-      if (s->stop != kImplicit) tensorstore::StrAppend(&r, s->stop);
-      if (s->step != 1) tensorstore::StrAppend(&r, ":", s->step);
+      if (s->stop != kImplicit) absl::StrAppend(&r, s->stop);
+      if (s->step != 1) absl::StrAppend(&r, ":", s->step);
       continue;
     }
     if (std::holds_alternative<NumpyIndexingSpec::NewAxis>(term)) {

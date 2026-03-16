@@ -20,6 +20,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/rank.h"
@@ -28,7 +30,6 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -655,11 +656,17 @@ TEST(BoxTest, Print) {
   Index origin[] = {1, 2, 3};
   Index shape[] = {3, 4, 5};
   EXPECT_EQ("{origin={1, 2, 3}, shape={3, 4, 5}}",
-            tensorstore::StrCat(BoxView<>(origin, shape)));
+            absl::StrCat(BoxView<>(origin, shape)));
   EXPECT_EQ("{origin={1, 2, 3}, shape={3, 4, 5}}",
-            tensorstore::StrCat(Box<>(origin, shape)));
+            absl::StrCat(Box<>(origin, shape)));
   EXPECT_EQ("{origin={1, 2, 3}, shape={3, 4, 5}}",
-            tensorstore::StrCat(MutableBoxView<>(origin, shape)));
+            absl::StrCat(MutableBoxView<>(origin, shape)));
+
+  Index large = 4611686018427387900LL;
+  EXPECT_EQ("{origin={4611686018427387900}, shape={1}}",
+            absl::StrFormat("%v", Box<1>({large}, {1})));
+  EXPECT_EQ("{origin={4611686018427387900}, shape={1}}",
+            absl::StrCat(Box<1>({large}, {1})));
 }
 
 TEST(BoxTest, Contains) {

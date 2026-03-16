@@ -16,6 +16,8 @@
 
 #include <ostream>
 
+#include "absl/strings/str_format.h"
+
 namespace tensorstore {
 
 bool operator==(const ReadProgress& a, const ReadProgress& b) {
@@ -25,9 +27,9 @@ bool operator==(const ReadProgress& a, const ReadProgress& b) {
 bool operator!=(const ReadProgress& a, const ReadProgress& b) {
   return !(a == b);
 }
+
 std::ostream& operator<<(std::ostream& os, const ReadProgress& a) {
-  return os << "{ total_elements=" << a.total_elements
-            << ", copied_elements=" << a.copied_elements << " }";
+  return os << absl::StreamFormat("%v", a);
 }
 
 bool operator==(const WriteProgress& a, const WriteProgress& b) {
@@ -38,10 +40,9 @@ bool operator==(const WriteProgress& a, const WriteProgress& b) {
 bool operator!=(const WriteProgress& a, const WriteProgress& b) {
   return !(a == b);
 }
+
 std::ostream& operator<<(std::ostream& os, const WriteProgress& a) {
-  return os << "{ total_elements=" << a.total_elements
-            << ", copied_elements=" << a.copied_elements
-            << ", committed_elements=" << a.committed_elements << " }";
+  return os << absl::StreamFormat("%v", a);
 }
 
 bool operator==(const CopyProgress& a, const CopyProgress& b) {
@@ -53,11 +54,9 @@ bool operator==(const CopyProgress& a, const CopyProgress& b) {
 bool operator!=(const CopyProgress& a, const CopyProgress& b) {
   return !(a == b);
 }
+
 std::ostream& operator<<(std::ostream& os, const CopyProgress& a) {
-  return os << "{ total_elements=" << a.total_elements
-            << ", read_elements=" << a.read_elements
-            << ", copied_elements=" << a.copied_elements
-            << ", committed_elements=" << a.committed_elements << " }";
+  return os << absl::StreamFormat("%v", a);
 }
 
 }  // namespace tensorstore

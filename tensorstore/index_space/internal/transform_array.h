@@ -16,7 +16,13 @@
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSFORM_ARRAY_H_
 
 #include "tensorstore/array.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/transform_array_constraints.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_index_space {

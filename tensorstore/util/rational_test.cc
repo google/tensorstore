@@ -22,9 +22,14 @@
 
 #include "tensorstore/util/rational.h"
 
-#include <gmock/gmock.h>
+#include <stdint.h>
+
+#include <cmath>
+#include <limits>
+
 #include <gtest/gtest.h>
-#include "tensorstore/util/str_cat.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 
 namespace {
 
@@ -278,10 +283,15 @@ TEST(RationalTest, AssignArithmetic) {
   EXPECT_TRUE((r /= s).is_nan());
 }
 
-TEST(RationalTest, Ostream) {
-  EXPECT_EQ("nan", tensorstore::StrCat(Rational<int>::nan()));
-  EXPECT_EQ("5", tensorstore::StrCat(Rational<int>(5)));
-  EXPECT_EQ("22/7", tensorstore::StrCat(Rational<int>(44, 14)));
+TEST(RationalTest, AbslStringify) {
+  EXPECT_EQ("nan",
+            absl::StrFormat("%v", absl::FormatStreamed(Rational<int>::nan())));
+
+  EXPECT_EQ("5", absl::StrCat(Rational<int>(5)));
+  EXPECT_EQ("22/7", absl::StrCat(Rational<int>(44, 14)));
+  EXPECT_EQ("3/4", absl::StrCat(Rational<int>(3, 4)));
+  EXPECT_EQ("-3/4", absl::StrCat(Rational<int>(-3, 4)));
+  EXPECT_EQ("3", absl::StrCat(Rational<int>(3, 1)));
 }
 
 TEST(RationalTest, Overflow) {
@@ -350,7 +360,7 @@ TEST(FromDoubleTest, Simple) {
   EXPECT_EQ(R(5404319552844595, 18014398509481984), R::FromDouble(0.3));
   EXPECT_EQ(R(-5404319552844595, 18014398509481984), R::FromDouble(-0.3));
   for (int i = 1; i <= 62; ++i) {
-    SCOPED_TRACE(tensorstore::StrCat("i=", i));
+    SCOPED_TRACE(absl::StrCat("i=", i));
     EXPECT_EQ(R(1, static_cast<int64_t>(1) << i),
               R::FromDouble(std::ldexp(1.0, -i)));
     EXPECT_EQ(R(-1, static_cast<int64_t>(1) << i),

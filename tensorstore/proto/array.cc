@@ -39,9 +39,9 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace {
@@ -251,7 +251,7 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
         if (internal::MulOverflow(num_elements, array.shape()[i],
                                   &num_elements)) {
           return absl::DataLossError(absl::StrFormat(
-              "Invalid array shape %v", absl::FormatStreamed(array.shape())));
+              "Invalid array shape %v", GenericStringify(array.shape())));
         }
       }
     }

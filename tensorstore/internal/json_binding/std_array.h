@@ -30,7 +30,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {

@@ -49,7 +49,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -184,8 +183,7 @@ void RegisterKeyValueStoreOpsTests(KeyValueStoreOpsTestParameters params) {
     const auto& transaction_mode_name = txn_mode_info.first;
     const auto transaction_mode = txn_mode_info.second;
     RegisterGoogleTestCaseDynamically(
-        params.test_name,
-        tensorstore::StrCat("ReadOps/", transaction_mode_name),
+        params.test_name, absl::StrCat("ReadOps/", transaction_mode_name),
         [get_store = params.get_store, get_key = params.get_key,
          transaction_mode, expected_value] {
           get_store([&](const KvStore& store) {
@@ -211,8 +209,7 @@ void RegisterKeyValueStoreOpsTests(KeyValueStoreOpsTestParameters params) {
         });
 
     RegisterGoogleTestCaseDynamically(
-        params.test_name,
-        tensorstore::StrCat("BatchReadOps/", transaction_mode_name),
+        params.test_name, absl::StrCat("BatchReadOps/", transaction_mode_name),
         [get_store = params.get_store, key = params.get_key("read"),
          transaction_mode] {
           get_store([&](const KvStore& store) {
@@ -241,8 +238,7 @@ void RegisterKeyValueStoreOpsTests(KeyValueStoreOpsTestParameters params) {
            {"Unconditional", "MatchingCondition", "MatchingConditionAfterWrite",
             "NonMatchingCondition", "NonMatchingConditionAfterWrite"}) {
         RegisterGoogleTestCaseDynamically(
-            params.test_name,
-            tensorstore::StrCat("TransactionalWriteOps/", operation),
+            params.test_name, absl::StrCat("TransactionalWriteOps/", operation),
             [get_store = params.get_store, get_key = params.get_key,
              expected_value, transaction_mode, operation] {
               get_store([&](const KvStore& store) {
@@ -386,7 +382,7 @@ void RegisterKeyValueStoreOpsTests(KeyValueStoreOpsTestParameters params) {
               [&](bool write_to_other_node) {
                 RegisterGoogleTestCaseDynamically(
                     params.test_name,
-                    tensorstore::StrCat(
+                    absl::StrCat(
                         "TransactionalReadOps/", transaction_mode_name, "/",
                         write_outside_transaction ? "WithCommittedValue"
                                                   : "WithoutCommittedValue",
@@ -418,11 +414,10 @@ void RegisterKeyValueStoreOpsTests(KeyValueStoreOpsTestParameters params) {
         auto register_with_write_to_other_node = [&](bool write_to_other_node) {
           RegisterGoogleTestCaseDynamically(
               params.test_name,
-              tensorstore::StrCat(
-                  "TransactionalListOps/", transaction_mode_name, "/",
-                  write_outside_transaction ? "WithCommittedValue"
-                                            : "WithoutCommittedValue",
-                  write_to_other_node ? "/WriteToOtherNode/" : ""),
+              absl::StrCat("TransactionalListOps/", transaction_mode_name, "/",
+                           write_outside_transaction ? "WithCommittedValue"
+                                                     : "WithoutCommittedValue",
+                           write_to_other_node ? "/WriteToOtherNode/" : ""),
               TransactionalListOpsFunctor{
                   params.get_store, params.get_store_adapter,
                   params.test_list_without_prefix, params.test_list_prefix,

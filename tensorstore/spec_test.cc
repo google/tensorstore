@@ -17,7 +17,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
-#include <nlohmann/json_fwd.hpp>
+#include "absl/strings/str_cat.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
@@ -32,9 +33,9 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -225,7 +226,7 @@ TEST(SpecTest, PrintToOstream) {
        {{"input_inclusive_min", {0}}, {"input_exclusive_max", {3}}}},
   };
   Spec spec = Spec::FromJson(spec_json).value();
-  EXPECT_EQ(spec_json.dump(), tensorstore::StrCat(spec));
+  EXPECT_EQ(spec_json.dump(), absl::StrCat(spec));
 }
 
 TEST(SpecTest, UnknownRankApplyIndexTransform) {

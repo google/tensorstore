@@ -11,6 +11,12 @@ allOf:
     bucket:
       type: string
       title: AWS S3 Storage bucket.
+      default: ""
+      description: |-
+        S3 bucket name. May be empty when :json:schema:`.endpoint` is a
+        virtual-hosted-style URL that already includes the bucket
+        (e.g. ``"https://mybucket.s3.us-west-2.amazonaws.com"`` or
+        ``"https://mybucket.cwobject.com"``).
     requester_pays:
       type: boolean
       title: Permit requester-pays requests.
@@ -28,9 +34,12 @@ allOf:
       type: string
       title: S3 server endpoint to use in place of the public Amazon S3 endpoints.
       description: |-
-        Must be an http or https URL.
+        Must be an http or https URL. When :json:schema:`.bucket` is empty,
+        the endpoint is used directly as the full base URL for all S3
+        operations (virtual-hosted-style).
       examples:
       - "http://localhost:1234"
+      - "https://mybucket.cwobject.com"
     host_header:
       type: string
       title: Override HTTP host header to send in requests.
@@ -68,8 +77,6 @@ allOf:
       description: |-
         Specifies or references a previously defined `Context.data_copy_concurrency`.
       default: data_copy_concurrency
-  required:
-  - bucket
 definitions:
   s3_request_concurrency:
     $id: Context.s3_request_concurrency

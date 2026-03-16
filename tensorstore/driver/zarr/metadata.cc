@@ -37,6 +37,7 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
@@ -71,10 +72,10 @@
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -122,7 +123,7 @@ Result<T> DecodeFloat(const nlohmann::json& j) {
     return static_cast<T>(j.get<double>());
   }
   return absl::InvalidArgumentError(
-      tensorstore::StrCat("Invalid floating-point value: ", j.dump()));
+      absl::StrFormat("Invalid floating-point value: %v", j.dump()));
 }
 
 ::nlohmann::json EncodeFloat(double value) {
@@ -250,8 +251,8 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
       !absl::Base64Unescape(j.get<std::string>(), &b64_decoded) ||
       static_cast<Index>(b64_decoded.size()) != dtype.bytes_per_outer_element) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Expected ", dtype.bytes_per_outer_element,
-                            " base64-encoded bytes, but received: ", j.dump()));
+        absl::StrFormat("Expected %d base64-encoded bytes, but received: %v",
+                        dtype.bytes_per_outer_element, j.dump()));
   }
   for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
     auto& field = dtype.fields[field_i];
@@ -316,10 +317,8 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
     internal::EncodeArray(fill_value, encoded_fill_value, field.endian);
   }
   std::string b64_encoded;
-  absl::Base64Escape(
-      std::string_view(reinterpret_cast<const char*>(buffer.data()),
-                       buffer.size()),
-      &b64_encoded);
+  b64_encoded = absl::Base64Escape(std::string_view(
+      reinterpret_cast<const char*>(buffer.data()), buffer.size()));
   return b64_encoded;
 }
 
@@ -330,14 +329,15 @@ Result<ZarrChunkLayout> ComputeChunkLayout(
   layout.fields.resize(dtype.fields.size());
   layout.num_outer_elements = ProductOfExtents(chunk_shape);
   if (layout.num_outer_elements == std::numeric_limits<Index>::max()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Product of chunk dimensions ", chunk_shape, " is too large"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Product of chunk dimensions %v is too large",
+                        GenericStringify(chunk_shape)));
   }
   if (internal::MulOverflow(dtype.bytes_per_outer_element,
                             layout.num_outer_elements,
                             &layout.bytes_per_chunk)) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Total number of bytes per chunk is too large"));
+        "Total number of bytes per chunk is too large");
   }
 
   for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
@@ -587,9 +587,9 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
   }
   if (static_cast<Index>(buffer.size()) !=
       metadata.chunk_layout.bytes_per_chunk) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Uncompressed chunk is ", buffer.size(), " bytes, but should be ",
-        metadata.chunk_layout.bytes_per_chunk, " bytes"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Uncompressed chunk is %d bytes, but should be %d bytes", buffer.size(),
+        metadata.chunk_layout.bytes_per_chunk));
   }
 
   bool must_copy = false;

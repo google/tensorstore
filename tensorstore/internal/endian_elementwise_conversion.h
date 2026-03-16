@@ -33,7 +33,6 @@
 #include "tensorstore/internal/riegeli/json_input.h"
 #include "tensorstore/internal/riegeli/json_output.h"
 #include "tensorstore/util/endian.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
 namespace tensorstore {

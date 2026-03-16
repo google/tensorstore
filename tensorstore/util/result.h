@@ -25,6 +25,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/has_absl_stringify.h"
 #include "absl/strings/has_ostream_operator.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/preprocessor/cat.h"
@@ -632,33 +633,43 @@ class Result : private internal_result::ResultStorage<T>,
   /// Prints the `value` or the `status` in parentheses to `os`.  Do not rely on
   /// the output format which may change without notice.
   ///
-  /// \requires `T` supports `operator<<`.
+  /// \requires  `T` has `AbslStringify` or `operator<<`.
   template <
       typename SfinaeU = T,
-      std::enable_if_t<absl::HasOstreamOperator<SfinaeU>::value>* = nullptr>
+      std::enable_if_t<(absl::HasAbslStringify<SfinaeU>::value ||
+                        absl::HasOstreamOperator<SfinaeU>::value)>* = nullptr>
   // NONITPICK: absl::HasOstreamOperator<T>
   // NONITPICK: absl::HasOstreamOperator<T>::value
+  // NONITPICK: absl::HasAbslStringify<T>
+  // NONITPICK: absl::HasAbslStringify<T>::value
   friend std::ostream& operator<<(std::ostream& os, const Result<T>& result) {
-    if (result.ok()) {
-      os << result.value();
-    } else {
-      os << "(" << result.status() << ")";
-    }
-    return os;
+    return os << absl::StreamFormat("%v", result);
   }
 
   /// Prints the `value` or the `status` in parentheses to the `sink`, which
   /// allows formatting using `absl::StrFormat`, etc.  Do not rely on the output
   /// format which may change without notice.
   ///
-  /// \requires  `T` has `AbslStringify`.
-  template <typename Sink, typename SfinaeU = T,
-            std::enable_if_t<absl::HasAbslStringify<SfinaeU>::value>* = nullptr>
+  /// \requires  `T` has `AbslStringify` or `operator<<`.
+  template <
+      typename Sink, typename SfinaeU = T,
+      std::enable_if_t<(absl::HasAbslStringify<SfinaeU>::value ||
+                        absl::HasOstreamOperator<SfinaeU>::value)>* = nullptr>
+  // NONITPICK: absl::HasOstreamOperator<T>
+  // NONITPICK: absl::HasOstreamOperator<T>::value
   // NONITPICK: absl::HasAbslStringify<T>
   // NONITPICK: absl::HasAbslStringify<T>::value
   friend void AbslStringify(Sink& sink, const Result<T>& result) {
     if (result.ok()) {
-      absl::Format(&sink, "%v", result.value());
+      if constexpr (absl::HasAbslStringify<T>::value) {
+        absl::Format(&sink, "%v", result.value());
+      } else if constexpr (absl::HasOstreamOperator<T>::value) {
+        absl::Format(&sink, "%v", absl::FormatStreamed(result.value()));
+      } else {
+        // Fallback to %v which will fail to compile if T does not meet
+        // HasAbslStringify.
+        absl::Format(&sink, "%v", result.value());
+      }
     } else {
       absl::Format(&sink, "(%v)", result.status());
     }
@@ -771,11 +782,16 @@ class Result<void> {
 
   friend std::ostream& operator<<(std::ostream& os,
                                   const Result<void>& result) {
-    return os << "(" << result.status() << ")";
+    return os << absl::StreamFormat("%v", result);
   }
+
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const Result<void>& result) {
-    absl::Format(&sink, "(%v)", result.status());
+    if (result.ok()) {
+      sink.Append("OK");
+    } else {
+      absl::Format(&sink, "(%v)", result.status());
+    }
   }
 
  private:

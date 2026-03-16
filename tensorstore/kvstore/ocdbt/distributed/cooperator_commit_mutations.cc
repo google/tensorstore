@@ -30,6 +30,7 @@
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -56,7 +57,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
@@ -363,7 +363,7 @@ void NodeCommitOperation::VisitNode(NodeCommitOperation::Ptr commit_op,
     child_key_range.inclusive_min = commit_op->key_range.inclusive_min;
   } else {
     child_key_range.inclusive_min =
-        tensorstore::StrCat(commit_op->key_prefix, it->key);
+        absl::StrCat(commit_op->key_prefix, it->key);
     if (child_key_range.inclusive_min > node_identifier.range.inclusive_min) {
       // Current inclusive_min bound is already more constrained than the target
       // node.  It is therefore impossible for a child node to have a range of
@@ -382,7 +382,7 @@ void NodeCommitOperation::VisitNode(NodeCommitOperation::Ptr commit_op,
     child_key_range.exclusive_max = commit_op->key_range.exclusive_max;
   } else {
     child_key_range.exclusive_max =
-        tensorstore::StrCat(commit_op->key_prefix, (it + 1)->key);
+        absl::StrCat(commit_op->key_prefix, (it + 1)->key);
     if (KeyRange::CompareExclusiveMax(child_key_range.exclusive_max,
                                       node_identifier.range.exclusive_max) <
         0) {

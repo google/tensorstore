@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 #include "absl/base/config.h"
+#include "absl/strings/str_cat.h"
 
 namespace big_endian = ::tensorstore::big_endian;
 namespace little_endian = ::tensorstore::little_endian;
@@ -122,6 +123,12 @@ TEST(EndianTest, VerifyBigEndian) {
   EXPECT_EQ(u64Buf, k64ValueBE);
   comp = big_endian::Load64(buffer + 1);
   EXPECT_EQ(comp, k64Value);
+}
+
+TEST(EndianTest, AbslStringify) {
+  using tensorstore::endian;
+  EXPECT_EQ("<", absl::StrCat(endian::little));
+  EXPECT_EQ(">", absl::StrCat(endian::big));
 }
 
 }  // namespace

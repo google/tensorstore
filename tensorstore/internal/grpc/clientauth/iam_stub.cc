@@ -34,7 +34,7 @@
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/clientauth/create_channel.h"
 #include "tensorstore/internal/grpc/utils.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/proto/encode_time.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -86,7 +86,7 @@ DefaultIamCredentialsStub::AsyncGenerateAccessToken(
         context->AddMetadata(
             "x-goog-request-params",
             absl::StrCat("name=",
-                         internal::PercentEncodeUriPath(request.name())));
+                         internal_uri::PercentEncodeUriPath(request.name())));
 
         auto response = std::make_shared<GenerateAccessTokenResponse>();
 

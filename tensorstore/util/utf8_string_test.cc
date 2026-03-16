@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status_testutil.h"
@@ -28,6 +29,10 @@ using ::tensorstore::Utf8String;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::HasSubstr;
+
+TEST(Utf8StringTest, AbslStringify) {
+  EXPECT_EQ("abc", absl::StrCat(Utf8String{"abc"}));
+}
 
 TEST(SerializationTest, Valid) {
   TestSerializationRoundTrip(Utf8String{""});

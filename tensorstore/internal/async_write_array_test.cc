@@ -26,6 +26,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/box.h"
@@ -44,14 +45,15 @@
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::tensorstore::Box;
 using ::tensorstore::BoxView;
+using ::tensorstore::GenericStringify;
 using ::tensorstore::Index;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
@@ -641,13 +643,13 @@ void TestWriteArraySuccess(
     ArrayCapabilities expected_array_capabilities, bool may_retain_writeback,
     bool zero_copy, tensorstore::IndexTransformView<> chunk_transform,
     tensorstore::TransformedSharedArray<const void> source_array) {
-  SCOPED_TRACE(tensorstore::StrCat("chunk_transform=", chunk_transform));
+  SCOPED_TRACE(absl::StrCat("chunk_transform=", chunk_transform));
   AsyncWriteArray async_write_array(chunk_transform.output_rank());
   tensorstore::Box<> output_range(chunk_transform.output_rank());
   ASSERT_THAT(tensorstore::GetOutputRange(chunk_transform, output_range),
               ::testing::Optional(true));
   auto origin = output_range.origin();
-  SCOPED_TRACE(tensorstore::StrCat("origin=", origin));
+  SCOPED_TRACE(absl::StrCat("origin=", GenericStringify(origin)));
   auto fill_value =
       tensorstore::AllocateArray(output_range, tensorstore::c_order,
                                  tensorstore::value_init, source_array.dtype());
@@ -780,7 +782,7 @@ TEST(WriteArrayNonIdentityTransformSuccess, kMutable) {
           tensorstore::internal::MakeRandomStridedIndexTransformForOutputSpace(
               gen, tensorstore::IndexDomain<>(base_source_array.domain()), p);
     }
-    SCOPED_TRACE(tensorstore::StrCat("source_transform=", source_transform));
+    SCOPED_TRACE(absl::StrCat("source_transform=", source_transform));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto source_array,
                                      base_source_array | source_transform);
     auto chunk_transform =

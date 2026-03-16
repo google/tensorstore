@@ -16,19 +16,12 @@
 
 #include <ostream>
 
+#include "absl/strings/str_format.h"
+
 namespace tensorstore {
 
 std::ostream& operator<<(std::ostream& os, OutputIndexMethod method) {
-  switch (method) {
-    case OutputIndexMethod::constant:
-      return os << "constant";
-    case OutputIndexMethod::single_input_dimension:
-      return os << "single_input_dimension";
-    case OutputIndexMethod::array:
-      return os << "array";
-    default:
-      return os << "<unknown>";
-  }
+  return os << absl::StreamFormat("%v", method);
 }
 
 }  // namespace tensorstore

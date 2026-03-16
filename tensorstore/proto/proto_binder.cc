@@ -29,7 +29,6 @@
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/proto/proto_util.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {

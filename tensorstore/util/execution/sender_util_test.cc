@@ -34,8 +34,9 @@ TEST(FlowSingleSenderTest, SetValue) {
       tensorstore::FlowSingleSender<tensorstore::ValueSender<int, std::string>>{
           {3, "hello"}},
       tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_value: 3, hello",
-                                          "set_done", "set_stopping"));
+  EXPECT_THAT(log,
+              ::testing::ElementsAre("set_starting", "set_value: {3, hello}",
+                                     "set_done", "set_stopping"));
 }
 
 TEST(FlowSingleSenderTest, AnyFlowSenderSetValue) {
@@ -45,8 +46,9 @@ TEST(FlowSingleSenderTest, AnyFlowSenderSetValue) {
           tensorstore::FlowSingleSender<
               tensorstore::ValueSender<int, std::string>>{{3, "hello"}}),
       tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_value: 3, hello",
-                                          "set_done", "set_stopping"));
+  EXPECT_THAT(log,
+              ::testing::ElementsAre("set_starting", "set_value: {3, hello}",
+                                     "set_done", "set_stopping"));
 }
 
 TEST(FlowSingleSenderTest, SetError) {

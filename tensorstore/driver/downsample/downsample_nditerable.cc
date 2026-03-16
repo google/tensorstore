@@ -31,6 +31,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
@@ -43,9 +44,9 @@
 #include "tensorstore/internal/unique_with_intrusive_allocator.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 // Uncomment the line below for debug logging.
 // #define TENSORSTORE_INTERNAL_DOWNSAMPLE_DEBUG 1
@@ -1040,9 +1041,11 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
             initial_base_indices[dim] + base_downsample_dim_offsets[i];
       }
       ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_DOWNSAMPLE_DEBUG)
-          << "Output block: " << indices << ", block_shape=" << block_shape[0]
-          << "," << block_shape[1] << ": Getting base block: "
-          << span<const Index>(base_indices, base_iteration_rank)
+          << "Output block: " << GenericStringify(indices)
+          << ", block_shape=" << block_shape[0] << "," << block_shape[1]
+          << ": Getting base block: "
+          << GenericStringify(
+                 span<const Index>(base_indices, base_iteration_rank))
           << " of shape=" << base_block_shape[0] << "," << base_block_shape[1];
       if (!base_.GetBlock(span<const Index>(base_indices, base_iteration_rank),
                           base_block_shape, status)) {
@@ -1330,8 +1333,8 @@ absl::Status ValidateDownsampleMethod(DataType dtype,
     return absl::OkStatus();
   }
   return absl::InvalidArgumentError(
-      tensorstore::StrCat("Downsample method \"", downsample_method,
-                          "\" does not support data type \"", dtype, "\""));
+      absl::StrCat("Downsample method \"", downsample_method,
+                   "\" does not support data type \"", dtype, "\""));
 }
 
 }  // namespace internal_downsample

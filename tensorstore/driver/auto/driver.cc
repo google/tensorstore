@@ -23,7 +23,8 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_join.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
@@ -32,7 +33,7 @@
 #include "tensorstore/internal/driver_kind_registry.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -45,9 +46,9 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_auto_detect {
@@ -99,7 +100,7 @@ class AutoDriverSpec
 
   Result<std::string> ToUrl() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(base_url, "|", id, ":");
+    return absl::StrCat(base_url, "|", id, ":");
   }
 
   Future<internal::Driver::Handle> Open(
@@ -161,18 +162,16 @@ struct AutoOpenState {
                     matches_future) mutable {
               auto& matches = matches_future.value();
               if (matches.empty()) {
-                promise.SetResult(
-                    absl::FailedPreconditionError(tensorstore::StrCat(
-                        "Failed to detect format for ",
-                        self->store.driver->DescribeKey(self->store.path))));
+                promise.SetResult(absl::FailedPreconditionError(absl::StrFormat(
+                    "Failed to detect format for %v",
+                    self->store.driver->DescribeKey(self->store.path))));
                 return;
               }
               if (matches.size() != 1) {
-                promise.SetResult(
-                    absl::FailedPreconditionError(tensorstore::StrCat(
-                        "Multiple possible formats detected for ",
-                        self->store.driver->DescribeKey(self->store.path), ": ",
-                        absl::StrJoin(matches, ", "))));
+                promise.SetResult(absl::FailedPreconditionError(absl::StrFormat(
+                    "Multiple possible formats detected for %v: %v",
+                    self->store.driver->DescribeKey(self->store.path),
+                    GenericStringify(matches))));
                 return;
               }
               ApplyDetectedMatch(std::move(self), std::move(promise),
@@ -264,10 +263,9 @@ internal::TransformedDriverSpec MakeAutoSpec(kvstore::Spec&& base) {
 
 Result<internal::TransformedDriverSpec> ParseAutoUrl(std::string_view url,
                                                      kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchema(parsed, AutoDriverSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoPathOrQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(EnsureSchema(parsed, AutoDriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoPathOrQueryOrFragment(parsed));
   return MakeAutoSpec(std::move(base));
 }
 

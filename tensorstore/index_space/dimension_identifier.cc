@@ -35,10 +35,7 @@
 namespace tensorstore {
 
 std::ostream& operator<<(std::ostream& os, const DimensionIdentifier& x) {
-  if (x.label().data()) {
-    return os << QuoteString(x.label());
-  }
-  return os << x.index();
+  return os << absl::StreamFormat("%v", x);
 }
 
 Result<DimensionIndex> NormalizeDimensionIndex(DimensionIndex index,
@@ -103,11 +100,7 @@ Result<DimensionIndex> NormalizeDimensionIdentifier(
 }
 
 std::ostream& operator<<(std::ostream& os, const DimRangeSpec& spec) {
-  if (spec.inclusive_start) os << *spec.inclusive_start;
-  os << ':';
-  if (spec.exclusive_stop) os << *spec.exclusive_stop;
-  if (spec.step != 1) os << ':' << spec.step;
-  return os;
+  return os << absl::StreamFormat("%v", spec);
 }
 
 bool operator==(const DimRangeSpec& a, const DimRangeSpec& b) {

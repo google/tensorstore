@@ -30,6 +30,8 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -78,7 +80,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
@@ -119,14 +120,13 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
   std::string DescribeKey(std::string_view key) override {
     ChunkCombinedShardInfo combined_info;
     if (key.size() != sizeof(combined_info)) {
-      return tensorstore::StrCat("invalid key ", tensorstore::QuoteString(key));
+      return absl::StrCat("invalid key ", tensorstore::QuoteString(key));
     }
     std::memcpy(&combined_info, key.data(), sizeof(combined_info));
     auto split_info = GetSplitShardInfo(sharding_spec_, combined_info);
-    return tensorstore::StrCat(
-        "minishard ", split_info.minishard, " in ",
-        base_->DescribeKey(
-            GetShardKey(sharding_spec_, key_prefix_, split_info.shard)));
+    return absl::StrCat("minishard ", split_info.minishard, " in ",
+                        base_->DescribeKey(GetShardKey(
+                            sharding_spec_, key_prefix_, split_info.shard)));
   }
 
   void GarbageCollectionVisit(
@@ -553,7 +553,7 @@ class ShardedKeyValueStoreWriteCache
       auto& entry = GetOwningEntry(*this);
       auto& cache = GetOwningCache(entry);
       auto minishard_and_chunk_id = GetMinishardAndChunkId(key);
-      return tensorstore::StrCat(
+      return absl::StrCat(
           "chunk ", minishard_and_chunk_id.chunk_id.value, " in minishard ",
           minishard_and_chunk_id.minishard, " in ",
           cache.kvstore_driver()->DescribeKey(entry.GetKeyValueStoreKey()));
@@ -952,7 +952,7 @@ Result<ChunkIdAndSize> KeyToChunkIdAndSizeOrError(std::string_view key) {
                           big_endian::Load64(key.data() + 8)};
   }
   return absl::InvalidArgumentError(
-      tensorstore::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
+      absl::StrFormat("Invalid key: %v", QuoteString(key)));
 }
 
 }  // namespace
@@ -1175,17 +1175,17 @@ class ShardedKeyValueStore
   std::string DescribeKey(std::string_view key) override {
     auto chunk_id_and_size_result = KeyToChunkIdAndSizeOrError(key);
     if (!chunk_id_and_size_result.ok()) {
-      return tensorstore::StrCat("invalid key ", tensorstore::QuoteString(key));
+      return absl::StrCat("invalid key ", tensorstore::QuoteString(key));
     }
     auto chunk_id = chunk_id_and_size_result->chunk_id;
     const auto& sharding_spec = this->sharding_spec();
     const auto shard_info = GetSplitShardInfo(
         sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));
-    return tensorstore::StrCat(
+    return absl::StrCat(
         "chunk ", chunk_id.value,
         chunk_id_and_size_result->size
-            ? tensorstore::StrCat(" (preceding ",
-                                  *chunk_id_and_size_result->size, " bytes)")
+            ? absl::StrCat(" (preceding ", *chunk_id_and_size_result->size,
+                           " bytes)")
             : "",
         " in minishard ", shard_info.minishard, " in ",
         base_kvstore_driver()->DescribeKey(
@@ -1628,9 +1628,9 @@ class ReadOperationState
       Batch successor_batch, Request& request) {
     const uint64_t size_before = *request.size_before_chunk;
     if (size_before > static_cast<uint64_t>(byte_range.inclusive_min)) {
-      request.promise.SetResult(absl::OutOfRangeError(tensorstore::StrCat(
-          "Requested size ", size_before, " exceeds chunk offset ",
-          byte_range.inclusive_min)));
+      request.promise.SetResult(absl::OutOfRangeError(
+          absl::StrCat("Requested size ", size_before, " exceeds chunk offset ",
+                       byte_range.inclusive_min)));
       return;
     }
 

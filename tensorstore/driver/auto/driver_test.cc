@@ -27,7 +27,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/path.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
@@ -44,9 +44,9 @@ using ::tensorstore::MatchesJson;
 using ::tensorstore::Spec;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
+using ::tensorstore::internal_uri::OsPathToFileUri;
 using ::testing::HasSubstr;
-
-auto MakeInitial(const Context &context) {
+auto MakeInitial(const Context& context) {
   return tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
                            context, tensorstore::dtype_v<int32_t>,
                            tensorstore::Schema::Shape({10, 20}),
@@ -55,7 +55,7 @@ auto MakeInitial(const Context &context) {
 
 template <typename... Args>
 std::string AsFileUri(std::string_view path, Args... args) {
-  return absl::StrCat(tensorstore::internal::OsPathToFileUri(path).value(),
+  return absl::StrCat(OsPathToFileUri(path).value(),
                       std::forward<Args>(args)...);
 }
 

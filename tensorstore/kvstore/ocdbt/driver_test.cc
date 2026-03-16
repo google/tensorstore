@@ -38,7 +38,8 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/path.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -76,7 +77,6 @@ using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
-using ::tensorstore::internal::OsPathToFileUri;
 using ::tensorstore::internal::UniqueNow;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::Config;
@@ -85,6 +85,7 @@ using ::tensorstore::internal_ocdbt::FormatCommitTimeForUrl;
 using ::tensorstore::internal_ocdbt::ManifestKind;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
 using ::tensorstore::internal_ocdbt::ReadManifest;
+using ::tensorstore::internal_uri::OsPathToFileUri;
 using ::tensorstore::kvstore::SupportedFeatures;
 using ::testing::HasSubstr;
 
@@ -699,7 +700,7 @@ TEST(OcdbtTest, NoSuitableManifestKind) {
   EXPECT_THAT(
       write_future.result(),
       StatusIs(absl::StatusCode::kInvalidArgument,
-                    HasSubstr("Cannot choose OCDBT manifest_kind automatically")));
+               HasSubstr("Cannot choose OCDBT manifest_kind automatically")));
 }
 #endif
 

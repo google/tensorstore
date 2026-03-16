@@ -21,6 +21,7 @@
 
 #include "absl/log/absl_check.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/str_format.h"
 #include <openssl/rand.h>
 
 namespace tensorstore {
@@ -34,25 +35,15 @@ Uuid Uuid::Generate() {
 }
 
 std::ostream& operator<<(std::ostream& os, const Uuid& value) {
-  return os << absl::BytesToHexString(
-             std::string_view(reinterpret_cast<const char*>(value.value.data()),
-                              value.value.size()));
+  return os << absl::StreamFormat("%v", value);
 }
 
 std::ostream& operator<<(std::ostream& os, ManifestKind x) {
-  switch (x) {
-    case ManifestKind::kSingle:
-      os << "single";
-      break;
-    case ManifestKind::kNumbered:
-      os << "numbered";
-      break;
-  }
-  return os;
+  return os << absl::StreamFormat("%v", x);
 }
 
-std::ostream& operator<<(std::ostream& os, Config::NoCompression) {
-  return os << "raw";
+std::ostream& operator<<(std::ostream& os, Config::NoCompression x) {
+  return os << absl::StreamFormat("%v", x);
 }
 
 bool operator==(Config::ZstdCompression a, Config::ZstdCompression b) {
@@ -60,12 +51,11 @@ bool operator==(Config::ZstdCompression a, Config::ZstdCompression b) {
 }
 
 std::ostream& operator<<(std::ostream& os, Config::ZstdCompression x) {
-  return os << "zstd{level=" << x.level << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 std::ostream& operator<<(std::ostream& os, const Config::Compression& x) {
-  std::visit([&](const auto& v) { os << v; }, x);
-  return os;
+  return os << absl::StreamFormat("%v", x);
 }
 
 bool operator==(const Config& a, const Config& b) {
@@ -77,12 +67,7 @@ bool operator==(const Config& a, const Config& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Config& x) {
-  return os << "{uuid=" << x.uuid << ", manifest_kind=" << x.manifest_kind
-            << ", max_inline_value_bytes=" << x.max_inline_value_bytes
-            << ", max_decoded_node_bytes=" << x.max_decoded_node_bytes
-            << ", version_tree_arity_log2="
-            << static_cast<int>(x.version_tree_arity_log2)
-            << ", compression=" << x.compression << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 }  // namespace internal_ocdbt

@@ -683,7 +683,7 @@ async def test_recheck_cached(
 async def test_non_utf8_error() -> None:
   with tempfile.TemporaryDirectory() as dir_path:
     base_url = pathlib.Path(dir_path).resolve()
-    with pytest.raises(ValueError, match='.*local file ".*\\\\xfa.*'):
+    with pytest.raises(ValueError, match='.*[%]fa".*'):
       await ts.open({"driver": "zarr", "kvstore": base_url.as_uri() + "/%fa"})
 
 

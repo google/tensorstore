@@ -26,8 +26,9 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/strip.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
@@ -47,7 +48,9 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/ascii_set.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -65,7 +68,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 /// specializations
 #include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
@@ -126,7 +128,8 @@ bool IsRetriable(const absl::Status& status) {
           status.code() == absl::StatusCode::kUnavailable);
 }
 
-absl::Status ValidateParsedHttpUrl(const internal::ParsedGenericUri& parsed) {
+absl::Status ValidateParsedHttpUrl(
+    const internal_uri::ParsedGenericUri& parsed) {
   if (parsed.scheme != "http" && parsed.scheme != "https") {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Expected scheme of \"http\" or \"https\" but received: %v",
@@ -136,20 +139,6 @@ absl::Status ValidateParsedHttpUrl(const internal::ParsedGenericUri& parsed) {
     return absl::InvalidArgumentError("Fragment identifier not supported");
   }
   return absl::OkStatus();
-}
-
-void SplitParsedHttpUrl(const internal::ParsedGenericUri& parsed,
-                        std::string& base_url, std::string& path) {
-  size_t end_of_authority = parsed.authority_and_path.find('/');
-  std::string_view authority =
-      parsed.authority_and_path.substr(0, end_of_authority);
-  std::string_view encoded_path =
-      (end_of_authority == std::string_view::npos)
-          ? "/"
-          : parsed.authority_and_path.substr(end_of_authority);
-  base_url = tensorstore::StrCat(parsed.scheme, "://", authority,
-                                 parsed.query.empty() ? "" : "?", parsed.query);
-  path = internal::PercentDecode(encoded_path);
 }
 
 struct HttpKeyValueStoreSpecData {
@@ -167,7 +156,7 @@ struct HttpKeyValueStoreSpecData {
           "base_url",
           jb::Projection<&HttpKeyValueStoreSpecData::base_url>(
               jb::Validate([](const auto& options, const std::string* x) {
-                return ValidateParsedHttpUrl(internal::ParseGenericUri(*x));
+                return ValidateParsedHttpUrl(internal_uri::ParseGenericUri(*x));
               }))),
       jb::Member("headers",
                  jb::Projection<&HttpKeyValueStoreSpecData::headers>(
@@ -187,11 +176,13 @@ struct HttpKeyValueStoreSpecData {
   );
 
   std::string GetUrl(std::string_view path) const {
-    auto parsed = internal::ParseGenericUri(base_url);
-    return tensorstore::StrCat(parsed.scheme, "://", parsed.authority_and_path,
-                               absl::StartsWith(path, "/") ? "" : "/",
-                               internal::PercentEncodeKvStoreUriPath(path),
-                               parsed.query.empty() ? "" : "?", parsed.query);
+    if (path.empty()) return base_url;
+    auto parsed = internal_uri::ParseGenericUri(base_url);
+    return absl::StrCat(
+        parsed.scheme, "://", absl::StripSuffix(parsed.authority_and_path, "/"),
+        "/",
+        internal_uri::PercentEncodeKvStoreUriPath(absl::StripPrefix(path, "/")),
+        parsed.query.empty() ? "" : "?", parsed.query);
   }
 };
 
@@ -204,21 +195,42 @@ class HttpKeyValueStoreSpec
   Result<std::string> ToUrl(std::string_view path) const override {
     return data_.GetUrl(path);
   }
+
   absl::Status NormalizeSpec(std::string& path) override {
-    auto parsed = internal::ParseGenericUri(data_.base_url);
-    std::string base_url;
-    std::string new_path;
-    SplitParsedHttpUrl(parsed, base_url, new_path);
-    if (path.empty()) {
-      path = std::move(new_path);
+    auto parsed = internal_uri::ParseGenericUri(data_.base_url);
+
+    // The path may have percent encoded reserved characters which need to be
+    // preserved in the base url. If so, preserve them up to the next
+    // path separator.
+    std::string_view path_prefix;
+    if (auto split = internal_uri::RSplitPercentEncoded(
+            parsed.path, internal_uri::kReserved);
+        !split.first.empty()) {
+      // There are percent encoded reserved characters in the path.
+      path_prefix =
+          parsed.path.substr(0, parsed.path.find('/', split.first.size()));
+    }
+    std::string_view common_suffix = parsed.path.substr(path_prefix.size());
+    TENSORSTORE_ASSIGN_OR_RETURN(std::string decoded_common_suffix,
+                                 internal_uri::PercentDecode(common_suffix));
+
+    auto base_url = absl::StrCat(parsed.scheme, "://", parsed.authority,
+                                 absl::StripSuffix(path_prefix, "/"),
+                                 parsed.query.empty() ? "" : "?", parsed.query);
+
+    if (path.empty() || path == "/") {
+      path = decoded_common_suffix;
     } else if (path[0] != '/') {
+      std::string new_path(decoded_common_suffix);
       internal::AppendPathComponent(new_path, path);
       path = std::move(new_path);
-    } else if (new_path != "/") {
+    } else if (!decoded_common_suffix.empty() && decoded_common_suffix != "/") {
+      // Path is absolute, however the common_suffix is not, so return an error.
       return absl::InvalidArgumentError(absl::StrFormat(
-          "Cannot specify absolute path %v in conjunction with base URL %v "
-          "that includes a path component",
-          QuoteString(path), QuoteString(data_.base_url)));
+          "Cannot specify absolute path %v in conjunction with "
+          "base URL %v which already includes the path component %v",
+          QuoteString(path), QuoteString(data_.base_url),
+          QuoteString(decoded_common_suffix)));
     }
     data_.base_url = std::move(base_url);
     return absl::OkStatus();
@@ -451,16 +463,16 @@ Future<kvstore::ReadResult> HttpKeyValueStore::ReadImpl(Key&& key,
 }
 
 Result<kvstore::Spec> ParseHttpUrl(std::string_view url) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   TENSORSTORE_RETURN_IF_ERROR(ValidateParsedHttpUrl(parsed));
-  std::string path;
   auto driver_spec = internal::MakeIntrusivePtr<HttpKeyValueStoreSpec>();
-  SplitParsedHttpUrl(parsed, driver_spec->data_.base_url, path);
+  driver_spec->data_.base_url = url;
   driver_spec->data_.request_concurrency =
       Context::Resource<HttpRequestConcurrencyResource>::DefaultSpec();
   driver_spec->data_.retries =
       Context::Resource<HttpRequestRetries>::DefaultSpec();
 
+  std::string path;
   return {std::in_place, std::move(driver_spec), std::move(path)};
 }
 

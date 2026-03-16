@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
@@ -43,11 +44,11 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -621,7 +622,7 @@ Result<IndexTransform<>> ToIndexTransform(
       [&](DimensionIndex x) -> absl::Status {
     if ((selected_intermediate_dim_mask >> x) & 1) {
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Dimension ", x, " specified more than once"));
+          absl::StrFormat("Dimension %d specified more than once", x));
     }
     selected_intermediate_dim_mask |= static_cast<uint32_t>(1) << x;
     return absl::OkStatus();
@@ -751,9 +752,10 @@ absl::Status NumpyIndexingSpec::Builder::AddIndexArrayShape(
                                      (shape.size() - i)];
     if (size != 1) {
       if (broadcast_size != 1 && broadcast_size != size) {
-        return absl::InvalidArgumentError(
-            tensorstore::StrCat("Incompatible index array shapes: ", shape,
-                                " vs ", span(spec.joint_index_array_shape)));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Incompatible index array shapes: %v vs %v",
+            GenericStringify(shape),
+            GenericStringify(tensorstore::span(spec.joint_index_array_shape))));
       }
       broadcast_size = size;
     }
@@ -817,11 +819,11 @@ absl::Status NumpyIndexingSpec::Builder::AddSlice(
       if (x.pointer) {
         if (rank != dynamic_rank &&
             rank != static_cast<DimensionIndex>(x.size_or_scalar)) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              field_name, "=", IndexVectorRepr(x, /*implicit=*/true), " (rank ",
-              x.size_or_scalar, ") is incompatible with ", existing_field_name,
-              "=", IndexVectorRepr(*existing_value, /*implicit=*/true),
-              " (rank ", rank, ")"));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "%s=%s (rank %d) is incompatible with %s=%s (rank %d)",
+              field_name, IndexVectorRepr(x, /*implicit=*/true),
+              x.size_or_scalar, existing_field_name,
+              IndexVectorRepr(*existing_value, /*implicit=*/true), rank));
         }
         existing_field_name = field_name;
         rank = x.size_or_scalar;
@@ -889,14 +891,14 @@ void NumpyIndexingSpec::Builder::Finalize() {
 
 std::string OptionallyImplicitIndexRepr(Index value) {
   if (value == kImplicit) return "None";
-  return tensorstore::StrCat(value);
+  return absl::StrCat(value);
 }
 
 std::string IndexVectorRepr(internal_index_space::IndexVectorOrScalarView x,
                             bool implicit, bool subscript) {
   if (!x.pointer) {
     if (implicit) return OptionallyImplicitIndexRepr(x.size_or_scalar);
-    return tensorstore::StrCat(x.size_or_scalar);
+    return absl::StrCat(x.size_or_scalar);
   }
   if (x.size_or_scalar == 0) {
     return subscript ? "()" : "[]";
@@ -906,18 +908,18 @@ std::string IndexVectorRepr(internal_index_space::IndexVectorOrScalarView x,
   if (!subscript) out = "[";
   for (size_t i = 0; i < x.size_or_scalar; ++i) {
     if (implicit) {
-      tensorstore::StrAppend(&out, (i == 0 ? "" : ","),
-                             OptionallyImplicitIndexRepr(x.pointer[i]));
+      absl::StrAppend(&out, (i == 0 ? "" : ","),
+                      OptionallyImplicitIndexRepr(x.pointer[i]));
     } else {
-      tensorstore::StrAppend(&out, (i == 0 ? "" : ","), x.pointer[i]);
+      absl::StrAppend(&out, (i == 0 ? "" : ","), x.pointer[i]);
     }
   }
   if (subscript) {
     if (x.size_or_scalar == 1) {
-      tensorstore::StrAppend(&out, ",");
+      absl::StrAppend(&out, ",");
     }
   } else {
-    tensorstore::StrAppend(&out, "]");
+    absl::StrAppend(&out, "]");
   }
   return out;
 }

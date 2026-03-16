@@ -17,13 +17,13 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -37,10 +37,8 @@ TENSORSTORE_DEFINE_JSON_BINDER(DataTypeJsonBinder, [](auto is_loading,
         [](auto is_loading, const auto& options, DataType* obj, auto* id) {
           *obj = tensorstore::GetDataType(*id);
           if (!obj->valid()) {
-            return absl::Status(
-                absl::StatusCode::kInvalidArgument,
-                tensorstore::StrCat("Unsupported data type: ",
-                                    tensorstore::QuoteString(*id)));
+            return absl::InvalidArgumentError(
+                absl::StrFormat("Unsupported data type: %v", QuoteString(*id)));
           }
           return absl::OkStatus();
         })(is_loading, options, obj, j);
@@ -78,8 +76,8 @@ TENSORSTORE_DEFINE_JSON_BINDER(
             if (options.dtype().valid() && d->valid() &&
                 options.dtype() != *d) {
               return absl::InvalidArgumentError(
-                  tensorstore::StrCat("Expected data type of ", options.dtype(),
-                                      " but received: ", *d));
+                  absl::StrFormat("Expected data type of %v but received: %v",
+                                  options.dtype(), *d));
             }
             return absl::OkStatus();
           },

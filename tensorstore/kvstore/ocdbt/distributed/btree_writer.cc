@@ -155,6 +155,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include <blake3.h>
@@ -183,7 +184,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -553,7 +553,7 @@ void WriterCommitOperation::VisitNode(VisitNodeParameters&& state,
       state.commit_op->staged_.write_requests;
 
   std::string existing_key_prefix =
-      tensorstore::StrCat(state.key_prefix(), node->key_prefix);
+      absl::StrCat(state.key_prefix(), node->key_prefix);
 
   ComparePrefixedKeyToUnprefixedKey compare_existing_and_new_keys{
       existing_key_prefix};
@@ -586,7 +586,7 @@ void WriterCommitOperation::VisitNode(VisitNodeParameters&& state,
       sub_state.node_identifier.height = state.node_identifier.height - 1;
       auto& existing_entry = *(existing_it - 1);
       sub_state.inclusive_min_key =
-          tensorstore::StrCat(existing_key_prefix, existing_entry.key);
+          absl::StrCat(existing_key_prefix, existing_entry.key);
       if (&existing_entry == &existing_entries.front()) {
         sub_state.node_identifier.range.inclusive_min =
             state.node_identifier.range.inclusive_min;
@@ -600,7 +600,7 @@ void WriterCommitOperation::VisitNode(VisitNodeParameters&& state,
             state.node_identifier.range.exclusive_max;
       } else {
         sub_state.node_identifier.range.exclusive_max =
-            tensorstore::StrCat(existing_key_prefix, existing_it->key);
+            absl::StrCat(existing_key_prefix, existing_it->key);
       }
       size_t subtree_common_prefix_length =
           existing_key_prefix.size() +

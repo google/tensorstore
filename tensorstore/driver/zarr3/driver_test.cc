@@ -25,6 +25,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
@@ -59,15 +60,12 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/schema.h"
-#include "tensorstore/spec.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -1604,8 +1602,8 @@ TEST(ZarrDriverTest, SeparateMetadataCache) {
 
 TEST(DriverTest, FillMissingDataReads) {
   for (bool fill_missing_data_reads : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
-                                     fill_missing_data_reads));
+    SCOPED_TRACE(
+        absl::StrCat("fill_missing_data_reads=", fill_missing_data_reads));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
         tensorstore::Open(
@@ -1638,8 +1636,8 @@ TEST(DriverTest, FillMissingDataReads) {
 
 TEST(DriverTest, FillMissingDataReadsSharding) {
   for (bool fill_missing_data_reads : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
-                                     fill_missing_data_reads));
+    SCOPED_TRACE(
+        absl::StrCat("fill_missing_data_reads=", fill_missing_data_reads));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
         tensorstore::Open(
@@ -1676,8 +1674,8 @@ TEST(DriverTest, FillMissingDataReadsSharding) {
 // `store_data_equal_to_fill_value=true`.
 TEST(DriverTest, StoreDataEqualToFillValue) {
   for (bool store_data_equal_to_fill_value : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
-                                     store_data_equal_to_fill_value));
+    SCOPED_TRACE(absl::StrCat("store_data_equal_to_fill_value=",
+                              store_data_equal_to_fill_value));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store, tensorstore::Open({{"driver", "zarr3"},
                                        {"kvstore", "memory://"},
@@ -1704,8 +1702,8 @@ TEST(DriverTest, StoreDataEqualToFillValue) {
 
 TEST(DriverTest, StoreDataEqualToFillValueSharding) {
   for (bool store_data_equal_to_fill_value : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
-                                     store_data_equal_to_fill_value));
+    SCOPED_TRACE(absl::StrCat("store_data_equal_to_fill_value=",
+                              store_data_equal_to_fill_value));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
         tensorstore::Open({{"driver", "zarr3"},

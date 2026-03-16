@@ -65,6 +65,8 @@ limitations under the License.
 #endif
 #endif  // TENSORSTORE_FLOATINLINE
 
+#include "absl/strings/str_format.h"
+
 namespace tensorstore {
 namespace float8_internal {
 
@@ -976,10 +978,14 @@ constexpr inline bool(isfinite)(const Float8Base<Float8>& a) {
   return !isnan(a.derived()) && !isinf(a.derived());
 }
 
+template <typename Sink, typename Float8>
+void AbslStringify(Sink& sink, const Float8Base<Float8>& f8) {
+  absl::Format(&sink, "%v", static_cast<float>(f8.derived()));
+}
+
 template <typename Float8>
 std::ostream& operator<<(std::ostream& os, const Float8Base<Float8>& f8) {
-  os << static_cast<float>(f8.derived());
-  return os;
+  return os << absl::StreamFormat("%v", f8);
 }
 
 //==============================================================================

@@ -52,7 +52,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 #ifndef TENSORSTORE_INTERNAL_GRID_STORAGE_STATISTICS_DEBUG
 #define TENSORSTORE_INTERNAL_GRID_STORAGE_STATISTICS_DEBUG 0
@@ -211,9 +210,8 @@ void GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
         << "key_range: " << key_range << ", grid_bounds=" << grid_bounds;
     Index cur_total_chunks = grid_bounds.num_elements();
     if (cur_total_chunks == std::numeric_limits<Index>::max()) {
-      return absl::OutOfRangeError(
-          absl::StrFormat("Integer overflow computing number of chunks in %s",
-                          absl::FormatStreamed(grid_bounds)));
+      return absl::OutOfRangeError(absl::StrFormat(
+          "Integer overflow computing number of chunks in %v", grid_bounds));
     }
     if (internal::AddOverflow(total_chunks, cur_total_chunks, &total_chunks)) {
       return absl::OutOfRangeError(

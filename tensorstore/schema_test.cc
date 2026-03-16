@@ -25,6 +25,7 @@
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -47,7 +48,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace {
@@ -249,8 +249,8 @@ void TestApplyIndexTransformRandomInvertible(bool allow_new_dims) {
             gen, output_schema.domain(), transform_p);
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inverse_transform,
                                      InverseTransform(transform));
-    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
-    SCOPED_TRACE(tensorstore::StrCat("inverse_transform=", inverse_transform));
+    SCOPED_TRACE(absl::StrCat("transform=", transform));
+    SCOPED_TRACE(absl::StrCat("inverse_transform=", inverse_transform));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto input_schema,
                                      output_schema | transform);
 
@@ -821,6 +821,18 @@ TEST(SchemaSerializationTest, SerializationRoundTrip) {
           {"fill_value", 5},
       }));
   tensorstore::serialization::TestSerializationRoundTrip(schema);
+}
+
+TEST(SchemaTest, AbslStringify) {
+  using DimensionUnits = tensorstore::Schema::DimensionUnits;
+  using tensorstore::Unit;
+  EXPECT_EQ("[]", absl::StrCat(DimensionUnits()));
+  EXPECT_EQ("[\"nm\", \"2 nm\"]",
+            absl::StrCat(DimensionUnits({Unit(1, "nm"), Unit(2, "nm")})));
+
+  tensorstore::Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::dtype_v<int32_t>));
+  EXPECT_EQ("{\"dtype\":\"int32\"}", absl::StrCat(schema));
 }
 
 }  // namespace

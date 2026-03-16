@@ -17,16 +17,17 @@
 #include <benchmark/benchmark.h>
 #include "absl/log/absl_check.h"
 #include "absl/random/random.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample_array.h"
 #include "tensorstore/driver/downsample/downsample_nditerable.h"
 #include "tensorstore/driver/downsample/downsample_util.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -82,9 +83,9 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         for (const Index downsample_factor : {2, 3}) {
           for (const Index block_size : {16, 32, 64, 128, 256}) {
             ::benchmark::RegisterBenchmark(
-                tensorstore::StrCat("DownsampleArray_", dtype, "_",
-                                    downsample_method, "_Rank", rank, "_Factor",
-                                    downsample_factor, "_BlockSize", block_size)
+                absl::StrCat("DownsampleArray_", dtype, "_", downsample_method,
+                             "_Rank", rank, "_Factor", downsample_factor,
+                             "_BlockSize", block_size)
                     .c_str(),
                 [=](auto& state) {
                   BenchmarkDownsample(state, dtype, downsample_method, rank,

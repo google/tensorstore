@@ -15,10 +15,25 @@
 #include "tensorstore/index_space/internal/translate_op.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_vector_or_scalar.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -48,9 +63,9 @@ absl::Status TranslateOutputOffsetsUsingInputOffsets(
         Index new_offset;
         if (internal::MulOverflow(offset_change, map.stride(), &new_offset) ||
             internal::SubOverflow(map.offset(), new_offset, &map.offset())) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Integer overflow computing output offset for dimension ",
-              output_dim, "."));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Integer overflow computing output offset for dimension %d.",
+              output_dim));
         }
         break;
       }

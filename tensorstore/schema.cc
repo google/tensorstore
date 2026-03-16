@@ -54,10 +54,10 @@
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -104,9 +104,9 @@ absl::Status ValidateRank(Schema& schema, const char* field_name,
       schema.impl_->fill_value_.rank() > rank) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Rank specified by %s (%d) is incompatible with existing fill_value of "
-        "shape %s",
+        "shape %v",
         field_name, rank,
-        absl::FormatStreamed(schema.impl_->fill_value_.shape())));
+        tensorstore::GenericStringify(schema.impl_->fill_value_.shape())));
   }
   schema.rank_ = rank;
   return absl::OkStatus();
@@ -552,7 +552,7 @@ bool operator==(Schema::DimensionUnits a, Schema::DimensionUnits b) {
 }
 
 std::ostream& operator<<(std::ostream& os, Schema::DimensionUnits u) {
-  return os << tensorstore::DimensionUnitsToString(u);
+  return os << absl::StreamFormat("%v", u);
 }
 
 namespace {
@@ -569,11 +569,7 @@ bool operator==(const Schema& a, const Schema& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Schema& schema) {
-  auto json_result = schema.ToJson();
-  if (!json_result.ok()) {
-    return os << "<unprintable>";
-  }
-  return os << json_result->dump();
+  return os << absl::StreamFormat("%v", schema);
 }
 
 ChunkLayout& Schema::MutableLayoutInternal() {

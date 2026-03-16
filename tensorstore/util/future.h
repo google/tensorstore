@@ -35,6 +35,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/has_absl_stringify.h"
 #include "absl/strings/has_ostream_operator.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/lldb_scripting.h"
@@ -902,18 +903,17 @@ class Future : public AnyFuture {
   ///
   /// \requires `T` supports `operator<<`.
   template <
-      typename SfinaeU = result_type,
-      std::enable_if_t<absl::HasOstreamOperator<SfinaeU>::value>* = nullptr>
-  // NONITPICK: absl::HasOstreamOperator<result_type>
-  // NONITPICK: absl::HasOstreamOperator<result_type>::value
+      typename SfinaeU = T,
+      std::enable_if_t<(std::is_void_v<SfinaeU> ||
+                        absl::HasAbslStringify<SfinaeU>::value ||
+                        absl::HasOstreamOperator<SfinaeU>::value)>* = nullptr>
+  // NONITPICK: std::is_void_v<T>
+  // NONITPICK: absl::HasOstreamOperator<T>
+  // NONITPICK: absl::HasOstreamOperator<T>::value
+  // NONITPICK: absl::HasAbslStringify<T>
+  // NONITPICK: absl::HasAbslStringify<T>::value
   friend std::ostream& operator<<(std::ostream& os, const Future<T>& future) {
-    if (future.null()) {
-      return os << "(null)";
-    } else if (!future.ready()) {
-      return os << "(not ready)";
-    } else {
-      return os << future.result();
-    }
+    return os << absl::StreamFormat("%v", future);
   }
 
   /// Prints a string representation to the `sink`, which allows formatting
@@ -921,10 +921,16 @@ class Future : public AnyFuture {
   /// change without notice.
   ///
   /// \requires  `T` has `AbslStringify`.
-  template <typename Sink, typename SfinaeU = result_type,
-            std::enable_if_t<absl::HasAbslStringify<SfinaeU>::value>* = nullptr>
-  // NONITPICK: absl::HasAbslStringify<result_type>
-  // NONITPICK: absl::HasAbslStringify<result_type>::value
+  template <
+      typename Sink, typename SfinaeU = T,
+      std::enable_if_t<(std::is_void_v<SfinaeU> ||
+                        absl::HasAbslStringify<SfinaeU>::value ||
+                        absl::HasOstreamOperator<SfinaeU>::value)>* = nullptr>
+  // NONITPICK: std::is_void_v<T>
+  // NONITPICK: absl::HasOstreamOperator<T>
+  // NONITPICK: absl::HasOstreamOperator<T>::value
+  // NONITPICK: absl::HasAbslStringify<T>
+  // NONITPICK: absl::HasAbslStringify<T>::value
   friend void AbslStringify(Sink& sink, const Future<T>& future) {
     if (future.null()) {
       absl::Format(&sink, "(null)");

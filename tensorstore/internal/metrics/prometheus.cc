@@ -32,7 +32,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/ascii_set.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -40,23 +40,23 @@ namespace tensorstore {
 namespace internal_metrics {
 namespace {
 
-static inline constexpr internal::AsciiSet kDigit{"0123456789"};
+static inline constexpr internal_uri::AsciiSet kDigit{"0123456789"};
 
 // Metric names MUST adhere to the regex [a-zA-Z_:]([a-zA-Z0-9_:])*.
-static inline constexpr internal::AsciiSet kMetricFirst{
+static inline constexpr internal_uri::AsciiSet kMetricFirst{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "_:"};
 
 // Label names MUST adhere to the regex [a-zA-Z_]([a-zA-Z0-9_])*.
-static inline constexpr internal::AsciiSet kLabelFirst{
+static inline constexpr internal_uri::AsciiSet kLabelFirst{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "_"};
 
 // Label values MAY be any sequence of UTF-8 characters, however they need to be
 // uri-safe.
-static inline constexpr internal::AsciiSet kValueUnreserved{
+static inline constexpr internal_uri::AsciiSet kValueUnreserved{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
@@ -91,7 +91,8 @@ absl::Status AppendLabelValue(std::string* url, std::string_view label,
 
 // Returns a prometheus string, which is one which begins with the AsciiSet
 // first, and where all the non numeric, non-first characters are replaced by _
-std::string AsPrometheusString(std::string_view in, internal::AsciiSet first) {
+std::string AsPrometheusString(std::string_view in,
+                               internal_uri::AsciiSet first) {
   while (!in.empty() && !first.Test(in[0])) {
     in = in.substr(1);
   }

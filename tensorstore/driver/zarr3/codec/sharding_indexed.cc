@@ -53,14 +53,15 @@
 #include "tensorstore/kvstore/zarr3_sharding_indexed/zarr3_sharding_indexed.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
 
+<<<<<<< v3_structs_and_void
 absl::Status SubChunkRankMismatch(span<const Index> sub_chunk_shape,
                                   DimensionIndex outer_rank) {
   return absl::InvalidArgumentError(absl::StrFormat(
@@ -76,6 +77,23 @@ absl::Status SubChunkShapeMismatch(span<const Index> sub_chunk_shape,
       "shape of %s",
       absl::FormatStreamed(sub_chunk_shape),
       absl::FormatStreamed(chunk_shape)));
+=======
+absl::Status SubChunkRankMismatch(
+    tensorstore::span<const Index> sub_chunk_shape, DimensionIndex outer_rank) {
+  return absl::InvalidArgumentError(
+      absl::StrFormat("sharding_indexed sub-chunk shape of %v is not "
+                      "compatible with array of rank %d",
+                      GenericStringify(sub_chunk_shape), outer_rank));
+}
+
+absl::Status SubChunkShapeMismatch(
+    tensorstore::span<const Index> sub_chunk_shape,
+    tensorstore::span<const Index> chunk_shape) {
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "sharding_indexed sub-chunk shape of %v does not evenly divide chunk "
+      "shape of %v",
+      GenericStringify(sub_chunk_shape), GenericStringify(chunk_shape)));
+>>>>>>> master
 }
 
 namespace {

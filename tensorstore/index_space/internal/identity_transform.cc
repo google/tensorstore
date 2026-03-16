@@ -14,10 +14,22 @@
 
 #include "tensorstore/index_space/internal/identity_transform.h"
 
+#include <algorithm>
+#include <cassert>
+#include <string>
+#include <string_view>
+
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/internal/string_like.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/span.h"
+
 namespace tensorstore {
 namespace internal_index_space {
 
-void SetToIdentityTransform(span<OutputIndexMap> maps) {
+void SetToIdentityTransform(tensorstore::span<OutputIndexMap> maps) {
   for (DimensionIndex i = 0; i < maps.size(); ++i) {
     auto& map = maps[i];
     map.SetSingleInputDimension(i);
@@ -89,7 +101,7 @@ TransformRep::Ptr<> MakeIdentityTransformLike(TransformRep* data,
   return result;
 }
 
-TransformRep::Ptr<> MakeIdentityTransform(span<const Index> shape,
+TransformRep::Ptr<> MakeIdentityTransform(tensorstore::span<const Index> shape,
                                           bool domain_only) {
   const DimensionIndex rank = shape.size();
   auto result = TransformRep::Allocate(rank, domain_only ? 0 : rank);

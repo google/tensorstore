@@ -16,9 +16,9 @@
 
 #include <string>
 
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -28,7 +28,7 @@ AuthProvider::~AuthProvider() = default;
 Result<std::string> AuthProvider::GetAuthHeader() {
   auto token = this->GetToken();
   TENSORSTORE_RETURN_IF_ERROR(token);
-  return tensorstore::StrCat("Authorization: Bearer ", token->token);
+  return absl::StrCat("Authorization: Bearer ", token->token);
 }
 
 }  // namespace internal_oauth2

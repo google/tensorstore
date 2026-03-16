@@ -53,7 +53,8 @@
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
@@ -83,7 +84,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 #include "tinyxml2.h"
 
 // specializations
@@ -120,7 +120,6 @@ using ::tensorstore::internal_kvstore_s3::S3EndpointRegion;
 using ::tensorstore::internal_kvstore_s3::S3RateLimiterResource;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
-using ::tensorstore::internal_kvstore_s3::S3UriEncode;
 using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListEntry;
@@ -222,48 +221,61 @@ struct S3KeyValueStoreSpecData {
              x.data_copy_concurrency);
   };
 
-  constexpr static auto default_json_binder = jb::Object(
-      // Bucket is specified in the `spec` since it identifies the resource
-      // being accessed.
-      jb::Member("bucket",
-                 jb::Projection<&S3KeyValueStoreSpecData::bucket>(jb::Validate(
-                     [](const auto& options, const std::string* x) {
-                       if (!IsValidBucketName(*x)) {
-                         return absl::InvalidArgumentError(absl::StrFormat(
-                             "Invalid S3 bucket name: %v", QuoteString(*x)));
-                       }
-                       return absl::OkStatus();
-                     }))),
-      jb::Member("requester_pays",
-                 jb::Projection<&S3KeyValueStoreSpecData::requester_pays>(
-                     jb::DefaultValue([](auto* v) { *v = false; }))),
-      jb::Member("host_header",
-                 jb::Projection<&S3KeyValueStoreSpecData::host_header>()),
-      jb::Member("endpoint",
-                 jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
-      jb::Member("aws_region",
-                 jb::Projection<&S3KeyValueStoreSpecData::aws_region>(
-                     jb::DefaultValue([](auto* v) { *v = ""; }))),
-      jb::Member(
-          "use_conditional_write",
-          jb::Projection<&S3KeyValueStoreSpecData::use_conditional_write>()),
-      jb::Member(AwsCredentialsResource::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::aws_credentials>()),
-      jb::Member(
-          S3ConcurrencyResource::id,
-          jb::Projection<&S3KeyValueStoreSpecData::request_concurrency>()),
-      jb::Member(S3RateLimiterResource::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::rate_limiter>()),
-      jb::Member(S3RequestRetries::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::retries>()),
-      jb::Member(DataCopyConcurrencyResource::id,
-                 jb::Projection<
-                     &S3KeyValueStoreSpecData::data_copy_concurrency>()) /**/
-  );
+  constexpr static auto default_json_binder = jb::Validate(
+      [](const auto& options, const auto* x) {
+        if (!x->bucket.empty() && !IsValidBucketName(x->bucket)) {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Invalid S3 bucket name: %v", QuoteString(x->bucket)));
+        }
+        if (!x->endpoint || x->endpoint->empty()) {
+          if (x->bucket.empty()) {
+            return absl::InvalidArgumentError(
+                "\"bucket\" must be specified when \"endpoint\" is not set");
+          }
+          if (x->host_header && !x->host_header->empty()) {
+            return absl::InvalidArgumentError(
+                "\"host_header\" cannot be set without also setting "
+                "\"endpoint\"");
+          }
+        }
+        return absl::OkStatus();
+      },
+      jb::Object(
+          jb::Member("bucket", jb::Projection<&S3KeyValueStoreSpecData::bucket>(
+                                   jb::DefaultValue([](auto* v) { *v = ""; }))),
+          jb::Member("requester_pays",
+                     jb::Projection<&S3KeyValueStoreSpecData::requester_pays>(
+                         jb::DefaultValue([](auto* v) { *v = false; }))),
+          jb::Member("host_header",
+                     jb::Projection<&S3KeyValueStoreSpecData::host_header>()),
+          jb::Member("endpoint",
+                     jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
+          jb::Member("aws_region",
+                     jb::Projection<&S3KeyValueStoreSpecData::aws_region>(
+                         jb::DefaultValue([](auto* v) { *v = ""; }))),
+          jb::Member("use_conditional_write",
+                     jb::Projection<
+                         &S3KeyValueStoreSpecData::use_conditional_write>()),
+          jb::Member(
+              AwsCredentialsResource::id,
+              jb::Projection<&S3KeyValueStoreSpecData::aws_credentials>()),
+          jb::Member(
+              S3ConcurrencyResource::id,
+              jb::Projection<&S3KeyValueStoreSpecData::request_concurrency>()),
+          jb::Member(S3RateLimiterResource::id,
+                     jb::Projection<&S3KeyValueStoreSpecData::rate_limiter>()),
+          jb::Member(S3RequestRetries::id,
+                     jb::Projection<&S3KeyValueStoreSpecData::retries>()),
+          jb::Member(
+              DataCopyConcurrencyResource::id,
+              jb::Projection<
+                  &S3KeyValueStoreSpecData::data_copy_concurrency>()) /**/
+          ));
 };
 
 std::string GetS3Url(std::string_view bucket, std::string_view path) {
-  return tensorstore::StrCat(kUriScheme, "://", bucket, "/", S3UriEncode(path));
+  return absl::StrCat(kUriScheme, "://", bucket, "/",
+                      internal_uri::PercentEncodeKvStoreUriPath(path));
 }
 
 class S3KeyValueStoreSpec
@@ -275,7 +287,7 @@ class S3KeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    if (data_.endpoint) {
+    if (data_.endpoint || data_.bucket.empty()) {
       return absl::UnimplementedError(
           "S3 URL syntax not supported with explicit endpoint");
     }
@@ -581,7 +593,7 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
        options = std::move(options)](auto promise,
                                      ReadyFuture<const S3EndpointRegion> ready,
                                      ReadyFuture<AwsCredentials> credentials) {
-        auto read_url = tensorstore::StrCat(ready.value().endpoint, "/", key);
+        auto read_url = absl::StrCat(ready.value().endpoint, "/", key);
 
         auto state = internal::MakeIntrusivePtr<ReadTask>(
             std::move(self), std::move(key), std::move(options),
@@ -1029,8 +1041,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
        value = std::move(value), options = std::move(options)](
           auto promise, ReadyFuture<const S3EndpointRegion> ready,
           ReadyFuture<AwsCredentials> credentials) {
-        std::string object_url =
-            tensorstore::StrCat(ready.value().endpoint, "/", key);
+        std::string object_url = absl::StrCat(ready.value().endpoint, "/", key);
 
         if (!value) {
           // Write with a std::nullopt value is a delete.
@@ -1273,7 +1284,7 @@ void S3KeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
           execution::set_error(state->receiver_, ready.status());
           return;
         }
-        state->resource_ = tensorstore::StrCat(ready.value().endpoint, "/");
+        state->resource_ = absl::StrCat(ready.value().endpoint, "/");
         state->endpoint_region_ = std::move(ready);
 
         auto credentials_future = state->owner_->GetCredentials();
@@ -1398,18 +1409,19 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
 }
 
 Result<kvstore::Spec> ParseS3Url(std::string_view url) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+      EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Invalid S3 bucket name: %v", QuoteString(parsed.authority)));
   }
-  auto decoded_path = parsed.path.empty()
-                          ? std::string()
-                          : internal::PercentDecode(parsed.path.substr(1));
-
+  std::string decoded_path;
+  if (!parsed.path.empty()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        decoded_path, internal_uri::PercentDecode(parsed.path.substr(1)));
+  }
   auto driver_spec = internal::MakeIntrusivePtr<S3KeyValueStoreSpec>();
   driver_spec->data_.bucket = std::string(parsed.authority);
   driver_spec->data_.requester_pays = false;

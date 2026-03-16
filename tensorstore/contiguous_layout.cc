@@ -22,6 +22,7 @@
 #include <ostream>
 
 #include "absl/log/absl_check.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/index.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/dimension_set.h"
@@ -133,7 +134,7 @@ void SetPermutationFromStrides(span<const Index> strides,
 }
 
 std::ostream& operator<<(std::ostream& os, ContiguousLayoutOrder order) {
-  return os << (order == ContiguousLayoutOrder::c ? 'C' : 'F');
+  return os << absl::StreamFormat("%v", order);
 }
 
 }  // namespace tensorstore

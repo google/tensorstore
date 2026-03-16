@@ -35,6 +35,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/str_cat.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/sequence_parameter.h"
@@ -55,7 +56,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/serialization/std_optional.h"
@@ -70,18 +70,18 @@ namespace py = ::pybind11;
 void AppendDimensionSelectionRepr(std::string* out,
                                   span<const DynamicDimSpec> dims) {
   if (dims.empty()) {
-    tensorstore::StrAppend(out, "()");
+    absl::StrAppend(out, "()");
   }
   for (size_t i = 0; i < dims.size(); ++i) {
     const auto& d = dims[i];
     if (auto* index = std::get_if<DimensionIndex>(&d)) {
-      tensorstore::StrAppend(out, (i == 0 ? "" : ","), *index);
+      absl::StrAppend(out, (i == 0 ? "" : ","), *index);
     } else if (auto* label = std::get_if<std::string>(&d)) {
-      tensorstore::StrAppend(out, (i == 0 ? "" : ","), "'",
-                             absl::CHexEscape(*label), "'");
+      absl::StrAppend(out, (i == 0 ? "" : ","), "'", absl::CHexEscape(*label),
+                      "'");
     } else {
       const auto& slice = std::get<DimRangeSpec>(d);
-      tensorstore::StrAppend(out, (i == 0 ? "" : ","), slice);
+      absl::StrAppend(out, (i == 0 ? "" : ","), slice);
     }
   }
 }
@@ -89,7 +89,7 @@ void AppendDimensionSelectionRepr(std::string* out,
 std::string PythonDimExpressionChainTail::repr() const {
   std::string out = "d[";
   AppendDimensionSelectionRepr(&out, dims);
-  tensorstore::StrAppend(&out, "]");
+  absl::StrAppend(&out, "]");
   return out;
 }
 
@@ -106,7 +106,7 @@ std::string PythonTranslateOp::repr() const {
     ABSL_UNREACHABLE();  // COV_NF_LINE
   };
 
-  return tensorstore::StrCat(
+  return absl::StrCat(
       ".translate_", op_suffix(translate_kind), "[",
       IndexVectorRepr(indices, /*implicit=*/true, /*subscript=*/true), "]");
 }
@@ -119,7 +119,7 @@ Result<IndexTransform<>> PythonTranslateOp::Apply(IndexTransform<> transform,
 }
 
 std::string PythonStrideOp::repr() const {
-  return tensorstore::StrCat(
+  return absl::StrCat(
       ".stride[",
       IndexVectorRepr(strides, /*implicit=*/true, /*subscript=*/true), "]");
 }
@@ -134,10 +134,10 @@ Result<IndexTransform<>> PythonStrideOp::Apply(IndexTransform<> transform,
 std::string PythonLabelOp::repr() const {
   std::string r = ".label[";
   for (size_t i = 0; i < labels.size(); ++i) {
-    tensorstore::StrAppend(&r, i == 0 ? "" : ",", "'",
-                           absl::CHexEscape(labels[i]), "'");
+    absl::StrAppend(&r, i == 0 ? "" : ",", "'", absl::CHexEscape(labels[i]),
+                    "'");
   }
-  tensorstore::StrAppend(&r, "]");
+  absl::StrAppend(&r, "]");
   return r;
 }
 
@@ -160,7 +160,7 @@ Result<IndexTransform<>> PythonDiagonalOp::Apply(IndexTransform<> transform,
 std::string PythonTransposeOp::repr() const {
   std::string out = ".transpose[";
   AppendDimensionSelectionRepr(&out, target_dim_specs);
-  tensorstore::StrAppend(&out, "]");
+  absl::StrAppend(&out, "]");
   return out;
 }
 
@@ -179,10 +179,10 @@ std::string PythonChangeImplicitStateOp::repr() const {
     return *value ? "True" : "False";
   };
   if (lower_implicit == upper_implicit && lower_implicit) {
-    tensorstore::StrAppend(&out, format_bound(lower_implicit));
+    absl::StrAppend(&out, format_bound(lower_implicit));
   } else {
-    tensorstore::StrAppend(&out, format_bound(lower_implicit), ":",
-                           format_bound(upper_implicit));
+    absl::StrAppend(&out, format_bound(lower_implicit), ":",
+                    format_bound(upper_implicit));
   }
   out += ']';
   return out;
@@ -207,8 +207,8 @@ Result<IndexTransform<>> PythonChangeImplicitStateOp::Apply(
 }
 
 std::string PythonIndexOp::repr() const {
-  return tensorstore::StrCat(GetIndexingModePrefix(spec.mode), "[",
-                             IndexingSpecRepr(spec), "]");
+  return absl::StrCat(GetIndexingModePrefix(spec.mode), "[",
+                      IndexingSpecRepr(spec), "]");
 }
 
 Result<IndexTransform<>> PythonIndexOp::Apply(IndexTransform<> transform,

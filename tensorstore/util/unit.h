@@ -20,6 +20,8 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/strings/str_format.h"
+
 namespace tensorstore {
 
 /// Represents a physical unit, such as "nm" or "3nm" or "3 m/s".
@@ -90,8 +92,14 @@ struct Unit {
 
   /// Abseil formatting support.
   template <typename Sink>
-  friend void AbslStringify(Sink& sink, const Unit& self) {
-    sink.Append(self.to_string());
+  friend void AbslStringify(Sink& sink, const Unit& unit) {
+    if (unit.base_unit.empty()) {
+      absl::Format(&sink, "%v", unit.multiplier);
+    } else if (unit.multiplier == 1) {
+      sink.Append(unit.base_unit);
+    } else {
+      absl::Format(&sink, "%v %s", unit.multiplier, unit.base_unit);
+    }
   }
 
   /// Compares two units for equality.

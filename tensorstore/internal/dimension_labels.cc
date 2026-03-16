@@ -26,7 +26,6 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -42,8 +41,7 @@ absl::Status ValidateDimensionLabelsAreUniqueImpl(
   for (; i < sorted_labels.size(); ++i) {
     std::string_view label = sorted_labels[i];
     if (label == sorted_labels[i - 1]) {
-      tensorstore::StrAppend(&error, error.empty() ? "" : ", ",
-                             QuoteString(label));
+      absl::StrAppend(&error, error.empty() ? "" : ", ", QuoteString(label));
     }
   }
   if (!error.empty()) {

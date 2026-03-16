@@ -16,25 +16,12 @@
 
 #include <ostream>
 
+#include "absl/strings/str_format.h"
+
 namespace tensorstore {
 
 std::ostream& operator<<(std::ostream& os, DownsampleMethod method) {
-  switch (method) {
-    case DownsampleMethod::kStride:
-      return os << "stride";
-    case DownsampleMethod::kMean:
-      return os << "mean";
-    case DownsampleMethod::kMin:
-      return os << "min";
-    case DownsampleMethod::kMax:
-      return os << "max";
-    case DownsampleMethod::kMedian:
-      return os << "median";
-    case DownsampleMethod::kMode:
-      return os << "mode";
-    default:
-      return os << "<invalid downsamping mode>";
-  }
+  return os << absl::StreamFormat("%v", method);
 }
 
 }  // namespace tensorstore

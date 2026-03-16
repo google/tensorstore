@@ -21,6 +21,7 @@
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/span.h"
 
@@ -63,7 +64,7 @@ class ArrayMatcherImpl
             if (reason_printed) {
               *listener << ", ";
             }
-            *listener << "whose element at " << indices
+            *listener << "whose element at " << GenericStringify(indices)
                       << " doesn't match, expected=" << expected_[indices]
                       << ", actual=" << value[indices];
             reason_printed = true;

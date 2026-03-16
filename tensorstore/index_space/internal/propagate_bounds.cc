@@ -37,7 +37,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -240,13 +239,11 @@ absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
                                     b_implicit_upper_bounds, a_to_b, a);
   if (!status.ok()) {
     // Augment failed calls with transform and domain
-    std::ostringstream os;
-    internal_index_space::PrintToOstream(os, a_to_b);
-    std::string str = os.str();
+    std::string str = internal_index_space::PrintToString(a_to_b);
     absl::StrReplaceAll({{"\n", " "}}, &str);
     return StatusBuilder(std::move(status))
         .AddStatusPayload("transform", absl::Cord(str))
-        .AddStatusPayload("domain", absl::Cord(tensorstore::StrCat(b)));
+        .AddStatusPayload("domain", absl::Cord(absl::StrCat(b)));
   }
   return absl::OkStatus();
 }

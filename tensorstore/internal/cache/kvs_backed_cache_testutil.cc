@@ -36,6 +36,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "re2/re2.h"
@@ -58,7 +59,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -251,7 +251,7 @@ void KvsRandomOperationTester::PerformRandomAction(
     const auto& key = SampleKey();
     const auto& cache = caches[absl::Uniform(gen, 0u, caches.size())];
     bool clear = absl::Bernoulli(gen, clear_probability);
-    std::string append = tensorstore::StrCat(", ", ++write_number);
+    std::string append = absl::StrCat(", ", ++write_number);
     SimulateWrite(key, clear, append);
     if (log) {
       ABSL_LOG(INFO) << "Write: key=" << QuoteString(key)
@@ -420,7 +420,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
       TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("Z")));
       EXPECT_THAT(entry->Read({absl::Now()}).result(),
                   StatusIs(absl::StatusCode::kFailedPrecondition,
-                           HasSubstr(tensorstore::StrCat(
+                           HasSubstr(absl::StrCat(
                                "Error reading ", kvstore->DescribeKey(a_key),
                                ": existing value contains Z"))));
       // Read state is not modified.
@@ -455,7 +455,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         }
         EXPECT_THAT(transaction.CommitAsync().result(),
                     StatusIs(absl::StatusCode::kFailedPrecondition,
-                             HasSubstr(::tensorstore::StrCat(
+                             HasSubstr(absl::StrCat(
                                  "Error reading ", kvstore->DescribeKey(a_key),
                                  ": existing value contains Z"))));
         EXPECT_THAT(kvstore->Read(a_key).result(),
@@ -545,9 +545,9 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
       // kvstack does not report the initial write key, only the remapped key.
       EXPECT_THAT(transaction.CommitAsync().result(),
                   StatusIs(absl::StatusCode::kInvalidArgument,
-                           HasSubstr(tensorstore::StrCat(
-                               "Error writing ", kvstore->DescribeKey(a_key),
-                               ": new value contains Z"))));
+                           HasSubstr(absl::StrCat("Error writing ",
+                                                  kvstore->DescribeKey(a_key),
+                                                  ": new value contains Z"))));
     }
     EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                 Pointee(absl::Cord("abc")));
@@ -579,7 +579,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
           EXPECT_THAT(
               GetTransactionNode(*entry_b, open_transaction),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr(tensorstore::StrCat(
+                       HasSubstr(absl::StrCat(
                            "Cannot read/write ", kvstore->DescribeKey(a_key),
                            " and read/write ", kvstore->DescribeKey(b_key),
                            " as single atomic transaction"))));
@@ -587,7 +587,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         EXPECT_THAT(
             transaction.future().result(),
             StatusIs(absl::StatusCode::kInvalidArgument,
-                     HasSubstr(tensorstore::StrCat(
+                     HasSubstr(absl::StrCat(
                          "Cannot read/write ", kvstore->DescribeKey(a_key),
                          " and read/write ", kvstore->DescribeKey(b_key),
                          " as single atomic transaction"))));

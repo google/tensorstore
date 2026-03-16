@@ -34,6 +34,8 @@
 #include "absl/container/btree_map.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "absl/types/compare.h"
@@ -58,7 +60,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -721,7 +722,7 @@ void DeletedEntryDone(DeleteRangeEntry& dr_entry, bool error, size_t count) {
 }
 
 std::string DescribeEntry(MutationEntry& entry) {
-  return tensorstore::StrCat(
+  return absl::StrCat(
       entry.entry_type() == kReadModifyWrite ? "read/write " : "delete ",
       entry.multi_phase().DescribeKey(entry.key_));
 }
@@ -2354,10 +2355,9 @@ absl::Status Driver::TransactionalDeleteRange(
     const internal::OpenTransactionPtr& transaction, KeyRange range) {
   if (range.empty()) return absl::OkStatus();
   if (transaction && transaction->atomic()) {
-    auto error = absl::InvalidArgumentError(
-        tensorstore::StrCat("Cannot delete range starting at ",
-                            this->DescribeKey(range.inclusive_min),
-                            " as single atomic transaction"));
+    auto error = absl::InvalidArgumentError(absl::StrFormat(
+        "Cannot delete range starting at %v as single atomic transaction",
+        this->DescribeKey(range.inclusive_min)));
     transaction->RequestAbort(error);
     return error;
   }

@@ -55,6 +55,8 @@ class ShardingSpec {
   };
 
   friend std::ostream& operator<<(std::ostream& os, HashFunction x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, HashFunction x);
 
   friend void to_json(::nlohmann::json& out,  // NOLINT
                       HashFunction x);
@@ -65,8 +67,15 @@ class ShardingSpec {
   };
 
   friend std::ostream& operator<<(std::ostream& os, DataEncoding x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, DataEncoding x);
 
   friend std::ostream& operator<<(std::ostream& os, const ShardingSpec& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ShardingSpec& x) {
+    // `ToJson` is guaranteed not to fail for this type.
+    sink.Append(internal_json_binding::ToJson(x).value().dump());
+  }
 
   ShardingSpec() = default;
 
@@ -106,6 +115,11 @@ class ShardingSpec {
 
 TENSORSTORE_DECLARE_JSON_BINDER(DataEncodingJsonBinder,
                                 ShardingSpec::DataEncoding,
+                                internal_json_binding::NoOptions,
+                                internal_json_binding::NoOptions)
+
+TENSORSTORE_DECLARE_JSON_BINDER(HashFunctionJsonBinder,
+                                ShardingSpec::HashFunction,
                                 internal_json_binding::NoOptions,
                                 internal_json_binding::NoOptions)
 
@@ -216,6 +230,20 @@ using EncodedChunks = std::vector<EncodedChunk>;
 /// Finds a chunk in an ordered list of chunks.
 const EncodedChunk* FindChunk(span<const EncodedChunk> chunks,
                               MinishardAndChunkId minishard_and_chunk_id);
+
+template <typename Sink>
+void AbslStringify(Sink& sink, ShardingSpec::DataEncoding x) {
+  // `ToJson` is guaranteed not to fail for this type.
+  sink.Append(
+      internal_json_binding::ToJson(x, DataEncodingJsonBinder).value().dump());
+}
+
+template <typename Sink>
+void AbslStringify(Sink& sink, ShardingSpec::HashFunction x) {
+  // `ToJson` is guaranteed not to fail for this type.
+  sink.Append(
+      internal_json_binding::ToJson(x, HashFunctionJsonBinder).value().dump());
+}
 
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore

@@ -21,6 +21,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
@@ -45,7 +46,7 @@
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
@@ -63,7 +64,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_cast_driver {
@@ -178,7 +178,7 @@ class CastDriverSpec
           "cast URL requires target dtype to be specified");
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, base.driver_spec->ToUrl());
-    return tensorstore::StrCat(base_url, "|", id, ":", target_dtype);
+    return absl::StrCat(base_url, "|", id, ":", target_dtype);
   }
 
   Future<internal::Driver::Handle> Open(
@@ -430,9 +430,9 @@ Result<CastDataTypeConversions> GetCastDataTypeConversions(
     result.input = GetDataTypeConverter(source_dtype, target_dtype);
     if (!(result.input.flags & DataTypeConversionFlags::kSupported)) {
       if ((required_mode & ReadWriteMode::read) == ReadWriteMode::read) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Read access requires unsupported ", source_dtype, " -> ",
-            target_dtype, " conversion"));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Read access requires unsupported %v -> %v conversion",
+            source_dtype, target_dtype));
       }
       result.mode &= ~ReadWriteMode::read;
     }
@@ -441,16 +441,16 @@ Result<CastDataTypeConversions> GetCastDataTypeConversions(
     result.output = GetDataTypeConverter(target_dtype, source_dtype);
     if (!(result.output.flags & DataTypeConversionFlags::kSupported)) {
       if ((required_mode & ReadWriteMode::write) == ReadWriteMode::write) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Write access requires unsupported ", target_dtype, " -> ",
-            source_dtype, " conversion"));
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Write access requires unsupported %v -> %v conversion",
+            target_dtype, source_dtype));
       }
       result.mode &= ~ReadWriteMode::write;
     }
   }
   if (result.mode == ReadWriteMode{}) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Cannot convert ", source_dtype, " <-> ", target_dtype));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Cannot convert %v <-> %v", source_dtype, target_dtype));
   }
   return result;
 }
@@ -493,15 +493,14 @@ Result<TransformedDriverSpec> MakeCastDriverSpec(TransformedDriverSpec base,
 namespace {
 Result<internal::TransformedDriverSpec> ParseCastUrl(
     std::string_view url, TransformedDriverSpec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchema(parsed, internal_cast_driver::CastDriverSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+      EnsureSchema(parsed, internal_cast_driver::CastDriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   auto dtype = GetDataType(parsed.authority_and_path);
   if (!dtype.valid()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Unsuppported data type: ",
-                     tensorstore::QuoteString(parsed.authority_and_path)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Unsuppported data type: %v", QuoteString(parsed.authority_and_path)));
   }
   return MakeCastDriverSpec(std::move(base), dtype);
 }

@@ -24,6 +24,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -32,13 +33,12 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 
 absl::Cord EncodeMinishardIndex(
-    span<const MinishardIndexEntry> minishard_index) {
+    tensorstore::span<const MinishardIndexEntry> minishard_index) {
   internal::FlatCordBuilder builder(minishard_index.size() * 24);
   ChunkId prev_chunk_id{0};
   int64_t prev_offset = 0;
@@ -119,8 +119,8 @@ Result<ByteRange> ShardEncoder::WriteUnindexedEntry(uint64_t minishard,
   if (minishard != cur_minishard_) {
     if (minishard < cur_minishard_) {
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Minishard ", minishard,
-                              " cannot be written after ", cur_minishard_));
+          absl::StrFormat("Minishard %d cannot be written after %d", minishard,
+                          cur_minishard_));
     }
     TENSORSTORE_RETURN_IF_ERROR(FinalizeMinishard());
     cur_minishard_ = minishard;

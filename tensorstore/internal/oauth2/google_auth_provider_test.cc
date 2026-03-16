@@ -37,10 +37,9 @@
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
 #include "tensorstore/internal/oauth2/google_service_account_auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth2_auth_provider.h"
-#include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -60,6 +59,7 @@ using ::tensorstore::internal_oauth2::AuthProvider;
 using ::tensorstore::internal_oauth2::GetFakePrivateKey;
 using ::tensorstore::internal_oauth2::GetGoogleAuthProvider;
 using ::tensorstore::internal_oauth2::GoogleAuthTestScope;
+using ::tensorstore::internal_uri::ParseGenericUri;
 
 class TestData
     : public tensorstore::internal_testing::ScopedTemporaryDirectory {
@@ -104,7 +104,7 @@ class MetadataMockTransport : public HttpTransport {
                                HttpResponseHandler* response_handler) override {
     ApplyResponseToHandler(
         [&]() -> tensorstore::Result<HttpResponse> {
-          auto parsed = tensorstore::internal::ParseGenericUri(request.url);
+          auto parsed = ParseGenericUri(request.url);
           if (!absl::StartsWith(parsed.authority_and_path,
                                 "metadata.google.internal")) {
             return absl::UnimplementedError("Mock cannot satisfy the request.");

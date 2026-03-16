@@ -42,9 +42,9 @@
 #include "tensorstore/internal/storage_statistics.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -54,8 +54,8 @@ namespace jb = ::tensorstore::internal_json_binding;
 absl::Status InvalidPermutationError(
     tensorstore::span<const DimensionIndex> order, DimensionIndex rank) {
   return absl::InvalidArgumentError(absl::StrFormat(
-      "%s is not a valid dimension permutation for a rank %d array",
-      absl::FormatStreamed(order), rank));
+      "%v is not a valid dimension permutation for a rank %d array",
+      GenericStringify(order), rank));
 }
 
 constexpr auto OrderJsonBinder() {
@@ -64,9 +64,7 @@ constexpr auto OrderJsonBinder() {
           [](const auto& options, auto* obj) {
             if (!IsValidPermutation(*obj)) {
               return absl::InvalidArgumentError(absl::StrFormat(
-                  "%s is not a valid permutation",
-                  absl::FormatStreamed(
-                      tensorstore::span<const DimensionIndex>(*obj))));
+                  "%v is not a valid permutation", GenericStringify(*obj)));
             }
             return absl::OkStatus();
           },

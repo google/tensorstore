@@ -30,6 +30,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
 #include "riegeli/bytes/cord_reader.h"
@@ -67,10 +68,10 @@
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {
@@ -134,9 +135,10 @@ absl::Status ValidateMetadata(N5Metadata& metadata) {
   const Index max_num_elements =
       (static_cast<size_t>(1) << 31) / metadata.dtype.size();
   if (ProductOfExtents(span(metadata.chunk_shape)) > max_num_elements) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "\"blockSize\" of ", span(metadata.chunk_shape), " with data type of ",
-        metadata.dtype, " exceeds maximum chunk size of 2GB"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "\"blockSize\" of %v with data type of %v exceeds maximum chunk size "
+        "of 2GB",
+        GenericStringify(metadata.chunk_shape), metadata.dtype));
   }
   return absl::OkStatus();
 }
@@ -229,15 +231,15 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
   const size_t header_size = GetChunkHeaderSize(metadata);
   if (buffer.size() < header_size) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Expected header of length ", header_size,
-                            ", but chunk has size ", buffer.size()));
+        absl::StrFormat("Expected header of length %d, but chunk has size %d",
+                        header_size, buffer.size()));
   }
   riegeli::CordReader<> base_reader(&buffer);
   riegeli::Reader* reader = &base_reader;
   uint16_t mode;
   uint16_t num_dims;
-  if (!riegeli::ReadBigEndian16(*reader, mode) ||
-      !riegeli::ReadBigEndian16(*reader, num_dims)) {
+  if (!riegeli::ReadBigEndian<uint16_t>(*reader, mode) ||
+      !riegeli::ReadBigEndian<uint16_t>(*reader, num_dims)) {
     return reader->status();
   }
   switch (mode) {
@@ -247,28 +249,28 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
       return absl::InvalidArgumentError("varlength chunks not supported");
     default:
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Unexpected N5 chunk mode: ", mode));
+          absl::StrFormat("Unexpected N5 chunk mode: %d", mode));
   }
   if (num_dims != metadata.rank) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Received chunk with ", num_dims,
-                            " dimensions but expected ", metadata.rank));
+        absl::StrFormat("Received chunk with %d dimensions but expected %d",
+                        num_dims, metadata.rank));
   }
   Index encoded_shape_buffer[kMaxRank];
   span<Index> encoded_shape(&encoded_shape_buffer[0], num_dims);
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     uint32_t size;
-    if (!riegeli::ReadBigEndian32(*reader, size)) {
+    if (!riegeli::ReadBigEndian<uint32_t>(*reader, size)) {
       return reader->status();
     }
     encoded_shape[i] = size;
   }
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     if (encoded_shape[i] > metadata.chunk_shape[i]) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Received chunk of size ", encoded_shape,
-                              " which exceeds blockSize of ",
-                              tensorstore::span(metadata.chunk_shape)));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Received chunk of size %v which exceeds blockSize of %v",
+          GenericStringify(encoded_shape),
+          GenericStringify(tensorstore::span(metadata.chunk_shape))));
     }
   }
   std::unique_ptr<riegeli::Reader> compressed_reader;
@@ -310,12 +312,12 @@ Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
 
   // Write header
   // mode: 0x0 = default
-  if (!riegeli::WriteBigEndian16(0, *writer) ||
-      !riegeli::WriteBigEndian16(metadata.rank, *writer)) {
+  if (!riegeli::WriteBigEndian<uint16_t>(0, *writer) ||
+      !riegeli::WriteBigEndian<uint16_t>(metadata.rank, *writer)) {
     return writer->status();
   }
   for (DimensionIndex i = 0; i < array.rank(); ++i) {
-    if (!riegeli::WriteBigEndian32(array.shape()[i], *writer)) {
+    if (!riegeli::WriteBigEndian<uint32_t>(array.shape()[i], *writer)) {
       return writer->status();
     }
   }
@@ -512,10 +514,10 @@ absl::Status ValidateDimensionUnitsResolution(
       const auto& unit = dimension_units[i];
       if (!unit) continue;
       if ((*units_and_resolution.resolution)[i] != unit->multiplier) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "\"resolution\" from metadata ",
-            span(*units_and_resolution.resolution),
-            " does not match dimension units from schema ",
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "\"resolution\" from metadata %v does not match dimension units "
+            "from schema %v",
+            GenericStringify(span(*units_and_resolution.resolution)),
             tensorstore::DimensionUnitsToString(dimension_units)));
       }
     }
@@ -620,9 +622,10 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
 absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
                                     const Schema& schema) {
   if (!RankConstraint::EqualOrUnspecified(metadata.rank, schema.rank())) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Rank specified by schema (", schema.rank(),
-        ") does not match rank specified by metadata (", metadata.rank, ")"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Rank specified by schema (%v) does not match rank specified by "
+        "metadata (%d)",
+        schema.rank(), metadata.rank));
   }
 
   if (schema.domain().valid()) {
@@ -632,9 +635,9 @@ absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
 
   if (auto dtype = schema.dtype();
       !IsPossiblySameDataType(metadata.dtype, dtype)) {
-    return absl::FailedPreconditionError(
-        tensorstore::StrCat("dtype from metadata (", metadata.dtype,
-                            ") does not match dtype in schema (", dtype, ")"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "dtype from metadata (%v) does not match dtype in schema (%v)",
+        metadata.dtype, dtype));
   }
 
   if (auto schema_codec = schema.codec(); schema_codec.valid()) {
@@ -665,11 +668,11 @@ absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
         MergeDimensionUnits(schema_units_vector, dimension_units))
         .With(internal::ConvertInvalidArgumentToFailedPrecondition);
     if (schema_units_vector != dimension_units) {
-      return absl::FailedPreconditionError(
-          tensorstore::StrCat("Dimension units in metadata ",
-                              DimensionUnitsToString(dimension_units),
-                              " do not match dimension units in schema ",
-                              DimensionUnitsToString(schema_units)));
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "Dimension units in metadata %v do not match dimension units in "
+          "schema %v",
+          DimensionUnitsToString(dimension_units),
+          DimensionUnitsToString(schema_units)));
     }
   }
   return absl::OkStatus();
@@ -677,8 +680,8 @@ absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
 
 absl::Status ValidateDataType(DataType dtype) {
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        dtype, " data type is not one of the supported data types: ",
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "%v data type is not one of the supported data types: %s", dtype,
         GetSupportedDataTypes()));
   }
   return absl::OkStatus();

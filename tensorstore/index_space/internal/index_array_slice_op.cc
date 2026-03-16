@@ -15,10 +15,29 @@
 #include "tensorstore/index_space/internal/index_array_slice_op.h"
 
 #include <algorithm>
+#include <memory>
 #include <numeric>
+#include <string>
+#include <utility>
 
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/compose_transforms.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/generic_stringify.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -161,13 +180,14 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexArrays(
     span<const SharedArrayView<const Index>> index_arrays) {
   const DimensionIndex num_indexed_dims = dimensions->size();
   if (index_arrays.size() != num_indexed_dims) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Number of selected dimensions (", num_indexed_dims,
-        ") does not equal number of index arrays (", index_arrays.size(), ")"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Number of selected dimensions (%d) does not equal "
+                        "number of index arrays (%d)",
+                        num_indexed_dims, index_arrays.size()));
   }
   if (index_arrays.empty()) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("At least one index array must be specified"));
+        "At least one index array must be specified");
   }
   Index shape[kMaxRank];
   const DimensionIndex num_new_dims = index_arrays[0].rank();
@@ -183,12 +203,12 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexArrays(
   if (error) {
     std::string shape_msg;
     for (DimensionIndex i = 0; i < index_arrays.size(); ++i) {
-      tensorstore::StrAppend(&shape_msg, (shape_msg.empty() ? "" : ", "),
-                             index_arrays[i].shape());
+      absl::StrAppend(&shape_msg, (shape_msg.empty() ? "" : ", "),
+                      GenericStringify(index_arrays[i].shape()));
     }
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Index arrays with shapes ", shape_msg,
-                            " cannot be broadcast to a common shape"));
+        absl::StrCat("Index arrays with shapes ", shape_msg,
+                     " cannot be broadcast to a common shape"));
   }
 
   const auto get_new_dimension_bounds = [&](DimensionIndex new_dim) {
@@ -213,7 +233,7 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
     span<const SharedArrayView<const Index>> index_arrays) {
   const DimensionIndex num_indexed_dims = dimensions->size();
   if (index_arrays.size() != num_indexed_dims) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
+    return absl::InvalidArgumentError(absl::StrCat(
         "Number of selected dimensions (", num_indexed_dims,
         ") does not equal number of index arrays (", index_arrays.size(), ")"));
   }
@@ -318,9 +338,9 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexVectorArray(
   const DimensionIndex num_indexed_dims = dimensions->size();
   if (index_vector_array.shape()[vector_dimension] != num_indexed_dims) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Number of selected dimensions (", num_indexed_dims,
-                            ") does not equal index vector length (",
-                            index_vector_array.shape()[vector_dimension], ")"));
+        absl::StrCat("Number of selected dimensions (", num_indexed_dims,
+                     ") does not equal index vector length (",
+                     index_vector_array.shape()[vector_dimension], ")"));
   }
   const DimensionIndex num_new_dims = index_vector_array.rank() - 1;
   const auto get_index_vector_array_dim = [&](DimensionIndex new_dim) {

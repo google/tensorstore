@@ -32,6 +32,7 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
@@ -63,7 +64,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -1536,7 +1536,7 @@ TEST_F(UnderlyingKeyValueStoreTest, DeleteInvalidKey) {
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
   for (const bool with_max_chunks : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("with_max_chunks=", with_max_chunks));
+    SCOPED_TRACE(absl::StrCat("with_max_chunks=", with_max_chunks));
     // Specifying the `get_max_chunks_per_shard` function has no effect because
     // we only write 1 chunk, which is not equal to the maximum of 2.
     if (with_max_chunks) {
@@ -2092,8 +2092,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 
   for (bool underlying_atomic : {false, true}) {
     KvsBackedCacheBasicTransactionalTestOptions options;
-    options.test_name = tensorstore::StrCat("Uint64Sharded/underlying_atomic=",
-                                            underlying_atomic);
+    options.test_name =
+        absl::StrCat("Uint64Sharded/underlying_atomic=", underlying_atomic);
     options.get_store = [=] {
       return GetShardedKeyValueStore(
           tensorstore::GetMemoryKeyValueStore(/*atomic=*/underlying_atomic),

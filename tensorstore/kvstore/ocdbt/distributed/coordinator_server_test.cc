@@ -22,6 +22,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/log/absl_log.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "grpcpp/channel.h"  // third_party
@@ -36,7 +37,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -64,7 +64,7 @@ class CoordinatorServerTest : public ::testing::Test {
 
     auto auth_strategy = security->GetClientAuthenticationStrategy();
 
-    std::string address = tensorstore::StrCat("localhost:", server_.port());
+    std::string address = absl::StrCat("localhost:", server_.port());
     grpc::ChannelArguments args;
     std::shared_ptr<::grpc::Channel> channel =
         ::tensorstore::internal_grpc::CreateChannel(*auth_strategy, address,

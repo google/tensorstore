@@ -24,6 +24,7 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/util/span.h"
 
@@ -83,7 +84,7 @@ std::string_view DriverKindToStringView(DriverKind x) {
 }
 
 std::ostream& operator<<(std::ostream& os, DriverKind x) {
-  return os << DriverKindToStringView(x);
+  return os << absl::StreamFormat("%v", x);
 }
 
 void RegisterUrlSchemeKind(std::string_view scheme, UrlSchemeKind scheme_kind) {
@@ -122,7 +123,7 @@ std::string_view UrlSchemeKindToStringView(UrlSchemeKind x) {
 }
 
 std::ostream& operator<<(std::ostream& os, UrlSchemeKind x) {
-  return os << UrlSchemeKindToStringView(x);
+  return os << absl::StreamFormat("%v", x);
 }
 
 }  // namespace internal

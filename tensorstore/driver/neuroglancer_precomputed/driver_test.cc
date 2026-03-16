@@ -69,7 +69,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace {
@@ -3046,8 +3045,8 @@ TEST(DriverTest, SeparateMetadataCache) {
 
 TEST(DriverTest, FillMissingDataReads) {
   for (bool fill_missing_data_reads : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
-                                     fill_missing_data_reads));
+    SCOPED_TRACE(
+        absl::StrCat("fill_missing_data_reads=", fill_missing_data_reads));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
         tensorstore::Open(
@@ -3085,8 +3084,8 @@ TEST(DriverTest, FillMissingDataReads) {
 // `store_data_equal_to_fill_value=true`.
 TEST(DriverTest, StoreDataEqualToFillValue) {
   for (bool store_data_equal_to_fill_value : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
-                                     store_data_equal_to_fill_value));
+    SCOPED_TRACE(absl::StrCat("store_data_equal_to_fill_value=",
+                              store_data_equal_to_fill_value));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store, tensorstore::Open({{"driver", "neuroglancer_precomputed"},
                                        {"kvstore", "memory://"},

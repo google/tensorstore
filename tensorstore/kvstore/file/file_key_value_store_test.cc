@@ -48,7 +48,7 @@
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/on_windows.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/path.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -93,7 +93,7 @@ KvStore GetStore(std::string root) {
   return kvstore::Open({{"driver", "file"}, {"path", root + "/"}}).value();
 }
 std::string AsFileUri(std::string_view path) {
-  auto uri = tensorstore::internal::OsPathToFileUri(path);
+  auto uri = tensorstore::internal_uri::OsPathToFileUri(path);
   TENSORSTORE_CHECK_OK(uri.status());
   return std::move(uri).value();
 }
@@ -525,6 +525,13 @@ TEST(FileKeyValueStoreTest, UrlRoundtrip) {
       {{"driver", "file"}, {"path", "/abc/"}}, "file:///abc/");
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
       {{"driver", "file"}, {"path", "/abc def/"}}, "file:///abc%20def/");
+
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(  //
+      {{"driver", "file"},
+       {"path",
+        "/abc\xc3\xa7"
+        "def/"}},
+      "file:///abc%C3%A7def/");
 
   // With localhost authority
   {

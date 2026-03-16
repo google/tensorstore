@@ -27,7 +27,6 @@
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 

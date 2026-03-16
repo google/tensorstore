@@ -34,6 +34,8 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/batch.h"
 #include "python/tensorstore/context.h"
@@ -70,7 +72,6 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -98,9 +99,9 @@ OptionalByteRangeRequest ParseByteRange(
       if (value) return std::to_string(*value);
       return "None";
     };
-    throw py::value_error(tensorstore::StrCat(
-        "Unsupported byte_range slice: ", format_bound(byte_range->start), ":",
-        format_bound(byte_range->stop)));
+    throw py::value_error(absl::StrFormat("Unsupported byte_range slice: %s:%s",
+                                          format_bound(byte_range->start),
+                                          format_bound(byte_range->stop)));
   };
   int64_t inclusive_min = byte_range->start.value_or(0);
   if (inclusive_min < 0 && byte_range->stop) throw_error();
@@ -1770,9 +1771,9 @@ Group:
 
   cls.def("__repr__", [](ConstHandle self) -> std::string {
     ScopedPyCriticalSection cs(self.handle.ptr());
-    return tensorstore::StrCat(
-        "KvStore.KeyRange(", py::repr(py::bytes(self.value.inclusive_min)),
-        ", ", py::repr(py::bytes(self.value.exclusive_max)), ")");
+    return absl::StrFormat("KvStore.KeyRange(%s, %s)",
+                           py::repr(py::bytes(self.value.inclusive_min)),
+                           py::repr(py::bytes(self.value.exclusive_max)));
   });
 
   cls.def(
@@ -1812,10 +1813,9 @@ Constructs from a storage generation and time.
 
   cls.def("__repr__", [](ConstHandle self) -> std::string {
     ScopedPyCriticalSection cs(self.handle.ptr());
-    return tensorstore::StrCat(
-        "KvStore.TimestampedStorageGeneration(",
-        py::repr(py::bytes(self.value.generation.value)), ", ",
-        internal_python::ToPythonTimestamp(self.value.time), ")");
+    return absl::StrFormat("KvStore.TimestampedStorageGeneration(%s, %f)",
+                           py::repr(py::bytes(self.value.generation.value)),
+                           internal_python::ToPythonTimestamp(self.value.time));
   });
 
   cls.def_property(
@@ -1944,10 +1944,11 @@ Generation and timestamp associated with the value.
 
   cls.def("__repr__", [](ConstHandle self) -> std::string {
     ScopedPyCriticalSection cs(self.handle.ptr());
-    return tensorstore::StrCat(
-        "KvStore.ReadResult(state=", pybind11::repr(py::cast(self.value.state)),
-        ", value=", pybind11::repr(py::bytes(std::string(self.value.value))),
-        ", stamp=", pybind11::repr(py::cast(self.value.stamp)), ")");
+    return absl::StrFormat(
+        "KvStore.ReadResult(state=%s, value=%s, stamp=%s)",
+        pybind11::repr(py::cast(self.value.state)),
+        pybind11::repr(py::bytes(std::string(self.value.value))),
+        pybind11::repr(py::cast(self.value.stamp)));
   });
 
   cls.def("__copy__", [](ConstHandle self) {

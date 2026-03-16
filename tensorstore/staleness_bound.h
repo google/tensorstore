@@ -17,6 +17,7 @@
 
 #include <ostream>
 
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 
@@ -163,7 +164,12 @@ class StalenessBound {
   /// Overload for the benefit of GoogleTest.
   friend std::ostream& operator<<(std::ostream& os,
                                   const StalenessBound& bound) {
-    return os << bound.time;
+    return os << absl::StreamFormat("%v", bound);
+  }
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const StalenessBound& bound) {
+    absl::Format(&sink, "%v",
+                 absl::FormatTime(bound.time, absl::UTCTimeZone()));
   }
 
   /// Returns the effective bound given the specified open time.

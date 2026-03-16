@@ -30,7 +30,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -240,8 +239,9 @@ Result<ParsedContentRange> ParseContentRangeHeader(
   if (!RE2::FullMatch(it->second, kContentRangeRegex, &a, &b, &total_size) ||
       a > b || (total_size && b >= *total_size) ||
       b == std::numeric_limits<int64_t>::max()) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Unexpected Content-Range header received: ", QuoteString(it->second)));
+    return absl::FailedPreconditionError(
+        absl::StrFormat("Unexpected Content-Range header received: %v",
+                        QuoteString(it->second)));
   }
   return ParsedContentRange{a, b + 1, total_size.value_or(-1)};
 }

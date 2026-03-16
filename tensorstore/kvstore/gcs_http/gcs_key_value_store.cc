@@ -58,7 +58,8 @@
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
@@ -300,7 +301,7 @@ struct GcsKeyValueStoreSpecData {
 
 std::string GetGcsUrl(std::string_view bucket, std::string_view path) {
   return absl::StrCat(kUriScheme, "://", bucket, "/",
-                      internal::PercentEncodeKvStoreUriPath(path));
+                      internal_uri::PercentEncodeKvStoreUriPath(path));
 }
 
 class GcsKeyValueStoreSpec
@@ -465,7 +466,7 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
   }
   if (const auto& project_id = data_.user_project->project_id) {
     driver->encoded_user_project_ =
-        internal::PercentEncodeUriComponent(*project_id);
+        internal_uri::PercentEncodeUriComponent(*project_id);
   }
   return driver;
 }
@@ -683,7 +684,7 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
 Future<kvstore::ReadResult> GcsKeyValueStore::ReadImpl(Key&& key,
                                                        ReadOptions&& options) {
   gcs_metrics.batch_read.Increment();
-  auto encoded_object_name = internal::PercentEncodeUriComponent(key);
+  auto encoded_object_name = internal_uri::PercentEncodeUriComponent(key);
   std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
                                                          encoded_object_name);
 
@@ -999,7 +1000,8 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 
-  std::string encoded_object_name = internal::PercentEncodeUriComponent(key);
+  std::string encoded_object_name =
+      internal_uri::PercentEncodeUriComponent(key);
   auto op = PromiseFuturePair<TimestampedStorageGeneration>::Make();
 
   if (value) {
@@ -1065,16 +1067,16 @@ struct ListTask : public RateLimiterNode,
                                                 owner_->encoded_user_project());
     if (auto& inclusive_min = options_.range.inclusive_min;
         !inclusive_min.empty()) {
-      absl::StrAppend(
-          &base_list_url_, (has_query_parameters_ ? "&" : "?"),
-          "startOffset=", internal::PercentEncodeUriComponent(inclusive_min));
+      absl::StrAppend(&base_list_url_, (has_query_parameters_ ? "&" : "?"),
+                      "startOffset=",
+                      internal_uri::PercentEncodeUriComponent(inclusive_min));
       has_query_parameters_ = true;
     }
     if (auto& exclusive_max = options_.range.exclusive_max;
         !exclusive_max.empty()) {
       absl::StrAppend(
           &base_list_url_, (has_query_parameters_ ? "&" : "?"),
-          "endOffset=", internal::PercentEncodeUriComponent(exclusive_max));
+          "endOffset=", internal_uri::PercentEncodeUriComponent(exclusive_max));
       has_query_parameters_ = true;
     }
   }
@@ -1270,17 +1272,19 @@ Future<const void> GcsKeyValueStore::DeleteRange(KeyRange range) {
 }
 
 Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+      EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Invalid GCS bucket name: %v", QuoteString(parsed.authority)));
   }
-  auto decoded_path = parsed.path.empty()
-                          ? std::string()
-                          : internal::PercentDecode(parsed.path.substr(1));
+  std::string decoded_path;
+  if (!parsed.path.empty()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        decoded_path, internal_uri::PercentDecode(parsed.path.substr(1)));
+  }
 
   auto driver_spec = internal::MakeIntrusivePtr<GcsKeyValueStoreSpec>();
   driver_spec->data_.bucket = std::string(parsed.authority);

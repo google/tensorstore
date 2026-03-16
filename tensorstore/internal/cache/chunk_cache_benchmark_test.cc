@@ -23,6 +23,8 @@
 #include <benchmark/benchmark.h>
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
@@ -52,9 +54,9 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -62,6 +64,7 @@ using ::tensorstore::ArrayView;
 using ::tensorstore::Box;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Executor;
+using ::tensorstore::GenericStringify;
 using ::tensorstore::Index;
 using ::tensorstore::IndexTransform;
 using ::tensorstore::MakeCopy;
@@ -120,16 +123,21 @@ struct BenchmarkConfig {
   bool read;
 };
 
-[[maybe_unused]] std::ostream& operator<<(std::ostream& os,
-                                          const BenchmarkConfig& config) {
-  return os
-         << (config.read ? "Read:  " : "Write: ")
-         << "copy_shape=" << span(config.copy_shape)
-         << ", stride=" << span(config.stride) << ", i="
-         << span(std::vector<int>(config.indexed.begin(), config.indexed.end()))
-         << ", cell_shape=" << span(config.cell_shape) << ", chunked="
-         << span(std::vector<int>(config.chunked.begin(), config.chunked.end()))
-         << ", cached=" << config.cached << ", threads=" << config.threads;
+template <typename Sink>
+void AbslStringify(Sink& sink, const BenchmarkConfig& config) {
+  absl::Format(
+      &sink,
+      "%s"
+      "copy_shape=%v, stride=%v, i=%v, cell_shape=%v, chunked=%v, cached=%v, "
+      "threads=%d",
+      (config.read ? "Read:  " : "Write: "),
+      GenericStringify(config.copy_shape), GenericStringify(config.stride),
+      GenericStringify(
+          std::vector<int>(config.indexed.begin(), config.indexed.end())),
+      GenericStringify(config.cell_shape),
+      GenericStringify(
+          std::vector<int>(config.chunked.begin(), config.chunked.end())),
+      config.cached, config.threads);
 }
 
 class BenchmarkCache : public ConcreteChunkCache {
@@ -323,7 +331,7 @@ void BenchmarkCopy(const BenchmarkConfig& config, ::benchmark::State& state) {
 struct RegisterBenchmarks {
   static void Register(const BenchmarkConfig& config) {
     ::benchmark::RegisterBenchmark(
-        tensorstore::StrCat(config).c_str(),
+        absl::StrCat(config).c_str(),
         [config](auto& state) { BenchmarkCopy(config, state); });
   }
 

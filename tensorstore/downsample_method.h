@@ -39,6 +39,33 @@ enum class DownsampleMethod {
 /// \id DownsampleMethod
 std::ostream& operator<<(std::ostream& os, DownsampleMethod method);
 
+template <typename Sink>
+void AbslStringify(Sink& sink, DownsampleMethod method) {
+  switch (method) {
+    case DownsampleMethod::kStride:
+      sink.Append("stride");
+      break;
+    case DownsampleMethod::kMean:
+      sink.Append("mean");
+      break;
+    case DownsampleMethod::kMin:
+      sink.Append("min");
+      break;
+    case DownsampleMethod::kMax:
+      sink.Append("max");
+      break;
+    case DownsampleMethod::kMedian:
+      sink.Append("median");
+      break;
+    case DownsampleMethod::kMode:
+      sink.Append("mode");
+      break;
+    default:
+      sink.Append("<invalid downsamping mode>");
+      break;
+  }
+}
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_DOWNSAMPLE_METHOD_H_

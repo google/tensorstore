@@ -16,13 +16,16 @@
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_IDENTITY_TRANSFORM_H_
 
 #include "tensorstore/box.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/internal/string_like.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_index_space {
 
 /// Fills `maps` with identity mappings.
-void SetToIdentityTransform(span<OutputIndexMap> maps);
+void SetToIdentityTransform(tensorstore::span<OutputIndexMap> maps);
 
 /// Returns a newly allocated identity transform representation of the specified
 /// rank that may be modified.
@@ -69,7 +72,7 @@ TransformRep::Ptr<> MakeIdentityTransformLike(TransformRep* data,
 /// \param shape Input domain shape.
 /// \param domain_only If `false`, return an identity transform.  If `true`,
 ///     return a domain-only transform with `output_rank = 0`.
-TransformRep::Ptr<> MakeIdentityTransform(span<const Index> shape,
+TransformRep::Ptr<> MakeIdentityTransform(tensorstore::span<const Index> shape,
                                           bool domain_only = false);
 
 }  // namespace internal_index_space

@@ -34,6 +34,7 @@
 
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
@@ -73,10 +74,10 @@
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -323,16 +324,16 @@ void SetOutputIndexMaps(
 std::string OutputIndexMapToString(const OutputIndexMap& m) {
   switch (m.method) {
     case OutputIndexMethod::constant:
-      return tensorstore::StrCat("OutputIndexMap(offset=", m.offset, ")");
+      return absl::StrCat("OutputIndexMap(offset=", m.offset, ")");
     case OutputIndexMethod::single_input_dimension:
-      return tensorstore::StrCat("OutputIndexMap(offset=", m.offset,
-                                 ", stride=", m.stride,
-                                 ", input_dimension=", m.input_dimension, ")");
+      return absl::StrCat("OutputIndexMap(offset=", m.offset,
+                          ", stride=", m.stride,
+                          ", input_dimension=", m.input_dimension, ")");
     case OutputIndexMethod::array:
-      return tensorstore::StrCat("OutputIndexMap(offset=", m.offset,
-                                 ", stride=", m.stride,
-                                 ", index_array=", m.index_array,
-                                 ", index_range=", m.index_range, ")");
+      return absl::StrCat("OutputIndexMap(offset=", m.offset,
+                          ", stride=", m.stride,
+                          ", index_array=", m.index_array,
+                          ", index_range=", m.index_range, ")");
   }
   ABSL_UNREACHABLE();  // COV_NF_LINE
 }
@@ -1097,7 +1098,7 @@ Group:
 )");
 
   cls.def(
-      "__repr__", [](const Self& d) { return tensorstore::StrCat(d); },
+      "__repr__", [](const Self& d) { return absl::StrCat(d); },
       "Returns the string representation.");
 
   cls.def(
@@ -1719,8 +1720,7 @@ Group:
       py::arg("indices"));
 
   cls.def(
-      "__repr__",
-      [](const IndexTransform<>& t) { return tensorstore::StrCat(t); },
+      "__repr__", [](const IndexTransform<>& t) { return absl::StrCat(t); },
       "Returns the string representation.");
 
   cls.def(
@@ -2687,7 +2687,7 @@ Group:
   struct StrFunctor {
     std::string operator()(ConstHandle self) const {
       ScopedPyCriticalSection cs(self.handle.ptr());
-      return tensorstore::StrCat(self.value);
+      return absl::StrCat(self.value);
     }
   };
 
@@ -2710,7 +2710,7 @@ Returns the string representation of the interval.
       std::string repr = "Dim(";
       bool need_comma = false;
       const auto append = [&](auto&&... terms) {
-        tensorstore::StrAppend(&repr, need_comma ? ", " : "", terms...);
+        absl::StrAppend(&repr, need_comma ? ", " : "", terms...);
         need_comma = true;
       };
       if (self.value.inclusive_min() != -kInfIndex) {

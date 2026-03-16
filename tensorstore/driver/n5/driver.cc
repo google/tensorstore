@@ -27,6 +27,8 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -54,7 +56,7 @@
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
@@ -67,9 +69,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_n5 {
@@ -158,7 +158,7 @@ class N5DriverSpec
 
   Result<std::string> ToUrl() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(base_url, "|", id, ":");
+    return absl::StrCat(base_url, "|", id, ":");
   }
 
   Future<internal::Driver::Handle> Open(
@@ -185,7 +185,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 
   // Metadata is stored as JSON under the `attributes.json` key.
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
-    return tensorstore::StrCat(entry_key, kMetadataKey);
+    return absl::StrCat(entry_key, kMetadataKey);
   }
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -220,9 +220,9 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     auto existing_key = existing_metadata.GetCompatibilityKey();
     auto new_key = new_metadata.GetCompatibilityKey();
     if (existing_key == new_key) return absl::OkStatus();
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Updated N5 metadata ", new_key,
-        " is incompatible with existing metadata ", existing_key));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Updated N5 metadata %v is incompatible with existing metadata %v",
+        new_key, existing_key));
   }
 
   void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
@@ -294,10 +294,10 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
     // Use "0" for rank 0 as a special case.
-    std::string key = tensorstore::StrCat(
-        key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
+    std::string key =
+        absl::StrCat(key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
     for (DimensionIndex i = 1; i < cell_indices.size(); ++i) {
-      tensorstore::StrAppend(&key, "/", cell_indices[i]);
+      absl::StrAppend(&key, "/", cell_indices[i]);
     }
     return key;
   }
@@ -478,11 +478,12 @@ Future<internal::Driver::Handle> N5DriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseN5Url(std::string_view url,
                                                    kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, N5DriverSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(EnsureSchema(parsed, N5DriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<N5DriverSpec>();
-  driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
+  TENSORSTORE_RETURN_IF_ERROR(driver_spec->InitializeFromUrl(
+      std::move(base), parsed.authority_and_path));
   return internal::TransformedDriverSpec{std::move(driver_spec)};
 }
 

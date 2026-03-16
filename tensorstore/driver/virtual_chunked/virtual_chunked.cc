@@ -27,6 +27,7 @@
 
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
@@ -74,9 +75,7 @@
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace virtual_chunked {
@@ -305,7 +304,7 @@ std::string VirtualChunkedCache::TransactionNode::Describe() {
   auto& cache = GetOwningCache(entry);
   auto domain = cache.grid().GetValidCellDomain(0, entry.cell_indices());
   if (domain.is_empty()) return {};
-  return tensorstore::StrCat("write to virtual chunk ", domain);
+  return absl::StrCat("write to virtual chunk ", domain);
 }
 
 void VirtualChunkedCache::TransactionNode::Commit() {

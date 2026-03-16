@@ -36,6 +36,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
@@ -95,6 +96,40 @@ absl::Status CopyConvertedArrayImplementation(
     const Array<void, dynamic_rank, offset_origin, view>& dest);
 
 }  // namespace internal_array
+
+/// Specifies options for formatting an array.
+///
+/// \relates Array
+/// \membergroup Formatting
+struct ArrayFormatOptions {
+  /// Prefix printed at the start of each dimension.
+  std::string prefix = "{";
+
+  /// Separator printed between consecutive elements/sub-arrays.
+  std::string separator = ", ";
+
+  /// Suffix printed at the end of each dimension.
+  std::string suffix = "}";
+
+  /// Separator printed between the first `summary_edge_items` and the last
+  /// `summary_edge_items` when printing a summary of a dimension.
+  std::string summary_ellipses = "..., ";
+
+  /// If the total number of elements in the array (product of all dimensions)
+  /// exceeds this threshold, a summary is printed rather than the full
+  /// representation.
+  Index summary_threshold = 1000;
+
+  /// Number of items at the beginning and end of each dimension to include in
+  /// the summary representation.  If the number of elements in a given
+  /// dimension is <= 2 * summary_edge_items, the full representation of that
+  /// dimension will be shown.
+  Index summary_edge_items = 3;
+
+  /// Returns a reference to a default-constructed instance of
+  /// ArrayFormatOptions.
+  static const ArrayFormatOptions& Default();
+};
 
 /// Convenience alias for an in-memory multi-dimensional array with an arbitrary
 /// strided layout with optional shared ownership semantics.
@@ -384,9 +419,6 @@ SharedSubArray(const SharedArray<Element, Rank, OriginKind, SourceCKind>& array,
 }
 
 namespace internal_array {
-void PrintToOstream(
-    std::ostream& os,
-    const ArrayView<const void, dynamic_rank, offset_origin>& array);
 std::string DescribeForCast(DataType dtype, DimensionIndex rank);
 absl::Status ArrayOriginCastError(tensorstore::span<const Index> shape);
 }  // namespace internal_array
@@ -932,8 +964,11 @@ class Array {
 
   /// Prints the array to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const Array& array) {
-    internal_array::PrintToOstream(os, array);
-    return os;
+    return os << absl::StreamFormat("%v", array);
+  }
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Array& array) {
+    sink.Append(ToString(array, ArrayFormatOptions::Default()));
   }
 
   /// Compares the contents of two arrays for equality.
@@ -1855,40 +1890,6 @@ BoxView<Rank> GetBoxDomainOf(
     const Array<PointerType, Rank, OriginKind, LayoutContainerKind>& array) {
   return array.domain();
 }
-
-/// Specifies options for formatting an array.
-///
-/// \relates Array
-/// \membergroup Formatting
-struct ArrayFormatOptions {
-  /// Prefix printed at the start of each dimension.
-  std::string prefix = "{";
-
-  /// Separator printed between consecutive elements/sub-arrays.
-  std::string separator = ", ";
-
-  /// Suffix printed at the end of each dimension.
-  std::string suffix = "}";
-
-  /// Separator printed between the first `summary_edge_items` and the last
-  /// `summary_edge_items` when printing a summary of a dimension.
-  std::string summary_ellipses = "..., ";
-
-  /// If the total number of elements in the array (product of all dimensions)
-  /// exceeds this threshold, a summary is printed rather than the full
-  /// representation.
-  Index summary_threshold = 1000;
-
-  /// Number of items at the beginning and end of each dimension to include in
-  /// the summary representation.  If the number of elements in a given
-  /// dimension is <= 2 * summary_edge_items, the full representation of that
-  /// dimension will be shown.
-  Index summary_edge_items = 3;
-
-  /// Returns a reference to a default-constructed instance of
-  /// ArrayFormatOptions.
-  static const ArrayFormatOptions& Default();
-};
 
 /// Appends a string representation of `array` to `*result`.
 ///

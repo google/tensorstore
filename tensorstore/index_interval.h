@@ -236,12 +236,12 @@ class IndexInterval {
     if (x.inclusive_min() == -kInfIndex) {
       sink.Append("(-inf");
     } else {
-      absl::Format(&sink, "[%d", x.inclusive_min());
+      absl::Format(&sink, "[%v", x.inclusive_min());
     }
     if (x.inclusive_max() == kInfIndex) {
       sink.Append(", +inf)");
     } else {
-      absl::Format(&sink, ", %d)", x.exclusive_max());
+      absl::Format(&sink, ", %v)", x.exclusive_max());
     }
   }
 
@@ -368,7 +368,7 @@ class IndexIntervalRef {
 
   /// Prints a string representation.
   friend std::ostream& operator<<(std::ostream& os, IndexIntervalRef x) {
-    return os << static_cast<IndexInterval>(x);
+    return os << absl::StreamFormat("%v", x);
   }
 
   template <typename Sink>
@@ -565,14 +565,14 @@ class OptionallyImplicitIndexInterval : public IndexInterval {
     if (x.inclusive_min() == -kInfIndex) {
       sink.Append("(-inf");
     } else {
-      absl::Format(&sink, "[%d", x.inclusive_min());
+      absl::Format(&sink, "[%v", x.inclusive_min());
     }
     if (x.implicit_lower()) sink.Append("*");
     sink.Append(", ");
     if (x.inclusive_max() == kInfIndex) {
       sink.Append("+inf");
     } else {
-      absl::Format(&sink, "%d", x.exclusive_max());
+      absl::Format(&sink, "%v", x.exclusive_max());
     }
     if (x.implicit_upper()) sink.Append("*");
     sink.Append(")");

@@ -27,6 +27,7 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
@@ -46,10 +47,10 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
@@ -59,13 +60,13 @@ using ::tensorstore::internal_image::JpegWriterOptions;
 using ::tensorstore::internal_image::PngWriterOptions;
 
 Result<SharedArray<const void>> DecodeRawChunk(
-    DataType dtype, span<const Index, 4> shape,
+    DataType dtype, tensorstore::span<const Index, 4> shape,
     StridedLayoutView<4> chunk_layout, absl::Cord buffer) {
   const Index expected_bytes = ProductOfExtents(shape) * dtype.size();
   if (expected_bytes != static_cast<Index>(buffer.size())) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Expected chunk length to be ", expected_bytes,
-                            ", but received ", buffer.size(), " bytes"));
+        absl::StrCat("Expected chunk length to be ", expected_bytes,
+                     ", but received ", buffer.size(), " bytes"));
   }
   auto flat_buffer = buffer.Flatten();
   if (absl::c_equal(shape, chunk_layout.shape())) {
@@ -119,10 +120,11 @@ Result<SharedArray<const void>> DecodeImageChunk(
         num_elements == std::numeric_limits<Index>::max() ||
         static_cast<Index>(total_pixels) != num_elements ||
         static_cast<Index>(info.num_components) != partial_shape[0]) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Image dimensions (", info.width, ", ", info.height, ", ",
-          info.num_components,
-          ") are not compatible with expected chunk shape ", partial_shape));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Image dimensions (%d, %d, %d) are not compatible with expected "
+          "chunk shape %v",
+          info.width, info.height, info.num_components,
+          GenericStringify(partial_shape)));
     }
 
     TENSORSTORE_RETURN_IF_ERROR(reader.Decode(

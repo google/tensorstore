@@ -28,6 +28,7 @@
 #include <type_traits>
 
 #include "absl/meta/type_traits.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/internal/container/multi_vector.h"
@@ -136,13 +137,13 @@ void AbslStringifyImpl(S& sink, BoxType view) {
   auto origin = view.origin();
   for (size_t i = 0; i < origin.size(); ++i) {
     if (i != 0) sink.Append(", ");
-    absl::Format(&sink, "%d", origin[i]);
+    absl::Format(&sink, "%v", origin[i]);
   }
   sink.Append("}, shape={");
   auto shape = view.shape();
   for (size_t i = 0; i < shape.size(); ++i) {
     if (i != 0) sink.Append(", ");
-    absl::Format(&sink, "%d", shape[i]);
+    absl::Format(&sink, "%v", shape[i]);
   }
   sink.Append("}}");
 }

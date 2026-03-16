@@ -29,6 +29,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json_fwd.hpp>
@@ -76,7 +77,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -1223,7 +1223,7 @@ TEST(ZarrDriverTest, Resize) {
               {{"cache_pool",
                 {{"total_bytes_limit", enable_cache ? 10000000 : 0}}}})
               .value());
-      SCOPED_TRACE(StrCat("resize_mode=", resize_mode));
+      SCOPED_TRACE(absl::StrCat("resize_mode=", resize_mode));
       // Create the store.
       ::nlohmann::json storage_spec{{"driver", "memory"}};
       ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
@@ -1953,25 +1953,31 @@ enum class RecheckOption {
   kExplicitEpochBound,
 };
 
-[[maybe_unused]]
-std::ostream& operator<<(std::ostream& os, RecheckOption recheck_option) {
+template <typename Sink>
+void AbslStringify(Sink& sink, RecheckOption recheck_option) {
   switch (recheck_option) {
     case RecheckOption::kExplicitBeforeModifyBound:
-      return os << "kExplicitBeforeModifyBound";
+      sink.Append("kExplicitBeforeModifyBound");
+      break;
     case RecheckOption::kExplicitOpenTimeBound:
-      return os << "kExplicitOpenTimeBound";
+      sink.Append("kExplicitOpenTimeBound");
+      break;
     case RecheckOption::kExplicitFutureBound:
-      return os << "kExplicitFutureBound";
+      sink.Append("kExplicitFutureBound");
+      break;
     case RecheckOption::kNeverRecheck:
-      return os << "kNeverRecheck";
+      sink.Append("kNeverRecheck");
+      break;
     case RecheckOption::kAlwaysRecheck:
-      return os << "kAlwaysRecheck";
+      sink.Append("kAlwaysRecheck");
+      break;
     case RecheckOption::kOpen:
-      return os << "kOpen";
+      sink.Append("kOpen");
+      break;
     case RecheckOption::kExplicitEpochBound:
-      return os << "kExplicitEpochBound";
+      sink.Append("kExplicitEpochBound");
+      break;
   }
-  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 ::nlohmann::json GetRecheckBound(absl::Time before_modify_time,
@@ -2016,9 +2022,9 @@ std::ostream& operator<<(std::ostream& os, RecheckOption recheck_option) {
 void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
                      bool modify_after_reopen, int16_t expected_value1,
                      int16_t expected_value2) {
-  SCOPED_TRACE(tensorstore::StrCat(
-      "recheck_option=", recheck_option, ", modify_before_open=",
-      modify_before_reopen, ", modify_after_open=", modify_after_reopen));
+  SCOPED_TRACE(absl::StrCat("recheck_option=", recheck_option,
+                            ", modify_before_open=", modify_before_reopen,
+                            ", modify_after_open=", modify_after_reopen));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto context_spec,
       Context::Spec::FromJson(
@@ -2088,9 +2094,9 @@ class RecheckCachedTest
   bool modify_after_reopen() const { return std::get<2>(GetParam()); }
   static std::string PrintToStringParamName(
       const testing::TestParamInfo<ParamType>& info) {
-    return tensorstore::StrCat(std::get<0>(info.param), "_before",
-                               std::get<1>(info.param), "_after",
-                               std::get<2>(info.param));
+    return absl::StrCat(std::get<0>(info.param), "_before",
+                        std::get<1>(info.param), "_after",
+                        std::get<2>(info.param));
   }
 };
 
@@ -2694,8 +2700,8 @@ TEST(DriverTest, FillValueFieldShape) {
 // `fill_missing_data_reads=true`.
 TEST(DriverTest, FillMissingDataReads) {
   for (bool fill_missing_data_reads : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
-                                     fill_missing_data_reads));
+    SCOPED_TRACE(
+        absl::StrCat("fill_missing_data_reads=", fill_missing_data_reads));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
         tensorstore::Open({{"driver", "zarr"},
@@ -2737,7 +2743,7 @@ TEST(DriverTest, FillMissingDataReads) {
 TEST(DriverTest, StoreDataEqualToFillValue) {
   for (bool fill_value_specified : {false, true}) {
     for (bool store_data_equal_to_fill_value : {false, true}) {
-      SCOPED_TRACE(tensorstore::StrCat(
+      SCOPED_TRACE(absl::StrCat(
           "store_data_equal_to_fill_value=", store_data_equal_to_fill_value,
           ", fill_value_specified=", fill_value_specified));
       ::nlohmann::json fill_value_json;

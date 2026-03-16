@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
@@ -42,7 +43,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -166,16 +166,14 @@ TEST_P(ImageDriverReadTest, UrlRoundtrip) {
        {"rank", 3},
        {"schema", {{"domain", {{"inclusive_min", {0, 0, 0}}}}}},
        {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}}},
-      tensorstore::StrCat("memory://", GetParam().path, "|", GetParam().driver,
-                          ":"));
+      absl::StrCat("memory://", GetParam().path, "|", GetParam().driver, ":"));
 }
 
 TEST_P(ImageDriverReadTest, AutoDetect) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(GetSpec()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(tensorstore::StrCat("memory://", GetParam().path),
-                        context)
+      tensorstore::Open(absl::StrCat("memory://", GetParam().path), context)
           .result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_obj, store.spec());
   EXPECT_THAT(spec_obj.ToJson(),
@@ -342,7 +340,7 @@ TEST(ImageDriverErrors, NoKvStore) {
 TEST(ImageDriverErrors, Mode) {
   for (auto mode : {tensorstore::ReadWriteMode::write,
                     tensorstore::ReadWriteMode::read_write}) {
-    SCOPED_TRACE(tensorstore::StrCat("mode=", mode));
+    SCOPED_TRACE(absl::StrCat("mode=", mode));
     EXPECT_THAT(tensorstore::Open(
                     {
                         {"driver", "png"},

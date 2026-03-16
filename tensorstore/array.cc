@@ -19,13 +19,14 @@
 
 #include <algorithm>
 #include <cassert>
-#include <ostream>
 #include <string>
 #include <utility>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "riegeli/varint/varint_reading.h"
 #include "riegeli/varint/varint_writing.h"
 #include "tensorstore/box.h"
@@ -42,11 +43,11 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_array {
@@ -127,29 +128,31 @@ void PrintArrayDimension(
     array.dtype()->append_to_string(result, array.data());
     return;
   }
-  *result += options.prefix;
+  absl::StrAppend(result, options.prefix);
 
   const Index size = array.shape()[0];
   const Index origin = array.origin()[0];
   if (summarize && size > 2 * options.summary_edge_items) {
     for (Index i = 0; i < options.summary_edge_items; ++i) {
       PrintArrayDimension(result, array[origin + i], options, summarize);
-      *result += options.separator;
+      absl::StrAppend(result, options.separator);
     }
-    *result += options.summary_ellipses;
+    absl::StrAppend(result, options.summary_ellipses);
     for (Index i = size - options.summary_edge_items; i < size; ++i) {
       PrintArrayDimension(result, array[origin + i], options, summarize);
       if (i + 1 != size) {
-        *result += options.separator;
+        absl::StrAppend(result, options.separator);
       }
     }
   } else {
     for (Index i = 0; i < size; ++i) {
-      if (i != 0) *result += options.separator;
+      if (i != 0) {
+        absl::StrAppend(result, options.separator);
+      }
       PrintArrayDimension(result, array[origin + i], options, summarize);
     }
   }
-  *result += options.suffix;
+  absl::StrAppend(result, options.suffix);
 }
 
 std::string DescribeForCast(DataType dtype, DimensionIndex rank) {
@@ -160,8 +163,8 @@ std::string DescribeForCast(DataType dtype, DimensionIndex rank) {
 
 absl::Status ArrayOriginCastError(tensorstore::span<const Index> shape) {
   return absl::InvalidArgumentError(absl::StrFormat(
-      "Cannot translate array with shape %s to have zero origin.",
-      absl::FormatStreamed(shape)));
+      "Cannot translate array with shape %v to have zero origin.",
+      GenericStringify(shape)));
 }
 
 }  // namespace internal_array
@@ -215,14 +218,14 @@ void AppendToString(
     const ArrayFormatOptions& options) {
   const bool summarize = array.num_elements() > options.summary_threshold;
   if (!array.valid()) {
-    *result += "<null>";
+    absl::StrAppend(result, "<null>");
   } else {
     internal_array::PrintArrayDimension(result, array, options, summarize);
   }
   const tensorstore::span<const Index> origin = array.origin();
   if (std::any_of(origin.begin(), origin.end(),
                   [](Index x) { return x != 0; })) {
-    tensorstore::StrAppend(result, " @ ", origin);
+    absl::StrAppend(result, " @ {", absl::StrJoin(origin, ", "), "}");
   }
 }
 
@@ -233,14 +236,6 @@ std::string ToString(
   AppendToString(&result, array, options);
   return result;
 }
-
-namespace internal_array {
-void PrintToOstream(
-    std::ostream& os,
-    const ArrayView<const void, dynamic_rank, offset_origin>& array) {
-  os << ToString(array);
-}
-}  // namespace internal_array
 
 namespace internal_array {
 void UnbroadcastStridedLayout(
@@ -327,7 +322,7 @@ bool DecodeArray<OriginKind>::Decode(
   }
   if (data_type_constraint.valid() && data_type_constraint != dtype) {
     source.Fail(absl::DataLossError(
-        absl::StrFormat("Expected data type of %s but received: %s",
+        absl::StrFormat("Expected data type of %v but received: %v",
                         absl::FormatStreamed(data_type_constraint),
                         absl::FormatStreamed(dtype))));
     return false;
@@ -356,7 +351,7 @@ bool DecodeArray<OriginKind>::Decode(
       array.byte_strides()[i] = 1;
       if (internal::MulOverflow(num_bytes, array.shape()[i], &num_bytes)) {
         source.Fail(serialization::DecodeError(absl::StrFormat(
-            "Invalid array shape %s", absl::FormatStreamed(array.shape()))));
+            "Invalid array shape %v", GenericStringify(array.shape()))));
         return false;
       }
     }

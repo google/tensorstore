@@ -23,6 +23,7 @@
 #include <type_traits>
 
 #include "absl/numeric/bits.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/meta/integer_types.h"
 
@@ -629,11 +630,15 @@ class SmallBitSet {
   }
 
   /// Prints to an output stream.
-  friend std::ostream& operator<<(std::ostream& os, SmallBitSet v) {
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, SmallBitSet v) {
     for (size_t i = 0; i < N; ++i) {
-      os << (static_cast<bool>(v[i]) ? '1' : '0');
+      sink.Append(static_cast<bool>(v[i]) ? "1" : "0");
     }
-    return os;
+  }
+
+  friend std::ostream& operator<<(std::ostream& os, SmallBitSet v) {
+    return os << absl::StreamFormat("%v", v);
   }
 
  private:

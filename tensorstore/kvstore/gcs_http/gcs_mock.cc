@@ -24,7 +24,6 @@
 #include <string_view>
 #include <utility>
 #include <variant>
-#include <vector>
 
 #include "absl/hash/hash.h"
 #include "absl/log/absl_log.h"
@@ -33,6 +32,8 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
@@ -40,18 +41,19 @@
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
-
-using ::tensorstore::internal_http::HeaderMap;
 
 namespace tensorstore {
 namespace {
 
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_uri::ParseGenericUri;
+using ::tensorstore::internal_uri::PercentDecode;
 
 const char kInvalidLongBody[] =
     R"({"error": {"code": 400,  "message": "Invalid long value: '$0'." }})";
@@ -98,9 +100,9 @@ GCSMockStorageBucket::GCSMockStorageBucket(
     std::optional<std::string> requestor_pays_project_id)
     : bucket_(bucket),
       bucket_prefix_(
-          tensorstore::StrCat("storage.googleapis.com/storage/v1/b/", bucket)),
-      upload_prefix_(tensorstore::StrCat(
-          "storage.googleapis.com/upload/storage/v1/b/", bucket)),
+          absl::StrCat("storage.googleapis.com/storage/v1/b/", bucket)),
+      upload_prefix_(
+          absl::StrCat("storage.googleapis.com/upload/storage/v1/b/", bucket)),
       requestor_pays_project_id_(std::move(requestor_pays_project_id)),
       urbg_(absl::Hash<std::string_view>{}(bucket)) {}
 
@@ -117,13 +119,13 @@ Result<HttpResponse> GCSMockStorageBucket::IssueRequest(
     return std::move(std::get<HttpResponse>(match_result));
   }
   return absl::UnimplementedError(
-      tensorstore::StrCat("Mock cannot satisfy the request: ", request.url));
+      absl::StrFormat("Mock cannot satisfy the request: %s", request.url));
 }
 
 std::variant<std::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   bool is_upload = false;
-  auto parsed = internal::ParseGenericUri(request.url);
+  auto parsed = ParseGenericUri(request.url);
   if (parsed.scheme != "https") {
     return {};
   }
@@ -163,7 +165,11 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
          absl::StrSplit(parsed.query, absl::ByChar('&'))) {
       std::pair<std::string_view, std::string_view> split =
           absl::StrSplit(kv, absl::MaxSplits('=', 1));
-      params[split.first] = internal::PercentDecode(split.second);
+      auto decoded = PercentDecode(split.second);
+      if (!decoded.ok()) {
+        return std::move(decoded.status());
+      }
+      params[split.first] = *std::move(decoded);
     }
   }
 
@@ -352,7 +358,7 @@ GCSMockStorageBucket::HandleGetRequest(
     const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/get
   path.remove_prefix(3);  // remove /o/
-  std::string name = internal::PercentDecode(path);
+  TENSORSTORE_ASSIGN_OR_RETURN(std::string name, PercentDecode(path));
 
   QueryParameters parsed_parameters;
   {
@@ -405,7 +411,7 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
                                           const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/delete
   path.remove_prefix(3);  // remove /o/
-  std::string name = internal::PercentDecode(path);
+  TENSORSTORE_ASSIGN_OR_RETURN(std::string name, PercentDecode(path));
 
   QueryParameters parsed_parameters;
   {
@@ -444,7 +450,7 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
   std::string data = ObjectMetadata(object).dump();
   HttpResponse response{200, absl::Cord(std::move(data))};
   response.headers.SetHeader("content-length",
-                             tensorstore::StrCat(response.payload.size()));
+                             absl::StrCat(response.payload.size()));
   response.headers.SetHeader("content-type", "application/json");
   return response;
 }
@@ -452,27 +458,25 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
 ::nlohmann::json GCSMockStorageBucket::ObjectMetadata(const Object& object) {
   return {
       {"kind", "storage#object"},
-      {"id",
-       tensorstore::StrCat(bucket_, "/", object.name, "/", object.generation)},
+      {"id", absl::StrCat(bucket_, "/", object.name, "/", object.generation)},
       {"selfLink",
-       tensorstore::StrCat("https://www.googleapis.com/storage/v1/b/", bucket_,
-                           "/o/",
-                           internal::PercentEncodeUriComponent(object.name))},
+       absl::StrCat("https://www.googleapis.com/storage/v1/b/", bucket_, "/o/",
+                    internal_uri::PercentEncodeUriComponent(object.name))},
       {"name", object.name},
       {"bucket", bucket_},
-      {"generation", tensorstore::StrCat(object.generation)},
+      {"generation", absl::StrCat(object.generation)},
       {"metageneration", "1"},
       {"contentType", "application/octet-stream"},
       {"timeCreated", "2018-10-24T00:41:38.264Z"},
       {"updated", "2018-10-24T00:41:38.264Z"},
       {"storageClass", "MULTI_REGIONAL"},
       {"timeStorageClassUpdated", "2018-10-24T00:41:38.264Z"},
-      {"size", tensorstore::StrCat(object.data.size())},
+      {"size", absl::StrCat(object.data.size())},
       {"mediaLink",
-       tensorstore::StrCat("https://www.googleapis.com/download/storage/v1/b/",
-                           bucket_, "/o/",
-                           internal::PercentEncodeUriComponent(object.name),
-                           "?generation=", object.generation, "&alt=media")},
+       absl::StrCat("https://www.googleapis.com/download/storage/v1/b/",
+                    bucket_, "/o/",
+                    internal_uri::PercentEncodeUriComponent(object.name),
+                    "?generation=", object.generation, "&alt=media")},
   };
 }
 
@@ -507,18 +511,18 @@ HttpResponse GCSMockStorageBucket::ObjectMediaResponse(
   }
   response.status_code = value.size() < object.data.size() ? 206 : 200;
   response.payload = value;
-  response.headers = HeaderMap(
-      {{"content-length", tensorstore::StrCat(response.payload.size())},
-       {"content-type", "application/octet-stream"},
-       {"x-goog-generation", tensorstore::StrCat(object.generation)},
-       {"x-goog-metageneration", "1"},
-       {"x-goog-storage-class", "MULTI_REGIONAL"}});
+  response.headers =
+      HeaderMap({{"content-length", absl::StrCat(response.payload.size())},
+                 {"content-type", "application/octet-stream"},
+                 {"x-goog-generation", absl::StrCat(object.generation)},
+                 {"x-goog-metageneration", "1"},
+                 {"x-goog-storage-class", "MULTI_REGIONAL"}});
 
   if (response.status_code == 206) {
     response.headers.SetHeader(
-        "content-range", tensorstore::StrCat("bytes ", inclusive_min, "-",
-                                             inclusive_min + value.size() - 1,
-                                             "/", object.data.size()));
+        "content-range", absl::StrCat("bytes ", inclusive_min, "-",
+                                      inclusive_min + value.size() - 1, "/",
+                                      object.data.size()));
   }
   // todo: x-goog-hash
   return response;

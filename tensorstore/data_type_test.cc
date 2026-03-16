@@ -28,6 +28,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -543,9 +543,9 @@ TEST(DataTypeTest, Name) {
   EXPECT_EQ("json", DataType(dtype_v<json_t>).name());
 }
 
-TEST(DataTypeTest, PrintToOstream) {
-  EXPECT_EQ("int64", StrCat(dtype_v<int64_t>));
-  EXPECT_EQ("<unspecified>", StrCat(DataType()));
+TEST(DataTypeTest, AbslStringify) {
+  EXPECT_EQ("int64", absl::StrCat(dtype_v<int64_t>));
+  EXPECT_EQ("<unspecified>", absl::StrCat(DataType()));
 }
 
 TEST(DataTypeTest, GetDataType) {

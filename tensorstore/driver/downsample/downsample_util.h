@@ -52,6 +52,12 @@ struct PropagatedIndexTransformDownsampling {
   }
   friend std::ostream& operator<<(
       std::ostream& os, const PropagatedIndexTransformDownsampling& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink,
+                            const PropagatedIndexTransformDownsampling& x) {
+    absl::Format(&sink, "{transform=%v, input_downsample_factors=%s}",
+                 x.transform, absl::StrJoin(x.input_downsample_factors, ","));
+  }
 };
 
 /// Propagates a downsampling operation through an index transform.

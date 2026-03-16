@@ -21,6 +21,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_replace.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
@@ -43,7 +44,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -158,9 +158,9 @@ absl::Status ComposeTransformsImpl(TransformRep* b_to_c,
             internal::AddOverflow(b_to_c_map.offset(), new_output_offset,
                                   &a_to_c_map.offset())) {
           return absl::InvalidArgumentError(
-              tensorstore::StrCat("Integer overflow computing output "
-                                  "offset for output dimension ",
-                                  c_dim, "."));
+              absl::StrFormat("Integer overflow computing output "
+                              "offset for output dimension %d.",
+                              c_dim));
         }
         if (a_to_b_method == OutputIndexMethod::constant) {
           // Handle the single_input_dimension -> constant case.  Bounds were
@@ -172,9 +172,9 @@ absl::Status ComposeTransformsImpl(TransformRep* b_to_c,
         // Compute the stride value of the new output index map.
         if (internal::MulOverflow(a_to_b_map.stride(), b_to_c_map.stride(),
                                   &a_to_c_map.stride())) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Integer overflow computing output_strides[", c_dim,
-              "] = ", a_to_b_map.stride(), " * ", b_to_c_map.stride(), "."));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Integer overflow computing output_strides[%d] = %d * %d", c_dim,
+              a_to_b_map.stride(), b_to_c_map.stride()));
         }
         if (a_to_b_method == OutputIndexMethod::single_input_dimension) {
           // Handle the single_input_dimension -> single_input_dimension case.
@@ -301,17 +301,15 @@ Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
     }
   } else {
     status = absl::InvalidArgumentError(
-        tensorstore::StrCat("Rank ", b_to_c->input_rank, " -> ", c_rank,
-                            " transform cannot be composed with rank ", a_rank,
-                            " -> ", b_rank, " transform."));
+        absl::StrFormat("Rank %d -> %d transform cannot be composed with rank "
+                        "%d -> %d transform.",
+                        b_to_c->input_rank, c_rank, a_rank, b_rank));
   }
   assert(!status.ok());
 
   /// Annotate error with transforms.
   auto format_transform = [](TransformRep* rep) {
-    std::ostringstream os;
-    internal_index_space::PrintToOstream(os, rep);
-    std::string str = os.str();
+    std::string str = internal_index_space::PrintToString(rep);
     absl::StrReplaceAll({{"\n", " "}}, &str);
     return absl::Cord(str);
   };

@@ -20,6 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -28,19 +29,18 @@
 #include "tensorstore/internal/irregular_grid.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_grid_partition {
 
 std::ostream& operator<<(std::ostream& os,
                          const IndexTransformGridPartition::StridedSet& s) {
-  return os << "{grid_dimensions=" << s.grid_dimensions
-            << ", input_dimension=" << s.input_dimension << "}";
+  return os << absl::StreamFormat("%v", s);
 }
 bool operator==(const IndexTransformGridPartition::StridedSet& a,
                 const IndexTransformGridPartition::StridedSet& b) {
@@ -53,20 +53,27 @@ bool operator!=(const IndexTransformGridPartition::StridedSet& a,
   return !(a == b);
 }
 
+template <typename Sink>
+void AbslStringify(Sink& sink,
+                   const IndexTransformGridPartition::IndexArraySet& s) {
+  absl::Format(&sink,
+               "IndexArraySet where:\n"
+               "  grid_dimensions=%v\n"
+               "  input_dimensions=%v\n"
+               "  grid_cell_indices=%v\n"
+               "  partitioned_input_indices=%v\n"
+               "  grid_cell_partition_offsets=%v\n",
+               s.grid_dimensions, s.input_dimensions,
+               Array(s.grid_cell_indices.data(),
+                     {s.num_partitions(),
+                      static_cast<Index>(s.grid_dimensions.count())}),
+               s.partitioned_input_indices,
+               GenericStringify(s.grid_cell_partition_offsets));
+}
+
 std::ostream& operator<<(std::ostream& os,
                          const IndexTransformGridPartition::IndexArraySet& s) {
-  return os << "IndexArraySet where:\n"
-            << "  grid_dimensions=" << s.grid_dimensions << "\n"
-            << "  input_dimensions=" << s.input_dimensions << "\n"
-            << "  grid_cell_indices="
-            << Array(s.grid_cell_indices.data(),
-                     {s.num_partitions(),
-                      static_cast<Index>(s.grid_dimensions.count())})
-            << "\n"
-            << "  partitioned_input_indices=" << s.partitioned_input_indices
-            << "\n"
-            << "  grid_cell_partition_offsets="
-            << tensorstore::span(s.grid_cell_partition_offsets) << "\n";
+  return os << absl::StreamFormat("%v", s);
 }
 
 bool operator==(const IndexTransformGridPartition::IndexArraySet& a,

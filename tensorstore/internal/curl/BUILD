@@ -101,7 +101,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:source_location",
         "//tensorstore/internal/version:version_h",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/log:absl_log",

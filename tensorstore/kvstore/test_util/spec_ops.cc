@@ -20,6 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/testing/json_gtest.h"
@@ -34,7 +35,6 @@
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -47,10 +47,9 @@ void TestKeyValueStoreSpecRoundtrip(
   const auto& create_spec = options.create_spec.is_discarded()
                                 ? options.full_spec
                                 : options.create_spec;
-  SCOPED_TRACE(tensorstore::StrCat("full_spec=", options.full_spec.dump()));
-  SCOPED_TRACE(tensorstore::StrCat("create_spec=", create_spec.dump()));
-  SCOPED_TRACE(
-      tensorstore::StrCat("minimal_spec=", expected_minimal_spec.dump()));
+  SCOPED_TRACE(absl::StrCat("full_spec=", options.full_spec.dump()));
+  SCOPED_TRACE(absl::StrCat("create_spec=", create_spec.dump()));
+  SCOPED_TRACE(absl::StrCat("minimal_spec=", expected_minimal_spec.dump()));
   auto context = options.context;
 
   ASSERT_TRUE(options.check_write_read || !options.check_data_persists);
@@ -214,9 +213,9 @@ void TestKeyValueStoreSpecRoundtrip(
 
 void TestKeyValueStoreSpecRoundtripNormalize(
     ::nlohmann::json json_spec, ::nlohmann::json normalized_json_spec) {
-  SCOPED_TRACE(tensorstore::StrCat("json_spec=", json_spec.dump()));
-  SCOPED_TRACE(tensorstore::StrCat("normalized_json_spec=",
-                                   normalized_json_spec.dump()));
+  SCOPED_TRACE(absl::StrCat("json_spec=", json_spec.dump()));
+  SCOPED_TRACE(
+      absl::StrCat("normalized_json_spec=", normalized_json_spec.dump()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    kvstore::Open(json_spec).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());

@@ -30,9 +30,9 @@
 #include <algorithm>
 #include <iosfwd>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -42,6 +42,7 @@
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -77,6 +78,12 @@ struct BtreeNodeStatistics {
   }
   friend std::ostream& operator<<(std::ostream& os,
                                   const BtreeNodeStatistics& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const BtreeNodeStatistics& x) {
+    absl::Format(
+        &sink, "{num_indirect_value_bytes=%v, num_tree_bytes=%v, num_keys=%v}",
+        x.num_indirect_value_bytes, x.num_tree_bytes, x.num_keys);
+  }
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.num_indirect_value_bytes, x.num_tree_bytes, x.num_keys);
   };
@@ -98,6 +105,11 @@ struct BtreeNodeReference {
   }
   friend std::ostream& operator<<(std::ostream& os,
                                   const BtreeNodeReference& x);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const BtreeNodeReference& x) {
+    absl::Format(&sink, "{location=%v, statistics=%v}", x.location,
+                 x.statistics);
+  }
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.location, x.statistics);
   };
@@ -144,6 +156,11 @@ struct LeafNodeEntry {
     return !(a == b);
   }
   friend std::ostream& operator<<(std::ostream& os, const LeafNodeEntry& e);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const LeafNodeEntry& e) {
+    absl::Format(&sink, "{key=%v, value_reference=%v}", QuoteString(e.key),
+                 e.value_reference);
+  }
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.key, x.value_reference);
   };
@@ -197,6 +214,11 @@ struct InteriorNodeEntryData {
 
 struct InteriorNodeEntry : public InteriorNodeEntryData<std::string_view> {
   friend std::ostream& operator<<(std::ostream& os, const InteriorNodeEntry& e);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const InteriorNodeEntry& e) {
+    absl::Format(&sink, "{key=%v, subtree_common_prefix_length=%v, node=%v}",
+                 QuoteString(e.key), e.subtree_common_prefix_length, e.node);
+  }
 };
 
 /// In-memory representation of a b+tree node.
@@ -350,9 +372,22 @@ span<const InteriorNodeEntry> FindBtreeEntryRange(
 void CheckBtreeNodeInvariants(const BtreeNode& node);
 #endif  // NDEBUG
 
-}  // namespace internal_ocdbt
+template <typename Sink>
+void AbslStringify(Sink& sink, const LeafNodeValueReference& x) {
+  std::visit(
+      [&](const auto& v) {
+        if constexpr (std::is_same_v<std::decay_t<decltype(v)>, absl::Cord>) {
+          absl::Format(&sink, "%v", QuoteString(absl::Cord(v).Flatten()));
+        } else {
+          absl::Format(&sink, "%v", v);
+        }
+      },
+      x);
+}
 
+}  // namespace internal_ocdbt
 namespace internal {
+
 template <>
 struct HeapUsageEstimator<internal_ocdbt::BtreeNode::KeyBuffer> {
   static size_t EstimateHeapUsage(
@@ -361,6 +396,7 @@ struct HeapUsageEstimator<internal_ocdbt::BtreeNode::KeyBuffer> {
     return key_buffer.size;
   }
 };
+
 }  // namespace internal
 }  // namespace tensorstore
 
