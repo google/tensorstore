@@ -21,13 +21,6 @@ separately.
 
 .. json:schema:: TensorStoreUrl/zarr2
 
-Raw Byte Access
----------------
-
-The zarr2 driver supports :ref:`raw byte access<open-as-void>` via the
-:json:schema:`~driver/zarr2.open_as_void` option, which exposes array data as
-raw bytes instead of interpreting it according to the data type.
-
 Compressors
 -----------
 

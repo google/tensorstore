@@ -15,13 +15,6 @@ creating new arrays, and resizing arrays.
 
 .. json:schema:: driver/zarr3/Metadata
 
-Raw Byte Access
----------------
-
-The zarr3 driver supports :ref:`raw byte access<open-as-void>` via the
-:json:schema:`~driver/zarr3.open_as_void` option, which exposes array data as
-raw bytes instead of interpreting it according to the data type.
-
 
 Codecs
 ------
