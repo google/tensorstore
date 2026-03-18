@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstring>
 #include <functional>
 #include <memory>
 #include <string>
@@ -218,17 +217,15 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
     std::vector<Index> void_output_shape = original_chunk_shape;
     void_output_shape.push_back(bytes_per_element);
 
-    // Reinterpret the decoded array's bytes as [chunk_shape..., bytes_per_elem]
-    auto byte_array = AllocateArray(
-        void_output_shape, c_order, default_init,
+    // Alias the decoded array's memory as bytes. Since decoded_array is
+    // C-contiguous, we can reinterpret its memory as [chunk_shape...,
+    // bytes_per_elem] without copying.
+    SharedElementPointer<const void> byte_element_pointer(
+        std::shared_ptr<const void>(decoded_array.element_pointer().pointer(),
+                                    decoded_array.data()),
         dtype_v<tensorstore::dtypes::byte_t>);
-
-    // Copy decoded data to byte array (handles potential layout differences)
-    std::memcpy(byte_array.data(), decoded_array.data(),
-                decoded_array.num_elements() *
-                    decoded_array.dtype().size());
-
-    field_arrays[0] = std::move(byte_array);
+    field_arrays[0] =
+        SharedArray<const void>(byte_element_pointer, void_output_shape);
     return field_arrays;
   }
 
