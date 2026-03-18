@@ -217,9 +217,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
     std::vector<Index> void_output_shape = original_chunk_shape;
     void_output_shape.push_back(bytes_per_element);
 
-    // Alias the decoded array's memory as bytes. Since decoded_array is
-    // C-contiguous, we can reinterpret its memory as [chunk_shape...,
-    // bytes_per_elem] without copying.
+    // Alias the decoded array's memory as bytes.
     SharedElementPointer<const void> byte_element_pointer(
         std::shared_ptr<const void>(decoded_array.element_pointer().pointer(),
                                     decoded_array.data()),
