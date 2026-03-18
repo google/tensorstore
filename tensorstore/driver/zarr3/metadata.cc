@@ -814,12 +814,25 @@ constexpr size_t kVoidFieldIndex = size_t(-1);
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
                              std::string_view selected_field,
                              bool open_as_void) {
-  // Special case: open_as_void requests raw byte access (works for any dtype)
-
+  // Special case: open_as_void requests raw byte access.
+  // Only allowed for structured dtypes (multiple fields or single field with
+  // outer_shape like raw_bytes). Simple scalar types like int16 are not
+  // supported - use the normal typed access instead.
   if (open_as_void) {
     if (dtype.fields.empty()) {
       return absl::FailedPreconditionError(
           "Requested void access but dtype has no fields");
+    }
+    // Check if dtype is structured: multiple fields OR single field with
+    // outer_shape (e.g., raw_bytes)
+    const bool is_structured =
+        dtype.fields.size() > 1 ||
+        (dtype.fields.size() == 1 && !dtype.fields[0].outer_shape.empty());
+    if (!is_structured) {
+      return absl::InvalidArgumentError(
+          "open_as_void is only supported for structured dtypes (multiple "
+          "fields or raw_bytes). For simple scalar types, use normal typed "
+          "access instead.");
     }
     return kVoidFieldIndex;
   }

@@ -397,8 +397,7 @@ class DataCacheBase
                           DimensionSet& implicit_upper_bounds) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     assert(bounds.rank() >= static_cast<DimensionIndex>(metadata.shape.size()));
-    std::fill(bounds.origin().begin(),
-              bounds.origin().begin() + metadata.shape.size(), Index(0));
+    std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
     std::copy(metadata.shape.begin(), metadata.shape.end(),
               bounds.shape().begin());
     implicit_lower_bounds = false;
@@ -776,6 +775,32 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
     // Not void access - delegate to base implementation
     return DataCacheBase::GetExternalToInternalTransform(metadata_ptr,
                                                          component_index);
+  }
+
+  void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
+                          DimensionSet& implicit_lower_bounds,
+                          DimensionSet& implicit_upper_bounds) override {
+    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+
+    // For void access, handle the extra bytes dimension
+    if (ChunkCacheImpl::open_as_void_) {
+      const DimensionIndex rank = metadata.rank;
+      const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
+
+      assert(bounds.rank() == rank + 1);
+      std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
+      std::copy(metadata.shape.begin(), metadata.shape.end(),
+                bounds.shape().begin());
+      bounds.shape()[rank] = bytes_per_element;
+
+      implicit_lower_bounds = false;
+      implicit_upper_bounds = DimensionSet::UpTo(rank);
+      return;
+    }
+
+    // Not void access - delegate to base implementation
+    DataCacheBase::GetChunkGridBounds(metadata_ptr, bounds, implicit_lower_bounds,
+                                      implicit_upper_bounds);
   }
 
   absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
