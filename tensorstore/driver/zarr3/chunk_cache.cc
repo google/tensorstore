@@ -73,6 +73,80 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
+internal::ChunkGridSpecification CreateFieldGridSpecification(
+    span<const Index> chunk_shape, const ZarrDType& dtype,
+    span<const DimensionIndex> inner_order,
+    const std::vector<SharedArray<const void>>* fill_values) {
+  const DimensionIndex chunked_rank = chunk_shape.size();
+  internal::ChunkGridSpecification::ComponentList components;
+
+  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+    const auto& field = dtype.fields[field_i];
+    const size_t field_rank = field.field_shape.size();
+    const DimensionIndex total_rank = chunked_rank + field_rank;
+
+    // Get or create fill value for this field
+    SharedArray<const void> fill_value;
+    if (fill_values && field_i < fill_values->size()) {
+      fill_value = (*fill_values)[field_i];
+    }
+    if (!fill_value.valid()) {
+      fill_value = AllocateArray(span<const Index, 0>{}, c_order, value_init,
+                                 field.dtype);
+    }
+
+    // Construct target shape for broadcasting: [unbounded..., field_shape...]
+    std::vector<Index> target_shape(chunked_rank, kInfIndex);
+    target_shape.insert(target_shape.end(), field.field_shape.begin(),
+                        field.field_shape.end());
+
+    auto chunk_fill_value =
+        BroadcastArray(fill_value, BoxView<>(target_shape)).value();
+
+    // Construct component chunk shape: [chunk_shape..., field_shape...]
+    std::vector<Index> component_chunk_shape(chunk_shape.begin(),
+                                             chunk_shape.end());
+    component_chunk_shape.insert(component_chunk_shape.end(),
+                                 field.field_shape.begin(),
+                                 field.field_shape.end());
+
+    // Construct permutation: copy inner_order (if available), then identity
+    // for field dimensions
+    std::vector<DimensionIndex> component_permutation(total_rank);
+    if (!inner_order.empty()) {
+      assert(inner_order.size() == chunked_rank);
+      std::copy_n(inner_order.begin(), chunked_rank,
+                  component_permutation.begin());
+    } else {
+      std::iota(component_permutation.begin(),
+                component_permutation.begin() + chunked_rank, 0);
+    }
+    std::iota(component_permutation.begin() + chunked_rank,
+              component_permutation.end(), chunked_rank);
+
+    // Construct bounds: chunked dims unbounded, field dims fixed
+    Box<> valid_data_bounds(total_rank);
+    for (size_t i = 0; i < field_rank; ++i) {
+      valid_data_bounds[chunked_rank + i] =
+          IndexInterval::UncheckedSized(0, field.field_shape[i]);
+    }
+
+    // chunked_to_cell_dimensions maps chunked grid dims to cell dims
+    std::vector<DimensionIndex> chunked_to_cell(chunked_rank);
+    std::iota(chunked_to_cell.begin(), chunked_to_cell.end(), 0);
+
+    auto& component = components.emplace_back(
+        internal::AsyncWriteArray::Spec{
+            std::move(chunk_fill_value), std::move(valid_data_bounds),
+            ContiguousLayoutPermutation<>(component_permutation)},
+        component_chunk_shape, std::move(chunked_to_cell));
+    component.array_spec.fill_value_comparison_kind =
+        EqualityComparisonKind::identical;
+  }
+
+  return internal::ChunkGridSpecification(std::move(components));
+}
+
 ZarrChunkCache::~ZarrChunkCache() = default;
 
 ZarrLeafChunkCache::ZarrLeafChunkCache(

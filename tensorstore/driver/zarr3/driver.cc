@@ -480,61 +480,10 @@ class DataCacheBase
       return internal::ChunkGridSpecification(std::move(components));
     }
 
-    // Create one component per field (like zarr v2)
-    for (size_t field_i = 0; field_i < metadata.data_type.fields.size();
-         ++field_i) {
-      const auto& field = metadata.data_type.fields[field_i];
-      auto fill_value = metadata.fill_value[field_i];
-      if (!fill_value.valid()) {
-        // Use value-initialized rank-0 fill value (like zarr v2)
-        fill_value = AllocateArray(span<const Index, 0>{}, c_order, value_init,
-                                   field.dtype);
-      }
-
-      // Handle fields with shape (e.g. raw_bytes)
-      const size_t field_rank = field.field_shape.size();
-
-      // 1. Construct target shape for broadcasting
-      std::vector<Index> target_shape(metadata.rank, kInfIndex);
-      target_shape.insert(target_shape.end(), field.field_shape.begin(),
-                          field.field_shape.end());
-
-      auto chunk_fill_value =
-          BroadcastArray(fill_value, BoxView<>(target_shape)).value();
-
-      // 2. Construct component chunk shape
-      std::vector<Index> component_chunk_shape = metadata.chunk_shape;
-      component_chunk_shape.insert(component_chunk_shape.end(),
-                                   field.field_shape.begin(),
-                                   field.field_shape.end());
-
-      // 3. Construct permutation
-      std::vector<DimensionIndex> component_permutation(metadata.rank +
-                                                        field_rank);
-      std::copy_n(metadata.inner_order.data(), metadata.rank,
-                  component_permutation.begin());
-      std::iota(component_permutation.begin() + metadata.rank,
-                component_permutation.end(), metadata.rank);
-
-      // 4. Construct bounds
-      Box<> valid_data_bounds(metadata.rank + field_rank);
-      for (size_t i = 0; i < field_rank; ++i) {
-        valid_data_bounds[metadata.rank + i] =
-            IndexInterval::UncheckedSized(0, field.field_shape[i]);
-      }
-
-      auto& component = components.emplace_back(
-          internal::AsyncWriteArray::Spec{
-              std::move(chunk_fill_value),
-              // Since all dimensions are resizable, just
-              // specify unbounded `valid_data_bounds`.
-              std::move(valid_data_bounds),
-              ContiguousLayoutPermutation<>(component_permutation)},
-          component_chunk_shape);
-      component.array_spec.fill_value_comparison_kind =
-          EqualityComparisonKind::identical;
-    }
-    return internal::ChunkGridSpecification(std::move(components));
+    // Create one component per field using the shared helper
+    return CreateFieldGridSpecification(
+        metadata.chunk_shape, metadata.data_type,
+        span(metadata.inner_order.data(), metadata.rank), &metadata.fill_value);
   }
 
   std::string FormatKey(span<const Index> grid_indices) const final {

@@ -60,6 +60,17 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
+/// Creates a ChunkGridSpecification for multi-field structured types.
+///
+/// \param chunk_shape Spatial chunk dimensions (no bytes dimension).
+/// \param dtype Provides field info (name, dtype, field_shape, etc.).
+/// \param inner_order Optional layout permutation; empty span if unavailable.
+/// \param fill_values Per-field fill values, or nullptr to zero-initialize.
+internal::ChunkGridSpecification CreateFieldGridSpecification(
+    span<const Index> chunk_shape, const ZarrDType& dtype,
+    span<const DimensionIndex> inner_order,
+    const std::vector<SharedArray<const void>>* fill_values);
+
 /// Abstract base class for a chunked zarr array or sub-array.
 ///
 /// This is used at the top level to operate on the entire array.  Additionally,
@@ -364,52 +375,16 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
         !ChunkCacheImpl::open_as_void_) {
       const auto& original_grid = *sharding_state_->sub_chunk_grid;
       const DimensionIndex full_rank = original_grid.chunk_shape.size();
-      // Spatial sub_chunk_shape is the sub_chunk_shape minus the bytes dim.
       const DimensionIndex spatial_rank = full_rank - 1;
 
       std::vector<Index> spatial_chunk_shape(
           original_grid.chunk_shape.begin(),
           original_grid.chunk_shape.begin() + spatial_rank);
 
-      // chunked_to_cell_dimensions maps spatial grid dims to cell dims.
-      std::vector<DimensionIndex> chunked_to_cell(spatial_rank);
-      std::iota(chunked_to_cell.begin(), chunked_to_cell.end(), 0);
-
-      internal::ChunkGridSpecification::ComponentList components;
-      for (size_t field_i = 0;
-           field_i < ChunkCacheImpl::dtype_.fields.size(); ++field_i) {
-        const auto& field = ChunkCacheImpl::dtype_.fields[field_i];
-        const size_t field_rank = field.field_shape.size();
-
-        // Component shape: spatial dims + field shape dims
-        std::vector<Index> comp_shape = spatial_chunk_shape;
-        comp_shape.insert(comp_shape.end(), field.field_shape.begin(),
-                          field.field_shape.end());
-
-        // Fill value: zero-initialized scalar, broadcast to component shape
-        auto fill_value = AllocateArray(span<const Index, 0>{}, c_order,
-                                        value_init, field.dtype);
-        std::vector<Index> target_shape(spatial_rank, kInfIndex);
-        target_shape.insert(target_shape.end(), field.field_shape.begin(),
-                            field.field_shape.end());
-        auto broadcast_fill =
-            BroadcastArray(fill_value, BoxView<>(target_shape)).value();
-
-        // Valid data bounds: spatial dims unbounded, field dims fixed
-        Box<> valid_data_bounds(spatial_rank + field_rank);
-        for (size_t i = 0; i < field_rank; ++i) {
-          valid_data_bounds[spatial_rank + i] =
-              IndexInterval::UncheckedSized(0, field.field_shape[i]);
-        }
-
-        auto& component = components.emplace_back(
-            internal::AsyncWriteArray::Spec{std::move(broadcast_fill),
-                                            std::move(valid_data_bounds)},
-            comp_shape, chunked_to_cell);
-        component.array_spec.fill_value_comparison_kind =
-            EqualityComparisonKind::identical;
-      }
-      field_grid_.emplace(std::move(components));
+      field_grid_.emplace(CreateFieldGridSpecification(
+          spatial_chunk_shape, ChunkCacheImpl::dtype_,
+          span<const DimensionIndex>(),  // no inner_order available
+          nullptr));                     // zero-init fill values
 
       field_key_parser_.emplace(
           sharding_state_->GetSubChunkStorageKeyParser(), full_rank);
