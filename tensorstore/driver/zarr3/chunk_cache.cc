@@ -527,9 +527,9 @@ void ZarrShardedChunkCache::Read(
       *this, std::move(request.transform), std::move(receiver),
       [transaction = std::move(request.transaction),
        batch = std::move(request.batch),
-       component_index = request.component_index,
        staleness_bound = request.staleness_bound,
-       fill_missing_data_reads = request.fill_missing_data_reads](auto entry) {
+       fill_missing_data_reads = request.fill_missing_data_reads,
+       component_index = request.component_index](auto entry) {
         Batch shard_batch = batch;
         if (!shard_batch) {
           shard_batch = Batch::New();
@@ -555,9 +555,9 @@ void ZarrShardedChunkCache::Write(
                      &ZarrArrayToArrayCodec::PreparedState::Write>(
       *this, std::move(request.transform), std::move(receiver),
       [transaction = std::move(request.transaction),
-       component_index = request.component_index,
        store_data_equal_to_fill_value =
-           request.store_data_equal_to_fill_value](auto entry) {
+           request.store_data_equal_to_fill_value,
+       component_index = request.component_index](auto entry) {
         internal::OpenTransactionPtr shard_transaction = transaction;
         if (!shard_transaction) {
           shard_transaction = internal::TransactionState::MakeImplicit();

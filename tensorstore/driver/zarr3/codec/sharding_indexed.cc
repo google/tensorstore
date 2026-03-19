@@ -172,12 +172,35 @@ class ShardingIndexedCodec : public ZarrShardingCodec {
 };
 }  // namespace
 
+namespace {
+// Custom merge function for sub_chunk_shape that handles structured types.
+// For structured types (byte dtype with extra dimension), user-specified shapes
+// may not include the bytes dimension. Shapes [4,4] and [4,4,3] are compatible
+// if the first N elements match.
+struct TryMergeSubChunkShape {
+  bool operator()(const std::optional<std::vector<Index>>& a,
+                  const std::optional<std::vector<Index>>& b) const {
+    if (!a || !b) return true;
+    if (*a == *b) return true;
+    // Allow one shape to be an extension of the other by one dimension
+    // (the bytes dimension for structured types)
+    const auto& longer = a->size() > b->size() ? *a : *b;
+    const auto& shorter = a->size() > b->size() ? *b : *a;
+    if (longer.size() == shorter.size() + 1) {
+      return std::equal(shorter.begin(), shorter.end(), longer.begin());
+    }
+    return false;
+  }
+};
+}  // namespace
+
 absl::Status ShardingIndexedCodecSpec::MergeFrom(const ZarrCodecSpec& other,
                                                  bool strict) {
   using Self = ShardingIndexedCodecSpec;
   const auto& other_options = static_cast<const Self&>(other).options;
   TENSORSTORE_RETURN_IF_ERROR(MergeConstraint<&Options::sub_chunk_shape>(
-      "chunk_shape", options, other_options));
+      "chunk_shape", options, other_options,
+      internal_json_binding::DefaultBinder<>, TryMergeSubChunkShape{}));
   TENSORSTORE_RETURN_IF_ERROR(
       internal_zarr3::MergeZarrCodecSpecs(options.index_codecs,
                                           other_options.index_codecs, strict))
@@ -249,9 +272,20 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
     resolved_options = &resolved_spec_ptr->options;
     resolved_spec->reset(resolved_spec_ptr);
   }
+  std::vector<Index> extended_sub_chunk_shape;
   span<const Index> sub_chunk_shape;
   if (options.sub_chunk_shape) {
     sub_chunk_shape = *options.sub_chunk_shape;
+    // For structured types (byte dtype with extra dimension), the user may
+    // specify sub_chunk_shape without the bytes dimension. Extend it if needed.
+    if (sub_chunk_shape.size() + 1 == decoded.rank &&
+        decoded.read_chunk_shape) {
+      extended_sub_chunk_shape.assign(sub_chunk_shape.begin(),
+                                      sub_chunk_shape.end());
+      extended_sub_chunk_shape.push_back(
+          (*decoded.read_chunk_shape)[decoded.rank - 1]);
+      sub_chunk_shape = extended_sub_chunk_shape;
+    }
   } else if (decoded.read_chunk_shape) {
     sub_chunk_shape =
         span<const Index>(decoded.read_chunk_shape->data(), decoded.rank);

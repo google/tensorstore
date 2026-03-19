@@ -1012,9 +1012,14 @@ absl::Status SetChunkLayoutFromMetadata(
 
 Result<ChunkLayout> GetEffectiveChunkLayout(
     const ZarrMetadataConstraints& metadata_constraints, const Schema& schema) {
-  // Approximation: assume whole array access or simple array
   SpecRankAndFieldInfo info;
-  info.chunked_rank = std::max(metadata_constraints.rank, schema.rank().rank);
+  // Use metadata_constraints.rank when available: it represents the logical
+  // rank (matching chunk_shape dimensions).  schema.rank() may be larger when
+  // open_as_void adds a bytes dimension.
+  info.chunked_rank = metadata_constraints.rank;
+  if (info.chunked_rank == dynamic_rank) {
+    info.chunked_rank = schema.rank().rank;
+  }
   if (info.chunked_rank == dynamic_rank && metadata_constraints.shape) {
     info.chunked_rank = metadata_constraints.shape->size();
   }
@@ -1195,7 +1200,12 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   TENSORSTORE_ASSIGN_OR_RETURN(
       size_t field_index, GetFieldIndex(metadata->data_type, selected_field, open_as_void));
   SpecRankAndFieldInfo info;
-  info.field = &metadata->data_type.fields[field_index];
+  // For void access, field_index is kVoidFieldIndex (sentinel value)
+  if (field_index == kVoidFieldIndex) {
+    info.field = nullptr;
+  } else {
+    info.field = &metadata->data_type.fields[field_index];
+  }
   info.chunked_rank = metadata_constraints.rank;
   if (info.chunked_rank == dynamic_rank && metadata_constraints.shape) {
     info.chunked_rank = metadata_constraints.shape->size();
@@ -1204,13 +1214,26 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
       schema.rank().rank != dynamic_rank) {
     info.chunked_rank = schema.rank().rank;
   }
+  // For void access on structured types, add the bytes dimension to chunked_rank
+  if (open_as_void && info.chunked_rank != dynamic_rank) {
+    info.chunked_rank += 1;
+  }
 
   // Set domain
   bool dimension_names_used = false;
+  std::vector<Index> extended_shape;
   std::optional<span<const Index>> constraint_shape_span;
   if (metadata_constraints.shape) {
-    constraint_shape_span.emplace(metadata_constraints.shape->data(),
-                                  metadata_constraints.shape->size());
+    if (open_as_void) {
+      // For void access, extend the shape to include the bytes dimension
+      extended_shape.assign(metadata_constraints.shape->begin(),
+                           metadata_constraints.shape->end());
+      extended_shape.push_back(metadata->data_type.bytes_per_outer_element);
+      constraint_shape_span.emplace(extended_shape.data(), extended_shape.size());
+    } else {
+      constraint_shape_span.emplace(metadata_constraints.shape->data(),
+                                    metadata_constraints.shape->size());
+    }
   }
   std::optional<span<const std::optional<std::string>>> constraint_names_span;
   if (metadata_constraints.dimension_names) {
@@ -1225,15 +1248,18 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   if (!domain.valid() || !IsFinite(domain.box())) {
     return absl::InvalidArgumentError("domain must be specified");
   }
-  const DimensionIndex rank = domain.rank();
-  metadata->rank = rank;
-  info.chunked_rank = rank;
+  // For void access, domain includes the bytes dimension, but metadata stores
+  // only the logical dimensions.
+  const DimensionIndex logical_rank =
+      open_as_void ? (domain.rank() - 1) : domain.rank();
+  metadata->rank = logical_rank;
+  info.chunked_rank = domain.rank();  // Keep extended rank for codec processing
   metadata->shape.assign(domain.shape().begin(),
-                         domain.shape().begin() + rank);
+                         domain.shape().begin() + logical_rank);
   metadata->dimension_names.assign(domain.labels().begin(),
-                                   domain.labels().begin() + rank);
+                                   domain.labels().begin() + logical_rank);
 
-  for (DimensionIndex i = 0; i < rank; ++i) {
+  for (DimensionIndex i = 0; i < logical_rank; ++i) {
     auto& name = metadata->dimension_names[i];
     if (!name || !name->empty()) continue;
     if (dimension_names_used && metadata_constraints.dimension_names &&
@@ -1281,7 +1307,7 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto dimension_units,
-      GetEffectiveDimensionUnits(rank, metadata_constraints.dimension_units,
+      GetEffectiveDimensionUnits(metadata->rank, metadata_constraints.dimension_units,
                                  schema.dimension_units()),
       _.Format("Invalid dimension_units"));
   if (std::any_of(dimension_units.begin(), dimension_units.end(),
@@ -1292,35 +1318,62 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   TENSORSTORE_ASSIGN_OR_RETURN(auto codec_spec,
                                GetEffectiveCodec(metadata_constraints, schema));
 
+  // Determine if this is a structured type (multiple fields or inner shape)
+  const bool is_structured =
+      metadata->data_type.fields.size() > 1 ||
+      (metadata->data_type.fields.size() == 1 &&
+       !metadata->data_type.fields[0].outer_shape.empty());
+
   ArrayCodecResolveParameters decoded;
-  if (metadata->data_type.fields.size() == 1 &&
-      metadata->data_type.fields[0].outer_shape.empty()) {
+  if (!is_structured) {
     decoded.dtype = metadata->data_type.fields[0].dtype;
+    decoded.rank = metadata->rank;
+    if (metadata->fill_value.size() == 1) {
+      decoded.fill_value = metadata->fill_value[0];
+    }
   } else {
+    // For structured types, use byte dtype with extra dimension for the bytes
     decoded.dtype = dtype_v<std::byte>;
+    decoded.rank = metadata->rank + 1;
+    // Create a zero-filled scalar byte as fill_value (gets broadcast to chunk shape)
+    decoded.fill_value = AllocateArray(
+        span<const Index, 0>{}, c_order, value_init, dtype_v<std::byte>);
   }
-  decoded.rank = metadata->rank;
-  if (metadata->fill_value.size() == 1)
-    decoded.fill_value = metadata->fill_value[0];
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto chunk_layout, GetEffectiveChunkLayout(metadata_constraints, schema));
-  metadata->chunk_shape.resize(rank);
+  metadata->chunk_shape.resize(metadata->rank);
 
   if (auto inner_order = chunk_layout.inner_order(); inner_order.valid()) {
-    std::copy(inner_order.begin(), inner_order.end(),
-              decoded.inner_order.emplace().begin());
+    auto& dest = decoded.inner_order.emplace();
+    std::copy(inner_order.begin(), inner_order.end(), dest.begin());
+    // For structured types, add the bytes dimension at the end
+    if (is_structured) {
+      dest[metadata->rank] = metadata->rank;
+    }
   }
 
+  // For structured types, read_chunk_shape needs decoded.rank dimensions
+  // (metadata->rank + 1 for the bytes dimension)
   span<Index> read_chunk_shape(decoded.read_chunk_shape.emplace().data(),
-                               metadata->rank);
+                               decoded.rank);
 
+  // ChooseReadWriteChunkShapes only operates on the logical dimensions.
+  // For void access, domain includes the bytes dimension; restrict to logical.
   TENSORSTORE_RETURN_IF_ERROR(internal::ChooseReadWriteChunkShapes(
-      chunk_layout.read_chunk(), chunk_layout.write_chunk(), domain.box(),
-      read_chunk_shape, metadata->chunk_shape));
+      chunk_layout.read_chunk(), chunk_layout.write_chunk(),
+      SubBoxView(domain.box(), 0, metadata->rank),
+      read_chunk_shape.first(metadata->rank), metadata->chunk_shape));
 
+  // For structured types, set the bytes dimension
+  if (is_structured) {
+    read_chunk_shape[metadata->rank] =
+        metadata->data_type.bytes_per_outer_element;
+  }
+
+  // Compare only the logical dimensions to decide if sharding is needed
   if (!internal::RangesEqual(span<const Index>(metadata->chunk_shape),
-                             span<const Index>(read_chunk_shape))) {
+                             read_chunk_shape.first(metadata->rank))) {
     if (!codec_spec->codecs || codec_spec->codecs->sharding_height() == 0) {
       auto sharding_codec =
           internal::MakeIntrusivePtr<ShardingIndexedCodecSpec>(
@@ -1344,8 +1397,10 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   TENSORSTORE_RETURN_IF_ERROR(set_up_codecs(
       codec_spec->codecs ? *codec_spec->codecs : ZarrCodecChainSpec{}));
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
-  TENSORSTORE_RETURN_IF_ERROR(
-      ValidateMetadataSchema(*metadata, field_index, schema));
+  if (field_index != kVoidFieldIndex) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateMetadataSchema(*metadata, field_index, schema));
+  }
   return metadata;
 }
 

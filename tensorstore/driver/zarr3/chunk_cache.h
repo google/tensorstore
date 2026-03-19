@@ -22,6 +22,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
@@ -29,6 +30,8 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/read_request.h"
@@ -36,6 +39,7 @@
 #include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/driver/zarr3/dtype.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
@@ -275,6 +279,44 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
 template <typename ChunkCacheImpl>
 class ZarrShardSubChunkCache : public ChunkCacheImpl {
  public:
+  /// Wraps the sharding state's key parser to pad spatial-only cell indices
+  /// (from a field-level grid) to the full dimensionality expected by the
+  /// shard index (which includes the bytes dimension with index 0).
+  class FieldKeyParserWrapper
+      : public internal::LexicographicalGridIndexKeyParser {
+   public:
+    explicit FieldKeyParserWrapper(
+        const internal::LexicographicalGridIndexKeyParser& inner,
+        DimensionIndex full_rank)
+        : inner_(inner), full_rank_(full_rank) {}
+
+    std::string FormatKey(span<const Index> grid_indices) const override {
+      std::vector<Index> padded(grid_indices.begin(), grid_indices.end());
+      while (static_cast<DimensionIndex>(padded.size()) < full_rank_) {
+        padded.push_back(0);
+      }
+      return inner_.FormatKey(padded);
+    }
+
+    Index MinGridIndexForLexicographicalOrder(
+        DimensionIndex dim, IndexInterval grid_interval) const override {
+      return inner_.MinGridIndexForLexicographicalOrder(dim, grid_interval);
+    }
+
+    bool ParseKey(std::string_view key,
+                  span<Index> grid_indices) const override {
+      std::vector<Index> full_indices(full_rank_);
+      if (!inner_.ParseKey(key, full_indices)) return false;
+      std::copy_n(full_indices.begin(), grid_indices.size(),
+                  grid_indices.begin());
+      return true;
+    }
+
+   private:
+    const internal::LexicographicalGridIndexKeyParser& inner_;
+    DimensionIndex full_rank_;
+  };
+
   explicit ZarrShardSubChunkCache(
       kvstore::DriverPtr store, Executor executor,
       ZarrShardingCodec::PreparedState::Ptr sharding_state,
@@ -312,14 +354,80 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
           void_comp_shape, std::move(chunked_to_cell));
       void_grid_.emplace(std::move(components));
     }
+
+    // For structured types (non-void), create a field-level grid where each
+    // component corresponds to a field with spatial-only shape. The sharding
+    // codec's sub_chunk_grid has a single byte component including the bytes
+    // dimension; this grid strips that dimension so that DecodeChunk/EncodeChunk
+    // can extract/combine per-field typed arrays.
+    if (ChunkCacheImpl::original_is_structured_ &&
+        !ChunkCacheImpl::open_as_void_) {
+      const auto& original_grid = *sharding_state_->sub_chunk_grid;
+      const DimensionIndex full_rank = original_grid.chunk_shape.size();
+      // Spatial sub_chunk_shape is the sub_chunk_shape minus the bytes dim.
+      const DimensionIndex spatial_rank = full_rank - 1;
+
+      std::vector<Index> spatial_chunk_shape(
+          original_grid.chunk_shape.begin(),
+          original_grid.chunk_shape.begin() + spatial_rank);
+
+      // chunked_to_cell_dimensions maps spatial grid dims to cell dims.
+      std::vector<DimensionIndex> chunked_to_cell(spatial_rank);
+      std::iota(chunked_to_cell.begin(), chunked_to_cell.end(), 0);
+
+      internal::ChunkGridSpecification::ComponentList components;
+      for (size_t field_i = 0;
+           field_i < ChunkCacheImpl::dtype_.fields.size(); ++field_i) {
+        const auto& field = ChunkCacheImpl::dtype_.fields[field_i];
+        const size_t field_rank = field.field_shape.size();
+
+        // Component shape: spatial dims + field shape dims
+        std::vector<Index> comp_shape = spatial_chunk_shape;
+        comp_shape.insert(comp_shape.end(), field.field_shape.begin(),
+                          field.field_shape.end());
+
+        // Fill value: zero-initialized scalar, broadcast to component shape
+        auto fill_value = AllocateArray(span<const Index, 0>{}, c_order,
+                                        value_init, field.dtype);
+        std::vector<Index> target_shape(spatial_rank, kInfIndex);
+        target_shape.insert(target_shape.end(), field.field_shape.begin(),
+                            field.field_shape.end());
+        auto broadcast_fill =
+            BroadcastArray(fill_value, BoxView<>(target_shape)).value();
+
+        // Valid data bounds: spatial dims unbounded, field dims fixed
+        Box<> valid_data_bounds(spatial_rank + field_rank);
+        for (size_t i = 0; i < field_rank; ++i) {
+          valid_data_bounds[spatial_rank + i] =
+              IndexInterval::UncheckedSized(0, field.field_shape[i]);
+        }
+
+        auto& component = components.emplace_back(
+            internal::AsyncWriteArray::Spec{std::move(broadcast_fill),
+                                            std::move(valid_data_bounds)},
+            comp_shape, chunked_to_cell);
+        component.array_spec.fill_value_comparison_kind =
+            EqualityComparisonKind::identical;
+      }
+      field_grid_.emplace(std::move(components));
+
+      field_key_parser_.emplace(
+          sharding_state_->GetSubChunkStorageKeyParser(), full_rank);
+    }
   }
 
   const internal::LexicographicalGridIndexKeyParser& GetChunkStorageKeyParser()
       override {
+    if (field_key_parser_) {
+      return *field_key_parser_;
+    }
     return sharding_state_->GetSubChunkStorageKeyParser();
   }
 
   const internal::ChunkGridSpecification& grid() const override {
+    if (field_grid_) {
+      return *field_grid_;
+    }
     if (void_grid_) {
       return *void_grid_;
     }
@@ -332,6 +440,8 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
   ZarrShardingCodec::PreparedState::Ptr sharding_state_;
   Executor executor_;
   std::optional<internal::ChunkGridSpecification> void_grid_;
+  std::optional<internal::ChunkGridSpecification> field_grid_;
+  std::optional<FieldKeyParserWrapper> field_key_parser_;
 };
 
 // Creates a `ZarrChunkCache` for the specified `codec_chain`.
