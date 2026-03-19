@@ -155,7 +155,7 @@ class ZarrDriverSpec
       jb::Member("open_as_void", jb::Projection<&ZarrDriverSpec::open_as_void>(
                   jb::DefaultValue<jb::kNeverIncludeDefaults>(
                       [](auto* v) { *v = false; }))),
-      jb::Initialize([](auto* obj) -> absl::Status {
+      jb::Initialize([](auto* obj) -> absl::Status {  // TODO: https://github.com/google/tensorstore/pull/271/changes/BASE..83f99827546c2082d82fa54f81d695dd8eb68c73#r2949222831
         // Validate that field and open_as_void are mutually exclusive
         if (obj->open_as_void && !obj->selected_field.empty()) {
           return absl::InvalidArgumentError(
