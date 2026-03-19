@@ -1830,7 +1830,7 @@ TEST(DriverTest, UrlSchemeRoundtrip) {
 
 // Tests for open_as_void functionality
 
-TEST(Zarr3DriverTest, OpenAsVoidSimpleType) {
+TEST(Zarr3OpenAsVoidTest, SimpleType) {
   auto context = Context::Default();
 
   ::nlohmann::json create_spec{
@@ -1865,7 +1865,7 @@ TEST(Zarr3DriverTest, OpenAsVoidSimpleType) {
                   ".*open_as_void is only supported for structured dtypes.*"));
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidStructuredType) {
+TEST(Zarr3OpenAsVoidTest, StructuredType) {
   // Test open_as_void with a structured data type
   auto context = Context::Default();
 
@@ -1974,7 +1974,7 @@ TEST(Zarr3DriverTest, OpenAsVoidStructuredType) {
   EXPECT_EQ(0x01, get_byte(1, 1, 2));   // y high byte
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidWithCompression) {
+TEST(Zarr3OpenAsVoidTest, WithCompression) {
   auto context = Context::Default();
 
   ::nlohmann::json create_spec{
@@ -2064,7 +2064,7 @@ TEST(Zarr3DriverTest, OpenAsVoidWithCompression) {
   EXPECT_EQ(0x03, get_byte(0, 1, 2));   // y high byte
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidSpecRoundtrip) {
+TEST(Zarr3OpenAsVoidTest, SpecRoundtrip) {
   // Test that open_as_void is properly preserved in spec round-trips
   ::nlohmann::json json_spec{
       {"driver", "zarr3"},
@@ -2086,7 +2086,7 @@ TEST(Zarr3DriverTest, OpenAsVoidSpecRoundtrip) {
   EXPECT_EQ(true, json_result.value("open_as_void", false));
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidGetBoundSpecData) {
+TEST(Zarr3OpenAsVoidTest, GetBoundSpecData) {
   // Test that open_as_void is correctly preserved when getting spec from an
   // opened void store. This tests ZarrDataCache::GetBoundSpecData.
   auto context = Context::Default();
@@ -2140,7 +2140,7 @@ TEST(Zarr3DriverTest, OpenAsVoidGetBoundSpecData) {
   EXPECT_TRUE(metadata.contains("data_type"));  // TODO: Update this to check what is in data_type
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidCannotUseWithField) {
+TEST(Zarr3OpenAsVoidTest, CannotUseWithField) {
   // Test that specifying both open_as_void and field is rejected as they are
   // mutually exclusive options.
   ::nlohmann::json spec_with_both{
@@ -2170,7 +2170,7 @@ TEST(Zarr3DriverTest, OpenAsVoidCannotUseWithField) {
                          "exclusive")));
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidUrlNotSupported) {
+TEST(Zarr3OpenAsVoidTest, UrlNotSupported) {
   // Test that open_as_void is not supported with URL syntax
   ::nlohmann::json json_spec{
       {"driver", "zarr3"},
@@ -2192,7 +2192,7 @@ TEST(Zarr3DriverTest, OpenAsVoidUrlNotSupported) {
   EXPECT_THAT(spec.ToUrl(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidReadWrite) {
+TEST(Zarr3OpenAsVoidTest, ReadWrite) {
   auto context = Context::Default();
   ::nlohmann::json create_spec{
       {"driver", "zarr3"},
@@ -2260,7 +2260,7 @@ TEST(Zarr3DriverTest, OpenAsVoidReadWrite) {
   EXPECT_EQ(0x01, get_byte(0, 0, 2));   // y high byte
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidWriteRoundtrip) {
+TEST(Zarr3OpenAsVoidTest, WriteRoundtrip) {
   // Test that writing through open_as_void correctly encodes data
   // and can be read back both through void access and normal typed access.
   auto context = Context::Default();
@@ -2343,7 +2343,7 @@ TEST(Zarr3DriverTest, OpenAsVoidWriteRoundtrip) {
   EXPECT_EQ(0xDE, get_byte(1, 1, 2));   // y high byte
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidWriteWithCompression) {
+TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
   // Test writing through open_as_void with compression enabled.
   // Verifies that the EncodeChunk method correctly compresses data.
   auto context = Context::Default();
@@ -2469,7 +2469,7 @@ TEST(Zarr3DriverTest, FieldSelectionUrlNotSupported) {
 
 // Tests for GetSpecInfo() with open_as_void (mirroring v2 tests)
 
-TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithKnownRank) {
+TEST(Zarr3OpenAsVoidTest, GetSpecInfoWithKnownRank) {
   // Test that GetSpecInfo correctly computes rank when open_as_void=true
   // and dtype is specified with known chunked_rank.
   // Expected: full_rank = chunked_rank + 1 (for bytes dimension)
@@ -2495,7 +2495,7 @@ TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithKnownRank) {
   EXPECT_EQ(3, spec.rank());
 }
 
-TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithStructuredDtype) {
+TEST(Zarr3OpenAsVoidTest, GetSpecInfoWithStructuredDtype) {
   // Test GetSpecInfo with open_as_void=true and a structured dtype.
   // The bytes dimension should reflect the full struct size.
   ::nlohmann::json json_spec{
@@ -2522,7 +2522,7 @@ TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithStructuredDtype) {
   EXPECT_EQ(2, spec.rank());
 }
 
-TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithDynamicRank) {
+TEST(Zarr3OpenAsVoidTest, GetSpecInfoWithDynamicRank) {
   // Test GetSpecInfo when open_as_void=true with dtype but no shape/chunks
   // (i.e., chunked_rank is dynamic). In this case, full_rank should remain
   // dynamic until metadata is loaded.
@@ -2544,7 +2544,7 @@ TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithDynamicRank) {
   EXPECT_EQ(tensorstore::dynamic_rank, spec.rank());
 }
 
-TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithoutDtype) {
+TEST(Zarr3OpenAsVoidTest, GetSpecInfoWithoutDtype) {
   // Test that when open_as_void=true but dtype is not specified,
   // GetSpecInfo falls through to normal GetSpecRankAndFieldInfo behavior.
   ::nlohmann::json json_spec{
@@ -2561,7 +2561,7 @@ TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidWithoutDtype) {
   EXPECT_EQ(tensorstore::dynamic_rank, spec.rank());
 }
 
-TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidRankConsistency) {
+TEST(Zarr3OpenAsVoidTest, GetSpecInfoRankConsistency) {
   // Verify that the rank computed by GetSpecInfo matches what we get when
   // actually opening the store with a structured dtype.
   auto context = Context::Default();
@@ -2640,7 +2640,7 @@ TEST(Zarr3DriverTest, GetSpecInfoOpenAsVoidRankConsistency) {
   EXPECT_EQ(4, void_spec.rank());
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidFillValue) {  // TODO: We need to define behavior for whether fill_value is required always for struct dtype.
+TEST(Zarr3OpenAsVoidTest, FillValue) {  // TODO: We need to define behavior for whether fill_value is required always for struct dtype.
   // Test that fill_value is correctly obtained from metadata when using
   // open_as_void. The void access should get the fill_value representing
   // the raw bytes of the original fill_value.
@@ -2709,7 +2709,7 @@ TEST(Zarr3DriverTest, OpenAsVoidFillValue) {  // TODO: We need to define behavio
   EXPECT_EQ(0x34, fill_bytes[2]);  // y high byte
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidIncompatibleMetadata) {
+TEST(Zarr3OpenAsVoidTest, IncompatibleMetadata) {
   // Test that open_as_void correctly rejects incompatible metadata when the
   // underlying storage is modified to have a different bytes_per_outer_element.
   auto context = Context::Default();
@@ -2792,7 +2792,7 @@ TEST(Zarr3DriverTest, OpenAsVoidIncompatibleMetadata) {
               StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
-TEST(Zarr3DriverTest, OpenAsVoidWithShardingRejectsSimpleType) {
+TEST(Zarr3OpenAsVoidTest, WithShardingRejectsSimpleType) {
   // Test that open_as_void with sharding correctly rejects simple dtypes.
   auto context = Context::Default();
 
@@ -2884,7 +2884,7 @@ TEST(Zarr3DriverTest, OpenAsVoidWithShardingRejectsSimpleType) {
   return spec;
 }
 
-TEST(Zarr3DriverTest, ShardedStructFieldYWriteRead) {
+TEST(Zarr3StructuredTest, ShardedFieldYWriteRead) {
   auto context = Context::Default();
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -2911,7 +2911,7 @@ TEST(Zarr3DriverTest, ShardedStructFieldYWriteRead) {
   EXPECT_EQ(data, read_back);
 }
 
-TEST(Zarr3DriverTest, ShardedStructFieldXWriteRead) {
+TEST(Zarr3StructuredTest, ShardedFieldXWriteRead) {
   auto context = Context::Default();
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -2938,7 +2938,7 @@ TEST(Zarr3DriverTest, ShardedStructFieldXWriteRead) {
   EXPECT_EQ(data, read_back);
 }
 
-TEST(Zarr3DriverTest, ShardedStructFieldYWriteThenVoidRead) {
+TEST(Zarr3StructuredTest, ShardedFieldYWriteThenVoidRead) {
   auto context = Context::Default();
 
   // Write typed data to field "y"
@@ -3006,7 +3006,7 @@ TEST(Zarr3DriverTest, ShardedStructFieldYWriteThenVoidRead) {
   EXPECT_EQ(0x01, get(1, 1, 2));
 }
 
-TEST(Zarr3DriverTest, ShardedStructVoidWriteThenFieldYRead) {
+TEST(Zarr3StructuredTest, ShardedVoidWriteThenFieldYRead) {
   auto context = Context::Default();
 
   // Create the array with field "x" first (to establish metadata)
@@ -3065,7 +3065,7 @@ TEST(Zarr3DriverTest, ShardedStructVoidWriteThenFieldYRead) {
   EXPECT_EQ(expected_y, y_data);
 }
 
-TEST(Zarr3DriverTest, ShardedStructMultiFieldRoundtrip) {
+TEST(Zarr3StructuredTest, ShardedMultiFieldRoundtrip) {
   auto context = Context::Default();
 
   // Create and write to field "x"
@@ -3162,7 +3162,7 @@ TEST(Zarr3DriverTest, ShardedStructMultiFieldRoundtrip) {
   EXPECT_EQ(0x0F, get(1, 1, 2));
 }
 
-TEST(Zarr3DriverTest, ShardedStructReopenWithDifferentField) {
+TEST(Zarr3StructuredTest, ShardedReopenWithDifferentField) {
   auto context = Context::Default();
 
   // Create with field "x" and write some data
@@ -3219,7 +3219,7 @@ TEST(Zarr3DriverTest, ShardedStructReopenWithDifferentField) {
   EXPECT_EQ(x_data, x_read);
 }
 
-TEST(Zarr3DriverTest, ShardedStructVoidAccessRoundtrip) {
+TEST(Zarr3StructuredTest, ShardedVoidAccessRoundtrip) {
   auto context = Context::Default();
 
   // Create with field "x" to establish metadata
@@ -3273,7 +3273,7 @@ TEST(Zarr3DriverTest, ShardedStructVoidAccessRoundtrip) {
   EXPECT_EQ(0xBB, bytes[2]);
 }
 
-TEST(Zarr3DriverTest, ShardedStructNoFieldRejectsOpen) {
+TEST(Zarr3StructuredTest, ShardedNoFieldRejectsOpen) {
   auto context = Context::Default();
 
   // Opening a sharded structured dtype without specifying a field (and without
@@ -3287,7 +3287,7 @@ TEST(Zarr3DriverTest, ShardedStructNoFieldRejectsOpen) {
                                  ".*Must specify a \"field\".*"));
 }
 
-TEST(Zarr3DriverTest, ShardedStructOpenAsVoidNoFieldCreate) {
+TEST(Zarr3StructuredTest, ShardedOpenAsVoidNoFieldCreate) {
   auto context = Context::Default();
 
   // open_as_void with no field on a sharded structured dtype must work: creates
@@ -3407,7 +3407,7 @@ TEST(Zarr3DriverTest, ShardedStructOpenAsVoidNoFieldCreate) {
   EXPECT_EQ(expected_x, x_data);
 }
 
-TEST(Zarr3DriverTest, ShardedStructWiderFieldRoundtrip) {
+TEST(Zarr3StructuredTest, ShardedWiderFieldRoundtrip) {
   // Use {uint8, int32} so bytes_per_element=5, which is distinct from rank=3.
   // This breaks the coincidental alignment in other tests where
   // bytes_per_element=3 and the void rank is also 3.
