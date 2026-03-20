@@ -3546,7 +3546,7 @@ TEST(ZarrDriverTest, OpenAsVoidSimpleType) {
       {"open_as_void", true},
   };
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  // TODO: This should be a failure case!
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto void_store,
       tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read)
