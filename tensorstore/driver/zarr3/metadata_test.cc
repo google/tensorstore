@@ -99,7 +99,6 @@ ZarrDType MakeScalarZarrDType(DataType dtype) {
   auto& field = dtype_info.fields[0];
   field.dtype = dtype;
   field.encoded_dtype = std::string(dtype.name());
-  field.outer_shape.clear();
   field.flexible_shape.clear();
   field.field_shape.clear();
   field.num_inner_elements = 1;

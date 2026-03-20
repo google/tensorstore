@@ -44,16 +44,12 @@ namespace internal_zarr3 {
 ///    In this case, the zarr array is considered to have a single, unnamed field.
 ///
 /// 2. An array, where each element of the array is of the form:
-///    `[name, type]` or `[name, type, shape]`, where `name` is a JSON
-///    string specifying the unique, non-empty field name, `type` is a data type
-///    string, and `shape` is an optional "inner" array shape (specified
-///    as a JSON array of non-negative integers) which defaults to the rank-0
-///    shape `[]` if not specified.
+///    `[name, type]`, where `name` is a JSON string specifying the unique,
+///    non-empty field name and `type` is a data type string.
 ///
 /// Each field is encoded according to `type` into a fixed-size sequence of
-/// bytes.  If the optional "inner" array `shape` is specified, the individual
-/// elements are encoded in C order.  The encoding of each multi-field array
-/// element is simply the concatenation of the encodings of each field.
+/// bytes. The encoding of each multi-field array element is simply the
+/// concatenation of the encodings of each field.
 struct ZarrDType {
   /// Decoded representation of single value.
   struct BaseDType {
@@ -78,17 +74,12 @@ struct ZarrDType {
 
   /// Decoded representation of a single field.
   struct Field : public BaseDType {
-    /// Optional `shape` dimensions specified by a zarr "dtype" field specified
-    /// as a JSON array.  If the zarr dtype was specified as a single `typestr`
-    /// value, or as a two-element array, this is empty.
-    std::vector<Index> outer_shape;
-
     /// Field name.  Must be non-empty and unique if the zarr "dtype" was
     /// specified as an array.  Otherwise, is empty.
     std::string name;
 
-    /// The inner array dimensions of this field, equal to the concatenation of
-    ///  `outer_shape` and `flexible_shape` (derived value).
+    /// Inner array dimensions of this field, derived from `flexible_shape`.
+    /// Used for raw_bytes dtype and open_as_void byte dimensions.
     std::vector<Index> field_shape;
 
     /// Product of `field_shape` dimensions (derived value).
@@ -104,8 +95,7 @@ struct ZarrDType {
     friend bool operator==(const Field& a, const Field& b) {
       return static_cast<const BaseDType&>(a) ==
                  static_cast<const BaseDType&>(b) &&
-             a.outer_shape == b.outer_shape && a.name == b.name &&
-             a.field_shape == b.field_shape &&
+             a.name == b.name && a.field_shape == b.field_shape &&
              a.num_inner_elements == b.num_inner_elements &&
              a.byte_offset == b.byte_offset && a.num_bytes == b.num_bytes;
     }

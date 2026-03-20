@@ -406,6 +406,9 @@ class DataCacheBase
          i < static_cast<DimensionIndex>(metadata.shape.size()); ++i) {
       implicit_upper_bounds[i] = true;
     }
+    // Handle extra dimensions from field_shape (e.g., the bytes dimension added
+    // by open_as_void). This only applies when there's exactly one field since
+    // multiple fields could have different shapes, making bounds ambiguous.
     if (bounds.rank() > static_cast<DimensionIndex>(metadata.shape.size()) &&
         metadata.data_type.fields.size() == 1) {
       const auto& field = metadata.data_type.fields[0];
@@ -956,7 +959,6 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
           /*.fields=*/{ZarrDType::Field{
               ZarrDType::BaseDType{"", dtype_v<tensorstore::dtypes::byte_t>,
                                     {metadata.data_type.bytes_per_outer_element}},
-              /*.outer_shape=*/{},
               /*.name=*/"",
               /*.field_shape=*/{metadata.data_type.bytes_per_outer_element},
               /*.num_inner_elements=*/metadata.data_type.bytes_per_outer_element,
@@ -964,12 +966,9 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
               /*.num_bytes=*/metadata.data_type.bytes_per_outer_element}},
           /*.bytes_per_outer_element=*/metadata.data_type.bytes_per_outer_element};
     }
-    // Determine if original dtype is structured (multiple fields or field with
-    // outer_shape). This affects how void access handles codec operations.
-    const bool original_is_structured =
-        metadata.data_type.fields.size() > 1 ||
-        (metadata.data_type.fields.size() == 1 &&
-         !metadata.data_type.fields[0].outer_shape.empty());
+    // Determine if original dtype is structured (multiple fields).
+    // This affects how void access handles codec operations.
+    const bool original_is_structured = metadata.data_type.fields.size() > 1;
 
     // Get the original dtype for void access encoding (needed by EncodeChunk).
     // For non-structured types, this is the single field's dtype.

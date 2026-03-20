@@ -302,7 +302,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   }
 
   // For single non-structured field, decode directly
-  if (num_fields == 1 && dtype_.fields[0].outer_shape.empty()) {
+  if (num_fields == 1 && dtype_.fields[0].field_shape.empty()) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         field_arrays[0], codec_state_->DecodeArray(grid().components[0].shape(),
                                                    std::move(data)));
@@ -390,7 +390,7 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
   }
 
   // For single non-structured field, encode directly
-  if (num_fields == 1 && dtype_.fields[0].outer_shape.empty()) {
+  if (num_fields == 1 && dtype_.fields[0].field_shape.empty()) {
     assert(component_arrays.size() == 1);
     return codec_state_->EncodeArray(component_arrays[0]);
   }

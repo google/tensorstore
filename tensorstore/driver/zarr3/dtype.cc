@@ -169,7 +169,7 @@ absl::Status ParseObjectField(const nlohmann::json& field_json,
 
 /// Parses a field in the legacy tuple format.
 ///
-/// Expected format: ["name", "dtype"] or ["name", "dtype", shape]
+/// Expected format: ["name", "dtype"]
 /// Used by "structured" (legacy format) and bare array format.
 ///
 /// \param field_json The JSON array representing a single field.
@@ -186,10 +186,9 @@ absl::Status ParseTupleField(const nlohmann::json& field_json,
   return internal_json::JsonParseArray(
       field_json,
       [&](ptrdiff_t size) {
-        if (size < 2 || size > 3) {
+        if (size != 2) {
           return absl::InvalidArgumentError(absl::StrFormat(
-              "Expected array of size 2 or 3, but received: %s",
-              field_json.dump()));
+              "Expected array of size 2, but received: %s", field_json.dump()));
         }
         return absl::OkStatus();
       },
@@ -209,19 +208,6 @@ absl::Status ParseTupleField(const nlohmann::json& field_json,
                 static_cast<ZarrDType::BaseDType&>(field),
                 ParseBaseDType(dtype_string));
             return absl::OkStatus();
-          }
-          case 2: {
-            return internal_json::JsonParseArray(
-                element,
-                [&](ptrdiff_t size) {
-                  field.outer_shape.resize(size);
-                  return absl::OkStatus();
-                },
-                [&](const ::nlohmann::json& dim_json, ptrdiff_t j) {
-                  return internal_json::JsonRequireInteger(
-                      dim_json, &field.outer_shape[j], /*strict=*/true, 1,
-                      kInfIndex);
-                });
           }
           default:
             ABSL_UNREACHABLE();  // COV_NF_LINE
@@ -254,7 +240,7 @@ absl::Status ParseStructFieldsArray(const nlohmann::json& fields_json,
 
 /// Parses the fields array for "structured" dtype or bare array format (legacy).
 ///
-/// Each field must be a tuple: ["name", "dtype"] or ["name", "dtype", shape].
+/// Each field must be a tuple: ["name", "dtype"].
 ///
 /// \param fields_json The JSON array of field tuples.
 /// \param out[out] Filled with the parsed fields on success.
@@ -343,7 +329,6 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
         out.fields[0].encoded_dtype = "raw_bytes";
         out.fields[0].dtype = dtype_v<tensorstore::dtypes::byte_t>;
         out.fields[0].flexible_shape = {length_bytes};
-        out.fields[0].outer_shape = {};
         out.fields[0].name = "";
         out.fields[0].field_shape = {length_bytes};
         out.fields[0].num_inner_elements = length_bytes;
@@ -383,11 +368,7 @@ absl::Status ValidateDType(ZarrDType& dtype) {
       return absl::InvalidArgumentError(absl::StrFormat(
           "Field name %v occurs more than once", QuoteString(field.name)));
     }
-    field.field_shape.resize(field.flexible_shape.size() +
-                             field.outer_shape.size());
-    std::copy(field.flexible_shape.begin(), field.flexible_shape.end(),
-              std::copy(field.outer_shape.begin(), field.outer_shape.end(),
-                        field.field_shape.begin()));
+    field.field_shape = field.flexible_shape;
 
     field.num_inner_elements = ProductOfExtents(span(field.field_shape));
     if (field.num_inner_elements == std::numeric_limits<Index>::max()) {

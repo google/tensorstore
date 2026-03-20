@@ -270,7 +270,6 @@ FillValueJsonBinder::FillValueJsonBinder(DataType data_type,
   dtype.fields.resize(1);
   auto& field = dtype.fields[0];
   field.name.clear();
-  field.outer_shape.clear();
   field.flexible_shape.clear();
   field.field_shape.clear();
   field.num_inner_elements = 1;
@@ -654,7 +653,7 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   const bool is_structured =
       metadata.data_type.fields.size() > 1 ||
       (metadata.data_type.fields.size() == 1 &&
-       !metadata.data_type.fields[0].outer_shape.empty());
+       !metadata.data_type.fields[0].field_shape.empty());
 
   // Build the codec shape - for structured types, include bytes dimension
   std::vector<Index> codec_shape(metadata.chunk_shape.begin(),
@@ -816,7 +815,7 @@ Result<size_t> GetFieldIndex(const ZarrDType& dtype,
                              bool open_as_void) {
   // Special case: open_as_void requests raw byte access.
   // Only allowed for structured dtypes (multiple fields or single field with
-  // outer_shape like raw_bytes). Simple scalar types like int16 are not
+  // field_shape like raw_bytes). Simple scalar types like int16 are not
   // supported - use the normal typed access instead.
   if (open_as_void) {
     if (dtype.fields.empty()) {
@@ -824,10 +823,10 @@ Result<size_t> GetFieldIndex(const ZarrDType& dtype,
           "Requested void access but dtype has no fields");
     }
     // Check if dtype is structured: multiple fields OR single field with
-    // outer_shape (e.g., raw_bytes)
+    // field_shape (e.g., raw_bytes)
     const bool is_structured =
         dtype.fields.size() > 1 ||
-        (dtype.fields.size() == 1 && !dtype.fields[0].outer_shape.empty());
+        (dtype.fields.size() == 1 && !dtype.fields[0].field_shape.empty());
     if (!is_structured) {
       return absl::InvalidArgumentError(
           "open_as_void is only supported for structured dtypes (multiple "
@@ -1322,7 +1321,7 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   const bool is_structured =
       metadata->data_type.fields.size() > 1 ||
       (metadata->data_type.fields.size() == 1 &&
-       !metadata->data_type.fields[0].outer_shape.empty());
+       !metadata->data_type.fields[0].field_shape.empty());
 
   ArrayCodecResolveParameters decoded;
   if (!is_structured) {

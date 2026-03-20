@@ -35,14 +35,12 @@ namespace {
 using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
-using ::tensorstore::kInfIndex;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::ChooseBaseDType;
 using ::tensorstore::internal_zarr3::ParseBaseDType;
 using ::tensorstore::internal_zarr3::ParseDType;
 using ::tensorstore::internal_zarr3::ZarrDType;
 using ::testing::HasSubstr;
-using ::testing::MatchesRegex;
 
 void CheckBaseDType(std::string dtype, DataType r,
                     std::vector<Index> flexible_shape) {
@@ -110,7 +108,6 @@ TEST(ParseDType, SimpleStringBool) {
                                   /*.dtype=*/dtype_v<bool>,
                                   /*.flexible_shape=*/{},
                               },
-                              /*.outer_shape=*/{},
                               /*.name=*/"",
                               /*.field_shape=*/{},
                               /*.num_inner_elements=*/1,
@@ -133,7 +130,6 @@ TEST(ParseDType, SingleNamedFieldChar) {
                           /*.dtype=*/dtype_v<uint8_t>,
                           /*.flexible_shape=*/{},
                       },
-                      /*.outer_shape=*/{},
                       /*.name=*/"x",
                       /*.field_shape=*/{},
                       /*.num_inner_elements=*/1,
@@ -146,7 +142,7 @@ TEST(ParseDType, SingleNamedFieldChar) {
 
 TEST(ParseDType, TwoNamedFields) {
   CheckDType(
-      ::nlohmann::json::array_t{{"x", "int8", {2, 3}}, {"y", "int16", {5}}},
+      ::nlohmann::json::array_t{{"x", "int8"}, {"y", "int16"}},
       ZarrDType{
           /*.has_fields=*/true,
           /*.fields=*/
@@ -156,25 +152,23 @@ TEST(ParseDType, TwoNamedFields) {
                    /*.dtype=*/dtype_v<int8_t>,
                    /*.flexible_shape=*/{},
                },
-               /*.outer_shape=*/{2, 3},
                /*.name=*/"x",
-               /*.field_shape=*/{2, 3},
-               /*.num_inner_elements=*/2 * 3,
+               /*.field_shape=*/{},
+               /*.num_inner_elements=*/1,
                /*.byte_offset=*/0,
-               /*.num_bytes=*/1 * 2 * 3},
+               /*.num_bytes=*/1},
               {{
                    /*.encoded_dtype=*/"int16",
                    /*.dtype=*/dtype_v<int16_t>,
                    /*.flexible_shape=*/{},
                },
-               /*.outer_shape=*/{5},
                /*.name=*/"y",
-               /*.field_shape=*/{5},
-               /*.num_inner_elements=*/5,
-               /*.byte_offset=*/1 * 2 * 3,
-               /*.num_bytes=*/2 * 5},
+               /*.field_shape=*/{},
+               /*.num_inner_elements=*/1,
+               /*.byte_offset=*/1,
+               /*.num_bytes=*/2},
           },
-          /*.bytes_per_outer_element=*/1 * 2 * 3 + 2 * 5,
+          /*.bytes_per_outer_element=*/3,
       });
 }
 
@@ -184,17 +178,17 @@ TEST(ParseDType, FieldSpecTooShort) {
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("Error parsing value at position 0: "
-                    "Expected array of size 2 or 3, but received: [\"x\"]")));
+                    "Expected array of size 2, but received: [\"x\"]")));
 }
 
 TEST(ParseDType, FieldSpecTooLong) {
   EXPECT_THAT(
-      ParseDType(::nlohmann::json::array_t{{"x", "int16", {2, 3}, 5}}),
+      ParseDType(::nlohmann::json::array_t{{"x", "int16", {2, 3}}}),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("Error parsing value at position 0: "
-                    "Expected array of size 2 or 3, but received: "
-                    "[\"x\",\"int16\",[2,3],5]")));
+                    "Expected array of size 2, but received: "
+                    "[\"x\",\"int16\",[2,3]]")));
 }
 
 TEST(ParseDType, InvalidFieldName) {
@@ -237,31 +231,6 @@ TEST(ParseDType, InvalidFieldBaseDType) {
                                  "Error parsing value at position 1: "
                                  "unknown data type is not one of the "
                                  "supported data types")));
-}
-
-TEST(ParseDType, ProductOfDimensionsOverflow) {
-  EXPECT_THAT(
-      ParseDType(
-          ::nlohmann::json::array_t{{"x", "int8", {kInfIndex, kInfIndex}}}),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               MatchesRegex(".*Product of dimensions .* is too large.*")));
-}
-
-TEST(ParseDType, FieldSizeInBytesOverflow) {
-  EXPECT_THAT(
-      ParseDType(::nlohmann::json::array_t{{"x", "float64", {kInfIndex}}}),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Field size in bytes is too large")));
-}
-
-TEST(ParseDType, BytesPerOuterElementOverflow) {
-  EXPECT_THAT(
-      ParseDType(::nlohmann::json::array_t{{"x", "int16", {kInfIndex}},
-                                           {"y", "int16", {kInfIndex}}}),
-      StatusIs(
-          absl::StatusCode::kInvalidArgument,
-          HasSubstr(
-              "Total number of bytes per outer array element is too large")));
 }
 
 TEST(ChooseBaseDTypeTest, RoundTrip) {
@@ -323,7 +292,6 @@ TEST(ParseDType, StructNameNewFormat) {
                /*.dtype=*/dtype_v<uint8_t>,
                /*.flexible_shape=*/{},
            },
-           /*.outer_shape=*/{},
            /*.name=*/"x",
            /*.field_shape=*/{},
            /*.num_inner_elements=*/1,
@@ -334,7 +302,6 @@ TEST(ParseDType, StructNameNewFormat) {
                /*.dtype=*/dtype_v<int16_t>,
                /*.flexible_shape=*/{},
            },
-           /*.outer_shape=*/{},
            /*.name=*/"y",
            /*.field_shape=*/{},
            /*.num_inner_elements=*/1,
@@ -373,7 +340,6 @@ TEST(ParseDType, StructuredNameLegacy) {
                /*.dtype=*/dtype_v<tensorstore::dtypes::float32_t>,
                /*.flexible_shape=*/{},
            },
-           /*.outer_shape=*/{},
            /*.name=*/"a",
            /*.field_shape=*/{},
            /*.num_inner_elements=*/1,
