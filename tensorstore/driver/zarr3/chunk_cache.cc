@@ -20,8 +20,10 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
@@ -42,6 +44,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
@@ -63,6 +66,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/future.h"
