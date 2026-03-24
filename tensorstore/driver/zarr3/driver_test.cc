@@ -2456,6 +2456,60 @@ TEST(Zarr3DriverTest, FieldSelectionUrlNotSupported) {
                                      HasSubstr("selected_field")));
 }
 
+TEST(Zarr3DriverTest, StructuredFieldWithFieldShape) {
+  // Test reading and writing with a structured field that has a field_shape.
+  // Fields with field_shape (like r16) add extra dimensions to the store.
+  auto context = Context::Default();
+
+  // Struct layout: a (int32, 4 bytes) + b (r16, 2 bytes with shape [2]) = 6 bytes
+  // Create directly with field "b" which has field_shape [2]
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix_field_shape/"}}},
+      {"field", "b"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields", ::nlohmann::json::array(
+                              {{{"name", "a"}, {"data_type", "int32"}},
+                               {{"name", "b"}, {"data_type", "r16"}}})}}}}},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Field 'b' (r16) should have rank original_rank + field_shape_rank = 2 + 1 = 3
+  ASSERT_EQ(3, store.rank());
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(4, 4, 2));
+
+  // Write some data to field b
+  auto data = tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+      {{{std::byte{1}, std::byte{2}}, {std::byte{3}, std::byte{4}}},
+       {{std::byte{5}, std::byte{6}}, {std::byte{7}, std::byte{8}}}});
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(data, store | tensorstore::Dims(0, 1).SizedInterval(
+                                           {0, 0}, {2, 2}))
+          .result());
+
+  // Read it back
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_data,
+      tensorstore::Read(store |
+                        tensorstore::Dims(0, 1).SizedInterval({0, 0}, {2, 2}))
+          .result());
+
+  EXPECT_EQ(data, read_data);
+}
+
 // Tests for GetSpecInfo() with open_as_void (mirroring v2 tests)
 
 TEST(Zarr3OpenAsVoidTest, GetSpecInfoWithKnownRank) {

@@ -1217,6 +1217,11 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   if (open_as_void && info.chunked_rank != dynamic_rank) {
     info.chunked_rank += 1;
   }
+  // For fields with field_shape (like r16, r64), add those dimensions to chunked_rank
+  if (info.field && !info.field->field_shape.empty() &&
+      info.chunked_rank != dynamic_rank) {
+    info.chunked_rank += info.field->field_shape.size();
+  }
 
   // Set domain
   bool dimension_names_used = false;
@@ -1228,6 +1233,14 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
       extended_shape.assign(metadata_constraints.shape->begin(),
                            metadata_constraints.shape->end());
       extended_shape.push_back(metadata->data_type.bytes_per_outer_element);
+      constraint_shape_span.emplace(extended_shape.data(), extended_shape.size());
+    } else if (info.field && !info.field->field_shape.empty()) {
+      // For fields with field_shape, extend the shape to include field dimensions
+      extended_shape.assign(metadata_constraints.shape->begin(),
+                           metadata_constraints.shape->end());
+      extended_shape.insert(extended_shape.end(),
+                           info.field->field_shape.begin(),
+                           info.field->field_shape.end());
       constraint_shape_span.emplace(extended_shape.data(), extended_shape.size());
     } else {
       constraint_shape_span.emplace(metadata_constraints.shape->data(),
@@ -1247,10 +1260,15 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   if (!domain.valid() || !IsFinite(domain.box())) {
     return absl::InvalidArgumentError("domain must be specified");
   }
-  // For void access, domain includes the bytes dimension, but metadata stores
-  // only the logical dimensions.
-  const DimensionIndex logical_rank =
-      open_as_void ? (domain.rank() - 1) : domain.rank();
+  // For void access or fields with field_shape, domain includes extra dimensions,
+  // but metadata stores only the logical (base array) dimensions.
+  DimensionIndex extra_dims = 0;
+  if (open_as_void) {
+    extra_dims = 1;
+  } else if (info.field && !info.field->field_shape.empty()) {
+    extra_dims = info.field->field_shape.size();
+  }
+  const DimensionIndex logical_rank = domain.rank() - extra_dims;
   metadata->rank = logical_rank;
   info.chunked_rank = domain.rank();  // Keep extended rank for codec processing
   metadata->shape.assign(domain.shape().begin(),

@@ -162,12 +162,23 @@ class ZarrDriverSpec
               "\"field\" and \"open_as_void\" are mutually exclusive");
         }
         // Set the schema rank from metadata constraints.
-        // For void access, add 1 for the bytes dimension (from the void field's
-        // field_shape = {bytes_per_outer_element}).
+        // For void access, add 1 for the bytes dimension.
+        // For fields with field_shape (like r16, r64), add those dimensions.
         if (obj->metadata_constraints.rank != dynamic_rank) {
           DimensionIndex rank = obj->metadata_constraints.rank;
           if (obj->open_as_void) {
             rank += 1;  // Add bytes dimension
+          } else if (!obj->selected_field.empty() &&
+                     obj->metadata_constraints.data_type) {
+            // Check if selected field has field_shape
+            const auto& dtype = *obj->metadata_constraints.data_type;
+            for (const auto& field : dtype.fields) {
+              if (field.name == obj->selected_field &&
+                  !field.field_shape.empty()) {
+                rank += field.field_shape.size();
+                break;
+              }
+            }
           }
           TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{rank}));
         }
@@ -212,6 +223,53 @@ class ZarrDriverSpec
       }
 
       return builder.Finalize();
+    }
+
+    // For fields with field_shape (like r16, r64), build domain to include
+    // the extra field dimensions.
+    if (!selected_field.empty() && metadata_constraints.data_type &&
+        metadata_constraints.shape) {
+      const auto& dtype = *metadata_constraints.data_type;
+      // Find the selected field
+      for (size_t i = 0; i < dtype.fields.size(); ++i) {
+        if (dtype.fields[i].name == selected_field &&
+            !dtype.fields[i].field_shape.empty()) {
+          const auto& field = dtype.fields[i];
+          const DimensionIndex original_rank = metadata_constraints.shape->size();
+          const DimensionIndex field_shape_rank = field.field_shape.size();
+          const DimensionIndex total_rank = original_rank + field_shape_rank;
+
+          IndexDomainBuilder builder(total_rank);
+
+          // Set all origins to 0
+          std::fill_n(builder.origin().begin(), total_rank, Index{0});
+
+          // Copy original dimensions
+          std::copy_n(metadata_constraints.shape->begin(), original_rank,
+                      builder.shape().begin());
+
+          // Add field_shape dimensions
+          std::copy_n(field.field_shape.begin(), field_shape_rank,
+                      builder.shape().begin() + original_rank);
+
+          // Set implicit bounds: array dims are implicit (resizable),
+          // field_shape dims are explicit
+          builder.implicit_lower_bounds(DimensionSet(false));
+          builder.implicit_upper_bounds(DimensionSet::UpTo(original_rank));
+
+          // Copy dimension names if available
+          if (metadata_constraints.dimension_names) {
+            for (DimensionIndex j = 0; j < original_rank; ++j) {
+              if (const auto& name = (*metadata_constraints.dimension_names)[j];
+                  name.has_value()) {
+                builder.labels()[j] = *name;
+              }
+            }
+          }
+
+          return builder.Finalize();
+        }
+      }
     }
 
     return GetEffectiveDomain(metadata_constraints, schema);
