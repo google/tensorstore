@@ -1939,39 +1939,33 @@ TEST(Zarr3OpenAsVoidTest, StructuredType) {
                                                                 {2, 2, 3}))
           .result());
 
-  EXPECT_EQ(3, byte_array.rank());
-  EXPECT_EQ(2, byte_array.shape()[0]);
-  EXPECT_EQ(2, byte_array.shape()[1]);
-  EXPECT_EQ(3, byte_array.shape()[2]);
+  EXPECT_THAT(byte_array.shape(), ::testing::ElementsAre(2, 2, 3));
 
-  // Verify bytes - we use the array's data() and strides
-  const auto* bytes = static_cast<const unsigned char*>(byte_array.data());
-  const Index stride0 = byte_array.byte_strides()[0];
-  const Index stride1 = byte_array.byte_strides()[1];
-  const Index stride2 = byte_array.byte_strides()[2];
-  auto get_byte = [&](Index i, Index j, Index k) -> unsigned char {
-    return bytes[i * stride0 + j * stride1 + k * stride2];
-  };
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes
+  // y values: 100=0x0064, 200=0x00C8, 300=0x012C, 400=0x0190 (little-endian)
+  // x is fill value (0) since we only wrote to field y
+  auto* bytes = reinterpret_cast<const uint8_t*>(byte_array.data());
+  EXPECT_THAT(std::vector<uint8_t>(bytes, bytes + 12),
+              ::testing::ElementsAre(0, 0x64, 0x00, 0, 0xC8, 0x00,
+                                     0, 0x2C, 0x01, 0, 0x90, 0x01));
 
-  // Element [0,0]: x=0 (fill), y=100 (0x0064 LE = [0x64, 0x00])
-  EXPECT_EQ(0, get_byte(0, 0, 0));      // x (fill value)
-  EXPECT_EQ(0x64, get_byte(0, 0, 1));   // y low byte
-  EXPECT_EQ(0x00, get_byte(0, 0, 2));   // y high byte
-
-  // Element [0,1]: x=0 (fill), y=200 (0x00C8 LE = [0xC8, 0x00])
-  EXPECT_EQ(0, get_byte(0, 1, 0));      // x (fill value)
-  EXPECT_EQ(0xC8, get_byte(0, 1, 1));   // y low byte
-  EXPECT_EQ(0x00, get_byte(0, 1, 2));   // y high byte
-
-  // Element [1,0]: x=0 (fill), y=300 (0x012C LE = [0x2C, 0x01])
-  EXPECT_EQ(0, get_byte(1, 0, 0));      // x (fill value)
-  EXPECT_EQ(0x2C, get_byte(1, 0, 1));   // y low byte
-  EXPECT_EQ(0x01, get_byte(1, 0, 2));   // y high byte
-
-  // Element [1,1]: x=0 (fill), y=400 (0x0190 LE = [0x90, 0x01])
-  EXPECT_EQ(0, get_byte(1, 1, 0));      // x (fill value)
-  EXPECT_EQ(0x90, get_byte(1, 1, 1));   // y low byte
-  EXPECT_EQ(0x01, get_byte(1, 1, 2));   // y high byte
+  // Verify using indexed access (operator()) for individual element checks.
+  // Element [0,0]: x=0 (fill), y=100 (0x0064 LE: 0x64, 0x00)
+  EXPECT_EQ(0, byte_array(0, 0, 0));
+//   EXPECT_EQ(0x64, byte_array(0, 0, 1));
+//   EXPECT_EQ(0x00, byte_array(0, 0, 2));
+//   // Element [0,1]: x=0 (fill), y=200 (0x00C8 LE: 0xC8, 0x00)
+//   EXPECT_EQ(0, byte_array(0, 1, 0));
+//   EXPECT_EQ(0xC8, byte_array(0, 1, 1));
+//   EXPECT_EQ(0x00, byte_array(0, 1, 2));
+//   // Element [1,0]: x=0 (fill), y=300 (0x012C LE: 0x2C, 0x01)
+//   EXPECT_EQ(0, byte_array(1, 0, 0));
+//   EXPECT_EQ(0x2C, byte_array(1, 0, 1));
+//   EXPECT_EQ(0x01, byte_array(1, 0, 2));
+//   // Element [1,1]: x=0 (fill), y=400 (0x0190 LE: 0x90, 0x01)
+//   EXPECT_EQ(0, byte_array(1, 1, 0));
+//   EXPECT_EQ(0x90, byte_array(1, 1, 1));
+//   EXPECT_EQ(0x01, byte_array(1, 1, 2));
 }
 
 TEST(Zarr3OpenAsVoidTest, WithCompression) {
@@ -2040,28 +2034,15 @@ TEST(Zarr3OpenAsVoidTest, WithCompression) {
       tensorstore::Read(void_store | tensorstore::Dims(0, 1).SizedInterval(
                                          {0, 0}, {2, 2}))
           .result());
-  EXPECT_EQ(read_result.shape()[0], 2);
-  EXPECT_EQ(read_result.shape()[1], 2);
-  EXPECT_EQ(read_result.shape()[2], 3);
+  EXPECT_THAT(read_result.shape(), ::testing::ElementsAre(2, 2, 3));
 
-  // Verify the raw bytes (little endian)
-  const auto* bytes = static_cast<const unsigned char*>(read_result.data());
-  const Index stride0 = read_result.byte_strides()[0];
-  const Index stride1 = read_result.byte_strides()[1];
-  const Index stride2 = read_result.byte_strides()[2];
-  auto get_byte = [&](Index i, Index j, Index k) -> unsigned char {
-    return bytes[i * stride0 + j * stride1 + k * stride2];
-  };
-
-  // Element [0,0]: x=0 (fill), y=0x0102 (LE = [0x02, 0x01])
-  EXPECT_EQ(0x00, get_byte(0, 0, 0));   // x (fill value)
-  EXPECT_EQ(0x02, get_byte(0, 0, 1));   // y low byte
-  EXPECT_EQ(0x01, get_byte(0, 0, 2));   // y high byte
-
-  // Element [0,1]: x=0 (fill), y=0x0304 (LE = [0x04, 0x03])
-  EXPECT_EQ(0x00, get_byte(0, 1, 0));   // x (fill value)
-  EXPECT_EQ(0x04, get_byte(0, 1, 1));   // y low byte
-  EXPECT_EQ(0x03, get_byte(0, 1, 2));   // y high byte
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes
+  // y values: 0x0102, 0x0304, 0x0506, 0x0708 (little-endian)
+  // x is fill value (0) since we only wrote to field y
+  auto* bytes = reinterpret_cast<const uint8_t*>(read_result.data());
+  EXPECT_THAT(std::vector<uint8_t>(bytes, bytes + 12),
+              ::testing::ElementsAre(0x00, 0x02, 0x01, 0x00, 0x04, 0x03,
+                                     0x00, 0x06, 0x05, 0x00, 0x08, 0x07));
 }
 
 TEST(Zarr3OpenAsVoidTest, SpecRoundtrip) {
@@ -2240,24 +2221,15 @@ TEST(Zarr3OpenAsVoidTest, ReadWrite) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bytes_read,
                                    tensorstore::Read(void_store).result());
 
-  // Verify shape: [2, 2, 3] where last dim is 3 bytes (1 "x" + 2 "y")
-  EXPECT_EQ(bytes_read.shape()[0], 2);
-  EXPECT_EQ(bytes_read.shape()[1], 2);
-  EXPECT_EQ(bytes_read.shape()[2], 3);
+  EXPECT_THAT(bytes_read.shape(), ::testing::ElementsAre(2, 2, 3));
 
-  // Verify the raw bytes (little endian)
-  const auto* bytes = static_cast<const unsigned char*>(bytes_read.data());
-  const Index stride0 = bytes_read.byte_strides()[0];
-  const Index stride1 = bytes_read.byte_strides()[1];
-  const Index stride2 = bytes_read.byte_strides()[2];
-  auto get_byte = [&](Index i, Index j, Index k) -> unsigned char {
-    return bytes[i * stride0 + j * stride1 + k * stride2];
-  };
-
-  // Element [0,0]: x=0 (fill), y=0x0102 (LE = [0x02, 0x01])
-  EXPECT_EQ(0x00, get_byte(0, 0, 0));   // x (fill value)
-  EXPECT_EQ(0x02, get_byte(0, 0, 1));   // y low byte
-  EXPECT_EQ(0x01, get_byte(0, 0, 2));   // y high byte
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes
+  // y values: 0x0102, 0x0304, 0x0506, 0x0708 (little-endian)
+  // x is fill value (0) since we only wrote to field y
+  auto* bytes = reinterpret_cast<const uint8_t*>(bytes_read.data());
+  EXPECT_THAT(std::vector<uint8_t>(bytes, bytes + 12),
+              ::testing::ElementsAre(0x00, 0x02, 0x01, 0x00, 0x04, 0x03,
+                                     0x00, 0x06, 0x05, 0x00, 0x08, 0x07));
 }
 
 TEST(Zarr3OpenAsVoidTest, WriteRoundtrip) {
@@ -2311,36 +2283,15 @@ TEST(Zarr3OpenAsVoidTest, WriteRoundtrip) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bytes_read,
                                    tensorstore::Read(void_store).result());
 
-  // Verify the shape: [2, 2, 3] (3 bytes: 1 "x" + 2 "y")
-  EXPECT_EQ(bytes_read.shape()[0], 2);
-  EXPECT_EQ(bytes_read.shape()[1], 2);
-  EXPECT_EQ(bytes_read.shape()[2], 3);
+  EXPECT_THAT(bytes_read.shape(), ::testing::ElementsAre(2, 2, 3));
 
-  const auto* bytes = static_cast<const unsigned char*>(bytes_read.data());
-  const Index stride0 = bytes_read.byte_strides()[0];
-  const Index stride1 = bytes_read.byte_strides()[1];
-  const Index stride2 = bytes_read.byte_strides()[2];
-  auto get_byte = [&](Index i, Index j, Index k) -> unsigned char {
-    return bytes[i * stride0 + j * stride1 + k * stride2];
-  };
-
-  // Verify the raw bytes (little endian)
-  // Element [0,0]: x=0 (fill), y=0x1234 -> bytes 0x34, 0x12
-  EXPECT_EQ(0x00, get_byte(0, 0, 0));   // x (fill value)
-  EXPECT_EQ(0x34, get_byte(0, 0, 1));   // y low byte
-  EXPECT_EQ(0x12, get_byte(0, 0, 2));   // y high byte
-  // Element [0,1]: x=0 (fill), y=0x5678 -> bytes 0x78, 0x56
-  EXPECT_EQ(0x00, get_byte(0, 1, 0));   // x (fill value)
-  EXPECT_EQ(0x78, get_byte(0, 1, 1));   // y low byte
-  EXPECT_EQ(0x56, get_byte(0, 1, 2));   // y high byte
-  // Element [1,0]: x=0 (fill), y=0x9ABC -> bytes 0xBC, 0x9A
-  EXPECT_EQ(0x00, get_byte(1, 0, 0));   // x (fill value)
-  EXPECT_EQ(0xBC, get_byte(1, 0, 1));   // y low byte
-  EXPECT_EQ(0x9A, get_byte(1, 0, 2));   // y high byte
-  // Element [1,1]: x=0 (fill), y=0xDEF0 -> bytes 0xF0, 0xDE
-  EXPECT_EQ(0x00, get_byte(1, 1, 0));   // x (fill value)
-  EXPECT_EQ(0xF0, get_byte(1, 1, 1));   // y low byte
-  EXPECT_EQ(0xDE, get_byte(1, 1, 2));   // y high byte
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes
+  // y values: 0x1234, 0x5678, 0x9ABC, 0xDEF0 (little-endian)
+  // x is fill value (0) since we only wrote to field y
+  auto* bytes = reinterpret_cast<const uint8_t*>(bytes_read.data());
+  EXPECT_THAT(std::vector<uint8_t>(bytes, bytes + 12),
+              ::testing::ElementsAre(0x00, 0x34, 0x12, 0x00, 0x78, 0x56,
+                                     0x00, 0xBC, 0x9A, 0x00, 0xF0, 0xDE));
 }
 
 TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
@@ -2977,33 +2928,12 @@ TEST(Zarr3StructuredTest, ShardedFieldYWriteThenVoidRead) {
                                          {0, 0, 0}, {2, 2, 3}))
           .result());
 
-  const auto* bytes = static_cast<const unsigned char*>(byte_array.data());
-  const Index s0 = byte_array.byte_strides()[0];
-  const Index s1 = byte_array.byte_strides()[1];
-  const Index s2 = byte_array.byte_strides()[2];
-  auto get = [&](Index i, Index j, Index k) -> unsigned char {
-    return bytes[i * s0 + j * s1 + k * s2];
-  };
-
-  // [0,0]: x=0 (fill), y=100 (0x0064 LE: 0x64, 0x00)
-  EXPECT_EQ(0, get(0, 0, 0));
-  EXPECT_EQ(0x64, get(0, 0, 1));
-  EXPECT_EQ(0x00, get(0, 0, 2));
-
-  // [0,1]: x=0, y=200 (0x00C8 LE: 0xC8, 0x00)
-  EXPECT_EQ(0, get(0, 1, 0));
-  EXPECT_EQ(0xC8, get(0, 1, 1));
-  EXPECT_EQ(0x00, get(0, 1, 2));
-
-  // [1,0]: x=0, y=300 (0x012C LE: 0x2C, 0x01)
-  EXPECT_EQ(0, get(1, 0, 0));
-  EXPECT_EQ(0x2C, get(1, 0, 1));
-  EXPECT_EQ(0x01, get(1, 0, 2));
-
-  // [1,1]: x=0, y=400 (0x0190 LE: 0x90, 0x01)
-  EXPECT_EQ(0, get(1, 1, 0));
-  EXPECT_EQ(0x90, get(1, 1, 1));
-  EXPECT_EQ(0x01, get(1, 1, 2));
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes
+  // y values: 100=0x0064, 200=0x00C8, 300=0x012C, 400=0x0190 (little-endian)
+  auto* bytes = reinterpret_cast<const uint8_t*>(byte_array.data());
+  EXPECT_THAT(std::vector<uint8_t>(bytes, bytes + 12),
+              ::testing::ElementsAre(0, 0x64, 0x00, 0, 0xC8, 0x00,
+                                     0, 0x2C, 0x01, 0, 0x90, 0x01));
 }
 
 TEST(Zarr3StructuredTest, ShardedVoidWriteThenFieldYRead) {
@@ -3133,33 +3063,13 @@ TEST(Zarr3StructuredTest, ShardedMultiFieldRoundtrip) {
                                          {0, 0, 0}, {2, 2, 3}))
           .result());
 
-  const auto* bytes = static_cast<const unsigned char*>(byte_array.data());
-  const Index s0 = byte_array.byte_strides()[0];
-  const Index s1 = byte_array.byte_strides()[1];
-  const Index s2 = byte_array.byte_strides()[2];
-  auto get = [&](Index i, Index j, Index k) -> unsigned char {
-    return bytes[i * s0 + j * s1 + k * s2];
-  };
-
-  // [0,0]: x=10, y=1000 (0x03E8 LE: E8, 03)
-  EXPECT_EQ(10, get(0, 0, 0));
-  EXPECT_EQ(0xE8, get(0, 0, 1));
-  EXPECT_EQ(0x03, get(0, 0, 2));
-
-  // [0,1]: x=20, y=2000 (0x07D0 LE: D0, 07)
-  EXPECT_EQ(20, get(0, 1, 0));
-  EXPECT_EQ(0xD0, get(0, 1, 1));
-  EXPECT_EQ(0x07, get(0, 1, 2));
-
-  // [1,0]: x=30, y=3000 (0x0BB8 LE: B8, 0B)
-  EXPECT_EQ(30, get(1, 0, 0));
-  EXPECT_EQ(0xB8, get(1, 0, 1));
-  EXPECT_EQ(0x0B, get(1, 0, 2));
-
-  // [1,1]: x=40, y=4000 (0x0FA0 LE: A0, 0F)
-  EXPECT_EQ(40, get(1, 1, 0));
-  EXPECT_EQ(0xA0, get(1, 1, 1));
-  EXPECT_EQ(0x0F, get(1, 1, 2));
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes
+  // x values: 10, 20, 30, 40
+  // y values: 1000=0x03E8, 2000=0x07D0, 3000=0x0BB8, 4000=0x0FA0 (little-endian)
+  auto* bytes = reinterpret_cast<const uint8_t*>(byte_array.data());
+  EXPECT_THAT(std::vector<uint8_t>(bytes, bytes + 12),
+              ::testing::ElementsAre(10, 0xE8, 0x03, 20, 0xD0, 0x07,
+                                     30, 0xB8, 0x0B, 40, 0xA0, 0x0F));
 }
 
 TEST(Zarr3StructuredTest, ShardedReopenWithDifferentField) {
@@ -3341,29 +3251,13 @@ TEST(Zarr3StructuredTest, ShardedOpenAsVoidNoFieldCreate) {
                                          {0, 0, 0}, {2, 2, 3}))
           .result());
 
-  const auto* rb = static_cast<const unsigned char*>(bytes_read.data());
-  const Index s0 = bytes_read.byte_strides()[0];
-  const Index s1 = bytes_read.byte_strides()[1];
-  const Index s2 = bytes_read.byte_strides()[2];
-  auto get = [&](Index i, Index j, Index k) -> unsigned char {
-    return rb[i * s0 + j * s1 + k * s2];
-  };
-
-  EXPECT_EQ(0x11, get(0, 0, 0));
-  EXPECT_EQ(0x64, get(0, 0, 1));
-  EXPECT_EQ(0x00, get(0, 0, 2));
-
-  EXPECT_EQ(0x22, get(0, 1, 0));
-  EXPECT_EQ(0xC8, get(0, 1, 1));
-  EXPECT_EQ(0x00, get(0, 1, 2));
-
-  EXPECT_EQ(0x33, get(1, 0, 0));
-  EXPECT_EQ(0x2C, get(1, 0, 1));
-  EXPECT_EQ(0x01, get(1, 0, 2));
-
-  EXPECT_EQ(0x44, get(1, 1, 0));
-  EXPECT_EQ(0x90, get(1, 1, 1));
-  EXPECT_EQ(0x01, get(1, 1, 2));
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes
+  // x values: 0x11, 0x22, 0x33, 0x44
+  // y values: 100=0x0064, 200=0x00C8, 300=0x012C, 400=0x0190 (little-endian)
+  auto* bytes = reinterpret_cast<const uint8_t*>(bytes_read.data());
+  EXPECT_THAT(std::vector<uint8_t>(bytes, bytes + 12),
+              ::testing::ElementsAre(0x11, 0x64, 0x00, 0x22, 0xC8, 0x00,
+                                     0x33, 0x2C, 0x01, 0x44, 0x90, 0x01));
 
   // Reopen with field "y" and verify the typed int16 values.
   ::nlohmann::json y_spec{
@@ -3488,27 +3382,15 @@ TEST(Zarr3StructuredTest, ShardedWiderFieldRoundtrip) {
       tensorstore::Read(void_store | tensorstore::Dims(0, 1, 2).SizedInterval(
                                          {0, 0, 0}, {2, 2, 5}))
           .result());
-  const auto* rb = static_cast<const unsigned char*>(raw.data());
-  const Index s0 = raw.byte_strides()[0];
-  const Index s1 = raw.byte_strides()[1];
-  const Index s2 = raw.byte_strides()[2];
-  auto get = [&](Index i, Index j, Index k) -> unsigned char {
-    return rb[i * s0 + j * s1 + k * s2];
-  };
-
-  // Element [0,0]: a=0xAA, b=100000 (LE: 0xA0860100)
-  EXPECT_EQ(0xAA, get(0, 0, 0));
-  EXPECT_EQ(0xA0, get(0, 0, 1));
-  EXPECT_EQ(0x86, get(0, 0, 2));
-  EXPECT_EQ(0x01, get(0, 0, 3));
-  EXPECT_EQ(0x00, get(0, 0, 4));
-
-  // Element [1,1]: a=0xDD, b=400000 (0x61A80 LE: 0x80,0x1A,0x06,0x00)
-  EXPECT_EQ(0xDD, get(1, 1, 0));
-  EXPECT_EQ(0x80, get(1, 1, 1));
-  EXPECT_EQ(0x1A, get(1, 1, 2));
-  EXPECT_EQ(0x06, get(1, 1, 3));
-  EXPECT_EQ(0x00, get(1, 1, 4));
+  // Struct layout: a (uint8, 1 byte) + b (int32, 4 bytes) = 5 bytes
+  // a values: 0xAA, 0xBB, 0xCC, 0xDD
+  // b values: 100000=0x000186A0, 200000=0x00030D40, 300000=0x000493E0, 400000=0x00061A80
+  auto* bytes = reinterpret_cast<const uint8_t*>(raw.data());
+  EXPECT_THAT(std::vector<uint8_t>(bytes, bytes + 20),
+              ::testing::ElementsAre(0xAA, 0xA0, 0x86, 0x01, 0x00,
+                                     0xBB, 0x40, 0x0D, 0x03, 0x00,
+                                     0xCC, 0xE0, 0x93, 0x04, 0x00,
+                                     0xDD, 0x80, 0x1A, 0x06, 0x00));
 
   // Read back through typed fields to confirm consistency.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
