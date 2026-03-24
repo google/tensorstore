@@ -62,6 +62,8 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
+namespace jb = ::tensorstore::internal_json_binding;
+
 absl::Status SubChunkRankMismatch(
     tensorstore::span<const Index> sub_chunk_shape, DimensionIndex outer_rank) {
   return absl::InvalidArgumentError(
@@ -200,8 +202,8 @@ absl::Status ShardingIndexedCodecSpec::MergeFrom(const ZarrCodecSpec& other,
   using Self = ShardingIndexedCodecSpec;
   const auto& other_options = static_cast<const Self&>(other).options;
   TENSORSTORE_RETURN_IF_ERROR(MergeConstraint<&Options::sub_chunk_shape>(
-      "chunk_shape", options, other_options,
-      internal_json_binding::DefaultBinder<>, TryMergeSubChunkShape{}));
+      "chunk_shape", options, other_options, jb::DefaultBinder<>,
+      TryMergeSubChunkShape{}));
   TENSORSTORE_RETURN_IF_ERROR(
       internal_zarr3::MergeZarrCodecSpecs(options.index_codecs,
                                           other_options.index_codecs, strict))
@@ -384,7 +386,6 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
 TENSORSTORE_GLOBAL_INITIALIZER {
   using Self = ShardingIndexedCodecSpec;
   using Options = Self::Options;
-  namespace jb = ::tensorstore::internal_json_binding;
   RegisterCodec<Self>(
       "sharding_indexed",
       jb::Projection<&Self::options>(jb::Sequence(
