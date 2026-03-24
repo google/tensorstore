@@ -84,8 +84,6 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
-constexpr size_t kVoidFieldIndex = size_t(-1);
-
 // Avoid anonymous namespace to workaround MSVC bug.
 //
 // https://developercommunity.visualstudio.com/t/Bug-involving-virtual-functions-templat/10424129

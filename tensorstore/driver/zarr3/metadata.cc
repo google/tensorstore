@@ -808,8 +808,6 @@ std::string GetFieldNames(const ZarrDType& dtype) {
 }
 }  // namespace
 
-constexpr size_t kVoidFieldIndex = size_t(-1);
-
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
                              std::string_view selected_field,
                              bool open_as_void) {

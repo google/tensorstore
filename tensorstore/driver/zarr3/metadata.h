@@ -53,6 +53,10 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
+// Sentinel value for field_index indicating access to the raw byte "void" view
+// of a structured array.
+constexpr size_t kVoidFieldIndex = size_t(-1);
+
 // Defines how chunks map to keys in the underlying kvstore.
 //
 // https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#chunk-key-encoding
