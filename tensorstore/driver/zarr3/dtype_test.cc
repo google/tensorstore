@@ -542,4 +542,34 @@ TEST(ParseDType, SerializationUsesNewFormat) {
   EXPECT_EQ(output["configuration"]["fields"][0]["data_type"], "uint8");
 }
 
+TEST(ParseDType, Raw64BitFieldShape) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "x"}, {"data_type", "r64"}}})}}}};
+  // r64 results in field_shape [8]
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(input));
+  ASSERT_EQ(dtype.fields.size(), 1);
+  EXPECT_THAT(dtype.fields[0].field_shape, ::testing::ElementsAre(8));
+  EXPECT_EQ(dtype.fields[0].num_bytes, 8);
+}
+
+TEST(ParseDType, ManyFieldsOffsets) {
+  // Verify that many fields are supported and byte offsets are computed correctly.
+  // There is no explicit limit on the number of fields; the limit is bounded only
+  // by memory and integer overflow in byte offset calculations.
+  ::nlohmann::json::array_t fields;
+  for (int i = 0; i < 1000; ++i) {
+    fields.push_back({{"name", absl::StrCat("f", i)}, {"data_type", "int64"}});
+  }
+  ::nlohmann::json input = {{"name", "struct"},
+                            {"configuration", {{"fields", fields}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(input));
+  EXPECT_EQ(dtype.fields.size(), 1000);
+  EXPECT_EQ(dtype.bytes_per_outer_element, 8000);
+  EXPECT_EQ(dtype.fields[99].byte_offset, 99 * 8);
+  EXPECT_EQ(dtype.fields[999].byte_offset, 999 * 8);
+}
+
 }  // namespace
