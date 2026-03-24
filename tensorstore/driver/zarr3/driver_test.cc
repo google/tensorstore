@@ -3045,6 +3045,294 @@ TEST(Zarr3StructuredTest, ShardedVoidWriteThenFieldYRead) {
   EXPECT_EQ(expected_y, y_data);
 }
 
+TEST(Zarr3StructuredTest, ShardedVoidWriteThenFieldR16Read) {
+  auto context = Context::Default();
+
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "x"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "x"}, {"data_type", "uint8"}},
+                     {{"name", "y"}, {"data_type", "r16"}}})}}}}},
+           {"shape", {8, 8}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {8, 8}}}}}},
+           {"codecs",
+            {{{"name", "sharding_indexed"},
+              {"configuration",
+               {{"chunk_shape", {4, 4}},
+                {"codecs", {{{"name", "bytes"}}}},
+                {"index_codecs",
+                 {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto x_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  auto write_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
+      {1, 1, 3}, tensorstore::c_order, tensorstore::value_init);
+  auto ptr = static_cast<unsigned char*>(
+      const_cast<void*>(static_cast<const void*>(write_bytes.data())));
+  ptr[0] = 0xAA;
+  ptr[1] = 0xC8;
+  ptr[2] = 0x00;
+
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(write_bytes,
+                         void_store | tensorstore::Dims(0, 1, 2).SizedInterval(
+                                          {0, 0, 0}, {1, 1, 3}))
+          .result());
+
+  ::nlohmann::json y_open_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_store,
+      tensorstore::Open(y_open_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_data,
+      tensorstore::Read(y_store |
+                        tensorstore::Dims(0, 1).SizedInterval({0, 0}, {1, 1}))
+          .result());
+  auto expected_y = tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+      {{{std::byte{0xC8}, std::byte{0x00}}}});
+  EXPECT_EQ(expected_y, y_data);
+}
+
+TEST(Zarr3StructuredTest, ShardedVoidWriteThenFieldR64Read) {
+  auto context = Context::Default();
+
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "x"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "x"}, {"data_type", "uint8"}},
+                     {{"name", "y"}, {"data_type", "r64"}}})}}}}},
+           {"shape", {8, 8}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {8, 8}}}}}},
+           {"codecs",
+            {{{"name", "sharding_indexed"},
+              {"configuration",
+               {{"chunk_shape", {4, 4}},
+                {"codecs", {{{"name", "bytes"}}}},
+                {"index_codecs",
+                 {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto x_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  auto write_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
+      {1, 1, 9}, tensorstore::c_order, tensorstore::value_init);
+  auto ptr = static_cast<unsigned char*>(
+      const_cast<void*>(static_cast<const void*>(write_bytes.data())));
+  ptr[0] = 0xAA;
+  for (int i = 0; i < 8; ++i) {
+    ptr[1 + i] = static_cast<unsigned char>(i + 1);
+  }
+
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(write_bytes,
+                         void_store | tensorstore::Dims(0, 1, 2).SizedInterval(
+                                          {0, 0, 0}, {1, 1, 9}))
+          .result());
+
+  ::nlohmann::json y_open_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_store,
+      tensorstore::Open(y_open_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_data,
+      tensorstore::Read(y_store |
+                        tensorstore::Dims(0, 1).SizedInterval({0, 0}, {1, 1}))
+          .result());
+  auto expected_y = tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+      {{{std::byte{0x01}, std::byte{0x02}, std::byte{0x03}, std::byte{0x04},
+         std::byte{0x05}, std::byte{0x06}, std::byte{0x07}, std::byte{0x08}}}});
+  EXPECT_EQ(expected_y, y_data);
+}
+
+TEST(Zarr3StructuredTest, ShardedFieldR16WriteRead) {
+  auto context = Context::Default();
+
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "x"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "x"}, {"data_type", "uint8"}},
+                     {{"name", "y"}, {"data_type", "r16"}}})}}}}},
+           {"shape", {8, 8}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {8, 8}}}}}},
+           {"codecs",
+            {{{"name", "sharding_indexed"},
+              {"configuration",
+               {{"chunk_shape", {4, 4}},
+                {"codecs", {{{"name", "bytes"}}}},
+                {"index_codecs",
+                 {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto x_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  ::nlohmann::json y_open_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_store,
+      tensorstore::Open(y_open_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  auto y_data = tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+      {{{std::byte{0xC8}, std::byte{0x00}}, {std::byte{0x90}, std::byte{0x01}}},
+       {{std::byte{0x58}, std::byte{0x02}}, {std::byte{0x20}, std::byte{0x03}}}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(y_data, y_store | tensorstore::Dims(0, 1).SizedInterval(
+                                               {0, 0}, {2, 2}))
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_read,
+      tensorstore::Read(y_store |
+                        tensorstore::Dims(0, 1).SizedInterval({0, 0}, {2, 2}))
+          .result());
+  EXPECT_EQ(y_data, y_read);
+}
+
+TEST(Zarr3StructuredTest, ShardedFieldR64WriteRead) {
+  auto context = Context::Default();
+
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "x"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "x"}, {"data_type", "uint8"}},
+                     {{"name", "y"}, {"data_type", "r64"}}})}}}}},
+           {"shape", {8, 8}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {8, 8}}}}}},
+           {"codecs",
+            {{{"name", "sharding_indexed"},
+              {"configuration",
+               {{"chunk_shape", {4, 4}},
+                {"codecs", {{{"name", "bytes"}}}},
+                {"index_codecs",
+                 {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto x_store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  ::nlohmann::json y_open_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_store,
+      tensorstore::Open(y_open_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  auto y_data = tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+      {{{std::byte{0x01}, std::byte{0x02}, std::byte{0x03}, std::byte{0x04},
+         std::byte{0x05}, std::byte{0x06}, std::byte{0x07}, std::byte{0x08}}}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(y_data, y_store | tensorstore::Dims(0, 1).SizedInterval(
+                                               {0, 0}, {1, 1}))
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_read,
+      tensorstore::Read(y_store |
+                        tensorstore::Dims(0, 1).SizedInterval({0, 0}, {1, 1}))
+          .result());
+  EXPECT_EQ(y_data, y_read);
+}
+
 TEST(Zarr3StructuredTest, ShardedMultiFieldRoundtrip) {
   auto context = Context::Default();
 

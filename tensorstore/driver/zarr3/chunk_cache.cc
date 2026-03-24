@@ -329,11 +329,28 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
     auto result_array =
         AllocateArray(component_shape, c_order, default_init, field.dtype);
 
-    // Build strides for the source view: each element is separated by
-    // bytes_per_outer_element (the struct size), not field_size.
-    std::vector<Index> src_byte_strides(chunk_shape.size());
+    // Build the full view shape: [chunk_shape..., field_shape...]
+    // For fields with field_shape (like r16, r64), we need to include those
+    // dimensions in the view.
+    std::vector<Index> view_shape(chunk_shape.begin(), chunk_shape.end());
+    view_shape.insert(view_shape.end(), field.field_shape.begin(),
+                      field.field_shape.end());
+
+    // Build strides for the source view:
+    // - Outer dimensions (chunk_shape): each element separated by
+    //   bytes_per_outer_element
+    // - Inner dimensions (field_shape): contiguous bytes within each element
+    std::vector<Index> src_byte_strides(view_shape.size());
+    // First compute strides for chunk dimensions
     ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
-                   src_byte_strides);
+                   absl::MakeSpan(src_byte_strides.data(), chunk_shape.size()));
+    // Then compute strides for field_shape dimensions (contiguous within element)
+    if (!field.field_shape.empty()) {
+      ComputeStrides(c_order, static_cast<Index>(field.dtype.size()),
+                     field.field_shape,
+                     absl::MakeSpan(src_byte_strides.data() + chunk_shape.size(),
+                                    field.field_shape.size()));
+    }
 
     // Create source ArrayView pointing to this field's offset within
     // the interleaved byte array, with strides that skip over other fields.
@@ -341,7 +358,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
         {static_cast<const void*>(
              static_cast<const std::byte*>(byte_array.data()) + field.byte_offset),
          field.dtype},
-        StridedLayoutView<>(chunk_shape, src_byte_strides));
+        StridedLayoutView<>(view_shape, src_byte_strides));
 
     // Use CopyArray which safely handles any layout differences
     CopyArray(src_field_view, result_array);
@@ -414,17 +431,34 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     const auto& field = dtype_.fields[field_i];
     const auto& field_array = component_arrays[field_i];
 
-    // Build strides for the destination view: each element is separated by
-    // bytes_per_outer_element (the struct size), not field_size.
-    std::vector<Index> dest_byte_strides(chunk_shape.size());
+    // Build the full view shape: [chunk_shape..., field_shape...]
+    // For fields with field_shape (like r16, r64), we need to include those
+    // dimensions in the view.
+    std::vector<Index> view_shape(chunk_shape.begin(), chunk_shape.end());
+    view_shape.insert(view_shape.end(), field.field_shape.begin(),
+                      field.field_shape.end());
+
+    // Build strides for the destination view:
+    // - Outer dimensions (chunk_shape): each element separated by
+    //   bytes_per_outer_element
+    // - Inner dimensions (field_shape): contiguous bytes within each element
+    std::vector<Index> dest_byte_strides(view_shape.size());
+    // First compute strides for chunk dimensions
     ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
-                   dest_byte_strides);
+                   absl::MakeSpan(dest_byte_strides.data(), chunk_shape.size()));
+    // Then compute strides for field_shape dimensions (contiguous within element)
+    if (!field.field_shape.empty()) {
+      ComputeStrides(c_order, static_cast<Index>(field.dtype.size()),
+                     field.field_shape,
+                     absl::MakeSpan(dest_byte_strides.data() + chunk_shape.size(),
+                                    field.field_shape.size()));
+    }
 
     // Create destination ArrayView pointing to this field's offset within
     // the interleaved byte array, with strides that skip over other fields.
     ArrayView<void> dest_field_view(
         {static_cast<void*>(byte_array.data() + field.byte_offset), field.dtype},
-        StridedLayoutView<>(chunk_shape, dest_byte_strides));
+        StridedLayoutView<>(view_shape, dest_byte_strides));
 
     // Use CopyArray which safely handles any source strides via IterateOverArrays
     CopyArray(field_array, dest_field_view);
