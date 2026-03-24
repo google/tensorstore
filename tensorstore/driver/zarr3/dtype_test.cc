@@ -42,6 +42,19 @@ using ::tensorstore::internal_zarr3::ParseDType;
 using ::tensorstore::internal_zarr3::ZarrDType;
 using ::testing::HasSubstr;
 
+// Helper to add a field to ZarrDType, computing byte_offset and updating
+// bytes_per_outer_element. The byte_offset in the passed field is ignored and
+// computed based on the current bytes_per_outer_element. If the field has a
+// non-empty name, has_fields is set to true.
+void AddFieldToZarrDType(ZarrDType& dtype, ZarrDType::Field field) {
+  field.byte_offset = dtype.bytes_per_outer_element;
+  dtype.bytes_per_outer_element += field.num_bytes;
+  if (!field.name.empty()) {
+    dtype.has_fields = true;
+  }
+  dtype.fields.push_back(std::move(field));
+}
+
 void CheckBaseDType(std::string dtype, DataType r,
                     std::vector<Index> flexible_shape) {
   EXPECT_THAT(ParseBaseDType(dtype), ::testing::Optional(ZarrDType::BaseDType{
@@ -99,77 +112,55 @@ void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {
 }
 
 TEST(ParseDType, SimpleStringBool) {
-  CheckDType("bool", ZarrDType{
-                         /*.has_fields=*/false,
-                         /*.fields=*/
-                         {
-                             {{
-                                  /*.encoded_dtype=*/"bool",
-                                  /*.dtype=*/dtype_v<bool>,
-                                  /*.flexible_shape=*/{},
-                              },
-                              /*.name=*/"",
-                              /*.field_shape=*/{},
-                              /*.num_inner_elements=*/1,
-                              /*.byte_offset=*/0,
-                              /*.num_bytes=*/1},
-                         },
-                         /*.bytes_per_outer_element=*/1,
-                     });
+  ZarrDType expected{};
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"bool",
+                        /*.dtype=*/dtype_v<bool>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/1});
+  CheckDType("bool", expected);
 }
 
 TEST(ParseDType, SingleNamedFieldChar) {
   // Zarr 3 doesn't support fixed size strings natively in core, so we use uint8 for testing bytes
-  CheckDType(::nlohmann::json::array_t{{"x", "uint8"}},
-             ZarrDType{
-                 /*.has_fields=*/true,
-                 /*.fields=*/
-                 {
-                     {{
-                          /*.encoded_dtype=*/"uint8",
-                          /*.dtype=*/dtype_v<uint8_t>,
-                          /*.flexible_shape=*/{},
-                      },
-                      /*.name=*/"x",
-                      /*.field_shape=*/{},
-                      /*.num_inner_elements=*/1,
-                      /*.byte_offset=*/0,
-                      /*.num_bytes=*/1},
-                 },
-                 /*.bytes_per_outer_element=*/1,
-             });
+  ZarrDType expected{};
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"uint8",
+                        /*.dtype=*/dtype_v<uint8_t>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"x",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/1});
+  CheckDType(::nlohmann::json::array_t{{"x", "uint8"}}, expected);
 }
 
 TEST(ParseDType, TwoNamedFields) {
-  CheckDType(
-      ::nlohmann::json::array_t{{"x", "int8"}, {"y", "int16"}},
-      ZarrDType{
-          /*.has_fields=*/true,
-          /*.fields=*/
-          {
-              {{
-                   /*.encoded_dtype=*/"int8",
-                   /*.dtype=*/dtype_v<int8_t>,
-                   /*.flexible_shape=*/{},
-               },
-               /*.name=*/"x",
-               /*.field_shape=*/{},
-               /*.num_inner_elements=*/1,
-               /*.byte_offset=*/0,
-               /*.num_bytes=*/1},
-              {{
-                   /*.encoded_dtype=*/"int16",
-                   /*.dtype=*/dtype_v<int16_t>,
-                   /*.flexible_shape=*/{},
-               },
-               /*.name=*/"y",
-               /*.field_shape=*/{},
-               /*.num_inner_elements=*/1,
-               /*.byte_offset=*/1,
-               /*.num_bytes=*/2},
-          },
-          /*.bytes_per_outer_element=*/3,
-      });
+  ZarrDType expected{};
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"int8",
+                        /*.dtype=*/dtype_v<int8_t>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"x",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/1});
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"int16",
+                        /*.dtype=*/dtype_v<int16_t>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"y",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/2});
+  CheckDType(::nlohmann::json::array_t{{"x", "int8"}, {"y", "int16"}}, expected);
 }
 
 TEST(ParseDType, FieldSpecTooShort) {
@@ -283,33 +274,25 @@ TEST(ParseDType, StructNameNewFormat) {
          ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
                                   {{"name", "y"}, {"data_type", "int16"}}})}}}};
 
-  ZarrDType expected{
-      /*.has_fields=*/true,
-      /*.fields=*/
-      {
-          {{
-               /*.encoded_dtype=*/"uint8",
-               /*.dtype=*/dtype_v<uint8_t>,
-               /*.flexible_shape=*/{},
-           },
-           /*.name=*/"x",
-           /*.field_shape=*/{},
-           /*.num_inner_elements=*/1,
-           /*.byte_offset=*/0,
-           /*.num_bytes=*/1},
-          {{
-               /*.encoded_dtype=*/"int16",
-               /*.dtype=*/dtype_v<int16_t>,
-               /*.flexible_shape=*/{},
-           },
-           /*.name=*/"y",
-           /*.field_shape=*/{},
-           /*.num_inner_elements=*/1,
-           /*.byte_offset=*/1,
-           /*.num_bytes=*/2},
-      },
-      /*.bytes_per_outer_element=*/3,
-  };
+  ZarrDType expected{};
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"uint8",
+                        /*.dtype=*/dtype_v<uint8_t>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"x",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/1});
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"int16",
+                        /*.dtype=*/dtype_v<int16_t>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"y",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/2});
 
   CheckDType(input, expected);
 
@@ -331,23 +314,16 @@ TEST(ParseDType, StructuredNameLegacy) {
       {"configuration",
        {{"fields", ::nlohmann::json::array({{"a", "float32"}})}}}};
 
-  ZarrDType expected{
-      /*.has_fields=*/true,
-      /*.fields=*/
-      {
-          {{
-               /*.encoded_dtype=*/"float32",
-               /*.dtype=*/dtype_v<tensorstore::dtypes::float32_t>,
-               /*.flexible_shape=*/{},
-           },
-           /*.name=*/"a",
-           /*.field_shape=*/{},
-           /*.num_inner_elements=*/1,
-           /*.byte_offset=*/0,
-           /*.num_bytes=*/4},
-      },
-      /*.bytes_per_outer_element=*/4,
-  };
+  ZarrDType expected{};
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"float32",
+                        /*.dtype=*/dtype_v<tensorstore::dtypes::float32_t>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"a",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/4});
 
   CheckDType(input, expected);
 }
@@ -563,33 +539,25 @@ TEST(ParseDType, StructuredWithFieldShape) {
                        {{{"name", "scalar"}, {"data_type", "int32"}},
                         {{"name", "array"}, {"data_type", "r16"}}})}}}};
 
-  ZarrDType expected{
-      /*.has_fields=*/true,
-      /*.fields=*/
-      {
-          {{
-               /*.encoded_dtype=*/"int32",
-               /*.dtype=*/dtype_v<int32_t>,
-               /*.flexible_shape=*/{},
-           },
-           /*.name=*/"scalar",
-           /*.field_shape=*/{},
-           /*.num_inner_elements=*/1,
-           /*.byte_offset=*/0,
-           /*.num_bytes=*/4},
-          {{
-               /*.encoded_dtype=*/"r16",
-               /*.dtype=*/dtype_v<tensorstore::dtypes::byte_t>,
-               /*.flexible_shape=*/{2},
-           },
-           /*.name=*/"array",
-           /*.field_shape=*/{2},
-           /*.num_inner_elements=*/2,
-           /*.byte_offset=*/4,
-           /*.num_bytes=*/2},
-      },
-      /*.bytes_per_outer_element=*/6,
-  };
+  ZarrDType expected{};
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"int32",
+                        /*.dtype=*/dtype_v<int32_t>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"scalar",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/4});
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"r16",
+                        /*.dtype=*/dtype_v<tensorstore::dtypes::byte_t>,
+                        /*.flexible_shape=*/{2}},
+                       /*.name=*/"array",
+                       /*.field_shape=*/{2},
+                       /*.num_inner_elements=*/2,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/2});
 
   CheckDType(input, expected);
 }
