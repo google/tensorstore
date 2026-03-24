@@ -138,45 +138,11 @@ class ZarrDriverSpec
                  jb::Projection<&ZarrDriverSpec::open_as_void>(
                      jb::DefaultValue<jb::kNeverIncludeDefaults>(
                          [](auto* v) { *v = false; }))),
-      jb::Initialize([](auto* obj) -> absl::Status {  // TODO: https://github.com/google/tensorstore/pull/271/changes/BASE..83f99827546c2082d82fa54f81d695dd8eb68c73#r2949222831
-        // Validate that field and open_as_void are mutually exclusive.
-        if (obj->open_as_void && !obj->selected_field.empty()) {
-          return absl::InvalidArgumentError(
-              "\"field\" and \"open_as_void\" are mutually exclusive");
-        }
-        // Set schema dtype from metadata constraints.
-        if (obj->metadata_constraints.data_type) {
-          if (auto dtype =
-                  GetScalarDataType(*obj->metadata_constraints.data_type)) {
-            TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(*dtype));
-          } else if (obj->schema.dtype().valid()) {
-            return absl::InvalidArgumentError(
-                "schema dtype must be unspecified for structured "
-                "zarr3 data types");
-          }
-        }
-        // Set the schema rank from metadata constraints.
-        // For void access, add 1 for the bytes dimension.
-        // For fields with field_shape (like r16, r64), add those dimensions.
-        if (obj->metadata_constraints.rank != dynamic_rank) {
-          DimensionIndex rank = obj->metadata_constraints.rank;
-          if (obj->open_as_void) {
-            rank += 1;  // Add bytes dimension
-          } else if (!obj->selected_field.empty() &&
-                     obj->metadata_constraints.data_type) {
-            // Check if selected field has field_shape
-            const auto& dtype = *obj->metadata_constraints.data_type;
-            for (const auto& field : dtype.fields) {
-              if (field.name == obj->selected_field &&
-                  !field.field_shape.empty()) {
-                rank += field.field_shape.size();
-                break;
-              }
-            }
-          }
-          TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{rank}));
-        }
-        return absl::OkStatus();
+      // TODO: https://github.com/google/tensorstore/pull/271/changes/BASE..83f99827546c2082d82fa54f81d695dd8eb68c73#r2949222831
+      jb::Initialize([](auto* obj) -> absl::Status {
+        return TrySetMetadataConstraintsOnSchema(obj->metadata_constraints,
+                                                 obj->selected_field,
+                                                 obj->open_as_void, obj->schema);
       }));
 
   absl::Status ApplyOptions(SpecOptions&& options) override {

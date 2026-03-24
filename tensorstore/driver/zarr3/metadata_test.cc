@@ -69,6 +69,7 @@ using ::tensorstore::dtypes::float32_t;
 using ::tensorstore::dtypes::float64_t;
 using ::tensorstore::internal::uint_t;
 using ::tensorstore::internal_zarr3::FillValueJsonBinder;
+using ::tensorstore::internal_zarr3::GetSpecRankAndFieldInfo;
 using ::tensorstore::internal_zarr3::ZarrDType;
 using ::tensorstore::internal_zarr3::ZarrMetadata;
 using ::tensorstore::internal_zarr3::ZarrMetadataConstraints;
@@ -744,6 +745,213 @@ TEST(FillValueTest, StructuredObjectOmittedFieldsError) {
       jb::FromJson<std::vector<SharedArray<const void>>>(partial_json, binder),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Missing required field \"omitted\"")));
+}
+
+TEST(GetSpecRankAndFieldInfoTest, SelectedFieldAndOpenAsVoidMutuallyExclusive) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(2);
+  constraints.data_type->fields[0].name = "x";
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->fields[1].name = "y";
+  constraints.data_type->fields[1].dtype = dtype_v<int32_t>;
+  constraints.data_type->bytes_per_outer_element = 8;
+
+  Schema schema;
+  EXPECT_THAT(
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"x", schema,
+                              /*open_as_void=*/true),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"field\" and \"open_as_void\" are mutually "
+                         "exclusive")));
+}
+
+TEST(GetSpecRankAndFieldInfoTest, VoidAccessSetsFieldRankToOne) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(2);
+  constraints.data_type->fields[0].name = "x";
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->fields[1].name = "y";
+  constraints.data_type->fields[1].dtype = dtype_v<int32_t>;
+  constraints.data_type->bytes_per_outer_element = 8;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto info,
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"", schema,
+                              /*open_as_void=*/true));
+  EXPECT_EQ(info.chunked_rank, 2);
+  EXPECT_EQ(info.field_rank, 1);
+  EXPECT_EQ(info.full_rank, 3);
+  EXPECT_EQ(info.field, nullptr);
+}
+
+TEST(GetSpecRankAndFieldInfoTest, SelectedFieldWithFieldShape) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(2);
+  constraints.data_type->fields[0].name = "a";
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->fields[1].name = "b";
+  constraints.data_type->fields[1].dtype = dtype_v<float16_t>;
+  constraints.data_type->fields[1].field_shape = {2};  // r16 has shape [2]
+  constraints.data_type->bytes_per_outer_element = 8;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto info,
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"b", schema,
+                              /*open_as_void=*/false));
+  EXPECT_EQ(info.chunked_rank, 2);
+  EXPECT_EQ(info.field_rank, 1);  // field_shape [2] adds 1 dimension
+  EXPECT_EQ(info.full_rank, 3);
+  ASSERT_NE(info.field, nullptr);
+  EXPECT_EQ(info.field->name, "b");
+}
+
+TEST(GetSpecRankAndFieldInfoTest, DeriveRankFromSchema) {
+  ZarrMetadataConstraints constraints;
+  // No rank in constraints
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = false;
+  constraints.data_type->fields.resize(1);
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->bytes_per_outer_element = 4;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::RankConstraint{3}));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto info,
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"", schema,
+                              /*open_as_void=*/false));
+  EXPECT_EQ(info.full_rank, 3);
+  // chunked_rank derived from full_rank - field_rank (0)
+  EXPECT_EQ(info.chunked_rank, 3);
+  EXPECT_EQ(info.field_rank, 0);
+}
+
+TEST(GetSpecRankAndFieldInfoTest, SingleFieldDefaultsCorrectly) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = false;
+  constraints.data_type->fields.resize(1);
+  constraints.data_type->fields[0].dtype = dtype_v<float32_t>;
+  constraints.data_type->fields[0].field_shape = {3, 3};  // e.g., 3x3 matrix
+  constraints.data_type->bytes_per_outer_element = 36;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto info,
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"", schema,
+                              /*open_as_void=*/false));
+  EXPECT_EQ(info.chunked_rank, 2);
+  EXPECT_EQ(info.field_rank, 2);  // field_shape [3, 3]
+  EXPECT_EQ(info.full_rank, 4);
+  ASSERT_NE(info.field, nullptr);
+}
+
+TEST(ValidateSpecRankAndFieldInfoTest, DerivesFullRank) {
+  tensorstore::internal_zarr3::SpecRankAndFieldInfo info;
+  info.chunked_rank = 2;
+  info.field_rank = 1;
+  // full_rank is dynamic
+
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::ValidateSpecRankAndFieldInfo(info));
+  EXPECT_EQ(info.full_rank, 3);
+}
+
+TEST(ValidateSpecRankAndFieldInfoTest, DerivesChunkedRank) {
+  tensorstore::internal_zarr3::SpecRankAndFieldInfo info;
+  info.full_rank = 5;
+  info.field_rank = 2;
+  // chunked_rank is dynamic
+
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::ValidateSpecRankAndFieldInfo(info));
+  EXPECT_EQ(info.chunked_rank, 3);
+}
+
+TEST(ValidateSpecRankAndFieldInfoTest, InconsistentRanksError) {
+  tensorstore::internal_zarr3::SpecRankAndFieldInfo info;
+  info.full_rank = 5;
+  info.chunked_rank = 2;
+  info.field_rank = 1;  // 2 + 1 != 5
+
+  EXPECT_THAT(
+      tensorstore::internal_zarr3::ValidateSpecRankAndFieldInfo(info),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("not compatible with metadata")));
+}
+
+TEST(TrySetMetadataConstraintsOnSchemaTest, SetsScalarDtype) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = false;
+  constraints.data_type->fields.resize(1);
+  constraints.data_type->fields[0].dtype = dtype_v<float32_t>;
+  constraints.data_type->bytes_per_outer_element = 4;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
+          constraints, /*selected_field=*/"", /*open_as_void=*/false, schema));
+
+  EXPECT_EQ(schema.dtype(), dtype_v<float32_t>);
+  EXPECT_EQ(schema.rank(), 2);
+}
+
+TEST(TrySetMetadataConstraintsOnSchemaTest, RejectsSchemaForStructuredType) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(2);
+  constraints.data_type->fields[0].name = "x";
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->fields[1].name = "y";
+  constraints.data_type->fields[1].dtype = dtype_v<int32_t>;
+  constraints.data_type->bytes_per_outer_element = 8;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<int32_t>));
+
+  EXPECT_THAT(
+      tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
+          constraints, /*selected_field=*/"x", /*open_as_void=*/false, schema),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("schema dtype must be unspecified for structured")));
+}
+
+TEST(TrySetMetadataConstraintsOnSchemaTest, SetsRankWithFieldShape) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(1);
+  constraints.data_type->fields[0].name = "matrix";
+  constraints.data_type->fields[0].dtype = dtype_v<float32_t>;
+  constraints.data_type->fields[0].field_shape = {4, 4};
+  constraints.data_type->bytes_per_outer_element = 64;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
+          constraints, /*selected_field=*/"matrix", /*open_as_void=*/false,
+          schema));
+
+  // Rank should be metadata_rank (2) + field_shape rank (2) = 4
+  EXPECT_EQ(schema.rank(), 4);
 }
 
 }  // namespace

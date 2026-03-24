@@ -105,7 +105,6 @@ struct FillValueJsonBinder {
 
 struct SpecRankAndFieldInfo;
 
-
 struct ZarrMetadata {
   // The following members are common to `ZarrMetadata` and
   // `ZarrMetadataConstraints`, except that in `ZarrMetadataConstraints` some
@@ -244,12 +243,53 @@ Result<size_t> GetFieldIndex(const ZarrDType& dtype,
                              bool open_as_void);
 
 struct SpecRankAndFieldInfo {
+  /// Full rank of the TensorStore, if known. Equal to the chunked rank plus
+  /// the field rank.
+  DimensionIndex full_rank = dynamic_rank;
+
+  /// Number of chunked dimensions (the array's original rank).
   DimensionIndex chunked_rank = dynamic_rank;
+
+  /// Number of field dimensions (from field_shape, or 1 for void access).
+  DimensionIndex field_rank = dynamic_rank;
+
+  /// Data type field, or `nullptr` if unknown.
   const ZarrDType::Field* field = nullptr;
 };
 
+/// Validates and computes derived rank fields in `info`.
+absl::Status ValidateSpecRankAndFieldInfo(SpecRankAndFieldInfo& info);
+
+/// Gets spec rank and field info from metadata constraints.
+///
+/// When `open_as_void` is true, `info.field_rank` is 1 (the bytes dimension).
+///
+/// \param metadata Metadata constraints.
+/// \param selected_field The field to access. Must be empty if `open_as_void`
+///     is true.
+/// \param schema Schema constraints.
+/// \param open_as_void If true, opens the array as raw bytes.
+/// \error `absl::StatusCode::kInvalidArgument` if both `selected_field` is
+///     non-empty and `open_as_void` is true.
+Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
+    const ZarrMetadataConstraints& metadata, std::string_view selected_field,
+    const Schema& schema, bool open_as_void);
+
 SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
                                              size_t field_index);
+
+/// Sets schema dtype and rank constraints based on metadata constraints.
+///
+/// \param metadata_constraints The metadata constraints.
+/// \param selected_field The selected field name, or empty.  Must be empty
+///     if `open_as_void` is true.
+/// \param open_as_void If true, opens the array as raw bytes.
+/// \param schema The schema to update (modified in place).
+/// \error `absl::StatusCode::kInvalidArgument` if both `selected_field` is
+///     non-empty and `open_as_void` is true.
+absl::Status TrySetMetadataConstraintsOnSchema(
+    const ZarrMetadataConstraints& metadata_constraints,
+    std::string_view selected_field, bool open_as_void, Schema& schema);
 
 }  // namespace internal_zarr3
 }  // namespace tensorstore

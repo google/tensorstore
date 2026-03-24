@@ -862,10 +862,105 @@ SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
   SpecRankAndFieldInfo info;
   info.chunked_rank = metadata.rank;
   info.field = &metadata.data_type.fields[field_index];
-  if (!info.field->field_shape.empty()) {
-    info.chunked_rank += info.field->field_shape.size();
-  }
+  info.field_rank = info.field->field_shape.size();
+  info.full_rank = info.chunked_rank + info.field_rank;
   return info;
+}
+
+absl::Status ValidateSpecRankAndFieldInfo(SpecRankAndFieldInfo& info) {
+  if (info.field) {
+    info.field_rank = info.field->field_shape.size();
+  }
+
+  if (info.full_rank == dynamic_rank) {
+    info.full_rank = RankConstraint::Add(info.chunked_rank, info.field_rank);
+    if (info.full_rank != dynamic_rank) {
+      TENSORSTORE_RETURN_IF_ERROR(ValidateRank(info.full_rank));
+    }
+  }
+
+  if (!RankConstraint::LessEqualOrUnspecified(info.chunked_rank,
+                                              info.full_rank) ||
+      !RankConstraint::LessEqualOrUnspecified(info.field_rank,
+                                              info.full_rank) ||
+      !RankConstraint::EqualOrUnspecified(
+          info.full_rank,
+          RankConstraint::Add(info.chunked_rank, info.field_rank))) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Rank specified by schema (%d) is not compatible with metadata",
+        info.full_rank));
+  }
+
+  if (info.chunked_rank == dynamic_rank) {
+    info.chunked_rank =
+        RankConstraint::Subtract(info.full_rank, info.field_rank);
+  }
+  if (info.field_rank == dynamic_rank) {
+    info.field_rank =
+        RankConstraint::Subtract(info.full_rank, info.chunked_rank);
+  }
+
+  return absl::OkStatus();
+}
+
+Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
+    const ZarrMetadataConstraints& metadata, std::string_view selected_field,
+    const Schema& schema, bool open_as_void) {
+  if (open_as_void && !selected_field.empty()) {
+    return absl::InvalidArgumentError(
+        "\"field\" and \"open_as_void\" are mutually exclusive");
+  }
+
+  SpecRankAndFieldInfo info;
+  info.full_rank = schema.rank();
+  info.chunked_rank = metadata.rank;
+
+  if (open_as_void) {
+    info.field_rank = 1;  // bytes dimension
+  } else if (metadata.data_type) {
+    const ZarrDType& dtype = *metadata.data_type;
+    if (!selected_field.empty()) {
+      for (const auto& field : dtype.fields) {
+        if (field.name == selected_field) {
+          info.field = &field;
+          break;
+        }
+      }
+    } else if (dtype.fields.size() == 1) {
+      info.field = &dtype.fields[0];
+    }
+  }
+
+  TENSORSTORE_RETURN_IF_ERROR(ValidateSpecRankAndFieldInfo(info));
+  return info;
+}
+
+absl::Status TrySetMetadataConstraintsOnSchema(
+    const ZarrMetadataConstraints& metadata_constraints,
+    std::string_view selected_field, bool open_as_void, Schema& schema) {
+  // Set schema dtype from metadata constraints.
+  if (metadata_constraints.data_type) {
+    if (auto dtype = GetScalarDataType(*metadata_constraints.data_type)) {
+      TENSORSTORE_RETURN_IF_ERROR(schema.Set(*dtype));
+    } else if (schema.dtype().valid()) {
+      return absl::InvalidArgumentError(
+          "schema dtype must be unspecified for structured "
+          "zarr3 data types");
+    }
+  }
+
+  // Get rank/field info to determine schema rank.
+  // This also validates that selected_field and open_as_void aren't both set.
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto info,
+      GetSpecRankAndFieldInfo(metadata_constraints, selected_field, schema,
+                              open_as_void));
+
+  if (info.full_rank != dynamic_rank) {
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(RankConstraint{info.full_rank}));
+  }
+
+  return absl::OkStatus();
 }
 
 Result<IndexDomain<>> GetEffectiveDomain(
@@ -1084,11 +1179,11 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
   auto info = GetSpecRankAndFieldInfo(metadata, field_index);
   const auto& field = metadata.data_type.fields[field_index];
 
-  if (!RankConstraint::EqualOrUnspecified(schema.rank(), info.chunked_rank)) {
+  if (!RankConstraint::EqualOrUnspecified(schema.rank(), info.full_rank)) {
     return absl::FailedPreconditionError(absl::StrFormat(
         "Rank specified by schema (%v) does not match rank specified by "
         "metadata (%v)",
-        schema.rank(), info.chunked_rank));
+        schema.rank(), info.full_rank));
   }
 
   if (schema.domain().valid()) {
