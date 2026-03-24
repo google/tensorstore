@@ -127,39 +127,33 @@ class ZarrDriverSpec
             return absl::OkStatus();
           },
           internal_kvs_backed_chunk_driver::SpecJsonBinder),
-      jb::Member(
-          "metadata",
-          jb::Validate(
-              [](const auto& options, auto* obj) -> absl::Status {
-                if (obj->metadata_constraints.data_type) {
-                  if (auto dtype = GetScalarDataType(
-                          *obj->metadata_constraints.data_type)) {
-                    TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(*dtype));
-                  } else if (obj->schema.dtype().valid()) {
-                    return absl::InvalidArgumentError(
-                        "schema dtype must be unspecified for structured "
-                        "zarr3 data types");
-                  } else {
-                    // Leave dtype unspecified; structured dtypes are handled
-                    // at metadata level only.
-                  }
-                }
-                // Note: rank is set in Initialize after open_as_void is known.
-                return absl::OkStatus();
-              },
-              jb::Projection<&ZarrDriverSpec::metadata_constraints>(
-                  jb::DefaultInitializedValue()))),
-      jb::Member("field", jb::Projection<&ZarrDriverSpec::selected_field>(
-              jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                  [](auto* obj) { *obj = std::string{}; }))),
-      jb::Member("open_as_void", jb::Projection<&ZarrDriverSpec::open_as_void>(
-                  jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                      [](auto* v) { *v = false; }))),
+      jb::Member("metadata",
+                 jb::Projection<&ZarrDriverSpec::metadata_constraints>(
+                     jb::DefaultInitializedValue())),
+      jb::Member("field",
+                 jb::Projection<&ZarrDriverSpec::selected_field>(
+                     jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                         [](auto* obj) { *obj = std::string{}; }))),
+      jb::Member("open_as_void",
+                 jb::Projection<&ZarrDriverSpec::open_as_void>(
+                     jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                         [](auto* v) { *v = false; }))),
       jb::Initialize([](auto* obj) -> absl::Status {  // TODO: https://github.com/google/tensorstore/pull/271/changes/BASE..83f99827546c2082d82fa54f81d695dd8eb68c73#r2949222831
-        // Validate that field and open_as_void are mutually exclusive
+        // Validate that field and open_as_void are mutually exclusive.
         if (obj->open_as_void && !obj->selected_field.empty()) {
           return absl::InvalidArgumentError(
               "\"field\" and \"open_as_void\" are mutually exclusive");
+        }
+        // Set schema dtype from metadata constraints.
+        if (obj->metadata_constraints.data_type) {
+          if (auto dtype =
+                  GetScalarDataType(*obj->metadata_constraints.data_type)) {
+            TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(*dtype));
+          } else if (obj->schema.dtype().valid()) {
+            return absl::InvalidArgumentError(
+                "schema dtype must be unspecified for structured "
+                "zarr3 data types");
+          }
         }
         // Set the schema rank from metadata constraints.
         // For void access, add 1 for the bytes dimension.
