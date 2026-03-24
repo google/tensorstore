@@ -76,6 +76,7 @@ using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::JsonSubValuesMatch;
+using ::tensorstore::MatchesJson;
 using ::tensorstore::Result;
 using ::tensorstore::Schema;
 using ::tensorstore::StatusIs;
@@ -2110,7 +2111,14 @@ TEST(Zarr3OpenAsVoidTest, GetBoundSpecData) {
   // Also verify metadata was correctly populated
   EXPECT_TRUE(obtained_json.contains("metadata"));
   auto& metadata = obtained_json["metadata"];
-  EXPECT_TRUE(metadata.contains("data_type"));  // TODO: Update this to check what is in data_type
+  EXPECT_THAT(metadata["data_type"], MatchesJson({
+      {"name", "struct"},
+      {"configuration", {
+        {"fields", ::nlohmann::json::array({
+            {{"name", "x"}, {"data_type", "uint8"}},
+            {{"name", "y"}, {"data_type", "int16"}}})
+        }}
+      }}));
 }
 
 TEST(Zarr3OpenAsVoidTest, CannotUseWithField) {
