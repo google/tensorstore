@@ -222,6 +222,9 @@ Result<internal::CodecDriverSpec::PtrT<TensorStoreCodecSpec>> GetEffectiveCodec(
 CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata);
 
 /// Validates that `schema` is compatible with `metadata`.
+///
+/// \param field_index The field index, or `kVoidFieldIndex` for void access.
+///     For void access, only rank and dtype are validated (dtype must be byte).
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
                                     size_t field_index, const Schema& schema);
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,

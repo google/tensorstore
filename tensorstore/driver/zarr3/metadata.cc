@@ -861,8 +861,14 @@ SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
                                              size_t field_index) {
   SpecRankAndFieldInfo info;
   info.chunked_rank = metadata.rank;
-  info.field = &metadata.data_type.fields[field_index];
-  info.field_rank = info.field->field_shape.size();
+  if (field_index == kVoidFieldIndex) {
+    // Void access: no field, rank is chunked_rank + 1 (extra bytes dimension)
+    info.field = nullptr;
+    info.field_rank = 1;
+  } else {
+    info.field = &metadata.data_type.fields[field_index];
+    info.field_rank = info.field->field_shape.size();
+  }
   info.full_rank = info.chunked_rank + info.field_rank;
   return info;
 }
@@ -1177,13 +1183,29 @@ CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata) {
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
                                     size_t field_index, const Schema& schema) {
   auto info = GetSpecRankAndFieldInfo(metadata, field_index);
-  const auto& field = metadata.data_type.fields[field_index];
+  const bool is_void_access = (field_index == kVoidFieldIndex);
 
   if (!RankConstraint::EqualOrUnspecified(schema.rank(), info.full_rank)) {
     return absl::FailedPreconditionError(absl::StrFormat(
         "Rank specified by schema (%v) does not match rank specified by "
         "metadata (%v)",
         schema.rank(), info.full_rank));
+  }
+
+  // Dtype validation: for void access, dtype must be byte; otherwise use
+  // field's dtype.
+  const DataType expected_dtype =
+      is_void_access ? dtype_v<std::byte> : info.field->dtype;
+  if (auto dtype = schema.dtype();
+      !IsPossiblySameDataType(expected_dtype, dtype)) {
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "data_type from metadata (%v) does not match dtype in schema (%v)",
+        expected_dtype, dtype));
+  }
+
+  // The following validations only apply to field access, not void access.
+  if (is_void_access) {
+    return absl::OkStatus();
   }
 
   if (schema.domain().valid()) {
@@ -1195,13 +1217,6 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
     TENSORSTORE_RETURN_IF_ERROR(GetEffectiveDomain(
         info, metadata_shape_span, dimension_names_span, schema,
         /*dimension_names_used=*/nullptr));
-  }
-
-  if (auto dtype = schema.dtype();
-      !IsPossiblySameDataType(field.dtype, dtype)) {
-    return absl::FailedPreconditionError(absl::StrFormat(
-        "data_type from metadata (%v) does not match dtype in schema (%v)",
-        field.dtype, dtype));
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
@@ -1224,7 +1239,7 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
     TENSORSTORE_ASSIGN_OR_RETURN(
         SharedArray<const void> converted_fill_value,
         tensorstore::MakeCopy(std::move(broadcast_fill_value),
-                              skip_repeated_elements, field.dtype));
+                              skip_repeated_elements, info.field->dtype));
     if (!AreArraysIdenticallyEqual(converted_fill_value, fill_value)) {
       auto binder = FillValueJsonBinder{metadata.data_type};
       std::vector<SharedArray<const void>> schema_fill_vec{converted_fill_value};

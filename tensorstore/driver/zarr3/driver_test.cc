@@ -2854,6 +2854,61 @@ TEST(Zarr3OpenAsVoidTest, WithShardingRejectsSimpleType) {
                   ".*open_as_void is only supported for structured dtypes.*"));
 }
 
+TEST(Zarr3OpenAsVoidTest, InvalidSchema) {
+  // Test that schema constraints are properly validated when using open_as_void.
+  auto context = Context::Default();
+
+  // Create a structured array with shape {4, 4}.
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes total.
+  // With open_as_void, this becomes a 3D uint8 array with shape {4, 4, 3}.
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix_void_invalid/"}}},
+      {"field", "x"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields", ::nlohmann::json::array(
+                              {{{"name", "x"}, {"data_type", "uint8"}},
+                               {{"name", "y"}, {"data_type", "int16"}}})}}}}},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix_void_invalid/"}}},
+      {"open_as_void", true},
+  };
+
+  // Test rank mismatch: RankConstraint should be 3 for this open_as_void
+  // (2D array + 1 dimension for struct bytes).
+  EXPECT_THAT(
+      tensorstore::Open(void_spec, context, tensorstore::RankConstraint(2))
+          .result(),
+      tensorstore::MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                                 ".*Rank specified by schema \\(2\\) does not "
+                                 "match rank specified by metadata \\(3\\)"));
+
+  // Test dtype mismatch: open_as_void dtype must be byte.
+  EXPECT_THAT(tensorstore::Open(void_spec, context, dtype_v<int16_t>).result(),
+              tensorstore::MatchesStatus(
+                  absl::StatusCode::kFailedPrecondition,
+                  ".*data_type from metadata \\(byte\\) does not match dtype "
+                  "in schema \\(int16\\)"));
+}
+
 // Helper: returns a JSON spec for creating a sharded structured array.
 // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes total.
 ::nlohmann::json ShardedStructSpec(const std::string& field,

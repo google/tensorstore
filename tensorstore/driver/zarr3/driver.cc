@@ -1009,13 +1009,12 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto field_index,
         GetFieldIndex(metadata.data_type, spec().selected_field, spec().open_as_void));
-    if (field_index == kVoidFieldIndex) {
-      // Void access uses component 0 (raw bytes); schema validation is
-      // not applicable because void rank differs from any field's rank.
-      return static_cast<size_t>(0);
-    }
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadataSchema(metadata, field_index, spec().schema));
+    if (field_index == kVoidFieldIndex) {
+      // Void access uses component 0 (raw bytes).
+      return static_cast<size_t>(0);
+    }
     return field_index;
   }
 };
