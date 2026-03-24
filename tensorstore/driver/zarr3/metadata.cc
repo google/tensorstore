@@ -249,11 +249,11 @@ constexpr std::array<FillValueDataTypeFunctions, kNumDataTypeIds>
       FillValueDataTypeFunctions::Make<::tensorstore::dtypes::T>(); \
   /**/
       TENSORSTORE_ZARR3_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DEF)
+#undef TENSORSTORE_INTERNAL_DO_DEF
       // Add char_t support for string data types
       functions[static_cast<size_t>(DataTypeId::char_t)] =
           FillValueDataTypeFunctions::Make<::tensorstore::dtypes::char_t>();
       // byte_t is handled specially to use uint8_t functions
-#undef TENSORSTORE_INTERNAL_DO_DEF
       return functions;
     }();
 
