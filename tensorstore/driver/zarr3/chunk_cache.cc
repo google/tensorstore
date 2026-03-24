@@ -347,12 +347,12 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
     std::vector<Index> src_byte_strides(view_shape.size());
     // First compute strides for chunk dimensions
     ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
-                   absl::MakeSpan(src_byte_strides.data(), chunk_shape.size()));
+                   tensorstore::span(src_byte_strides.data(), chunk_shape.size()));
     // Then compute strides for field_shape dimensions (contiguous within element)
     if (!field.field_shape.empty()) {
       ComputeStrides(c_order, static_cast<Index>(field.dtype.size()),
                      field.field_shape,
-                     absl::MakeSpan(src_byte_strides.data() + chunk_shape.size(),
+                     tensorstore::span(src_byte_strides.data() + chunk_shape.size(),
                                     field.field_shape.size()));
     }
 
@@ -449,12 +449,12 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     std::vector<Index> dest_byte_strides(view_shape.size());
     // First compute strides for chunk dimensions
     ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
-                   absl::MakeSpan(dest_byte_strides.data(), chunk_shape.size()));
+                   tensorstore::span(dest_byte_strides.data(), chunk_shape.size()));
     // Then compute strides for field_shape dimensions (contiguous within element)
     if (!field.field_shape.empty()) {
       ComputeStrides(c_order, static_cast<Index>(field.dtype.size()),
                      field.field_shape,
-                     absl::MakeSpan(dest_byte_strides.data() + chunk_shape.size(),
+                     tensorstore::span(dest_byte_strides.data() + chunk_shape.size(),
                                     field.field_shape.size()));
     }
 
