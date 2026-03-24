@@ -41,6 +41,22 @@ using ::tensorstore::internal_zarr3::ParseBaseDType;
 using ::tensorstore::internal_zarr3::ParseDType;
 using ::tensorstore::internal_zarr3::ZarrDType;
 using ::testing::HasSubstr;
+using ::tensorstore::IsOkAndHolds;
+
+// Matcher to check if a string parses successfully to a specific ZarrDType::BaseDType.
+MATCHER_P2(ParsesAsBaseDType, expected_data_type, expected_flexible_shape, "") {
+  auto parsed = ParseBaseDType(arg);
+  return ExplainMatchResult(
+      ::testing::Optional(::testing::AllOf(
+          ::testing::Field("encoded_dtype", &ZarrDType::BaseDType::encoded_dtype,
+                           arg),
+          ::testing::Field("dtype", &ZarrDType::BaseDType::dtype,
+                           expected_data_type),
+          ::testing::Field("flexible_shape",
+                           &ZarrDType::BaseDType::flexible_shape,
+                           expected_flexible_shape))),
+      parsed, result_listener);
+}
 
 // Helper to add a field to ZarrDType, computing byte_offset and updating
 // bytes_per_outer_element. The byte_offset in the passed field is ignored and
@@ -55,32 +71,25 @@ void AddFieldToZarrDType(ZarrDType& dtype, ZarrDType::Field field) {
   dtype.fields.push_back(std::move(field));
 }
 
-void CheckBaseDType(std::string dtype, DataType r,
-                    std::vector<Index> flexible_shape) {
-  EXPECT_THAT(ParseBaseDType(dtype), ::testing::Optional(ZarrDType::BaseDType{
-                                         dtype, r, flexible_shape}))
-      << dtype;
-}
-
 TEST(ParseBaseDType, Success) {
-  CheckBaseDType("bool", dtype_v<bool>, {});
-  CheckBaseDType("int8", dtype_v<int8_t>, {});
-  CheckBaseDType("uint8", dtype_v<uint8_t>, {});
-  CheckBaseDType("int16", dtype_v<int16_t>, {});
-  CheckBaseDType("uint16", dtype_v<uint16_t>, {});
-  CheckBaseDType("int32", dtype_v<int32_t>, {});
-  CheckBaseDType("uint32", dtype_v<uint32_t>, {});
-  CheckBaseDType("int64", dtype_v<int64_t>, {});
-  CheckBaseDType("uint64", dtype_v<uint64_t>, {});
-  CheckBaseDType("float16", dtype_v<tensorstore::dtypes::float16_t>, {});
-  CheckBaseDType("bfloat16", dtype_v<tensorstore::dtypes::bfloat16_t>, {});
-  CheckBaseDType("float32", dtype_v<tensorstore::dtypes::float32_t>, {});
-  CheckBaseDType("float64", dtype_v<tensorstore::dtypes::float64_t>, {});
-  CheckBaseDType("complex64", dtype_v<tensorstore::dtypes::complex64_t>, {});
-  CheckBaseDType("complex128", dtype_v<tensorstore::dtypes::complex128_t>, {});
-  CheckBaseDType("r8", dtype_v<tensorstore::dtypes::byte_t>, {1});
-  CheckBaseDType("r16", dtype_v<tensorstore::dtypes::byte_t>, {2});
-  CheckBaseDType("r64", dtype_v<tensorstore::dtypes::byte_t>, {8});
+  EXPECT_THAT("bool", ParsesAsBaseDType(dtype_v<bool>, std::vector<Index>{}));
+  EXPECT_THAT("int8", ParsesAsBaseDType(dtype_v<int8_t>, std::vector<Index>{}));
+  EXPECT_THAT("uint8", ParsesAsBaseDType(dtype_v<uint8_t>, std::vector<Index>{}));
+  EXPECT_THAT("int16", ParsesAsBaseDType(dtype_v<int16_t>, std::vector<Index>{}));
+  EXPECT_THAT("uint16", ParsesAsBaseDType(dtype_v<uint16_t>, std::vector<Index>{}));
+  EXPECT_THAT("int32", ParsesAsBaseDType(dtype_v<int32_t>, std::vector<Index>{}));
+  EXPECT_THAT("uint32", ParsesAsBaseDType(dtype_v<uint32_t>, std::vector<Index>{}));
+  EXPECT_THAT("int64", ParsesAsBaseDType(dtype_v<int64_t>, std::vector<Index>{}));
+  EXPECT_THAT("uint64", ParsesAsBaseDType(dtype_v<uint64_t>, std::vector<Index>{}));
+  EXPECT_THAT("float16", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::float16_t>, std::vector<Index>{}));
+  EXPECT_THAT("bfloat16", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::bfloat16_t>, std::vector<Index>{}));
+  EXPECT_THAT("float32", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::float32_t>, std::vector<Index>{}));
+  EXPECT_THAT("float64", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::float64_t>, std::vector<Index>{}));
+  EXPECT_THAT("complex64", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::complex64_t>, std::vector<Index>{}));
+  EXPECT_THAT("complex128", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::complex128_t>, std::vector<Index>{}));
+  EXPECT_THAT("r8", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{1}));
+  EXPECT_THAT("r16", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{2}));
+  EXPECT_THAT("r64", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{8}));
 }
 
 TEST(ParseBaseDType, Failure) {
@@ -105,12 +114,6 @@ TEST(ParseBaseDType, Failure) {
                        HasSubstr("data type is invalid; expected r<N>")));
 }
 
-void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {
-  SCOPED_TRACE(json.dump());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(json));
-  EXPECT_EQ(expected, dtype);
-}
-
 TEST(ParseDType, SimpleStringBool) {
   ZarrDType expected{};
   AddFieldToZarrDType(expected,
@@ -122,7 +125,7 @@ TEST(ParseDType, SimpleStringBool) {
                        /*.num_inner_elements=*/1,
                        /*.byte_offset=*/0,
                        /*.num_bytes=*/1});
-  CheckDType("bool", expected);
+  EXPECT_THAT(ParseDType("bool"), IsOkAndHolds(expected));
 }
 
 TEST(ParseDType, SingleNamedFieldChar) {
@@ -137,7 +140,8 @@ TEST(ParseDType, SingleNamedFieldChar) {
                        /*.num_inner_elements=*/1,
                        /*.byte_offset=*/0,
                        /*.num_bytes=*/1});
-  CheckDType(::nlohmann::json::array_t{{"x", "uint8"}}, expected);
+  EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"x", "uint8"}}),
+              IsOkAndHolds(expected));
 }
 
 TEST(ParseDType, TwoNamedFields) {
@@ -160,7 +164,8 @@ TEST(ParseDType, TwoNamedFields) {
                        /*.num_inner_elements=*/1,
                        /*.byte_offset=*/0,
                        /*.num_bytes=*/2});
-  CheckDType(::nlohmann::json::array_t{{"x", "int8"}, {"y", "int16"}}, expected);
+  EXPECT_THAT(ParseDType(::nlohmann::json::array_t{{"x", "int8"}, {"y", "int16"}}),
+              IsOkAndHolds(expected));
 }
 
 TEST(ParseDType, FieldSpecTooShort) {
@@ -294,7 +299,7 @@ TEST(ParseDType, StructNameNewFormat) {
                        /*.byte_offset=*/0,
                        /*.num_bytes=*/2});
 
-  CheckDType(input, expected);
+  EXPECT_THAT(ParseDType(input), IsOkAndHolds(expected));
 
   // Verify output uses Zarr v3 spec format
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(input));
@@ -325,7 +330,7 @@ TEST(ParseDType, StructuredNameLegacy) {
                        /*.byte_offset=*/0,
                        /*.num_bytes=*/4});
 
-  CheckDType(input, expected);
+  EXPECT_THAT(ParseDType(input), IsOkAndHolds(expected));
 }
 
 TEST(ParseDType, ObjectFieldFormat) {
@@ -559,7 +564,7 @@ TEST(ParseDType, StructuredWithFieldShape) {
                        /*.byte_offset=*/0,
                        /*.num_bytes=*/2});
 
-  CheckDType(input, expected);
+  EXPECT_THAT(ParseDType(input), IsOkAndHolds(expected));
 }
 
 TEST(ParseDType, ManyFieldsOffsets) {
