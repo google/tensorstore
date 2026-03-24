@@ -555,6 +555,45 @@ TEST(ParseDType, Raw64BitFieldShape) {
   EXPECT_EQ(dtype.fields[0].num_bytes, 8);
 }
 
+TEST(ParseDType, StructuredWithFieldShape) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields", ::nlohmann::json::array(
+                       {{{"name", "scalar"}, {"data_type", "int32"}},
+                        {{"name", "array"}, {"data_type", "r16"}}})}}}};
+
+  ZarrDType expected{
+      /*.has_fields=*/true,
+      /*.fields=*/
+      {
+          {{
+               /*.encoded_dtype=*/"int32",
+               /*.dtype=*/dtype_v<int32_t>,
+               /*.flexible_shape=*/{},
+           },
+           /*.name=*/"scalar",
+           /*.field_shape=*/{},
+           /*.num_inner_elements=*/1,
+           /*.byte_offset=*/0,
+           /*.num_bytes=*/4},
+          {{
+               /*.encoded_dtype=*/"r16",
+               /*.dtype=*/dtype_v<tensorstore::dtypes::byte_t>,
+               /*.flexible_shape=*/{2},
+           },
+           /*.name=*/"array",
+           /*.field_shape=*/{2},
+           /*.num_inner_elements=*/2,
+           /*.byte_offset=*/4,
+           /*.num_bytes=*/2},
+      },
+      /*.bytes_per_outer_element=*/6,
+  };
+
+  CheckDType(input, expected);
+}
+
 TEST(ParseDType, ManyFieldsOffsets) {
   // Verify that many fields are supported and byte offsets are computed correctly.
   // There is no explicit limit on the number of fields; the limit is bounded only
