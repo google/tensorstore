@@ -1,8 +1,6 @@
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 
-package(
-    default_visibility = ["//visibility:public"],
-)
+package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
