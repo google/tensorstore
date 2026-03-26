@@ -143,10 +143,6 @@ Result<ZarrDType> ParseDType(const ::nlohmann::json& value);
 /// \error `absl::StatusCode::kInvalidArgument` if the field size is too large.
 absl::Status ValidateDType(ZarrDType& dtype);
 
-/// Returns the underlying TensorStore `DataType` if `dtype` represents an
-/// unstructured scalar array, otherwise `std::nullopt`.
-std::optional<DataType> GetScalarDataType(const ZarrDType& dtype);
-
 /// Parses a Zarr 3 data type string.
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if `dtype` is not valid.

@@ -944,8 +944,9 @@ absl::Status TrySetMetadataConstraintsOnSchema(
     std::string_view selected_field, bool open_as_void, Schema& schema) {
   // Set schema dtype from metadata constraints.
   if (metadata_constraints.data_type) {
-    if (auto dtype = GetScalarDataType(*metadata_constraints.data_type)) {
-      TENSORSTORE_RETURN_IF_ERROR(schema.Set(*dtype));
+    const auto& zarr_dtype = *metadata_constraints.data_type;
+    if (!zarr_dtype.has_fields && !zarr_dtype.fields.empty()) {
+      TENSORSTORE_RETURN_IF_ERROR(schema.Set(zarr_dtype.fields[0].dtype));
     } else if (schema.dtype().valid()) {
       return absl::InvalidArgumentError(
           "schema dtype must be unspecified for structured "

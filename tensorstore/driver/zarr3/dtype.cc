@@ -391,13 +391,6 @@ absl::Status ValidateDType(ZarrDType& dtype) {
   return absl::OkStatus();
 }
 
-std::optional<DataType> GetScalarDataType(const ZarrDType& dtype) {
-  if (!dtype.has_fields && !dtype.fields.empty()) {
-    return dtype.fields[0].dtype;
-  }
-  return std::nullopt;
-}
-
 Result<ZarrDType> ParseDType(const nlohmann::json& value) {
   TENSORSTORE_ASSIGN_OR_RETURN(ZarrDType dtype, ParseDTypeNoDerived(value));
   TENSORSTORE_RETURN_IF_ERROR(ValidateDType(dtype));
