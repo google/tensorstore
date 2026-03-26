@@ -15,6 +15,7 @@
 #include "tensorstore/driver/zarr3/dtype.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <limits>
@@ -71,20 +72,22 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   if (dtype == "complex128")
     return make_dtype(dtype_v<::tensorstore::dtypes::complex128_t>);
 
-  // Handle r<N> raw bits type where N is number of bits (must be multiple of 8)
+  // Handle r<N> raw bits type where N is number of bits (must be multiple of 8).
+  // Parse N as uint64_t so values above 2^31-1 (e.g. r8589934592) are accepted;
+  // (std::numeric_limits<uint64_t>::max() / 8) < std::numeric_limits<Index>::max(),
+  // so num_bits / 8 always fits in Index.
   if (!dtype.empty() && dtype[0] == 'r' && dtype.size() > 1 &&
       absl::ascii_isdigit(dtype[1])) {
     std::string_view suffix = dtype.substr(1);
-    Index num_bits = 0;
-    if (!absl::SimpleAtoi(suffix, &num_bits) ||
-        num_bits == 0 ||
+    uint64_t num_bits = 0;
+    if (!absl::SimpleAtoi(suffix, &num_bits) || num_bits == 0 ||
         num_bits % 8 != 0) {
       return absl::InvalidArgumentError(absl::StrFormat(
           "%s data type is invalid; expected r<N> where N is a positive "
           "multiple of 8",
           dtype));
     }
-    Index num_bytes = num_bits / 8;
+    Index num_bytes = static_cast<Index>(num_bits / 8);
     return ZarrDType::BaseDType{std::string(dtype),
                                  dtype_v<::tensorstore::dtypes::byte_t>,
                                  {num_bytes}};

@@ -90,6 +90,19 @@ TEST(ParseBaseDType, Success) {
   EXPECT_THAT("r8", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{1}));
   EXPECT_THAT("r16", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{2}));
   EXPECT_THAT("r64", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{8}));
+  // Large N must parse (suffix may exceed 31-bit signed int; N fits in uint64).
+  EXPECT_THAT("r1024", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>,
+                                        std::vector<Index>{128}));
+  EXPECT_THAT("r8388608", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>,
+                                             std::vector<Index>{1048576}));
+  EXPECT_THAT("r8589934592", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>,
+                                                std::vector<Index>{1073741824}));
+  // Max r<N>: N = largest multiple of 8 in uint64_t (18446744073709551608 bits -> 2305843009213693951
+  // bytes). Values above uint64_t fail parse; UINT64_MAX is not a multiple of 8.
+  EXPECT_THAT(
+      "r18446744073709551608",
+      ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>,
+                        std::vector<Index>{2305843009213693951LL}));
 }
 
 TEST(ParseBaseDType, Failure) {
