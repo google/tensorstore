@@ -428,40 +428,33 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrDType, [](auto is_loading,
   return absl::OkStatus();
 })
 
-namespace {
-
-Result<ZarrDType::BaseDType> MakeBaseDType(std::string_view name,
-                                           DataType dtype) {
-  ZarrDType::BaseDType base_dtype;
-  base_dtype.dtype = dtype;
-  base_dtype.encoded_dtype = std::string(name);
-  return base_dtype;
-}
-
-}  // namespace
-
 Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
-  if (dtype == dtype_v<bool>) return MakeBaseDType("bool", dtype);
-  if (dtype == dtype_v<uint8_t>) return MakeBaseDType("uint8", dtype);
-  if (dtype == dtype_v<uint16_t>) return MakeBaseDType("uint16", dtype);
-  if (dtype == dtype_v<uint32_t>) return MakeBaseDType("uint32", dtype);
-  if (dtype == dtype_v<uint64_t>) return MakeBaseDType("uint64", dtype);
-  if (dtype == dtype_v<int8_t>) return MakeBaseDType("int8", dtype);
-  if (dtype == dtype_v<int16_t>) return MakeBaseDType("int16", dtype);
-  if (dtype == dtype_v<int32_t>) return MakeBaseDType("int32", dtype);
-  if (dtype == dtype_v<int64_t>) return MakeBaseDType("int64", dtype);
+  using D = ZarrDType::BaseDType;
+  const auto make_dtype = [&](std::string_view name) -> Result<D> {
+    return D{std::string(name), dtype, {}};
+  };
+
+  if (dtype == dtype_v<bool>) return make_dtype("bool");
+  if (dtype == dtype_v<uint8_t>) return make_dtype("uint8");
+  if (dtype == dtype_v<uint16_t>) return make_dtype("uint16");
+  if (dtype == dtype_v<uint32_t>) return make_dtype("uint32");
+  if (dtype == dtype_v<uint64_t>) return make_dtype("uint64");
+  if (dtype == dtype_v<int8_t>) return make_dtype("int8");
+  if (dtype == dtype_v<int16_t>) return make_dtype("int16");
+  if (dtype == dtype_v<int32_t>) return make_dtype("int32");
+  if (dtype == dtype_v<int64_t>) return make_dtype("int64");
   if (dtype == dtype_v<::tensorstore::dtypes::bfloat16_t>)
-    return MakeBaseDType("bfloat16", dtype);
+    return make_dtype("bfloat16");
   if (dtype == dtype_v<::tensorstore::dtypes::float16_t>)
-    return MakeBaseDType("float16", dtype);
+    return make_dtype("float16");
   if (dtype == dtype_v<::tensorstore::dtypes::float32_t>)
-    return MakeBaseDType("float32", dtype);
+    return make_dtype("float32");
   if (dtype == dtype_v<::tensorstore::dtypes::float64_t>)
-    return MakeBaseDType("float64", dtype);
+    return make_dtype("float64");
   if (dtype == dtype_v<::tensorstore::dtypes::complex64_t>)
-    return MakeBaseDType("complex64", dtype);
+    return make_dtype("complex64");
   if (dtype == dtype_v<::tensorstore::dtypes::complex128_t>)
-    return MakeBaseDType("complex128", dtype);
+    return make_dtype("complex128");
   if (dtype == dtype_v<::tensorstore::dtypes::byte_t>) {
     ZarrDType::BaseDType base_dtype;
     base_dtype.dtype = dtype;
