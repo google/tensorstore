@@ -704,12 +704,8 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
   // Override to handle void access - check the dtype to see if this is void
   Result<IndexTransform<>> GetExternalToInternalTransform(
       const void* metadata_ptr, size_t component_index) override {
-    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-
-    // Check if this is void access by examining the stored flag
-    const bool is_void_access = ChunkCacheImpl::open_as_void_;
-
-    if (is_void_access) {
+    if (ChunkCacheImpl::open_as_void_) {
+      const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
       // For void access, create transform with extra bytes dimension
       const DimensionIndex rank = metadata.rank;
       const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
@@ -748,10 +744,8 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
   void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
                           DimensionSet& implicit_lower_bounds,
                           DimensionSet& implicit_upper_bounds) override {
-    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-
-    // For void access, handle the extra bytes dimension
     if (ChunkCacheImpl::open_as_void_) {
+      const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
       const DimensionIndex rank = metadata.rank;
       const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
 
