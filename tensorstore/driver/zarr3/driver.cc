@@ -136,7 +136,7 @@ class ZarrDriverSpec
                  jb::Projection<&ZarrDriverSpec::open_as_void>(
                      jb::DefaultValue<jb::kNeverIncludeDefaults>(
                          [](auto* v) { *v = false; }))),
-      // TODO: https://github.com/google/tensorstore/pull/271/changes/BASE..83f99827546c2082d82fa54f81d695dd8eb68c73#r2949222831
+      // TODO: jb::AtMostOne()
       jb::Initialize([](auto* obj) -> absl::Status {
         return TrySetMetadataConstraintsOnSchema(obj->metadata_constraints,
                                                  obj->selected_field,
