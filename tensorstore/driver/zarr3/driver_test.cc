@@ -3484,13 +3484,8 @@ TEST(Zarr3StructuredTest, ShardedVoidAccessRoundtrip) {
   EXPECT_EQ(3, void_store.domain().shape()[2]);
 
   // Write bytes and read them back
-  auto write_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
-      {1, 1, 3}, tensorstore::c_order, tensorstore::value_init);
-  auto ptr = static_cast<unsigned char*>(
-      const_cast<void*>(static_cast<const void*>(write_bytes.data())));
-  ptr[0] = 0xAA;
-  ptr[1] = 0xCC;
-  ptr[2] = 0xBB;
+  auto write_bytes = tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+      {{{std::byte{0xAA}, std::byte{0xCC}, std::byte{0xBB}}}});
 
   TENSORSTORE_EXPECT_OK(
       tensorstore::Write(write_bytes,
