@@ -150,37 +150,41 @@ class ZarrDriverSpec
     return Base::ApplyOptions(std::move(options));
   }
 
+  Result<IndexDomain<>> GetDomainAsVoid() const {
+    const Index bytes_per_elem =
+        metadata_constraints.data_type->bytes_per_outer_element;
+    const DimensionIndex original_rank = metadata_constraints.shape->size();
+    IndexDomainBuilder builder(original_rank + 1);
+
+    // Set original dimensions from metadata (all origins are 0)
+    std::fill_n(builder.origin().begin(), original_rank + 1, Index{0});
+    std::copy_n(metadata_constraints.shape->begin(), original_rank,
+                builder.shape().begin());
+    builder.shape()[original_rank] = bytes_per_elem;
+
+    // Set implicit bounds: array dims are implicit (resizable), bytes dim is explicit
+    builder.implicit_lower_bounds(DimensionSet(false));
+    builder.implicit_upper_bounds(DimensionSet::UpTo(original_rank));
+
+    // Copy dimension names if available
+    if (metadata_constraints.dimension_names) {
+      for (DimensionIndex i = 0; i < original_rank; ++i) {
+        if (const auto& name = (*metadata_constraints.dimension_names)[i];
+            name.has_value()) {
+          builder.labels()[i] = *name;
+        }
+      }
+    }
+
+    return builder.Finalize();
+  }
+
   Result<IndexDomain<>> GetDomain() const override {
     // For void access with known dtype and shape, build domain directly
     // to include the extra bytes dimension.
     if (open_as_void && metadata_constraints.data_type &&
         metadata_constraints.shape) {
-      const Index bytes_per_elem =
-          metadata_constraints.data_type->bytes_per_outer_element;
-      const DimensionIndex original_rank = metadata_constraints.shape->size();
-      IndexDomainBuilder builder(original_rank + 1);
-
-      // Set original dimensions from metadata (all origins are 0)
-      std::fill_n(builder.origin().begin(), original_rank + 1, Index{0});
-      std::copy_n(metadata_constraints.shape->begin(), original_rank,
-                  builder.shape().begin());
-      builder.shape()[original_rank] = bytes_per_elem;
-
-      // Set implicit bounds: array dims are implicit (resizable), bytes dim is explicit
-      builder.implicit_lower_bounds(DimensionSet(false));
-      builder.implicit_upper_bounds(DimensionSet::UpTo(original_rank));
-
-      // Copy dimension names if available
-      if (metadata_constraints.dimension_names) {
-        for (DimensionIndex i = 0; i < original_rank; ++i) {
-          if (const auto& name = (*metadata_constraints.dimension_names)[i];
-              name.has_value()) {
-            builder.labels()[i] = *name;
-          }
-        }
-      }
-
-      return builder.Finalize();
+      return GetDomainAsVoid();
     }
 
     // For fields with field_shape (like r16, r64), build domain to include

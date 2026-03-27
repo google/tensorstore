@@ -237,73 +237,71 @@ std::string ZarrLeafChunkCache::GetChunkStorageKey(
 }
 
 Result<absl::InlinedVector<SharedArray<const void>, 1>>
-ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
-                                absl::Cord data) {
-  const size_t num_fields = dtype_.fields.size();
-  absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
+ZarrLeafChunkCache::DecodeChunkAsVoid(absl::Cord data) {
+  absl::InlinedVector<SharedArray<const void>, 1> field_arrays(1);
+  const auto& void_component_shape = grid().components[0].shape();
 
-  // Special case: void access - decode and return as bytes.
-  //
-  // For non-structured types: codec was prepared for [chunk_shape] with
-  // original dtype. We decode to that shape then reinterpret as bytes.
-  //
-  // For structured types: codec was already prepared for
-  // [chunk_shape, bytes_per_elem] with byte dtype. Just decode directly.
-  if (open_as_void_) {
-    assert(num_fields == 1);  // Void access uses a single synthesized field
-    const auto& void_component_shape = grid().components[0].shape();
-
-    if (original_is_structured_) {
-      // Structured types: codec already expects bytes with extra dimension.
-      // Just decode directly to the void component shape.
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          field_arrays[0],
-          codec_state_->DecodeArray(void_component_shape, std::move(data)));
-      return field_arrays;
-    }
-
-    // Non-structured types: codec expects original dtype without extra
-    // dimension. Decode, then reinterpret as bytes.
-    //
-    // For top-level caches, grid().chunk_shape includes bytes dimension.
-    // For sub-chunk caches (inside sharding), grid() returns the sharding
-    // codec's sub_chunk_grid which doesn't have bytes dimension.
-    const Index bytes_per_element = dtype_.bytes_per_outer_element;
-    const auto& grid_chunk_shape = grid().chunk_shape;
-
-    std::vector<Index> original_chunk_shape;
-    if (grid_has_void_dimension_) {
-      // Strip the bytes dimension to get original shape
-      original_chunk_shape.assign(grid_chunk_shape.begin(),
-                                  grid_chunk_shape.end() - 1);
-    } else {
-      // Sub-chunk cache: grid shape is already the original shape
-      original_chunk_shape.assign(grid_chunk_shape.begin(),
-                                  grid_chunk_shape.end());
-    }
-
-    // Decode using original codec shape
+  if (original_is_structured_) {
+    // Structured types: codec already expects bytes with extra dimension.
+    // Just decode directly to the void component shape.
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto decoded_array,
-        codec_state_->DecodeArray(original_chunk_shape, std::move(data)));
-
-    // Verify decoded array is C-contiguous (codec chain should guarantee this)
-    assert(IsContiguousLayout(decoded_array.layout(), c_order,
-                              decoded_array.dtype().size()));
-
-    // Build the void output shape: original_shape + [bytes_per_element]
-    std::vector<Index> void_output_shape = original_chunk_shape;
-    void_output_shape.push_back(bytes_per_element);
-
-    // Alias the decoded array's memory as bytes.
-    SharedElementPointer<const void> byte_element_pointer(
-        std::shared_ptr<const void>(decoded_array.element_pointer().pointer(),
-                                    decoded_array.data()),
-        dtype_v<tensorstore::dtypes::byte_t>);
-    field_arrays[0] =
-        SharedArray<const void>(byte_element_pointer, void_output_shape);
+        field_arrays[0],
+        codec_state_->DecodeArray(void_component_shape, std::move(data)));
     return field_arrays;
   }
+
+  // Non-structured types: codec expects original dtype without extra
+  // dimension. Decode, then reinterpret as bytes.
+  //
+  // For top-level caches, grid().chunk_shape includes bytes dimension.
+  // For sub-chunk caches (inside sharding), grid() returns the sharding
+  // codec's sub_chunk_grid which doesn't have bytes dimension.
+  const Index bytes_per_element = dtype_.bytes_per_outer_element;
+  const auto& grid_chunk_shape = grid().chunk_shape;
+
+  std::vector<Index> original_chunk_shape;
+  if (grid_has_void_dimension_) {
+    // Strip the bytes dimension to get original shape
+    original_chunk_shape.assign(grid_chunk_shape.begin(),
+                                grid_chunk_shape.end() - 1);
+  } else {
+    // Sub-chunk cache: grid shape is already the original shape
+    original_chunk_shape.assign(grid_chunk_shape.begin(),
+                                grid_chunk_shape.end());
+  }
+
+  // Decode using original codec shape
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto decoded_array,
+      codec_state_->DecodeArray(original_chunk_shape, std::move(data)));
+
+  // Verify decoded array is C-contiguous (codec chain should guarantee this)
+  assert(IsContiguousLayout(decoded_array.layout(), c_order,
+                            decoded_array.dtype().size()));
+
+  // Build the void output shape: original_shape + [bytes_per_element]
+  std::vector<Index> void_output_shape = original_chunk_shape;
+  void_output_shape.push_back(bytes_per_element);
+
+  // Alias the decoded array's memory as bytes.
+  SharedElementPointer<const void> byte_element_pointer(
+      std::shared_ptr<const void>(decoded_array.element_pointer().pointer(),
+                                  decoded_array.data()),
+      dtype_v<tensorstore::dtypes::byte_t>);
+  field_arrays[0] =
+      SharedArray<const void>(byte_element_pointer, void_output_shape);
+  return field_arrays;
+}
+
+Result<absl::InlinedVector<SharedArray<const void>, 1>>
+ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
+                                absl::Cord data) {
+  if (open_as_void_) {
+    return DecodeChunkAsVoid(std::move(data));
+  }
+
+  const size_t num_fields = dtype_.fields.size();
+  absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
   // For single non-structured field, decode directly
   if (num_fields == 1 && dtype_.fields[0].field_shape.empty()) {
@@ -372,43 +370,45 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   return field_arrays;
 }
 
+Result<absl::Cord> ZarrLeafChunkCache::EncodeChunkAsVoid(
+    const SharedArray<const void>& byte_array) {
+  if (original_is_structured_) {
+    // Structured types: codec already expects bytes with extra dimension.
+    return codec_state_->EncodeArray(byte_array);
+  }
+
+  // Non-structured types: reinterpret bytes as original dtype/shape.
+  const Index bytes_per_element = dtype_.bytes_per_outer_element;
+
+  // Build original chunk shape by stripping the bytes dimension
+  const auto& void_shape = byte_array.shape();
+  std::vector<Index> original_shape(void_shape.begin(), void_shape.end() - 1);
+
+  // Use the original dtype (stored during cache creation) for encoding.
+  // Create a view over the byte data with original dtype and layout.
+  // Use the aliasing constructor to share ownership with byte_array but
+  // interpret the data with the original dtype.
+  SharedArray<const void> encoded_array;
+  auto aliased_ptr = std::shared_ptr<const void>(
+      byte_array.pointer(),  // Share ownership with byte_array
+      byte_array.data());    // But point to the raw data
+  encoded_array.element_pointer() = SharedElementPointer<const void>(
+      std::move(aliased_ptr), original_dtype_);
+  encoded_array.layout() = StridedLayout<>(c_order, bytes_per_element,
+                                           original_shape);
+
+  return codec_state_->EncodeArray(encoded_array);
+}
+
 Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     span<const Index> chunk_indices,
     span<const SharedArray<const void>> component_arrays) {
-  const size_t num_fields = dtype_.fields.size();
-
-  // Special case: void access - encode bytes back to original format.
   if (open_as_void_) {
     assert(component_arrays.size() == 1);
-
-    if (original_is_structured_) {
-      // Structured types: codec already expects bytes with extra dimension.
-      return codec_state_->EncodeArray(component_arrays[0]);
-    }
-
-    // Non-structured types: reinterpret bytes as original dtype/shape.
-    const auto& byte_array = component_arrays[0];
-    const Index bytes_per_element = dtype_.bytes_per_outer_element;
-
-    // Build original chunk shape by stripping the bytes dimension
-    const auto& void_shape = byte_array.shape();
-    std::vector<Index> original_shape(void_shape.begin(), void_shape.end() - 1);
-
-    // Use the original dtype (stored during cache creation) for encoding.
-    // Create a view over the byte data with original dtype and layout.
-    // Use the aliasing constructor to share ownership with byte_array but
-    // interpret the data with the original dtype.
-    SharedArray<const void> encoded_array;
-    auto aliased_ptr = std::shared_ptr<const void>(
-        byte_array.pointer(),  // Share ownership with byte_array
-        byte_array.data());    // But point to the raw data
-    encoded_array.element_pointer() = SharedElementPointer<const void>(
-        std::move(aliased_ptr), original_dtype_);
-    encoded_array.layout() = StridedLayout<>(c_order, bytes_per_element,
-                                             original_shape);
-
-    return codec_state_->EncodeArray(encoded_array);
+    return EncodeChunkAsVoid(component_arrays[0]);
   }
+
+  const size_t num_fields = dtype_.fields.size();
 
   // For single non-structured field, encode directly
   if (num_fields == 1 && dtype_.fields[0].field_shape.empty()) {

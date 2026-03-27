@@ -212,6 +212,12 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
   bool original_is_structured_;
   DataType original_dtype_;  // Original dtype for void access encoding
   bool grid_has_void_dimension_;  // Whether grid().chunk_shape includes bytes dim
+
+ private:
+  Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunkAsVoid(
+      absl::Cord data);
+
+  Result<absl::Cord> EncodeChunkAsVoid(const SharedArray<const void>& byte_array);
 };
 
 /// Chunk cache for a Zarr array where each chunk is a shard.
