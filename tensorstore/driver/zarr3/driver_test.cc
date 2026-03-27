@@ -3065,12 +3065,12 @@ struct ShardedVoidWriteFieldReadParam {
   std::vector<unsigned char> y_bytes;
   std::function<void(const tensorstore::SharedOffsetArray<const void>&)>
       verify_result;
-};
 
-std::ostream& operator<<(std::ostream& os,
-                         const ShardedVoidWriteFieldReadParam& p) {
-  return os << p.name;
-}
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const ShardedVoidWriteFieldReadParam& p) {
+    return os << p.name;
+  }
+};
 
 class ShardedVoidWriteThenFieldReadTest
     : public ::testing::TestWithParam<ShardedVoidWriteFieldReadParam> {};
