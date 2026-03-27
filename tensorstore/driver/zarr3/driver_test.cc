@@ -3499,11 +3499,7 @@ TEST(Zarr3StructuredTest, ShardedVoidAccessRoundtrip) {
                                          {0, 0, 0}, {1, 1, 3}))
           .result());
 
-  EXPECT_EQ(3, bytes_read.rank());
-  const auto* bytes = static_cast<const unsigned char*>(bytes_read.data());
-  EXPECT_EQ(0xAA, bytes[0]);
-  EXPECT_EQ(0xCC, bytes[1]);
-  EXPECT_EQ(0xBB, bytes[2]);
+  EXPECT_EQ(write_bytes, bytes_read);
 }
 
 TEST(Zarr3StructuredTest, ShardedNoFieldRejectsOpen) {
