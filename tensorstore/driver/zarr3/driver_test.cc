@@ -66,6 +66,7 @@
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
@@ -2916,6 +2917,135 @@ TEST(Zarr3OpenAsVoidTest, InvalidSchema) {
                   absl::StatusCode::kFailedPrecondition,
                   ".*data_type from metadata \\(byte\\) does not match dtype "
                   "in schema \\(int16\\)"));
+}
+
+TEST(Zarr3OpenAsVoidTest, StructBigEndian) {
+  auto context = Context::Default();
+
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields", ::nlohmann::json::array(
+                              {{{"name", "x"}, {"data_type", "uint8"}},
+                               {{"name", "y"}, {"data_type", "int16"}}})}}}}},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {2, 2}}}}}},
+           {"codecs",
+            {{{"name", "bytes"}, {"configuration", {{"endian", "big"}}}},
+             {{"name", "gzip"}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Write 0x1234 to field y. In big-endian, this is [0x12, 0x34].
+  auto data = tensorstore::MakeArray<int16_t>({{0x1234}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(
+          data, store | tensorstore::Dims(0, 1).SizedInterval({0, 0}, {1, 1}))
+          .result());
+
+  // Open as void
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_store, tensorstore::Open(void_spec, context,
+                                         dtype_v<tensorstore::dtypes::byte_t>,
+                                         tensorstore::OpenMode::open,
+                                         tensorstore::ReadWriteMode::read)
+                           .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_array,
+      tensorstore::Read(byte_store | tensorstore::Dims(0, 1, 2).SizedInterval(
+                                         {0, 0, 0}, {1, 1, 3}))
+          .result());
+
+  // Struct: x (uint8) = 0, + y (int16) = 0x1234.
+  // open_as_void doesn't handle endianness conversion so it remains in native
+  // endianness.
+  auto expected_array =
+      tensorstore::endian::native == tensorstore::endian::little
+          ? tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+                {{{std::byte{0}, std::byte{0x34}, std::byte{0x12}}}})
+          : tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+                {{{std::byte{0}, std::byte{0x12}, std::byte{0x34}}}});
+
+  EXPECT_THAT(byte_array, MatchesArray(expected_array));
+}
+
+TEST(Zarr3OpenAsVoidTest, ShardedSubChunkShapeExtension) {
+  auto context = Context::Default();
+
+  // Create sharded structured array.
+  // Struct: x (uint8), y (int16) -> 3 bytes.
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix_shard/"}}},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields", ::nlohmann::json::array(
+                              {{{"name", "x"}, {"data_type", "uint8"}},
+                               {{"name", "y"}, {"data_type", "int16"}}})}}}}},
+           {"shape", {8, 8}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {8, 8}}}}}},
+           {"codecs",
+            {{{"name", "sharding_indexed"},
+              {"configuration",
+               {{"chunk_shape", {4, 4}}, {"codecs", {{{"name", "bytes"}}}}}}}}},
+       }},
+      {"field", "x"},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Open as void.
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix_shard/"}}},
+      {"open_as_void", true},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto void_store,
+      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // Spec should have sub_chunk_shape extended with the bytes dimension [4, 4,
+  // 3]
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, void_store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_json, spec.ToJson());
+  EXPECT_THAT(
+      spec_json["metadata"]["codecs"],
+      ::testing::Contains(JsonSubValuesMatch(
+          {{"/name", "sharding_indexed"},
+           {"/configuration/chunk_shape", ::nlohmann::json({4, 4, 3})}})));
 }
 
 // Helper: returns a JSON spec for creating a sharded structured array.
