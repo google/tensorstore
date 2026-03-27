@@ -125,6 +125,9 @@ TEST(ParseBaseDType, Failure) {
   EXPECT_THAT(ParseBaseDType("r0"),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("data type is invalid; expected r<N>")));
+  EXPECT_THAT(ParseBaseDType("r8a"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("data type is invalid; expected r")));
 }
 
 TEST(ParseDType, SimpleStringBool) {
