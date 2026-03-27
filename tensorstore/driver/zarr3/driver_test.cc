@@ -17,6 +17,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
 #include <string>
 #include <utility>
@@ -3126,9 +3127,7 @@ TEST_P(ShardedVoidWriteThenFieldReadTest, VoidWriteThenFieldRead) {
   auto ptr = static_cast<unsigned char*>(
       const_cast<void*>(static_cast<const void*>(write_bytes.data())));
   ptr[0] = 0xAA;  // x value
-  for (size_t i = 0; i < param.y_bytes.size(); ++i) {
-    ptr[1 + i] = param.y_bytes[i];
-  }
+  std::memcpy(ptr + 1, param.y_bytes.data(), param.y_bytes.size());
 
   TENSORSTORE_EXPECT_OK(
       tensorstore::Write(write_bytes,
