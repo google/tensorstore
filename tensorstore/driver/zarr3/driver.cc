@@ -960,22 +960,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
       DataCacheInitializer&& initializer) override {
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
-    // For void access, modify the dtype to indicate special handling
-    ZarrDType dtype = metadata.data_type;
-    if (spec().open_as_void) {
-      // Create a synthetic dtype for void access
-      dtype = ZarrDType{
-          /*.has_fields=*/false,
-          /*.fields=*/{ZarrDType::Field{
-              ZarrDType::BaseDType{"", dtype_v<tensorstore::dtypes::byte_t>,
-                                    {metadata.data_type.bytes_per_outer_element}},
-              /*.name=*/"",
-              /*.field_shape=*/{metadata.data_type.bytes_per_outer_element},
-              /*.num_inner_elements=*/metadata.data_type.bytes_per_outer_element,
-              /*.byte_offset=*/0,
-              /*.num_bytes=*/metadata.data_type.bytes_per_outer_element}},
-          /*.bytes_per_outer_element=*/metadata.data_type.bytes_per_outer_element};
-    }
+    ZarrDType dtype = spec().open_as_void ? metadata.GetVoidAccessDType()
+                                          : metadata.data_type;
     // Determine if original dtype is structured (multiple fields).
     // This affects how void access handles codec operations.
     const bool original_is_structured = metadata.data_type.fields.size() > 1;

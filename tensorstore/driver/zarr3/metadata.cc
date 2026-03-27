@@ -648,6 +648,20 @@ std::string ZarrMetadata::GetCompatibilityKey() const {
       .dump();
 }
 
+ZarrDType ZarrMetadata::GetVoidAccessDType() const {
+  return ZarrDType{
+      /*.has_fields=*/false,
+      /*.fields=*/{ZarrDType::Field{
+          ZarrDType::BaseDType{"", dtype_v<tensorstore::dtypes::byte_t>,
+                               {data_type.bytes_per_outer_element}},
+          /*.name=*/"",
+          /*.field_shape=*/{data_type.bytes_per_outer_element},
+          /*.num_inner_elements=*/data_type.bytes_per_outer_element,
+          /*.byte_offset=*/0,
+          /*.num_bytes=*/data_type.bytes_per_outer_element}},
+      /*.bytes_per_outer_element=*/data_type.bytes_per_outer_element};
+}
+
 absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   // Determine if this is a structured type with multiple fields
   const bool is_structured =

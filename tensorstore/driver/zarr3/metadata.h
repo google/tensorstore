@@ -130,6 +130,11 @@ struct ZarrMetadata {
 
   std::string GetCompatibilityKey() const;
 
+  /// Returns a synthetic ZarrDType for void access, representing the raw bytes
+  /// of the original data type. The returned dtype has a single unnamed field
+  /// of byte type with shape equal to bytes_per_outer_element.
+  ZarrDType GetVoidAccessDType() const;
+
   ZarrCodecChain::Ptr codecs;
   ZarrCodecChain::PreparedState::Ptr codec_state;
   std::array<DimensionIndex, kMaxRank> inner_order;
