@@ -32,6 +32,7 @@
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/cast.h"
@@ -2711,16 +2712,15 @@ TEST(Zarr3OpenAsVoidTest, FillValue) {  // TODO: We need to define behavior for 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_fill, void_store.fill_value());
   EXPECT_TRUE(void_fill.valid());
 
-  // The void fill_value should have shape {3} (3 bytes for struct: 1 "x" + 2 "y")
-  EXPECT_EQ(1, void_fill.rank());
-  EXPECT_EQ(3, void_fill.shape()[0]);
+  // The void fill_value should have shape {3} (3 bytes for struct: 1 "x" + 2
+  // "y")
+  EXPECT_THAT(void_fill.shape(), ::testing::ElementsAre(3));
 
   // The fill_value bytes should represent the struct in little endian:
   // x = 0x12 (1 byte), y = 0x3456 -> bytes 0x56, 0x34 (little endian)
-  auto fill_bytes = static_cast<const unsigned char*>(void_fill.data());
-  EXPECT_EQ(0x12, fill_bytes[0]);  // x field
-  EXPECT_EQ(0x56, fill_bytes[1]);  // y low byte
-  EXPECT_EQ(0x34, fill_bytes[2]);  // y high byte
+  EXPECT_THAT(void_fill, tensorstore::MatchesArray(
+                             tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+                                 {std::byte{0x12}, std::byte{0x56}, std::byte{0x34}})));
 }
 
 TEST(Zarr3OpenAsVoidTest, IncompatibleMetadata) {
