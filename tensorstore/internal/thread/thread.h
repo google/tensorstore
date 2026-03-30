@@ -17,7 +17,6 @@
 
 #include <stdint.h>
 
-#include <functional>
 #include <thread>  // NOLINT
 #include <utility>
 
@@ -90,13 +89,14 @@ class Thread {
   // factory method.
   template <class Function, class... Args>
   Thread(private_t, Options options, Function&& f, Args&&... args)
-      : thread_((
+      : thread_((  //
             internal_os::SetupForkDetection(),
-            [name = options.name, fn = std::bind(std::forward<Function>(f),
-                                                 std::forward<Args>(args)...)] {
+            [name = options.name, f = std::forward<Function>(f),
+             args = std::make_tuple(std::forward<Args>(args)...)]() mutable {
               TrySetCurrentThreadName(name);
-              std::move(fn)();
-            })) {}
+              std::apply(std::move(f), std::move(args));
+            }  //
+            )) {}
 
   std::thread thread_;
 };
