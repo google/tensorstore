@@ -2250,7 +2250,7 @@ TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
       {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
        {{"name", "gzip"}, {"configuration", {{"level", 5}}}}});
   auto create_spec =
-      GetStructuredCreateSpec("prefix/", {4, 4}, {4, 4}, gzip_codecs_with_endian);
+      GetStructuredCreateSpec("prefix/", {2, 2}, {2, 2}, gzip_codecs_with_endian);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -2259,8 +2259,7 @@ TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
           .result());
 
   // Initialize with zeros
-  auto zeros = tensorstore::MakeArray<int16_t>(
-      {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}});
+  auto zeros = tensorstore::MakeArray<int16_t>({{0, 0}, {0, 0}});
   TENSORSTORE_EXPECT_OK(tensorstore::Write(zeros, store).result());
 
   // Open as void for writing
@@ -2271,34 +2270,36 @@ TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
-  // Verify the void store has the expected shape: [4, 4, 3] (3 bytes per element)
+  // Verify the void store has the expected shape: [2, 2, 3] (3 bytes per element)
   EXPECT_EQ(3, void_store.rank());
-  EXPECT_EQ(4, void_store.domain().shape()[0]);
-  EXPECT_EQ(4, void_store.domain().shape()[1]);
+  EXPECT_EQ(2, void_store.domain().shape()[0]);
+  EXPECT_EQ(2, void_store.domain().shape()[1]);
   EXPECT_EQ(3, void_store.domain().shape()[2]);
 
-  // Create raw bytes for the structured type
-  auto raw_bytes = tensorstore::AllocateArray<tensorstore::dtypes::byte_t>(
-      {4, 4, 3}, tensorstore::c_order, tensorstore::value_init);
+  // Create byte array for the structured type using MakeArray.
+  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes.
+  // Setting first element: x=0x11, y=0x0304 (little endian: 04 03).
+  // All other elements are zeros.
+  auto write_bytes = tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+      {{{std::byte{0x11}, std::byte{0x04}, std::byte{0x03}},
+        {std::byte{0x00}, std::byte{0x00}, std::byte{0x00}}},
+       {{std::byte{0x00}, std::byte{0x00}, std::byte{0x00}},
+        {std::byte{0x00}, std::byte{0x00}, std::byte{0x00}}}});
 
-  // Set first element: x=0x11, y=0x0304 (little endian: 04 03)
-  auto raw_bytes_ptr = static_cast<unsigned char*>(
-      const_cast<void*>(static_cast<const void*>(raw_bytes.data())));
-  raw_bytes_ptr[0] = 0x11;  // x field
-  raw_bytes_ptr[1] = 0x04;  // y low byte
-  raw_bytes_ptr[2] = 0x03;  // y high byte
-
-  // Write raw bytes through void access (triggers compression)
-  TENSORSTORE_EXPECT_OK(tensorstore::Write(raw_bytes, void_store).result());
+  // Write bytes through void access (triggers compression)
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(write_bytes, void_store).result());
 
   // Verify the write worked by reading back through void access
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto void_read,
                                    tensorstore::Read(void_store).result());
-  auto void_read_ptr = static_cast<const unsigned char*>(void_read.data());
-  // First 3 bytes should be our pattern
-  EXPECT_EQ(void_read_ptr[0], 0x11);  // x field
-  EXPECT_EQ(void_read_ptr[1], 0x04);  // y low byte
-  EXPECT_EQ(void_read_ptr[2], 0x03);  // y high byte
+
+  // Verify byte layout matches what we wrote
+  EXPECT_EQ(tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+                {{{std::byte{0x11}, std::byte{0x04}, std::byte{0x03}},
+                  {std::byte{0x00}, std::byte{0x00}, std::byte{0x00}}},
+                 {{std::byte{0x00}, std::byte{0x00}, std::byte{0x00}},
+                  {std::byte{0x00}, std::byte{0x00}, std::byte{0x00}}}}),
+            void_read);
 
   // Read back through typed access to field y
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -2309,12 +2310,9 @@ TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto typed_read,
                                    tensorstore::Read(typed_store).result());
-  auto typed_ptr = static_cast<const int16_t*>(typed_read.data());
 
-  // First element y field should be 0x0304
-  EXPECT_EQ(typed_ptr[0], 0x0304);
-  // Rest should be zeros
-  EXPECT_EQ(typed_ptr[1], 0);
+  // First element y field should be 0x0304, rest should be zeros
+  EXPECT_EQ(tensorstore::MakeArray<int16_t>({{0x0304, 0}, {0, 0}}), typed_read);
 }
 
 TEST(Zarr3DriverTest, FieldSelectionUrlNotSupported) {
