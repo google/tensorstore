@@ -19,7 +19,9 @@
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -1835,6 +1837,51 @@ TEST(DriverTest, UrlSchemeRoundtrip) {
 
 // Tests for open_as_void functionality
 
+// Helper functions to reduce duplication in open_as_void tests.
+
+// Returns the JSON for a structured data type with fields x (uint8) and y
+// (int16). Total size: 3 bytes per element.
+::nlohmann::json GetStructuredDataTypeJson() {
+  return {{"name", "struct"},
+          {"configuration",
+           {{"fields",
+             ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                      {{"name", "y"}, {"data_type", "int16"}}})}}}};
+}
+
+// Returns a create spec for a structured type array with field selection.
+// The structured type has fields x (uint8) and y (int16).
+::nlohmann::json GetStructuredCreateSpec(
+    std::string_view kvstore_path,
+    std::vector<Index> shape,
+    std::vector<Index> chunk_shape,
+    std::optional<::nlohmann::json> codecs = std::nullopt) {
+  ::nlohmann::json metadata = {
+      {"data_type", GetStructuredDataTypeJson()},
+      {"shape", shape},
+      {"chunk_grid",
+       {{"name", "regular"}, {"configuration", {{"chunk_shape", chunk_shape}}}}},
+  };
+  if (codecs.has_value()) {
+    metadata["codecs"] = *codecs;
+  }
+  return {
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", kvstore_path}}},
+      {"field", "y"},
+      {"metadata", metadata},
+  };
+}
+
+// Returns a spec for opening a zarr3 array with open_as_void=true.
+::nlohmann::json GetOpenAsVoidSpec(std::string_view kvstore_path) {
+  return {
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", kvstore_path}}},
+      {"open_as_void", true},
+  };
+}
+
 TEST(Zarr3OpenAsVoidTest, SimpleType) {
   auto context = Context::Default();
 
@@ -1874,29 +1921,12 @@ TEST(Zarr3OpenAsVoidTest, StructuredType) {
   // Test open_as_void with a structured data type
   auto context = Context::Default();
 
-  // Step 1: Create and write the array using a structured dtype (with field)
+  // Create and write the array using a structured dtype (with field)
   // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes total
-  ::nlohmann::json create_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"field", "y"},
-      {"metadata",
-       {
-           {"data_type",
-            {{"name", "struct"},
-             {"configuration",
-              {{"fields",
-                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
-                                         {{"name", "y"}, {"data_type", "int16"}}})}}}}},
-           {"shape", {4, 4}},
-           {"chunk_grid",
-            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
-       }},
-  };
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+      tensorstore::Open(GetStructuredCreateSpec("prefix/", {4, 4}, {2, 2}),
+                        context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
@@ -1912,17 +1942,11 @@ TEST(Zarr3OpenAsVoidTest, StructuredType) {
   // Close store to ensure data is flushed
   store = tensorstore::TensorStore<int16_t>();
 
-  // Step 2: Open with open_as_void=true, specifying byte_t element type.
+  // Open with open_as_void=true, specifying byte_t element type.
   // This gives us a TensorStore<byte_t> which supports indexed array access.
-  ::nlohmann::json void_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"open_as_void", true},
-  };
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto byte_store,
-      tensorstore::Open(void_spec, context,
+      tensorstore::Open(GetOpenAsVoidSpec("prefix/"), context,
                         dtype_v<tensorstore::dtypes::byte_t>,
                         tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read)
@@ -1931,14 +1955,14 @@ TEST(Zarr3OpenAsVoidTest, StructuredType) {
   // The store should have rank = original_rank + 1 (for bytes dimension)
   EXPECT_EQ(3, byte_store.rank());
 
-  // The last dimension should be 3 bytes (1 byte for u1 + 2 bytes for i2)
+  // The last dimension should be 3 bytes (1 byte for uint8 + 2 bytes for int16)
   EXPECT_EQ(3, byte_store.domain().shape()[2]);
 
   // The data type should be byte
   EXPECT_EQ(tensorstore::dtype_v<tensorstore::dtypes::byte_t>,
             byte_store.dtype());
 
-  // Step 3: Read and verify byte content for field y only
+  // Read and verify byte content for field y only
   // Since we only wrote to field y, field x will be zeros (fill value)
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto byte_array,
@@ -1962,30 +1986,14 @@ TEST(Zarr3OpenAsVoidTest, StructuredType) {
 
 TEST(Zarr3OpenAsVoidTest, WithCompression) {
   auto context = Context::Default();
-
-  ::nlohmann::json create_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"field", "y"},
-      {"metadata",
-       {
-           {"data_type",
-            {{"name", "struct"},
-             {"configuration",
-              {{"fields",
-                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
-                                         {{"name", "y"}, {"data_type", "int16"}}})}}}}},
-           {"shape", {4, 4}},
-           {"chunk_grid",
-            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
-           {"codecs", {{{"name", "bytes"}}, {{"name", "gzip"}}}},
-       }},
-  };
+  ::nlohmann::json gzip_codecs = {{{"name", "bytes"}}, {{"name", "gzip"}}};
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
-                        tensorstore::ReadWriteMode::read_write)
+      tensorstore::Open(
+          GetStructuredCreateSpec("prefix/", {4, 4}, {2, 2}, gzip_codecs),
+          context, tensorstore::OpenMode::create,
+          tensorstore::ReadWriteMode::read_write)
           .result());
 
   // Write some data to field y (int16)
@@ -1998,15 +2006,9 @@ TEST(Zarr3OpenAsVoidTest, WithCompression) {
           .result());
 
   // Now open with open_as_void=true, specifying byte_t element type
-  ::nlohmann::json void_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"open_as_void", true},
-  };
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto byte_store,
-      tensorstore::Open(void_spec, context,
+      tensorstore::Open(GetOpenAsVoidSpec("prefix/"), context,
                         dtype_v<tensorstore::dtypes::byte_t>,
                         tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read)
@@ -2015,7 +2017,7 @@ TEST(Zarr3OpenAsVoidTest, WithCompression) {
   // The store should have rank = original_rank + 1 (for bytes dimension)
   EXPECT_EQ(3, byte_store.rank());
 
-  // The last dimension should be 3 bytes (1 for "x" + 2 for "y")
+  // The last dimension should be 3 bytes (1 for uint8 + 2 for int16)
   EXPECT_EQ(3, byte_store.domain().shape()[2]);
 
   // The data type should be byte
@@ -2067,40 +2069,19 @@ TEST(Zarr3OpenAsVoidTest, GetBoundSpecData) {
   // Test that open_as_void is correctly preserved when getting spec from an
   // opened void store. This tests ZarrDataCache::GetBoundSpecData.
   auto context = Context::Default();
-  ::nlohmann::json create_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"field", "y"},
-      {"metadata",
-       {
-           {"data_type",
-            {{"name", "struct"},
-             {"configuration",
-              {{"fields",
-                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
-                                         {{"name", "y"}, {"data_type", "int16"}}})}}}}},
-           {"shape", {4, 4}},
-           {"chunk_grid",
-            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
-       }},
-  };
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+      tensorstore::Open(GetStructuredCreateSpec("prefix/", {4, 4}, {2, 2}),
+                        context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
   // Now open with open_as_void=true
-  ::nlohmann::json void_spec_json{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"open_as_void", true},
-  };
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto void_store,
-      tensorstore::Open(void_spec_json, context, tensorstore::OpenMode::open,
+      tensorstore::Open(GetOpenAsVoidSpec("prefix/"), context,
+                        tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read)
           .result());
 
@@ -2114,14 +2095,7 @@ TEST(Zarr3OpenAsVoidTest, GetBoundSpecData) {
   // Also verify metadata was correctly populated
   EXPECT_TRUE(obtained_json.contains("metadata"));
   auto& metadata = obtained_json["metadata"];
-  EXPECT_THAT(metadata["data_type"], MatchesJson({
-      {"name", "struct"},
-      {"configuration", {
-        {"fields", ::nlohmann::json::array({
-            {{"name", "x"}, {"data_type", "uint8"}},
-            {{"name", "y"}, {"data_type", "int16"}}})
-        }}
-      }}));
+  EXPECT_THAT(metadata["data_type"], MatchesJson(GetStructuredDataTypeJson()));
 }
 
 TEST(Zarr3OpenAsVoidTest, CannotUseWithField) {
@@ -2132,12 +2106,7 @@ TEST(Zarr3OpenAsVoidTest, CannotUseWithField) {
       {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
       {"metadata",
        {
-           {"data_type",
-            {{"name", "struct"},
-             {"configuration",
-              {{"fields",
-                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
-                                         {{"name", "y"}, {"data_type", "int16"}}})}}}}},
+           {"data_type", GetStructuredDataTypeJson()},
            {"shape", {4, 4}},
            {"chunk_grid",
             {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
@@ -2178,27 +2147,11 @@ TEST(Zarr3OpenAsVoidTest, UrlNotSupported) {
 
 TEST(Zarr3OpenAsVoidTest, ReadWrite) {
   auto context = Context::Default();
-  ::nlohmann::json create_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"field", "y"},
-      {"metadata",
-       {
-           {"data_type",
-            {{"name", "struct"},
-             {"configuration",
-              {{"fields",
-                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
-                                         {{"name", "y"}, {"data_type", "int16"}}})}}}}},
-           {"shape", {2, 2}},
-           {"chunk_grid",
-            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
-       }},
-  };
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+      tensorstore::Open(GetStructuredCreateSpec("prefix/", {2, 2}, {2, 2}),
+                        context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
@@ -2208,15 +2161,9 @@ TEST(Zarr3OpenAsVoidTest, ReadWrite) {
   TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
 
   // Open as void with byte_t type and read
-  ::nlohmann::json void_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"open_as_void", true},
-  };
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto byte_store,
-      tensorstore::Open(void_spec, context,
+      tensorstore::Open(GetOpenAsVoidSpec("prefix/"), context,
                         dtype_v<tensorstore::dtypes::byte_t>,
                         tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read_write)
@@ -2243,27 +2190,11 @@ TEST(Zarr3OpenAsVoidTest, WriteRoundtrip) {
   // Test that writing through open_as_void correctly encodes data
   // and can be read back both through void access and normal typed access.
   auto context = Context::Default();
-  ::nlohmann::json create_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"field", "y"},
-      {"metadata",
-       {
-           {"data_type",
-            {{"name", "struct"},
-             {"configuration",
-              {{"fields",
-                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
-                                         {{"name", "y"}, {"data_type", "int16"}}})}}}}},
-           {"shape", {2, 2}},
-           {"chunk_grid",
-            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
-       }},
-  };
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+      tensorstore::Open(GetStructuredCreateSpec("prefix/", {2, 2}, {2, 2}),
+                        context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
@@ -2274,15 +2205,9 @@ TEST(Zarr3OpenAsVoidTest, WriteRoundtrip) {
   TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
 
   // Now read via void access with byte_t type and verify the byte layout
-  ::nlohmann::json void_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"open_as_void", true},
-  };
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto byte_store,
-      tensorstore::Open(void_spec, context,
+      tensorstore::Open(GetOpenAsVoidSpec("prefix/"), context,
                         dtype_v<tensorstore::dtypes::byte_t>,
                         tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read)
@@ -2309,27 +2234,11 @@ TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
   // Test writing through open_as_void with compression enabled.
   // Verifies that the EncodeChunk method correctly compresses data.
   auto context = Context::Default();
-  ::nlohmann::json create_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"field", "y"},
-      {"metadata",
-       {
-           {"data_type",
-            {{"name", "struct"},
-             {"configuration",
-              {{"fields",
-                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
-                                         {{"name", "y"}, {"data_type", "int16"}}})}}}}},
-           {"shape", {4, 4}},
-           {"chunk_grid",
-            {{"name", "regular"}, {"configuration", {{"chunk_shape", {4, 4}}}}}},
-           {"codecs",
-            ::nlohmann::json::array(
-                {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
-                 {{"name", "gzip"}, {"configuration", {{"level", 5}}}}})},
-       }},
-  };
+  ::nlohmann::json gzip_codecs_with_endian = ::nlohmann::json::array(
+      {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
+       {{"name", "gzip"}, {"configuration", {{"level", 5}}}}});
+  auto create_spec =
+      GetStructuredCreateSpec("prefix/", {4, 4}, {4, 4}, gzip_codecs_with_endian);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -2343,15 +2252,10 @@ TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
   TENSORSTORE_EXPECT_OK(tensorstore::Write(zeros, store).result());
 
   // Open as void for writing
-  ::nlohmann::json void_spec{
-      {"driver", "zarr3"},
-      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
-      {"open_as_void", true},
-  };
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto void_store,
-      tensorstore::Open(void_spec, context, tensorstore::OpenMode::open,
+      tensorstore::Open(GetOpenAsVoidSpec("prefix/"), context,
+                        tensorstore::OpenMode::open,
                         tensorstore::ReadWriteMode::read_write)
           .result());
 
@@ -2409,12 +2313,7 @@ TEST(Zarr3DriverTest, FieldSelectionUrlNotSupported) {
       {"field", "x"},
       {"metadata",
        {
-           {"data_type",
-            {{"name", "struct"},
-             {"configuration",
-              {{"fields",
-                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
-                                         {{"name", "y"}, {"data_type", "int16"}}})}}}}},
+           {"data_type", GetStructuredDataTypeJson()},
            {"shape", {4, 4}},
            {"chunk_grid",
             {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
