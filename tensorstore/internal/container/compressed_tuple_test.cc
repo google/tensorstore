@@ -79,19 +79,16 @@ struct CopyableMovableInstance {
     num_instances = 0;
     num_moves = 0;
     num_copies = 0;
-    num_swaps = 0;
   }
 
   static int num_instances;
   static int num_moves;
   static int num_copies;
-  static int num_swaps;
 };
 
 int CopyableMovableInstance::num_instances{0};
 int CopyableMovableInstance::num_moves{0};
 int CopyableMovableInstance::num_copies{0};
-int CopyableMovableInstance::num_swaps{0};
 
 enum class CallType { kConstRef, kConstMove };
 
