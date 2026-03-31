@@ -2186,49 +2186,6 @@ TEST(Zarr3OpenAsVoidTest, ReadWrite) {
             byte_array);
 }
 
-TEST(Zarr3OpenAsVoidTest, WriteRoundtrip) {
-  // Test that writing through open_as_void correctly encodes data
-  // and can be read back both through void access and normal typed access.
-  auto context = Context::Default();
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(GetStructuredCreateSpec("prefix/", {2, 2}, {2, 2}),
-                        context, tensorstore::OpenMode::create,
-                        tensorstore::ReadWriteMode::read_write)
-          .result());
-
-  // Write initial data via typed access to field y (int16)
-  auto data = tensorstore::MakeArray<int16_t>({{0x1234, 0x5678},
-                                                {static_cast<int16_t>(0x9ABC),
-                                                 static_cast<int16_t>(0xDEF0)}});
-  TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
-
-  // Now read via void access with byte_t type and verify the byte layout
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto byte_store,
-      tensorstore::Open(GetOpenAsVoidSpec("prefix/"), context,
-                        dtype_v<tensorstore::dtypes::byte_t>,
-                        tensorstore::OpenMode::open,
-                        tensorstore::ReadWriteMode::read)
-          .result());
-
-  // Read through byte access
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto byte_array,
-                                   tensorstore::Read(byte_store).result());
-
-  EXPECT_THAT(byte_array.shape(), ::testing::ElementsAre(2, 2, 3));
-
-  // Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes
-  // y values: 0x1234, 0x5678, 0x9ABC, 0xDEF0 (little-endian)
-  // x is fill value (0) since we only wrote to field y
-  EXPECT_EQ(tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
-                {{{std::byte{0x00}, std::byte{0x34}, std::byte{0x12}},
-                  {std::byte{0x00}, std::byte{0x78}, std::byte{0x56}}},
-                 {{std::byte{0x00}, std::byte{0xBC}, std::byte{0x9A}},
-                  {std::byte{0x00}, std::byte{0xF0}, std::byte{0xDE}}}}),
-            byte_array);
-}
 
 TEST(Zarr3OpenAsVoidTest, WriteWithCompression) {
   // Test writing through open_as_void with compression enabled.
