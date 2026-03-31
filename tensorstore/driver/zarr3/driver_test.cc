@@ -3502,6 +3502,28 @@ TEST(Zarr3StructuredTest, ShardedNoFieldRejectsOpen) {
                                  ".*Must specify a \"field\".*"));
 }
 
+TEST(Zarr3StructuredTest, ShardedMissingFieldRejectsOpen) {
+  auto context = Context::Default();
+
+  // First create the array with field "x" to establish metadata (has fields "x"
+  // and "y").
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Open(ShardedStructSpec("x"), context,
+                        tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Opening with a non-existent field must fail.
+  EXPECT_THAT(
+      tensorstore::Open(ShardedStructSpec("missing_field"), context,
+                        tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      tensorstore::MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                                 ".*Requested field.*missing_field.*"
+                                 "is not one of.*"));
+}
+
 TEST(Zarr3StructuredTest, ShardedOpenAsVoidNoFieldCreate) {
   auto context = Context::Default();
 
