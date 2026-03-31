@@ -37,11 +37,19 @@ def main():
 
     for dep in deps:
       f.write(
-          f'load("//third_party:{dep}/workspace.bzl", repo_{dep} = "repo")\n')
+          f'load("//third_party:{dep}/workspace.bzl", repo_{dep} = "repo")\n'
+      )
     f.write('\n')
     f.write('def third_party_dependencies():\n')
+
+    # Local dependencies first.
     for dep in deps:
-      f.write(f'    repo_{dep}()\n')
+      if dep.startswith('local_'):
+        f.write(f'    repo_{dep}()\n')
+
+    for dep in deps:
+      if not dep.startswith('local_'):
+        f.write(f'    repo_{dep}()\n')
 
 
 if __name__ == '__main__':
