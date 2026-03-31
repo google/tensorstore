@@ -112,6 +112,8 @@ def create_root_workspace(
     workspace.load_bazelrc(bazelrc)
   for module in args.module:
     workspace.add_module(module)
+  for ext_repo in args.external_repositories:
+    workspace.load_external_repositories(ext_repo)
   for target in args.ignore_library:
     workspace.global_ignored_libraries.add(repository_id.parse_target(target))
   return workspace
@@ -201,6 +203,7 @@ def run_main(args: argparse.Namespace):
             cmake_binary_dir=command_line_cmake_binary_dir,
             repo_mapping=make_repo_mapping(repository_id, args.repo_mapping),
             persisted_canonical_name={},
+            executable_targets=set(),
         )
     )
 
@@ -370,6 +373,7 @@ def main():
   ap.add_argument("--exclude-package", action="append", default=[])
   ap.add_argument("--bind", action="append", default=[])
   ap.add_argument("--ignore-library", action="append", default=[])
+  ap.add_argument("--external-repositories", action="append", default=[])
   ap.add_argument("--target", action="append", default=[])
   ap.add_argument("--exclude-target", action="append", default=[])
   ap.add_argument("--extra-build", action="append", default=[])

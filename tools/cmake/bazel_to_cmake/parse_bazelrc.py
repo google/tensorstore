@@ -17,14 +17,10 @@ import argparse
 import pathlib
 import re
 import shlex
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 from .starlark.bazel_target import TargetId
 
-_FILTER_OPTS = (
-    "/std:c++17",
-    "-std=c++17",
-    "-fdiagnostics-color=always",
-)
+_FILTER_OPTS = ("-fdiagnostics-color=always",)
 
 
 def _parse_per_file_copt(per_file_copt: str) -> Iterator[tuple[str, str]]:
@@ -88,6 +84,7 @@ class ParsedBazelrc:
     self.cxxopts: list[str] = []
     self.linkopts: list[str] = []
     self.per_file_copt: list[tuple[str, str]] = []
+    self.cpp_standard: str | None = None
 
   def __repr__(self) -> str:
     return (
@@ -190,16 +187,22 @@ class ParsedBazelrc:
     # Convert global /D options to cdefines and remove duplicate entries.
     defines_seen = set(self.cdefines)
 
-    def _filter_opts(opts: list[str], common: set[str] | None = None) -> None:
+    def _filter_opts(
+        opts: list[str], common: set[str] | None = None
+    ) -> list[str]:
       seen = set(_FILTER_OPTS)
       result = []
       for opt in opts:
-        if opt in seen:
-          continue
         seen.add(opt)
         if common and opt in common:
           continue
-        if not re.match("^(?:[-/]D)", opt):
+        m = re.fullmatch(r"[-/]std[=:]c\+\+([^/]+)", opt)
+        if m:
+          self.cpp_standard = m.group(1)
+          if self.cpp_standard == "latest":
+            self.cpp_standard = None
+          continue
+        if not opt.startswith(("-D", "/D")):
           result.append(opt)
           continue
         x = opt[2:]

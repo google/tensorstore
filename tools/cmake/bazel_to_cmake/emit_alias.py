@@ -39,7 +39,8 @@ else ()
   target_link_libraries({alias_dest_name} INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,{target_name}>")
 endif()
 """)
-  out.write(f"add_library({alias_name} ALIAS {alias_dest_name})\n")
+  if alias_name != alias_dest_name:
+    out.write(f"add_library({alias_name} ALIAS {alias_dest_name})\n")
   if alias_dest_name != target_name:
     return (CMakeAliasProvider(alias_dest_name),)
   return tuple()

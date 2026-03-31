@@ -103,8 +103,13 @@ def _alias_impl(
   out = io.StringIO()
   out.write(f"\n# alias({_target.as_label()})\n")
   if function:
-    out.write(f"{function}({source.target} ALIAS {cmake_alias_target})\n")
-    if source.alias:
+    if source.target != cmake_alias_target:
+      out.write(f"{function}({source.target} ALIAS {cmake_alias_target})\n")
+    if (
+        source.alias
+        and source.alias != cmake_alias_target
+        and source.alias != source.target
+    ):
       out.write(f"{function}({source.alias} ALIAS {cmake_alias_target})\n")
   else:
     out.write(f"# No alias emitted for {cmake_alias_target})\n")

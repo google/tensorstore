@@ -13,24 +13,18 @@
 # limitations under the License.
 """Miscellaneous utility functions."""
 
+from collections.abc import Collection, Iterable, Iterator
 import glob
 import json
 import os
 import pathlib
 import re
-from typing import Any, Collection, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union
-
+from typing import Any, TypeVar
 from .starlark.bazel_glob import glob_pattern_to_regexp
 
-PathLike = TypeVar("PathLike", str, pathlib.PurePath)
-
-PathIterable = Union[
-    Iterable[str], Iterable[pathlib.PurePath], Iterable[PathLike]
-]
-
-PathCollection = Union[
-    Collection[str], Collection[pathlib.PurePath], Collection[PathLike]
-]
+PathLike = str | pathlib.PurePath
+PathIterable = Iterable[PathLike]
+PathCollection = Collection[PathLike]
 
 
 T = TypeVar("T")
@@ -87,12 +81,12 @@ def is_relative_to(
   return other == leaf or other in leaf.parents
 
 
-def make_relative_path(p: PathLike, *target) -> Tuple[Any, pathlib.PurePath]:
+def make_relative_path(p: PathLike, *target) -> tuple[Any, pathlib.PurePath]:
   if not isinstance(p, pathlib.PurePath):
     p = pathlib.PurePath(p)
   i = 0
   for item in target:
-    (i, x) = item
+    i, x = item
     if not isinstance(x, pathlib.PurePath):
       x = pathlib.PurePath(x)
     if is_relative_to(p, x):
@@ -102,7 +96,7 @@ def make_relative_path(p: PathLike, *target) -> Tuple[Any, pathlib.PurePath]:
 
 def partition_by(
     inputs: Iterable[PathLike], pattern: str
-) -> Tuple[List[str], List[str]]:
+) -> tuple[list[str], list[str]]:
   yes = []
   no = []
   for x in inputs:
@@ -151,21 +145,21 @@ _CMAKE_FALSE_PATTERN = re.compile(
 )
 
 
-def cmake_is_true(value: Optional[str]) -> bool:
+def cmake_is_true(value: str | None) -> bool:
   """Determines if a string is considered by CMake to be TRUE."""
   if value is None:
     return False
   return not _CMAKE_FALSE_PATTERN.fullmatch(value)
 
 
-def cmake_is_windows(value: Optional[str]) -> bool:
+def cmake_is_windows(value: str | None) -> bool:
   """Determines if a string is considered by CMake to be TRUE."""
   if value is None:
     return False
   return value.startswith("Windows")
 
 
-def cmake_logging_verbose_level(value: Optional[str]) -> int:
+def cmake_logging_verbose_level(value: str | None) -> int:
   """Returns the logging verbosity level based on CMAKE_MESSAGE_LOG_LEVEL."""
   if value is None:
     return 0
@@ -180,7 +174,7 @@ def cmake_logging_verbose_level(value: Optional[str]) -> int:
     return 0
 
 
-def _get_build_patterns(package_patterns: List[str]):
+def _get_build_patterns(package_patterns: list[str]):
   patterns = []
   for package_pattern in package_patterns:
     if package_pattern.endswith("BUILD") or package_pattern.endswith(
@@ -198,17 +192,18 @@ def _get_build_patterns(package_patterns: List[str]):
 
 def get_matching_build_files(
     root_dir: pathlib.PurePath,
-    include_packages: List[str],
-    exclude_packages: List[str],
-    verbose: bool = False,
-) -> List[str]:
+    include_packages: list[str],
+    exclude_packages: list[str],
+    *,
+    verbose: bool | int = False,
+) -> list[str]:
   """Returns the relative path of matching BUILD files.
 
   Args:
     root_dir: Path to root directory for the repository.
-    include_packages: List of glob patterns matching package directory names to
+    include_packages: list of glob patterns matching package directory names to
       include.  May use "*" and "**".  For example, `["tensorstore/**"]`.
-    exclude_packages: List of glob patterns matching package directory names to
+    exclude_packages: list of glob patterns matching package directory names to
       exclude.
 
   Returns:

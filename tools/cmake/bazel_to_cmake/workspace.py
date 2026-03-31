@@ -23,6 +23,8 @@ import shlex
 from typing import Union
 
 from .cmake_repository import CMakeRepository
+from .cmake_target import CMakePackage
+from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .parse_bazelrc import ParsedBazelrc
 from .starlark.bazel_target import PackageId
@@ -42,8 +44,10 @@ _PLATFORM_NAME_TO_BAZEL_PLATFORM = {
     "Linux": "linux",
 }
 
+_DEFAULT_CPP_STANDARD = "17"
 
-def _parse_bazelrc(path: str):
+
+def _parse_bazelrc(path: str) -> dict[str, list[str]]:
   options: dict[str, list[str]] = {}
   for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
     line = line.strip()
@@ -99,6 +103,9 @@ class Workspace:
     # EvaluationState.get_optional_target_info() and provide a TargetInfo.
     self._persisted_target_info: dict[TargetId, TargetInfo] = {}
 
+    # Loaded by load_external_repositories()
+    self._external_repo_configs: dict[RepositoryId, dict] = {}
+
     # Log level
     self._verbose: int = cmake_logging_verbose_level(
         cmake_vars.get("CMAKE_MESSAGE_LOG_LEVEL")
@@ -141,6 +148,10 @@ class Workspace:
   def linkopts(self) -> list[str]:
     return self._parsed_bazelrc.linkopts
 
+  @property
+  def cpp_standard(self) -> str:
+    return self._parsed_bazelrc.cpp_standard or _DEFAULT_CPP_STANDARD
+
   def get_per_file_copts(self, target: TargetId, src: str) -> list[str]:
     return self._parsed_bazelrc.get_per_file_copts(target, src)
 
@@ -148,7 +159,7 @@ class Workspace:
   def root_repository(self) -> CMakeRepository:
     return self.all_repositories[self.root_repository_id]
 
-  def add_cmake_repository(self, repository: CMakeRepository):
+  def add_cmake_repository(self, repository: CMakeRepository) -> None:
     """Adds a repository to the workspace."""
     assert repository.cmake_project_name
 
@@ -185,7 +196,9 @@ class Workspace:
       return repo.get_persisted_canonical_name(target)
     return None
 
-  def set_persistent_target_info(self, target: TargetId, info: TargetInfo):
+  def set_persistent_target_info(
+      self, target: TargetId, info: TargetInfo
+  ) -> None:
     """Records a persistent mapping from Target to TargetInfo.
 
     Generally this is used to set global build settings and cmake aliases.
@@ -215,13 +228,60 @@ class Workspace:
     if self._verbose:
       print(f"Current bazelrc options:\n{self._parsed_bazelrc}")
 
-  def add_module(self, module_name: str):
+  def add_module(self, module_name: str) -> None:
     self._modules.add(module_name)
 
-  def load_modules(self):
+  def load_modules(self) -> None:
     """Load modules added by add_module."""
     for module_name in self._modules:
       if module_name.startswith("."):
         importlib.import_module(module_name, package=__package__)
       else:
         importlib.import_module(module_name)
+
+  def load_external_repositories(self, path: str) -> None:
+    """Loads external repository definitions from a JSON file."""
+    try:
+      with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+      print(f"Warning: Failed to load external repositories from {path}: {e!r}")
+      return
+
+    for name, config in data.items():
+      repository_id = RepositoryId(name)
+      self._external_repo_configs[repository_id] = config
+      if repository_id in self.all_repositories:
+        continue
+
+      cmake_project_name = config.get("cmake_project_name", name)
+      persisted_canonical_name = {}
+
+      for label, target in config.get("cmake_target_mapping", {}).items():
+        target_id = repository_id.parse_target(label)
+        persisted_canonical_name[target_id] = CMakeTargetPair(
+            CMakePackage(cmake_project_name),
+            CMakeTarget(target.replace("::", "_")),
+            CMakeTarget(target),
+        )
+
+      # Store additional info like which targets are executables
+      executable_targets: set[TargetId] = set()
+      for label in config.get("executable_targets", []):
+        executable_targets.add(repository_id.parse_target(label))
+
+      repo_mapping = {}
+      for k, v in config.get("repo_mapping", {}).items():
+        repo_mapping[RepositoryId(k.lstrip("@"))] = RepositoryId(v.lstrip("@"))
+
+      repo = CMakeRepository(
+          repository_id=repository_id,
+          cmake_project_name=CMakePackage(cmake_project_name),
+          source_directory=None,
+          cmake_binary_dir=None,
+          repo_mapping=repo_mapping,
+          persisted_canonical_name=persisted_canonical_name,
+          executable_targets=executable_targets,
+      )
+
+      self.add_cmake_repository(repo)

@@ -121,6 +121,7 @@ def add_repositories(workspace: Workspace):
           pathlib.PurePosixPath('protobuf_build'),
           repo_mapping={},
           persisted_canonical_name={},
+          executable_targets=set(),
       )
   )
   workspace.add_cmake_repository(
@@ -135,6 +136,7 @@ def add_repositories(workspace: Workspace):
               )
           },
           persisted_canonical_name={},
+          executable_targets=set(),
       )
   )
 
@@ -262,6 +264,7 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
           repository_id, config.get('repo_mapping', [])
       ),
       persisted_canonical_name={},
+      executable_targets=set(),
   )
 
   # Setup repo mapping.

@@ -182,6 +182,9 @@ class EvaluationState:
   def targets_to_analyze(self) -> List[TargetId]:
     return sorted(self._targets_to_analyze)
 
+  def resolve_target(self, target: str) -> TargetId:
+    return self._evaluation_context.resolve_target(target)
+
   def analyze(self, targets: List[TargetId]):
     """Analayze the transitive dependencies of `targets`.
 

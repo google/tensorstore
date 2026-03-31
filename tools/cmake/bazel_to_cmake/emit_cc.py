@@ -80,6 +80,7 @@ def _emit_cc_common_options(
     interface_only: bool = False,
     srcs: Iterable[str] | None = None,
     public_srcs: Iterable[str] | None = None,
+    cpp_standard: str = "17",
     **kwargs,
 ):
   """Emits CMake rules for common C++ target options."""
@@ -174,7 +175,8 @@ def _emit_cc_common_options(
       )
 
   out.write(
-      f"target_compile_features({target_name} {public_context} cxx_std_17)\n"
+      f"target_compile_features({target_name} {public_context}"
+      f" cxx_std_{cpp_standard})\n"
   )
   if add_dependencies:
     out.write(
@@ -549,6 +551,7 @@ def handle_cc_common_options(
       target_includes.system
   )
   result["private_includes"] = target_includes.private
+  result["cpp_standard"] = state.workspace.cpp_standard
 
   return result
 
@@ -607,10 +610,11 @@ def emit_cc_binary(
   target_name = _cmake_target_pair.target
   assert _cmake_target_pair.alias is not None
 
-  out.write(f"""
-add_executable({target_name} "")
-add_executable({_cmake_target_pair.alias} ALIAS {target_name})
-""")
+  out.write(f'\nadd_executable({target_name} "")\n')
+  if _cmake_target_pair.alias != target_name:
+    out.write(
+        f"add_executable({_cmake_target_pair.alias} ALIAS {target_name})\n"
+    )
   _emit_cc_common_options(
       out, target_name=target_name, srcs=sorted(srcs), **kwargs
   )

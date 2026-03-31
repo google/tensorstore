@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 from .parse_bazelrc import ParsedBazelrc
 from .starlark.bazel_target import TargetId
 
@@ -89,3 +91,25 @@ build:msvc --conlyopt=/std:c17
   assert parsed.conlyopts == ["/std:c17"]
   assert parsed.copts == ["-Wa,-mbig-obj"]
   assert parsed.cxxopts == ["/Zc:sizedDealloc"]
+
+
+@pytest.mark.parametrize(
+    "os_name, cxxopt_flag, expected_standard",
+    [
+        ("linux", "-std=c++20", "20"),
+        ("windows", "/std:c++20", "20"),
+        ("windows", "/std:c++latest", None),
+        ("linux", "-std=c++17", "17"),
+    ],
+)
+def test_parse_bazelrc_cpp_standard(
+    os_name: str, cxxopt_flag: str, expected_standard: str
+) -> None:
+  parsed = ParsedBazelrc(os_name)
+  parsed.load_bazelrc_text(f"""
+build:{os_name} --cxxopt={cxxopt_flag}
+""")
+  if expected_standard is None:
+    assert parsed.cpp_standard is None
+  else:
+    assert parsed.cpp_standard == expected_standard

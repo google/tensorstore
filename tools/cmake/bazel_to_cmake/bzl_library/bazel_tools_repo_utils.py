@@ -25,4 +25,17 @@ from .register import register_bzl_library
 class BazelToolsRepoUtilsLibrary(ScopeCommon):
 
   def bazel_maybe(self, fn, **kwargs):
+    del self  # Unused.
     fn(**kwargs)
+
+  def bazel_patch(self, ctx):
+    del self  # Unused.
+    pass
+
+  def bazel_update_attrs(self, orig_attrs, keys, overrides):
+    del self  # Unused.
+    return orig_attrs
+
+  def bazel_workspace_and_buildfile(self, ctx):
+    del self  # Unused.
+    pass

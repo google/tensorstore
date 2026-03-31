@@ -469,6 +469,7 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
           repository_id, kwargs.get("repo_mapping", {})
       ),
       persisted_canonical_name={},
+      executable_targets=set(),
   )
 
   _emit_fetch_content_impl(_context, new_repository, **kwargs)
