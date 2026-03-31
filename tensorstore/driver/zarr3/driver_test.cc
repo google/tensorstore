@@ -1984,6 +1984,61 @@ TEST(Zarr3OpenAsVoidTest, StructuredType) {
             byte_array);
 }
 
+TEST(Zarr3OpenAsVoidTest, DimensionNamesPropagate) {
+  // Test that metadata["dimension_names"] are propagated as domain().labels()
+  // when using open_as_void.
+  auto context = Context::Default();
+
+  // Create spec with dimension_names in metadata
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                         {{"name", "y"},
+                                          {"data_type", "int16"}}})}}}}},
+           {"shape", {4, 4}},
+           {"dimension_names", {"dim_x", "dim_y"}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  // Create the array
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Close store
+  store = tensorstore::TensorStore<int16_t>();
+
+  // Open with open_as_void=true
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_store,
+      tensorstore::Open(GetOpenAsVoidSpec("prefix/"), context,
+                        dtype_v<tensorstore::dtypes::byte_t>,
+                        tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  // The store should have rank = original_rank + 1 (for bytes dimension)
+  EXPECT_EQ(3, byte_store.rank());
+
+  // Verify dimension_names are propagated as domain labels.
+  // The first two dimensions should have the dimension names from metadata,
+  // and the bytes dimension (last) should have an empty label.
+  EXPECT_THAT(byte_store.domain().labels(),
+              ::testing::ElementsAre("dim_x", "dim_y", ""));
+}
+
 TEST(Zarr3OpenAsVoidTest, WithCompression) {
   auto context = Context::Default();
   ::nlohmann::json gzip_codecs = {{{"name", "bytes"}}, {{"name", "gzip"}}};
