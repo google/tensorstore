@@ -337,9 +337,9 @@ class BtreeWriterCommitOperationBase {
   BtreeWriterCommitOperationBase(IoHandle::Ptr io_handle)
       : io_handle_(std::move(io_handle)) {}
 
-  ~BtreeWriterCommitOperationBase() = default;
-
  public:
+  virtual ~BtreeWriterCommitOperationBase() = default;
+
   IoHandle::Ptr io_handle_;
 
   std::shared_ptr<const Manifest> existing_manifest_;

@@ -133,6 +133,8 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
  public:
   using Base::executor;
   using Base::grid;
+  using Base::Read;
+  using Base::Write;
 
   class Entry : public Base::Entry {
    public:
