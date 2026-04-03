@@ -40,7 +40,41 @@ cc_library(
 )
 
 nasm_cc_library(
-    name = "cc_library",
+    name = "cc_library_alwayslink",
+    srcs = ["a.asm"],
+    hdrs = [
+        "include/b.inc",
+    ],
+    copts = [
+        "-s",
+        "-w-macro-params-legacy",
+        "-w-orphan-labels",
+    ],
+    includes = [
+        "include",
+    ],
+    alwayslink = 1,
+)
+
+nasm_cc_library(
+    name = "cc_library_linkstatic",
+    srcs = ["a.asm"],
+    hdrs = [
+        "include/b.inc",
+    ],
+    copts = [
+        "-s",
+        "-w-macro-params-legacy",
+        "-w-orphan-labels",
+    ],
+    includes = [
+        "include",
+    ],
+    linkstatic = 1,
+)
+
+nasm_cc_library(
+    name = "cc_library_both",
     srcs = ["a.asm"],
     hdrs = [
         "include/b.inc",

@@ -8,17 +8,17 @@ unset(_nasm_compiler_barename)
 
 # nasm_library(@rules_nasm_test_repo//:asm_library)
 add_custom_command(
-  OUTPUT "${TEST_BINDIR}/_nasm/asm_library/46798ce5/a.asm.o"
+  OUTPUT "${TEST_BINDIR}/_nasm/asm_library/9ec8f3a8/a.asm.o"
   DEPENDS "${TEST_SRCDIR}/a.asm"
   COMMAND ${CMAKE_ASM_NASM_COMPILER}
           -f ${CMAKE_ASM_NASM_OBJECT_FORMAT}
           ${CMAKE_ASM_NASM_FLAGS}
           "-I${TEST_SRCDIR}" "-I${TEST_BINDIR}" "-I${TEST_SRCDIR}/include" "-I${TEST_BINDIR}/include" "-w+all" "-D__x86_64__" "-DELF" "-DPIC"
-          -o "${TEST_BINDIR}/_nasm/asm_library/46798ce5/a.asm.o"
+          -o "${TEST_BINDIR}/_nasm/asm_library/9ec8f3a8/a.asm.o"
           "${TEST_SRCDIR}/a.asm"
   COMMENT "Assembling NASM source ${TEST_SRCDIR}/a.asm"
 )
-set_source_files_properties("${TEST_BINDIR}/_nasm/asm_library/46798ce5/a.asm.o"
+set_source_files_properties("${TEST_BINDIR}/_nasm/asm_library/9ec8f3a8/a.asm.o"
   PROPERTIES GENERATED TRUE)
 
 # cc_library(@rules_nasm_test_repo//:a)
@@ -31,15 +31,15 @@ target_include_directories(CMakeProject_a PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 target_sources(CMakeProject_a PRIVATE
-        "${PROJECT_BINARY_DIR}/_nasm/asm_library/46798ce5/a.asm.o"
+        "${PROJECT_BINARY_DIR}/_nasm/asm_library/9ec8f3a8/a.asm.o"
         "${PROJECT_SOURCE_DIR}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
-# nasm_cc_library(@rules_nasm_test_repo//:cc_library)
-add_library(CMakeProject_cc_library)
-target_sources(CMakeProject_cc_library PRIVATE
+# nasm_cc_library(@rules_nasm_test_repo//:cc_library_alwayslink)
+add_library(CMakeProject_cc_library_alwayslink.alwayslink)
+target_sources(CMakeProject_cc_library_alwayslink.alwayslink PRIVATE
     "${TEST_SRCDIR}/a.asm")
-target_include_directories(CMakeProject_cc_library PRIVATE
+target_include_directories(CMakeProject_cc_library_alwayslink.alwayslink PRIVATE
     "${TEST_BINDIR}"
     "${TEST_BINDIR}/include"
     "${TEST_SRCDIR}"
@@ -50,10 +50,49 @@ set_source_files_properties(
       LANGUAGE ASM_NASM
       COMPILE_OPTIONS "-s;-w-macro-params-legacy;-w-orphan-labels")
 
-add_library(CMakeProject_cc_library.alwayslink INTERFACE)
+add_library(CMakeProject_cc_library_alwayslink INTERFACE)
 if (BUILD_SHARED_LIBS)
-  target_link_libraries(CMakeProject_cc_library.alwayslink INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,CMakeProject_cc_library>")
+  target_link_libraries(CMakeProject_cc_library_alwayslink INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,CMakeProject_cc_library_alwayslink.alwayslink>")
 else ()
-  target_link_libraries(CMakeProject_cc_library.alwayslink INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,CMakeProject_cc_library>")
+  target_link_libraries(CMakeProject_cc_library_alwayslink INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,CMakeProject_cc_library_alwayslink.alwayslink>")
 endif()
-add_library(CMakeProject::cc_library ALIAS CMakeProject_cc_library.alwayslink)
+add_library(CMakeProject::cc_library_alwayslink ALIAS CMakeProject_cc_library_alwayslink)
+
+# nasm_cc_library(@rules_nasm_test_repo//:cc_library_both)
+add_library(CMakeProject_cc_library_both.alwayslink STATIC)
+target_sources(CMakeProject_cc_library_both.alwayslink PRIVATE
+    "${TEST_SRCDIR}/a.asm")
+target_include_directories(CMakeProject_cc_library_both.alwayslink PRIVATE
+    "${TEST_BINDIR}"
+    "${TEST_BINDIR}/include"
+    "${TEST_SRCDIR}"
+    "${TEST_SRCDIR}/include")
+set_source_files_properties(
+    "${TEST_SRCDIR}/a.asm"
+    PROPERTIES
+      LANGUAGE ASM_NASM
+      COMPILE_OPTIONS "-s;-w-macro-params-legacy;-w-orphan-labels")
+
+add_library(CMakeProject_cc_library_both INTERFACE)
+if (BUILD_SHARED_LIBS)
+  target_link_libraries(CMakeProject_cc_library_both INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,CMakeProject_cc_library_both.alwayslink>")
+else ()
+  target_link_libraries(CMakeProject_cc_library_both INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,CMakeProject_cc_library_both.alwayslink>")
+endif()
+add_library(CMakeProject::cc_library_both ALIAS CMakeProject_cc_library_both)
+
+# nasm_cc_library(@rules_nasm_test_repo//:cc_library_linkstatic)
+add_library(CMakeProject_cc_library_linkstatic STATIC)
+target_sources(CMakeProject_cc_library_linkstatic PRIVATE
+    "${TEST_SRCDIR}/a.asm")
+target_include_directories(CMakeProject_cc_library_linkstatic PRIVATE
+    "${TEST_BINDIR}"
+    "${TEST_BINDIR}/include"
+    "${TEST_SRCDIR}"
+    "${TEST_SRCDIR}/include")
+set_source_files_properties(
+    "${TEST_SRCDIR}/a.asm"
+    PROPERTIES
+      LANGUAGE ASM_NASM
+      COMPILE_OPTIONS "-s;-w-macro-params-legacy;-w-orphan-labels")
+add_library(CMakeProject::cc_library_linkstatic ALIAS CMakeProject_cc_library_linkstatic)

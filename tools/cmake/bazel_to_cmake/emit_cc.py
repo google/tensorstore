@@ -15,6 +15,7 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
+import enum
 import io
 import itertools
 import pathlib
@@ -24,8 +25,10 @@ from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_repository import PROJECT_SOURCE_DIR
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
-from .emit_alias import emit_library_alias
+from .emit_alias import emit_alwayslink_alias
+from .emit_alias import emit_cc_library_aliases
 from .evaluation import EvaluationState
+from .ordered_set import OrderedSet
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import TargetId
 from .starlark.invocation_context import InvocationContext
@@ -44,6 +47,13 @@ _SEP = "\n        "
 _HEADER_SRC_PATTERN = r"\.(?:h|hpp|inc)$"
 _ASM_SRC_PATTERN = r"\.(?:s|S|asm)$"
 _OBJ_SRC_PATTERN = r"\.(?:o|obj)$"
+
+
+class CcCommonEnum(enum.Enum):
+  INTERFACE = enum.auto()
+  STATIC_LIBRARY = enum.auto()
+  LIBRARY = enum.auto()
+  EXECUTABLE = enum.auto()
 
 
 class TargetIncludes(NamedTuple):
@@ -77,9 +87,9 @@ def _emit_cc_common_options(
     extra_public_compile_options: Iterable[str] | None = None,
     extra_link_options: Iterable[str] | None = None,
     per_file_copts: dict[str, list[str]] | None = None,
-    interface_only: bool = False,
     srcs: Iterable[str] | None = None,
     public_srcs: Iterable[str] | None = None,
+    emit_enum: CcCommonEnum = CcCommonEnum.LIBRARY,
     cpp_standard: str = "17",
     **kwargs,
 ):
@@ -87,32 +97,34 @@ def _emit_cc_common_options(
   assert "deps" not in kwargs
   del kwargs
 
-  public_context = "INTERFACE" if interface_only else "PUBLIC"
-  if local_defines is not None and local_defines and not interface_only:
+  is_interface = emit_enum == CcCommonEnum.INTERFACE
+  public_context = "INTERFACE" if is_interface else "PUBLIC"
+  if local_defines is not None and local_defines and not is_interface:
     out.write(
         f"target_compile_definitions({target_name} PRIVATE"
         f" {quote_unescaped_list(local_defines)})\n"
     )
   if defines is not None and defines:
     out.write(
-        f"target_compile_definitions({target_name} {public_context} {quote_unescaped_list(defines)})\n"
+        f"target_compile_definitions({target_name} {public_context}"
+        f" {quote_unescaped_list(defines)})\n"
     )
-  if copts is not None and copts and not interface_only:
+  if copts is not None and copts and not is_interface:
     out.write(
         f"target_compile_options({target_name} PRIVATE {quote_list(copts)})\n"
     )
 
   if link_libraries or linkopts:
-    link_libs: list[str] = []
+    link_libs: OrderedSet[str] = OrderedSet()
     if link_libraries:
-      link_libs.extend(sorted(link_libraries))
+      link_libs.update(link_libraries)
 
-    link_options: list[str] = []
+    link_options: OrderedSet[str] = OrderedSet()
     for x in linkopts or []:
       if x.startswith("-l") or x.startswith("-framework"):
-        link_libs.append(x)
+        link_libs.add(x)
       else:
-        link_options.append(x)
+        link_options.add(x)
     if link_libs:
       out.write(
           f"target_link_libraries({target_name} {public_context}{_SEP}"
@@ -123,6 +135,7 @@ def _emit_cc_common_options(
           f"target_link_options({target_name} {public_context}{_SEP}"
           f"{quote_list(link_options, separator=_SEP)})\n"
       )
+
   if extra_link_options:
     out.write(
         f"target_link_options({target_name} {public_context}{_SEP}"
@@ -130,8 +143,10 @@ def _emit_cc_common_options(
     )
 
   if private_link_libraries:
-    private_link_libs: list[str] = sorted(private_link_libraries)
-    assert not interface_only, (
+    # MacOS is special; it has a single-pass linker, and CMake PRIVATE link
+    # libraries don't propagate to dependents.
+    private_link_libs: OrderedSet[str] = OrderedSet(private_link_libraries)
+    assert not is_interface, (
         f"{target_name}: interface_only cannot be set with"
         " private_link_libraries"
     )
@@ -166,7 +181,7 @@ def _emit_cc_common_options(
           f"{_SEP}{quote_path_list(ordered, separator=_SEP)})\n"
       )
 
-  if not interface_only and private_includes:
+  if not is_interface and private_includes:
     ordered = [x for x in _make_include_dirs(sorted(set(private_includes)))]
     if ordered:
       out.write(
@@ -308,7 +323,7 @@ def construct_cc_includes(
     bin_path = cmake_binary_dir.joinpath(constructed)
     # Only add if existing files are discoverable at the prefix
     for x in known_include_files:
-      (c, _) = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+      c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
       if c is not None:
         public.add(c)
 
@@ -332,9 +347,7 @@ def construct_cc_includes(
       bin_path = cmake_binary_dir.joinpath(constructed)
       # Only add if existing files are discoverable at the prefix
       for x in known_include_files:
-        (c, _) = make_relative_path(
-            x, (src_path, src_path), (bin_path, bin_path)
-        )
+        c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
         if c is not None:
           public.add(c)
 
@@ -344,7 +357,7 @@ def construct_cc_includes(
     src_path = source_directory
     bin_path = cmake_binary_dir
     for x in known_include_files:
-      (c, _) = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+      c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
       if c is not None:
         public.add(c)
 
@@ -435,20 +448,20 @@ def handle_cc_common_options(
 
   deps_collector = state.collect_deps(deps)
 
-  link_libraries = set(deps_collector.link_libraries())
+  link_libraries = OrderedSet(deps_collector.link_libraries())
 
   # Since Bazel implicitly adds a dependency on the C math library, also add
   # it here.
+  link_libraries.add(CMakeTarget("Threads::Threads"))
   if state.workspace.cmake_vars["CMAKE_SYSTEM_NAME"] != "Windows":
     link_libraries.add(CMakeTarget("m"))
 
-  link_libraries.add(CMakeTarget("Threads::Threads"))
-
+  private_link_libraries = OrderedSet()
   if implementation_deps is not None:
     implementation_deps_collector = state.collect_deps(implementation_deps)
-    private_link_libraries = set(implementation_deps_collector.link_libraries())
-  else:
-    private_link_libraries = set()
+    private_link_libraries.update(
+        implementation_deps_collector.link_libraries()
+    )
 
   extra_public_compile_options = []
 
@@ -550,7 +563,9 @@ def handle_cc_common_options(
   result["system_includes"] = repo.replace_with_cmake_macro_dirs(
       target_includes.system
   )
-  result["private_includes"] = target_includes.private
+  result["private_includes"] = repo.replace_with_cmake_macro_dirs(
+      target_includes.private
+  )
   result["cpp_standard"] = state.workspace.cpp_standard
 
   return result
@@ -563,6 +578,7 @@ def emit_cc_library(
     srcs: Collection[str],
     hdrs: Iterable[str],
     alwayslink: bool = False,
+    linkstatic: bool = False,
     header_only: bool | None = None,
     **kwargs,
 ) -> ProviderTuple:
@@ -571,34 +587,49 @@ def emit_cc_library(
     header_only = not (partition_by(srcs, pattern=_HEADER_SRC_PATTERN)[1])
   del hdrs
 
-  target_name = _cmake_target_pair.target
-  assert target_name is not None
+  actual_target = _cmake_target_pair.target
+  assert actual_target is not None
 
-  if not header_only:
-    out.write(f"""
-add_library({target_name})
-set_property(TARGET {target_name} PROPERTY LINKER_LANGUAGE "CXX")
-""")
-  else:
-    out.write(f"""
-add_library({target_name} INTERFACE)
-""")
+  emit_enum = CcCommonEnum.LIBRARY
+  if header_only:
+    emit_enum = CcCommonEnum.INTERFACE
+  elif linkstatic:
+    emit_enum = CcCommonEnum.STATIC_LIBRARY
+
+  if alwayslink:
+    actual_target = CMakeTarget(f"{actual_target}.alwayslink")
+
+  # ... what about implementation_deps?
+  match (emit_enum):
+    case CcCommonEnum.INTERFACE:
+      out.write(f"\nadd_library({actual_target} INTERFACE)\n")
+    case CcCommonEnum.STATIC_LIBRARY:
+      out.write(f"\nadd_library({actual_target} STATIC)\n")
+    case _:
+      out.write(f"\nadd_library({actual_target})\n")
+
+  if emit_enum != CcCommonEnum.INTERFACE:
+    out.write(
+        f"""set_property(TARGET {actual_target} PROPERTY LINKER_LANGUAGE "CXX")\n"""
+    )
+
   _emit_cc_common_options(
       out,
-      target_name=target_name,
-      interface_only=header_only,
+      target_name=actual_target,
+      emit_enum=emit_enum,
       srcs=sorted(srcs),
       **kwargs,
   )
-  if _cmake_target_pair.alias is not None:
-    return emit_library_alias(
-        out,
-        target_name=target_name,
-        alias_name=_cmake_target_pair.alias,
-        alwayslink=alwayslink,
-        interface_only=header_only,
+
+  providers = tuple()
+  if alwayslink:
+    providers = emit_alwayslink_alias(
+        out, _cmake_target_pair.target, actual_target
     )
-  return tuple()
+    actual_target = _cmake_target_pair.target
+
+  emit_cc_library_aliases(out, actual_target, _cmake_target_pair)
+  return providers
 
 
 def emit_cc_binary(
@@ -616,7 +647,11 @@ def emit_cc_binary(
         f"add_executable({_cmake_target_pair.alias} ALIAS {target_name})\n"
     )
   _emit_cc_common_options(
-      out, target_name=target_name, srcs=sorted(srcs), **kwargs
+      out,
+      target_name=target_name,
+      srcs=sorted(srcs),
+      emit_enum=CcCommonEnum.EXECUTABLE,
+      **kwargs,
   )
 
 

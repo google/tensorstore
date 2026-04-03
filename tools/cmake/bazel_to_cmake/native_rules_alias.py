@@ -24,6 +24,7 @@ from .cmake_provider import CMakeExecutableTargetProvider
 from .cmake_provider import CMakeLinkLibrariesProvider
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
+from .emit_alias import emit_alias
 from .evaluation import EvaluationState
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import BuildSettingInfo
@@ -92,25 +93,28 @@ def _alias_impl(
   if source.target == cmake_alias_target:
     return
 
-  function = None
-  if target_info.get(CMakeExecutableTargetProvider):
-    function = "add_executable"
-  elif target_info.get(CMakeLinkLibrariesProvider) or target_info.get(
-      CMakeAddDependenciesProvider
-  ):
-    function = "add_library"
+  is_executable = bool(target_info.get(CMakeExecutableTargetProvider))
+  is_library = bool(
+      target_info.get(CMakeLinkLibrariesProvider)
+      or target_info.get(CMakeAddDependenciesProvider)
+  )
 
   out = io.StringIO()
   out.write(f"\n# alias({_target.as_label()})\n")
-  if function:
-    if source.target != cmake_alias_target:
-      out.write(f"{function}({source.target} ALIAS {cmake_alias_target})\n")
-    if (
-        source.alias
-        and source.alias != cmake_alias_target
-        and source.alias != source.target
-    ):
-      out.write(f"{function}({source.alias} ALIAS {cmake_alias_target})\n")
+  if is_executable or is_library:
+    emit_alias(
+        out,
+        target_name=cmake_alias_target,
+        alias_name=source.target,
+        is_executable=is_executable,
+    )
+    if source.alias:
+      emit_alias(
+          out,
+          target_name=cmake_alias_target,
+          alias_name=source.alias,
+          is_executable=is_executable,
+      )
   else:
     out.write(f"# No alias emitted for {cmake_alias_target})\n")
   _context.access(CMakeBuilder).addtext(out.getvalue())

@@ -82,25 +82,3 @@ class CMakeBuilder:
         return
       self._unique.add(key)
     self._sections[section].append(text)
-
-  def add_library_alias(
-      self,
-      target_name: str,
-      alias_name: str,
-      interface_only: bool = False,
-      alwayslink: bool = False,
-  ) -> None:
-    """Generates an alias target with support for `alwayslink`."""
-    alias_dest_name = target_name
-    if alwayslink and not interface_only:
-      alias_dest_name = f"{target_name}.alwayslink"
-      self.addtext(f"""
-add_library({alias_dest_name} INTERFACE)
-if (BUILD_SHARED_LIBS)
-  target_link_libraries({alias_dest_name} INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,{target_name}>")
-else ()
-  target_link_libraries({alias_dest_name} INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,{target_name}>")
-endif()
-""")
-    if alias_name != alias_dest_name:
-      self.addtext(f"add_library({alias_name} ALIAS {alias_dest_name})\n")

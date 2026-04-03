@@ -23,8 +23,6 @@ import shlex
 from typing import Union
 
 from .cmake_repository import CMakeRepository
-from .cmake_target import CMakePackage
-from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .parse_bazelrc import ParsedBazelrc
 from .starlark.bazel_target import PackageId
@@ -254,34 +252,7 @@ class Workspace:
       if repository_id in self.all_repositories:
         continue
 
-      cmake_project_name = config.get("cmake_project_name", name)
-      persisted_canonical_name = {}
-
-      for label, target in config.get("cmake_target_mapping", {}).items():
-        target_id = repository_id.parse_target(label)
-        persisted_canonical_name[target_id] = CMakeTargetPair(
-            CMakePackage(cmake_project_name),
-            CMakeTarget(target.replace("::", "_")),
-            CMakeTarget(target),
-        )
-
-      # Store additional info like which targets are executables
-      executable_targets: set[TargetId] = set()
-      for label in config.get("executable_targets", []):
-        executable_targets.add(repository_id.parse_target(label))
-
-      repo_mapping = {}
-      for k, v in config.get("repo_mapping", {}).items():
-        repo_mapping[RepositoryId(k.lstrip("@"))] = RepositoryId(v.lstrip("@"))
-
-      repo = CMakeRepository(
-          repository_id=repository_id,
-          cmake_project_name=CMakePackage(cmake_project_name),
-          source_directory=None,
-          cmake_binary_dir=None,
-          repo_mapping=repo_mapping,
-          persisted_canonical_name=persisted_canonical_name,
-          executable_targets=executable_targets,
+      self.add_cmake_repository(
+          CMakeRepository.from_config(repository_id, config)
       )
 
-      self.add_cmake_repository(repo)

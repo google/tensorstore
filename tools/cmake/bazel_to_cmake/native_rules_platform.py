@@ -25,6 +25,7 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 from typing import Dict, List, Optional
 
 from .evaluation import EvaluationState
+from .ordered_set import OrderedSet
 from .provider_util import ProviderCollection
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import TargetId
@@ -122,7 +123,7 @@ def _platform_impl(
   for x in parents:
     collector.collect(x, state.get_target_info(x))
 
-  constraints = set()
+  constraints = OrderedSet()
   for x in collector.items(PlatformInfo):
     constraints.update(x.constraints)
   constraints.update(constraint_values)
@@ -155,7 +156,7 @@ def _platform_impl(
   _context.add_analyzed_target(
       _target,
       TargetInfo(
-          PlatformInfo(_target, list(sorted(constraints))),
+          PlatformInfo(_target, list(constraints)),
           ConditionProvider(condition),
       ),
   )

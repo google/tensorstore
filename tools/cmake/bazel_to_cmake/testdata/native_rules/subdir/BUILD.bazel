@@ -47,3 +47,17 @@ cc_library(
     hdrs = ["y.h"],
     includes = ["."],
 )
+
+cc_library(
+    name = "y_linkstatic",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+    linkstatic = True,
+)
+
+cc_library(
+    name = "y_alwayslink",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+    alwayslink = True,
+)

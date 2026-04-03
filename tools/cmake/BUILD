@@ -48,6 +48,7 @@ SRCS = [
     "bazel_to_cmake/native_rules_platform.py",
     "bazel_to_cmake/native_rules_proto.py",
     "bazel_to_cmake/native_rules.py",
+    "bazel_to_cmake/ordered_set.py",
     "bazel_to_cmake/parse_bazelrc.py",
     "bazel_to_cmake/package.py",
     "bazel_to_cmake/platforms.py",

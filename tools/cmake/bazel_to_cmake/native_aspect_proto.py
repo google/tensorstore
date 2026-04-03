@@ -51,6 +51,7 @@ from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_library
 from .emit_cc import handle_cc_common_options
 from .evaluation import EvaluationState
+from .ordered_set import OrderedSet
 from .provider_util import ProviderCollection
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
@@ -66,7 +67,6 @@ from .util import quote_list
 from .util import quote_path
 from .util import quote_path_list
 from .util import quote_string
-
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
 PROTO_COMPILER = PROTO_REPO.parse_target("//:protoc")
@@ -265,7 +265,7 @@ def aspect_genproto_singleproto(
   proto_cmake_target = state.generate_cmake_target_pair(
       proto_library_provider.bazel_target
   ).target
-  import_targets = set(
+  import_targets = OrderedSet(
       state.collect_deps(proto_library_provider.deps).link_libraries()
   )
   import_targets.add(proto_cmake_target)

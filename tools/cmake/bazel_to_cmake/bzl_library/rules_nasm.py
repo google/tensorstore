@@ -27,7 +27,8 @@ from ..cmake_builder import CMakeBuilder
 from ..cmake_provider import CMakePackageDepsProvider
 from ..cmake_provider import default_providers
 from ..cmake_target import CMakeTarget
-from ..emit_alias import emit_library_alias
+from ..emit_alias import emit_alwayslink_alias
+from ..emit_alias import emit_cc_library_aliases
 from ..evaluation import EvaluationState
 from ..starlark.bazel_target import PackageId
 from ..starlark.bazel_target import parse_absolute_target
@@ -334,6 +335,7 @@ def _nasm_cc_library_builtin_impl(
     copts: List[str],
     includes: List[str],
     alwayslink: bool = False,
+    linkstatic: bool = False,
     **kwargs,
 ):
   del kwargs
@@ -384,35 +386,47 @@ def _nasm_cc_library_builtin_impl(
   # Emit
   out = io.StringIO()
   out.write(f"\n# nasm_cc_library({_target.as_label()})\n")
-  _emit_nasm_library(
+
+  target_name = cmake_target_pair.target
+  if alwayslink:
+    target_name = CMakeTarget(f"{target_name}.alwayslink")
+
+  if linkstatic:
+    out.write(f"add_library({target_name} STATIC)\n")
+  else:
+    out.write(f"add_library({target_name})\n")
+
+  _emit_nasm_sources(
       out,
-      target_name=cmake_target_pair.target,
+      target_name=target_name,
       srcs=nasm_srcs,
       includes=nasm_includes,
       copts=copts_with_preinc,
       cmake_deps=cmake_deps,
   )
-  extra_providers = ()
-  if cmake_target_pair.alias:
-    extra_providers = emit_library_alias(
-        out,
-        target_name=cmake_target_pair.target,
-        alias_name=cmake_target_pair.alias,
-        alwayslink=alwayslink,
-        interface_only=False,
-    )
 
+  alwayslink_providers = tuple()
+  if alwayslink:
+    alwayslink_providers = emit_alwayslink_alias(
+        out, cmake_target_pair.target, target_name
+    )
+    target_name = cmake_target_pair.target
+  alias_providers = emit_cc_library_aliases(out, target_name, cmake_target_pair)
   builder = _context.access(CMakeBuilder)
   builder.addtext(_EMIT_YASM_CHECK, unique=True)
   builder.addtext(out.getvalue())
 
   _context.add_analyzed_target(
       _target,
-      TargetInfo(*default_providers(cmake_target_pair), *extra_providers),
+      TargetInfo(
+          *default_providers(cmake_target_pair),
+          *alias_providers,
+          *alwayslink_providers,
+      ),
   )
 
 
-def _emit_nasm_library(
+def _emit_nasm_sources(
     out: io.StringIO,
     target_name: CMakeTarget,
     srcs: set[pathlib.PurePath],
@@ -426,7 +440,6 @@ def _emit_nasm_library(
   sorted_srcs = sorted(srcs)
   asm_srcs = partition_by(sorted_srcs, pattern=_NASM_SRC_PATTERN)[0]
 
-  out.write(f"add_library({target_name})\n")
   out.write(
       f"""target_sources({target_name} PRIVATE{_sep}{quote_path_list(sorted_srcs, separator=_sep)})
 target_include_directories({target_name} PRIVATE{_sep}{quote_path_list(sorted(includes), separator=_sep)})

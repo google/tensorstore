@@ -120,6 +120,75 @@ class CMakeRepository(NamedTuple):
         result.append(f"{c}/{relative_path.as_posix()}")
     return result
 
+  def with_cmake_directories(
+      self,
+      source_directory: pathlib.PurePath | None = None,
+      cmake_binary_dir: pathlib.PurePath | None = None,
+  ) -> "CMakeRepository":
+    """Returns a CMakeRepository with new source and binary directories.
+
+    Args:
+      source_directory: The new source directory.
+      cmake_binary_dir: The new CMake binary directory.
+    """
+    return self._replace(
+        source_directory=source_directory,
+        cmake_binary_dir=cmake_binary_dir,
+    )
+
+  @classmethod
+  def from_config(
+      cls,
+      repository_id: RepositoryId,
+      config: dict[str, Any],
+      source_directory: pathlib.PurePath | None = None,
+      cmake_binary_dir: pathlib.PurePath | None = None,
+  ) -> "CMakeRepository":
+    """Creates a CMakeRepository from a configuration dictionary.
+
+    Args:
+      repository_id: The Bazel RepositoryId.
+      config: A dictionary containing the repository configuration. Expected
+        keys include "cmake_project_name", "cmake_name", "cmake_target_mapping",
+        "executable_targets", and "repo_mapping".
+      source_directory: The source directory for the CMake project.
+      cmake_binary_dir: The binary directory for the CMake build.
+
+    Returns:
+      A new CMakeRepository instance.
+    """
+    cmake_project_name = config.get(
+        "cmake_name",
+        config.get("cmake_project_name", repository_id.repository_name),
+    )
+    assert cmake_project_name is not None
+
+    persisted_canonical_name = {}
+    for label, target in config.get("cmake_target_mapping", {}).items():
+      target_id = repository_id.parse_target(label)
+      persisted_canonical_name[target_id] = CMakeTargetPair(
+          CMakePackage(cmake_project_name),
+          CMakeTarget(target.replace("::", "_")),
+          CMakeTarget(target),
+      )
+
+    executable_targets: set[TargetId] = set()
+    for label in config.get("executable_targets", []):
+      executable_targets.add(repository_id.parse_target(label))
+
+    repo_mapping = make_repo_mapping(
+        repository_id, config.get("repo_mapping", {})
+    )
+    return cls(
+        repository_id=repository_id,
+        cmake_project_name=CMakePackage(cmake_project_name),
+        source_directory=source_directory,
+        cmake_binary_dir=cmake_binary_dir,
+        repo_mapping=repo_mapping,
+        persisted_canonical_name=persisted_canonical_name,
+        executable_targets=executable_targets,
+    )
+
 
 def make_repo_mapping(
     repository_id: RepositoryId, repo_mapping: Any

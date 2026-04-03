@@ -117,6 +117,7 @@ def _cc_library_impl(
     hdrs: Optional[List[TargetId]] = None,
     textual_hdrs: Optional[List[TargetId]] = None,
     alwayslink: bool = False,
+    linkstatic: bool = False,
     **kwargs,
 ):
   state = _context.access(EvaluationState)
@@ -161,6 +162,7 @@ def _cc_library_impl(
       cmake_target_pair,
       hdrs=all_hdrs,
       alwayslink=alwayslink,
+      linkstatic=linkstatic,
       **common_options,
   )
   _context.access(CMakeBuilder).addtext(out.getvalue())

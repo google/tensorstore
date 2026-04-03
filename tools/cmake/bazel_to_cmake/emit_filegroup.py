@@ -22,6 +22,7 @@ from typing import Collection, Iterable, Optional
 from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_repository import PROJECT_SOURCE_DIR
 from .cmake_target import CMakeTarget
+from .ordered_set import OrderedSet
 from .util import make_relative_path
 from .util import quote_list
 from .util import quote_path
@@ -71,10 +72,10 @@ def emit_filegroup(
 
   quoted_includes = None
   if includes and (has_ch or has_proto):
-    quoted_includes = quote_list(sorted(includes), sep)
+    quoted_includes = quote_list(OrderedSet(includes), sep)
   quoted_libraries = None
   if link_libraries:
-    quoted_libraries = quote_list(sorted(link_libraries), sep)
+    quoted_libraries = quote_list(OrderedSet(link_libraries), sep)
 
   out.write(f"add_library({cmake_name} INTERFACE)\n")
   out.write(

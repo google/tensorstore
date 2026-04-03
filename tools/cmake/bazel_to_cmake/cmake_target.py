@@ -41,4 +41,4 @@ class CMakeTargetPair(NamedTuple):
     return self.alias or self.target
 
   def __str__(self) -> str:
-    raise NotImplementedError
+    return str.__str__(self)
