@@ -15,9 +15,9 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
+from collections.abc import Collection, Iterable
 import io
 import pathlib
-from typing import Collection, Iterable, Optional
 
 from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_repository import PROJECT_SOURCE_DIR
@@ -36,16 +36,16 @@ def emit_filegroup(
     filegroup_files: Collection[str],
     source_directory: pathlib.PurePath,
     cmake_binary_dir: pathlib.PurePath,
-    add_dependencies: Optional[Iterable[CMakeTarget]] = None,
-    link_libraries: Optional[Iterable[CMakeTarget]] = None,
-    includes: Optional[set[str]] = None,
+    add_dependencies: Iterable[CMakeTarget] | None = None,
+    link_libraries: Iterable[CMakeTarget] | None = None,
+    includes: OrderedSet[str] | None = None,
 ):
   add_includes = False
   has_proto = False
   has_ch = False
   if includes is None:
     add_includes = True
-    includes = set()
+    includes = OrderedSet()
 
   for path in filegroup_files:
     path = pathlib.PurePath(path)
@@ -72,7 +72,7 @@ def emit_filegroup(
 
   quoted_includes = None
   if includes and (has_ch or has_proto):
-    quoted_includes = quote_list(OrderedSet(includes), sep)
+    quoted_includes = quote_list(includes, sep)
   quoted_libraries = None
   if link_libraries:
     quoted_libraries = quote_list(OrderedSet(link_libraries), sep)
@@ -101,7 +101,7 @@ def emit_genrule(
     generated_files: Iterable[str],
     add_dependencies: Iterable[CMakeTarget],
     cmd_text: str,
-    message: Optional[str],
+    message: str | None,
 ):
   cmd_text = cmd_text.strip()
   if message:

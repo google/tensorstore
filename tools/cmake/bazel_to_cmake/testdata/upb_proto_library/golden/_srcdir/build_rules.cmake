@@ -62,7 +62,7 @@ target_link_libraries(CMakeProject_a_cc_proto PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_cc_proto PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a_cc_proto PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_cc_proto PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -173,7 +173,7 @@ target_link_libraries(CMakeProject_a_upb_proto PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_upb_proto PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a_upb_proto PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_upb_proto PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -238,7 +238,7 @@ target_link_libraries(CMakeProject_a_upb_proto_reflection PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_upb_proto_reflection PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a_upb_proto_reflection PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_upb_proto_reflection PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -248,13 +248,13 @@ add_library(CMakeProject::a_upb_proto_reflection ALIAS CMakeProject_a_upb_proto_
 add_library(CMakeProject_abc_upb_proto)
 set_property(TARGET CMakeProject_abc_upb_proto PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_abc_upb_proto PUBLIC
-        "CMakeProject::abc_protos__minitable_library"
         "CMakeProject::abc_protos__upb_library"
+        "CMakeProject::abc_protos__minitable_library"
         "CMakeProject::abc_protos"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abc_upb_proto PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_abc_upb_proto PUBLIC cxx_std_17)
 target_sources(CMakeProject_abc_upb_proto PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -270,7 +270,7 @@ target_link_libraries(CMakeProject_abc_upb_proto_reflection PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abc_upb_proto_reflection PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_abc_upb_proto_reflection PUBLIC cxx_std_17)
 target_sources(CMakeProject_abc_upb_proto_reflection PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")

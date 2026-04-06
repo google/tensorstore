@@ -97,6 +97,7 @@ def make_relative_path(p: PathLike, *target) -> tuple[Any, pathlib.PurePath]:
 def partition_by(
     inputs: Iterable[PathLike], pattern: str
 ) -> tuple[list[str], list[str]]:
+  """Partitions a list of paths into a tuple of (match, no_match)."""
   yes = []
   no = []
   for x in inputs:

@@ -15,11 +15,12 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
+from collections.abc import Collection, Iterable
 import enum
 import io
 import itertools
 import pathlib
-from typing import Any, Collection, Iterable, NamedTuple, cast
+from typing import Any, NamedTuple, cast
 
 from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_repository import PROJECT_SOURCE_DIR
@@ -37,6 +38,7 @@ from .util import is_relative_to
 from .util import make_relative_path
 from .util import partition_by
 from .util import PathCollection
+from .util import PathLike
 from .util import quote_list
 from .util import quote_path_list
 from .util import quote_unescaped_list
@@ -219,12 +221,12 @@ def _emit_cc_common_options(
     if public_srcs:
       out.write(
           f"target_sources({target_name} PUBLIC{_SEP}"
-          f"{quote_path_list(public_srcs , separator=_SEP)})\n"
+          f"{quote_path_list(public_srcs, separator=_SEP)})\n"
       )
     if non_header_srcs:
       out.write(
           f"target_sources({target_name} PRIVATE{_SEP}"
-          f"{quote_path_list(non_header_srcs , separator=_SEP)})\n"
+          f"{quote_path_list(non_header_srcs, separator=_SEP)})\n"
       )
     if asm_srcs:
       if asm_dialect is None:
@@ -245,7 +247,8 @@ def construct_cc_includes(
     includes: Collection[str] | None = None,
     include_prefix: str | None = None,
     strip_include_prefix: str | None = None,
-    known_include_files: PathCollection | None = None,
+    hdrs_include_paths: PathCollection | None = None,
+    srcs_file_paths: PathCollection | None = None,
 ) -> TargetIncludes:
   """Returns the set of system and public includes for the configuration.
 
@@ -256,9 +259,30 @@ def construct_cc_includes(
   Here we attempt to generate system includes for CMake based on the
   bazel flags, however it is a best effort technique which, so far, has met
   the needs of cmake translation.
+
+  Args:
+    current_package_id: The PackageId of the current Bazel package.
+    source_directory: The root of the source tree.
+    cmake_binary_dir: The root of the CMake binary output directory.
+    includes: A collection of include paths specified in the Bazel rule. These
+      are typically treated as system includes.
+    include_prefix: An optional prefix to add to the paths of headers.
+    strip_include_prefix: An optional prefix to strip from the paths of headers.
+    hdrs_include_paths: A collection of file paths for headers (`.h`, `.hpp`,
+      etc.) associated with this target, used to determine which include
+      directories are actually necessary.
+    srcs_file_paths: A collection of file paths for source files (`.cc`, `.cpp`,
+      etc.) associated with this target, used to determine private include
+      directories.
+
+  Returns:
+    A TargetIncludes NamedTuple containing sets of system, public, and private
+    include directories.
   """
-  if known_include_files is None:
-    known_include_files = []
+  if hdrs_include_paths is None:
+    hdrs_include_paths = []
+  if srcs_file_paths is None:
+    srcs_file_paths = []
 
   system: set[pathlib.PurePath] = set()
   public: set[pathlib.PurePath] = set()
@@ -292,8 +316,14 @@ def construct_cc_includes(
     if constructed[0] == "/":
       constructed = constructed[1:]
 
-    system.add(source_directory.joinpath(constructed))
-    system.add(cmake_binary_dir.joinpath(constructed))
+    bin_constructed = cmake_binary_dir.joinpath(constructed)
+    src_constructed = source_directory.joinpath(constructed)
+
+    system.add(src_constructed)
+    system.add(bin_constructed)
+
+  # Track headers not accounted for by the public includes.
+  remaining_hdrs: set[PathLike] = set(hdrs_include_paths)
 
   # For the package foo/bar
   #  - default include path is foo/bar/file.h
@@ -322,10 +352,16 @@ def construct_cc_includes(
     src_path = source_directory.joinpath(constructed)
     bin_path = cmake_binary_dir.joinpath(constructed)
     # Only add if existing files are discoverable at the prefix
-    for x in known_include_files:
+    for x in hdrs_include_paths:
       c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
       if c is not None:
         public.add(c)
+        remaining_hdrs.discard(x)
+
+    for x in srcs_file_paths:
+      c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+      if c is not None:
+        private.add(c)
 
   if include_prefix is not None:
     # The prefix to add to the paths of the headers of this rule.
@@ -345,30 +381,35 @@ def construct_cc_includes(
 
       src_path = source_directory.joinpath(constructed)
       bin_path = cmake_binary_dir.joinpath(constructed)
+
       # Only add if existing files are discoverable at the prefix
-      for x in known_include_files:
+      for x in hdrs_include_paths:
         c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
         if c is not None:
           public.add(c)
+          remaining_hdrs.discard(x)
 
-  # HACK: Bazel does not add such a fallback, but since three are potential
-  # includes CMake needs to include SRC/BIN as interface includes.
-  if not public and not system:
-    src_path = source_directory
-    bin_path = cmake_binary_dir
-    for x in known_include_files:
-      c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
-      if c is not None:
-        public.add(c)
+      for x in srcs_file_paths:
+        c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+        if c is not None:
+          private.add(c)
 
-  if PROJECT_SOURCE_DIR not in public and PROJECT_SOURCE_DIR not in system:
-    private.add(PROJECT_SOURCE_DIR)
-  if PROJECT_BINARY_DIR not in public and PROJECT_BINARY_DIR not in system:
-    for x in known_include_files:
-      x_path = pathlib.PurePath(x)
-      if is_relative_to(x_path, cmake_binary_dir):
-        private.add(PROJECT_BINARY_DIR)
-        break
+  # If there are known include files which are not found under the public
+  # include paths, add the source/binary directories to the public includes.
+  for x in remaining_hdrs:
+    if is_relative_to(pathlib.PurePath(x), cmake_binary_dir):
+      if cmake_binary_dir not in system:
+        public.add(cmake_binary_dir)
+    elif source_directory not in system:
+      public.add(source_directory)
+
+  # If there are private includes, also add the source/binary directories.
+  for x in itertools.chain(srcs_file_paths, hdrs_include_paths):
+    if is_relative_to(pathlib.PurePath(x), cmake_binary_dir):
+      private.add(cmake_binary_dir)
+    else:
+      private.add(source_directory)
+  private.difference_update(public)
 
   return TargetIncludes(system, public, private)
 
@@ -406,14 +447,23 @@ def handle_cc_common_options(
   srcs_file_paths = list(srcs_collector.file_paths())
 
   if _src_required and not srcs_file_paths:
+    # Sources are required, so add a placeholder source file if there are none.
     srcs_file_paths = [state.get_placeholder_source()]
-  elif srcs_file_paths:
+  elif (
+      _src_required
+      and not partition_by(srcs_file_paths, pattern=_HEADER_SRC_PATTERN)[1]
+  ):
+    # Sources are required, and there are sources, but they are all headers.
+    srcs_file_paths.append(state.get_placeholder_source())
+  elif (
+      srcs_file_paths
+      and not partition_by(srcs_file_paths, pattern=_OBJ_SRC_PATTERN)[1]
+  ):
     # On Windows, CMake does not correctly handle linking libraries containing
     # only nasm (.obj) sources.  Also, when not using the builtin rule,
     # CMake does not handle a library containing only object file as sources.
     # As a workaround, add a placeholder C file.
-    if not partition_by(srcs_file_paths, pattern=_OBJ_SRC_PATTERN)[1]:
-      srcs_file_paths.append(state.get_placeholder_source())
+    srcs_file_paths.append(state.get_placeholder_source())
 
   copts: list[str] = []
 
@@ -540,12 +590,6 @@ def handle_cc_common_options(
         f" include_prefix={include_prefix}."
     )
 
-  known_include_files = (
-      partition_by(srcs_file_paths, pattern=_HEADER_SRC_PATTERN)[0]
-      + (hdrs_file_paths or [])
-      + (textual_hdrs_file_paths or [])
-  )
-
   includes = apply_substitutions("includes", includes)
 
   target_includes = construct_cc_includes(
@@ -555,7 +599,9 @@ def handle_cc_common_options(
       includes=includes,
       include_prefix=include_prefix,
       strip_include_prefix=strip_include_prefix,
-      known_include_files=known_include_files,
+      hdrs_include_paths=(hdrs_file_paths or [])
+      + (textual_hdrs_file_paths or []),
+      srcs_file_paths=srcs_file_paths,
   )
   result["includes"] = repo.replace_with_cmake_macro_dirs(
       target_includes.public
@@ -579,12 +625,10 @@ def emit_cc_library(
     hdrs: Iterable[str],
     alwayslink: bool = False,
     linkstatic: bool = False,
-    header_only: bool | None = None,
     **kwargs,
 ) -> ProviderTuple:
   """Generates a C++ library target."""
-  if header_only is None:
-    header_only = not (partition_by(srcs, pattern=_HEADER_SRC_PATTERN)[1])
+  header_only = not (partition_by(srcs, pattern=_HEADER_SRC_PATTERN)[1])
   del hdrs
 
   actual_target = _cmake_target_pair.target
@@ -597,6 +641,10 @@ def emit_cc_library(
     emit_enum = CcCommonEnum.STATIC_LIBRARY
 
   if alwayslink:
+    assert not header_only, (
+        f"Target {actual_target} has alwayslink=True but is a header-only"
+        " library. alwayslink is only applicable to non-interface libraries."
+    )
     actual_target = CMakeTarget(f"{actual_target}.alwayslink")
 
   # ... what about implementation_deps?
@@ -620,6 +668,11 @@ def emit_cc_library(
       srcs=sorted(srcs),
       **kwargs,
   )
+
+  # NOTE: We could experiment with the CMake INTERFACE_LINK_LIBRARIES_DIRECT
+  # property here, but we might need to query a Bazel provider which records
+  # alwayslink information, and that would probably break across projects.
+  # Instead, alwayslink cannot be an interface library, (see native_rules_cc.py)
 
   providers = tuple()
   if alwayslink:

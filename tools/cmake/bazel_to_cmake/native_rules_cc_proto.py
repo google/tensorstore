@@ -47,8 +47,8 @@ changes in how upb and protobuf are bundled.
 """
 
 # pylint: disable=invalid-name
+from collections.abc import Callable
 import io
-from typing import Callable, List, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_provider import default_providers
@@ -58,6 +58,7 @@ from .evaluation import EvaluationState
 from .native_aspect import add_proto_aspect
 from .native_aspect_proto import aspect_genproto_library_target
 from .native_aspect_proto import PluginSettings
+from .ordered_set import OrderedSet
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.invocation_context import InvocationContext
@@ -88,7 +89,7 @@ _IGNORED = set([
 ])
 
 
-def _cpp_proto_target(t: TargetId) -> List[TargetId]:
+def _cpp_proto_target(t: TargetId) -> list[TargetId]:
   return [t.get_target_id(f"{t.target_name}__cpp_library")]
 
 
@@ -105,7 +106,7 @@ _CC = PluginSettings(
 def cpp_proto_aspect(
     context: InvocationContext,
     proto_target: TargetId,
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   aspect_target = _CC.aspectdeps(proto_target)[0]
@@ -131,7 +132,7 @@ add_proto_aspect("cpp", cpp_proto_aspect)
 def cc_proto_library(
     self: InvocationContext,
     name: str,
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   context = self.snapshot()
@@ -154,8 +155,8 @@ def cc_proto_library_impl(
     _target: TargetId,
     *,
     _mnemonic: str,
-    _aspectdeps: Callable[[TargetId], List[TargetId]],  # Converts to deps
-    deps: Optional[List[RelativeLabel]] = None,  # points to proto_library rules
+    _aspectdeps: Callable[[TargetId], list[TargetId]],  # Converts to deps
+    deps: list[RelativeLabel] | None = None,  # points to proto_library rules
     **kwargs,
 ):
   del kwargs
@@ -169,7 +170,7 @@ def cc_proto_library_impl(
 
   # Typically there is a single proto dep in a cc_library_target, multiple are
   # supported, thus we resolve each library target here.
-  aspect_deps = set()
+  aspect_deps = OrderedSet()
   for t in resolved_deps:
     aspect_deps.update(_aspectdeps(t))
   if _target in aspect_deps:

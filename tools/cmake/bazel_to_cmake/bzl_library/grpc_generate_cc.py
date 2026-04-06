@@ -1,3 +1,31 @@
+# pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
+
+from collections.abc import Sequence
+import io
+from typing import Any, cast
+
+from ..cmake_builder import CMakeBuilder
+from ..cmake_provider import CMakeAddDependenciesProvider
+from ..cmake_provider import CMakePackageDepsProvider
+from ..cmake_provider import make_providers
+from ..evaluation import EvaluationState
+from ..native_aspect_proto import btc_protobuf
+from ..native_aspect_proto import plugin_generated_files
+from ..native_aspect_proto import PluginSettings
+from ..starlark.bazel_target import RepositoryId
+from ..starlark.bazel_target import TargetId
+from ..starlark.common_providers import FilesProvider
+from ..starlark.common_providers import ProtoLibraryProvider
+from ..starlark.invocation_context import InvocationContext
+from ..starlark.invocation_context import RelativeLabel
+from ..starlark.provider import TargetInfo
+from ..starlark.scope_common import ScopeCommon
+from ..starlark.select import Configurable
+from ..util import quote_path
+from .register import register_bzl_library
+from .upb_proto_library import UPB_PLUGIN  # pylint: disable=unused-import
+
+
 # Copyright 2022 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,38 +41,12 @@
 # limitations under the License.
 """CMake implementation of "@tensorstore//bazel:cc_grpc_library.bzl"."""
 
-# pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
-import io
-from typing import Any, List, Optional, cast
-
-from ..cmake_builder import CMakeBuilder
-from ..cmake_provider import CMakeAddDependenciesProvider
-from ..cmake_provider import CMakePackageDepsProvider
-from ..cmake_provider import make_providers
-from ..evaluation import EvaluationState
-from ..native_aspect_proto import btc_protobuf
-from ..native_aspect_proto import plugin_generated_files
-from ..native_aspect_proto import PluginSettings
-from ..native_aspect_proto import maybe_augment_output_dir
-from ..starlark.scope_common import ScopeCommon
-from ..starlark.bazel_target import RepositoryId
-from ..starlark.bazel_target import TargetId
-from ..starlark.common_providers import FilesProvider
-from ..starlark.common_providers import ProtoLibraryProvider
-from ..starlark.invocation_context import InvocationContext
-from ..starlark.invocation_context import RelativeLabel
-from ..starlark.provider import TargetInfo
-from ..starlark.select import Configurable
-from ..util import quote_path
-from .register import register_bzl_library
-from .upb_proto_library import UPB_PLUGIN  # pylint: disable=unused-import
-
 GRPC_REPO = RepositoryId("grpc")
 
 _SEP = "\n        "
 
 
-def _empty_target_list(t: TargetId) -> List[TargetId]:
+def _empty_target_list(t: TargetId) -> list[TargetId]:
   del t
   return []
 
@@ -66,7 +68,7 @@ class GrpcGenerateCcLibrary(ScopeCommon):
       self,
       well_known_protos: Any,
       name: str,
-      visibility: Optional[List[RelativeLabel]] = None,
+      visibility: Sequence[RelativeLabel] | None = None,
       **kwargs,
   ):
     context = self._context.snapshot()
@@ -86,9 +88,9 @@ class GrpcGenerateCcLibrary(ScopeCommon):
 def _generate_grpc_cc_impl(
     _context: InvocationContext,
     _target: TargetId,
-    srcs: Optional[Configurable[List[RelativeLabel]]] = None,
-    plugin: Optional[Configurable[RelativeLabel]] = None,
-    flags: Optional[List[str]] = None,
+    srcs: Configurable[Sequence[RelativeLabel]] | None = None,
+    plugin: Configurable[RelativeLabel] | None = None,
+    flags: Sequence[str] | None = None,
     **kwargs,
 ):
   del kwargs
@@ -153,6 +155,7 @@ def _generate_grpc_cc_impl(
         src,
         plugin_settings,
         repo.cmake_binary_dir,
+        proto_library_provider,
     ):
       _context.add_analyzed_target(
           t[0],
@@ -177,12 +180,9 @@ def _generate_grpc_cc_impl(
   src_collector = state.collect_targets(srcs_with_service)
   state.collect_deps(UPB_PLUGIN.aspectdeps(srcs_with_service[0]))
 
-  # Augment output with strip import prefix
-  output_dir = repo.replace_with_cmake_macro_dirs([
-      maybe_augment_output_dir(
-          _context, proto_library_provider, repo.cmake_binary_dir
-      )
-  ])[0]
+  # The generated files should be in a directory with the strip_import_prefix
+  # already removed.
+  output_dir = repo.replace_with_cmake_macro_dirs([repo.cmake_binary_dir])[0]
 
   # Emit.
   out = io.StringIO()

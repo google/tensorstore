@@ -44,7 +44,7 @@ target_link_libraries(CMakeProject_parent_a_dot PUBLIC
 target_include_directories(CMakeProject_parent_a_dot SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/parent>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/parent>")
-target_include_directories(CMakeProject_parent_a_dot PRIVATE
+target_include_directories(CMakeProject_parent_a_dot PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_parent_a_dot PUBLIC cxx_std_17)
@@ -62,7 +62,7 @@ target_link_libraries(CMakeProject_parent_a_child PUBLIC
 target_include_directories(CMakeProject_parent_a_child SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/parent/child>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/parent/child>")
-target_include_directories(CMakeProject_parent_a_child PRIVATE
+target_include_directories(CMakeProject_parent_a_child PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_parent_a_child PUBLIC cxx_std_17)
 target_sources(CMakeProject_parent_a_child PRIVATE
@@ -78,9 +78,10 @@ target_link_libraries(CMakeProject_parent_a_parent PUBLIC
 target_include_directories(CMakeProject_parent_a_parent SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/parent>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/parent>")
-target_include_directories(CMakeProject_parent_a_parent PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+target_include_directories(CMakeProject_parent_a_parent PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_include_directories(CMakeProject_parent_a_parent PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_parent_a_parent PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_parent_a_parent "CMakeProject_parent_c_inc")
 target_sources(CMakeProject_parent_a_parent PRIVATE
@@ -109,8 +110,9 @@ target_link_libraries(CMakeProject_parent_a_strip_parent PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_parent_a_strip_parent PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_include_directories(CMakeProject_parent_a_strip_parent PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_parent_a_strip_parent PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_parent_a_strip_parent "CMakeProject_parent_c_inc")
 target_sources(CMakeProject_parent_a_strip_parent PRIVATE
