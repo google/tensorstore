@@ -13,8 +13,12 @@
 # limitations under the License.
 """OrderedSet implementation."""
 
-from collections.abc import MutableSet
-from typing import Generic, Iterable, Iterator, Optional, TypeVar
+# pylint: disable=g-importing-member,missing-class-docstring
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Iterator, MutableSet
+from typing import Generic, TypeVar
 
 _T = TypeVar("_T")
 
@@ -22,7 +26,7 @@ _T = TypeVar("_T")
 class OrderedSet(MutableSet[_T], Generic[_T]):
   __slots__ = ("_dict",)
 
-  def __init__(self, iterable: Optional[Iterable[_T]] = None):
+  def __init__(self, iterable: Iterable[_T] | None = None):
     self._dict = {}
     if iterable is not None:
       self.update(iterable)
@@ -65,15 +69,15 @@ class OrderedSet(MutableSet[_T], Generic[_T]):
     """Remove an element. If not a member, raise a KeyError."""
     del self._dict[value]
 
-  def intersection(self, other: Iterable[_T]) -> "OrderedSet[_T]":
+  def intersection(self, other: Iterable[_T]) -> OrderedSet[_T]:
     other = set(other)
     res = OrderedSet(filter(other.__contains__, self))
     return res
 
-  def union(self, other: Iterable[_T]) -> "OrderedSet[_T]":
+  def union(self, other: Iterable[_T]) -> OrderedSet[_T]:
     res = OrderedSet(self)
     res.update(other)
     return res
 
-  def copy(self) -> "OrderedSet[_T]":
+  def copy(self) -> OrderedSet[_T]:
     return OrderedSet(self)

@@ -22,8 +22,6 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
-from typing import Dict, List, Optional
-
 from .evaluation import EvaluationState
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import TargetId
@@ -39,11 +37,11 @@ from .starlark.scope_build_file import register_native_build_rule
 def config_setting(
     self: InvocationContext,
     name: str,
-    constraint_values: Optional[List[RelativeLabel]] = None,
-    flag_values: Optional[Dict[RelativeLabel, str]] = None,
-    values: Optional[Dict[str, str]] = None,
-    define_values: Optional[Dict[str, str]] = None,
-    visibility: Optional[List[RelativeLabel]] = None,
+    constraint_values: list[RelativeLabel] | None = None,
+    flag_values: dict[RelativeLabel, str] | None = None,
+    values: dict[str, str] | None = None,
+    define_values: dict[str, str] | None = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   del kwargs
@@ -70,10 +68,10 @@ def config_setting(
 def _config_setting_impl(
     _context: InvocationContext,
     _target: TargetId,
-    constraint_values: Optional[List[RelativeLabel]],
-    flag_values: Optional[Dict[RelativeLabel, str]],
-    values: Optional[Dict[str, str]],
-    define_values: Optional[Dict[str, str]],
+    constraint_values: list[RelativeLabel] | None,
+    flag_values: dict[RelativeLabel, str] | None,
+    values: dict[str, str] | None,
+    define_values: dict[str, str] | None,
 ):
   def evaluate() -> bool:
     if flag_values:

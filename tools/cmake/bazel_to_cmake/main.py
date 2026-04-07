@@ -13,15 +13,15 @@
 # limitations under the License.
 """Main entry point for bazel_to_cmake."""
 
-# pylint: disable=relative-beyond-top-level
+# pylint: disable=relative-beyond-top-level,g-importing-member,missing-function-docstring
 
 import argparse
+from collections.abc import Iterable
 import json
 import os
 import pathlib
 import pickle
 import sys
-from typing import Dict, List, Set, Union
 
 from . import native_rules  # pylint: disable=unused-import
 from .active_repository import Repository
@@ -44,10 +44,10 @@ from .workspace import Workspace
 
 def maybe_expand_special_targets(
     t: TargetId,
-    available: Union[Set[TargetId], List[TargetId]],
-):
+    available: Iterable[TargetId],
+) -> list[TargetId]:
   # Handle special targets t, :all, :... from the available targets.
-  result: List[TargetId] = []
+  result: list[TargetId] = []
   if t.target_name == "all":
     for u in available:
       if u.package_id == t.package_id:
@@ -65,11 +65,11 @@ def maybe_expand_special_targets(
 def get_bindings_from_args(
     args: argparse.Namespace,
     repository_id: RepositoryId,
-) -> Dict[TargetId, TargetId]:
+) -> dict[TargetId, TargetId]:
   # Add repository bindings. These provide the "native.bind" equivalent,
   # and are resolved after repo mappings. Unlike native.bind, they are
   # not restricted to only bind //external:name = alias values.
-  bindings: Dict[TargetId, TargetId] = {}
+  bindings: dict[TargetId, TargetId] = {}
   for name in args.bind:
     i = name.find("=")
     assert i > 0
@@ -85,7 +85,7 @@ def get_bindings_from_args(
 def create_root_workspace(
     args: argparse.Namespace,
     repository_id: RepositoryId,
-):
+) -> Workspace:
   """Creates a workspace for the root repository."""
   assert args.cmake_vars is not None
   try:
@@ -121,7 +121,7 @@ def create_root_workspace(
 
 def load_root_workspace(
     args: argparse.Namespace,
-):
+) -> Workspace:
   """Unpickles a workspace and loads the repository from it."""
   with open(args.load_workspace, "rb") as f:
     workspace = pickle.load(f)
@@ -139,7 +139,7 @@ def do_process_build_files(
     args: argparse.Namespace,
     active_repo: Repository,
     state: EvaluationState,
-):
+) -> set[TargetId]:
   # Load build files.
   include_packages = args.include_package or ["**"]
   exclude_packages = args.exclude_package or []
@@ -185,7 +185,7 @@ def do_process_build_files(
   return targets_to_analyze
 
 
-def run_main(args: argparse.Namespace):
+def run_main(args: argparse.Namespace) -> int:
   assert args.bazel_repo_name
   repository_id: RepositoryId = RepositoryId(args.bazel_repo_name)
 
@@ -347,7 +347,7 @@ bazel_to_cmake.py encountered errors
   return 0
 
 
-def main():
+def main() -> int:
   ap = argparse.ArgumentParser()
   # Used for sub-projects only.
   ap.add_argument("--load-workspace")

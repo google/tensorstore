@@ -13,6 +13,8 @@
 # limitations under the License.
 """Emits a library alias."""
 
+# pylint: disable=g-importing-member,missing-function-docstring
+
 import io
 
 from .cmake_provider import CMakeAliasProvider
@@ -25,7 +27,7 @@ def emit_cc_library_aliases(
     out: io.StringIO,
     target_name: CMakeTarget,
     cmake_target_pair: CMakeTargetPair,
-) -> None:
+) -> ProviderTuple:
   """Generates common alias targets."""
 
   has_alias = False

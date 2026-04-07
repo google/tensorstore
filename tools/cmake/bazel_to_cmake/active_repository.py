@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=g-importing-member,missing-function-docstring
+
 import pathlib
-from typing import Dict, Set
 
 from .cmake_repository import CMakeRepository
 from .cmake_target import CMakePackage
@@ -40,14 +41,14 @@ class Repository:
       self,
       workspace: Workspace,
       repository_id: RepositoryId,
-      bindings: Dict[TargetId, TargetId],
+      bindings: dict[TargetId, TargetId],
       top_level: bool,
   ):
     self._workspace: Workspace = workspace
     self._repository_id: RepositoryId = repository_id
-    self._bindings: Dict[TargetId, TargetId] = bindings
+    self._bindings: dict[TargetId, TargetId] = bindings
     self.top_level: bool = top_level
-    self.ignored_libraries: Set[TargetId] = (
+    self.ignored_libraries: set[TargetId] = (
         workspace.global_ignored_libraries.copy()
     )
     self._repository = None
@@ -62,6 +63,9 @@ class Repository:
 
     Like all `Workspace` state, this also propagates to bazel_to_cmake
     invocations for dependencies.
+
+    Args:
+      target: The TargetId of the bzl library to ignore.
     """
     assert isinstance(target, TargetId)
     self.ignored_libraries.add(target)
@@ -79,7 +83,7 @@ class Repository:
     return self._repository
 
   @property
-  def bindings(self) -> Dict[TargetId, TargetId]:
+  def bindings(self) -> dict[TargetId, TargetId]:
     return self._bindings
 
   @property
@@ -99,5 +103,5 @@ class Repository:
     return self.repository.cmake_binary_dir
 
   @property
-  def repo_mapping(self) -> Dict[RepositoryId, RepositoryId]:
+  def repo_mapping(self) -> dict[RepositoryId, RepositoryId]:
     return self.repository.repo_mapping

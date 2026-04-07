@@ -17,12 +17,14 @@ These providers are the primary way in which bazel_to_cmake references
 bazel build targets.
 """
 
-from typing import Tuple, Union
+# pylint: disable=g-importing-member,missing-function-docstring
+
 
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .starlark.provider import Provider
+from .starlark.provider import ProviderTuple
 
 
 class CMakeHallucinatedTarget(Provider):
@@ -104,8 +106,8 @@ class CMakeAliasProvider(Provider):
 
 
 def make_providers(
-    source: Union[CMakeTarget, CMakeTargetPair], *providers
-) -> Tuple[Provider, ...]:
+    source: CMakeTarget | CMakeTargetPair, *providers
+) -> ProviderTuple:
   """Construct providers from a CMakeTarget or CMakeTargetPair."""
   result = ()
   if isinstance(source, CMakeTargetPair):
@@ -125,7 +127,7 @@ def make_providers(
   return result
 
 
-def default_providers(source: CMakeTargetPair) -> Tuple[Provider, ...]:
+def default_providers(source: CMakeTargetPair) -> ProviderTuple:
   return make_providers(
       source,
       CMakePackageDepsProvider,

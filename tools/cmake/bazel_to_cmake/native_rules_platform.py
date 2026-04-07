@@ -20,9 +20,7 @@ And to see the native skylark implementations, see:
 https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/common
 """
 
-# pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
-
-from typing import Dict, List, Optional
+# pylint: disable=g-importing-member,missing-function-docstring,invalid-name
 
 from .evaluation import EvaluationState
 from .ordered_set import OrderedSet
@@ -44,7 +42,7 @@ from .starlark.scope_build_file import register_native_build_rule
 def constraint_setting(
     self: InvocationContext,
     name: str,
-    default_constraint_value: Optional[str] = None,
+    default_constraint_value: str | None = None,
     **kwargs,
 ):
   del kwargs
@@ -63,7 +61,7 @@ def constraint_setting(
 def constraint_value(
     self: InvocationContext,
     name: str,
-    constraint_setting: Optional[RelativeLabel],
+    constraint_setting: RelativeLabel | None,
     **kwargs,
 ):
   del kwargs
@@ -81,10 +79,10 @@ def constraint_value(
 def platform(
     self: InvocationContext,
     name: str,
-    constraint_values: Optional[List[RelativeLabel]] = None,
-    exec_properties: Optional[Dict[str, str]] = None,
-    flags: Optional[List[str]] = None,
-    parents: Optional[List[RelativeLabel]] = None,
+    constraint_values: list[RelativeLabel] | None = None,
+    exec_properties: dict[str, str] | None = None,
+    flags: list[str] | None = None,
+    parents: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   del kwargs
@@ -113,8 +111,8 @@ def platform(
 def _platform_impl(
     _context: InvocationContext,
     _target: TargetId,
-    constraint_values: Optional[List[TargetId]] = None,
-    parents: Optional[List[TargetId]] = None,
+    constraint_values: list[TargetId] | None = None,
+    parents: list[TargetId] | None = None,
 ):
   # Bazel to CMake doesn't have a way to support platform flags.
   state = _context.access(EvaluationState)

@@ -15,7 +15,6 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 import io
-from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_provider import CMakeAddDependenciesProvider
@@ -41,7 +40,7 @@ def alias(
     self: InvocationContext,
     name: str,
     actual: Configurable[RelativeLabel],
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   del kwargs

@@ -13,14 +13,14 @@
 # limitations under the License.
 """Defines data structures representing a Bazel workspace."""
 
-# pylint: disable=missing-function-docstring,relative-beyond-top-level,g-doc-args
+# pylint: disable=missing-function-docstring,g-importing-member,g-doc-args
 
 import importlib
 import json
 import pathlib
 import platform
 import shlex
-from typing import Union
+from typing import Any
 
 from .cmake_repository import CMakeRepository
 from .cmake_target import CMakeTargetPair
@@ -102,7 +102,7 @@ class Workspace:
     self._persisted_target_info: dict[TargetId, TargetInfo] = {}
 
     # Loaded by load_external_repositories()
-    self._external_repo_configs: dict[RepositoryId, dict] = {}
+    self._external_repo_configs: dict[RepositoryId, dict[str, Any]] = {}
 
     # Log level
     self._verbose: int = cmake_logging_verbose_level(
@@ -180,7 +180,7 @@ class Workspace:
     self.all_repositories[repository.repository_id] = repository
 
   def get_cmake_package_name(
-      self, target: Union[RepositoryId, PackageId, TargetId]
+      self, target: RepositoryId | PackageId | TargetId
   ) -> str | None:
     repo = self.all_repositories.get(target.repository_id, None)
     if repo:
@@ -255,4 +255,3 @@ class Workspace:
       self.add_cmake_repository(
           CMakeRepository.from_config(repository_id, config)
       )
-

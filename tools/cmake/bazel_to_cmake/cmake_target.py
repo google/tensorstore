@@ -13,7 +13,7 @@
 # limitations under the License.
 """CMake Provider types."""
 
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 
 class CMakePackage(str):
@@ -27,11 +27,11 @@ class CMakeTarget(str):
 class CMakeTargetPair(NamedTuple):
   """CMakeTargetPair identifies a cmake target, optionally with an alias."""
 
-  cmake_package: Optional[CMakePackage]
+  cmake_package: CMakePackage | None
   target: CMakeTarget
-  alias: Optional[CMakeTarget] = None
+  alias: CMakeTarget | None = None
 
-  def with_alias(self, alias: Optional[CMakeTarget]) -> "CMakeTargetPair":
+  def with_alias(self, alias: CMakeTarget | None) -> 'CMakeTargetPair':
     if alias is not None:
       assert isinstance(alias, CMakeTarget)
     return self._replace(alias=alias)
