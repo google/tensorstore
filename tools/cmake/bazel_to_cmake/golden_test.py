@@ -20,7 +20,7 @@ import os
 import pathlib
 import shutil
 import sys
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any
 
 import pytest
 
@@ -57,20 +57,20 @@ CMAKE_VARS = {
 }
 
 
-def parameters() -> List[Tuple[str, Dict[str, Any]]]:
+def parameters() -> list[tuple[str, dict[str, Any]]]:
   """Returns config tuples by reading config.json from the 'testdata' subdir."""
   if UPDATE_GOLDENS:
     print('UPDATE_GOLDENS')
     testdata = pathlib.Path(__file__).resolve().with_name('testdata')
   else:
     testdata = pathlib.Path(__file__).with_name('testdata').resolve()
-  result: List[Tuple[str, Dict[str, Any]]] = []
+  result: list[tuple[str, dict[str, Any]]] = []
   for x in testdata.iterdir():
     if '__' in str(x):
       continue
     try:
       with (x / 'config.json').open('r') as f:
-        config: Dict[str, Any] = json.load(f)
+        config: dict[str, Any] = json.load(f)
     except FileNotFoundError as e:
       raise FileNotFoundError(f'Failed to read {str(x)}/config.json') from e
     config['source_directory'] = str(x)
@@ -80,9 +80,9 @@ def parameters() -> List[Tuple[str, Dict[str, Any]]]:
 
 def get_files_list(
     source_directory: pathlib.Path, include_goldens=False
-) -> List[pathlib.Path]:
+) -> list[pathlib.Path]:
   """Returns non-golden files under source directory."""
-  files: List[pathlib.Path] = []
+  files: list[pathlib.Path] = []
   try:
     for x in sorted(source_directory.glob('**/*')):
       if not x.is_file():
@@ -95,7 +95,7 @@ def get_files_list(
   return files
 
 
-def copy_tree(source_dir: str, source_files: List[str], dest_dir: pathlib.Path):
+def copy_tree(source_dir: str, source_files: list[str], dest_dir: pathlib.Path):
   """Copies source_files from source_dir to dest_dir."""
   for x in source_files:
     dest_path = dest_dir.joinpath(x)
@@ -121,6 +121,7 @@ def add_repositories(workspace: Workspace):
           pathlib.PurePosixPath('protobuf_build'),
           repo_mapping={},
           persisted_canonical_name={},
+          executable_targets=set(),
       )
   )
   workspace.add_cmake_repository(
@@ -135,11 +136,12 @@ def add_repositories(workspace: Workspace):
               )
           },
           persisted_canonical_name={},
+          executable_targets=set(),
       )
   )
 
   def persist_cmake_name(
-      target: Union[str, TargetId],
+      target: str | TargetId,
       cmake_alias: CMakeTarget,
   ):
     if not isinstance(target, TargetId):
@@ -229,7 +231,7 @@ def add_repositories(workspace: Workspace):
 
 
 @pytest.mark.parametrize('test_name,config', parameters())
-def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
+def test_golden(test_name: str, config: dict[str, Any], tmpdir):
   # Start with the list of source files.
   source_directory = pathlib.Path(config['source_directory'])
   del config['source_directory']
@@ -262,6 +264,7 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
           repository_id, config.get('repo_mapping', [])
       ),
       persisted_canonical_name={},
+      executable_targets=set(),
   )
 
   # Setup repo mapping.

@@ -18,7 +18,7 @@
 /// \file
 /// Minimal task executor support.
 
-#include <functional>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -80,14 +80,20 @@ class ExecutorBoundFunction {
   std::enable_if_t<std::is_invocable_v<Function&, T...>>  //
   operator()(T&&... arg) {
     internal_tracing::SwapCurrentTraceContext(&tc_);
-    executor(std::bind(std::move(function), std::forward<T>(arg)...));
+    executor([f = std::move(function),
+              args = std::make_tuple(std::forward<T>(arg)...)]() mutable {
+      std::apply(std::move(f), std::move(args));
+    });
     internal_tracing::SwapCurrentTraceContext(&tc_);
   }
   template <typename... T>
   std::enable_if_t<std::is_invocable_v<const Function&, T...>> operator()(
       T&&... arg) const {
     internal_tracing::SwapCurrentTraceContext(&tc_);
-    executor(std::bind(function, std::forward<T>(arg)...));
+    executor([f = function,
+              args = std::make_tuple(std::forward<T>(arg)...)]() mutable {
+      std::apply(std::move(f), std::move(args));
+    });
     internal_tracing::SwapCurrentTraceContext(&tc_);
   }
 

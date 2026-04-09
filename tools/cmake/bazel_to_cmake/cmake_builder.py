@@ -16,7 +16,6 @@
 # pylint: disable=g-doc-args,g-doc-return-or-yield
 
 import collections
-from typing import Dict, List, Optional, Set, Tuple
 
 
 INCLUDE_SECTION = 0
@@ -36,15 +35,17 @@ class CMakeBuilder:
   add common script expressions corresponding to Bazel files.
   """
 
-  def __init__(self):
-    self._sections: Dict[int, List[str]] = collections.defaultdict(lambda: [])
-    self._unique: Set[Tuple[int, str]] = set()
+  def __init__(self) -> None:
+    self._sections: dict[int, list[str]] = collections.defaultdict(list)
+    self._unique: set[tuple[int, str]] = set()
     self._default_section = 1000
 
-  def include(self, name):
+  def include(self, name: str) -> None:
     self.addtext(f"include({name})\n", section=INCLUDE_SECTION, unique=True)
 
-  def find_package(self, name, section=FIND_PACKAGE_SECTION):
+  def find_package(
+      self, name: str, section: int = FIND_PACKAGE_SECTION
+  ) -> None:
     self.addtext(
         f"find_package({name} REQUIRED)\n", section=section, unique=True
     )
@@ -53,7 +54,7 @@ class CMakeBuilder:
   def default_section(self) -> int:
     return self._default_section
 
-  def set_default_section(self, section: int):
+  def set_default_section(self, section: int) -> None:
     self._default_section = section
 
   def as_text(self) -> str:
@@ -64,8 +65,8 @@ class CMakeBuilder:
     return "".join(sections)
 
   def addtext(
-      self, text: str, section: Optional[int] = None, unique: bool = False
-  ):
+      self, text: str, section: int | None = None, unique: bool = False
+  ) -> None:
     """Adds raw text to the cmake file."""
     if section is None:
       section = self.default_section
@@ -81,24 +82,3 @@ class CMakeBuilder:
         return
       self._unique.add(key)
     self._sections[section].append(text)
-
-  def add_library_alias(
-      self,
-      target_name: str,
-      alias_name: str,
-      interface_only: bool = False,
-      alwayslink: bool = False,
-  ):
-    """Generates an alias target with support for `alwayslink`."""
-    alias_dest_name = target_name
-    if alwayslink and not interface_only:
-      alias_dest_name = f"{target_name}.alwayslink"
-      self.addtext(f"""
-add_library({alias_dest_name} INTERFACE)
-if (BUILD_SHARED_LIBS)
-  target_link_libraries({alias_dest_name} INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,{target_name}>")
-else ()
-  target_link_libraries({alias_dest_name} INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,{target_name}>")
-endif()
-""")
-    self.addtext(f"add_library({alias_name} ALIAS {alias_dest_name})\n")

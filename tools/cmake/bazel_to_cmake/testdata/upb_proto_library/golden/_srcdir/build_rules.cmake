@@ -40,9 +40,9 @@ add_custom_target(CMakeProject_aspect_cpp__9411025a DEPENDS
 add_library(CMakeProject_a_proto__cpp_library)
 set_property(TARGET CMakeProject_a_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_proto__cpp_library PUBLIC
+        "protobuf::libprotobuf"
         "Threads::Threads"
-        "m"
-        "protobuf::libprotobuf")
+        "m")
 target_include_directories(CMakeProject_a_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_a_proto__cpp_library PUBLIC cxx_std_17)
@@ -57,16 +57,45 @@ add_library(CMakeProject::a_proto__cpp_library ALIAS CMakeProject_a_proto__cpp_l
 add_library(CMakeProject_a_cc_proto)
 set_property(TARGET CMakeProject_a_cc_proto PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_cc_proto PUBLIC
-        "CMakeProject::a_proto"
         "CMakeProject::a_proto__cpp_library"
+        "CMakeProject::a_proto"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_cc_proto PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a_cc_proto PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_cc_proto PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 add_library(CMakeProject::a_cc_proto ALIAS CMakeProject_a_cc_proto)
+
+# @upb_proto_library_test_repo//:aspect_upb__9411025a
+# genproto upb @upb_proto_library_test_repo//:a.proto
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
+add_custom_command(
+OUTPUT
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
+COMMAND $<TARGET_FILE:protobuf::protoc>
+    --experimental_allow_proto3_optional
+    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_a_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
+    "${TEST_SRCDIR}/a.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/a.proto"
+    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "protobuf::protoc"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/a.proto"
+)
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
+PROPERTIES GENERATED TRUE)
+add_custom_target(CMakeProject_aspect_upb__9411025a DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c")
 
 # @upb_proto_library_test_repo//:aspect_upb_minitable__9411025a
 # genproto upb_minitable @upb_proto_library_test_repo//:a.proto
@@ -115,42 +144,13 @@ target_sources(CMakeProject_a_proto__minitable_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.c")
 add_library(CMakeProject::a_proto__minitable_library ALIAS CMakeProject_a_proto__minitable_library)
 
-# @upb_proto_library_test_repo//:aspect_upb__9411025a
-# genproto upb @upb_proto_library_test_repo//:a.proto
-file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
-add_custom_command(
-OUTPUT
-    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c"
-    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
-COMMAND $<TARGET_FILE:protobuf::protoc>
-    --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_a_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
-    "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
-    "${TEST_SRCDIR}/a.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
-DEPENDS
-    "${TEST_SRCDIR}/a.proto"
-    "Protobuf::upb_generator_c_protoc-gen-upb"
-    "protobuf::protoc"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/a.proto"
-)
-set_source_files_properties(
-    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c"
-    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
-PROPERTIES GENERATED TRUE)
-add_custom_target(CMakeProject_aspect_upb__9411025a DEPENDS
-    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
-    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c")
-
 # @upb_proto_library_test_repo//:a_proto__upb_library
 # aspect upb @upb_proto_library_test_repo//:a_proto
 add_library(CMakeProject_a_proto__upb_library)
 set_property(TARGET CMakeProject_a_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_proto__upb_library PUBLIC
-        "CMakeProject::a_proto__minitable_library"
         "Protobuf::upb_generated_code_support"
+        "CMakeProject::a_proto__minitable_library"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_proto__upb_library PUBLIC
@@ -167,13 +167,13 @@ add_library(CMakeProject::a_proto__upb_library ALIAS CMakeProject_a_proto__upb_l
 add_library(CMakeProject_a_upb_proto)
 set_property(TARGET CMakeProject_a_upb_proto PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_upb_proto PUBLIC
-        "CMakeProject::a_proto"
-        "CMakeProject::a_proto__minitable_library"
         "CMakeProject::a_proto__upb_library"
+        "CMakeProject::a_proto__minitable_library"
+        "CMakeProject::a_proto"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_upb_proto PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a_upb_proto PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_upb_proto PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -213,9 +213,9 @@ add_custom_target(CMakeProject_aspect_upbdefs__9411025a DEPENDS
 add_library(CMakeProject_a_proto__upbdefs_library)
 set_property(TARGET CMakeProject_a_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_proto__upbdefs_library PUBLIC
-        "CMakeProject::a_proto__minitable_library"
-        "Protobuf::upb_port"
         "Protobuf::upb_reflection_generated_reflection_support"
+        "Protobuf::upb_port"
+        "CMakeProject::a_proto__minitable_library"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_proto__upbdefs_library PUBLIC
@@ -232,13 +232,13 @@ add_library(CMakeProject::a_proto__upbdefs_library ALIAS CMakeProject_a_proto__u
 add_library(CMakeProject_a_upb_proto_reflection)
 set_property(TARGET CMakeProject_a_upb_proto_reflection PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_upb_proto_reflection PUBLIC
-        "CMakeProject::a_proto"
-        "CMakeProject::a_proto__minitable_library"
         "CMakeProject::a_proto__upbdefs_library"
+        "CMakeProject::a_proto__minitable_library"
+        "CMakeProject::a_proto"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_upb_proto_reflection PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a_upb_proto_reflection PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_upb_proto_reflection PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -248,13 +248,13 @@ add_library(CMakeProject::a_upb_proto_reflection ALIAS CMakeProject_a_upb_proto_
 add_library(CMakeProject_abc_upb_proto)
 set_property(TARGET CMakeProject_abc_upb_proto PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_abc_upb_proto PUBLIC
-        "CMakeProject::abc_protos"
-        "CMakeProject::abc_protos__minitable_library"
         "CMakeProject::abc_protos__upb_library"
+        "CMakeProject::abc_protos__minitable_library"
+        "CMakeProject::abc_protos"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abc_upb_proto PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_abc_upb_proto PUBLIC cxx_std_17)
 target_sources(CMakeProject_abc_upb_proto PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -264,13 +264,13 @@ add_library(CMakeProject::abc_upb_proto ALIAS CMakeProject_abc_upb_proto)
 add_library(CMakeProject_abc_upb_proto_reflection)
 set_property(TARGET CMakeProject_abc_upb_proto_reflection PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_abc_upb_proto_reflection PUBLIC
-        "CMakeProject::abc_protos"
-        "CMakeProject::abc_protos__minitable_library"
         "CMakeProject::abc_protos__upbdefs_library"
+        "CMakeProject::abc_protos__minitable_library"
+        "CMakeProject::abc_protos"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abc_upb_proto_reflection PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_abc_upb_proto_reflection PUBLIC cxx_std_17)
 target_sources(CMakeProject_abc_upb_proto_reflection PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")

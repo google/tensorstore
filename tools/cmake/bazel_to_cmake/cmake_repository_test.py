@@ -30,6 +30,7 @@ def test_ignored():
       pathlib.PurePath("bin"),
       {},
       {},
+      executable_targets=set(),
   )
   assert x.repository_id == RepositoryId("foo")
 
@@ -76,6 +77,7 @@ def test_replace_with_cmake_macro_dirs():
       pathlib.PurePath("foo-bindir"),
       {},
       {},
+      executable_targets=set(),
   )
   assert [
       "${PROJECT_BINARY_DIR}/b",

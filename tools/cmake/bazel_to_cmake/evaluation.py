@@ -69,13 +69,14 @@ Similar to the real Bazel, evaluation is performed in several phases:
 # pylint: disable=relative-beyond-top-level,protected-access,missing-function-docstring,invalid-name,g-doc-args,g-doc-return-or-yield
 
 import collections
+from collections.abc import Callable, Iterable
 import copy
 import enum
 import functools
 import inspect
 import os
 import pathlib
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, TypeVar, cast
+from typing import Any, NamedTuple, Type, TypeVar, cast
 
 from . import cmake_builder
 from .active_repository import Repository
@@ -87,6 +88,7 @@ from .cmake_provider import CMakeLinkLibrariesProvider
 from .cmake_provider import CMakePackageDepsProvider
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTargetPair
+from .ordered_set import OrderedSet
 from .package import Package
 from .package import Visibility
 from .provider_util import ProviderCollection
@@ -118,8 +120,8 @@ RuleImpl = Callable[[], None]
 
 class RuleInfo(NamedTuple):
   mnemonic: str  # Only used for debugging currently.
-  callers: List[str]
-  outs: List[TargetId]
+  callers: list[str]
+  outs: list[TargetId]
   impl: RuleImpl
 
 
@@ -143,19 +145,19 @@ class EvaluationState:
         and cmake_is_true(self.workspace.cmake_vars["PROJECT_IS_TOP_LEVEL"])
     )
     self.loaded_files: set[str] = set()
-    self._loaded_libraries: Dict[Tuple[TargetId, bool], Dict[str, Any]] = dict()
+    self._loaded_libraries: dict[tuple[TargetId, bool], dict[str, Any]] = dict()
     self._wrote_placeholder_source = False
-    self.errors: List[str] = []
+    self.errors: list[str] = []
     # Track CMakePackage dependencies.
-    self._required_dep_packages: set[CMakePackage] = set()
+    self._required_dep_packages: OrderedSet[CMakePackage] = OrderedSet()
     # Track CMakeTargetPair dependencies
-    self._required_dep_targets: Dict[TargetId, CMakeTargetPair] = {}
+    self._required_dep_targets: dict[TargetId, CMakeTargetPair] = {}
     # Maps targets to their rules.
-    self._unanalyzed_rules: set[TargetId] = set()
-    self._all_rules: Dict[TargetId, RuleInfo] = {}
-    self._unanalyzed_targets: Dict[TargetId, TargetId] = {}
-    self._targets_to_analyze: set[TargetId] = set()
-    self._analyzed_targets: Dict[TargetId, TargetInfo] = {}
+    self._unanalyzed_rules: OrderedSet[TargetId] = OrderedSet()
+    self._all_rules: dict[TargetId, RuleInfo] = {}
+    self._unanalyzed_targets: dict[TargetId, TargetId] = {}
+    self._targets_to_analyze: OrderedSet[TargetId] = OrderedSet()
+    self._analyzed_targets: dict[TargetId, TargetInfo] = {}
     self._call_after_workspace_loading = collections.deque()
     self._call_after_analysis = collections.deque()
     self._stack = collections.deque()
@@ -179,10 +181,13 @@ class EvaluationState:
     return self.active_repo.workspace.verbose
 
   @property
-  def targets_to_analyze(self) -> List[TargetId]:
+  def targets_to_analyze(self) -> list[TargetId]:
     return sorted(self._targets_to_analyze)
 
-  def analyze(self, targets: List[TargetId]):
+  def resolve_target(self, target: str) -> TargetId:
+    return self._evaluation_context.resolve_target(target)
+
+  def analyze(self, targets: list[TargetId]):
     """Analayze the transitive dependencies of `targets`.
 
     Note that any targets that are skipped will not be available for use as
@@ -209,11 +214,11 @@ class EvaluationState:
   def add_rule_impl(
       self,
       _mnemonic: str,
-      _callers: List[str],
+      _callers: list[str],
       *,
       rule_id: TargetId,
       impl: RuleImpl,
-      outs: Optional[List[TargetId]] = None,
+      outs: list[TargetId] | None = None,
       analyze_by_default: bool = True,
   ) -> None:
     """Adds a rule.
@@ -288,7 +293,7 @@ class EvaluationState:
 
   def _get_target_info(
       self, target_id: TargetId, optional: bool
-  ) -> Optional[TargetInfo]:
+  ) -> TargetInfo | None:
     assert isinstance(
         target_id, TargetId
     ), f"Requires TargetId: {repr(target_id)}"
@@ -368,9 +373,7 @@ class EvaluationState:
       )
     return info
 
-  def get_optional_target_info(
-      self, target_id: TargetId
-  ) -> Optional[TargetInfo]:
+  def get_optional_target_info(self, target_id: TargetId) -> TargetInfo | None:
     return self._get_target_info(target_id, True)
 
   def get_target_info(self, target_id: TargetId) -> TargetInfo:
@@ -380,7 +383,7 @@ class EvaluationState:
 
   def get_source_file_path(
       self, target_id: TargetId
-  ) -> Optional[pathlib.PurePath]:
+  ) -> pathlib.PurePath | None:
     assert isinstance(target_id, TargetId)
     repo = self.workspace.all_repositories.get(target_id.repository_id)
     if repo is None:
@@ -421,7 +424,7 @@ class EvaluationState:
   def collect_targets(
       self,
       targets: Iterable[TargetId],
-      collector: Optional[ProviderCollection] = None,
+      collector: ProviderCollection | None = None,
   ) -> ProviderCollection:
     if collector is None:
       collector = ProviderCollection()
@@ -443,7 +446,7 @@ class EvaluationState:
   def collect_deps(
       self,
       targets: Iterable[TargetId],
-      collector: Optional[ProviderCollection] = None,
+      collector: ProviderCollection | None = None,
       alias: bool = True,
   ) -> ProviderCollection:
     if collector is None:
@@ -531,7 +534,7 @@ class EvaluationState:
       pathlib.Path(placeholder_source_path).write_bytes(b"")
     return placeholder_source_path.as_posix()
 
-  def load_library(self, target_id: TargetId) -> Dict[str, Any]:
+  def load_library(self, target_id: TargetId) -> dict[str, Any]:
     """Returns the global scope for the given bzl library target.
 
     Loads it if not already loaded in the current phase.  Libraries are loaded
@@ -747,7 +750,7 @@ class EvaluationContext(InvocationContext):
       self,
       state: EvaluationState,
       package_id: PackageId,
-      package: Optional[Package] = None,
+      package: Package | None = None,
   ):
     assert state
     self._state = state
@@ -768,8 +771,8 @@ class EvaluationContext(InvocationContext):
 
   def update_current_package(
       self,
-      package: Optional[Package] = None,
-      package_id: Optional[PackageId] = None,
+      package: Package | None = None,
+      package_id: PackageId | None = None,
   ) -> None:
     if package_id is None:
       assert package is not None
@@ -796,7 +799,7 @@ class EvaluationContext(InvocationContext):
     return super().access(provider_type)
 
   @property
-  def caller_package(self) -> Optional[Package]:
+  def caller_package(self) -> Package | None:
     return self._caller_package
 
   @property
@@ -829,7 +832,7 @@ class EvaluationContext(InvocationContext):
 
   @trace_exception
   def apply_repo_mapping(
-      self, target_id: TargetId, mapping_repository_id: Optional[RepositoryId]
+      self, target_id: TargetId, mapping_repository_id: RepositoryId | None
   ) -> TargetId:
     # Resolve repository mappings
     if mapping_repository_id is None:
@@ -853,7 +856,7 @@ class EvaluationContext(InvocationContext):
 
     return target
 
-  def load_library(self, target: TargetId) -> Dict[str, Any]:
+  def load_library(self, target: TargetId) -> dict[str, Any]:
     return self._state.load_library(target)
 
   @trace_exception
@@ -864,8 +867,8 @@ class EvaluationContext(InvocationContext):
       self,
       rule_id: TargetId,
       impl: RuleImpl,
-      outs: Optional[List[TargetId]] = None,
-      visibility: Optional[List[RelativeLabel]] = None,
+      outs: list[TargetId] | None = None,
+      visibility: list[RelativeLabel] | None = None,
       **kwargs,
   ) -> None:
     if visibility is not None:

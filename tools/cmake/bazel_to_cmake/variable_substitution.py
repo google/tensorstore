@@ -13,7 +13,7 @@
 # limitations under the License.
 """Implements $(location) and Make variable substitution."""
 
-# pylint: disable=relative-beyond-top-level,invalid-name
+# pylint: disable=invalid-name,missing-function-docstring,g-importing-member,g-doc-args
 
 from collections.abc import Callable
 import io
@@ -22,7 +22,6 @@ import os
 import pathlib
 import re
 import shlex
-from typing import Dict, List, Match, Optional
 
 from .cmake_provider import CMakeExecutableTargetProvider
 from .cmake_provider import CMakeLinkLibrariesProvider
@@ -102,7 +101,7 @@ def _get_location_replacement(
     _context: InvocationContext,
     _cmd: str,
     relative_to: str,
-    add_dependencies: Optional[List[CMakeTarget]],
+    add_dependencies: list[CMakeTarget] | None,
     key: str,
     label: str,
 ) -> str:
@@ -156,9 +155,9 @@ def _apply_location_and_make_variable_substitutions(
     *,
     cmd: str,
     relative_to: str,
-    add_dependencies: Optional[List[CMakeTarget]],
+    add_dependencies: list[CMakeTarget] | None,
     substitutions: MakeVariableSubstitutions,
-    toolchains: Optional[List[TargetId]],
+    toolchains: list[TargetId] | None,
     enable_location: bool,
 ) -> str:
   """Applies $(location) and Bazel Make variable substitutions."""
@@ -203,7 +202,7 @@ def apply_make_variable_substitutions(
     _context: InvocationContext,
     cmd: str,
     substitutions: MakeVariableSubstitutions,
-    toolchains: Optional[List[TargetId]] = None,
+    toolchains: list[TargetId] | None = None,
 ) -> str:
   """Applies Bazel Make variable substitutions.
 
@@ -232,9 +231,9 @@ def apply_location_and_make_variable_substitutions(
     *,
     cmd: str,
     relative_to: str,
-    add_dependencies: Optional[List[CMakeTarget]],
+    add_dependencies: list[CMakeTarget] | None,
     substitutions: MakeVariableSubstitutions,
-    toolchains: Optional[List[TargetId]],
+    toolchains: list[TargetId] | None,
 ) -> str:
   """Applies $(location) and Bazel Make variable substitutions."""
   return _apply_location_and_make_variable_substitutions(
@@ -252,7 +251,7 @@ def apply_location_substitutions(
     _context: InvocationContext,
     cmd: str,
     relative_to: str,
-    add_dependencies: Optional[List[CMakeTarget]] = None,
+    add_dependencies: list[CMakeTarget] | None = None,
 ) -> str:
   """Substitutes $(location) references in `cmd`.
 
@@ -268,7 +267,7 @@ def apply_location_substitutions(
     Modified string.
   """
 
-  def _replace(m: Match[str]) -> str:
+  def _replace(m: re.Match[str]) -> str:
     return _get_location_replacement(
         _context, cmd, relative_to, add_dependencies, m.group(1), m.group(2)
     )
@@ -280,9 +279,9 @@ def generate_substitutions(
     _context: InvocationContext,
     _target: TargetId,
     *,
-    src_files: List[str],
-    out_files: List[str],
-) -> Dict[str, str]:
+    src_files: list[str],
+    out_files: list[str],
+) -> dict[str, str]:
   # https://bazel.build/reference/be/make-variables
   # https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-path-variables
   #
@@ -319,7 +318,7 @@ def generate_substitutions(
   package_binary_dir = binary_directory.joinpath(_target.package_name)
   quoted_out_files = [json.dumps(path) for path in out_files]
 
-  substitutions: Dict[str, str] = {
+  substitutions: dict[str, str] = {
       "GENDIR": str(binary_directory),
       "BINDIR": str(binary_directory),
       "SRCS": " ".join([json.dumps(p) for p in relative_src_paths]),
@@ -342,7 +341,7 @@ def do_bash_command_replacement(cmd: str) -> str:
   """Tries to apply some bash-equivalent commands to a string."""
 
   # mimic shell $(dirname x)
-  def _dirname(args: List[str]) -> str:
+  def _dirname(args: list[str]) -> str:
     if not args:
       raise ValueError(f"cannot apply `dirname` in {cmd}")
     dirnames = [os.path.dirname(x) for x in args]

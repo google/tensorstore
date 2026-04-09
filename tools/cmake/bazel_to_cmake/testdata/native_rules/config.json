@@ -4,10 +4,10 @@
     "//:a",
     "//:a_alias",
     "//:a_test",
+    "//:a_binary",
     "//:b",
     "//:b_public",
     "//:b_public_isystem",
-    "//:bb",
     "//:c_proto",
     "//:c_proto_2",
     "//:c_proto_2__cpp_library",
@@ -20,13 +20,19 @@
     "//:subdir_z",
     "//:y_alias",
     "//subdir:y",
-    "//subdir:y_include_prefix",
-    "//subdir:y_includes",
-    "//subdir:y_strip_include_prefix",
+    "//subdir:no_hdrs",
+    "//subdir:strip_include_prefix_subdir",
+    "//subdir:include_prefix_subdir",
+    "//subdir:includes_dot",
+    "//subdir:linkstatic",
+    "//subdir:linkstatic_header_only",
+    "//subdir:alwayslink",
+    "//subdir:alwayslink_linkstatic",
+    "//subdir:alwayslink_header_only",
+    "//subdir:alwayslink_header_only_implementation_deps",
+    "//subdir:alwayslink_linkstatic_header_only",
     "//subdir:z_proto__cpp_library",
     "//:defines"
   ],
-  "excludes": [
-    "_bindir/bazel_to_cmake_empty_source.cc"
-  ]
+  "excludes": ["_bindir/bazel_to_cmake_empty_source.cc"]
 }

@@ -1,16 +1,16 @@
 find_package(Protobuf REQUIRED)
 
-# cc_binary(@native_rules_test_repo//:bb)
-add_executable(CMakeProject_bb "")
-add_executable(CMakeProject::bb ALIAS CMakeProject_bb)
-target_link_libraries(CMakeProject_bb PUBLIC
+# cc_binary(@native_rules_test_repo//:b_binary)
+add_executable(CMakeProject_b_binary "")
+add_executable(CMakeProject::b_binary ALIAS CMakeProject_b_binary)
+target_link_libraries(CMakeProject_b_binary PUBLIC
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_bb PRIVATE
+target_include_directories(CMakeProject_b_binary PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_bb PUBLIC cxx_std_17)
-target_sources(CMakeProject_bb PRIVATE
-        "${PROJECT_SOURCE_DIR}/a.cc")
+target_compile_features(CMakeProject_b_binary PUBLIC cxx_std_17)
+target_sources(CMakeProject_b_binary PRIVATE
+        "${PROJECT_SOURCE_DIR}/b.cc")
 
 # filegroup(@native_rules_test_repo//:subdir_z)
 add_library(CMakeProject_subdir_z INTERFACE)
@@ -23,11 +23,11 @@ target_include_directories(CMakeProject_subdir_z INTERFACE
 add_custom_command(
 OUTPUT
     "${TEST_BINDIR}/a.h"
-COMMAND $<TARGET_FILE:CMakeProject::bb> ./a .  -I${TEST_BINDIR}/foo -Isubdir/../..  "x.h" "${TEST_BINDIR}/a.h"
+COMMAND $<TARGET_FILE:CMakeProject::b_binary> ./a .  -I${TEST_BINDIR}/foo -Isubdir/../..  "x.h" "${TEST_BINDIR}/a.h"
 VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/x.h"
-    "CMakeProject::bb"
+    "CMakeProject::b_binary"
 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 set_source_files_properties(
@@ -106,9 +106,9 @@ add_library(CMakeProject_c_proto__cpp_library)
 set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
         "Protobuf::timestamp_proto__cpp_library"
+        "protobuf::libprotobuf"
         "Threads::Threads"
-        "m"
-        "protobuf::libprotobuf")
+        "m")
 target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
@@ -123,12 +123,12 @@ add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_l
 add_library(CMakeProject_c_proto_cc)
 set_property(TARGET CMakeProject_c_proto_cc PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto_cc PUBLIC
-        "CMakeProject::c_proto"
         "CMakeProject::c_proto__cpp_library"
+        "CMakeProject::c_proto"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_c_proto_cc PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_c_proto_cc PUBLIC cxx_std_17)
 target_sources(CMakeProject_c_proto_cc PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -149,6 +149,18 @@ target_sources(CMakeProject_a_test PRIVATE
 add_test(NAME CMakeProject_a_test
       COMMAND CMakeProject_a_test
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# cc_binary(@native_rules_test_repo//:a_binary)
+add_executable(CMakeProject_a_binary "")
+add_executable(CMakeProject::a_binary ALIAS CMakeProject_a_binary)
+target_link_libraries(CMakeProject_a_binary PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_a_binary PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_a_binary PUBLIC cxx_std_17)
+target_sources(CMakeProject_a_binary PRIVATE
+        "${PROJECT_SOURCE_DIR}/a.cc")
 
 # cc_library(@native_rules_test_repo//:b)
 add_library(CMakeProject_b)
@@ -175,6 +187,8 @@ target_link_libraries(CMakeProject_b_public PRIVATE
         "CMakeProject::a")
 target_include_directories(CMakeProject_b_public PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_include_directories(CMakeProject_b_public PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_b_public PUBLIC cxx_std_17)
 target_sources(CMakeProject_b_public PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -209,9 +223,9 @@ add_library(CMakeProject::c_proto_2 ALIAS CMakeProject_c_proto_2)
 add_library(CMakeProject_c_proto_2__cpp_library)
 set_property(TARGET CMakeProject_c_proto_2__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto_2__cpp_library PUBLIC
+        "protobuf::libprotobuf"
         "Threads::Threads"
-        "m"
-        "protobuf::libprotobuf")
+        "m")
 target_include_directories(CMakeProject_c_proto_2__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_c_proto_2__cpp_library PUBLIC cxx_std_17)
@@ -243,38 +257,15 @@ target_sources(CMakeProject_subdir_x PRIVATE
         "${PROJECT_SOURCE_DIR}/subdir/x.cc")
 add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
 
-# genrule(@native_rules_test_repo//subdir:make_ycc)
-file(MAKE_DIRECTORY "${TEST_BINDIR}/subdir")
-add_custom_command(
-OUTPUT
-    "${TEST_BINDIR}/subdir/y.cc"
-COMMAND $<TARGET_FILE:CMakeProject::bb> "${TEST_BINDIR}/subdir/y.cc"
-VERBATIM
-DEPENDS
-    "CMakeProject::bb"
-WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-)
-set_source_files_properties(
-    "${TEST_BINDIR}/subdir/y.cc"
-PROPERTIES GENERATED TRUE)
-add_custom_target(genrule__CMakeProject_subdir_make_ycc DEPENDS
-    "${TEST_BINDIR}/subdir/y.cc")
-add_library(CMakeProject_subdir_make_ycc INTERFACE)
-target_sources(CMakeProject_subdir_make_ycc INTERFACE
-    "${TEST_BINDIR}/subdir/y.cc")
-target_include_directories(CMakeProject_subdir_make_ycc INTERFACE
-    "${PROJECT_BINARY_DIR}")
-add_dependencies(CMakeProject_subdir_make_ycc genrule__CMakeProject_subdir_make_ycc)
-
 # genrule(@native_rules_test_repo//subdir:make_y)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/subdir")
 add_custom_command(
 OUTPUT
     "${TEST_BINDIR}/subdir/y.h"
-COMMAND $<TARGET_FILE:CMakeProject::bb> "${TEST_BINDIR}/subdir/y.h"
+COMMAND $<TARGET_FILE:CMakeProject::b_binary> "${TEST_BINDIR}/subdir/y.h"
 VERBATIM
 DEPENDS
-    "CMakeProject::bb"
+    "CMakeProject::b_binary"
 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 set_source_files_properties(
@@ -289,6 +280,29 @@ target_include_directories(CMakeProject_subdir_make_y INTERFACE
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_subdir_make_y genrule__CMakeProject_subdir_make_y)
 
+# genrule(@native_rules_test_repo//subdir:make_ycc)
+file(MAKE_DIRECTORY "${TEST_BINDIR}/subdir")
+add_custom_command(
+OUTPUT
+    "${TEST_BINDIR}/subdir/y.cc"
+COMMAND $<TARGET_FILE:CMakeProject::b_binary> "${TEST_BINDIR}/subdir/y.cc"
+VERBATIM
+DEPENDS
+    "CMakeProject::b_binary"
+WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+set_source_files_properties(
+    "${TEST_BINDIR}/subdir/y.cc"
+PROPERTIES GENERATED TRUE)
+add_custom_target(genrule__CMakeProject_subdir_make_ycc DEPENDS
+    "${TEST_BINDIR}/subdir/y.cc")
+add_library(CMakeProject_subdir_make_ycc INTERFACE)
+target_sources(CMakeProject_subdir_make_ycc INTERFACE
+    "${TEST_BINDIR}/subdir/y.cc")
+target_include_directories(CMakeProject_subdir_make_ycc INTERFACE
+    "${PROJECT_BINARY_DIR}")
+add_dependencies(CMakeProject_subdir_make_ycc genrule__CMakeProject_subdir_make_ycc)
+
 # cc_library(@native_rules_test_repo//subdir:y)
 add_library(CMakeProject_subdir_y)
 set_property(TARGET CMakeProject_subdir_y PROPERTY LINKER_LANGUAGE "CXX")
@@ -297,8 +311,6 @@ target_link_libraries(CMakeProject_subdir_y PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_y PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_include_directories(CMakeProject_subdir_y PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_subdir_y PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y PRIVATE
@@ -309,56 +321,201 @@ add_library(CMakeProject::subdir_y ALIAS CMakeProject_subdir_y)
 add_library(CMakeProject_y_alias ALIAS CMakeProject_subdir_y)
 add_library(CMakeProject::y_alias ALIAS CMakeProject_subdir_y)
 
-# cc_library(@native_rules_test_repo//subdir:y_include_prefix)
-add_library(CMakeProject_subdir_y_include_prefix)
-set_property(TARGET CMakeProject_subdir_y_include_prefix PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_subdir_y_include_prefix PUBLIC
+# cc_library(@native_rules_test_repo//subdir:no_hdrs)
+add_library(CMakeProject_subdir_no_hdrs)
+set_property(TARGET CMakeProject_subdir_no_hdrs PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_no_hdrs PUBLIC
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_subdir_y_include_prefix PUBLIC
+target_include_directories(CMakeProject_subdir_no_hdrs PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_include_directories(CMakeProject_subdir_y_include_prefix PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_subdir_y_include_prefix PUBLIC cxx_std_17)
-add_dependencies(CMakeProject_subdir_y_include_prefix "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
-target_sources(CMakeProject_subdir_y_include_prefix PRIVATE
+target_compile_features(CMakeProject_subdir_no_hdrs PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_no_hdrs "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
+target_sources(CMakeProject_subdir_no_hdrs PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
-add_library(CMakeProject::subdir_y_include_prefix ALIAS CMakeProject_subdir_y_include_prefix)
+add_library(CMakeProject::subdir_no_hdrs ALIAS CMakeProject_subdir_no_hdrs)
 
-# cc_library(@native_rules_test_repo//subdir:y_includes)
-add_library(CMakeProject_subdir_y_includes)
-set_property(TARGET CMakeProject_subdir_y_includes PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_subdir_y_includes PUBLIC
+# cc_library(@native_rules_test_repo//subdir:strip_include_prefix_subdir)
+add_library(CMakeProject_subdir_strip_include_prefix_subdir)
+set_property(TARGET CMakeProject_subdir_strip_include_prefix_subdir PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_strip_include_prefix_subdir PUBLIC
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_subdir_y_includes SYSTEM PUBLIC
+target_include_directories(CMakeProject_subdir_strip_include_prefix_subdir PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/subdir>")
+target_include_directories(CMakeProject_subdir_strip_include_prefix_subdir PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_strip_include_prefix_subdir PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_strip_include_prefix_subdir "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
+target_sources(CMakeProject_subdir_strip_include_prefix_subdir PRIVATE
+        "${PROJECT_BINARY_DIR}/subdir/y.cc")
+add_library(CMakeProject::subdir_strip_include_prefix_subdir ALIAS CMakeProject_subdir_strip_include_prefix_subdir)
+
+# cc_library(@native_rules_test_repo//subdir:include_prefix_subdir)
+add_library(CMakeProject_subdir_include_prefix_subdir)
+set_property(TARGET CMakeProject_subdir_include_prefix_subdir PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_include_prefix_subdir PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_include_prefix_subdir PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_include_prefix_subdir PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_include_prefix_subdir "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
+target_sources(CMakeProject_subdir_include_prefix_subdir PRIVATE
+        "${PROJECT_BINARY_DIR}/subdir/y.cc")
+add_library(CMakeProject::subdir_include_prefix_subdir ALIAS CMakeProject_subdir_include_prefix_subdir)
+
+# cc_library(@native_rules_test_repo//subdir:includes_dot)
+add_library(CMakeProject_subdir_includes_dot)
+set_property(TARGET CMakeProject_subdir_includes_dot PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_includes_dot PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_includes_dot SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/subdir>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/subdir>")
-target_include_directories(CMakeProject_subdir_y_includes PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_subdir_y_includes PUBLIC cxx_std_17)
-add_dependencies(CMakeProject_subdir_y_includes "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
-target_sources(CMakeProject_subdir_y_includes PRIVATE
+target_include_directories(CMakeProject_subdir_includes_dot PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_includes_dot PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_includes_dot "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
+target_sources(CMakeProject_subdir_includes_dot PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
-add_library(CMakeProject::subdir_y_includes ALIAS CMakeProject_subdir_y_includes)
+add_library(CMakeProject::subdir_includes_dot ALIAS CMakeProject_subdir_includes_dot)
 
-# cc_library(@native_rules_test_repo//subdir:y_strip_include_prefix)
-add_library(CMakeProject_subdir_y_strip_include_prefix)
-set_property(TARGET CMakeProject_subdir_y_strip_include_prefix PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_subdir_y_strip_include_prefix PUBLIC
+# cc_library(@native_rules_test_repo//subdir:linkstatic)
+add_library(CMakeProject_subdir_linkstatic STATIC)
+set_property(TARGET CMakeProject_subdir_linkstatic PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_linkstatic PUBLIC
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_subdir_y_strip_include_prefix PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/subdir>")
-target_include_directories(CMakeProject_subdir_y_strip_include_prefix PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_subdir_y_strip_include_prefix PUBLIC cxx_std_17)
-add_dependencies(CMakeProject_subdir_y_strip_include_prefix "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
-target_sources(CMakeProject_subdir_y_strip_include_prefix PRIVATE
+target_include_directories(CMakeProject_subdir_linkstatic PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_linkstatic PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_linkstatic "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
+target_sources(CMakeProject_subdir_linkstatic PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
-add_library(CMakeProject::subdir_y_strip_include_prefix ALIAS CMakeProject_subdir_y_strip_include_prefix)
+add_library(CMakeProject::subdir_linkstatic ALIAS CMakeProject_subdir_linkstatic)
+
+# cc_library(@native_rules_test_repo//subdir:linkstatic_header_only)
+add_library(CMakeProject_subdir_linkstatic_header_only INTERFACE)
+target_link_libraries(CMakeProject_subdir_linkstatic_header_only INTERFACE
+        "CMakeProject::subdir_y"
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_linkstatic_header_only INTERFACE
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_linkstatic_header_only INTERFACE cxx_std_17)
+add_dependencies(CMakeProject_subdir_linkstatic_header_only "CMakeProject_subdir_make_y")
+add_library(CMakeProject::subdir_linkstatic_header_only ALIAS CMakeProject_subdir_linkstatic_header_only)
+
+# cc_library(@native_rules_test_repo//subdir:alwayslink)
+add_library(CMakeProject_subdir_alwayslink.alwayslink)
+set_property(TARGET CMakeProject_subdir_alwayslink.alwayslink PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_alwayslink.alwayslink PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_alwayslink.alwayslink PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_alwayslink.alwayslink PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_alwayslink.alwayslink "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
+target_sources(CMakeProject_subdir_alwayslink.alwayslink PRIVATE
+        "${PROJECT_BINARY_DIR}/subdir/y.cc")
+
+add_library(CMakeProject_subdir_alwayslink INTERFACE)
+if (BUILD_SHARED_LIBS)
+  target_link_libraries(CMakeProject_subdir_alwayslink INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,CMakeProject_subdir_alwayslink.alwayslink>")
+else ()
+  target_link_libraries(CMakeProject_subdir_alwayslink INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,CMakeProject_subdir_alwayslink.alwayslink>")
+endif()
+add_library(CMakeProject::subdir_alwayslink ALIAS CMakeProject_subdir_alwayslink)
+
+# cc_library(@native_rules_test_repo//subdir:alwayslink_linkstatic)
+add_library(CMakeProject_subdir_alwayslink_linkstatic.alwayslink STATIC)
+set_property(TARGET CMakeProject_subdir_alwayslink_linkstatic.alwayslink PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_alwayslink_linkstatic.alwayslink "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
+target_sources(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PRIVATE
+        "${PROJECT_BINARY_DIR}/subdir/y.cc")
+
+add_library(CMakeProject_subdir_alwayslink_linkstatic INTERFACE)
+if (BUILD_SHARED_LIBS)
+  target_link_libraries(CMakeProject_subdir_alwayslink_linkstatic INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,CMakeProject_subdir_alwayslink_linkstatic.alwayslink>")
+else ()
+  target_link_libraries(CMakeProject_subdir_alwayslink_linkstatic INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,CMakeProject_subdir_alwayslink_linkstatic.alwayslink>")
+endif()
+add_library(CMakeProject::subdir_alwayslink_linkstatic ALIAS CMakeProject_subdir_alwayslink_linkstatic)
+
+# cc_library(@native_rules_test_repo//subdir:alwayslink_header_only)
+add_library(CMakeProject_subdir_alwayslink_header_only.alwayslink)
+set_property(TARGET CMakeProject_subdir_alwayslink_header_only.alwayslink PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_alwayslink_header_only.alwayslink PUBLIC
+        "CMakeProject::subdir_y"
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_alwayslink_header_only.alwayslink PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_alwayslink_header_only.alwayslink PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_alwayslink_header_only.alwayslink "CMakeProject_subdir_make_y")
+target_sources(CMakeProject_subdir_alwayslink_header_only.alwayslink PRIVATE
+        "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
+
+add_library(CMakeProject_subdir_alwayslink_header_only INTERFACE)
+if (BUILD_SHARED_LIBS)
+  target_link_libraries(CMakeProject_subdir_alwayslink_header_only INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,CMakeProject_subdir_alwayslink_header_only.alwayslink>")
+else ()
+  target_link_libraries(CMakeProject_subdir_alwayslink_header_only INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,CMakeProject_subdir_alwayslink_header_only.alwayslink>")
+endif()
+add_library(CMakeProject::subdir_alwayslink_header_only ALIAS CMakeProject_subdir_alwayslink_header_only)
+
+# cc_library(@native_rules_test_repo//subdir:alwayslink_header_only_implementation_deps)
+add_library(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink)
+set_property(TARGET CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PUBLIC
+        "Threads::Threads"
+        "m")
+target_link_libraries(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PRIVATE
+        "CMakeProject::subdir_y")
+target_include_directories(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink "CMakeProject_subdir_make_y")
+target_sources(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PRIVATE
+        "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
+
+add_library(CMakeProject_subdir_alwayslink_header_only_implementation_deps INTERFACE)
+if (BUILD_SHARED_LIBS)
+  target_link_libraries(CMakeProject_subdir_alwayslink_header_only_implementation_deps INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink>")
+else ()
+  target_link_libraries(CMakeProject_subdir_alwayslink_header_only_implementation_deps INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink>")
+endif()
+add_library(CMakeProject::subdir_alwayslink_header_only_implementation_deps ALIAS CMakeProject_subdir_alwayslink_header_only_implementation_deps)
+
+# cc_library(@native_rules_test_repo//subdir:alwayslink_linkstatic_header_only)
+add_library(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink STATIC)
+set_property(TARGET CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PUBLIC
+        "CMakeProject::subdir_y"
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink "CMakeProject_subdir_make_y")
+target_sources(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PRIVATE
+        "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
+
+add_library(CMakeProject_subdir_alwayslink_linkstatic_header_only INTERFACE)
+if (BUILD_SHARED_LIBS)
+  target_link_libraries(CMakeProject_subdir_alwayslink_linkstatic_header_only INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink>")
+else ()
+  target_link_libraries(CMakeProject_subdir_alwayslink_linkstatic_header_only INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink>")
+endif()
+add_library(CMakeProject::subdir_alwayslink_linkstatic_header_only ALIAS CMakeProject_subdir_alwayslink_linkstatic_header_only)
 
 # proto_library(@native_rules_test_repo//subdir:z_proto)
 add_library(CMakeProject_subdir_z_proto INTERFACE)
@@ -400,9 +557,9 @@ add_custom_target(CMakeProject_subdir_aspect_cpp__2eff1b8c DEPENDS
 add_library(CMakeProject_subdir_z_proto__cpp_library)
 set_property(TARGET CMakeProject_subdir_z_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_subdir_z_proto__cpp_library PUBLIC
+        "protobuf::libprotobuf"
         "Threads::Threads"
-        "m"
-        "protobuf::libprotobuf")
+        "m")
 target_include_directories(CMakeProject_subdir_z_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_subdir_z_proto__cpp_library PUBLIC cxx_std_17)

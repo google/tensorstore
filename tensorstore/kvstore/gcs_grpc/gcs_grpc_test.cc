@@ -102,7 +102,7 @@ class GcsGrpcTest : public testing::Test {
     return kvstore::Open({{"driver", "gcs_grpc"},
                           {"endpoint", mock_service_.server_address()},
                           {"bucket", "bucket"},
-                          {"timeout", "100ms"}})
+                          {"timeout", "250ms"}})
         .value();
   }
 

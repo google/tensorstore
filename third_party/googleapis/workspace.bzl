@@ -30,7 +30,7 @@ def repo():
         urls = mirror_url("https://github.com/googleapis/googleapis/archive/1937a1552cb031159749738f6d062f084ea94894.tar.gz"),  # master(2026-02-18)
         sha256 = "164641dfc31c148742f055ab8b7a07efd39862b4cd2e6fa35b5f498a30ee07bb",
         repo_mapping = {
-            "@com_google_googleapis_imports": "@local_proto_mirror",
+            "@com_google_googleapis_imports": "@local_googleapis_imports",
             "@com_google_protobuf_upb": "@com_google_protobuf",
         },
         cmake_name = "Googleapis",

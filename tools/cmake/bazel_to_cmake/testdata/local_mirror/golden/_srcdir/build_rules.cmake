@@ -6,9 +6,9 @@ find_package(lpm REQUIRED)
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a PUBLIC
-        "Threads::Threads"
         "lpm::b"
         "lpm::validate_cc"
+        "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")

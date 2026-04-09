@@ -13,9 +13,8 @@
 # limitations under the License.
 """Defines Bazel @platforms constraints."""
 
-# pylint: disable=relative-beyond-top-level,protected-access,missing-function-docstring
+# pylint: disable=invalid-name,missing-function-docstring,g-importing-member,g-doc-args
 
-from typing import Dict, List, Tuple
 
 from .starlark.bazel_target import parse_absolute_target
 from .starlark.common_providers import BuildSettingInfo
@@ -27,7 +26,7 @@ from .util import cmake_is_true
 from .workspace import Workspace
 
 # See https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
-_CMAKE_COMPILER_ID_TO_BAZEL_COMPILER: Dict[str, str] = {
+_CMAKE_COMPILER_ID_TO_BAZEL_COMPILER: dict[str, str] = {
     "GNU": "gcc",
     "AppleClang": "clang",
     "Clang": "clang",
@@ -37,7 +36,7 @@ _CMAKE_COMPILER_ID_TO_BAZEL_COMPILER: Dict[str, str] = {
 
 # Values for CMAKE_SYSTEM_NAME
 # https://gitlab.kitware.com/cmake/cmake/-/issues/21489#note_1077167
-_CMAKE_SYSTEM_NAME_CONFIG_SETTINGS: Dict[str, List[str]] = {
+_CMAKE_SYSTEM_NAME_CONFIG_SETTINGS: dict[str, list[str]] = {
     "Windows": ["@platforms//os:windows"],
     "Linux": ["@platforms//os:linux"],
     "iOS": ["@platforms//os:ios"],
@@ -61,7 +60,7 @@ _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS: Dict[str, List[str]] = {
     "UNKNOWN": ["@platforms//os:none"],
 }
 
-_CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS: Dict[str, List[str]] = {
+_CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS: dict[str, list[str]] = {
     "AMD64": ["@platforms//cpu:x86_64"],
     "X86": ["@platforms//cpu:x86_32"],
     "ARM64": ["@platforms//cpu:arm64", "@platforms//cpu:aarch64"],
@@ -78,7 +77,7 @@ _CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS: Dict[str, List[str]] = {
 }
 
 # Config settings for @rules_cc//cc/compiler/BUILD
-_RULES_CC_COMPILER_CONFIG_SETTINGS: List[str] = [
+_RULES_CC_COMPILER_CONFIG_SETTINGS: list[str] = [
     "clang",
     "clang-cl",
     "gcc",
@@ -87,13 +86,13 @@ _RULES_CC_COMPILER_CONFIG_SETTINGS: List[str] = [
     "emscripten",
 ]
 
-ValueList = List[Tuple[str, str]]
+ValueList = list[tuple[str, str]]
 
-_CMAKE_SYSTEM_PROCESSOR_VALUES: Dict[str, ValueList] = {
+_CMAKE_SYSTEM_PROCESSOR_VALUES: dict[str, ValueList] = {
     "armv7l": [("cpu", "armeabi-v7a")],
 }
 
-_CMAKE_SYSTEM_NAME_AND_PROCESSOR_VALUES: Dict[Tuple[str, str], ValueList] = {
+_CMAKE_SYSTEM_NAME_AND_PROCESSOR_VALUES: dict[tuple[str, str], ValueList] = {
     ("Windows", "AMD64"): [("cpu", "x64_windows")],
     ("QNX", "x86_64"): [("cpu", "x64_qnx")],
 }
@@ -128,8 +127,6 @@ def add_platform_constraints(workspace: Workspace) -> None:
       parse_absolute_target("@rules_cc//cc/private/toolchain:compiler"),
       TargetInfo(BuildSettingInfo(bazel_compiler)),
   )
-  
-  
 
   # See bazel_tools/tools/cpp:BUILD
   cc_compiler = parse_absolute_target("@bazel_tools//tools/cpp:cc_compiler")
@@ -151,7 +148,7 @@ def add_platform_constraints(workspace: Workspace) -> None:
       TargetInfo(BuildSettingInfo("PY3")),
   )
 
-  config_settings: Dict[str, bool] = {}
+  config_settings: dict[str, bool] = {}
   config_settings["@platforms//:incompatible"] = False
   for setting_list in _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS.values():
     for setting in setting_list:

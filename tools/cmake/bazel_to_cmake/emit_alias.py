@@ -13,33 +13,60 @@
 # limitations under the License.
 """Emits a library alias."""
 
+# pylint: disable=g-importing-member,missing-function-docstring
+
 import io
 
 from .cmake_provider import CMakeAliasProvider
 from .cmake_target import CMakeTarget
+from .cmake_target import CMakeTargetPair
 from .starlark.provider import ProviderTuple
 
 
-def emit_library_alias(
+def emit_cc_library_aliases(
+    out: io.StringIO,
+    target_name: CMakeTarget,
+    cmake_target_pair: CMakeTargetPair,
+) -> ProviderTuple:
+  """Generates common alias targets."""
+
+  has_alias = False
+  if target_name != cmake_target_pair.target:
+    out.write(f"add_library({cmake_target_pair.target} ALIAS {target_name})\n")
+    has_alias = True
+  if cmake_target_pair.alias and target_name != cmake_target_pair.alias:
+    out.write(f"add_library({cmake_target_pair.alias} ALIAS {target_name})\n")
+    has_alias = True
+  if has_alias:
+    return (CMakeAliasProvider(target_name),)
+  return tuple()
+
+
+def emit_alwayslink_alias(
+    out: io.StringIO,
+    target_name: CMakeTarget,
+    actual_target: CMakeTarget,
+) -> ProviderTuple:
+  """Generates an alwayslink target."""
+  out.write(f"""
+add_library({target_name} INTERFACE)
+if (BUILD_SHARED_LIBS)
+  target_link_libraries({target_name} INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,{actual_target}>")
+else ()
+  target_link_libraries({target_name} INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,{actual_target}>")
+endif()
+""")
+  return (CMakeAliasProvider(target_name),)
+
+
+def emit_alias(
     out: io.StringIO,
     target_name: CMakeTarget,
     alias_name: CMakeTarget,
-    interface_only: bool = False,
-    alwayslink: bool = False,
-) -> ProviderTuple:
-  """Generates an alias target with support for `alwayslink`."""
-  alias_dest_name = target_name
-  if alwayslink and not interface_only:
-    alias_dest_name = CMakeTarget(f"{target_name}.alwayslink")
-    out.write(f"""
-add_library({alias_dest_name} INTERFACE)
-if (BUILD_SHARED_LIBS)
-  target_link_libraries({alias_dest_name} INTERFACE "$<LINK_LIBRARY:bazel_to_cmake_needed_library,{target_name}>")
-else ()
-  target_link_libraries({alias_dest_name} INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,{target_name}>")
-endif()
-""")
-  out.write(f"add_library({alias_name} ALIAS {alias_dest_name})\n")
-  if alias_dest_name != target_name:
-    return (CMakeAliasProvider(alias_dest_name),)
-  return tuple()
+    is_executable: bool = False,
+) -> None:
+  """Generates a generic alias target."""
+  if target_name == alias_name:
+    return
+  command = "add_executable" if is_executable else "add_library"
+  out.write(f"{command}({alias_name} ALIAS {target_name})\n")

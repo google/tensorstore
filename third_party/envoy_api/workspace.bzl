@@ -29,9 +29,9 @@ def repo():
         sha256 = "a9f1eb76c8e8153ec81ce04403c8829b42786060b7bb1dcc91b597220b71eaf6",
         strip_prefix = "data-plane-api-d9c5e84658eef279e9a021ff0517f8f8ee35d79a",
         repo_mapping = {
-            "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",
-            "@io_bazel_rules_go": "@local_proto_mirror",
-            "@opencensus_proto": "@local_proto_mirror",
+            "@com_envoyproxy_protoc_gen_validate": "@local_protoc_gen_validate",
+            "@io_bazel_rules_go": "@local_rules_go",
+            "@opencensus_proto": "@local_opencensus_proto",
             "@com_github_cncf_xds": "@xds",
             "@com_google_googleapis": "@googleapis",
             "@com_github_grpc_grpc": "@grpc",

@@ -72,7 +72,21 @@ def mirror_url(url: str) -> Tuple[str, str]:
     raise ValueError(f'Failed to mirror non-url: {url}')
   dest_bucket = f'gs://{_TENSORSTORE_MIRROR}/{suffix}'
   mirror = f'https://storage.googleapis.com/{_TENSORSTORE_MIRROR}/{suffix}'
-  cmd = subprocess.run(['gsutil', '-q', 'stat', dest_bucket], check=False)
+  # Note: The flag '-q' is not found in the guide.
+  cmd = subprocess.run(
+      [
+          'gcloud',
+          'storage',
+          'objects',
+          'list',
+          dest_bucket,
+          '--stat',
+          '--fetch-encrypted-object-hashes',
+      ],
+      stdout=subprocess.DEVNULL,
+      stderr=subprocess.DEVNULL,
+      check=False,
+  )
   if cmd.returncode == 0:
     return url, mirror
   print(f'Mirroring {url} to {dest_bucket}')
@@ -80,13 +94,14 @@ def mirror_url(url: str) -> Tuple[str, str]:
     with tempfile.NamedTemporaryFile(delete=True) as temp:
       filename = temp.name
     cmd = subprocess.run(['wget', '-O', filename, url], check=True)
+    # Note: The flag '-h' is not found in the guide.
     cmd = subprocess.run(
         [
-            'gsutil',
-            '-h',
-            'Cache-Control:public, max-age=31536000',
+            'gcloud',
+            'storage',
             'cp',
-            '-n',
+            '--cache-control=public, max-age=31536000',
+            '--no-clobber',
             filename,
             dest_bucket,
         ],

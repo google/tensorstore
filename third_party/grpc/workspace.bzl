@@ -45,7 +45,7 @@ def repo():
             "@com_google_googletest": "@googletest",
             "@com_googlesource_code_re2": "@re2",
             "@com_github_grpc_grpc": "@grpc",
-            "@io_bazel_rules_go": "@local_proto_mirror",
+            "@io_bazel_rules_go": "@local_rules_go",
         },
         cmake_name = "gRPC",
         # We currently use grpc++_test, which is not public. Fix that, test, and enable.

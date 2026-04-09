@@ -8,19 +8,25 @@ proto_library(
 genrule(
     name = "make_y",
     outs = ["y.h"],
-    cmd = "$(location //:bb) $@ ",
-    tools = ["//:bb"],
+    cmd = "$(location //:b_binary) $@ ",
+    tools = ["//:b_binary"],
 )
 
 genrule(
     name = "make_ycc",
     outs = ["y.cc"],
-    cmd = "$(location //:bb) $@ ",
-    tools = ["//:bb"],
+    cmd = "$(location //:b_binary) $@ ",
+    tools = ["//:b_binary"],
 )
 
 cc_library(
     name = "y",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+)
+
+cc_library(
+    name = "no_hdrs",
     srcs = [
         "y.cc",
         "y.h",
@@ -28,22 +34,73 @@ cc_library(
 )
 
 cc_library(
-    name = "y_strip_include_prefix",
+    name = "strip_include_prefix_subdir",
     srcs = ["y.cc"],
     hdrs = ["y.h"],
     strip_include_prefix = "/subdir",
 )
 
 cc_library(
-    name = "y_include_prefix",
+    name = "include_prefix_subdir",
     srcs = ["y.cc"],
     hdrs = ["y.h"],
     include_prefix = "subdir",
 )
 
 cc_library(
-    name = "y_includes",
+    name = "includes_dot",
     srcs = ["y.cc"],
     hdrs = ["y.h"],
     includes = ["."],
+)
+
+cc_library(
+    name = "linkstatic",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+    linkstatic = True,
+)
+
+cc_library(
+    name = "linkstatic_header_only",
+    hdrs = ["y.h"],
+    linkstatic = True,
+    deps = [":y"],
+)
+
+cc_library(
+    name = "alwayslink",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+    alwayslink = True,
+)
+
+cc_library(
+    name = "alwayslink_linkstatic",
+    srcs = ["y.cc"],
+    hdrs = ["y.h"],
+    linkstatic = True,
+    alwayslink = True,
+)
+
+cc_library(
+    name = "alwayslink_header_only",
+    hdrs = ["y.h"],
+    deps = [":y"],
+    alwayslink = True,
+)
+
+cc_library(
+    name = "alwayslink_header_only_implementation_deps",
+    hdrs = ["y.h"],
+    implementation_deps = [":y"],
+    alwayslink = True,
+)
+
+cc_library(
+    name = "alwayslink_linkstatic_header_only",
+    hdrs = ["y.h"],
+    linkstatic = True,
+    deps = [":y"],
+    alwayslink = True,
 )

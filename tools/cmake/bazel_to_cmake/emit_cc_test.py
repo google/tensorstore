@@ -24,8 +24,7 @@ SRCDIR = pathlib.PurePath("foo-srcdir")
 BINDIR = pathlib.PurePath("foo-bindir")
 
 
-def test_construct_cc_includes_bare():
-  # No includes
+def test_construct_cc_includes_no_includes():
   target_includes = construct_cc_includes(
       PackageId("foo", "aaa"),
       source_directory=SRCDIR,
@@ -33,36 +32,34 @@ def test_construct_cc_includes_bare():
   )
   assert not target_includes.system
   assert not target_includes.public
-  assert set(["${PROJECT_SOURCE_DIR}"]) == target_includes.private
+  assert not target_includes.private
 
-  # Individual srcdir / bindir includes
+
+def test_construct_cc_includes_hdrs_include_paths():
   target_includes = construct_cc_includes(
       PackageId("foo", "bbb"),
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
-      known_include_files=["foo-srcdir/bbb/a.inc"],
+      hdrs_include_paths=["foo-srcdir/bbb/a.inc"],
   )
   assert set([SRCDIR]) == target_includes.public
-  assert set(["${PROJECT_SOURCE_DIR}"]) == target_includes.private
+  assert not target_includes.private
 
   target_includes = construct_cc_includes(
       PackageId("foo", "ccc"),
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
-      known_include_files=["foo-bindir/ccc/b.inc"],
+      hdrs_include_paths=["foo-bindir/ccc/b.inc"],
   )
   assert set([BINDIR]) == target_includes.public
-  assert (
-      set(["${PROJECT_BINARY_DIR}", "${PROJECT_SOURCE_DIR}"])
-      == target_includes.private
-  )
+  assert set() == target_includes.private
 
   # Other combinations
   target_includes = construct_cc_includes(
       PackageId("foo", "ddd"),
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
-      known_include_files=[
+      hdrs_include_paths=[
           "foo-srcdir/ddd/e.inc",
           "foo-bindir/ddd/ee.h",
       ],
@@ -76,7 +73,47 @@ def test_construct_cc_includes_bare():
   )
 
 
+def test_construct_cc_includes_srcs_include_paths():
+  target_includes = construct_cc_includes(
+      PackageId("foo", "bbx"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
+      srcs_file_paths=["foo-srcdir/bbx/a.inc"],
+  )
+  assert not target_includes.system
+  assert not target_includes.public
+  assert set([SRCDIR]) == target_includes.private
+
+  target_includes = construct_cc_includes(
+      PackageId("foo", "ccx"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
+      srcs_file_paths=["foo-bindir/ccx/b.inc"],
+  )
+  assert set() == target_includes.public
+  assert set([BINDIR]) == target_includes.private
+
+  # Other combinations
+  target_includes = construct_cc_includes(
+      PackageId("foo", "ddx"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
+      srcs_file_paths=[
+          "foo-srcdir/ddx/e.inc",
+          "foo-bindir/ddx/ee.h",
+      ],
+  )
+  assert (
+      set([
+          BINDIR,
+          SRCDIR,
+      ])
+      == target_includes.private
+  )
+
+
 def test_construct_cc_includes_includes():
+
   # includes does not test for file presence.
   target_includes = construct_cc_includes(
       PackageId("foo", "eee"),
@@ -98,7 +135,7 @@ def test_construct_cc_includes_includes():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       includes=["includes"],
-      known_include_files=["foo-srcdir/includes/b.h"],
+      hdrs_include_paths=["foo-srcdir/includes/b.h"],
   )
   assert (
       set([
@@ -107,14 +144,20 @@ def test_construct_cc_includes_includes():
       ])
       == target_includes.system
   )
-  assert not target_includes.public
+  assert (
+      set([
+          SRCDIR,
+      ])
+      == target_includes.public
+  )
+  assert set() == target_includes.private
 
   target_includes = construct_cc_includes(
       PackageId("foo", "ggg"),
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       includes=["includes"],
-      known_include_files=["foo-srcdir/ggg/includes/c.h"],
+      hdrs_include_paths=["foo-srcdir/ggg/includes/c.h"],
   )
   assert (
       set([
@@ -131,7 +174,7 @@ def test_construct_cc_includes_includes():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       includes=["/includes"],
-      known_include_files=["foo-srcdir/includes/a.h"],
+      hdrs_include_paths=["foo-srcdir/includes/a.h"],
   )
   assert (
       set([
@@ -149,7 +192,7 @@ def test_construct_cc_includes_include_prefix():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       include_prefix="jjj",
-      known_include_files=["foo-srcdir/jjj/x.h"],
+      hdrs_include_paths=["foo-srcdir/jjj/x.h"],
   )
   assert (
       set([
@@ -163,7 +206,7 @@ def test_construct_cc_includes_include_prefix():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       include_prefix="_mismatch_",
-      known_include_files=["foo-srcdir/kkk/y.h"],
+      hdrs_include_paths=["foo-srcdir/kkk/y.h"],
   )
   assert (
       set([
@@ -180,7 +223,7 @@ def test_construct_cc_includes_strip_include_prefix():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       strip_include_prefix="xyz",
-      known_include_files=["foo-srcdir/lll/a.h"],
+      hdrs_include_paths=["foo-srcdir/lll/a.h"],
   )
   assert (
       set([
@@ -193,7 +236,7 @@ def test_construct_cc_includes_strip_include_prefix():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       strip_include_prefix="xyz",
-      known_include_files=["foo-bindir/mmm/b.h"],
+      hdrs_include_paths=["foo-bindir/mmm/b.h"],
   )
   assert (
       set([
@@ -207,7 +250,7 @@ def test_construct_cc_includes_strip_include_prefix():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       strip_include_prefix="/nnn",
-      known_include_files=["foo-srcdir/nnn/c.h"],
+      hdrs_include_paths=["foo-srcdir/nnn/c.h"],
   )
   assert (
       set([
@@ -220,7 +263,7 @@ def test_construct_cc_includes_strip_include_prefix():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       strip_include_prefix="/ooo",
-      known_include_files=["foo-srcdir/ooo/d.h", "foo-bindir/ooo/dd.h"],
+      hdrs_include_paths=["foo-srcdir/ooo/d.h", "foo-bindir/ooo/dd.h"],
   )
   assert (
       set([
@@ -229,12 +272,20 @@ def test_construct_cc_includes_strip_include_prefix():
       ])
       == target_includes.public
   )
+  assert (
+      set([
+          SRCDIR,
+          BINDIR,
+      ])
+      == target_includes.private
+  )
+
   target_includes = construct_cc_includes(
       PackageId("foo", "ppp"),
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       strip_include_prefix="/ppp",
-      known_include_files=["foo-srcdir/ppp/e.inc", "foo-srcdir/ppp/e.h"],
+      hdrs_include_paths=["foo-srcdir/ppp/e.inc", "foo-srcdir/ppp/e.h"],
   )
   assert (
       set([
@@ -248,7 +299,7 @@ def test_construct_cc_includes_strip_include_prefix():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       strip_include_prefix="rrr",
-      known_include_files=["foo-srcdir/rrr/f.h"],
+      hdrs_include_paths=["foo-srcdir/rrr/f.h"],
   )
   assert (
       set([
@@ -261,7 +312,7 @@ def test_construct_cc_includes_strip_include_prefix():
       source_directory=SRCDIR,
       cmake_binary_dir=BINDIR,
       strip_include_prefix="includes",
-      known_include_files=["foo-srcdir/sss/includes/g.h"],
+      hdrs_include_paths=["foo-srcdir/sss/includes/g.h"],
   )
   assert (
       set([

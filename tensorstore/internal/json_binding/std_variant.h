@@ -119,10 +119,11 @@ absl::Status TaggedVariantBinderImpl(std::true_type is_loading,
         absl::StrJoin(tags, ", "), tag));
   }
   absl::Status s;
-  ((tags[Is] == tag &&
-    ((s = value_binder(is_loading, options, &obj->template emplace<Is>(), j)),
-     true)) ||
-   ...);  // NOLINT
+  static_cast<void>(
+      ((tags[Is] == tag && ((s = value_binder(is_loading, options,
+                                              &obj->template emplace<Is>(), j)),
+                            true)) ||
+       ...));  // NOLINT
   return s;
 }
 
@@ -142,10 +143,11 @@ absl::Status TaggedVariantBinderImpl(std::false_type is_loading,
   T tag = tags[index];
   TENSORSTORE_RETURN_IF_ERROR(tag_binder(is_loading, options, &tag, j));
   absl::Status s;
-  ((Is == index &&
-    ((s = value_binder(is_loading, options, &std::get<Is>(*obj), j)),
-     true)) ||
-   ...);  // NOLINT
+  static_cast<void>(
+      ((Is == index &&
+        ((s = value_binder(is_loading, options, &std::get<Is>(*obj), j)),
+         true)) ||
+       ...));  // NOLINT
   return s;
 }
 

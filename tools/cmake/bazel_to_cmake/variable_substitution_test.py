@@ -13,11 +13,13 @@
 # limitations under the License.
 """Tests for utility functions."""
 
-# pylint: disable=relative-beyond-top-level
+# pylint: disable=relative-beyond-top-level,g-importing-member
+
+from __future__ import annotations
 
 import os
 import pathlib
-from typing import Any, List, Optional
+from typing import Any
 
 import pytest
 
@@ -54,12 +56,12 @@ class MyContext(InvocationContext):
   def caller_package_id(self) -> PackageId:
     return self._caller_package_id
 
-  def access(self, provider_type: Any) -> "MyContext":
+  def access(self, provider_type: Any) -> MyContext:
     del provider_type
     return self
 
   def apply_repo_mapping(
-      self, target: TargetId, mapping_repository_id: Optional[RepositoryId]
+      self, target: TargetId, mapping_repository_id: RepositoryId | None
   ) -> TargetId:
     return target
 
@@ -77,10 +79,8 @@ class MyContext(InvocationContext):
         f"{self.relative_to}/bindir/{repository_id.repository_name}"
     )
 
-  def get_optional_target_info(
-      self, target_id: TargetId
-  ) -> Optional[TargetInfo]:
-    providers: List[Provider] = []
+  def get_optional_target_info(self, target_id: TargetId) -> TargetInfo | None:
+    providers: list[Provider] = []
     if "self" in repr(target_id):
       providers.append(FilesProvider([__file__]))
     if "file" in repr(target_id):
@@ -102,7 +102,7 @@ class MyContext(InvocationContext):
 
   def get_dep(
       self, target_id: TargetId, alias: bool = True
-  ) -> List[CMakeTarget]:
+  ) -> list[CMakeTarget]:
     del alias
     t0 = f"cmake_{target_id.target_name}".replace("/", "_")
     if "none" in t0:
@@ -110,7 +110,9 @@ class MyContext(InvocationContext):
     else:
       return [CMakeTarget(t0)]
 
-  def generate_cmake_target_pair(self, target_id: TargetId, alias: bool = True):
+  def generate_cmake_target_pair(
+      self, target_id: TargetId, alias: bool = True
+  ) -> CMakeTargetPair:
     return CMakeTargetPair(
         CMakePackage("cmake_project"),
         CMakeTarget(f"cmake_project_{target_id.target_name}"),

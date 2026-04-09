@@ -15,10 +15,11 @@
 
 # pylint: disable=missing-function-docstring
 
+from collections.abc import Iterable
 import hashlib
 import pathlib
 import re
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTarget
@@ -43,8 +44,9 @@ class CMakeRepository(NamedTuple):
   cmake_project_name: CMakePackage
   source_directory: pathlib.PurePath
   cmake_binary_dir: pathlib.PurePath
-  repo_mapping: Dict[RepositoryId, RepositoryId]
-  persisted_canonical_name: Dict[TargetId, CMakeTargetPair]
+  repo_mapping: dict[RepositoryId, RepositoryId]
+  persisted_canonical_name: dict[TargetId, CMakeTargetPair]
+  executable_targets: set[TargetId]
 
   def get_source_file_path(self, target_id: TargetId) -> pathlib.PurePath:
     assert self.source_directory
@@ -73,7 +75,7 @@ class CMakeRepository(NamedTuple):
       self,
       target_id: TargetId,
       cmake_target_pair: CMakeTargetPair,
-  ):
+  ) -> None:
     """Records a persistent mapping from Target to CMakeTargetPair.
 
     set_persisted_canonical_name allows a persistent pre-defined mapping from
@@ -95,17 +97,17 @@ class CMakeRepository(NamedTuple):
 
   def get_persisted_canonical_name(
       self, target_id: TargetId
-  ) -> Optional[CMakeTargetPair]:
+  ) -> CMakeTargetPair | None:
     assert target_id.repository_id == self.repository_id
     return self.persisted_canonical_name.get(target_id, None)
 
   def replace_with_cmake_macro_dirs(
       self, paths: Iterable[PathLike]
-  ) -> List[str]:
+  ) -> list[str]:
     """Substitute reposotory path prefixes with CMake PROJECT_{*}_DIR macros."""
     result: list[str] = []
     for x in paths:
-      (c, relative_path) = make_relative_path(
+      c, relative_path = make_relative_path(
           x,
           (PROJECT_SOURCE_DIR, self.source_directory),
           (PROJECT_BINARY_DIR, self.cmake_binary_dir),
@@ -118,17 +120,86 @@ class CMakeRepository(NamedTuple):
         result.append(f"{c}/{relative_path.as_posix()}")
     return result
 
+  def with_cmake_directories(
+      self,
+      source_directory: pathlib.PurePath | None = None,
+      cmake_binary_dir: pathlib.PurePath | None = None,
+  ) -> "CMakeRepository":
+    """Returns a CMakeRepository with new source and binary directories.
+
+    Args:
+      source_directory: The new source directory.
+      cmake_binary_dir: The new CMake binary directory.
+    """
+    return self._replace(
+        source_directory=source_directory,
+        cmake_binary_dir=cmake_binary_dir,
+    )
+
+  @classmethod
+  def from_config(
+      cls,
+      repository_id: RepositoryId,
+      config: dict[str, Any],
+      source_directory: pathlib.PurePath | None = None,
+      cmake_binary_dir: pathlib.PurePath | None = None,
+  ) -> "CMakeRepository":
+    """Creates a CMakeRepository from a configuration dictionary.
+
+    Args:
+      repository_id: The Bazel RepositoryId.
+      config: A dictionary containing the repository configuration. Expected
+        keys include "cmake_project_name", "cmake_name", "cmake_target_mapping",
+        "executable_targets", and "repo_mapping".
+      source_directory: The source directory for the CMake project.
+      cmake_binary_dir: The binary directory for the CMake build.
+
+    Returns:
+      A new CMakeRepository instance.
+    """
+    cmake_project_name = config.get(
+        "cmake_name",
+        config.get("cmake_project_name", repository_id.repository_name),
+    )
+    assert cmake_project_name is not None
+
+    persisted_canonical_name = {}
+    for label, target in config.get("cmake_target_mapping", {}).items():
+      target_id = repository_id.parse_target(label)
+      persisted_canonical_name[target_id] = CMakeTargetPair(
+          CMakePackage(cmake_project_name),
+          CMakeTarget(target.replace("::", "_")),
+          CMakeTarget(target),
+      )
+
+    executable_targets: set[TargetId] = set()
+    for label in config.get("executable_targets", []):
+      executable_targets.add(repository_id.parse_target(label))
+
+    repo_mapping = make_repo_mapping(
+        repository_id, config.get("repo_mapping", {})
+    )
+    return cls(
+        repository_id=repository_id,
+        cmake_project_name=CMakePackage(cmake_project_name),
+        source_directory=source_directory,
+        cmake_binary_dir=cmake_binary_dir,
+        repo_mapping=repo_mapping,
+        persisted_canonical_name=persisted_canonical_name,
+        executable_targets=executable_targets,
+    )
+
 
 def make_repo_mapping(
     repository_id: RepositoryId, repo_mapping: Any
-) -> Dict[RepositoryId, RepositoryId]:
+) -> dict[RepositoryId, RepositoryId]:
   def get_pairs():
     if isinstance(repo_mapping, dict):
       return repo_mapping.items()
     return repo_mapping
 
   # Add repo mappings
-  output: Dict[RepositoryId, RepositoryId] = {}
+  output: dict[RepositoryId, RepositoryId] = {}
   for x, y in get_pairs():
     if not isinstance(x, RepositoryId):
       x = str(x)
@@ -149,7 +220,7 @@ def label_to_generated_cmake_target(
   """Computes the generated CMake target corresponding to a Bazel target."""
   assert isinstance(cmake_project, CMakePackage), f"{repr(cmake_project)}"
 
-  parts: List[str] = []
+  parts: list[str] = []
   parts.extend(x for x in _SPLIT_RE.split(target_id.package_name) if x)
   parts.extend(x for x in _SPLIT_RE.split(target_id.target_name) if x)
   if parts[0].lower() == str(cmake_project).lower() and len(parts) > 1:

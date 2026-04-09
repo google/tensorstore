@@ -15,9 +15,10 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
+from collections.abc import Callable
 import io
 import itertools
-from typing import Callable, Dict, List, Optional
+from typing import Dict
 
 from .cmake_builder import CMakeBuilder
 from .cmake_provider import CMakeExecutableTargetProvider
@@ -44,16 +45,16 @@ def _common_cc_resolve(
     _next: Callable[..., None],
     _context: InvocationContext,
     _target: TargetId,
-    srcs: Optional[Configurable[List[RelativeLabel]]] = None,
-    hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
-    textual_hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
-    deps: Optional[Configurable[List[RelativeLabel]]] = None,
-    implementation_deps: Optional[Configurable[List[RelativeLabel]]] = None,
-    includes: Optional[Configurable[List[str]]] = None,
-    include_prefix: Optional[Configurable[str]] = None,
-    strip_include_prefix: Optional[Configurable[str]] = None,
-    tags: Optional[Configurable[List[str]]] = None,
-    args: Optional[Configurable[List[str]]] = None,
+    srcs: Configurable[list[RelativeLabel]] | None = None,
+    hdrs: Configurable[list[RelativeLabel]] | None = None,
+    textual_hdrs: Configurable[list[RelativeLabel]] | None = None,
+    deps: Configurable[list[RelativeLabel]] | None = None,
+    implementation_deps: Configurable[list[RelativeLabel]] | None = None,
+    includes: Configurable[list[str]] | None = None,
+    include_prefix: Configurable[str] | None = None,
+    strip_include_prefix: Configurable[str] | None = None,
+    tags: Configurable[list[str]] | None = None,
+    args: Configurable[list[str]] | None = None,
     **kwargs,
 ):
   """Applies evaluate_configurable to common (and uncommon) cc rule arguments."""
@@ -96,7 +97,7 @@ def _common_cc_resolve(
 def cc_library(
     self: InvocationContext,
     name: str,
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   if "skip-cmake" in kwargs.get("tags", []):
@@ -114,9 +115,10 @@ def cc_library(
 def _cc_library_impl(
     _context: InvocationContext,
     _target: TargetId,
-    hdrs: Optional[List[TargetId]] = None,
-    textual_hdrs: Optional[List[TargetId]] = None,
+    hdrs: list[TargetId] | None = None,
+    textual_hdrs: list[TargetId] | None = None,
     alwayslink: bool = False,
+    linkstatic: bool = False,
     **kwargs,
 ):
   state = _context.access(EvaluationState)
@@ -124,7 +126,7 @@ def _cc_library_impl(
   hdrs_collector = state.collect_targets(hdrs)
   textual_hdrs_collector = state.collect_targets(textual_hdrs)
 
-  add_dependencies: List[CMakeTarget] = list(
+  add_dependencies: list[CMakeTarget] = list(
       itertools.chain(
           hdrs_collector.add_dependencies(),
           textual_hdrs_collector.add_dependencies(),
@@ -141,8 +143,7 @@ def _cc_library_impl(
   # If the library is alwayslink or has implementation_deps, then it
   # cannot be a CMake INTERFACE library and must have a source file.
   src_required: bool = bool(
-      kwargs.get("alwayslink", False)
-      or kwargs.get("implementation_deps", False)
+      alwayslink or kwargs.get("implementation_deps", False)
   )
 
   common_options = handle_cc_common_options(
@@ -161,6 +162,7 @@ def _cc_library_impl(
       cmake_target_pair,
       hdrs=all_hdrs,
       alwayslink=alwayslink,
+      linkstatic=linkstatic,
       **common_options,
   )
   _context.access(CMakeBuilder).addtext(out.getvalue())
@@ -174,7 +176,7 @@ def _cc_library_impl(
 def cc_binary(
     self: InvocationContext,
     name: str,
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   if "skip-cmake" in kwargs.get("tags", []):
@@ -232,7 +234,7 @@ def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
 def cc_test(
     self: InvocationContext,
     name: str,
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   context = self.snapshot()
@@ -251,8 +253,8 @@ def cc_test(
 def _cc_test_impl(
     _context: InvocationContext,
     _target: TargetId,
-    args: Optional[List[str]] = None,
-    tags: Optional[List[str]] = None,
+    args: list[str] | None = None,
+    tags: list[str] | None = None,
     **kwargs,
 ):
   # CMake does not run tests multiple times, so skip the flaky tests.
