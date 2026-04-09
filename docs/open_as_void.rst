@@ -3,50 +3,88 @@
 Raw Byte Access (``open_as_void``)
 ==================================
 
-The ``open_as_void`` option provides raw byte-level access to zarr arrays with
-structured data types, bypassing the normal field interpretation. This feature
-is available for both the :ref:`driver/zarr2` and :ref:`driver/zarr3` drivers.
+The ``open_as_void`` option provides raw byte-level access to zarr arrays,
+bypassing the normal data type interpretation and exposing the underlying decoded
+bytes. This feature is available for both the :ref:`driver/zarr2` and
+:ref:`driver/zarr3` drivers.
 
 Supported Data Types
 --------------------
 
-The ``open_as_void`` option is only valid for structured data types:
+The scope of supported data types depends on the zarr version:
 
-- **Zarr v2**: ``structured`` dtype (NumPy-style structured arrays)
-- **Zarr v3**: ``struct`` and ``structured`` dtypes
-
-Attempting to use ``open_as_void`` with non-structured data types will result
-in an error.
+- **Zarr v2**: The ``open_as_void`` option is only valid for ``structured``
+  dtype (NumPy-style structured arrays). Attempting to use it with non-structured
+  data types will result in an error.
+- **Zarr v3**: The ``open_as_void`` option works on **any** data type,
+  including structured types (``struct`` and legacy read-only ``structured``),
+  and non-structured types.
 
 Purpose
 -------
 
 When opening an array with :json:`"open_as_void": true`, TensorStore exposes
 the underlying byte representation of the array data rather than interpreting
-it according to the stored field structure.
+it according to the stored data type or field structure.
 
 Behavior
 --------
 
-When ``open_as_void`` is enabled:
+Zarr v3 Behavior
+~~~~~~~~~~~~~~~~
+
+For zarr v3, ``open_as_void`` operates entirely during the resolution of the
+codec pipeline. The implementation resolves the pipeline with a substituted
+"raw" data type and then validates the result, rather than checking each codec
+individually against an allowlist.
+
+1. **Data type becomes byte**: The array's data type is replaced with the
+   ``byte`` data type (a 1-byte, endian-invariant type) during codec pipeline
+   resolution, regardless of the original data type.
+2. **Additional dimension added**: A new innermost dimension is appended to
+   represent the byte layout of each element. The size of this dimension equals
+   the number of bytes per element in the original data type.
+3. **Codec pipeline resolved with raw type**: The codec pipeline is resolved
+   using the substituted ``byte`` data type. After resolution, the
+   implementation verifies that:
+
+   a. The innermost array-to-bytes encoding (after unwinding any
+      ``sharding_indexed`` layers) is the ``bytes`` codec.
+   b. The ``byte`` data type is preserved through all array-to-array codecs
+      in the pipeline (i.e., no codec has changed the data type).
+
+   This approach means that array-to-array codecs that preserve the raw data
+   type (such as ``transpose``) are naturally supported, while codecs that
+   transform element data (such as ``scale_offset`` or ``cast_value``) will
+   fail validation because they alter the data type.
+4. **Endianness is preserved natively**: The ``bytes`` codec, which normally
+   decodes to the stored data type and handles endian conversion, sees the
+   ``byte`` data type as endian-invariant and performs no byte swapping. It
+   simply passes the decoded bytes through.
+5. **Downstream transparency**: Because this is resolved at the codec pipeline
+   level, downstream components (such as the chunk cache and grid specification)
+   see the resulting ``byte`` array and extended shape without needing any
+   special awareness of the ``open_as_void`` option.
+
+Zarr v2 Behavior
+~~~~~~~~~~~~~~~~
+
+For zarr v2, ``open_as_void`` is implemented via void field synthesis at the
+interface level:
 
 1. **Data type becomes byte**: The resulting TensorStore has dtype
-   :json:schema:`~dtype.byte` regardless of the original structured data type.
-
-2. **Additional dimension added**: A new innermost dimension is appended to
-   represent the byte layout of each element. The size of this dimension
-   equals the number of bytes per element in the original structured type.
-
-3. **Codecs are preserved**: All encoding/decoding (including compression)
-   is still applied. The raw bytes exposed are the *decoded* element bytes,
-   not the raw compressed chunk data.
+   :json:schema:`~dtype.byte`.
+2. **Additional dimension added**: A new innermost dimension is appended, with
+   size equal to the number of bytes per element in the original structured type.
+3. **Codecs are preserved**: All encoding/decoding (including compression) is
+   still applied based on the original structured data type. The raw bytes
+   exposed are the *decoded* element bytes, not the raw compressed chunk data.
 
 Dimension Transformation
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
-For an array with shape ``[D0, D1, ..., Dn]`` and a structured data type of
-size ``B`` bytes per element, opening with ``open_as_void`` produces a
-TensorStore with:
+For an array with shape ``[D0, D1, ..., Dn]`` and a data type of size ``B``
+bytes per element, opening with ``open_as_void`` produces a TensorStore with:
 
 - Shape: ``[D0, D1, ..., Dn, B]``
 - Rank: original rank + 1
@@ -64,6 +102,13 @@ TensorStore with:
 
    - Byte ``[i, j, 0]`` contains field ``x`` (1 byte)
    - Bytes ``[i, j, 1:3]`` contain field ``y`` (2 bytes, little-endian)
+
+.. admonition:: Example: Zarr v3 float32 array
+   :class: example
+
+   A zarr v3 array with ``float32`` dtype (4 bytes per element) and shape
+   ``[100, 200]`` becomes a ``byte`` array with shape ``[100, 200, 4]`` when
+   opened with ``open_as_void``.
 
 .. admonition:: Example: Zarr v3 struct dtype
    :class: example
@@ -123,6 +168,27 @@ Python Example
 Constraints and Limitations
 ---------------------------
 
+Zarr v3 Codec Restrictions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When ``open_as_void`` is enabled for zarr v3, the codec pipeline is resolved
+with a substituted ``byte`` data type and validated (see
+:ref:`Zarr v3 Behavior <open-as-void>` above). This means the effective codec
+restrictions are a consequence of the validation rules:
+
+- **``array -> bytes`` codecs**: The innermost array-to-bytes codec (after
+  unwinding ``sharding_indexed`` layers) must be the ``bytes`` codec. Only the
+  ``bytes`` and ``sharding_indexed`` (possibly nested) codecs are supported.
+  Any other array-to-bytes codec will result in a validation error.
+- **``array -> array`` codecs**: Any codec that preserves the ``byte`` data
+  type is permitted. In practice, this means codecs that shuffle elements
+  without transforming them (e.g., ``transpose``, and the proposed ``reshape``)
+  are supported. Codecs that transform element data, such as ``scale_offset``,
+  ``cast_value``, and ``bitround``, alter the data type and will fail
+  validation.
+- **``bytes -> bytes`` codecs**: All bytes-to-bytes codecs (e.g., ``gzip``,
+  ``blosc``, ``zstd``, ``crc32c``) are allowed and operate unchanged.
+
 Mutual Exclusivity with Field Selection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -156,60 +222,19 @@ The ``open_as_void`` flag is preserved when converting an opened TensorStore
 back to a spec. This ensures that specs obtained from void-mode stores
 correctly reflect their access mode.
 
-Internal Implementation
------------------------
-
-The ``open_as_void`` feature is implemented through a synthesized "void field"
-mechanism:
-
-1. **Void Field Synthesis**: When ``open_as_void`` is requested, the driver
-   creates a synthetic field descriptor that represents the entire structured
-   element as raw bytes. This field has:
-
-   - Data type: ``byte`` (single unsigned byte)
-   - Field shape: ``[bytes_per_element]``
-   - No field offset (covers all fields)
-
-2. **Grid Specification**: The chunk grid is modified to include the
-   additional bytes dimension in the component shape while preserving
-   the original chunked dimensions.
-
-3. **Encoding/Decoding**: The codec chain still operates on the original
-   structured data representation. The void field transformation happens at
-   the interface level, presenting decoded chunk data as raw bytes.
-
-4. **Cache Separation**: Void-mode and normal-mode access to the same
-   underlying array use separate cache entries to prevent data corruption
-   from mixing typed and byte-level views.
-
-Compatibility
--------------
-
-Compression and Codecs
-~~~~~~~~~~~~~~~~~~~~~~
-
-``open_as_void`` is fully compatible with all compression codecs (blosc, gzip,
-zstd, etc.) and other codecs (sharding, transpose, etc.). The raw bytes
-accessed are the *decoded* structured element bytes after all codec processing.
-
-Existing Arrays
-~~~~~~~~~~~~~~~
-
-``open_as_void`` can be used to open any existing zarr v2 or zarr v3 array
-that has a structured data type. No special array creation flags are needed.
-
 Interoperability
-~~~~~~~~~~~~~~~~
+----------------
 
 Data accessed through ``open_as_void`` reflects the exact byte representation
 as stored, including:
 
-- Endianness (as specified by the field dtypes)
-- Field alignment and padding
-- Field ordering
+- Endianness (as specified by the field dtypes for zarr v2, or natively
+  preserved by the ``bytes`` codec for zarr v3)
+- Field alignment and padding (for structured types)
+- Field ordering (for structured types)
 
 This makes it suitable for verifying compatibility with other zarr
-implementations or diagnosing encoding differences in structured data.
+implementations or diagnosing encoding differences.
 
 See Also
 --------
