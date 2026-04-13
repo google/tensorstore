@@ -22,7 +22,7 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 # pylint: disable=g-importing-member,missing-function-docstring,invalid-name
 
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .ordered_set import OrderedSet
 from .provider_util import ProviderCollection
 from .starlark import rule  # pylint: disable=unused-import

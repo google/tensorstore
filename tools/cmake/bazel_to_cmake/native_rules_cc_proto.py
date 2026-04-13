@@ -54,7 +54,7 @@ from .cmake_builder import CMakeBuilder
 from .cmake_provider import default_providers
 from .emit_cc import emit_cc_library
 from .emit_cc import handle_cc_common_options
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .native_aspect import add_proto_aspect
 from .native_aspect_proto import aspect_genproto_library_target
 from .native_aspect_proto import PluginSettings

@@ -96,6 +96,7 @@ class Workspace:
     self._parsed_bazelrc = ParsedBazelrc(host_platform_name)
 
     self.global_ignored_libraries: set[TargetId] = set()
+    self.exclude_repositories: set[RepositoryId] = set()
 
     # _persisted_targets persist TargetInfo; these are resolved through
     # EvaluationState.get_optional_target_info() and provide a TargetInfo.
@@ -163,7 +164,9 @@ class Workspace:
 
     exists = self.all_repositories.get(repository.repository_id, None)
     if exists:
-      assert not exists.source_directory
+      if exists.source_directory:
+        # Already populated, skip.
+        return
       assert not exists.cmake_binary_dir
       repository.persisted_canonical_name.update(
           exists.persisted_canonical_name

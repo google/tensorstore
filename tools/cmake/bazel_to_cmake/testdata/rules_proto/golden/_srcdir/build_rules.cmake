@@ -517,8 +517,8 @@ add_library(CMakeProject_abcd_proto__cpp_library)
 set_property(TARGET CMakeProject_abcd_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_abcd_proto__cpp_library PUBLIC
         "protobuf::libprotobuf"
-        "CMakeProject::ab_proto__cpp_library"
         "CMakeProject::d_proto__cpp_library"
+        "CMakeProject::ab_proto__cpp_library"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abcd_proto__cpp_library PUBLIC
@@ -646,8 +646,8 @@ add_library(CMakeProject_abcd_proto__minitable_library)
 set_property(TARGET CMakeProject_abcd_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_abcd_proto__minitable_library PUBLIC
         "Protobuf::upb_generated_code_support"
-        "CMakeProject::ab_proto__minitable_library"
         "CMakeProject::d_proto__minitable_library"
+        "CMakeProject::ab_proto__minitable_library"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abcd_proto__minitable_library PUBLIC
@@ -715,10 +715,10 @@ set_property(TARGET CMakeProject_abcd_proto__upb_library PROPERTY LINKER_LANGUAG
 target_link_libraries(CMakeProject_abcd_proto__upb_library PUBLIC
         "Protobuf::upb_generated_code_support"
         "CMakeProject::abcd_proto__minitable_library"
-        "CMakeProject::ab_proto__upb_library"
-        "CMakeProject::ab_proto__minitable_library"
         "CMakeProject::d_proto__upb_library"
         "CMakeProject::d_proto__minitable_library"
+        "CMakeProject::ab_proto__upb_library"
+        "CMakeProject::ab_proto__minitable_library"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abcd_proto__upb_library PUBLIC
@@ -819,10 +819,10 @@ target_link_libraries(CMakeProject_abcd_proto__upbdefs_library PUBLIC
         "Protobuf::upb_reflection_generated_reflection_support"
         "Protobuf::upb_port"
         "CMakeProject::abcd_proto__minitable_library"
-        "CMakeProject::ab_proto__upbdefs_library"
-        "CMakeProject::ab_proto__minitable_library"
         "CMakeProject::d_proto__upbdefs_library"
         "CMakeProject::d_proto__minitable_library"
+        "CMakeProject::ab_proto__upbdefs_library"
+        "CMakeProject::ab_proto__minitable_library"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_abcd_proto__upbdefs_library PUBLIC

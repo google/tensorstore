@@ -21,10 +21,8 @@ from .cmake_provider import CMakeAddDependenciesProvider
 from .cmake_provider import CMakeAliasProvider
 from .cmake_provider import CMakeExecutableTargetProvider
 from .cmake_provider import CMakeLinkLibrariesProvider
-from .cmake_target import CMakeTarget
-from .cmake_target import CMakeTargetPair
 from .emit_alias import emit_alias
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import BuildSettingInfo
 from .starlark.common_providers import ConditionProvider

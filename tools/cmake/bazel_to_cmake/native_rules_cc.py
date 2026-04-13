@@ -30,7 +30,7 @@ from .emit_cc import emit_cc_binary
 from .emit_cc import emit_cc_library
 from .emit_cc import emit_cc_test
 from .emit_cc import handle_cc_common_options
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .package import Visibility
 from .starlark.bazel_target import TargetId
 from .starlark.invocation_context import InvocationContext

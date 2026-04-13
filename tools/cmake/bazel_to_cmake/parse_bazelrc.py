@@ -14,10 +14,11 @@
 """Parses a .bazelrc file."""
 
 import argparse
+from collections.abc import Iterable
+from collections.abc import Iterator
 import pathlib
 import re
 import shlex
-from collections.abc import Iterable, Iterator
 from .starlark.bazel_target import TargetId
 
 _FILTER_OPTS = ("-fdiagnostics-color=always",)
@@ -35,8 +36,8 @@ def _parse_per_file_copt(per_file_copt: str) -> Iterator[tuple[str, str]]:
   Args:
     per_file_copt: The per_file_copt option from a bazelrc file.
 
-  Returns:
-    A dictionary of regular expressions to lists of options.
+  Yields:
+    A tuple of (regex, option).
   """
   try:
     regex_part, option_part = per_file_copt.split("@", 1)
@@ -85,6 +86,8 @@ class ParsedBazelrc:
     self.linkopts: list[str] = []
     self.per_file_copt: list[tuple[str, str]] = []
     self.cpp_standard: str | None = None
+    self.enable_bzlmod: bool = False
+    self.registries: list[str] = []
 
   def __repr__(self) -> str:
     return (
@@ -127,6 +130,7 @@ class ParsedBazelrc:
     This currently only uses `--define`, `--copt`, and `--cxxopt` options.
     """
     build_options = []
+    build_options.extend(options.get("common", []))
     build_options.extend(options.get("build", []))
     if self.host_platform_name is not None:
       build_options.extend(options.get(f"build:{self.host_platform_name}", []))
@@ -151,8 +155,14 @@ class ParsedBazelrc:
     ap.add_argument("--per_file_copt", action="append", default=[])
     ap.add_argument("--linkopt", action="append", default=[])
     ap.add_argument("--define", action="append", default=[])
+    ap.add_argument("--enable_bzlmod", action="store_true", default=False)
+    ap.add_argument("--registry", action="append", default=[])
     ap.add_argument("--config", action=ConfigAction)
     args, _ = ap.parse_known_args(build_options)
+
+    if args.enable_bzlmod:
+      self.enable_bzlmod = True
+    self.registries.extend(args.registry)
 
     # Handle --define options.
     self.values.update(("define", x) for x in args.define)

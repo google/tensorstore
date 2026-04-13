@@ -38,3 +38,6 @@ version_scheme = "no-guess-dev"
 # Test PyPI does not support local versions.
 local_scheme = "no-local-version"
 fallback_version = "0.0.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
