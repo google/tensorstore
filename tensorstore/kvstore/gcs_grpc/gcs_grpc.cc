@@ -53,7 +53,6 @@
 #include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/json_serialization_options_base.h"
-#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/exp_credentials_resource.h"
@@ -74,7 +73,6 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
-#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
@@ -103,7 +101,6 @@ namespace jb = tensorstore::internal_json_binding;
 
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::ScheduleAt;
-using ::tensorstore::internal_gcs_grpc::GetSharedStorageStubPool;
 using ::tensorstore::internal_storage_gcs::ExperimentalGcsGrpcCredentials;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
@@ -153,15 +150,15 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                        jb::DefaultInitializedValue())),
         jb::Member("timeout",
                    jb::Projection<&GcsGrpcKeyValueStoreSpecData::timeout>(
-                       jb::DefaultValue<jb::kNeverIncludeDefaults>([](auto* x) {
-                         *x = absl::ZeroDuration();
-                       }))),
+                       jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                           [](absl::Duration* x) {
+                             *x = absl::ZeroDuration();
+                           }))),
         jb::Member(
             "wait_for_connection",
             jb::Projection<&GcsGrpcKeyValueStoreSpecData::wait_for_connection>(
-                jb::DefaultValue<jb::kNeverIncludeDefaults>([](auto* x) {
-                  *x = absl::ZeroDuration();
-                }))),
+                jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                    [](absl::Duration* x) { *x = absl::ZeroDuration(); }))),
         jb::Member(
             GcsUserProjectResource::id,
             jb::Projection<&GcsGrpcKeyValueStoreSpecData::user_project>()),
@@ -173,7 +170,17 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
         jb::Member(
             ExperimentalGcsGrpcCredentials::id,
             jb::Projection<&GcsGrpcKeyValueStoreSpecData::credentials>()), /**/
-        jb::DiscardExtraMembers));
+        jb::DiscardExtraMembers,
+        jb::Initialize([](GcsGrpcKeyValueStoreSpecData* spec) {
+          if (spec->timeout < absl::Milliseconds(250) &&
+              spec->timeout != absl::ZeroDuration()) {
+            spec->timeout = absl::ZeroDuration();
+            ABSL_LOG_FIRST_N(INFO, 1)
+                << "The `gcs_grpc.timeout` should generally not be set. "
+                   "Values less than 250ms are ignored.";
+          }
+          return absl::OkStatus();
+        })));
 
 /// Obtains a `SpecData` representation from an open `Driver`.
 absl::Status GcsGrpcKeyValueStore::GetBoundSpecData(

@@ -15,16 +15,14 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 import io
-from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_provider import CMakeAddDependenciesProvider
 from .cmake_provider import CMakeAliasProvider
 from .cmake_provider import CMakeExecutableTargetProvider
 from .cmake_provider import CMakeLinkLibrariesProvider
-from .cmake_target import CMakeTarget
-from .cmake_target import CMakeTargetPair
-from .evaluation import EvaluationState
+from .emit_alias import emit_alias
+from .evaluation_state import EvaluationState
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import BuildSettingInfo
 from .starlark.common_providers import ConditionProvider
@@ -40,7 +38,7 @@ def alias(
     self: InvocationContext,
     name: str,
     actual: Configurable[RelativeLabel],
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   del kwargs
@@ -92,20 +90,28 @@ def _alias_impl(
   if source.target == cmake_alias_target:
     return
 
-  function = None
-  if target_info.get(CMakeExecutableTargetProvider):
-    function = "add_executable"
-  elif target_info.get(CMakeLinkLibrariesProvider) or target_info.get(
-      CMakeAddDependenciesProvider
-  ):
-    function = "add_library"
+  is_executable = bool(target_info.get(CMakeExecutableTargetProvider))
+  is_library = bool(
+      target_info.get(CMakeLinkLibrariesProvider)
+      or target_info.get(CMakeAddDependenciesProvider)
+  )
 
   out = io.StringIO()
   out.write(f"\n# alias({_target.as_label()})\n")
-  if function:
-    out.write(f"{function}({source.target} ALIAS {cmake_alias_target})\n")
+  if is_executable or is_library:
+    emit_alias(
+        out,
+        target_name=cmake_alias_target,
+        alias_name=source.target,
+        is_executable=is_executable,
+    )
     if source.alias:
-      out.write(f"{function}({source.alias} ALIAS {cmake_alias_target})\n")
+      emit_alias(
+          out,
+          target_name=cmake_alias_target,
+          alias_name=source.alias,
+          is_executable=is_executable,
+      )
   else:
     out.write(f"# No alias emitted for {cmake_alias_target})\n")
   _context.access(CMakeBuilder).addtext(out.getvalue())

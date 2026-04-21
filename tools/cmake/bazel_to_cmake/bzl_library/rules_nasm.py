@@ -15,20 +15,22 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,missing-class-docstring
 
+from collections.abc import Callable, Collection
 import hashlib
 import io
 import itertools
 import os
 import pathlib
-from typing import Callable, Collection, List, Optional, cast
+from typing import cast
 
 from .. import native_rules_cc
 from ..cmake_builder import CMakeBuilder
 from ..cmake_provider import CMakePackageDepsProvider
 from ..cmake_provider import default_providers
 from ..cmake_target import CMakeTarget
-from ..emit_alias import emit_library_alias
-from ..evaluation import EvaluationState
+from ..emit_alias import emit_alwayslink_alias
+from ..emit_alias import emit_cc_library_aliases
+from ..evaluation_state import EvaluationState
 from ..starlark.bazel_target import PackageId
 from ..starlark.bazel_target import parse_absolute_target
 from ..starlark.bazel_target import TargetId
@@ -39,6 +41,7 @@ from ..starlark.provider import TargetInfo
 from ..starlark.scope_common import ScopeCommon
 from ..starlark.select import Configurable
 from ..util import cmake_is_true
+from ..util import make_relative_path
 from ..util import partition_by
 from ..util import quote_list
 from ..util import quote_path
@@ -67,7 +70,7 @@ class RulesNasmLibrary(ScopeCommon):
   def bazel_nasm_library(
       self,
       name: str,
-      visibility: Optional[List[RelativeLabel]] = None,
+      visibility: list[RelativeLabel] | None = None,
       **kwargs,
   ):
     context = self._context.snapshot()
@@ -88,7 +91,7 @@ class RulesNasmCcLibrary(ScopeCommon):
   def bazel_nasm_cc_library(
       self,
       name: str,
-      visibility: Optional[List[RelativeLabel]] = None,
+      visibility: list[RelativeLabel] | None = None,
       **kwargs,
   ):
     context = self._context.snapshot()
@@ -144,11 +147,11 @@ def _common_nasm_resolve(
     _next: Callable[..., None],
     _context: InvocationContext,
     _target: TargetId,
-    srcs: Optional[Configurable[List[RelativeLabel]]] = None,
-    hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
-    preincs: Optional[Configurable[List[RelativeLabel]]] = None,
-    copts: Optional[Configurable[List[str]]] = None,
-    includes: Optional[Configurable[List[str]]] = None,
+    srcs: Configurable[list[RelativeLabel]] | None = None,
+    hdrs: Configurable[list[RelativeLabel]] | None = None,
+    preincs: Configurable[list[RelativeLabel]] | None = None,
+    copts: Configurable[list[str]] | None = None,
+    includes: Configurable[list[str]] | None = None,
     **kwargs,
 ):
   """Applies evaluate_configurable to common (and uncommon) nasm arguments."""
@@ -174,7 +177,7 @@ def _construct_nasm_includes(
     current_package_id: PackageId,
     source_directory: pathlib.PurePath,
     cmake_binary_dir: pathlib.PurePath,
-    includes: Optional[Collection[str]] = None,
+    includes: Collection[str] | None = None,
 ):
   """Returns the set of includes for the configuration."""
 
@@ -211,11 +214,11 @@ def _nasm_library_impl(
     _context: InvocationContext,
     _target: TargetId,
     *,
-    srcs: List[TargetId],
-    hdrs: List[TargetId],
-    preincs: List[TargetId],
-    copts: List[str],
-    includes: List[str],
+    srcs: list[TargetId],
+    hdrs: list[TargetId],
+    preincs: list[TargetId],
+    copts: list[str],
+    includes: list[str],
     **kwargs,
 ):
   del kwargs
@@ -228,7 +231,7 @@ def _nasm_library_impl(
   srcs_collector = state.collect_targets(srcs)
   preincs_collector = state.collect_targets(preincs)
 
-  cmake_deps: List[CMakeTarget] = list(
+  cmake_deps: list[CMakeTarget] = list(
       itertools.chain(
           srcs_collector.add_dependencies(),
           preincs_collector.add_dependencies(),
@@ -258,12 +261,18 @@ def _nasm_library_impl(
   o_ext = _get_obj_suffix(state)
 
   def _output_file(src: pathlib.PurePath):
+    # Use relative path for hashing to ensure stability across workspaces.
+    _, relative_src = make_relative_path(
+        src,
+        (None, repo.source_directory),
+        (None, repo.cmake_binary_dir),
+    )
     return os.path.join(
         repo.cmake_binary_dir,
         "_nasm",
         _target.target_name,
         hashlib.sha256(
-            (_target.as_label() + str(src)).encode("utf-8")
+            f"{_target.as_label()}{relative_src.as_posix()}".encode("utf-8")
         ).hexdigest()[:8],
         os.path.basename(src) + o_ext,
     )
@@ -303,13 +312,13 @@ def _emit_nasm_assemble(
     out: io.StringIO,
     src: pathlib.PurePath,
     generated_obj: pathlib.PurePath,
-    copts: List[str],
-    cmake_deps: List[CMakeTarget],
+    copts: list[str],
+    cmake_deps: list[CMakeTarget],
 ):
   """Generates an NASM library target."""
   out.write(f"""add_custom_command(
   OUTPUT {quote_path(generated_obj)}
-  DEPENDS {quote_path_list([src] + cast(List[str], cmake_deps))}
+  DEPENDS {quote_path_list([src] + cast(list[str], cmake_deps))}
   COMMAND ${{CMAKE_ASM_NASM_COMPILER}}
           -f ${{CMAKE_ASM_NASM_OBJECT_FORMAT}}
           ${{CMAKE_ASM_NASM_FLAGS}}
@@ -328,12 +337,13 @@ def _nasm_cc_library_builtin_impl(
     _context: InvocationContext,
     _target: TargetId,
     *,
-    srcs: List[TargetId],
-    hdrs: List[TargetId],
-    preincs: List[TargetId],
-    copts: List[str],
-    includes: List[str],
+    srcs: list[TargetId],
+    hdrs: list[TargetId],
+    preincs: list[TargetId],
+    copts: list[str],
+    includes: list[str],
     alwayslink: bool = False,
+    linkstatic: bool = False,
     **kwargs,
 ):
   del kwargs
@@ -346,7 +356,7 @@ def _nasm_cc_library_builtin_impl(
   srcs_collector = state.collect_targets(srcs)
   preincs_collector = state.collect_targets(preincs)
 
-  cmake_deps: List[CMakeTarget] = list(
+  cmake_deps: list[CMakeTarget] = list(
       itertools.chain(
           srcs_collector.add_dependencies(),
           preincs_collector.add_dependencies(),
@@ -384,41 +394,53 @@ def _nasm_cc_library_builtin_impl(
   # Emit
   out = io.StringIO()
   out.write(f"\n# nasm_cc_library({_target.as_label()})\n")
-  _emit_nasm_library(
+
+  target_name = cmake_target_pair.target
+  if alwayslink:
+    target_name = CMakeTarget(f"{target_name}.alwayslink")
+
+  if linkstatic:
+    out.write(f"add_library({target_name} STATIC)\n")
+  else:
+    out.write(f"add_library({target_name})\n")
+
+  _emit_nasm_sources(
       out,
-      target_name=cmake_target_pair.target,
+      target_name=target_name,
       srcs=nasm_srcs,
       includes=nasm_includes,
       copts=copts_with_preinc,
       cmake_deps=cmake_deps,
   )
-  extra_providers = ()
-  if cmake_target_pair.alias:
-    extra_providers = emit_library_alias(
-        out,
-        target_name=cmake_target_pair.target,
-        alias_name=cmake_target_pair.alias,
-        alwayslink=alwayslink,
-        interface_only=False,
-    )
 
+  alwayslink_providers = tuple()
+  if alwayslink:
+    alwayslink_providers = emit_alwayslink_alias(
+        out, cmake_target_pair.target, target_name
+    )
+    target_name = cmake_target_pair.target
+  alias_providers = emit_cc_library_aliases(out, target_name, cmake_target_pair)
   builder = _context.access(CMakeBuilder)
   builder.addtext(_EMIT_YASM_CHECK, unique=True)
   builder.addtext(out.getvalue())
 
   _context.add_analyzed_target(
       _target,
-      TargetInfo(*default_providers(cmake_target_pair), *extra_providers),
+      TargetInfo(
+          *default_providers(cmake_target_pair),
+          *alias_providers,
+          *alwayslink_providers,
+      ),
   )
 
 
-def _emit_nasm_library(
+def _emit_nasm_sources(
     out: io.StringIO,
     target_name: CMakeTarget,
     srcs: set[pathlib.PurePath],
-    includes: List[pathlib.PurePath],
-    copts: List[str],
-    cmake_deps: List[CMakeTarget],
+    includes: list[pathlib.PurePath],
+    copts: list[str],
+    cmake_deps: list[CMakeTarget],
 ):
   """Generates an NASM library target."""
   _sep = "\n    "
@@ -426,7 +448,6 @@ def _emit_nasm_library(
   sorted_srcs = sorted(srcs)
   asm_srcs = partition_by(sorted_srcs, pattern=_NASM_SRC_PATTERN)[0]
 
-  out.write(f"add_library({target_name})\n")
   out.write(
       f"""target_sources({target_name} PRIVATE{_sep}{quote_path_list(sorted_srcs, separator=_sep)})
 target_include_directories({target_name} PRIVATE{_sep}{quote_path_list(sorted(includes), separator=_sep)})

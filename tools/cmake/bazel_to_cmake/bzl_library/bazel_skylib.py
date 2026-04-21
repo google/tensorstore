@@ -19,7 +19,7 @@ import io
 import itertools
 import json
 import pathlib
-from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
+from typing import Any, Tuple, TypeVar, cast
 
 from .. import native_rules_genrule
 from ..cmake_builder import CMakeBuilder
@@ -28,7 +28,7 @@ from ..cmake_provider import default_providers
 from ..cmake_repository import PROJECT_BINARY_DIR
 from ..cmake_repository import PROJECT_SOURCE_DIR
 from ..cmake_target import CMakeTarget
-from ..evaluation import EvaluationState
+from ..evaluation_state import EvaluationState
 from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import BuildSettingInfo
 from ..starlark.common_providers import ConditionProvider
@@ -64,9 +64,9 @@ class BazelSelectsWrapper:
     self._context = context
 
   def with_or_dict(
-      self, input_dict: Dict[Union[RelativeLabel, Tuple[RelativeLabel, ...]], T]
-  ) -> Dict[RelativeLabel, T]:
-    output_dict: Dict[RelativeLabel, T] = {}
+      self, input_dict: dict[RelativeLabel | Tuple[RelativeLabel, ...], T]
+  ) -> dict[RelativeLabel, T]:
+    output_dict: dict[RelativeLabel, T] = {}
     for key, value in input_dict.items():
       if isinstance(key, tuple):
         for config_setting in key:
@@ -81,7 +81,7 @@ class BazelSelectsWrapper:
 
   def with_or(
       self,
-      input_dict: Dict[Union[RelativeLabel, Tuple[RelativeLabel, ...]], T],
+      input_dict: dict[RelativeLabel | Tuple[RelativeLabel, ...], T],
       no_match_error=None,
   ) -> Select[T]:
     del no_match_error
@@ -94,8 +94,8 @@ class BazelSelectsWrapper:
   def config_setting_group(
       self,
       name: str,
-      match_all: Optional[List[RelativeLabel]] = None,
-      match_any: Optional[List[RelativeLabel]] = None,
+      match_all: list[RelativeLabel] | None = None,
+      match_any: list[RelativeLabel] | None = None,
       **kwargs,
   ):
     del kwargs
@@ -127,8 +127,8 @@ class BazelSelectsWrapper:
 def _config_settings_group_impl(
     _context: InvocationContext,
     _target: TargetId,
-    match_all: Optional[List[TargetId]],
-    match_any: Optional[List[TargetId]],
+    match_all: list[TargetId] | None,
+    match_any: list[TargetId] | None,
 ):
   def evaluate() -> bool:
     if match_all is not None:
@@ -161,7 +161,7 @@ class BazelSkylibExpandTemplateLibrary(ScopeCommon):
       self,
       name: str,
       out: RelativeLabel,
-      visibility: Optional[List[RelativeLabel]] = None,
+      visibility: list[RelativeLabel] | None = None,
       **kwargs,
   ):
     context = self._context.snapshot()
@@ -181,7 +181,7 @@ def _expand_template_impl(
     _target: TargetId,
     _out_target: TargetId,
     template: Configurable[RelativeLabel],
-    substitutions: Configurable[Dict[str, str]],
+    substitutions: Configurable[dict[str, str]],
 ):
   state: EvaluationState = _context.access(EvaluationState)
 
@@ -279,7 +279,7 @@ class BazelSkylibCopyFileLibrary(ScopeCommon):
       name: str,
       out: RelativeLabel,
       src: Configurable[RelativeLabel],
-      visibility: Optional[List[RelativeLabel]] = None,
+      visibility: list[RelativeLabel] | None = None,
       **kwargs,
   ):
     del kwargs
@@ -302,7 +302,7 @@ class BazelSkylibWriteFileLibrary(ScopeCommon):
       self,
       name: str,
       out: str,
-      visibility: Optional[List[RelativeLabel]] = None,
+      visibility: list[RelativeLabel] | None = None,
       **kwargs,
   ):
     context = self._context.snapshot()
@@ -321,8 +321,8 @@ def _write_file_impl(
     _context: InvocationContext,
     _target: TargetId,
     _out_target: TargetId,
-    content: Optional[Configurable[List[str]]] = None,
-    newline: Optional[Configurable[str]] = None,
+    content: Configurable[list[str]] | None = None,
+    newline: Configurable[str] | None = None,
     **kwargs,
 ):
   del kwargs
@@ -371,7 +371,7 @@ class BazelSkylibCommonSettingsLibrary(ScopeCommon):
   def bazel_bool_flag(
       self,
       name: str,
-      visibility: Optional[List[RelativeLabel]] = None,
+      visibility: list[RelativeLabel] | None = None,
       **kwargs,
   ):
     context = self._context.snapshot()
@@ -385,7 +385,7 @@ class BazelSkylibCommonSettingsLibrary(ScopeCommon):
   def bazel_string_flag(
       self,
       name: str,
-      visibility: Optional[List[RelativeLabel]] = None,
+      visibility: list[RelativeLabel] | None = None,
       **kwargs,
   ):
     context = self._context.snapshot()

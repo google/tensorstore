@@ -20,12 +20,11 @@ And to see the native skylark implementations, see:
 https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/common
 """
 
-# pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
+# pylint: disable=g-importing-member,missing-function-docstring,invalid-name
 
 import io
 import itertools
 import pathlib
-from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_provider import CMakeAddDependenciesProvider
@@ -34,7 +33,7 @@ from .cmake_provider import make_providers
 from .cmake_target import CMakeTarget
 from .emit_filegroup import emit_filegroup
 from .emit_filegroup import emit_genrule
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
@@ -53,8 +52,8 @@ from .variable_substitution import generate_substitutions
 def filegroup(
     self: InvocationContext,
     name: str,
-    srcs: Optional[List[RelativeLabel]] = None,
-    visibility: Optional[List[RelativeLabel]] = None,
+    srcs: list[RelativeLabel] | None = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   # https://bazel.build/reference/be/general#filegroup
@@ -74,7 +73,7 @@ def filegroup(
 def _filegroup_impl(
     _context: InvocationContext,
     _target: TargetId,
-    srcs: Optional[List[RelativeLabel]] = None,
+    srcs: list[RelativeLabel] | None = None,
 ):
   resolved_srcs = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(srcs)
@@ -120,8 +119,8 @@ def _filegroup_impl(
 def genrule(
     self: InvocationContext,
     name: str,
-    outs: List[RelativeLabel],
-    visibility: Optional[List[RelativeLabel]] = None,
+    outs: list[RelativeLabel],
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   _context = self.snapshot()
@@ -139,12 +138,12 @@ def genrule(
 def _genrule_impl(
     _context: InvocationContext,
     _target: TargetId,
-    _out_targets: List[TargetId],
+    _out_targets: list[TargetId],
     cmd: Configurable[str],
-    srcs: Optional[Configurable[List[RelativeLabel]]] = None,
-    message: Optional[Configurable[str]] = None,
-    tools: Optional[List[RelativeLabel]] = None,
-    toolchains: Optional[List[RelativeLabel]] = None,
+    srcs: Configurable[list[RelativeLabel]] | None = None,
+    message: Configurable[str] | None = None,
+    tools: list[RelativeLabel] | None = None,
+    toolchains: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   for x in ["cmd_bash", "cmd_bat", "cmd_ps", "exec_tools"]:
@@ -179,7 +178,7 @@ def _genrule_impl(
   assert repo is not None
 
   # Add outputs with a dependency on this target.
-  out_files: List[str] = []
+  out_files: list[str] = []
   out_dirs: set[pathlib.PurePath] = set()
   for out_target in _out_targets:
     path = state.get_generated_file_path(out_target)
@@ -194,7 +193,7 @@ def _genrule_impl(
   tools_collector = state.collect_deps(resolved_tools)
   src_collector = state.collect_targets(resolved_srcs)
 
-  add_dependencies: List[CMakeTarget] = list(
+  add_dependencies: list[CMakeTarget] = list(
       itertools.chain(
           tools_collector.targets(),
           src_collector.add_dependencies(),

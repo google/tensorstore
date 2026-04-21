@@ -54,8 +54,8 @@ def mirror_url(url):
 
     mirror_prefix = "https://storage.googleapis.com/tensorstore-bazel-mirror/"
     if url.startswith("https://"):
-        return [mirror_prefix + url[8:]]
+        return [mirror_prefix + url[8:], url]
     elif url.startswith("http://"):
-        return [mirror_prefix + url[7:]]
+        return [mirror_prefix + url[7:], url]
 
     return [url]

@@ -1,0 +1,6 @@
+{
+    "cmake_project_name": "bazel_skylib",
+    "cmake_target_mapping": {
+        "@bazel_skylib//lib:vars": "bazel_skylib::vars"
+    }
+}

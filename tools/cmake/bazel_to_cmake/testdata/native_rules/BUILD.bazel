@@ -8,6 +8,12 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
+cc_binary(
+    name = "a_binary",
+    srcs = ["a.cc"],
+    visibility = ["//visibility:public"],
+)
+
 cc_library(
     name = "b",
     srcs = ["b.cc"],
@@ -29,9 +35,8 @@ cc_library(
 )
 
 cc_binary(
-    name = "bb",
-    srcs = ["a.cc"],
-    visibility = ["//visibility:public"],
+    name = "b_binary",
+    srcs = ["b.cc"],
 )
 
 genrule(
@@ -41,10 +46,10 @@ genrule(
         "//:other": ["y.h"],
     }),
     outs = ["a.h"],
-    cmd = ("$(location :bb) $$(dirname $$(dirname $<)/a/b) $$(dirname $< ) " +
+    cmd = ("$(location :b_binary) $$(dirname $$(dirname $<)/a/b) $$(dirname $< ) " +
            " -I$(GENDIR)/foo -I$$(dirname $(location :subdir_z))/../.. " +
            " $< $@ "),
-    tools = [":bb"],
+    tools = [":b_binary"],
     visibility = ["//visibility:public"],
 )
 

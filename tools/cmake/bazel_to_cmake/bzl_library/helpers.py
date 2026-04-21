@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from ..cmake_repository import CMakeRepository
 from ..cmake_target import CMakeTarget
-from ..evaluation import EvaluationState
+from ..evaluation_state import EvaluationState
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
 from ..util import quote_path
@@ -33,13 +33,13 @@ _SEP = "\n        "
 
 def update_target_mapping(
     repo: CMakeRepository,
-    kwargs: Dict[str, Any],
-) -> Dict[CMakeTarget, str]:
+    kwargs: dict[str, Any],
+) -> dict[CMakeTarget, str]:
   """Updates kwargs[cmake_target_mapping] with resolved labels."""
   root_package_id = repo.repository_id.get_package_id("")
-  target_mapping: Optional[Dict[str, str]] = kwargs.get("cmake_target_mapping")
-  reverse_target_mapping: Dict[CMakeTarget, str] = {}
-  canonical_target_mapping: Dict[str, str] = {}
+  target_mapping: dict[str, str] | None = kwargs.get("cmake_target_mapping")
+  reverse_target_mapping: dict[CMakeTarget, str] = {}
+  canonical_target_mapping: dict[str, str] = {}
   if target_mapping:
     for relative_label, cmake_alias in target_mapping.items():
       target = root_package_id.parse_target(relative_label)

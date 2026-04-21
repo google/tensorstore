@@ -13,8 +13,8 @@ find_package(half REQUIRED)
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a PUBLIC
-        "Threads::Threads"
         "half::half"
+        "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")

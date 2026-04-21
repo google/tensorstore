@@ -23,9 +23,10 @@ Example:
   srcs = sorted(srcs_collector.file_paths())
 """
 
-# pylint: disable=missing-function-docstring,relative-beyond-top-level,missing-class-docstring
+# pylint: disable=invalid-name,missing-function-docstring,g-importing-member,g-doc-args
 
-from typing import Iterator, Type, TypeVar
+from collections.abc import Iterator
+from typing import TypeVar
 
 from .cmake_provider import CMakeAddDependenciesProvider
 from .cmake_provider import CMakeExecutableTargetProvider
@@ -54,7 +55,7 @@ class ProviderCollection:
   def collect(self, target_id: TargetId, target_info: TargetInfo):
     self._providers[target_id] = target_info
 
-  def assert_provider(self, t: Type[P]):
+  def assert_provider(self, t: type[P]):
     failed = []
     for target_id, target_info in self._providers.items():
       if target_info.get(t) is None:
@@ -64,7 +65,7 @@ class ProviderCollection:
           f'Failed to collect type {t.__name__} from Targets {" ".join(failed)}'
       )
 
-  def items(self, t: Type[P]) -> Iterator[P]:
+  def items(self, t: type[P]) -> Iterator[P]:
     for x in self._providers.values():
       provider = x.get(t)
       if provider is not None:
@@ -91,7 +92,7 @@ class ProviderCollection:
     for k, x in self._providers.items():
       provider = x.get(FilesProvider)
       if provider is not None:
-          yield k, provider.paths
+        yield k, provider.paths
 
   def add_dependencies(self) -> Iterator[CMakeTarget]:
     for add_dependencies_provider in self.items(CMakeAddDependenciesProvider):

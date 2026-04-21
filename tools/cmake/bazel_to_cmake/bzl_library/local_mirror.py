@@ -26,7 +26,7 @@ from ..cmake_builder import LOCAL_MIRROR_DOWNLOAD_SECTION
 from ..cmake_repository import CMakeRepository
 from ..cmake_repository import make_repo_mapping
 from ..cmake_target import CMakePackage
-from ..evaluation import EvaluationState
+from ..evaluation_state import EvaluationState
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.scope_common import ScopeCommon
@@ -69,6 +69,7 @@ def _local_mirror_impl(
           repository_id, kwargs.get("repo_mapping", {})
       ),
       persisted_canonical_name={},
+      executable_targets=set(),
   )
   update_target_mapping(new_repository, kwargs)
 
@@ -153,6 +154,7 @@ execute_process(
   builder.addtext(
       f"add_subdirectory({quote_path(source_directory)} "
       f"{quote_path(cmake_binary_dir)} EXCLUDE_FROM_ALL)\n",
+      unique=True,
       section=FETCH_CONTENT_MAKE_AVAILABLE_SECTION - 1,
   )
 

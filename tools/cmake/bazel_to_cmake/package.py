@@ -14,7 +14,8 @@
 """Package metadata and Visibility utilities."""
 
 import enum
-from typing import List, Optional
+
+# pylint: disable=g-importing-member
 
 from .active_repository import Repository
 from .starlark.bazel_target import TargetId
@@ -38,7 +39,7 @@ class Package:
     assert repository
     self.repository = repository
     self.package_id = repository.repository_id.get_package_id(package_name)
-    self._default_visibility: List[TargetId] = []
+    self._default_visibility: list[TargetId] = []
 
     # Whether analyze by default returns only public targets.
     if repository.top_level and cmake_is_true(
@@ -50,10 +51,10 @@ class Package:
       self.analyze_mode = AnalyzeMode.PUBLIC_ONLY
       self.test_analyze_mode = AnalyzeMode.NOTHING
 
-  def __repr__(self):
+  def __repr__(self) -> str:
     return f"Package(repository={repr(self.repository)},package_name={self.package_id.package_name})"
 
-  def __str__(self):
+  def __str__(self) -> str:
     raise AttributeError("Package -> string conversion not allowed")
 
 
@@ -68,22 +69,22 @@ class Visibility:
   def __init__(self, package: Package):
     self._package = package
 
-  def set_default_visibility(self, visibility: List[TargetId]):
+  def set_default_visibility(self, visibility: list[TargetId]) -> None:
     # pylint: disable-next=protected-access
     self._package._default_visibility = visibility
 
-  def analyze_by_default(self, visibility: Optional[List[TargetId]]):
+  def analyze_by_default(self, visibility: list[TargetId] | None) -> bool:
     return (self._package.analyze_mode == AnalyzeMode.EVERYTHING) or (
         self._package.analyze_mode == AnalyzeMode.PUBLIC_ONLY
         and self.is_public(visibility)
     )
 
-  def analyze_test_by_default(self, visibility: Optional[List[TargetId]]):
+  def analyze_test_by_default(self, visibility: list[TargetId] | None) -> bool:
     # Treat tests as private regardless of actual visibility.
     del visibility
     return self._package.test_analyze_mode == AnalyzeMode.EVERYTHING
 
-  def is_public(self, visibility: Optional[List[TargetId]]):
+  def is_public(self, visibility: list[TargetId] | None) -> bool:
     if visibility is not None:
       vis_targets = visibility
     else:

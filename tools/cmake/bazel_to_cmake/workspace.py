@@ -13,14 +13,14 @@
 # limitations under the License.
 """Defines data structures representing a Bazel workspace."""
 
-# pylint: disable=missing-function-docstring,relative-beyond-top-level,g-doc-args
+# pylint: disable=missing-function-docstring,g-importing-member,g-doc-args
 
 import importlib
 import json
 import pathlib
 import platform
 import shlex
-from typing import Union
+from typing import Any
 
 from .cmake_repository import CMakeRepository
 from .cmake_target import CMakeTargetPair
@@ -42,8 +42,10 @@ _PLATFORM_NAME_TO_BAZEL_PLATFORM = {
     "Linux": "linux",
 }
 
+_DEFAULT_CPP_STANDARD = "17"
 
-def _parse_bazelrc(path: str):
+
+def _parse_bazelrc(path: str) -> dict[str, list[str]]:
   options: dict[str, list[str]] = {}
   for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
     line = line.strip()
@@ -94,10 +96,14 @@ class Workspace:
     self._parsed_bazelrc = ParsedBazelrc(host_platform_name)
 
     self.global_ignored_libraries: set[TargetId] = set()
+    self.exclude_repositories: set[RepositoryId] = set()
 
     # _persisted_targets persist TargetInfo; these are resolved through
     # EvaluationState.get_optional_target_info() and provide a TargetInfo.
     self._persisted_target_info: dict[TargetId, TargetInfo] = {}
+
+    # Loaded by load_external_repositories()
+    self._external_repo_configs: dict[RepositoryId, dict[str, Any]] = {}
 
     # Log level
     self._verbose: int = cmake_logging_verbose_level(
@@ -141,6 +147,10 @@ class Workspace:
   def linkopts(self) -> list[str]:
     return self._parsed_bazelrc.linkopts
 
+  @property
+  def cpp_standard(self) -> str:
+    return self._parsed_bazelrc.cpp_standard or _DEFAULT_CPP_STANDARD
+
   def get_per_file_copts(self, target: TargetId, src: str) -> list[str]:
     return self._parsed_bazelrc.get_per_file_copts(target, src)
 
@@ -148,13 +158,15 @@ class Workspace:
   def root_repository(self) -> CMakeRepository:
     return self.all_repositories[self.root_repository_id]
 
-  def add_cmake_repository(self, repository: CMakeRepository):
+  def add_cmake_repository(self, repository: CMakeRepository) -> None:
     """Adds a repository to the workspace."""
     assert repository.cmake_project_name
 
     exists = self.all_repositories.get(repository.repository_id, None)
     if exists:
-      assert not exists.source_directory
+      if exists.source_directory:
+        # Already populated, skip.
+        return
       assert not exists.cmake_binary_dir
       repository.persisted_canonical_name.update(
           exists.persisted_canonical_name
@@ -171,7 +183,7 @@ class Workspace:
     self.all_repositories[repository.repository_id] = repository
 
   def get_cmake_package_name(
-      self, target: Union[RepositoryId, PackageId, TargetId]
+      self, target: RepositoryId | PackageId | TargetId
   ) -> str | None:
     repo = self.all_repositories.get(target.repository_id, None)
     if repo:
@@ -185,7 +197,9 @@ class Workspace:
       return repo.get_persisted_canonical_name(target)
     return None
 
-  def set_persistent_target_info(self, target: TargetId, info: TargetInfo):
+  def set_persistent_target_info(
+      self, target: TargetId, info: TargetInfo
+  ) -> None:
     """Records a persistent mapping from Target to TargetInfo.
 
     Generally this is used to set global build settings and cmake aliases.
@@ -215,13 +229,32 @@ class Workspace:
     if self._verbose:
       print(f"Current bazelrc options:\n{self._parsed_bazelrc}")
 
-  def add_module(self, module_name: str):
+  def add_module(self, module_name: str) -> None:
     self._modules.add(module_name)
 
-  def load_modules(self):
+  def load_modules(self) -> None:
     """Load modules added by add_module."""
     for module_name in self._modules:
       if module_name.startswith("."):
         importlib.import_module(module_name, package=__package__)
       else:
         importlib.import_module(module_name)
+
+  def load_external_repositories(self, path: str) -> None:
+    """Loads external repository definitions from a JSON file."""
+    try:
+      with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+      print(f"Warning: Failed to load external repositories from {path}: {e!r}")
+      return
+
+    for name, config in data.items():
+      repository_id = RepositoryId(name)
+      self._external_repo_configs[repository_id] = config
+      if repository_id in self.all_repositories:
+        continue
+
+      self.add_cmake_repository(
+          CMakeRepository.from_config(repository_id, config)
+      )

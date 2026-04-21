@@ -19,13 +19,13 @@ The following parameters of `third_party_http_archive` are supported:
 
   Specifies the Bazel repo name.  Used by both Bazel and CMake.
 
-- repo_mapping: Optional[Dict[str, str]]
+- repo_mapping: dict[str, str] | None
 
   Optional.  Maps repository names used by the third-party package to the name
   the repository is available in the top-level workspace.  Used by Bazel, and by
   CMake if `bazel_to_cmake` is specified.
 
-- urls: List[str]
+- urls: list[str]
 
   Required.  Specifies the list of URLs.  Used by both Bazel and CMake.
 
@@ -35,12 +35,12 @@ The following parameters of `third_party_http_archive` are supported:
   representation of the archive specified by `urls`.  Used by both Bazel and
   CMake.
 
-- strip_prefix: Optional[str]
+- strip_prefix: str | None
 
   Optional.  Top-level directory to strip when extracting the archive.  Used
   only by Bazel.  CMake seems to auto-detect.
 
-- patches: List[Label]
+- patches: list[Label]
 
   Optional.  List of patches to apply.  Used by both Bazel and CMake.
 
@@ -213,11 +213,8 @@ from ..cmake_builder import FETCH_CONTENT_DECLARE_SECTION
 from ..cmake_builder import FETCH_CONTENT_MAKE_AVAILABLE_SECTION
 from ..cmake_builder import OPTIONS_SECTION
 from ..cmake_repository import CMakeRepository
-from ..cmake_repository import label_to_generated_cmake_target
-from ..cmake_repository import make_repo_mapping
-from ..cmake_target import CMakePackage
 from ..cmake_target import CMakeTarget
-from ..evaluation import EvaluationState
+from ..evaluation_state import EvaluationState
 from ..starlark.bazel_target import parse_absolute_target
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
@@ -451,24 +448,21 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
   if "cmake_name" not in kwargs:
     return
 
-  cmake_name = kwargs["cmake_name"]
   repository_id = RepositoryId(kwargs["name"])
-
-  state = _context.access(EvaluationState)
-  fetch_content_base_dir = _get_fetch_content_base_dir(state)
-  new_repository = CMakeRepository(
+  new_repository = CMakeRepository.from_config(
       repository_id=repository_id,
-      cmake_project_name=CMakePackage(cmake_name),
+      config=kwargs,
+  )
+  fetch_content_base_dir = _get_fetch_content_base_dir(
+      _context.access(EvaluationState)
+  )
+  new_repository = new_repository.with_cmake_directories(
       source_directory=fetch_content_base_dir.joinpath(
-          f"{cmake_name.lower()}-src"
+          f"{new_repository.cmake_project_name.lower()}-src"
       ),
       cmake_binary_dir=fetch_content_base_dir.joinpath(
-          f"{cmake_name.lower()}-build"
+          f"{new_repository.cmake_project_name.lower()}-build"
       ),
-      repo_mapping=make_repo_mapping(
-          repository_id, kwargs.get("repo_mapping", {})
-      ),
-      persisted_canonical_name={},
   )
 
   _emit_fetch_content_impl(_context, new_repository, **kwargs)
@@ -548,6 +542,7 @@ def _emit_fetch_content_impl(
   out = io.StringIO()
   out.write(f"# Loading {new_repository.repository_id.repository_name}\n")
   out.write(f"FetchContent_Declare({cmake_name}")
+
   if urls:
     out.write(f"\n    URL {quote_string(urls[0])}")
   if sha256:
@@ -601,9 +596,9 @@ find_dependency({cmake_name})
       # When using bazel_to_cmake, map `target` to the non-aliased target.
       t: Optional[str] = reverse_target_mapping.get(cmake_target)
       if t is not None:
-        cmake_target = label_to_generated_cmake_target(
-            parse_absolute_target(t), cmake_name
-        ).target
+        target_id = parse_absolute_target(t)
+        pair = new_repository.get_cmake_target_pair(target_id)
+        cmake_target = pair.target
 
       for suffix in ("LIBRARY", "LIBRARIES"):
         out.write(f"set({var_prefix}_{suffix} {cmake_target})\n")

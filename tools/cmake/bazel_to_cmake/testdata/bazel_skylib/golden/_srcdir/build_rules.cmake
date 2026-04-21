@@ -14,7 +14,7 @@ COMMENT "Generating ${TEST_BINDIR}/config2.h"
 )
 set_source_files_properties("${TEST_BINDIR}/config2.h" PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_config2_h DEPENDS "${TEST_BINDIR}/config2.h")
-target_include_directories(CMakeProject_config2_h INTERFACE "${PROJECT_BINARY_DIR}")
+set_target_properties(CMakeProject_config2_h PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${PROJECT_BINARY_DIR}")
 
 # genrule(@bazel_skylib_test_repo//:config_copy_rule)
 add_custom_command(

@@ -36,7 +36,7 @@ correctly included in the generated CMake file.
 
 # pylint: disable=invalid-name
 
-from typing import List, Optional, Protocol, Tuple
+from typing import Any, Protocol
 
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
@@ -54,16 +54,16 @@ class ProtoAspectCallable(Protocol):
       self,  # ignored
       context: InvocationContext,
       proto_target: TargetId,
-      visibility: Optional[List[RelativeLabel]] = None,
-      **kwargs,
-  ):
+      visibility: list[RelativeLabel] | None = None,
+      **kwargs: Any,
+  ) -> None:
     pass
 
 
-_PROTO_ASPECT: List[Tuple[str, ProtoAspectCallable]] = []
+_PROTO_ASPECT: list[tuple[str, ProtoAspectCallable]] = []
 
 
-def add_proto_aspect(name: str, fn: ProtoAspectCallable):
+def add_proto_aspect(name: str, fn: ProtoAspectCallable) -> None:
   print(f"Proto aspect: {name}")
 
   _PROTO_ASPECT.append((
@@ -75,8 +75,8 @@ def add_proto_aspect(name: str, fn: ProtoAspectCallable):
 def invoke_proto_aspects(
     context: InvocationContext,
     proto_target: TargetId,
-    visibility: Optional[List[RelativeLabel]] = None,
-    **kwargs,
-):
+    visibility: list[RelativeLabel] | None = None,
+    **kwargs: Any,
+) -> None:
   for t in _PROTO_ASPECT:
     t[1](context, proto_target, visibility, **kwargs)

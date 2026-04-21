@@ -29,8 +29,8 @@ def repo():
         sha256 = "eaca6f7ac95a1addcc93e7d4bed4c8b697a767f122dbd1978e2dd62da0b701f0",
         strip_prefix = "xds-dba9d589def2cd10099a3a64887d859188c2f57a",
         repo_mapping = {
-            "@io_bazel_rules_go": "@local_proto_mirror",
-            "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",
+            "@io_bazel_rules_go": "@local_rules_go",
+            "@com_envoyproxy_protoc_gen_validate": "@local_protoc_gen_validate",
             "@dev_cel": "@cel-spec",
             "@com_google_googleapis": "@googleapis",
             "@com_github_grpc_grpc": "@grpc",

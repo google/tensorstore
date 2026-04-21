@@ -15,17 +15,21 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
+from collections.abc import Collection, Iterable
+import enum
 import io
 import itertools
 import pathlib
-from typing import Any, Collection, Iterable, NamedTuple, cast
+from typing import Any, NamedTuple, cast
 
 from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_repository import PROJECT_SOURCE_DIR
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
-from .emit_alias import emit_library_alias
-from .evaluation import EvaluationState
+from .emit_alias import emit_alwayslink_alias
+from .emit_alias import emit_cc_library_aliases
+from .evaluation_state import EvaluationState
+from .ordered_set import OrderedSet
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import TargetId
 from .starlark.invocation_context import InvocationContext
@@ -34,6 +38,7 @@ from .util import is_relative_to
 from .util import make_relative_path
 from .util import partition_by
 from .util import PathCollection
+from .util import PathLike
 from .util import quote_list
 from .util import quote_path_list
 from .util import quote_unescaped_list
@@ -44,6 +49,13 @@ _SEP = "\n        "
 _HEADER_SRC_PATTERN = r"\.(?:h|hpp|inc)$"
 _ASM_SRC_PATTERN = r"\.(?:s|S|asm)$"
 _OBJ_SRC_PATTERN = r"\.(?:o|obj)$"
+
+
+class CcCommonEnum(enum.Enum):
+  INTERFACE = enum.auto()
+  STATIC_LIBRARY = enum.auto()
+  LIBRARY = enum.auto()
+  EXECUTABLE = enum.auto()
 
 
 class TargetIncludes(NamedTuple):
@@ -77,41 +89,44 @@ def _emit_cc_common_options(
     extra_public_compile_options: Iterable[str] | None = None,
     extra_link_options: Iterable[str] | None = None,
     per_file_copts: dict[str, list[str]] | None = None,
-    interface_only: bool = False,
     srcs: Iterable[str] | None = None,
     public_srcs: Iterable[str] | None = None,
+    emit_enum: CcCommonEnum = CcCommonEnum.LIBRARY,
+    cpp_standard: str = "17",
     **kwargs,
 ):
   """Emits CMake rules for common C++ target options."""
   assert "deps" not in kwargs
   del kwargs
 
-  public_context = "INTERFACE" if interface_only else "PUBLIC"
-  if local_defines is not None and local_defines and not interface_only:
+  is_interface = emit_enum == CcCommonEnum.INTERFACE
+  public_context = "INTERFACE" if is_interface else "PUBLIC"
+  if local_defines is not None and local_defines and not is_interface:
     out.write(
         f"target_compile_definitions({target_name} PRIVATE"
         f" {quote_unescaped_list(local_defines)})\n"
     )
   if defines is not None and defines:
     out.write(
-        f"target_compile_definitions({target_name} {public_context} {quote_unescaped_list(defines)})\n"
+        f"target_compile_definitions({target_name} {public_context}"
+        f" {quote_unescaped_list(defines)})\n"
     )
-  if copts is not None and copts and not interface_only:
+  if copts is not None and copts and not is_interface:
     out.write(
         f"target_compile_options({target_name} PRIVATE {quote_list(copts)})\n"
     )
 
   if link_libraries or linkopts:
-    link_libs: list[str] = []
+    link_libs: OrderedSet[str] = OrderedSet()
     if link_libraries:
-      link_libs.extend(sorted(link_libraries))
+      link_libs.update(link_libraries)
 
-    link_options: list[str] = []
+    link_options: OrderedSet[str] = OrderedSet()
     for x in linkopts or []:
       if x.startswith("-l") or x.startswith("-framework"):
-        link_libs.append(x)
+        link_libs.add(x)
       else:
-        link_options.append(x)
+        link_options.add(x)
     if link_libs:
       out.write(
           f"target_link_libraries({target_name} {public_context}{_SEP}"
@@ -122,6 +137,7 @@ def _emit_cc_common_options(
           f"target_link_options({target_name} {public_context}{_SEP}"
           f"{quote_list(link_options, separator=_SEP)})\n"
       )
+
   if extra_link_options:
     out.write(
         f"target_link_options({target_name} {public_context}{_SEP}"
@@ -129,8 +145,10 @@ def _emit_cc_common_options(
     )
 
   if private_link_libraries:
-    private_link_libs: list[str] = sorted(private_link_libraries)
-    assert not interface_only, (
+    # MacOS is special; it has a single-pass linker, and CMake PRIVATE link
+    # libraries don't propagate to dependents.
+    private_link_libs: OrderedSet[str] = OrderedSet(private_link_libraries)
+    assert not is_interface, (
         f"{target_name}: interface_only cannot be set with"
         " private_link_libraries"
     )
@@ -165,7 +183,7 @@ def _emit_cc_common_options(
           f"{_SEP}{quote_path_list(ordered, separator=_SEP)})\n"
       )
 
-  if not interface_only and private_includes:
+  if not is_interface and private_includes:
     ordered = [x for x in _make_include_dirs(sorted(set(private_includes)))]
     if ordered:
       out.write(
@@ -174,7 +192,8 @@ def _emit_cc_common_options(
       )
 
   out.write(
-      f"target_compile_features({target_name} {public_context} cxx_std_17)\n"
+      f"target_compile_features({target_name} {public_context}"
+      f" cxx_std_{cpp_standard})\n"
   )
   if add_dependencies:
     out.write(
@@ -202,12 +221,12 @@ def _emit_cc_common_options(
     if public_srcs:
       out.write(
           f"target_sources({target_name} PUBLIC{_SEP}"
-          f"{quote_path_list(public_srcs , separator=_SEP)})\n"
+          f"{quote_path_list(public_srcs, separator=_SEP)})\n"
       )
     if non_header_srcs:
       out.write(
           f"target_sources({target_name} PRIVATE{_SEP}"
-          f"{quote_path_list(non_header_srcs , separator=_SEP)})\n"
+          f"{quote_path_list(non_header_srcs, separator=_SEP)})\n"
       )
     if asm_srcs:
       if asm_dialect is None:
@@ -228,7 +247,8 @@ def construct_cc_includes(
     includes: Collection[str] | None = None,
     include_prefix: str | None = None,
     strip_include_prefix: str | None = None,
-    known_include_files: PathCollection | None = None,
+    hdrs_include_paths: PathCollection | None = None,
+    srcs_file_paths: PathCollection | None = None,
 ) -> TargetIncludes:
   """Returns the set of system and public includes for the configuration.
 
@@ -239,9 +259,30 @@ def construct_cc_includes(
   Here we attempt to generate system includes for CMake based on the
   bazel flags, however it is a best effort technique which, so far, has met
   the needs of cmake translation.
+
+  Args:
+    current_package_id: The PackageId of the current Bazel package.
+    source_directory: The root of the source tree.
+    cmake_binary_dir: The root of the CMake binary output directory.
+    includes: A collection of include paths specified in the Bazel rule. These
+      are typically treated as system includes.
+    include_prefix: An optional prefix to add to the paths of headers.
+    strip_include_prefix: An optional prefix to strip from the paths of headers.
+    hdrs_include_paths: A collection of file paths for headers (`.h`, `.hpp`,
+      etc.) associated with this target, used to determine which include
+      directories are actually necessary.
+    srcs_file_paths: A collection of file paths for source files (`.cc`, `.cpp`,
+      etc.) associated with this target, used to determine private include
+      directories.
+
+  Returns:
+    A TargetIncludes NamedTuple containing sets of system, public, and private
+    include directories.
   """
-  if known_include_files is None:
-    known_include_files = []
+  if hdrs_include_paths is None:
+    hdrs_include_paths = []
+  if srcs_file_paths is None:
+    srcs_file_paths = []
 
   system: set[pathlib.PurePath] = set()
   public: set[pathlib.PurePath] = set()
@@ -275,8 +316,14 @@ def construct_cc_includes(
     if constructed[0] == "/":
       constructed = constructed[1:]
 
-    system.add(source_directory.joinpath(constructed))
-    system.add(cmake_binary_dir.joinpath(constructed))
+    bin_constructed = cmake_binary_dir.joinpath(constructed)
+    src_constructed = source_directory.joinpath(constructed)
+
+    system.add(src_constructed)
+    system.add(bin_constructed)
+
+  # Track headers not accounted for by the public includes.
+  remaining_hdrs: set[PathLike] = set(hdrs_include_paths)
 
   # For the package foo/bar
   #  - default include path is foo/bar/file.h
@@ -305,10 +352,16 @@ def construct_cc_includes(
     src_path = source_directory.joinpath(constructed)
     bin_path = cmake_binary_dir.joinpath(constructed)
     # Only add if existing files are discoverable at the prefix
-    for x in known_include_files:
-      (c, _) = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+    for x in hdrs_include_paths:
+      c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
       if c is not None:
         public.add(c)
+        remaining_hdrs.discard(x)
+
+    for x in srcs_file_paths:
+      c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+      if c is not None:
+        private.add(c)
 
   if include_prefix is not None:
     # The prefix to add to the paths of the headers of this rule.
@@ -328,32 +381,35 @@ def construct_cc_includes(
 
       src_path = source_directory.joinpath(constructed)
       bin_path = cmake_binary_dir.joinpath(constructed)
+
       # Only add if existing files are discoverable at the prefix
-      for x in known_include_files:
-        (c, _) = make_relative_path(
-            x, (src_path, src_path), (bin_path, bin_path)
-        )
+      for x in hdrs_include_paths:
+        c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
         if c is not None:
           public.add(c)
+          remaining_hdrs.discard(x)
 
-  # HACK: Bazel does not add such a fallback, but since three are potential
-  # includes CMake needs to include SRC/BIN as interface includes.
-  if not public and not system:
-    src_path = source_directory
-    bin_path = cmake_binary_dir
-    for x in known_include_files:
-      (c, _) = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
-      if c is not None:
-        public.add(c)
+      for x in srcs_file_paths:
+        c, _ = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+        if c is not None:
+          private.add(c)
 
-  if PROJECT_SOURCE_DIR not in public and PROJECT_SOURCE_DIR not in system:
-    private.add(PROJECT_SOURCE_DIR)
-  if PROJECT_BINARY_DIR not in public and PROJECT_BINARY_DIR not in system:
-    for x in known_include_files:
-      x_path = pathlib.PurePath(x)
-      if is_relative_to(x_path, cmake_binary_dir):
-        private.add(PROJECT_BINARY_DIR)
-        break
+  # If there are known include files which are not found under the public
+  # include paths, add the source/binary directories to the public includes.
+  for x in remaining_hdrs:
+    if is_relative_to(pathlib.PurePath(x), cmake_binary_dir):
+      if cmake_binary_dir not in system:
+        public.add(cmake_binary_dir)
+    elif source_directory not in system:
+      public.add(source_directory)
+
+  # If there are private includes, also add the source/binary directories.
+  for x in itertools.chain(srcs_file_paths, hdrs_include_paths):
+    if is_relative_to(pathlib.PurePath(x), cmake_binary_dir):
+      private.add(cmake_binary_dir)
+    else:
+      private.add(source_directory)
+  private.difference_update(public)
 
   return TargetIncludes(system, public, private)
 
@@ -391,14 +447,23 @@ def handle_cc_common_options(
   srcs_file_paths = list(srcs_collector.file_paths())
 
   if _src_required and not srcs_file_paths:
+    # Sources are required, so add a placeholder source file if there are none.
     srcs_file_paths = [state.get_placeholder_source()]
-  elif srcs_file_paths:
+  elif (
+      _src_required
+      and not partition_by(srcs_file_paths, pattern=_HEADER_SRC_PATTERN)[1]
+  ):
+    # Sources are required, and there are sources, but they are all headers.
+    srcs_file_paths.append(state.get_placeholder_source())
+  elif (
+      srcs_file_paths
+      and not partition_by(srcs_file_paths, pattern=_OBJ_SRC_PATTERN)[1]
+  ):
     # On Windows, CMake does not correctly handle linking libraries containing
     # only nasm (.obj) sources.  Also, when not using the builtin rule,
     # CMake does not handle a library containing only object file as sources.
     # As a workaround, add a placeholder C file.
-    if not partition_by(srcs_file_paths, pattern=_OBJ_SRC_PATTERN)[1]:
-      srcs_file_paths.append(state.get_placeholder_source())
+    srcs_file_paths.append(state.get_placeholder_source())
 
   copts: list[str] = []
 
@@ -433,20 +498,20 @@ def handle_cc_common_options(
 
   deps_collector = state.collect_deps(deps)
 
-  link_libraries = set(deps_collector.link_libraries())
+  link_libraries = OrderedSet(deps_collector.link_libraries())
 
   # Since Bazel implicitly adds a dependency on the C math library, also add
   # it here.
+  link_libraries.add(CMakeTarget("Threads::Threads"))
   if state.workspace.cmake_vars["CMAKE_SYSTEM_NAME"] != "Windows":
     link_libraries.add(CMakeTarget("m"))
 
-  link_libraries.add(CMakeTarget("Threads::Threads"))
-
+  private_link_libraries = OrderedSet()
   if implementation_deps is not None:
     implementation_deps_collector = state.collect_deps(implementation_deps)
-    private_link_libraries = set(implementation_deps_collector.link_libraries())
-  else:
-    private_link_libraries = set()
+    private_link_libraries.update(
+        implementation_deps_collector.link_libraries()
+    )
 
   extra_public_compile_options = []
 
@@ -525,12 +590,6 @@ def handle_cc_common_options(
         f" include_prefix={include_prefix}."
     )
 
-  known_include_files = (
-      partition_by(srcs_file_paths, pattern=_HEADER_SRC_PATTERN)[0]
-      + (hdrs_file_paths or [])
-      + (textual_hdrs_file_paths or [])
-  )
-
   includes = apply_substitutions("includes", includes)
 
   target_includes = construct_cc_includes(
@@ -540,7 +599,9 @@ def handle_cc_common_options(
       includes=includes,
       include_prefix=include_prefix,
       strip_include_prefix=strip_include_prefix,
-      known_include_files=known_include_files,
+      hdrs_include_paths=(hdrs_file_paths or [])
+      + (textual_hdrs_file_paths or []),
+      srcs_file_paths=srcs_file_paths,
   )
   result["includes"] = repo.replace_with_cmake_macro_dirs(
       target_includes.public
@@ -548,7 +609,10 @@ def handle_cc_common_options(
   result["system_includes"] = repo.replace_with_cmake_macro_dirs(
       target_includes.system
   )
-  result["private_includes"] = target_includes.private
+  result["private_includes"] = repo.replace_with_cmake_macro_dirs(
+      target_includes.private
+  )
+  result["cpp_standard"] = state.workspace.cpp_standard
 
   return result
 
@@ -560,42 +624,65 @@ def emit_cc_library(
     srcs: Collection[str],
     hdrs: Iterable[str],
     alwayslink: bool = False,
-    header_only: bool | None = None,
+    linkstatic: bool = False,
     **kwargs,
 ) -> ProviderTuple:
   """Generates a C++ library target."""
-  if header_only is None:
-    header_only = not (partition_by(srcs, pattern=_HEADER_SRC_PATTERN)[1])
+  header_only = not (partition_by(srcs, pattern=_HEADER_SRC_PATTERN)[1])
   del hdrs
 
-  target_name = _cmake_target_pair.target
-  assert target_name is not None
+  actual_target = _cmake_target_pair.target
+  assert actual_target is not None
 
-  if not header_only:
-    out.write(f"""
-add_library({target_name})
-set_property(TARGET {target_name} PROPERTY LINKER_LANGUAGE "CXX")
-""")
-  else:
-    out.write(f"""
-add_library({target_name} INTERFACE)
-""")
+  emit_enum = CcCommonEnum.LIBRARY
+  if header_only:
+    emit_enum = CcCommonEnum.INTERFACE
+  elif linkstatic:
+    emit_enum = CcCommonEnum.STATIC_LIBRARY
+
+  if alwayslink:
+    assert not header_only, (
+        f"Target {actual_target} has alwayslink=True but is a header-only"
+        " library. alwayslink is only applicable to non-interface libraries."
+    )
+    actual_target = CMakeTarget(f"{actual_target}.alwayslink")
+
+  # ... what about implementation_deps?
+  match (emit_enum):
+    case CcCommonEnum.INTERFACE:
+      out.write(f"\nadd_library({actual_target} INTERFACE)\n")
+    case CcCommonEnum.STATIC_LIBRARY:
+      out.write(f"\nadd_library({actual_target} STATIC)\n")
+    case _:
+      out.write(f"\nadd_library({actual_target})\n")
+
+  if emit_enum != CcCommonEnum.INTERFACE:
+    out.write(
+        f"""set_property(TARGET {actual_target} PROPERTY LINKER_LANGUAGE "CXX")\n"""
+    )
+
   _emit_cc_common_options(
       out,
-      target_name=target_name,
-      interface_only=header_only,
+      target_name=actual_target,
+      emit_enum=emit_enum,
       srcs=sorted(srcs),
       **kwargs,
   )
-  if _cmake_target_pair.alias is not None:
-    return emit_library_alias(
-        out,
-        target_name=target_name,
-        alias_name=_cmake_target_pair.alias,
-        alwayslink=alwayslink,
-        interface_only=header_only,
+
+  # NOTE: We could experiment with the CMake INTERFACE_LINK_LIBRARIES_DIRECT
+  # property here, but we might need to query a Bazel provider which records
+  # alwayslink information, and that would probably break across projects.
+  # Instead, alwayslink cannot be an interface library, (see native_rules_cc.py)
+
+  providers = tuple()
+  if alwayslink:
+    providers = emit_alwayslink_alias(
+        out, _cmake_target_pair.target, actual_target
     )
-  return tuple()
+    actual_target = _cmake_target_pair.target
+
+  emit_cc_library_aliases(out, actual_target, _cmake_target_pair)
+  return providers
 
 
 def emit_cc_binary(
@@ -607,12 +694,17 @@ def emit_cc_binary(
   target_name = _cmake_target_pair.target
   assert _cmake_target_pair.alias is not None
 
-  out.write(f"""
-add_executable({target_name} "")
-add_executable({_cmake_target_pair.alias} ALIAS {target_name})
-""")
+  out.write(f'\nadd_executable({target_name} "")\n')
+  if _cmake_target_pair.alias != target_name:
+    out.write(
+        f"add_executable({_cmake_target_pair.alias} ALIAS {target_name})\n"
+    )
   _emit_cc_common_options(
-      out, target_name=target_name, srcs=sorted(srcs), **kwargs
+      out,
+      target_name=target_name,
+      srcs=sorted(srcs),
+      emit_enum=CcCommonEnum.EXECUTABLE,
+      **kwargs,
   )
 
 

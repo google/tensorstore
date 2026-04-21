@@ -41,13 +41,11 @@ add_custom_target(CMakeProject_cc__grpc_codegen DEPENDS
 add_library(CMakeProject_cc_grpc)
 set_property(TARGET CMakeProject_cc_grpc PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_cc_grpc PUBLIC
-        "Threads::Threads"
         "gRPC::gRPC_codegen"
+        "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_cc_grpc PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_include_directories(CMakeProject_cc_grpc PRIVATE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_cc_grpc PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_cc_grpc "CMakeProject_cc__grpc_codegen")
 target_sources(CMakeProject_cc_grpc PRIVATE
@@ -100,9 +98,9 @@ add_custom_target(CMakeProject_aspect_cpp__71950a86 DEPENDS
 add_library(CMakeProject_c_proto__cpp_library)
 set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
+        "protobuf::libprotobuf"
         "Threads::Threads"
-        "m"
-        "protobuf::libprotobuf")
+        "m")
 target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
@@ -194,8 +192,8 @@ add_custom_target(CMakeProject_aspect_upb__71950a86 DEPENDS
 add_library(CMakeProject_c_proto__upb_library)
 set_property(TARGET CMakeProject_c_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__upb_library PUBLIC
-        "CMakeProject::c_proto__minitable_library"
         "Protobuf::upb_generated_code_support"
+        "CMakeProject::c_proto__minitable_library"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_c_proto__upb_library PUBLIC
@@ -242,9 +240,9 @@ add_custom_target(CMakeProject_aspect_upbdefs__71950a86 DEPENDS
 add_library(CMakeProject_c_proto__upbdefs_library)
 set_property(TARGET CMakeProject_c_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__upbdefs_library PUBLIC
-        "CMakeProject::c_proto__minitable_library"
-        "Protobuf::upb_port"
         "Protobuf::upb_reflection_generated_reflection_support"
+        "Protobuf::upb_port"
+        "CMakeProject::c_proto__minitable_library"
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_c_proto__upbdefs_library PUBLIC

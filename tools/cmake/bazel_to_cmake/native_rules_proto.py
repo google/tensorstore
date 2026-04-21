@@ -59,14 +59,14 @@ https://github.com/bazelbuild/rules_proto/tree/master/proto
 # pylint: disable=invalid-name
 
 import io
-from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_provider import default_providers
 from .emit_cc import construct_cc_includes
 from .emit_filegroup import emit_filegroup
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .native_aspect import invoke_proto_aspects
+from .ordered_set import OrderedSet
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
@@ -85,7 +85,7 @@ _SEP = "\n        "
 def proto_library(
     self: InvocationContext,
     name: str,
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   context = self.snapshot()
@@ -101,10 +101,10 @@ def proto_library(
 def _proto_library_impl(
     _context: InvocationContext,
     _target: TargetId,
-    srcs: Optional[List[RelativeLabel]] = None,  # .proto sources
-    deps: Optional[List[RelativeLabel]] = None,  # proto_libraries
-    strip_import_prefix: Optional[str] = None,
-    import_prefix: Optional[str] = None,
+    srcs: list[RelativeLabel] | None = None,  # .proto sources
+    deps: list[RelativeLabel] | None = None,  # proto_libraries
+    strip_import_prefix: str | None = None,
+    import_prefix: str | None = None,
     **kwargs,
 ):
   del kwargs
@@ -167,11 +167,13 @@ def _proto_library_impl(
       includes=None,
       include_prefix=import_prefix,
       strip_include_prefix=strip_import_prefix,
-      known_include_files=proto_src_files,
+      hdrs_include_paths=proto_src_files,
   )
-  includes = set(repo.replace_with_cmake_macro_dirs(
-      target_includes.public | target_includes.system
-  ))
+  includes = OrderedSet(
+      repo.replace_with_cmake_macro_dirs(
+          sorted(target_includes.public | target_includes.system)
+      )
+  )
 
   # Sanity check; if there are sources, then there should be includes.
   if proto_src_files:
@@ -218,7 +220,7 @@ def proto_lang_toolchain(
     name: str,
     command_line: str,
     runtime: str,
-    visibility: Optional[List[RelativeLabel]] = None,
+    visibility: list[RelativeLabel] | None = None,
     **kwargs,
 ):
   pass

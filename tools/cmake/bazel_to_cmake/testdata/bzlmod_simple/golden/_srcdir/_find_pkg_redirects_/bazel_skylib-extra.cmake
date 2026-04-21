@@ -1,0 +1,2 @@
+
+set(BAZEL_SKYLIB_FOUND ON)
