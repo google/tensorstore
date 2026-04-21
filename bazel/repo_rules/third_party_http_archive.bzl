@@ -120,6 +120,7 @@ _third_party_http_archive_attrs = {
     "doc_name": attr.string(),
     "doc_version": attr.string(),
     "doc_homepage": attr.string(),
+    "repo_mapping": attr.string_dict(),
     "_rule_name": attr.string(default = "third_party_http_archive"),
 }
 

@@ -29,7 +29,7 @@ from . import native_rules_config  # pylint: disable=unused-import
 from . import native_rules_genrule  # pylint: disable=unused-import
 from . import native_rules_platform  # pylint: disable=unused-import
 from . import native_rules_proto  # pylint: disable=unused-import
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .package import Visibility
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_glob import glob as starlark_glob
@@ -77,7 +77,8 @@ def package(
 def existing_rule(self: InvocationContext, name: str):
   target = self.resolve_target(name)
   # pylint: disable-next=protected-access
-  return self.access(EvaluationState)._all_rules.get(target, None)
+  state = self.access(EvaluationState)
+  return state._all_rules.get(target, None)
 
 
 @register_native_build_rule

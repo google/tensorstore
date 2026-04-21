@@ -8,7 +8,7 @@ from ..cmake_builder import CMakeBuilder
 from ..cmake_provider import CMakeAddDependenciesProvider
 from ..cmake_provider import CMakePackageDepsProvider
 from ..cmake_provider import make_providers
-from ..evaluation import EvaluationState
+from ..evaluation_state import EvaluationState
 from ..native_aspect_proto import btc_protobuf
 from ..native_aspect_proto import plugin_generated_files
 from ..native_aspect_proto import PluginSettings

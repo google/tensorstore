@@ -99,7 +99,8 @@
 
 // GCS reference links are:
 //
-// https://cloud.google.com/storage/docs/uploads-downloads
+// https://cloud.google.com/storage/docs/uploads
+// https://cloud.google.com/storage/docs/downloads
 // https://cloud.google.com/storage/docs/json_api/v1/
 // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
 

@@ -51,7 +51,7 @@ from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_library
 from .emit_cc import handle_cc_common_options
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .ordered_set import OrderedSet
 from .provider_util import ProviderCollection
 from .starlark.bazel_target import RepositoryId
@@ -68,6 +68,7 @@ from .util import quote_list
 from .util import quote_path
 from .util import quote_path_list
 from .util import quote_string
+
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
 PROTO_COMPILER = PROTO_REPO.parse_target("//:protoc")

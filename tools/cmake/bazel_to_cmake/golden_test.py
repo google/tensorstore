@@ -31,7 +31,8 @@ from .cmake_repository import make_repo_mapping
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
-from .evaluation import EvaluationState
+from .evaluation_impl import EvaluationImpl
+from .evaluation_state import EvaluationState
 from .platforms import add_platform_constraints
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import RepositoryId
@@ -100,6 +101,8 @@ def copy_tree(source_dir: str, source_files: list[str], dest_dir: pathlib.Path):
   for x in source_files:
     dest_path = dest_dir.joinpath(x)
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    if x == "_bazelrc":
+      dest_path = dest_dir.parent.joinpath(".bazelrc")
     shutil.copy(os.path.join(source_dir, x), dest_path)
 
 
@@ -300,8 +303,10 @@ def test_golden(test_name: str, config: dict[str, Any], tmpdir):
   )
 
   # Evaluate the WORKSPACE and BUILD files
-  state = EvaluationState(active_repo)
+  state = EvaluationImpl(active_repo)
   state.process_workspace()
+  if state.workspace._parsed_bazelrc.enable_bzlmod:
+    state.process_module()
 
   for build_file in config.get('build_files', ['BUILD.bazel']):
     state.process_build_file(

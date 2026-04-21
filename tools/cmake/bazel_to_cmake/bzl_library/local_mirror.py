@@ -26,7 +26,7 @@ from ..cmake_builder import LOCAL_MIRROR_DOWNLOAD_SECTION
 from ..cmake_repository import CMakeRepository
 from ..cmake_repository import make_repo_mapping
 from ..cmake_target import CMakePackage
-from ..evaluation import EvaluationState
+from ..evaluation_state import EvaluationState
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.scope_common import ScopeCommon

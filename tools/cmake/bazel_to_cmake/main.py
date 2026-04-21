@@ -30,7 +30,8 @@ from .cmake_repository import CMakeRepository
 from .cmake_repository import make_repo_mapping
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTargetPair
-from .evaluation import EvaluationState
+from .evaluation_impl import EvaluationImpl
+from .evaluation_state import EvaluationState
 from .platforms import add_platform_constraints
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
@@ -256,7 +257,7 @@ def run_main(args: argparse.Namespace) -> int:
   for target in args.ignore_library:
     active_repo.ignore_library(repository_id.parse_target(target))
 
-  state = EvaluationState(active_repo)
+  state = EvaluationImpl(active_repo)
 
   if active_repo.top_level:
     # Load the WORKSPACE file

@@ -22,7 +22,7 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import BuildSettingInfo

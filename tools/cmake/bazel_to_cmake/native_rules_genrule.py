@@ -33,7 +33,7 @@ from .cmake_provider import make_providers
 from .cmake_target import CMakeTarget
 from .emit_filegroup import emit_filegroup
 from .emit_filegroup import emit_genrule
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider

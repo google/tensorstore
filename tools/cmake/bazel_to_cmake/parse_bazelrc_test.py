@@ -113,3 +113,17 @@ build:{os_name} --cxxopt={cxxopt_flag}
     assert parsed.cpp_standard is None
   else:
     assert parsed.cpp_standard == expected_standard
+
+
+def test_parse_bazelrc_bzlmod() -> None:
+  parsed = ParsedBazelrc("linux")
+  parsed.load_bazelrc_text("""
+common --enable_bzlmod
+common --registry=https://bcr.bazel.build
+common --registry=https://my-registry.com
+""")
+  assert parsed.enable_bzlmod is True
+  assert parsed.registries == [
+      "https://bcr.bazel.build",
+      "https://my-registry.com",
+  ]

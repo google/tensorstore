@@ -19,13 +19,13 @@ The following parameters of `third_party_http_archive` are supported:
 
   Specifies the Bazel repo name.  Used by both Bazel and CMake.
 
-- repo_mapping: Optional[Dict[str, str]]
+- repo_mapping: dict[str, str] | None
 
   Optional.  Maps repository names used by the third-party package to the name
   the repository is available in the top-level workspace.  Used by Bazel, and by
   CMake if `bazel_to_cmake` is specified.
 
-- urls: List[str]
+- urls: list[str]
 
   Required.  Specifies the list of URLs.  Used by both Bazel and CMake.
 
@@ -35,12 +35,12 @@ The following parameters of `third_party_http_archive` are supported:
   representation of the archive specified by `urls`.  Used by both Bazel and
   CMake.
 
-- strip_prefix: Optional[str]
+- strip_prefix: str | None
 
   Optional.  Top-level directory to strip when extracting the archive.  Used
   only by Bazel.  CMake seems to auto-detect.
 
-- patches: List[Label]
+- patches: list[Label]
 
   Optional.  List of patches to apply.  Used by both Bazel and CMake.
 
@@ -214,7 +214,7 @@ from ..cmake_builder import FETCH_CONTENT_MAKE_AVAILABLE_SECTION
 from ..cmake_builder import OPTIONS_SECTION
 from ..cmake_repository import CMakeRepository
 from ..cmake_target import CMakeTarget
-from ..evaluation import EvaluationState
+from ..evaluation_state import EvaluationState
 from ..starlark.bazel_target import parse_absolute_target
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
@@ -542,6 +542,7 @@ def _emit_fetch_content_impl(
   out = io.StringIO()
   out.write(f"# Loading {new_repository.repository_id.repository_name}\n")
   out.write(f"FetchContent_Declare({cmake_name}")
+
   if urls:
     out.write(f"\n    URL {quote_string(urls[0])}")
   if sha256:

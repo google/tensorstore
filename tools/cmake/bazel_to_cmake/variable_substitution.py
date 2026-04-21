@@ -26,7 +26,7 @@ import shlex
 from .cmake_provider import CMakeExecutableTargetProvider
 from .cmake_provider import CMakeLinkLibrariesProvider
 from .cmake_target import CMakeTarget
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext

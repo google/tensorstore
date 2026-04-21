@@ -64,7 +64,7 @@ from .cmake_builder import CMakeBuilder
 from .cmake_provider import default_providers
 from .emit_cc import construct_cc_includes
 from .emit_filegroup import emit_filegroup
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .native_aspect import invoke_proto_aspects
 from .ordered_set import OrderedSet
 from .starlark.bazel_target import RepositoryId

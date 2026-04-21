@@ -28,7 +28,7 @@ from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .emit_alias import emit_alwayslink_alias
 from .emit_alias import emit_cc_library_aliases
-from .evaluation import EvaluationState
+from .evaluation_state import EvaluationState
 from .ordered_set import OrderedSet
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import TargetId
