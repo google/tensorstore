@@ -18,11 +18,14 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include <nlohmann/json.hpp>
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
@@ -31,7 +34,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
@@ -50,6 +52,7 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/async_write_array.h"
@@ -105,32 +108,40 @@ class ZarrDriverSpec
                                               /*Parent=*/KvsDriverSpec>;
 
   ZarrMetadataConstraints metadata_constraints;
+  std::string selected_field;
+  bool open_as_void;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata_constraints);
+    return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata_constraints,
+             x.selected_field, x.open_as_void);
   };
 
   static inline const auto default_json_binder = jb::Sequence(
       jb::Validate(
-          [](const auto& options, auto* obj) {
+          [](const auto& options, auto* obj) -> absl::Status {
             if (obj->schema.dtype().valid()) {
               return ValidateDataType(obj->schema.dtype());
             }
             return absl::OkStatus();
           },
           internal_kvs_backed_chunk_driver::SpecJsonBinder),
-      jb::Member(
-          "metadata",
-          jb::Validate(
-              [](const auto& options, auto* obj) -> absl::Status {
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    obj->metadata_constraints.data_type.value_or(DataType())));
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    RankConstraint{obj->metadata_constraints.rank}));
-                return absl::OkStatus();
-              },
-              jb::Projection<&ZarrDriverSpec::metadata_constraints>(
-                  jb::DefaultInitializedValue()))));
+      jb::Member("metadata",
+                 jb::Projection<&ZarrDriverSpec::metadata_constraints>(
+                     jb::DefaultInitializedValue())),
+      jb::Member("field",
+                 jb::Projection<&ZarrDriverSpec::selected_field>(
+                     jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                         [](auto* obj) { *obj = std::string{}; }))),
+      jb::Member("open_as_void",
+                 jb::Projection<&ZarrDriverSpec::open_as_void>(
+                     jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                         [](auto* v) { *v = false; }))),
+      // TODO: jb::AtMostOne()
+      jb::Initialize([](auto* obj) -> absl::Status {
+        return TrySetMetadataConstraintsOnSchema(obj->metadata_constraints,
+                                                 obj->selected_field,
+                                                 obj->open_as_void, obj->schema);
+      }));
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.minimal_spec) {
@@ -139,7 +150,90 @@ class ZarrDriverSpec
     return Base::ApplyOptions(std::move(options));
   }
 
+  Result<IndexDomain<>> GetDomainAsVoid() const {
+    const Index bytes_per_elem =
+        metadata_constraints.data_type->bytes_per_outer_element;
+    const DimensionIndex original_rank = metadata_constraints.shape->size();
+    IndexDomainBuilder builder(original_rank + 1);
+
+    // Set original dimensions from metadata (all origins are 0)
+    std::fill_n(builder.origin().begin(), original_rank + 1, Index{0});
+    std::copy_n(metadata_constraints.shape->begin(), original_rank,
+                builder.shape().begin());
+    builder.shape()[original_rank] = bytes_per_elem;
+
+    // Set implicit bounds: array dims are implicit (resizable), bytes dim is explicit
+    builder.implicit_lower_bounds(DimensionSet(false));
+    builder.implicit_upper_bounds(DimensionSet::UpTo(original_rank));
+
+    // Copy dimension names if available
+    if (metadata_constraints.dimension_names) {
+      for (DimensionIndex i = 0; i < original_rank; ++i) {
+        if (const auto& name = (*metadata_constraints.dimension_names)[i];
+            name.has_value()) {
+          builder.labels()[i] = *name;
+        }
+      }
+    }
+
+    return builder.Finalize();
+  }
+
   Result<IndexDomain<>> GetDomain() const override {
+    // For void access with known dtype and shape, build domain directly
+    // to include the extra bytes dimension.
+    if (open_as_void && metadata_constraints.data_type &&
+        metadata_constraints.shape) {
+      return GetDomainAsVoid();
+    }
+
+    // For fields with field_shape (like r16, r64), build domain to include
+    // the extra field dimensions.
+    if (!selected_field.empty() && metadata_constraints.data_type &&
+        metadata_constraints.shape) {
+      const auto& dtype = *metadata_constraints.data_type;
+      // Find the selected field
+      for (size_t i = 0; i < dtype.fields.size(); ++i) {
+        if (dtype.fields[i].name == selected_field &&
+            !dtype.fields[i].field_shape.empty()) {
+          const auto& field = dtype.fields[i];
+          const DimensionIndex original_rank = metadata_constraints.shape->size();
+          const DimensionIndex field_shape_rank = field.field_shape.size();
+          const DimensionIndex total_rank = original_rank + field_shape_rank;
+
+          IndexDomainBuilder builder(total_rank);
+
+          // Set all origins to 0
+          std::fill_n(builder.origin().begin(), total_rank, Index{0});
+
+          // Copy original dimensions
+          std::copy_n(metadata_constraints.shape->begin(), original_rank,
+                      builder.shape().begin());
+
+          // Add field_shape dimensions
+          std::copy_n(field.field_shape.begin(), field_shape_rank,
+                      builder.shape().begin() + original_rank);
+
+          // Set implicit bounds: array dims are implicit (resizable),
+          // field_shape dims are explicit
+          builder.implicit_lower_bounds(DimensionSet(false));
+          builder.implicit_upper_bounds(DimensionSet::UpTo(original_rank));
+
+          // Copy dimension names if available
+          if (metadata_constraints.dimension_names) {
+            for (DimensionIndex j = 0; j < original_rank; ++j) {
+              if (const auto& name = (*metadata_constraints.dimension_names)[j];
+                  name.has_value()) {
+                builder.labels()[j] = *name;
+              }
+            }
+          }
+
+          return builder.Finalize();
+        }
+      }
+    }
+
     return GetEffectiveDomain(metadata_constraints, schema);
   }
 
@@ -147,12 +241,74 @@ class ZarrDriverSpec
       IndexTransformView<> transform) const override {
     SharedArray<const void> fill_value{schema.fill_value()};
 
-    const auto& metadata = metadata_constraints;
-    if (metadata.fill_value) {
-      fill_value = *metadata.fill_value;
+    const auto& constraints = metadata_constraints;
+
+    // If constraints don't specify a fill value, just use the schema's.
+    if (!constraints.fill_value || constraints.fill_value->empty()) {
+      return fill_value;
     }
 
-    return fill_value;
+    const auto& vec = *constraints.fill_value;
+
+    // If we don't have dtype information, we can't do field-aware logic.
+    if (!constraints.data_type) {
+      if (!vec.empty()) return vec[0];
+      return fill_value;
+    }
+
+    const ZarrDType& dtype = *constraints.data_type;
+
+    // Determine which field this spec refers to (or void access).
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        size_t field_index,
+        GetFieldIndex(dtype, selected_field, open_as_void));
+
+    // ── Normal field access: just return that field's fill_value ───────────────
+    if (field_index != kVoidFieldIndex) {
+      if (field_index < vec.size()) {
+        return vec[field_index];
+      }
+      // Fallback to "no fill".
+      return SharedArray<const void>();
+    }
+
+    // ── Void access: synthesize a byte-level fill value ────────────────────────
+    //
+    // We want a 1D byte array of length bytes_per_outer_element whose contents
+    // are exactly the Zarr-defined struct layout built from per-field fills.
+
+    // Special case: "raw bytes" field (single byte_t field with flexible shape).
+    // In that case the existing fill array already has the correct bytes.
+    if (dtype.fields.size() == 1 &&
+        dtype.fields[0].dtype.id() == DataTypeId::byte_t &&
+        !dtype.fields[0].flexible_shape.empty()) {
+      // vec[0] should be a byte array of size bytes_per_outer_element.
+      return vec[0];
+    }
+
+    const Index nbytes = dtype.bytes_per_outer_element;
+
+    auto byte_arr = AllocateArray(
+        span<const Index, 1>({nbytes}), c_order, default_init,
+        dtype_v<tensorstore::dtypes::byte_t>);
+    auto* dst = static_cast<std::byte*>(byte_arr.data());
+    std::memset(dst, 0, static_cast<size_t>(nbytes));
+
+    // Pack each field's scalar fill into its byte_offset region.
+    for (size_t i = 0; i < dtype.fields.size() && i < vec.size(); ++i) {
+      const auto& field = dtype.fields[i];
+      const auto& field_fill = vec[i];
+      if (!field_fill.valid()) continue;
+
+      // We assume a single outer element per field here (which is exactly how
+      // FillValueJsonBinder constructs per-field fill values).
+      std::memcpy(
+          dst + field.byte_offset,
+          static_cast<const std::byte*>(field_fill.data()),
+          static_cast<size_t>(field.num_bytes));
+    }
+
+    return byte_arr;
   }
 
   Result<DimensionUnitsVector> GetDimensionUnits() const override {
@@ -172,6 +328,14 @@ class ZarrDriverSpec
   }
 
   Result<std::string> ToUrl() const override {
+    if (!selected_field.empty()) {
+      return absl::InvalidArgumentError(
+          "zarr3 URL syntax not supported with selected_field specified");
+    }
+    if (open_as_void) {
+      return absl::InvalidArgumentError(
+          "zarr3 URL syntax not supported with open_as_void specified");
+    }
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
     return absl::StrCat(base_url, "|", id, ":");
   }
@@ -230,6 +394,9 @@ class DataCacheBase
 
   virtual ZarrChunkCache& zarr_chunk_cache() = 0;
 
+  /// Returns true if this cache was opened with open_as_void=true.
+  virtual bool is_void_access() const = 0;
+
   absl::Status ValidateMetadataCompatibility(
       const void* existing_metadata_ptr,
       const void* new_metadata_ptr) override {
@@ -249,12 +416,31 @@ class DataCacheBase
                           DimensionSet& implicit_lower_bounds,
                           DimensionSet& implicit_upper_bounds) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-    assert(bounds.rank() == static_cast<DimensionIndex>(metadata.shape.size()));
+    assert(bounds.rank() >= static_cast<DimensionIndex>(metadata.shape.size()));
     std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
     std::copy(metadata.shape.begin(), metadata.shape.end(),
               bounds.shape().begin());
     implicit_lower_bounds = false;
-    implicit_upper_bounds = true;
+    implicit_upper_bounds = false;
+    for (DimensionIndex i = 0;
+         i < static_cast<DimensionIndex>(metadata.shape.size()); ++i) {
+      implicit_upper_bounds[i] = true;
+    }
+    // Handle extra dimensions from field_shape (e.g., the bytes dimension added
+    // by open_as_void). This only applies when there's exactly one field since
+    // multiple fields could have different shapes, making bounds ambiguous.
+    if (bounds.rank() > static_cast<DimensionIndex>(metadata.shape.size()) &&
+        metadata.data_type.fields.size() == 1) {
+      const auto& field = metadata.data_type.fields[0];
+      if (static_cast<DimensionIndex>(metadata.shape.size() +
+                                      field.field_shape.size()) ==
+          bounds.rank()) {
+        for (size_t i = 0; i < field.field_shape.size(); ++i) {
+          bounds.shape()[metadata.shape.size() + i] = field.field_shape[i];
+          bounds.origin()[metadata.shape.size() + i] = 0;
+        }
+      }
+    }
   }
 
   Result<std::shared_ptr<const void>> GetResizedMetadata(
@@ -275,22 +461,52 @@ class DataCacheBase
   }
 
   static internal::ChunkGridSpecification GetChunkGridSpecification(
-      const ZarrMetadata& metadata) {
-    auto fill_value =
-        BroadcastArray(metadata.fill_value, BoxView<>(metadata.rank)).value();
+      const ZarrMetadata& metadata, size_t field_index = 0) {
+    assert(!metadata.fill_value.empty());
     internal::ChunkGridSpecification::ComponentList components;
-    auto& component = components.emplace_back(
-        internal::AsyncWriteArray::Spec{
-            std::move(fill_value),
-            // Since all dimensions are resizable, just
-            // specify unbounded `valid_data_bounds`.
-            Box<>(metadata.rank),
-            ContiguousLayoutPermutation<>(
-                span(metadata.inner_order.data(), metadata.rank))},
-        metadata.chunk_shape);
-    component.array_spec.fill_value_comparison_kind =
-        EqualityComparisonKind::identical;
-    return internal::ChunkGridSpecification(std::move(components));
+
+    // Special case: void access - create single component for entire struct
+    if (field_index == kVoidFieldIndex) {
+      // For void access, create a zero-filled byte array as the fill value
+      const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
+      auto base_fill_value = AllocateArray(
+          span<const Index, 1>({bytes_per_element}), c_order, value_init,
+          dtype_v<tensorstore::dtypes::byte_t>);
+
+      // Broadcast to shape [unbounded, unbounded, ..., struct_size]
+      std::vector<Index> target_shape(metadata.rank, kInfIndex);
+      target_shape.push_back(bytes_per_element);
+      auto chunk_fill_value =
+          BroadcastArray(base_fill_value, BoxView<>(target_shape)).value();
+
+      // Add extra dimension for struct size in bytes
+      std::vector<Index> chunk_shape_with_bytes = metadata.chunk_shape;
+      chunk_shape_with_bytes.push_back(bytes_per_element);
+
+      // Create permutation: copy existing inner_order and add the new dimension
+      std::vector<DimensionIndex> void_permutation(metadata.rank + 1);
+      std::copy_n(metadata.inner_order.data(), metadata.rank,
+                  void_permutation.begin());
+      void_permutation[metadata.rank] = metadata.rank;  // Add the bytes dimension
+
+      auto& component = components.emplace_back(
+          internal::AsyncWriteArray::Spec{
+              std::move(chunk_fill_value),
+              // Since all dimensions are resizable, just
+              // specify unbounded `valid_data_bounds`.
+              Box<>(metadata.rank + 1),
+              ContiguousLayoutPermutation<>(
+                  span(void_permutation.data(), metadata.rank + 1))},
+          chunk_shape_with_bytes);
+      component.array_spec.fill_value_comparison_kind =
+          EqualityComparisonKind::identical;
+      return internal::ChunkGridSpecification(std::move(components));
+    }
+
+    // Create one component per field using the shared helper
+    return CreateFieldGridSpecification(
+        metadata.chunk_shape, metadata.data_type,
+        span(metadata.inner_order.data(), metadata.rank), &metadata.fill_value);
   }
 
   std::string FormatKey(span<const Index> grid_indices) const final {
@@ -314,7 +530,9 @@ class DataCacheBase
         [](std::string& out, DimensionIndex dim, Index grid_index) {
           absl::StrAppend(&out, grid_index);
         },
-        rank, grid_indices);
+        rank,
+        grid_indices.subspan(
+            0, std::min<ptrdiff_t>(grid_indices.size(), rank)));
     return key;
   }
 
@@ -327,17 +545,21 @@ class DataCacheBase
         key_prefix_.size() +
         (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault ? 2
                                                                         : 0));
-    return internal::ParseGridIndexKeyWithDimensionSeparator(
-        metadata.chunk_key_encoding.separator,
-        [](std::string_view part, DimensionIndex dim, Index& grid_index) {
-          if (part.empty() || !absl::ascii_isdigit(part.front()) ||
-              !absl::ascii_isdigit(part.back()) ||
-              !absl::SimpleAtoi(part, &grid_index)) {
-            return false;
-          }
-          return true;
-        },
-        key, grid_indices);
+    if (!internal::ParseGridIndexKeyWithDimensionSeparator(
+            metadata.chunk_key_encoding.separator,
+            [](std::string_view part, DimensionIndex dim, Index& grid_index) {
+              if (part.empty() || !absl::ascii_isdigit(part.front()) ||
+                  !absl::ascii_isdigit(part.back()) ||
+                  !absl::SimpleAtoi(part, &grid_index)) {
+                return false;
+              }
+              return true;
+            },
+            key, grid_indices.subspan(0, metadata.rank))) {
+      return false;
+    }
+    std::fill(grid_indices.begin() + metadata.rank, grid_indices.end(), 0);
+    return true;
   }
 
   Index MinGridIndexForLexicographicalOrder(
@@ -370,9 +592,13 @@ class DataCacheBase
 
   Result<IndexTransform<>> GetExternalToInternalTransform(
       const void* metadata_ptr, size_t component_index) override {
-    assert(component_index == 0);
+    // component_index corresponds to the selected field index
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+    const auto& field = metadata.data_type.fields[component_index];
     const DimensionIndex rank = metadata.rank;
+    const DimensionIndex field_rank = field.field_shape.size();
+    const DimensionIndex total_rank = rank + field_rank;
+
     std::string_view normalized_dimension_names[kMaxRank];
     for (DimensionIndex i = 0; i < rank; ++i) {
       if (const auto& name = metadata.dimension_names[i]; name.has_value()) {
@@ -380,11 +606,20 @@ class DataCacheBase
       }
     }
     auto builder =
-        tensorstore::IndexTransformBuilder<>(rank, rank)
-            .input_shape(metadata.shape)
-            .input_labels(span(&normalized_dimension_names[0], rank));
-    builder.implicit_upper_bounds(true);
+        tensorstore::IndexTransformBuilder<>(total_rank, total_rank);
+    std::vector<Index> full_shape = metadata.shape;
+    full_shape.insert(full_shape.end(), field.field_shape.begin(),
+                      field.field_shape.end());
+    builder.input_shape(full_shape);
+    builder.input_labels(span(&normalized_dimension_names[0], total_rank));
+
+    DimensionSet implicit_upper_bounds(false);
     for (DimensionIndex i = 0; i < rank; ++i) {
+      implicit_upper_bounds[i] = true;
+    }
+    builder.implicit_upper_bounds(implicit_upper_bounds);
+
+    for (DimensionIndex i = 0; i < total_rank; ++i) {
       builder.output_single_input_dimension(i, i);
     }
     return builder.Finalize();
@@ -393,10 +628,16 @@ class DataCacheBase
   absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
                                 const void* metadata_ptr,
                                 size_t component_index) override {
-    assert(component_index == 0);
     auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     spec.metadata_constraints = ZarrMetadataConstraints(metadata);
+    // Encode selected_field from component_index
+    if (metadata.data_type.has_fields &&
+        component_index < metadata.data_type.fields.size()) {
+      spec.selected_field = metadata.data_type.fields[component_index].name;
+    } else {
+      spec.selected_field.clear();
+    }
     return absl::OkStatus();
   }
 
@@ -404,9 +645,16 @@ class DataCacheBase
       const void* metadata_ptr, size_t component_index) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     ChunkLayout chunk_layout;
+    SpecRankAndFieldInfo info;
+    info.chunked_rank = metadata.rank;
+    if (!metadata.data_type.fields.empty()) {
+      info.field = &metadata.data_type.fields[0];
+    }
+    std::optional<span<const Index>> chunk_shape_span;
+    chunk_shape_span.emplace(metadata.chunk_shape.data(),
+                             metadata.chunk_shape.size());
     TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
-        metadata.data_type, metadata.rank, metadata.chunk_shape,
-        &metadata.codec_specs, chunk_layout));
+        info, chunk_shape_span, &metadata.codec_specs, chunk_layout));
     TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Finalize());
     return chunk_layout;
   }
@@ -426,7 +674,10 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
                          std::string key_prefix, U&&... arg)
       : ChunkCacheImpl(std::move(initializer.store), std::forward<U>(arg)...),
         DataCacheBase(std::move(initializer), std::move(key_prefix)),
-        grid_(DataCacheBase::GetChunkGridSpecification(metadata())) {}
+        grid_(DataCacheBase::GetChunkGridSpecification(
+            metadata(),
+            // Check if this is void access by examining the dtype
+            ChunkCacheImpl::open_as_void_ ? kVoidFieldIndex : false)) {}
 
   const internal::LexicographicalGridIndexKeyParser& GetChunkStorageKeyParser()
       final {
@@ -436,6 +687,8 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
   internal::Cache& cache() final { return *this; }
 
   ZarrChunkCache& zarr_chunk_cache() final { return *this; }
+
+  bool is_void_access() const final { return ChunkCacheImpl::open_as_void_; }
 
   const internal::ChunkGridSpecification& grid() const override {
     return grid_;
@@ -450,6 +703,81 @@ class ZarrDataCache : public ChunkCacheImpl, public DataCacheBase {
 
   const Executor& executor() const override {
     return DataCacheBase::executor();
+  }
+
+  // Override to handle void access - check the dtype to see if this is void
+  Result<IndexTransform<>> GetExternalToInternalTransform(
+      const void* metadata_ptr, size_t component_index) override {
+    if (ChunkCacheImpl::open_as_void_) {
+      const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+      // For void access, create transform with extra bytes dimension
+      const DimensionIndex rank = metadata.rank;
+      const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
+      const DimensionIndex total_rank = rank + 1;
+
+      std::string_view normalized_dimension_names[kMaxRank];
+      for (DimensionIndex i = 0; i < rank; ++i) {
+        if (const auto& name = metadata.dimension_names[i]; name.has_value()) {
+          normalized_dimension_names[i] = *name;
+        }
+      }
+
+      auto builder =
+          tensorstore::IndexTransformBuilder<>(total_rank, total_rank);
+      std::vector<Index> full_shape = metadata.shape;
+      full_shape.push_back(bytes_per_element);
+      builder.input_shape(full_shape);
+      builder.input_labels(span(&normalized_dimension_names[0], total_rank));
+
+      // Set implicit bounds: array dims have implicit upper bounds (resizable),
+      // bytes dim has explicit bounds (fixed size).
+      builder.implicit_lower_bounds(DimensionSet(false));
+      builder.implicit_upper_bounds(DimensionSet::UpTo(rank));
+
+      for (DimensionIndex i = 0; i < total_rank; ++i) {
+        builder.output_single_input_dimension(i, i);
+      }
+      return builder.Finalize();
+    }
+
+    // Not void access - delegate to base implementation
+    return DataCacheBase::GetExternalToInternalTransform(metadata_ptr,
+                                                         component_index);
+  }
+
+  void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
+                          DimensionSet& implicit_lower_bounds,
+                          DimensionSet& implicit_upper_bounds) override {
+    if (ChunkCacheImpl::open_as_void_) {
+      const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+      const DimensionIndex rank = metadata.rank;
+      const Index bytes_per_element = metadata.data_type.bytes_per_outer_element;
+
+      assert(bounds.rank() == rank + 1);
+      std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
+      std::copy(metadata.shape.begin(), metadata.shape.end(),
+                bounds.shape().begin());
+      bounds.shape()[rank] = bytes_per_element;
+
+      implicit_lower_bounds = false;
+      implicit_upper_bounds = DimensionSet::UpTo(rank);
+      return;
+    }
+
+    // Not void access - delegate to base implementation
+    DataCacheBase::GetChunkGridBounds(metadata_ptr, bounds, implicit_lower_bounds,
+                                      implicit_upper_bounds);
+  }
+
+  absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
+                                const void* metadata_ptr,
+                                size_t component_index) override {
+    TENSORSTORE_RETURN_IF_ERROR(
+        DataCacheBase::GetBoundSpecData(spec_base, metadata_ptr, component_index));
+    auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
+    // Preserve the open_as_void flag so spec round-trips correctly
+    spec.open_as_void = ChunkCacheImpl::open_as_void_;
+    return absl::OkStatus();
   }
 
   internal::ChunkGridSpecification grid_;
@@ -472,7 +800,41 @@ class ZarrDriver : public ZarrDriverBase {
   Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) override {
     const auto& metadata = this->metadata();
-    return metadata.fill_value;
+    if (metadata.fill_value.empty()) {
+      return SharedArray<const void>();
+    }
+
+    // For void access, convert fill_value to byte array representation.
+    // This is similar to v2's CreateVoidMetadata fill_value handling.
+    // In zarr3, endianness is handled by the codec chain, so we just copy
+    // the raw bytes from each field's fill_value.
+    if (static_cast<DataCacheBase*>(cache())->is_void_access()) {
+      const Index nbytes = metadata.data_type.bytes_per_outer_element;
+      auto byte_fill = AllocateArray<std::byte>({nbytes}, c_order, value_init);
+
+      // Copy bytes from each field's fill_value at their respective offsets
+      for (size_t field_i = 0; field_i < metadata.data_type.fields.size();
+           ++field_i) {
+        const auto& field = metadata.data_type.fields[field_i];
+        if (field_i >= metadata.fill_value.size() ||
+            !metadata.fill_value[field_i].valid()) {
+          continue;
+        }
+        const auto& fill_value = metadata.fill_value[field_i];
+        // Copy the raw bytes from the fill_value to the byte array
+        std::memcpy(byte_fill.data() + field.byte_offset,
+                    fill_value.data(),
+                    field.num_bytes);
+      }
+
+      return byte_fill;
+    }
+
+    size_t index = this->component_index();
+    if (index >= metadata.fill_value.size()) {
+        return absl::OutOfRangeError("Component index out of bounds");
+    }
+    return metadata.fill_value[index];
   }
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
@@ -492,7 +854,8 @@ class ZarrDriver : public ZarrDriverBase {
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) override {
     return cache()->zarr_chunk_cache().Read(
-        {std::move(request), GetCurrentDataStalenessBound(),
+        {std::move(request), this->component_index(),
+         GetCurrentDataStalenessBound(),
          this->fill_value_mode_.fill_missing_data_reads},
         std::move(receiver));
   }
@@ -502,7 +865,7 @@ class ZarrDriver : public ZarrDriverBase {
       AnyFlowReceiver<absl::Status, internal::WriteChunk, IndexTransform<>>
           receiver) override {
     return cache()->zarr_chunk_cache().Write(
-        {std::move(request),
+        {std::move(request), this->component_index(),
          this->fill_value_mode_.store_data_equal_to_fill_value},
         std::move(receiver));
   }
@@ -569,11 +932,15 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 
   std::string GetDataCacheKey(const void* metadata) override {
     std::string result;
+    const auto& zarr_metadata = *static_cast<const ZarrMetadata*>(metadata);
     internal::EncodeCacheKey(
-        &result, spec().store.path,
-        static_cast<const ZarrMetadata*>(metadata)->GetCompatibilityKey());
+        &result,
+        spec().store.path,
+        zarr_metadata.GetCompatibilityKey(),
+        spec().open_as_void ? "void" : "normal");
     return result;
   }
+
 
   Result<std::shared_ptr<const void>> Create(const void* existing_metadata,
                                              CreateOptions options) override {
@@ -583,7 +950,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto metadata,
         internal_zarr3::GetNewMetadata(spec().metadata_constraints,
-                                       spec().schema),
+                                       spec().schema, spec().selected_field, spec().open_as_void),
         _.Format("Cannot create using specified \"metadata\" and schema"));
     return metadata;
   }
@@ -597,9 +964,23 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
       DataCacheInitializer&& initializer) override {
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
+    ZarrDType dtype = spec().open_as_void ? metadata.GetVoidAccessDType()
+                                          : metadata.data_type;
+    // Determine if original dtype is structured (multiple fields).
+    // This affects how void access handles codec operations.
+    const bool original_is_structured = metadata.data_type.fields.size() > 1;
+
+    // Get the original dtype for void access encoding (needed by EncodeChunk).
+    // For non-structured types, this is the single field's dtype.
+    DataType original_dtype = !metadata.data_type.fields.empty()
+                                  ? metadata.data_type.fields[0].dtype
+                                  : DataType{};
+
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
-        metadata.codec_state, /*data_cache_pool=*/*cache_pool());
+        metadata.codec_state, dtype,
+        /*data_cache_pool=*/*cache_pool(),
+        spec().open_as_void, original_is_structured, original_dtype);
   }
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
@@ -607,9 +988,16 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().metadata_constraints));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto field_index,
+        GetFieldIndex(metadata.data_type, spec().selected_field, spec().open_as_void));
     TENSORSTORE_RETURN_IF_ERROR(
-        ValidateMetadataSchema(metadata, spec().schema));
-    return 0;
+        ValidateMetadataSchema(metadata, field_index, spec().schema));
+    if (field_index == kVoidFieldIndex) {
+      // Void access uses component 0 (raw bytes).
+      return static_cast<size_t>(0);
+    }
+    return field_index;
   }
 };
 

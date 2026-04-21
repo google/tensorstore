@@ -51,6 +51,7 @@ namespace {
 namespace jb = ::tensorstore::internal_json_binding;
 
 using ::tensorstore::ChunkLayout;
+using ::tensorstore::DataType;
 using ::tensorstore::CodecSpec;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
@@ -68,6 +69,8 @@ using ::tensorstore::dtypes::float32_t;
 using ::tensorstore::dtypes::float64_t;
 using ::tensorstore::internal::uint_t;
 using ::tensorstore::internal_zarr3::FillValueJsonBinder;
+using ::tensorstore::internal_zarr3::GetSpecRankAndFieldInfo;
+using ::tensorstore::internal_zarr3::ZarrDType;
 using ::tensorstore::internal_zarr3::ZarrMetadata;
 using ::tensorstore::internal_zarr3::ZarrMetadataConstraints;
 using ::testing::HasSubstr;
@@ -90,13 +93,29 @@ using ::testing::MatchesRegex;
   };
 }
 
+ZarrDType MakeScalarZarrDType(DataType dtype) {
+  ZarrDType dtype_info;
+  dtype_info.has_fields = false;
+  dtype_info.fields.resize(1);
+  auto& field = dtype_info.fields[0];
+  field.dtype = dtype;
+  field.encoded_dtype = std::string(dtype.name());
+  field.flexible_shape.clear();
+  field.field_shape.clear();
+  field.num_inner_elements = 1;
+  field.byte_offset = 0;
+  field.num_bytes = dtype->size;
+  return dtype_info;
+}
+
 TEST(MetadataTest, ParseValid) {
   auto json = GetBasicMetadata();
   tensorstore::TestJsonBinderRoundTripJsonOnly<ZarrMetadata>({json});
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
   EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
   EXPECT_THAT(metadata.chunk_shape, ::testing::ElementsAre(1, 2, 3));
-  EXPECT_THAT(metadata.data_type, tensorstore::dtype_v<uint16_t>);
+  ASSERT_EQ(metadata.data_type.fields.size(), 1);
+  EXPECT_EQ(tensorstore::dtype_v<uint16_t>, metadata.data_type.fields[0].dtype);
   EXPECT_THAT(metadata.dimension_names,
               ::testing::ElementsAre("a", std::nullopt, ""));
   EXPECT_THAT(metadata.user_attributes, MatchesJson({{"a", "b"}, {"c", "d"}}));
@@ -115,7 +134,8 @@ TEST(MetadataTest, ParseValidNoDimensionNames) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
   EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
   EXPECT_THAT(metadata.chunk_shape, ::testing::ElementsAre(1, 2, 3));
-  EXPECT_THAT(metadata.data_type, tensorstore::dtype_v<uint16_t>);
+  ASSERT_EQ(metadata.data_type.fields.size(), 1);
+  EXPECT_EQ(tensorstore::dtype_v<uint16_t>, metadata.data_type.fields[0].dtype);
   EXPECT_THAT(metadata.dimension_names,
               ::testing::ElementsAre(std::nullopt, std::nullopt, std::nullopt));
   EXPECT_THAT(metadata.user_attributes, MatchesJson({{"a", "b"}, {"c", "d"}}));
@@ -418,7 +438,7 @@ Result<std::shared_ptr<const ZarrMetadata>> TestGetNewMetadata(
   TENSORSTORE_RETURN_IF_ERROR(status);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto constraints, ZarrMetadataConstraints::FromJson(constraints_json));
-  return GetNewMetadata(constraints, schema);
+  return GetNewMetadata(constraints, schema, /*selected_field=*/{}, /*open_as_void=*/false);
 }
 
 TEST(GetNewMetadataTest, DuplicateDimensionNames) {
@@ -486,7 +506,9 @@ TEST(MetadataTest, DataTypes) {
     }
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
                                      ZarrMetadata::FromJson(json));
-    EXPECT_EQ(tensorstore::GetDataType(data_type_name), metadata.data_type);
+    ASSERT_FALSE(metadata.data_type.fields.empty());
+    EXPECT_EQ(tensorstore::GetDataType(data_type_name),
+              metadata.data_type.fields[0].dtype);
   }
 }
 
@@ -503,18 +525,20 @@ TEST(MetadataTest, InvalidDataType) {
 template <typename T>
 void TestFillValue(std::vector<std::pair<T, ::nlohmann::json>> cases,
                    bool skip_to_json = false) {
-  auto binder = FillValueJsonBinder{dtype_v<T>};
+  FillValueJsonBinder binder(MakeScalarZarrDType(dtype_v<T>));
   for (const auto& [value, json] : cases) {
     SharedArray<const void> expected_fill_value =
         tensorstore::MakeScalarArray(value);
     if (!skip_to_json) {
-      EXPECT_THAT(jb::ToJson(expected_fill_value, binder),
+      std::vector<SharedArray<const void>> vec{expected_fill_value};
+      EXPECT_THAT(jb::ToJson(vec, binder),
                   ::testing::Optional(MatchesJson(json)))
           << "value=" << value << ", json=" << json;
     }
-    EXPECT_THAT(jb::FromJson<SharedArray<const void>>(json, binder),
-                ::testing::Optional(
-                    tensorstore::MatchesArrayIdentically(expected_fill_value)))
+    EXPECT_THAT(
+        jb::FromJson<std::vector<SharedArray<const void>>>(json, binder),
+        ::testing::Optional(::testing::ElementsAre(
+            tensorstore::MatchesArrayIdentically(expected_fill_value))))
         << "json=" << json;
   }
 }
@@ -522,10 +546,11 @@ void TestFillValue(std::vector<std::pair<T, ::nlohmann::json>> cases,
 template <typename T>
 void TestFillValueInvalid(
     std::vector<std::pair<::nlohmann::json, std::string>> cases) {
-  auto binder = FillValueJsonBinder{dtype_v<T>};
+  FillValueJsonBinder binder(MakeScalarZarrDType(dtype_v<T>));
   for (const auto& [json, matcher] : cases) {
     EXPECT_THAT(
-        jb::FromJson<SharedArray<const void>>(json, binder).status(),
+        jb::FromJson<std::vector<SharedArray<const void>>>(json, binder)
+            .status(),
         StatusIs(absl::StatusCode::kInvalidArgument, MatchesRegex(matcher)))
         << "json=" << json;
   }
@@ -622,6 +647,311 @@ TEST(FillValueTest, Float64) {
   TestFloatFillValue<float64_t, complex128_t>(
       /*default_nan_bits=*/0x7ff8000000000000,
       /*other_nan_bits=*/0x7ff8000000000001);
+}
+
+TEST(FillValueTest, StructuredObjectFormat) {
+  // Create a structured dtype with two fields
+  ZarrDType dtype;
+  dtype.has_fields = true;
+  dtype.fields.resize(2);
+  dtype.fields[0].name = "x";
+  dtype.fields[0].dtype = dtype_v<uint8_t>;
+  dtype.fields[0].encoded_dtype = "uint8";
+  dtype.fields[0].byte_offset = 0;
+  dtype.fields[0].num_bytes = 1;
+  dtype.fields[0].num_inner_elements = 1;
+  dtype.fields[1].name = "y";
+  dtype.fields[1].dtype = dtype_v<int16_t>;
+  dtype.fields[1].encoded_dtype = "int16";
+  dtype.fields[1].byte_offset = 1;
+  dtype.fields[1].num_bytes = 2;
+  dtype.fields[1].num_inner_elements = 1;
+  dtype.bytes_per_outer_element = 3;
+
+  FillValueJsonBinder binder(dtype);
+
+  // Test parsing object format
+  ::nlohmann::json object_json = {{"x", 42}, {"y", -100}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto fill_values,
+      jb::FromJson<std::vector<SharedArray<const void>>>(object_json, binder));
+  ASSERT_EQ(fill_values.size(), 2);
+  EXPECT_EQ(*static_cast<const uint8_t*>(fill_values[0].data()), 42);
+  EXPECT_EQ(*static_cast<const int16_t*>(fill_values[1].data()), -100);
+
+  // Test serialization uses object format
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto output_json,
+                                   jb::ToJson(fill_values, binder));
+  EXPECT_TRUE(output_json.is_object());
+  EXPECT_EQ(output_json["x"], 42);
+  EXPECT_EQ(output_json["y"], -100);
+}
+
+TEST(FillValueTest, StructuredLegacyArrayFormat) {
+  // Create a structured dtype with two fields
+  ZarrDType dtype;
+  dtype.has_fields = true;
+  dtype.fields.resize(2);
+  dtype.fields[0].name = "a";
+  dtype.fields[0].dtype = dtype_v<int32_t>;
+  dtype.fields[0].encoded_dtype = "int32";
+  dtype.fields[0].byte_offset = 0;
+  dtype.fields[0].num_bytes = 4;
+  dtype.fields[0].num_inner_elements = 1;
+  dtype.fields[1].name = "b";
+  dtype.fields[1].dtype = dtype_v<float32_t>;
+  dtype.fields[1].encoded_dtype = "float32";
+  dtype.fields[1].byte_offset = 4;
+  dtype.fields[1].num_bytes = 4;
+  dtype.fields[1].num_inner_elements = 1;
+  dtype.bytes_per_outer_element = 8;
+
+  FillValueJsonBinder binder(dtype);
+
+  // Test parsing legacy array format
+  ::nlohmann::json array_json = {123, 1.5};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto fill_values,
+      jb::FromJson<std::vector<SharedArray<const void>>>(array_json, binder));
+  ASSERT_EQ(fill_values.size(), 2);
+  EXPECT_EQ(*static_cast<const int32_t*>(fill_values[0].data()), 123);
+  EXPECT_FLOAT_EQ(*static_cast<const float32_t*>(fill_values[1].data()), 1.5f);
+}
+
+TEST(FillValueTest, StructuredObjectOmittedFieldsError) {
+  // Create a structured dtype with two fields
+  ZarrDType dtype;
+  dtype.has_fields = true;
+  dtype.fields.resize(2);
+  dtype.fields[0].name = "present";
+  dtype.fields[0].dtype = dtype_v<int32_t>;
+  dtype.fields[0].encoded_dtype = "int32";
+  dtype.fields[0].byte_offset = 0;
+  dtype.fields[0].num_bytes = 4;
+  dtype.fields[0].num_inner_elements = 1;
+  dtype.fields[1].name = "omitted";
+  dtype.fields[1].dtype = dtype_v<int32_t>;
+  dtype.fields[1].encoded_dtype = "int32";
+  dtype.fields[1].byte_offset = 4;
+  dtype.fields[1].num_bytes = 4;
+  dtype.fields[1].num_inner_elements = 1;
+  dtype.bytes_per_outer_element = 8;
+
+  FillValueJsonBinder binder(dtype);
+
+  // Test parsing object format with only one field specified
+  ::nlohmann::json partial_json = {{"present", 42}};
+  EXPECT_THAT(
+      jb::FromJson<std::vector<SharedArray<const void>>>(partial_json, binder),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Missing required field \"omitted\"")));
+}
+
+TEST(GetSpecRankAndFieldInfoTest, SelectedFieldAndOpenAsVoidMutuallyExclusive) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(2);
+  constraints.data_type->fields[0].name = "x";
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->fields[1].name = "y";
+  constraints.data_type->fields[1].dtype = dtype_v<int32_t>;
+  constraints.data_type->bytes_per_outer_element = 8;
+
+  Schema schema;
+  EXPECT_THAT(
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"x", schema,
+                              /*open_as_void=*/true),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("\"field\" and \"open_as_void\" are mutually "
+                         "exclusive")));
+}
+
+TEST(GetSpecRankAndFieldInfoTest, VoidAccessSetsFieldRankToOne) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(2);
+  constraints.data_type->fields[0].name = "x";
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->fields[1].name = "y";
+  constraints.data_type->fields[1].dtype = dtype_v<int32_t>;
+  constraints.data_type->bytes_per_outer_element = 8;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto info,
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"", schema,
+                              /*open_as_void=*/true));
+  EXPECT_EQ(info.chunked_rank, 2);
+  EXPECT_EQ(info.field_rank, 1);
+  EXPECT_EQ(info.full_rank, 3);
+  EXPECT_EQ(info.field, nullptr);
+}
+
+TEST(GetSpecRankAndFieldInfoTest, SelectedFieldWithFieldShape) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(2);
+  constraints.data_type->fields[0].name = "a";
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->fields[1].name = "b";
+  constraints.data_type->fields[1].dtype = dtype_v<float16_t>;
+  constraints.data_type->fields[1].field_shape = {2};  // r16 has shape [2]
+  constraints.data_type->bytes_per_outer_element = 8;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto info,
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"b", schema,
+                              /*open_as_void=*/false));
+  EXPECT_EQ(info.chunked_rank, 2);
+  EXPECT_EQ(info.field_rank, 1);  // field_shape [2] adds 1 dimension
+  EXPECT_EQ(info.full_rank, 3);
+  ASSERT_NE(info.field, nullptr);
+  EXPECT_EQ(info.field->name, "b");
+}
+
+TEST(GetSpecRankAndFieldInfoTest, DeriveRankFromSchema) {
+  ZarrMetadataConstraints constraints;
+  // No rank in constraints
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = false;
+  constraints.data_type->fields.resize(1);
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->bytes_per_outer_element = 4;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::RankConstraint{3}));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto info,
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"", schema,
+                              /*open_as_void=*/false));
+  EXPECT_EQ(info.full_rank, 3);
+  // chunked_rank derived from full_rank - field_rank (0)
+  EXPECT_EQ(info.chunked_rank, 3);
+  EXPECT_EQ(info.field_rank, 0);
+}
+
+TEST(GetSpecRankAndFieldInfoTest, SingleFieldDefaultsCorrectly) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = false;
+  constraints.data_type->fields.resize(1);
+  constraints.data_type->fields[0].dtype = dtype_v<float32_t>;
+  constraints.data_type->fields[0].field_shape = {3, 3};  // e.g., 3x3 matrix
+  constraints.data_type->bytes_per_outer_element = 36;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto info,
+      GetSpecRankAndFieldInfo(constraints, /*selected_field=*/"", schema,
+                              /*open_as_void=*/false));
+  EXPECT_EQ(info.chunked_rank, 2);
+  EXPECT_EQ(info.field_rank, 2);  // field_shape [3, 3]
+  EXPECT_EQ(info.full_rank, 4);
+  ASSERT_NE(info.field, nullptr);
+}
+
+TEST(ValidateSpecRankAndFieldInfoTest, DerivesFullRank) {
+  tensorstore::internal_zarr3::SpecRankAndFieldInfo info;
+  info.chunked_rank = 2;
+  info.field_rank = 1;
+  // full_rank is dynamic
+
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::ValidateSpecRankAndFieldInfo(info));
+  EXPECT_EQ(info.full_rank, 3);
+}
+
+TEST(ValidateSpecRankAndFieldInfoTest, DerivesChunkedRank) {
+  tensorstore::internal_zarr3::SpecRankAndFieldInfo info;
+  info.full_rank = 5;
+  info.field_rank = 2;
+  // chunked_rank is dynamic
+
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::ValidateSpecRankAndFieldInfo(info));
+  EXPECT_EQ(info.chunked_rank, 3);
+}
+
+TEST(ValidateSpecRankAndFieldInfoTest, InconsistentRanksError) {
+  tensorstore::internal_zarr3::SpecRankAndFieldInfo info;
+  info.full_rank = 5;
+  info.chunked_rank = 2;
+  info.field_rank = 1;  // 2 + 1 != 5
+
+  EXPECT_THAT(
+      tensorstore::internal_zarr3::ValidateSpecRankAndFieldInfo(info),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("not compatible with metadata")));
+}
+
+TEST(TrySetMetadataConstraintsOnSchemaTest, SetsScalarDtype) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = false;
+  constraints.data_type->fields.resize(1);
+  constraints.data_type->fields[0].dtype = dtype_v<float32_t>;
+  constraints.data_type->bytes_per_outer_element = 4;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
+          constraints, /*selected_field=*/"", /*open_as_void=*/false, schema));
+
+  EXPECT_EQ(schema.dtype(), dtype_v<float32_t>);
+  EXPECT_EQ(schema.rank(), 2);
+}
+
+TEST(TrySetMetadataConstraintsOnSchemaTest, RejectsSchemaForStructuredType) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(2);
+  constraints.data_type->fields[0].name = "x";
+  constraints.data_type->fields[0].dtype = dtype_v<int32_t>;
+  constraints.data_type->fields[1].name = "y";
+  constraints.data_type->fields[1].dtype = dtype_v<int32_t>;
+  constraints.data_type->bytes_per_outer_element = 8;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<int32_t>));
+
+  EXPECT_THAT(
+      tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
+          constraints, /*selected_field=*/"x", /*open_as_void=*/false, schema),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("schema dtype must be unspecified for structured")));
+}
+
+TEST(TrySetMetadataConstraintsOnSchemaTest, SetsRankWithFieldShape) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.data_type.emplace();
+  constraints.data_type->has_fields = true;
+  constraints.data_type->fields.resize(1);
+  constraints.data_type->fields[0].name = "matrix";
+  constraints.data_type->fields[0].dtype = dtype_v<float32_t>;
+  constraints.data_type->fields[0].field_shape = {4, 4};
+  constraints.data_type->bytes_per_outer_element = 64;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
+          constraints, /*selected_field=*/"matrix", /*open_as_void=*/false,
+          schema));
+
+  // Rank should be metadata_rank (2) + field_shape rank (2) = 4
+  EXPECT_EQ(schema.rank(), 4);
 }
 
 }  // namespace
