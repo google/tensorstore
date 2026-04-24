@@ -41,9 +41,15 @@ individually against an allowlist.
 1. **Data type becomes byte**: The array's data type is replaced with the
    ``byte`` data type (a 1-byte, endian-invariant type) during codec pipeline
    resolution, regardless of the original data type.
-2. **Additional dimension added**: A new innermost dimension is appended to
-   represent the byte layout of each element. The size of this dimension equals
-   the number of bytes per element in the original data type.
+2. **Uninterpreted byte dimension added**: A new innermost **uninterpreted
+   byte dimension** (hereafter "byte dimension") is appended to represent
+   the byte layout of each element. The size of this dimension equals the
+   number of bytes per element in the original data type. The byte dimension
+   is pinned as the innermost axis of the resulting TensorStore: array-to-array
+   codecs (e.g., ``transpose``, and the proposed ``reshape``) operate only on
+   the original chunked dimensions and never permute, reshape, or otherwise
+   touch the byte dimension. This keeps the per-element byte layout stable
+   regardless of any codec-level shuffling of the outer dimensions.
 3. **Codec pipeline resolved with raw type**: The codec pipeline is resolved
    using the substituted ``byte`` data type. After resolution, the
    implementation verifies that:
@@ -74,8 +80,10 @@ interface level:
 
 1. **Data type becomes byte**: The resulting TensorStore has dtype
    :json:schema:`~dtype.byte`.
-2. **Additional dimension added**: A new innermost dimension is appended, with
-   size equal to the number of bytes per element in the original structured type.
+2. **Uninterpreted byte dimension added**: A new innermost **uninterpreted
+   byte dimension** is appended, with size equal to the number of bytes per
+   element in the original structured type. As in the zarr v3 case, this
+   dimension is always the innermost axis of the resulting TensorStore.
 3. **Codecs are preserved**: All encoding/decoding (including compression) is
    still applied based on the original structured data type. The raw bytes
    exposed are the *decoded* element bytes, not the raw compressed chunk data.
@@ -86,19 +94,27 @@ Dimension Transformation
 For an array with shape ``[D0, D1, ..., Dn]`` and a data type of size ``B``
 bytes per element, opening with ``open_as_void`` produces a TensorStore with:
 
-- Shape: ``[D0, D1, ..., Dn, B]``
+- Shape: ``[D0, D1, ..., Dn, B]``, where the trailing axis of size ``B`` is
+  the **uninterpreted byte dimension**.
 - Rank: original rank + 1
 - Data type: ``byte``
+
+The uninterpreted byte dimension is always the innermost axis of the
+resulting TensorStore and represents the raw byte layout of a single element
+of the original data type. It is invariant under array-to-array codecs: any
+such codecs in the pipeline act solely on the original chunked dimensions
+``[D0, D1, ..., Dn]``.
 
 .. admonition:: Example: Zarr v2 structured dtype
    :class: example
 
    A zarr v2 array with structured dtype ``[("x", "|u1"), ("y", "<i2")]``
    (total 3 bytes per element) and shape ``[100, 200]`` becomes a ``byte``
-   array with shape ``[100, 200, 3]`` when opened with ``open_as_void``.
+   array with shape ``[100, 200, 3]`` when opened with ``open_as_void``, where
+   the trailing axis of size 3 is the uninterpreted byte dimension.
 
-   The byte layout follows the original field ordering, so for each element
-   position ``[i, j]``:
+   The layout along the byte dimension follows the original field ordering,
+   so for each element position ``[i, j]``:
 
    - Byte ``[i, j, 0]`` contains field ``x`` (1 byte)
    - Bytes ``[i, j, 1:3]`` contain field ``y`` (2 bytes, little-endian)
@@ -108,14 +124,18 @@ bytes per element, opening with ``open_as_void`` produces a TensorStore with:
 
    A zarr v3 array with ``float32`` dtype (4 bytes per element) and shape
    ``[100, 200]`` becomes a ``byte`` array with shape ``[100, 200, 4]`` when
-   opened with ``open_as_void``.
+   opened with ``open_as_void``. The trailing axis of size 4 is the
+   uninterpreted byte dimension and contains the raw bytes of each ``float32``
+   value in its stored byte order.
 
 .. admonition:: Example: Zarr v3 struct dtype
    :class: example
 
    A zarr v3 array with a ``struct`` dtype containing two int32 fields
    (total 8 bytes per element) and shape ``[50, 50]`` becomes a ``byte``
-   array with shape ``[50, 50, 8]`` when opened with ``open_as_void``.
+   array with shape ``[50, 50, 8]`` when opened with ``open_as_void``, where
+   the trailing axis of size 8 is the uninterpreted byte dimension spanning
+   the full packed struct layout.
 
 Usage
 -----
@@ -181,11 +201,12 @@ restrictions are a consequence of the validation rules:
   ``bytes`` and ``sharding_indexed`` (possibly nested) codecs are supported.
   Any other array-to-bytes codec will result in a validation error.
 - **``array -> array`` codecs**: Any codec that preserves the ``byte`` data
-  type is permitted. In practice, this means codecs that shuffle elements
-  without transforming them (e.g., ``transpose``, and the proposed ``reshape``)
-  are supported. Codecs that transform element data, such as ``scale_offset``,
-  ``cast_value``, and ``bitround``, alter the data type and will fail
-  validation.
+  type is permitted. Such codecs operate on the original chunked dimensions
+  only and leave the uninterpreted byte dimension untouched. In practice,
+  this means codecs that rearrange elements without transforming them (e.g.,
+  ``transpose``, and the proposed ``reshape``) are supported. Codecs that
+  transform element data, such as ``scale_offset``, ``cast_value``, and
+  ``bitround``, alter the data type and will fail validation.
 - **``bytes -> bytes`` codecs**: All bytes-to-bytes codecs (e.g., ``gzip``,
   ``blosc``, ``zstd``, ``crc32c``) are allowed and operate unchanged.
 
