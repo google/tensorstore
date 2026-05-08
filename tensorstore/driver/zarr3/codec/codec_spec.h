@@ -69,6 +69,7 @@
 
 #include <array>
 #include <optional>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
@@ -136,10 +137,17 @@ struct ArrayDataTypeAndShapeInfo {
   DataType dtype;
 
   // Specifies the rank of the array on which the codec will operate.
+  // This excludes any inner dimensions contributed by `dtype`.
   DimensionIndex rank = dynamic_rank;
 
   // Specifies the shape of the array on which the codec will operate.
+  // When present, has exactly `rank` valid entries.
   std::optional<std::array<Index, kMaxRank>> shape;
+
+  // Inner trailing dimensions contributed by `dtype` (e.g. for `open_as_void`).
+  // These are propagated unchanged through "array -> array" codecs and consumed
+  // by the "array -> bytes" codec.
+  std::vector<Index> inner_shape;
 };
 
 // Specifies information about the chunk layout that must be propagated through
@@ -166,6 +174,7 @@ struct ArrayCodecResolveParameters {
   DataType dtype;
 
   // Specifies the rank of the array on which the codec will operate.
+  // This excludes any inner dimensions contributed by `dtype`.
   DimensionIndex rank;
 
   // Specifies the fill value.
@@ -179,6 +188,9 @@ struct ArrayCodecResolveParameters {
 
   // Specifies required inner order.
   std::optional<std::array<DimensionIndex, kMaxRank>> inner_order;
+
+  // Inner trailing dimensions contributed by `dtype` (e.g. for `open_as_void`).
+  std::vector<Index> inner_shape;
 };
 
 // Spec for an "array -> array" codec.

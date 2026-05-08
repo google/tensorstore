@@ -78,8 +78,10 @@ struct ZarrDType {
     /// specified as an array.  Otherwise, is empty.
     std::string name;
 
-    /// Inner array dimensions of this field, derived from `flexible_shape`.
-    /// Used for raw_bytes dtype and open_as_void byte dimensions.
+    /// Inner array dimensions of this field (derived from `flexible_shape`).
+    ///
+    /// Empty for scalar fields.  For raw byte fields (e.g. `r24`) this is
+    /// surfaced as trailing dimensions in the user-visible array.
     std::vector<Index> field_shape;
 
     /// Product of `field_shape` dimensions (derived value).

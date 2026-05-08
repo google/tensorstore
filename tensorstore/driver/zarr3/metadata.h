@@ -53,10 +53,6 @@
 namespace tensorstore {
 namespace internal_zarr3 {
 
-// Sentinel value for field_index indicating access to the raw byte "void" view
-// of a structured array.
-constexpr size_t kVoidFieldIndex = size_t(-1);
-
 // Defines how chunks map to keys in the underlying kvstore.
 //
 // https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#chunk-key-encoding
@@ -130,14 +126,26 @@ struct ZarrMetadata {
 
   std::string GetCompatibilityKey() const;
 
-  /// Returns a synthetic ZarrDType for void access, representing the raw bytes
-  /// of the original data type. The returned dtype has a single unnamed field
-  /// of byte type with shape equal to bytes_per_outer_element.
-  ZarrDType GetVoidAccessDType() const;
-
   ZarrCodecChain::Ptr codecs;
   ZarrCodecChain::PreparedState::Ptr codec_state;
   std::array<DimensionIndex, kMaxRank> inner_order;
+
+  // Inner trailing dimensions appended to `chunk_shape` to form the codec
+  // resolution shape.  Empty for plain scalar single-field arrays.  For
+  // single-field arrays whose dtype carries an `rN`-style `field_shape`, this
+  // mirrors that per-field `field_shape`.  For multi-field structs and for
+  // the byte-substituted view produced by `GetVoidMetadata`, this is
+  // `{bytes_per_outer_element}` -- the single trailing byte dimension that
+  // pins the struct's interleaved byte layout into the codec chain.
+  //
+  // Conceptually `chunk_shape` describes the array's chunked dimensions and
+  // `field_shape` describes any inner (per-element) dimensions; the two are
+  // concatenated to form the rank the codec chain is resolved against.  This
+  // replaces the previous implicit "shape prefix" handling where the trailing
+  // byte dimension was ad-hoc-appended at every consumer site.
+  //
+  // Not part of the persisted zarr.json -- derived during `ValidateMetadata`.
+  std::vector<Index> field_shape;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrMetadata,
                                           internal_json_binding::NoOptions,
@@ -231,15 +239,20 @@ Result<internal::CodecDriverSpec::PtrT<TensorStoreCodecSpec>> GetEffectiveCodec(
 CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata);
 
 /// Validates that `schema` is compatible with `metadata`.
-///
-/// \param field_index The field index, or `kVoidFieldIndex` for void access.
-///     For void access, only rank and dtype are validated (dtype must be byte).
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
                                     size_t field_index, const Schema& schema);
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
                                     const Schema& schema);
 
 /// Converts `metadata_constraints` to a full metadata object.
+///
+/// When `open_as_void` is true, the persisted metadata is constructed for the
+/// natural data type representation (i.e. unchanged from `metadata_constraints`),
+/// but the user-visible domain rank is extended by one trailing byte dimension.
+/// `GetNewMetadata` strips that trailing dimension from the user-supplied schema
+/// shape/chunk_layout, and skips the dtype/domain compatibility check against
+/// the schema (the caller is expected to re-validate against the void-substituted
+/// metadata).
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if any required fields are
 ///     unspecified.
@@ -250,9 +263,59 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
 
 absl::Status ValidateDataType(DataType dtype);
 
+/// Returns the index of `selected_field` within `dtype.fields`.
+///
+/// If `selected_field` is empty, requires the dtype to have a single field and
+/// returns 0.
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
-                             std::string_view selected_field,
-                             bool open_as_void);
+                             std::string_view selected_field);
+
+/// Returns a synthetic single-field "void view" `ZarrDType` whose only field
+/// has dtype `byte` and `field_shape = {bytes_per_outer_element}`.  This is
+/// the representation handed to the chunk cache when `open_as_void` is in use,
+/// and is treated by all downstream code as a normal `field_shape`-bearing
+/// field (no separate `open_as_void` plumbing required).
+ZarrDType MakeVoidDType(Index bytes_per_outer_element);
+
+/// Packs `per_field_fill` (one fill value per field of `dtype`) into a single
+/// 1-D byte `SharedArray` of length `dtype.bytes_per_outer_element`, following
+/// the struct's `byte_offset` layout.
+///
+/// The byte order of each typed field in the packed buffer matches the byte
+/// order that the bytes codec would write for a chunk encoded under the
+/// supplied `codec_specs` -- for a single non-byte scalar field this means
+/// the codec's configured endian; for multi-field structs and `rN` raw byte
+/// fields it is native-endian (matching the chunk cache's CopyArray-based
+/// per-field packing path).  This guarantees that the synthetic void fill
+/// returned for a missing chunk is byte-identical to what `read` returns for
+/// a present chunk.
+SharedArray<const void> MakeVoidFillValue(
+    const ZarrDType& dtype, const ZarrCodecChainSpec& codec_specs,
+    span<const SharedArray<const void>> per_field_fill);
+
+/// Returns a void-access view of `metadata`: a new `ZarrMetadata` whose
+/// `data_type` is `MakeVoidDType(...)`, whose `fill_value` is a single byte
+/// array packed from each original field's per-field fill, and whose codec
+/// chain has been re-resolved against the substituted byte data type with an
+/// extra innermost dimension of `bytes_per_outer_element`.  Persisted state
+/// (`shape`, `chunk_shape`, `chunk_key_encoding`, etc.) is unchanged.
+///
+/// Also validates that the resulting codec chain is acceptable for raw byte
+/// access (see `ValidateVoidCodecChain`).
+Result<std::shared_ptr<const ZarrMetadata>> GetVoidMetadata(
+    const ZarrMetadata& metadata);
+
+/// Validates that `codec_specs` is compatible with `open_as_void` access.
+///
+/// The only structural precondition is that, after unwinding any
+/// `sharding_indexed` layers, the innermost array-to-bytes codec is the
+/// `bytes` codec.  The previous "preserves dtype" and "preserves trailing
+/// byte dim" rules on array-to-array codecs are now structurally guaranteed
+/// by the codec resolution architecture: the chain exposes inner
+/// (`field_shape`) dims to a-to-a codecs only via `inner_shape` (which they
+/// must propagate verbatim), and `Resolve` forces every a-to-a codec to
+/// preserve the substituted byte dtype.
+absl::Status ValidateVoidCodecChain(const ZarrCodecChainSpec& codec_specs);
 
 struct SpecRankAndFieldInfo {
   /// Full rank of the TensorStore, if known. Equal to the chunked rank plus
@@ -262,7 +325,7 @@ struct SpecRankAndFieldInfo {
   /// Number of chunked dimensions (the array's original rank).
   DimensionIndex chunked_rank = dynamic_rank;
 
-  /// Number of field dimensions (from field_shape, or 1 for void access).
+  /// Number of field dimensions contributed by `field->field_shape`.
   DimensionIndex field_rank = dynamic_rank;
 
   /// Data type field, or `nullptr` if unknown.
@@ -274,7 +337,9 @@ absl::Status ValidateSpecRankAndFieldInfo(SpecRankAndFieldInfo& info);
 
 /// Gets spec rank and field info from metadata constraints.
 ///
-/// When `open_as_void` is true, `info.field_rank` is 1 (the bytes dimension).
+/// When `open_as_void` is true, `info.field_rank` is 1 (the synthetic bytes
+/// dimension contributed by `MakeVoidDType`).  Otherwise `info.field_rank` is
+/// derived from the selected field's `field_shape`.
 ///
 /// \param metadata Metadata constraints.
 /// \param selected_field The field to access. Must be empty if `open_as_void`

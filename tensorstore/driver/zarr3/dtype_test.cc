@@ -39,6 +39,7 @@ using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::ChooseBaseDType;
 using ::tensorstore::internal_zarr3::ParseBaseDType;
 using ::tensorstore::internal_zarr3::ParseDType;
+using ::tensorstore::internal_zarr3::ValidateDType;
 using ::tensorstore::internal_zarr3::ZarrDType;
 using ::testing::HasSubstr;
 using ::tensorstore::IsOkAndHolds;
@@ -226,6 +227,15 @@ TEST(ParseDType, DuplicateFieldName) {
       ParseDType(::nlohmann::json::array_t{{"x", "int16"}, {"x", "uint16"}}),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Field name \"x\" occurs more than once")));
+}
+
+TEST(ValidateDType, RejectsEmptyFields) {
+  // Bypassing the JSON parsers leaves `fields` empty; downstream code
+  // assumes `fields[0]` exists.
+  ZarrDType empty;
+  EXPECT_THAT(ValidateDType(empty),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("must have at least one field")));
 }
 
 TEST(ParseDType, NonStringFieldBaseDType) {
@@ -581,6 +591,74 @@ TEST(ParseDType, StructuredWithFieldShape) {
                        /*.num_bytes=*/2});
 
   EXPECT_THAT(ParseDType(input), IsOkAndHolds(expected));
+}
+
+TEST(ParseBaseDType, R24FieldShape) {
+  // r24 = 24 bits = 3 bytes; field_shape encodes that as {3}.
+  EXPECT_THAT("r24", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>,
+                                       std::vector<Index>{3}));
+}
+
+TEST(ParseDType, R24SingleField) {
+  // r24 as a top-level dtype yields a single field with field_shape {3}.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType("r24"));
+  ASSERT_EQ(dtype.fields.size(), 1);
+  EXPECT_FALSE(dtype.has_fields);
+  EXPECT_EQ(dtype.bytes_per_outer_element, 3);
+  EXPECT_EQ(dtype.fields[0].dtype, dtype_v<tensorstore::dtypes::byte_t>);
+  EXPECT_EQ(dtype.fields[0].num_bytes, 3);
+  EXPECT_EQ(dtype.fields[0].num_inner_elements, 3);
+  EXPECT_THAT(dtype.fields[0].field_shape, ::testing::ElementsAre(3));
+}
+
+TEST(ParseDType, R24InStruct) {
+  // r24 nested inside a struct: bytes pack normally, field_shape preserved.
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields", ::nlohmann::json::array(
+                       {{{"name", "tag"}, {"data_type", "uint8"}},
+                        {{"name", "rgb"}, {"data_type", "r24"}}})}}}};
+
+  ZarrDType expected{};
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"uint8",
+                        /*.dtype=*/dtype_v<uint8_t>,
+                        /*.flexible_shape=*/{}},
+                       /*.name=*/"tag",
+                       /*.field_shape=*/{},
+                       /*.num_inner_elements=*/1,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/1});
+  AddFieldToZarrDType(expected,
+                      {{/*.encoded_dtype=*/"r24",
+                        /*.dtype=*/dtype_v<tensorstore::dtypes::byte_t>,
+                        /*.flexible_shape=*/{3}},
+                       /*.name=*/"rgb",
+                       /*.field_shape=*/{3},
+                       /*.num_inner_elements=*/3,
+                       /*.byte_offset=*/0,
+                       /*.num_bytes=*/3});
+
+  EXPECT_THAT(ParseDType(input), IsOkAndHolds(expected));
+  EXPECT_EQ(expected.bytes_per_outer_element, 4);
+  EXPECT_EQ(expected.fields[1].byte_offset, 1);
+}
+
+TEST(ParseDType, R24SerializationRoundTrip) {
+  ::nlohmann::json input = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields", ::nlohmann::json::array(
+                       {{{"name", "rgb"}, {"data_type", "r24"}}})}}}};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(input));
+  ::nlohmann::json output = dtype;
+  // Field's data_type round-trips as the literal "r24" string.
+  EXPECT_EQ(output["configuration"]["fields"][0]["data_type"], "r24");
+  // Re-parsing the serialized form yields the same dtype.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto reparsed, ParseDType(output));
+  EXPECT_EQ(dtype, reparsed);
 }
 
 TEST(ParseDType, ManyFieldsOffsets) {

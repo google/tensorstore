@@ -27,7 +27,6 @@
 #include <nlohmann/json.hpp>
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
-#include "absl/strings/ascii.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
@@ -43,7 +42,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -76,12 +74,10 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   if (dtype == "complex128")
     return make_dtype(dtype_v<::tensorstore::dtypes::complex128_t>);
 
-  // Handle r<N> raw bits type where N is number of bits (must be multiple of 8).
-  // Parse N as uint64_t so values above 2^31-1 (e.g. r8589934592) are accepted;
-  // (std::numeric_limits<uint64_t>::max() / 8) < std::numeric_limits<Index>::max(),
-  // so num_bits / 8 always fits in Index.
-  if (!dtype.empty() && dtype[0] == 'r' && dtype.size() > 1 &&
-      absl::ascii_isdigit(dtype[1])) {
+  // Handle r<N> raw bits type, where N is a positive multiple of 8.  Parse N
+  // as uint64_t to accept values above INT32_MAX (e.g. `r8589934592`);
+  // `uint64_t::max() / 8` fits in `Index`.
+  if (!dtype.empty() && dtype[0] == 'r') {
     std::string_view suffix = dtype.substr(1);
     uint64_t num_bits = 0;
     if (!absl::SimpleAtoi(suffix, &num_bits) || num_bits == 0 ||
@@ -93,16 +89,8 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
     }
     Index num_bytes = static_cast<Index>(num_bits / 8);
     return ZarrDType::BaseDType{std::string(dtype),
-                                 dtype_v<::tensorstore::dtypes::byte_t>,
-                                 {num_bytes}};
-  }
-
-  // Handle bare "r" - must have a number after it
-  if (!dtype.empty() && dtype[0] == 'r') {
-    return absl::InvalidArgumentError(absl::StrFormat(
-        "%s data type is invalid; expected r<N> where N is a positive "
-        "multiple of 8",
-        dtype));
+                                dtype_v<::tensorstore::dtypes::byte_t>,
+                                {num_bytes}};
   }
 
   constexpr std::string_view kSupported =
@@ -115,9 +103,8 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
 
 namespace {
 
-/// Validates that a fields array contains at least one field.
-///
-/// Per the Zarr v3 struct extension, the "fields" array MUST contain at least one field.
+/// Validates that a fields array contains at least one field, as required by
+/// the Zarr v3 struct extension.
 ///
 /// \param size The number of fields in the array.
 /// \param type_name The data type name for error messages ("struct" or
@@ -132,17 +119,12 @@ absl::Status ValidateFieldsArrayNotEmpty(const ptrdiff_t size,
   return absl::OkStatus();
 }
 
-/// Parses a single struct field.
-///
-/// Expected format: {"name": "field_name", "data_type": "float32"}
-///
-/// Note: Nested struct types and extension data types with configuration
-/// (e.g., numpy.datetime64) are valid per the Zarr v3 spec but are not
-/// currently supported by TensorStore.
+/// Parses a single struct field of the form
+/// `{"name": "field_name", "data_type": "float32"}`.
 ///
 /// \param field_json The JSON object representing a single field.
 /// \param field[out] Filled with the parsed field on success.
-/// \error `absl::StatusCode::kInvalidArgument` if `field_json` is not valid
+/// \error `absl::StatusCode::kInvalidArgument` if `field_json` is not valid.
 absl::Status ParseObjectField(const nlohmann::json& field_json,
                               ZarrDType::Field& field) {
   if (!field_json.is_object()) {
@@ -366,6 +348,12 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
 }  // namespace
 
 absl::Status ValidateDType(ZarrDType& dtype) {
+  // JSON parsers always produce at least one field; this guards programmatic
+  // constructions, since downstream consumers index `fields[0]` directly.
+  if (dtype.fields.empty()) {
+    return absl::FailedPreconditionError(
+        "zarr3 data type must have at least one field");
+  }
   dtype.bytes_per_outer_element = 0;
   for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
     auto& field = dtype.fields[field_i];
@@ -462,20 +450,12 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
     return make_dtype("complex64");
   if (dtype == dtype_v<::tensorstore::dtypes::complex128_t>)
     return make_dtype("complex128");
+  // `byte_t` and `char_t` both encode as `r8`; `r8` parses back to `byte_t`.
   if (dtype == dtype_v<::tensorstore::dtypes::byte_t>) {
-    ZarrDType::BaseDType base_dtype;
-    base_dtype.dtype = dtype;
-    base_dtype.encoded_dtype = "r8";
-    base_dtype.flexible_shape = {1};
-    return base_dtype;
+    return D{"r8", dtype, {1}};
   }
   if (dtype == dtype_v<::tensorstore::dtypes::char_t>) {
-    // char_t encodes as r8, which parses back to byte_t
-    ZarrDType::BaseDType base_dtype;
-    base_dtype.dtype = dtype_v<::tensorstore::dtypes::byte_t>;
-    base_dtype.encoded_dtype = "r8";
-    base_dtype.flexible_shape = {1};
-    return base_dtype;
+    return D{"r8", dtype_v<::tensorstore::dtypes::byte_t>, {1}};
   }
   return absl::InvalidArgumentError(
       absl::StrFormat("Data type not supported: %v", dtype));

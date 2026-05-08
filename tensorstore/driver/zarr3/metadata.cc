@@ -48,9 +48,12 @@
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/zarr3/codec/bytes.h"
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/driver/zarr3/codec/sharding_indexed.h"
+#include "tensorstore/internal/data_type_endian_conversion.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/driver/zarr3/default_nan.h"
 #include "tensorstore/driver/zarr3/dtype.h"
 #include "tensorstore/driver/zarr3/name_configuration_json_binder.h"
@@ -284,10 +287,8 @@ absl::Status FillValueJsonBinder::operator()(
     std::vector<SharedArray<const void>>* obj, ::nlohmann::json* j) const {
   obj->resize(dtype.fields.size());
   if (dtype.fields.size() == 1) {
-    // Special case: raw_bytes (single field with byte_t and flexible shape)
     if (dtype.fields[0].dtype.id() == DataTypeId::byte_t &&
         !dtype.fields[0].flexible_shape.empty()) {
-      // Handle base64-encoded fill value for raw_bytes
       if (!j->is_string()) {
         return absl::InvalidArgumentError(
             "Expected base64-encoded string for raw_bytes fill_value");
@@ -298,7 +299,6 @@ absl::Status FillValueJsonBinder::operator()(
             "Expected valid base64-encoded fill value, but received: %s",
             j->dump()));
       }
-      // Verify size matches expected byte array size
       Index expected_size = dtype.fields[0].num_inner_elements;
       if (static_cast<Index>(b64_decoded.size()) != expected_size) {
         return absl::InvalidArgumentError(absl::StrFormat(
@@ -306,7 +306,6 @@ absl::Status FillValueJsonBinder::operator()(
             "%d bytes",
             expected_size, b64_decoded.size()));
       }
-      // Create fill value array
       auto fill_arr = AllocateArray(dtype.fields[0].field_shape, c_order,
                                    default_init, dtype.fields[0].dtype);
       std::memcpy(fill_arr.data(), b64_decoded.data(), b64_decoded.size());
@@ -316,9 +315,7 @@ absl::Status FillValueJsonBinder::operator()(
           DecodeSingle(*j, dtype.fields[0].dtype, (*obj)[0]));
     }
   } else {
-    // For structured types, handle object, array, and base64-encoded string
     if (j->is_object()) {
-      // Zarr v3 struct extension format: {"field_name": value, ...}
       for (size_t i = 0; i < dtype.fields.size(); ++i) {
         const auto& field_name = dtype.fields[i].name;
         if (j->contains(field_name)) {
@@ -330,14 +327,12 @@ absl::Status FillValueJsonBinder::operator()(
         }
       }
     } else if (j->is_string()) {
-      // Legacy: decode base64-encoded fill value for entire struct
       std::string b64_decoded;
       if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
         return absl::InvalidArgumentError(absl::StrFormat(
             "Expected valid base64-encoded fill value, but received: %s",
             j->dump()));
       }
-      // Verify size matches expected struct size
       if (static_cast<Index>(b64_decoded.size()) !=
           dtype.bytes_per_outer_element) {
         return absl::InvalidArgumentError(absl::StrFormat(
@@ -345,7 +340,6 @@ absl::Status FillValueJsonBinder::operator()(
             "%d bytes",
             dtype.bytes_per_outer_element, b64_decoded.size()));
       }
-      // Extract per-field fill values from decoded bytes
       for (size_t i = 0; i < dtype.fields.size(); ++i) {
         const auto& field = dtype.fields[i];
         auto arr = AllocateArray(span<const Index, 0>{}, c_order, default_init,
@@ -355,7 +349,6 @@ absl::Status FillValueJsonBinder::operator()(
         (*obj)[i] = std::move(arr);
       }
     } else if (j->is_array()) {
-      // Legacy: array format [value1, value2, ...]
       if (j->size() != dtype.fields.size()) {
         return internal_json::ExpectedError(
             *j, absl::StrFormat("array of size %d", dtype.fields.size()));
@@ -379,7 +372,6 @@ absl::Status FillValueJsonBinder::operator()(
   if (dtype.fields.size() == 1) {
     return EncodeSingle((*obj)[0], dtype.fields[0].dtype, *j);
   }
-  // Structured fill value - use object format per spec
   *j = ::nlohmann::json::object();
   for (size_t i = 0; i < dtype.fields.size(); ++i) {
     ::nlohmann::json item;
@@ -405,7 +397,6 @@ absl::Status FillValueJsonBinder::DecodeSingle(::nlohmann::json& j,
       AllocateArray(span<const Index, 0>{}, c_order, default_init, data_type);
   void* data = arr.data();
   out = std::move(arr);
-  // Special handling for byte_t: use uint8_t functions since they're binary compatible
   auto type_id = data_type.id();
   if (type_id == DataTypeId::byte_t) {
     type_id = DataTypeId::uint8_t;
@@ -431,7 +422,6 @@ absl::Status FillValueJsonBinder::EncodeSingle(
     return absl::InvalidArgumentError(
         "data_type must be specified before fill_value");
   }
-  // Special handling for byte_t: use uint8_t functions since they're binary compatible
   auto type_id = data_type.id();
   if (type_id == DataTypeId::byte_t) {
     type_id = DataTypeId::uint8_t;
@@ -648,47 +638,218 @@ std::string ZarrMetadata::GetCompatibilityKey() const {
       .dump();
 }
 
-ZarrDType ZarrMetadata::GetVoidAccessDType() const {
+namespace {
+// Walks `codec_specs` (transparently descending through any
+// `sharding_indexed` layers) and returns the endianness selected by the
+// innermost `bytes` codec.  Falls back to `endian::native` when no `bytes`
+// codec is reachable, when the codec was resolved against an endian-invariant
+// data type, or when the user did not pin an explicit endian.
+endian GetBytesCodecEndianImpl(const ZarrCodecChainSpec& codec_specs) {
+  const ZarrArrayToBytesCodecSpec* a2b = codec_specs.array_to_bytes.get();
+  while (a2b != nullptr) {
+    if (auto* sharding = dynamic_cast<const ShardingIndexedCodecSpec*>(a2b)) {
+      const ZarrCodecChainSpec* sub = sharding->GetSubChunkCodecs();
+      if (sub == nullptr) break;
+      a2b = sub->array_to_bytes.get();
+      continue;
+    }
+    if (auto* bytes_codec = dynamic_cast<const BytesCodecSpec*>(a2b)) {
+      return bytes_codec->options.endianness.value_or(endian::native);
+    }
+    break;
+  }
+  return endian::native;
+}
+
+// Returns the byte order in which a per-field typed fill must be written
+// when packed into the synthetic byte view consumed under `open_as_void`.
+//
+// The void byte buffer must mirror what would be read from a present chunk
+// after the original codec chain encoded it:
+//
+//   * Single scalar field (`field_shape` empty, dtype != byte): the chunk
+//     cache hands the typed array to the bytes codec, which performs endian
+//     conversion to the codec's configured endian.  The fill must follow.
+//   * Multi-field struct, or `rN` raw byte field: the chunk cache packs
+//     bytes via `CopyArray` (native-endian memcpy) and the bytes codec at
+//     the bottom is resolved against `byte` (endian-invariant).  Fill must
+//     therefore stay native-endian.
+endian SelectFillTargetEndian(const ZarrDType& dtype,
+                              const ZarrCodecChainSpec& codec_specs) {
+  if (dtype.fields.size() == 1 && dtype.fields[0].field_shape.empty()) {
+    return GetBytesCodecEndianImpl(codec_specs);
+  }
+  return endian::native;
+}
+}  // namespace
+
+SharedArray<const void> MakeVoidFillValue(
+    const ZarrDType& dtype, const ZarrCodecChainSpec& codec_specs,
+    span<const SharedArray<const void>> per_field_fill) {
+  const Index nbytes = dtype.bytes_per_outer_element;
+  auto byte_fill = AllocateArray(span<const Index, 1>({nbytes}), c_order,
+                                 value_init,
+                                 dtype_v<tensorstore::dtypes::byte_t>);
+  auto* dst = static_cast<std::byte*>(byte_fill.data());
+  const endian target_endian = SelectFillTargetEndian(dtype, codec_specs);
+  const size_t num_fields = std::min<size_t>(
+      dtype.fields.size(), static_cast<size_t>(per_field_fill.size()));
+  for (size_t i = 0; i < num_fields; ++i) {
+    const auto& field = dtype.fields[i];
+    const auto& fill = per_field_fill[i];
+    if (!fill.valid()) continue;
+    ArrayView<void> dst_view(
+        ElementPointer<void>{static_cast<void*>(dst + field.byte_offset),
+                             field.dtype},
+        fill.layout());
+    internal::EncodeArray(fill, dst_view, target_endian);
+  }
+  return byte_fill;
+}
+
+ZarrDType MakeVoidDType(Index bytes_per_outer_element) {
   return ZarrDType{
       /*.has_fields=*/false,
       /*.fields=*/{ZarrDType::Field{
           ZarrDType::BaseDType{"", dtype_v<tensorstore::dtypes::byte_t>,
-                               {data_type.bytes_per_outer_element}},
+                               {bytes_per_outer_element}},
           /*.name=*/"",
-          /*.field_shape=*/{data_type.bytes_per_outer_element},
-          /*.num_inner_elements=*/data_type.bytes_per_outer_element,
+          /*.field_shape=*/{bytes_per_outer_element},
+          /*.num_inner_elements=*/bytes_per_outer_element,
           /*.byte_offset=*/0,
-          /*.num_bytes=*/data_type.bytes_per_outer_element}},
-      /*.bytes_per_outer_element=*/data_type.bytes_per_outer_element};
+          /*.num_bytes=*/bytes_per_outer_element}},
+      /*.bytes_per_outer_element=*/bytes_per_outer_element};
 }
 
-absl::Status ValidateMetadata(ZarrMetadata& metadata) {
-  // Determine if this is a structured type with multiple fields
-  const bool is_structured =
-      metadata.data_type.fields.size() > 1 ||
-      (metadata.data_type.fields.size() == 1 &&
-       !metadata.data_type.fields[0].field_shape.empty());
-
-  // Build the codec shape - for structured types, include bytes dimension
-  std::vector<Index> codec_shape(metadata.chunk_shape.begin(),
-                                 metadata.chunk_shape.end());
-  if (is_structured) {
-    codec_shape.push_back(metadata.data_type.bytes_per_outer_element);
+absl::Status ValidateVoidCodecChain(const ZarrCodecChainSpec& codec_specs) {
+  // After the inner-shape architecture change, array-to-array codecs operate
+  // strictly on the chunked dimensions and propagate the inner dims via the
+  // `inner_shape` resolve parameter; they cannot rearrange or reshape the
+  // byte dim, and the chain Resolve enforces that they preserve the dtype.
+  // The only structural precondition this function still checks is that the
+  // innermost array-to-bytes codec (after unwinding any `sharding_indexed`
+  // layers) is the `bytes` codec, since other a-to-b codecs would alter the
+  // on-disk byte layout in ways `open_as_void` cannot reproduce.
+  const ZarrArrayToBytesCodecSpec* a2b = codec_specs.array_to_bytes.get();
+  while (auto* sharding =
+             dynamic_cast<const ShardingIndexedCodecSpec*>(a2b)) {
+    const ZarrCodecChainSpec* sub = sharding->GetSubChunkCodecs();
+    if (sub == nullptr) {
+      return absl::InvalidArgumentError(
+          "open_as_void: nested sharding_indexed codec is missing its "
+          "sub-chunk codec specification");
+    }
+    a2b = sub->array_to_bytes.get();
   }
+  if (dynamic_cast<const BytesCodecSpec*>(a2b) == nullptr) {
+    return absl::InvalidArgumentError(
+        "open_as_void requires the innermost array-to-bytes codec to be the "
+        "`bytes` codec (after unwrapping any sharding_indexed layers).  "
+        "Codecs that alter the byte representation of the chunk (e.g. "
+        "blosc-direct, future bitround) are not supported under "
+        "open_as_void.");
+  }
+  return absl::OkStatus();
+}
+
+Result<std::shared_ptr<const ZarrMetadata>> GetVoidMetadata(
+    const ZarrMetadata& metadata) {
+  // Per the zarr v3 open_as_void spec, raw byte access is supported for any
+  // data type; the only structural precondition is that the codec chain is
+  // re-resolvable under the substituted `byte` data type.
+  TENSORSTORE_RETURN_IF_ERROR(ValidateVoidCodecChain(metadata.codec_specs));
+
+  auto void_metadata = std::make_shared<ZarrMetadata>(metadata);
+
+  // Replace the data type with the synthetic single-field byte view.  This is
+  // what every downstream consumer (chunk cache, codec resolution, schema
+  // validation) sees.  The persisted on-disk metadata is untouched: this view
+  // exists only in memory.
+  void_metadata->data_type =
+      MakeVoidDType(metadata.data_type.bytes_per_outer_element);
+
+  // Pack the per-field fill values into a single byte array following the
+  // struct's byte_offset layout, mirroring how a chunk is laid out on disk.
+  // Endian conversion (when applicable) is handled by `MakeVoidFillValue`.
+  void_metadata->fill_value = {
+      MakeVoidFillValue(metadata.data_type, metadata.codec_specs,
+                        metadata.fill_value)};
+
+  // Cleared so that `ValidateMetadata` rederives `field_shape` from the
+  // newly-substituted dtype rather than carrying over the natural metadata's
+  // value.  In every supported case this rederives to the same numeric value
+  // (the per-field field_shape on the synthetic byte field), but staging it
+  // through the standard derivation keeps the void path uniform with parse-
+  // time metadata.
+  void_metadata->field_shape.clear();
+
+  // Force re-resolution of the codec chain against the byte data type.  The
+  // codec chain spec itself (endianness selections, sharding parameters, etc.)
+  // is unchanged; only the resolved codec instances and prepared state are
+  // recomputed.
+  void_metadata->codecs.reset();
+  void_metadata->codec_state.reset();
+  TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*void_metadata));
+  return void_metadata;
+}
+
+namespace {
+// Populate `metadata.field_shape` (the codec-view inner trailing dimensions)
+// from the data type, unless the caller pre-populated it (e.g.
+// `GetVoidMetadata` pins it to `{bytes_per_outer_element}` after substituting
+// the dtype).  For single-field rN-style dtypes we hoist the per-field
+// `field_shape`; for multi-field structs we use the single flat byte trailing
+// dim.  Single-field scalar dtypes contribute no inner codec dimensions.
+//
+// This is the single source of truth for `field_shape`.  Call sites that need
+// it (both at parse time via `ValidateMetadata` and at create time via
+// `GetNewMetadata`) defer to this helper rather than recomputing locally.
+void DeriveFieldShape(ZarrMetadata& metadata) {
+  if (!metadata.field_shape.empty()) return;
+  const auto& dtype = metadata.data_type;
+  if (dtype.fields.size() == 1 && !dtype.fields[0].field_shape.empty()) {
+    metadata.field_shape.assign(dtype.fields[0].field_shape.begin(),
+                                dtype.fields[0].field_shape.end());
+  } else if (dtype.fields.size() > 1) {
+    metadata.field_shape.push_back(dtype.bytes_per_outer_element);
+  }
+}
+}  // namespace
+
+absl::Status ValidateMetadata(ZarrMetadata& metadata) {
+  DeriveFieldShape(metadata);
+
+  // The codec chain is resolved at the *chunked* rank only.  Inner trailing
+  // dimensions contributed by the dtype's field_shape (multi-field structs,
+  // `rN` raw byte fields, `open_as_void`'s byte substitution) travel via
+  // `decoded.inner_shape`: array-to-array codecs propagate this field
+  // unchanged and cannot operate on it; the leaf array-to-bytes codec
+  // consumes it for byte-stream sizing.
+  //
+  // At runtime the chunk cache still hands extended-rank arrays to the
+  // codec chain, so each codec's runtime state is built at runtime rank
+  // (chunked + inner) inside its `Resolve` step.
+  const bool has_field_shape = !metadata.field_shape.empty();
+
+  std::vector<Index> runtime_shape(metadata.chunk_shape.begin(),
+                                   metadata.chunk_shape.end());
+  runtime_shape.insert(runtime_shape.end(), metadata.field_shape.begin(),
+                       metadata.field_shape.end());
 
   if (!metadata.codecs) {
     ArrayCodecResolveParameters decoded;
-    if (!is_structured) {
-      decoded.dtype = metadata.data_type.fields[0].dtype;
-      decoded.rank = metadata.rank;
-    } else {
-      // For structured types, use byte dtype with extra dimension
-      decoded.dtype = dtype_v<std::byte>;
-      decoded.rank = metadata.rank + 1;
+    decoded.dtype =
+        has_field_shape ? dtype_v<std::byte> : metadata.data_type.fields[0].dtype;
+    decoded.rank = metadata.rank;
+    decoded.inner_shape = metadata.field_shape;
+    // `read_chunk_shape` is at the chunked rank only; sharding_indexed's
+    // internal `sub_chunk_shape` is at this same rank now too.
+    {
+      auto& read_chunk_shape = decoded.read_chunk_shape.emplace();
+      std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
+                  read_chunk_shape.begin());
     }
-    // Fill value for codec resolve might be complex.
-    // For structured types, create a byte fill value
-    if (metadata.fill_value.size() == 1 && !is_structured) {
+    if (metadata.fill_value.size() == 1 && !has_field_shape) {
       decoded.fill_value = metadata.fill_value[0];
     }
 
@@ -698,20 +859,14 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
         metadata.codec_specs.Resolve(std::move(decoded), encoded));
   }
 
-  // Get codec chunk layout info.
+  // Get codec chunk layout info at the chunked rank.
   ArrayDataTypeAndShapeInfo array_info;
-  if (!is_structured) {
-    array_info.dtype = metadata.data_type.fields[0].dtype;
-    array_info.rank = metadata.rank;
-    std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
-                array_info.shape.emplace().begin());
-  } else {
-    array_info.dtype = dtype_v<std::byte>;
-    array_info.rank = metadata.rank + 1;
-    auto& shape = array_info.shape.emplace();
-    std::copy_n(metadata.chunk_shape.begin(), metadata.rank, shape.begin());
-    shape[metadata.rank] = metadata.data_type.bytes_per_outer_element;
-  }
+  array_info.dtype =
+      has_field_shape ? dtype_v<std::byte> : metadata.data_type.fields[0].dtype;
+  array_info.rank = metadata.rank;
+  array_info.inner_shape = metadata.field_shape;
+  std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
+              array_info.shape.emplace().begin());
 
   ArrayCodecChunkLayoutInfo layout_info;
   TENSORSTORE_RETURN_IF_ERROR(
@@ -726,7 +881,7 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   }
 
   TENSORSTORE_ASSIGN_OR_RETURN(metadata.codec_state,
-                               metadata.codecs->Prepare(codec_shape));
+                               metadata.codecs->Prepare(runtime_shape));
   return absl::OkStatus();
 }
 
@@ -734,7 +889,6 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
                               const ZarrMetadataConstraints& constraints) {
   using internal::MetadataMismatchError;
   if (constraints.data_type) {
-    // Compare ZarrDType
     if (::nlohmann::json(*constraints.data_type) !=
         ::nlohmann::json(metadata.data_type)) {
       return MetadataMismatchError(
@@ -743,7 +897,6 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
     }
   }
   if (constraints.fill_value) {
-    // Compare vector of arrays
     if (constraints.fill_value->size() != metadata.fill_value.size()) {
       return MetadataMismatchError("fill_value size",
                                    constraints.fill_value->size(),
@@ -823,31 +976,7 @@ std::string GetFieldNames(const ZarrDType& dtype) {
 }  // namespace
 
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
-                             std::string_view selected_field,
-                             bool open_as_void) {
-  // Special case: open_as_void requests raw byte access.
-  // Only allowed for structured dtypes (multiple fields or single field with
-  // field_shape like raw_bytes). Simple scalar types like int16 are not
-  // supported - use the normal typed access instead.
-  if (open_as_void) {
-    if (dtype.fields.empty()) {
-      return absl::FailedPreconditionError(
-          "Requested void access but dtype has no fields");
-    }
-    // Check if dtype is structured: multiple fields OR single field with
-    // field_shape (e.g., raw_bytes)
-    const bool is_structured =
-        dtype.fields.size() > 1 ||
-        (dtype.fields.size() == 1 && !dtype.fields[0].field_shape.empty());
-    if (!is_structured) {
-      return absl::InvalidArgumentError(
-          "open_as_void is only supported for structured dtypes (multiple "
-          "fields or raw_bytes). For simple scalar types, use normal typed "
-          "access instead.");
-    }
-    return kVoidFieldIndex;
-  }
-
+                             std::string_view selected_field) {
   if (selected_field.empty()) {
     if (dtype.fields.size() != 1) {
       return absl::FailedPreconditionError(absl::StrFormat(
@@ -873,14 +1002,8 @@ SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
                                              size_t field_index) {
   SpecRankAndFieldInfo info;
   info.chunked_rank = metadata.rank;
-  if (field_index == kVoidFieldIndex) {
-    // Void access: no field, rank is chunked_rank + 1 (extra bytes dimension)
-    info.field = nullptr;
-    info.field_rank = 1;
-  } else {
-    info.field = &metadata.data_type.fields[field_index];
-    info.field_rank = info.field->field_shape.size();
-  }
+  info.field = &metadata.data_type.fields[field_index];
+  info.field_rank = info.field->field_shape.size();
   info.full_rank = info.chunked_rank + info.field_rank;
   return info;
 }
@@ -1126,9 +1249,6 @@ absl::Status SetChunkLayoutFromMetadata(
 Result<ChunkLayout> GetEffectiveChunkLayout(
     const ZarrMetadataConstraints& metadata_constraints, const Schema& schema) {
   SpecRankAndFieldInfo info;
-  // Use metadata_constraints.rank when available: it represents the logical
-  // rank (matching chunk_shape dimensions).  schema.rank() may be larger when
-  // open_as_void adds a bytes dimension.
   info.chunked_rank = metadata_constraints.rank;
   if (info.chunked_rank == dynamic_rank) {
     info.chunked_rank = schema.rank().rank;
@@ -1139,9 +1259,6 @@ Result<ChunkLayout> GetEffectiveChunkLayout(
   if (info.chunked_rank == dynamic_rank && metadata_constraints.chunk_shape) {
     info.chunked_rank = metadata_constraints.chunk_shape->size();
   }
-  // We can't easily know field info from constraints unless we parse data_type.
-  // If data_type is present and has 1 field, we can check it.
-  // For now, basic implementation.
 
   ChunkLayout chunk_layout = schema.chunk_layout();
   std::optional<span<const Index>> chunk_shape_span;
@@ -1196,7 +1313,6 @@ CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata) {
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
                                     size_t field_index, const Schema& schema) {
   auto info = GetSpecRankAndFieldInfo(metadata, field_index);
-  const bool is_void_access = (field_index == kVoidFieldIndex);
 
   if (!RankConstraint::EqualOrUnspecified(schema.rank(), info.full_rank)) {
     return absl::FailedPreconditionError(absl::StrFormat(
@@ -1205,20 +1321,11 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
         schema.rank(), info.full_rank));
   }
 
-  // Dtype validation: for void access, dtype must be byte; otherwise use
-  // field's dtype.
-  const DataType expected_dtype =
-      is_void_access ? dtype_v<std::byte> : info.field->dtype;
   if (auto dtype = schema.dtype();
-      !IsPossiblySameDataType(expected_dtype, dtype)) {
+      !IsPossiblySameDataType(info.field->dtype, dtype)) {
     return absl::FailedPreconditionError(absl::StrFormat(
         "data_type from metadata (%v) does not match dtype in schema (%v)",
-        expected_dtype, dtype));
-  }
-
-  // The following validations only apply to field access, not void access.
-  if (is_void_access) {
-    return absl::OkStatus();
+        info.field->dtype, dtype));
   }
 
   if (schema.domain().valid()) {
@@ -1319,15 +1426,22 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
     return absl::InvalidArgumentError("dtype must be specified");
   }
 
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      size_t field_index, GetFieldIndex(metadata->data_type, selected_field, open_as_void));
-  SpecRankAndFieldInfo info;
-  // For void access, field_index is kVoidFieldIndex (sentinel value)
-  if (field_index == kVoidFieldIndex) {
-    info.field = nullptr;
+  // Resolve the selected field: void mode does not pick a "real" field (the
+  // void substitution happens later, via `GetVoidMetadata`), but we still need
+  // a placeholder field index/info to drive shape/rank computation here.
+  size_t field_index;
+  if (open_as_void) {
+    if (!selected_field.empty()) {
+      return absl::InvalidArgumentError(
+          "\"field\" and \"open_as_void\" are mutually exclusive");
+    }
+    field_index = 0;
   } else {
-    info.field = &metadata->data_type.fields[field_index];
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        field_index, GetFieldIndex(metadata->data_type, selected_field));
   }
+  SpecRankAndFieldInfo info;
+  info.field = &metadata->data_type.fields[field_index];
   info.chunked_rank = metadata_constraints.rank;
   if (info.chunked_rank == dynamic_rank && metadata_constraints.shape) {
     info.chunked_rank = metadata_constraints.shape->size();
@@ -1336,17 +1450,20 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
       schema.rank().rank != dynamic_rank) {
     info.chunked_rank = schema.rank().rank;
   }
-  // For void access on structured types, add the bytes dimension to chunked_rank
-  if (open_as_void && info.chunked_rank != dynamic_rank) {
-    info.chunked_rank += 1;
-  }
-  // For fields with field_shape (like r16, r64), add those dimensions to chunked_rank
-  if (info.field && !info.field->field_shape.empty() &&
-      info.chunked_rank != dynamic_rank) {
-    info.chunked_rank += info.field->field_shape.size();
+  // Number of synthetic trailing dimensions contributed by either an explicit
+  // field_shape (rN / struct field) or by `open_as_void` (the bytes
+  // dimension).  Both are field_shape in the laramiel sense.
+  const DimensionIndex extra_field_dims =
+      open_as_void ? 1
+                   : (info.field ? info.field->field_shape.size() : 0);
+  if (extra_field_dims != 0 && info.chunked_rank != dynamic_rank) {
+    info.chunked_rank += extra_field_dims;
   }
 
-  // Set domain
+  // Set domain.  When the field contributes trailing field_shape dimensions
+  // (rN, struct field, or the synthetic void byte dimension), extend the
+  // user-provided chunked shape with those dimensions before merging with the
+  // schema, so that the schema and metadata describe the same full rank.
   bool dimension_names_used = false;
   std::vector<Index> extended_shape;
   std::optional<span<const Index>> constraint_shape_span;
@@ -1383,15 +1500,11 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   if (!domain.valid() || !IsFinite(domain.box())) {
     return absl::InvalidArgumentError("domain must be specified");
   }
-  // For void access or fields with field_shape, domain includes extra dimensions,
-  // but metadata stores only the logical (base array) dimensions.
-  DimensionIndex extra_dims = 0;
-  if (open_as_void) {
-    extra_dims = 1;
-  } else if (info.field && !info.field->field_shape.empty()) {
-    extra_dims = info.field->field_shape.size();
-  }
-  const DimensionIndex logical_rank = domain.rank() - extra_dims;
+  // The user-visible domain may include trailing dimensions contributed by
+  // either an explicit field_shape (rN / struct field) or by `open_as_void`
+  // (the bytes dimension), but the persisted metadata stores only the
+  // logical chunked dimensions.
+  const DimensionIndex logical_rank = domain.rank() - extra_field_dims;
   metadata->rank = logical_rank;
   info.chunked_rank = domain.rank();  // Keep extended rank for codec processing
   metadata->shape.assign(domain.shape().begin(),
@@ -1458,24 +1571,26 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   TENSORSTORE_ASSIGN_OR_RETURN(auto codec_spec,
                                GetEffectiveCodec(metadata_constraints, schema));
 
-  // Determine if this is a structured type (multiple fields or inner shape)
-  const bool is_structured =
-      metadata->data_type.fields.size() > 1 ||
-      (metadata->data_type.fields.size() == 1 &&
-       !metadata->data_type.fields[0].field_shape.empty());
+  // Derive `metadata->field_shape` up front so the rest of this function (and
+  // the eventual `ValidateMetadata` re-check) drives off a single source of
+  // truth, identical to the parse-time code path.
+  DeriveFieldShape(*metadata);
+  const bool has_field_shape = !metadata->field_shape.empty();
 
+  // Codec resolution is at the chunked rank; inner (`field_shape`) dims are
+  // carried via `decoded.inner_shape` and never appear in any rank/shape
+  // field that array-to-array codecs see.
   ArrayCodecResolveParameters decoded;
-  if (!is_structured) {
-    decoded.dtype = metadata->data_type.fields[0].dtype;
-    decoded.rank = metadata->rank;
+  decoded.dtype =
+      has_field_shape ? dtype_v<std::byte> : metadata->data_type.fields[0].dtype;
+  decoded.rank = metadata->rank;
+  decoded.inner_shape = metadata->field_shape;
+  if (!has_field_shape) {
     if (metadata->fill_value.size() == 1) {
       decoded.fill_value = metadata->fill_value[0];
     }
   } else {
-    // For structured types, use byte dtype with extra dimension for the bytes
-    decoded.dtype = dtype_v<std::byte>;
-    decoded.rank = metadata->rank + 1;
-    // Create a zero-filled scalar byte as fill_value (gets broadcast to chunk shape)
+    // Zero-filled scalar byte fill_value (broadcast to chunk shape at use).
     decoded.fill_value = AllocateArray(
         span<const Index, 0>{}, c_order, value_init, dtype_v<std::byte>);
   }
@@ -1487,34 +1602,22 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   if (auto inner_order = chunk_layout.inner_order(); inner_order.valid()) {
     auto& dest = decoded.inner_order.emplace();
     std::copy(inner_order.begin(), inner_order.end(), dest.begin());
-    // For structured types, add the bytes dimension at the end
-    if (is_structured) {
-      dest[metadata->rank] = metadata->rank;
-    }
   }
 
-  // For structured types, read_chunk_shape needs decoded.rank dimensions
-  // (metadata->rank + 1 for the bytes dimension)
+  // `read_chunk_shape` is at the chunked rank only.
   span<Index> read_chunk_shape(decoded.read_chunk_shape.emplace().data(),
-                               decoded.rank);
+                               metadata->rank);
 
-  // ChooseReadWriteChunkShapes only operates on the logical dimensions.
-  // For void access, domain includes the bytes dimension; restrict to logical.
   TENSORSTORE_RETURN_IF_ERROR(internal::ChooseReadWriteChunkShapes(
       chunk_layout.read_chunk(), chunk_layout.write_chunk(),
-      SubBoxView(domain.box(), 0, metadata->rank),
-      read_chunk_shape.first(metadata->rank), metadata->chunk_shape));
+      SubBoxView(domain.box(), 0, metadata->rank), read_chunk_shape,
+      metadata->chunk_shape));
 
-  // For structured types, set the bytes dimension
-  if (is_structured) {
-    read_chunk_shape[metadata->rank] =
-        metadata->data_type.bytes_per_outer_element;
-  }
-
-  // Compare only the logical dimensions to decide if sharding is needed
   if (!internal::RangesEqual(span<const Index>(metadata->chunk_shape),
-                             read_chunk_shape.first(metadata->rank))) {
+                             read_chunk_shape)) {
     if (!codec_spec->codecs || codec_spec->codecs->sharding_height() == 0) {
+      // sub_chunk_shape is at the chunked rank now -- same as the
+      // user-facing form and the on-disk zarr.json representation.
       auto sharding_codec =
           internal::MakeIntrusivePtr<ShardingIndexedCodecSpec>(
               ShardingIndexedCodecSpec::Options{
@@ -1537,7 +1640,13 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   TENSORSTORE_RETURN_IF_ERROR(set_up_codecs(
       codec_spec->codecs ? *codec_spec->codecs : ZarrCodecChainSpec{}));
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
-  if (field_index != kVoidFieldIndex) {
+  if (open_as_void) {
+    // The user-supplied schema dtype is `byte` and rank is chunked + 1, neither
+    // of which match the (natural) `*metadata`.  The driver re-validates against
+    // the void-substituted view via `GetVoidMetadata` after this returns, so we
+    // skip the non-applicable per-field schema check here.
+    TENSORSTORE_RETURN_IF_ERROR(ValidateVoidCodecChain(metadata->codec_specs));
+  } else {
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadataSchema(*metadata, field_index, schema));
   }

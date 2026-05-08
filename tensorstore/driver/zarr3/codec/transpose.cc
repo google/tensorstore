@@ -237,6 +237,7 @@ absl::Status TransposeCodecSpec::PropagateDataTypeAndShape(
       auto order, ResolveOrder(options.order, decoded.rank, temp_perm));
   encoded.dtype = decoded.dtype;
   encoded.rank = order.size();
+  encoded.inner_shape = decoded.inner_shape;
   if (decoded.shape) {
     auto& encoded_shape = encoded.shape.emplace();
     const auto& decoded_shape = *decoded.shape;
@@ -304,6 +305,7 @@ Result<ZarrArrayToArrayCodec::Ptr> TransposeCodecSpec::Resolve(
       auto order, ResolveOrder(options.order, decoded.rank, temp_perm));
   encoded.dtype = decoded.dtype;
   encoded.rank = decoded.rank;
+  encoded.inner_shape = decoded.inner_shape;
   assert(decoded.fill_value.rank() == 0);
   encoded.fill_value = std::move(decoded.fill_value);
   std::vector<DimensionIndex> inverse_order(order.size());
@@ -318,7 +320,17 @@ Result<ZarrArrayToArrayCodec::Ptr> TransposeCodecSpec::Resolve(
     resolved_spec->reset(new TransposeCodecSpec({TransposeCodecSpec::Order(
         std::vector<DimensionIndex>(order.begin(), order.end()))}));
   }
-  return internal::MakeIntrusivePtr<TransposeCodec>(std::move(inverse_order));
+  const DimensionIndex chunked_rank = decoded.rank;
+  const DimensionIndex inner_rank =
+      static_cast<DimensionIndex>(decoded.inner_shape.size());
+  std::vector<DimensionIndex> runtime_inverse_order(chunked_rank + inner_rank);
+  std::copy(inverse_order.begin(), inverse_order.end(),
+            runtime_inverse_order.begin());
+  for (DimensionIndex i = 0; i < inner_rank; ++i) {
+    runtime_inverse_order[chunked_rank + i] = chunked_rank + i;
+  }
+  return internal::MakeIntrusivePtr<TransposeCodec>(
+      std::move(runtime_inverse_order));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
