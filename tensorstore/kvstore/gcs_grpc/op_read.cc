@@ -167,9 +167,8 @@ absl::Status ReadTask::HandleResponse(ReadObjectResponse& response) {
   }
   if (response.has_object_checksums() &&
       response.object_checksums().crc32c() != 0 &&
-      options_.byte_range.inclusive_min == 0 &&
-      !options_.byte_range.exclusive_max) {
-    // Do not validate byte-range requests.
+      options_.byte_range.IsFull()) {
+    // Only validate the object crc32c for full object reads.
     crc32c_ = absl::crc32c_t(response.object_checksums().crc32c());
   }
   if (response.has_content_range()) {
