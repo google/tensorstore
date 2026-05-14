@@ -310,6 +310,10 @@ absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
                                         BtreeNodeHeight height,
                                         std::string_view inclusive_min_key);
 
+/// Calculates local statistics for a B-tree node.
+BtreeNodeStatistics GetBtreeNodeLocalStatistics(const BtreeNode& node,
+                                                uint64_t own_size);
+
 /// Decodes a b+tree node.
 Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded,
                                   const BasePath& base_path);

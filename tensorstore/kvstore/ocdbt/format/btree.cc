@@ -21,7 +21,6 @@
 #include <cstring>
 #include <memory>
 #include <ostream>
-#include <string>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -34,11 +33,9 @@
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
-#include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
-#include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -263,6 +260,29 @@ absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
         return absl::OkStatus();
       },
       node.entries);
+}
+
+BtreeNodeStatistics GetBtreeNodeLocalStatistics(const BtreeNode& node,
+                                                uint64_t own_size) {
+  BtreeNodeStatistics stats = {};
+  if (node.height > 0) {
+    auto& entries = std::get<BtreeNode::InteriorNodeEntries>(node.entries);
+    for (const auto& entry : entries) {
+      stats += entry.node.statistics;
+    }
+  } else {
+    auto& entries = std::get<BtreeNode::LeafNodeEntries>(node.entries);
+    stats.num_keys = entries.size();
+    for (const auto& entry : entries) {
+      if (std::holds_alternative<IndirectDataReference>(
+              entry.value_reference)) {
+        stats.num_indirect_value_bytes +=
+            std::get<IndirectDataReference>(entry.value_reference).length;
+      }
+    }
+  }
+  stats.num_tree_bytes += own_size;
+  return stats;
 }
 
 bool operator==(const BtreeNodeStatistics& a, const BtreeNodeStatistics& b) {
