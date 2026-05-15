@@ -31,6 +31,7 @@
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/file_util.h"
+#include "tensorstore/internal/os/open_flags.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -48,25 +49,25 @@ auto& lock_contention = internal_metrics::Counter<int64_t>::New(
 }  // namespace
 
 FileLock::~FileLock() {
-  assert(fd_ == FileDescriptorTraits::Invalid());
+  assert(fd_ == InvalidFileDescriptor());
   assert(unlock_fn_ == std::nullopt);
 }
 
 absl::Status FileLock::Delete() && {
-  assert(fd_ != FileDescriptorTraits::Invalid());
+  assert(fd_ != InvalidFileDescriptor());
 
-  auto fd = std::exchange(fd_, FileDescriptorTraits::Invalid());
+  auto fd = std::exchange(fd_, InvalidFileDescriptor());
   auto status = DeleteOpenFile(fd, lock_path_);
   Unlock(fd);
-  FileDescriptorTraits::Close(fd);
-  return StatusBuilder(std::move(status)).Format("Failed to clean lock file");
+  status.Update(CloseFileDescriptor(fd));
+  return status;
 }
 
-void FileLock::Close() && {
-  assert(fd_ != FileDescriptorTraits::Invalid());
-  auto fd = std::exchange(fd_, FileDescriptorTraits::Invalid());
+absl::Status FileLock::Close() && {
+  assert(fd_ != InvalidFileDescriptor());
+  auto fd = std::exchange(fd_, InvalidFileDescriptor());
   Unlock(fd);
-  FileDescriptorTraits::Close(fd);
+  return CloseFileDescriptor(fd);
 }
 
 Result<FileLock> AcquireFileLock(std::string lock_path) {

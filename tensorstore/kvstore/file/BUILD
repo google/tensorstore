@@ -1,6 +1,7 @@
 # Filesystem-backed KeyValueStore driver
 
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//tensorstore/internal/testing:test_hooks.bzl", "TEST_HOOK_DEFINES")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -37,7 +38,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/os:file_lock",
         "//tensorstore/internal/os:file_util",
         "//tensorstore/internal/os:memory_region",
-        "//tensorstore/internal/os:unique_handle",
         "//tensorstore/internal/uri:parse",
         "//tensorstore/internal/uri:path",
         "//tensorstore/kvstore",
@@ -101,6 +101,24 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "file_hook_test",
+    size = "small",
+    srcs = ["file_hook_test.cc"],
+    defines = TEST_HOOK_DEFINES,
+    deps = [
+        ":file",
+        "//tensorstore/internal/os:file_descriptor",
+        "//tensorstore/internal/testing:scoped_directory",
+        "//tensorstore/internal/testing:test_hook",
+        "//tensorstore/kvstore",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )
 
