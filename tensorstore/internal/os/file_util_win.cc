@@ -95,9 +95,12 @@
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/file_descriptor.h"
+#include "tensorstore/internal/os/file_test_hooks.h"
 #include "tensorstore/internal/os/memory_region.h"
+#include "tensorstore/internal/os/open_flags.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/internal/os/wstring.h"
+#include "tensorstore/internal/testing/test_hook.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -285,6 +288,7 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
 
 Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
                                              OpenFlags flags) {
+  TENSORSTORE_INVOKE_TEST_HOOK(OpenOpTag, path, flags);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
 
   if (static_cast<int>(OpenFlags::Truncate & flags) &&
@@ -299,7 +303,7 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
 
   FileDescriptor fd = OpenFileImpl(wpath, flags);
 
-  if (fd == FileDescriptorTraits::Invalid()) {
+  if (fd == InvalidFileDescriptor()) {
     auto status = StatusFromOsError(::GetLastError())
                       .Format("Failed to open: %v", QuoteString(path));
     return std::move(tspan).EndWithStatus(std::move(status));
@@ -314,6 +318,7 @@ absl::Status SetFileFlags(FileDescriptor fd, OpenFlags flags) {
 
 Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
                                tensorstore::span<char> buffer) {
+  TENSORSTORE_INVOKE_TEST_HOOK(ReadOpTag, fd);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"handle", fd}, {"size", buffer.size()}});
 
@@ -335,6 +340,7 @@ Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
 Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
                                 tensorstore::span<char> buffer,
                                 int64_t offset) {
+  TENSORSTORE_INVOKE_TEST_HOOK(ReadOpTag, fd);
   LoggedTraceSpan tspan(
       __func__, detail_logging.Level(1),
       {{"handle", fd}, {"size", buffer.size()}, {"offset", offset}});
@@ -357,6 +363,7 @@ Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
 
 Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
                               size_t count) {
+  TENSORSTORE_INVOKE_TEST_HOOK(WriteOpTag, fd);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"handle", fd}, {"size", count}});
 
@@ -374,6 +381,7 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
 }
 
 Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
+  TENSORSTORE_INVOKE_TEST_HOOK(WriteOpTag, fd);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"handle", fd}, {"size", value.size()}});
 
@@ -406,6 +414,7 @@ absl::Status TruncateFile(FileDescriptor fd) {
 
 absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
                             const std::string& new_name) {
+  TENSORSTORE_INVOKE_TEST_HOOK(RenameOpTag, fd, old_name, new_name);
   LoggedTraceSpan tspan(
       __func__, detail_logging.Level(1),
       {{"handle", fd}, {"old_name", old_name}, {"new_name", new_name}});
@@ -441,6 +450,7 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
 }
 
 absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
+  TENSORSTORE_INVOKE_TEST_HOOK(DeleteOpTag, fd, path);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"handle", fd}, {"path", path}});
 
@@ -500,6 +510,7 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
 }
 
 absl::Status DeleteFile(const std::string& path) {
+  TENSORSTORE_INVOKE_TEST_HOOK(DeleteOpTag, InvalidFileDescriptor(), path);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
 
   std::wstring wpath;
@@ -604,6 +615,7 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
 }
 
 absl::Status FsyncFile(FileDescriptor fd) {
+  TENSORSTORE_INVOKE_TEST_HOOK(FsyncOpTag, fd);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
 
   if (::FlushFileBuffers(fd)) {
@@ -652,7 +664,7 @@ Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {
       /*dwCreationDisposition=*/OPEN_EXISTING,
       /*dwFlagsAndAttributes=*/FILE_FLAG_BACKUP_SEMANTICS,
       /*hTemplateFile=*/nullptr);
-  if (fd == FileDescriptorTraits::Invalid()) {
+  if (fd == InvalidFileDescriptor()) {
     auto status =
         StatusFromOsError(::GetLastError())
             .Format("Failed to open directory: %v", QuoteString(path));

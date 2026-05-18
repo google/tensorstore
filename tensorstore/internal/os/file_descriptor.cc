@@ -17,7 +17,11 @@
 #include <cerrno>
 
 #include "absl/base/attributes.h"
+#include "absl/status/status.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/os/error_code.h"
+#include "tensorstore/internal/os/file_test_hooks.h"
+#include "tensorstore/internal/testing/test_hook.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 
 // Include system headers last to reduce impact of macros.
@@ -31,26 +35,36 @@ namespace {
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
 
-}
+}  // namespace
 
-/* static */
-void FileDescriptorTraits::Close(FileDescriptor fd) {
+absl::Status CloseFileDescriptor(FileDescriptor fd) {
+  TENSORSTORE_INVOKE_TEST_HOOK(CloseOpTag, fd);
 #ifdef _WIN32
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
 
   if (!::CloseHandle(fd)) {
-    tspan.Log("::GetLastError()", ::GetLastError());
+    auto error = ::GetLastError();
+    tspan.Log("::GetLastError()", error);
+    return tensorstore::internal::StatusFromOsError(error).Format(
+        "Failed to close handle");
   }
+  return absl::OkStatus();
 #else
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"fd", fd}});
 
   while (true) {
     if (::close(fd) == 0) {
-      return;
+      return absl::OkStatus();
     }
-    if (errno == EINTR) continue;
-    tspan.Log("errno", errno);
-    return;
+    const auto error = errno;
+
+#if !defined(__linux__)
+    // On non-linux posix systems, EINTR may be returned from close.
+    if (error == EINTR) continue;
+#endif
+    tspan.Log("errno", error);
+    return tensorstore::internal::StatusFromOsError(error).Format(
+        "Failed to close file descriptor");
   }
 #endif
 }

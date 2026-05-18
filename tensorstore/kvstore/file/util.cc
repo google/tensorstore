@@ -39,7 +39,7 @@
 #include "tensorstore/util/status_builder.h"
 
 using ::tensorstore::internal_os::FileDescriptor;
-using ::tensorstore::internal_os::FileDescriptorTraits;
+using ::tensorstore::internal_os::InvalidFileDescriptor;
 using ::tensorstore::internal_os::UniqueFileDescriptor;
 
 namespace tensorstore {
@@ -153,7 +153,7 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
 Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
                                           ByteRange byte_range,
                                           int64_t block_alignment) {
-  assert(fd != FileDescriptorTraits::Invalid());
+  assert(fd != InvalidFileDescriptor());
 
   ByteRange adjusted_byte_range = byte_range;
   if (block_alignment > 1) {

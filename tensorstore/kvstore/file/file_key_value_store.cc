@@ -120,7 +120,6 @@
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/memory_region.h"
-#include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/path.h"
@@ -568,7 +567,7 @@ Future<ReadResult> FileKeyValueStore::Read(Key key, ReadOptions options) {
 
 absl::Status WriteWithSync(FileDescriptor fd, const std::string& fd_path,
                            absl::Cord value, bool sync) {
-  assert(fd != internal_os::FileDescriptorTraits::Invalid());
+  assert(fd != internal_os::InvalidFileDescriptor());
   auto start_write = absl::Now();
   while (!value.empty()) {
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -607,6 +606,7 @@ struct WriteTask {
       StorageGeneration generation;
       TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
                                    OpenValueFile(full_path, &generation));
+      TENSORSTORE_RETURN_IF_ERROR(std::move(value_fd).Close());
       if (generation != options.generation_conditions.if_equal) {
         r.generation = StorageGeneration::Unknown();
         return r;
@@ -646,6 +646,7 @@ struct WriteTask {
         StorageGeneration generation;
         TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
                                      OpenValueFile(full_path, &generation));
+        TENSORSTORE_RETURN_IF_ERROR(std::move(value_fd).Close());
         if (generation != options.generation_conditions.if_equal) {
           r.generation = StorageGeneration::Unknown();
           return absl::OkStatus();
@@ -677,15 +678,18 @@ struct WriteTask {
 
     if (delete_lock_file) {
       // Delete the lock file, allowing another writer to acquire it.
-      // This is somewhat best-effort; the lock file may be deleted if the
-      // directory was concurrently removed, for example.
-      auto status = std::move(lock_helper).Delete();
-      ABSL_LOG_IF(INFO, !status.ok() && verbose_logging)
-          << "Delete: " << status;
+      // This is somewhat best-effort; the lock file may already be deleted
+      // if the directory was concurrently removed, for example.
+      // The delete status is *not* returned as an error because the primary
+      // operation (writing to the lock file) succeeded.
+      auto delete_status = std::move(lock_helper).Delete();
+      ABSL_LOG_IF(INFO, !delete_status.ok() && verbose_logging)
+          << "Delete: " << delete_status;
     } else {
       // Close the lock file.
-      std::move(lock_helper).Close();
+      status.Update(std::move(lock_helper).Close());
     }
+    status.Update(std::move(dir_fd).Close());
     if (!status.ok()) {
       // If status is absl::NotFound error, that likely means that the rename
       // failed.
@@ -728,6 +732,7 @@ struct DeleteTask {
         StorageGeneration generation;
         TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
                                      OpenValueFile(full_path, &generation));
+        TENSORSTORE_RETURN_IF_ERROR(std::move(value_fd).Close());
         if (generation != options.generation_conditions.if_equal) {
           return StorageGeneration::Unknown();
         }
@@ -751,9 +756,11 @@ struct DeleteTask {
           .Format("Error calling fsync on parent directory of: %v",
                   QuoteString(full_path));
     }
+    auto close_status = std::move(dir_fd).Close();
     if (!generation_result) {
       return std::move(generation_result).status();
     }
+    TENSORSTORE_RETURN_IF_ERROR(close_status);
     r.generation = *std::move(generation_result);
     return r;
   }

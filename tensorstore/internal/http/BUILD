@@ -150,6 +150,7 @@ tensorstore_cc_library(
         ":self_signed_cert",
         ":transport_test_utils",
         "//tensorstore/internal:path",
+        "//tensorstore/internal/os:file_descriptor",
         "//tensorstore/internal/os:file_util",
         "//tensorstore/internal/os:subprocess",
         "//tensorstore/internal/testing:scoped_directory",

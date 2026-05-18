@@ -3,10 +3,21 @@ load(
     "tensorstore_cc_library",
     "tensorstore_cc_test",
 )
+load(":test_hooks.bzl", "TEST_HOOK_DEFINES")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
+
+config_setting(
+    name = "enable_test_hooks",
+    values = {"define": "enable_test_hooks=true"},
+)
+
+config_setting(
+    name = "dbg_mode",
+    values = {"compilation_mode": "dbg"},
+)
 
 tensorstore_cc_library(
     name = "concurrent",
@@ -103,8 +114,15 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "non_compile_bypass",
-    testonly = True,
+    testonly = 1,
     hdrs = ["non_compile_bypass.h"],
+)
+
+tensorstore_cc_library(
+    name = "on_windows",
+    testonly = 1,
+    hdrs = ["on_windows.h"],
+    deps = ["@abseil-cpp//absl/base:core_headers"],
 )
 
 tensorstore_cc_library(
@@ -174,8 +192,10 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "on_windows",
-    testonly = 1,
-    hdrs = ["on_windows.h"],
-    deps = ["@abseil-cpp//absl/base:core_headers"],
+    name = "test_hook",
+    hdrs = ["test_hook.h"],
+    defines = TEST_HOOK_DEFINES,
+    deps = [
+        "@abseil-cpp//absl/base:no_destructor",
+    ],
 )

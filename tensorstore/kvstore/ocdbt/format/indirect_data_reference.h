@@ -106,6 +106,10 @@ struct IndirectDataReference {
     absl::Format(&sink, "{file_id=%v, offset=%v, length=%v}", x.file_id,
                  x.offset, x.length);
   }
+  template <typename H>
+  friend H AbslHashValue(H h, const IndirectDataReference& x) {
+    return H::combine(std::move(h), x.file_id, x.offset, x.length);
+  }
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.file_id, x.offset, x.length);
   };
