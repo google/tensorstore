@@ -95,6 +95,7 @@ tensorstore_cc_test(
         ":key_range_map",
         "//tensorstore/kvstore:key_range",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
     ],
 )

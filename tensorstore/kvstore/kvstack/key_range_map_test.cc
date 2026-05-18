@@ -14,11 +14,13 @@
 
 #include "tensorstore/kvstore/kvstack/key_range_map.h"
 
+#include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/log/absl_log.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/kvstore/key_range.h"
 
 using ::tensorstore::KeyRange;
@@ -171,6 +173,32 @@ TEST(RangeMapTest, Sparse) {
                                              KeyRange("a/b", "a/c"),
                                              KeyRange("a/c", "a/z")));
   }
+}
+
+TEST(RangeMapTest, BTreeErase_InPlaceMutationWorks) {
+  KeyRangeMap<int> m;
+
+  // Insert many elements to force a multi-level B-tree.
+  for (int i = 0; i < 100; ++i) {
+    std::string start = absl::StrFormat("%03d", i * 10);
+    std::string end = absl::StrFormat("%03d", i * 10 + 5);
+    m.Set(KeyRange(start, end), i);
+  }
+
+  // Erase a range to trigger the in-place key modification on a mid-tree
+  // element.  Erase the range ["500", "503") leaves the element ["503", "505").
+  m.Erase(KeyRange("500", "503"));
+
+  // Verify we can still find it at the new key.
+  ASSERT_NE(m.range_containing("503"), m.end());
+  EXPECT_EQ(m.range_containing("503")->value, 50);
+
+  // Insert around the mutated element.
+  m.Set(KeyRange("501", "502"), 999);
+
+  // Verify lookups still work or if they fail/crash.
+  EXPECT_NE(m.range_containing("501"), m.end());
+  EXPECT_NE(m.range_containing("503"), m.end());
 }
 
 }  // namespace
