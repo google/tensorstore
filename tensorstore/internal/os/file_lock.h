@@ -69,7 +69,7 @@ class FileLock {
   FileLock(FileLock&& o) { *this = std::move(o); };
   FileLock& operator=(FileLock&& o) {
     lock_path_ = std::move(o.lock_path_);
-    fd_ = std::exchange(o.fd_, FileDescriptorTraits::Invalid());
+    fd_ = std::exchange(o.fd_, InvalidFileDescriptor());
     unlock_fn_ = std::move(o.unlock_fn_);
     o.unlock_fn_ = std::nullopt;
     return *this;
@@ -84,7 +84,7 @@ class FileLock {
   absl::Status Delete() &&;
 
   // Closes the file descriptor and unlocks the file.
-  void Close() &&;
+  absl::Status Close() &&;
 
  private:
   friend Result<FileLock> AcquireFileLock(std::string);

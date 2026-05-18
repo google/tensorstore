@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/os/file_util.h"
 
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -29,6 +30,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
@@ -313,6 +315,22 @@ TEST(FileUtilTest, OpenDirect) {
                 IsOkAndHolds(expected.size()));
     EXPECT_THAT(read_buffer, testing::StrEq(expected));
   }
+}
+
+TEST(FileUtilTest, StatusFromOsErrorMapping) {
+  using ::tensorstore::internal::StatusFromOsError;
+
+#ifndef _WIN32
+  auto status = StatusFromOsError(EIO).Default();
+  EXPECT_EQ(status.code(), absl::StatusCode::kUnknown);
+  EXPECT_THAT(status.message(), ::testing::HasSubstr("Input/output error"));
+#else
+  for (auto err :
+       {ERROR_IO_DEVICE, ERROR_WRITE_FAULT, ERROR_READ_FAULT, ERROR_CRC}) {
+    auto status = StatusFromOsError(err).Default();
+    EXPECT_EQ(status.code(), absl::StatusCode::kDataLoss);
+  }
+#endif
 }
 
 }  // namespace

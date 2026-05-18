@@ -59,6 +59,11 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
     case ERROR_INVALID_NAME:
     case ERROR_DELETE_PENDING:
       return absl::StatusCode::kPermissionDenied;
+    case ERROR_IO_DEVICE:
+    case ERROR_WRITE_FAULT:
+    case ERROR_READ_FAULT:
+    case ERROR_CRC:
+      return absl::StatusCode::kDataLoss;
     case ERROR_BUFFER_OVERFLOW:
     case ERROR_FILENAME_EXCED_RANGE:
       return absl::StatusCode::kInvalidArgument;
@@ -104,6 +109,14 @@ const char* OsErrorCodeLiteral(OsErrorCode error) {
       return "ERROR_INVALID_NAME ";
     case ERROR_DELETE_PENDING:
       return "ERROR_DELETE_PENDING ";
+    case ERROR_IO_DEVICE:
+      return "ERROR_IO_DEVICE ";
+    case ERROR_WRITE_FAULT:
+      return "ERROR_WRITE_FAULT ";
+    case ERROR_READ_FAULT:
+      return "ERROR_READ_FAULT ";
+    case ERROR_CRC:
+      return "ERROR_CRC ";
     case ERROR_BUFFER_OVERFLOW:
       return "ERROR_BUFFER_OVERFLOW ";
     case ERROR_FILENAME_EXCED_RANGE:

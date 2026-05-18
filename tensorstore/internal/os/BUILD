@@ -1,4 +1,5 @@
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//tensorstore/internal/testing:test_hooks.bzl", "TEST_HOOK_DEFINES")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -67,15 +68,24 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "file_descriptor",
-    srcs = ["file_descriptor.cc"],
-    hdrs = ["file_descriptor.h"],
+    srcs = [
+        "file_descriptor.cc",
+    ],
+    hdrs = [
+        "file_descriptor.h",
+        "file_test_hooks.h",
+        "open_flags.h",
+    ],
+    defines = TEST_HOOK_DEFINES,
     linkopts = _LINKOPTS,
     deps = [
+        ":error_code",
         ":include_windows",
-        ":unique_handle",
         "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/internal/testing:test_hook",
         "//tensorstore/internal/tracing",
         "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
     ],
 )
 
@@ -108,6 +118,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
+        "//tensorstore/internal/testing:test_hook",
         "//tensorstore/internal/tracing",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
@@ -163,6 +174,7 @@ tensorstore_cc_test(
     name = "file_util_test",
     srcs = ["file_util_test.cc"],
     deps = [
+        ":error_code",
         ":file_util",
         ":memory_region",
         "//tensorstore/internal/testing:scoped_directory",
@@ -172,6 +184,21 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "file_test_hooks_test",
+    srcs = ["file_test_hooks_test.cc"],
+    defines = TEST_HOOK_DEFINES,
+    deps = [
+        ":file_descriptor",
+        ":file_util",
+        "//tensorstore/internal/testing:test_hook",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],
 )
@@ -288,11 +315,6 @@ tensorstore_cc_library(
     hdrs = [
         "potentially_blocking_region.h",
     ],
-)
-
-tensorstore_cc_library(
-    name = "unique_handle",
-    hdrs = ["unique_handle.h"],
 )
 
 tensorstore_cc_library(

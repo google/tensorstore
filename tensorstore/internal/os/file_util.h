@@ -29,6 +29,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/memory_region.h"
+#include "tensorstore/internal/os/open_flags.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -81,34 +82,6 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
                                         size_t size);
 
 /// --------------------------------------------------------------------------
-
-// Restricted subset of POSIX open flags.
-enum class OpenFlags : int {
-  OpenReadOnly = O_RDONLY,
-  OpenWriteOnly = O_WRONLY,
-  OpenReadWrite = O_RDWR,
-  Create = O_CREAT,
-  Append = O_APPEND,
-  Truncate = O_TRUNC,
-  Exclusive = O_EXCL,
-#if defined(O_DIRECT)
-  Direct = O_DIRECT,
-#else
-  Direct = 0x4000,
-#endif
-  CloseOnExec = O_CLOEXEC,
-  ReadWriteMask = O_RDONLY | O_WRONLY | O_RDWR,
-
-  DefaultRead = O_RDONLY | O_CLOEXEC,
-  DefaultWrite = O_CREAT | O_WRONLY | O_CLOEXEC,
-};
-
-inline constexpr OpenFlags operator|(OpenFlags a, OpenFlags b) {
-  return static_cast<OpenFlags>(static_cast<int>(a) | static_cast<int>(b));
-}
-inline constexpr OpenFlags operator&(OpenFlags a, OpenFlags b) {
-  return static_cast<OpenFlags>(static_cast<int>(a) & static_cast<int>(b));
-}
 
 /// Wrapper around ::open or the equivalent CreateFileEx call in windows.
 ///

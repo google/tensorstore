@@ -42,8 +42,8 @@ using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_os::AcquireExclusiveFile;
 using ::tensorstore::internal_os::AcquireFileLock;
-using ::tensorstore::internal_os::FileDescriptorTraits;
 using ::tensorstore::internal_os::FileLock;
+using ::tensorstore::internal_os::InvalidFileDescriptor;
 using ::tensorstore::internal_os::TruncateAndOverwrite;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 
@@ -54,13 +54,13 @@ TEST(AcquireFileLockTest, Basic) {
   std::string lock_path = tempdir.path() + "/foo.txt.__lock";
   auto lock = AcquireFileLock(lock_path);
   EXPECT_THAT(lock, IsOk());
-  EXPECT_NE(lock->fd(), FileDescriptorTraits::Invalid());
+  EXPECT_NE(lock->fd(), InvalidFileDescriptor());
 
   FileLock l = std::move(lock).value();
-  EXPECT_NE(l.fd(), FileDescriptorTraits::Invalid());
+  EXPECT_NE(l.fd(), InvalidFileDescriptor());
   EXPECT_THAT(tensorstore::internal_os::WriteToFile(l.fd(), "foo", 3),
               IsOkAndHolds(3));
-  std::move(l).Close();
+  EXPECT_THAT(std::move(l).Close(), IsOk());
 }
 
 TEST(AcquireFileLockTest, FileExists) {
@@ -72,8 +72,8 @@ TEST(AcquireFileLockTest, FileExists) {
 
   auto lock = AcquireFileLock(lock_path);
   EXPECT_THAT(lock, IsOk());
-  EXPECT_NE(lock->fd(), FileDescriptorTraits::Invalid());
-  std::move(lock).value().Close();
+  EXPECT_NE(lock->fd(), InvalidFileDescriptor());
+  EXPECT_THAT(std::move(lock).value().Close(), IsOk());
 }
 
 TEST(AcquireExclusiveFileTest, Basic) {
@@ -82,7 +82,7 @@ TEST(AcquireExclusiveFileTest, Basic) {
   std::string lock_path = tempdir.path() + "/foo.txt.__lock";
   auto lock = AcquireExclusiveFile(lock_path, absl::Seconds(1));
   EXPECT_THAT(lock, IsOk());
-  EXPECT_NE(lock->fd(), FileDescriptorTraits::Invalid());
+  EXPECT_NE(lock->fd(), InvalidFileDescriptor());
 
   EXPECT_THAT(std::move(lock).value().Delete(), IsOk());
 }
@@ -112,7 +112,7 @@ TEST(TruncateAndOverwrite, Basic) {
   std::string lock_path = tempdir.path() + "/foo.txt";
   auto lock = TruncateAndOverwrite(lock_path);
   EXPECT_THAT(lock, IsOk());
-  EXPECT_NE(lock->fd(), FileDescriptorTraits::Invalid());
+  EXPECT_NE(lock->fd(), InvalidFileDescriptor());
 
   EXPECT_THAT(std::move(lock).value().Delete(), IsOk());
 }

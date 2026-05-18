@@ -32,6 +32,7 @@
 #include "absl/time/time.h"
 #include "re2/re2.h"
 #include "tensorstore/internal/http/self_signed_cert.h"
+#include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/subprocess.h"
 #include "tensorstore/internal/path.h"
@@ -68,7 +69,7 @@ TestHttpServer::~TestHttpServer() {
 void TestHttpServer::MaybeLogStdoutPipe() {
   if (!child_) return;
   auto fd = child_->stdout_pipe();
-  if (fd == internal_os::FileDescriptorTraits::Invalid()) {
+  if (fd == internal_os::InvalidFileDescriptor()) {
     return;
   }
 
@@ -130,8 +131,7 @@ void TestHttpServer::SpawnProcess() {
   options.stdout_action = SubprocessOptions::Pipe{};
 
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto spawn_proc, SpawnSubprocess(options));
-  ABSL_CHECK(spawn_proc.stdout_pipe() !=
-             internal_os::FileDescriptorTraits::Invalid());
+  ABSL_CHECK(spawn_proc.stdout_pipe() != internal_os::InvalidFileDescriptor());
 
   // Serving on ('127.0.0.1', 40807)
   static LazyRE2 kServingPattern = {
