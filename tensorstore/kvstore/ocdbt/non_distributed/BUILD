@@ -1,6 +1,6 @@
 # Non-distributed operations for Optionally-cooperative Distributed B+tree
 
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -173,11 +173,23 @@ tensorstore_cc_library(
         "//tensorstore/kvstore/ocdbt:io_handle",
         "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/util:future",
-        "//tensorstore/util:span",
-        "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/time",
         "@abseil-cpp//absl/types:compare",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "staged_mutations_test",
+    size = "small",
+    srcs = ["staged_mutations_test.cc"],
+    deps = [
+        ":staged_mutations",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/util:future",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/types:compare",
+        "@googletest//:gtest_main",
     ],
 )
 
