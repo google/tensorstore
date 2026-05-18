@@ -177,6 +177,22 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_test(
+    name = "btree_node_write_mutation_test",
+    size = "small",
+    srcs = ["btree_node_write_mutation_test.cc"],
+    deps = [
+        ":btree_node_write_mutation",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore/ocdbt/format",
+        "//tensorstore/util:status_testutil",
+        "@googletest//:gtest_main",
+        "@riegeli//riegeli/bytes:string_reader",
+        "@riegeli//riegeli/bytes:string_writer",
+    ],
+)
+
 tensorstore_cc_library(
     name = "cooperator",
     srcs = [
