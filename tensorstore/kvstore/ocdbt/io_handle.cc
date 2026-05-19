@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 
+#include <cassert>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -39,6 +40,7 @@ FlushPromise& FlushPromise::operator=(FlushPromise&& other) noexcept {
 
 void FlushPromise::Link(Future<const void> future) {
   if (future.null()) return;
+  Promise<void> existing_promise;
   {
     absl::MutexLock lock(mutex_);
     if (HaveSameSharedState(future, prev_linked_future_)) return;
@@ -63,11 +65,14 @@ void FlushPromise::Link(Future<const void> future) {
       prev_linked_future_ = std::move(future);
       return;
     }
+    // promise_ is assigned at most once, and has already been assigned, so the
+    // new future is captured *and* linked to the existing promise.
+    prev_linked_future_ = future;
+    existing_promise = promise_;
   }
-  prev_linked_future_ = future;
   // `LinkError` must be invoked without `mutex_` held to avoid possible
   // deadlock, since it may result in callbacks being invoked.
-  LinkError(promise_, std::move(future));
+  LinkError(std::move(existing_promise), std::move(future));
 }
 
 void FlushPromise::Link(FlushPromise&& other) {
@@ -77,14 +82,18 @@ void FlushPromise::Link(FlushPromise&& other) {
     return;
   }
   Future<const void> future_to_link;
+  Promise<void> existing_promise;
   {
     absl::MutexLock lock(mutex_);
     if (prev_linked_future_.null()) {
       // No futures have been linked to `*this`.
-      *this = std::move(other);
+      prev_linked_future_ = std::move(other.prev_linked_future_);
+      promise_ = std::move(other.promise_);
+      future_ = std::move(other.future_);
       return;
     }
     if (promise_.null()) {
+      // `*this` has no promise, so it has been assigned exactly once.
       if (!other.promise_.null()) {
         // `other` has a promise but `*this` does not.  Just move over
         // `other.promise_`.
@@ -109,6 +118,7 @@ void FlushPromise::Link(FlushPromise&& other) {
         }
       }
     } else {
+      // `*this` has an existing promise.
       if (!other.promise_.null()) {
         future_to_link = other.future_;
       } else if (!HaveSameSharedState(other.prev_linked_future_,
@@ -117,8 +127,14 @@ void FlushPromise::Link(FlushPromise&& other) {
       }
       prev_linked_future_ = std::move(other.prev_linked_future_);
     }
+    existing_promise = promise_;  // May be null.
   }
-  if (!future_to_link.null()) LinkError(promise_, std::move(future_to_link));
+  // As above, invoke `LinkError` without `mutex_` held.
+  if (!future_to_link.null()) {
+    // future_to_link is only assigned when promise_ is set.
+    assert(!existing_promise.null());
+    LinkError(std::move(existing_promise), std::move(future_to_link));
+  }
 }
 
 }  // namespace internal_ocdbt
