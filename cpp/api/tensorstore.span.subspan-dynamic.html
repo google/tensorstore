@@ -68,6 +68,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#dchecks" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -1105,6 +1110,21 @@
       
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::span::subspan (C++ function) — Returns a dynamic extent subspan from the starting offset and specified count."><span>subspan <wbr>[dynamic]</span></span>
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="#" class="md-nav__link md-nav__link--active">
         
   
@@ -1118,6 +1138,46 @@
   
 
       </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::span::subspan (C++ function) — Returns a dynamic extent subspan from the starting offset and specified count."><span>subspan <wbr>[dynamic]</span></span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#dchecks" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Dchecks</span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dchecks" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Dchecks</span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1877,9 +1937,39 @@
                   <div class="md-sidebar__inner">
                     
 
+  
+
 <nav class="md-nav md-nav--secondary">
   
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::span::subspan (C++ function) — Returns a dynamic extent subspan from the starting offset and specified count."><span>subspan <wbr>[dynamic]</span></span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#dchecks" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Dchecks</span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dchecks" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Dchecks</span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1904,6 +1994,14 @@
 <span class="k">constexpr</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.span.html#c:&#64;N&#64;tensorstore&#64;ST&gt;2#T#NL&#64;span" title="tensorstore::span (C++ class) — Unowned view of a contiguous 1-d array of elements, similar to std::span."><span class="n">span</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.span.element_type.html#c:&#64;N&#64;tensorstore&#64;ST&gt;2#T#NL&#64;span&#64;element_type" title="tensorstore::span::element_type (C++ type) — Element type of the array."><span class="n">element_type</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.dynamic_extent.html#c:cpp_api_preprocessed.cc&#64;N&#64;tensorstore&#64;dynamic_extent" title="tensorstore::dynamic_extent (C++ member) — Indicates that the extent is specified at run time."><span class="n">dynamic_extent</span></a><span class="p">&gt;</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.span.html#c:&#64;N&#64;tensorstore&#64;ST&gt;2#T#NL&#64;span" title="tensorstore::span (C++ class) — Unowned view of a contiguous 1-d array of elements, similar to std::span."><span class="n">span</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.span.html#c:&#64;N&#64;tensorstore&#64;ST&gt;2#T#NL&#64;span-p-T" title="tensorstore::span::T (C++ type template parameter) — Element type, must be a valid array element type."><span class="n">T</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.span.html#c:&#64;N&#64;tensorstore&#64;ST&gt;2#T#NL&#64;span-p-Extent" title="tensorstore::span::Extent (C++ non-type template parameter) — Static extent of the array, or dynamic_extent to indicate that the extent is specified at run time."><span class="n">Extent</span></a><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">subspan</span></span><span class="p">(<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference external" href="https://en.cppreference.com/w/c/types/ptrdiff_t" title="ptrdiff_t (C standard type alias)"><span class="n">ptrdiff_t</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::span::subspan::offset (C++ function parameter)"><span class="n sig-param">offset</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference external" href="https://en.cppreference.com/w/c/types/ptrdiff_t" title="ptrdiff_t (C standard type alias)"><span class="n">ptrdiff_t</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::span::subspan::count (C++ function parameter)"><span class="n sig-param">count</span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.dynamic_extent.html#c:cpp_api_preprocessed.cc&#64;N&#64;tensorstore&#64;dynamic_extent" title="tensorstore::dynamic_extent (C++ member) — Indicates that the extent is specified at run time."><span class="n">dynamic_extent</span></a></span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
 <dd><p>Returns a dynamic extent subspan from the starting <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="tensorstore::span::subspan::offset (C++ function parameter)"><span class="n">offset</span></a></code> and specified
 <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="tensorstore::span::subspan::count (C++ function parameter)"><span class="n">count</span></a></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd" id="dchecks">Dchecks<span class="colon">:</span><a class="headerlink" href="#dchecks" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd"><p><code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="tensorstore::span::subspan::offset (C++ function parameter)"><span class="n">offset</span></a><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><a class="reference internal" href="#" title="tensorstore::span::subspan::offset (C++ function parameter)"><span class="n">offset</span></a><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><a class="reference internal" href="tensorstore.span.size.html#c:&#64;N&#64;tensorstore&#64;ST&gt;2#T#NL&#64;span&#64;F&#64;size#1" title="tensorstore::span::size (C++ function) — Returns the size."><span class="n">size</span></a><span class="p">(</span><span class="p">)</span></code></p>
+</dd>
+<dt class="field-even" id="dchecks">Dchecks<span class="colon">:</span><a class="headerlink" href="#dchecks" title="Permalink to this headline">¶</a></dt>
+<dd class="field-even"><p><code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="tensorstore::span::subspan::count (C++ function parameter)"><span class="n">count</span></a><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><a class="reference internal" href="#" title="tensorstore::span::subspan::offset (C++ function parameter)"><span class="n">offset</span></a><span class="w"> </span><span class="o">+</span><span class="w"> </span><a class="reference internal" href="#" title="tensorstore::span::subspan::count (C++ function parameter)"><span class="n">count</span></a><span class="p">)</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><a class="reference internal" href="tensorstore.span.size.html#c:&#64;N&#64;tensorstore&#64;ST&gt;2#T#NL&#64;span&#64;F&#64;size#1" title="tensorstore::span::size (C++ function) — Returns the size."><span class="n">size</span></a><span class="p">(</span><span class="p">)</span></code></p>
+</dd>
+</dl>
 </dd></dl>
 
 
