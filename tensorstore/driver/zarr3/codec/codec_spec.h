@@ -233,6 +233,9 @@ class ZarrArrayToArrayCodecSpec : public ZarrCodecSpec {
 // through the "array -> bytes" and "bytes -> bytes" codecs when calling
 // `CodecChainSpec::Resolve`.
 struct BytesCodecResolveParameters {
+  // Indicates that the item size is not known.
+  static constexpr int64_t kUnknownItemBits = -1;
+
   // If the byte sequence is actually a sequence of fixed-size items, this
   // specifies the item size in bits.
   //
@@ -246,7 +249,7 @@ struct BytesCodecResolveParameters {
   //
   // This is used by the "blosc" codec to choose shuffle parameters
   // automatically.
-  int64_t item_bits = -1;
+  int64_t item_bits = kUnknownItemBits;
 };
 
 // Spec for an "array -> bytes" codec.

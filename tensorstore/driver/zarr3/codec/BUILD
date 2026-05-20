@@ -405,11 +405,13 @@ tensorstore_cc_test(
     name = "codec_chain_spec_test",
     srcs = ["codec_chain_spec_test.cc"],
     deps = [
+        ":codec",
         ":codec_chain_spec",
         ":codec_test_util",
         ":gzip",
         ":sharding_indexed",
         "//tensorstore:codec_spec",
+        "//tensorstore:data_type",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",

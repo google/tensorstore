@@ -14,11 +14,17 @@
 
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 
+#include <stdint.h>
+
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
@@ -28,6 +34,8 @@ namespace {
 using ::tensorstore::CodecSpec;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
+using ::tensorstore::internal_zarr3::BytesCodecResolveParameters;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
 using ::tensorstore::internal_zarr3::TestCodecMerge;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
@@ -139,6 +147,30 @@ TEST(CodecChainSpecTest, ExtraSharding) {
   EXPECT_THAT(TestCodecMerge(a, c, /*strict=*/true),
               StatusIs(absl::StatusCode::kFailedPrecondition,
                        HasSubstr("Cannot merge zarr codec constraints")));
+}
+
+TEST(CodecChainSpecTest, Crc32cItemBitsPropagation) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto chain_spec,
+      ZarrCodecChainSpec::FromJson({
+          {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
+          {{"name", "crc32c"}},
+      }));
+
+  ArrayCodecResolveParameters decoded_array_params;
+  decoded_array_params.dtype = ::tensorstore::dtype_v<uint16_t>;
+  decoded_array_params.rank = 1;
+
+  BytesCodecResolveParameters encoded_bytes_params;
+
+  // crc32c codec sets item_bits to -1 because the data no longer matches the
+  // original alignment.
+  ZarrCodecChainSpec resolved_chain_spec;
+  TENSORSTORE_ASSERT_OK(chain_spec.Resolve(std::move(decoded_array_params),
+                                           encoded_bytes_params,
+                                           &resolved_chain_spec));
+  EXPECT_EQ(BytesCodecResolveParameters::kUnknownItemBits,
+            encoded_bytes_params.item_bits);
 }
 
 }  // namespace
