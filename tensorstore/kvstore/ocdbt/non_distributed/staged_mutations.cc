@@ -60,8 +60,7 @@ void InsertDeleteRangeEntry(StagedMutations& staged,
   auto& range_exclusive_max = new_entry->exclusive_max_;
 
   // Find the first existing entry that intersects or is after
-  // `[range_inclusive_min, range_exclusive_max)`.  We iterate forwards starting
-  // from this entry to find all existing entries that intersect `range`.
+  // `[range_inclusive_min, range_exclusive_max)`. This is the insertion point.
   auto find_result = staged.entries.FindBound<MutationEntryTree::kLeft>(
       [&](MutationEntry& existing_entry) {
         if (existing_entry.kind_ == MutationEntry::kWrite) {
@@ -76,6 +75,8 @@ void InsertDeleteRangeEntry(StagedMutations& staged,
 
   staged.entries.Insert(find_result.insert_position(), *new_entry);
 
+  // Iterate forwards starting from this entry to find all existing entries
+  // that intersect `range`, and merge them into `new_entry`.
   for (MutationEntry *existing_entry = find_result.found_node(), *next;
        existing_entry; existing_entry = next) {
     if (KeyRange::CompareKeyAndExclusiveMax(existing_entry->key_,
@@ -95,8 +96,9 @@ void InsertDeleteRangeEntry(StagedMutations& staged,
               .second;
       assert(inserted);
     } else {
-      auto* existing_dr_entry = static_cast<DeleteRangeEntry*>(existing_entry);
       // Merge existing delete range entry into the new entry.
+      std::unique_ptr<DeleteRangeEntry> existing_dr_entry(
+          static_cast<DeleteRangeEntry*>(existing_entry));
       new_entry->superseded_ = WriteEntryTree::Join(
           new_entry->superseded_, existing_dr_entry->superseded_);
       if (existing_dr_entry->key_ < range_inclusive_min) {
@@ -106,7 +108,6 @@ void InsertDeleteRangeEntry(StagedMutations& staged,
                                         range_exclusive_max) > 0) {
         range_exclusive_max = std::move(existing_dr_entry->exclusive_max_);
       }
-      delete existing_dr_entry;
     }
   }
 

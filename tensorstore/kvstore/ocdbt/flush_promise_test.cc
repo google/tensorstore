@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
 #include <string>
 #include <utility>
 
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "tensorstore/internal/testing/concurrent.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/util/future.h"
 
@@ -520,6 +522,49 @@ TEST(FlushPromiseTest, ABmoveB) {
   EXPECT_FALSE(flush_future.ready());
   pb.SetResult(absl::OkStatus());
   EXPECT_TRUE(flush_future.ready());
+}
+
+TEST(FlushPromiseTest, ConcurrentLink) {
+  using ::tensorstore::internal_testing::TestConcurrent;
+
+  auto [pa, fa] = PromiseFuturePair<void>::Make();
+  auto [pb, fb] = PromiseFuturePair<void>::Make();
+  auto [pc, fc] = PromiseFuturePair<void>::Make();
+  auto [pd, fd] = PromiseFuturePair<void>::Make();
+  auto [pe, fe] = PromiseFuturePair<void>::Make();
+  auto [pf, ff] = PromiseFuturePair<void>::Make();
+
+  std::unique_ptr<FlushPromise> shared_promise;
+
+  // Run concurrent Links on a shared FlushPromise to stress its thread
+  // safety and expose potential race conditions from concurrent execution.
+  TestConcurrent(
+      /*num_iterations=*/1000,
+      /*initialize=*/[&] { shared_promise = std::make_unique<FlushPromise>(); },
+      /*finalize=*/[&] { shared_promise.reset(); },
+      /*concurrent_ops...*/
+      [&]() { shared_promise->Link(fa); },                            //
+      [&]() { shared_promise->Link(fb); },                            //
+      [&]() { shared_promise->Link(fc); },                            //
+      [&]() { shared_promise->Link(fd); },                            //
+      [&]() { std::move(*shared_promise).future().IgnoreFuture(); },  //
+      [&]() {
+        auto tmp = std::make_unique<FlushPromise>();
+        tmp->Link(fd);
+        shared_promise->Link(std::move(*tmp));
+      },
+      [&]() {
+        auto tmp = std::make_unique<FlushPromise>();
+        tmp->Link(fe);
+        tmp->Link(fd);
+        shared_promise->Link(std::move(*tmp));
+      },
+      [&]() {
+        auto tmp = std::make_unique<FlushPromise>();
+        tmp->Link(ff);
+        tmp->Link(fe);
+        shared_promise->Link(std::move(*tmp));
+      });
 }
 
 }  // namespace

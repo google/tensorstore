@@ -545,6 +545,8 @@ clang_format_command = os.environ.get('SPHINX_CLANG_FORMAT', 'clang-format')
 
 cpp_strip_namespaces_from_signatures = ['tensorstore']
 
+cpp_id_attributes = ['nodiscard', 'noreturn', 'maybe_unused']
+
 if os.environ.get('TENSORSTORE_SKIP_CPP_API_DOCS') != '1':
   cpp_apigen_configs = [
       {

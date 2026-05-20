@@ -78,6 +78,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/meta/integer_types.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
@@ -262,7 +263,7 @@ enum class DataTypeId {
   num_ids
 };
 
-inline constexpr size_t kNumDataTypeIds =
+constexpr inline size_t kNumDataTypeIds =
     static_cast<size_t>(DataTypeId::num_ids);
 
 // TENSORSTORE_FOR_EACH_DATA_TYPE(X, ...) macros will instantiate
@@ -378,11 +379,11 @@ struct CanonicalElementTypeImpl<unsigned long long> {             // NOLINT
 };
 
 template <typename T>
-inline constexpr DataTypeId DataTypeIdOfHelper = DataTypeId::custom;
+constexpr inline DataTypeId DataTypeIdOfHelper = DataTypeId::custom;
 
 #define TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID(T, ...)                         \
   template <>                                                                \
-  inline constexpr DataTypeId DataTypeIdOfHelper<::tensorstore::dtypes::T> = \
+  constexpr inline DataTypeId DataTypeIdOfHelper<::tensorstore::dtypes::T> = \
       DataTypeId::T;                                                         \
   /**/
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID)
@@ -427,7 +428,7 @@ using CanonicalElementType =
 // `DataTypeId` corresponding to `T`, or `DataTypeId::custom` if `T` is not a
 // canonical data type.
 template <typename T>
-inline constexpr DataTypeId DataTypeIdOf =
+constexpr inline DataTypeId DataTypeIdOf =
     internal_data_type::DataTypeIdOfHelper<
         CanonicalElementType<std::remove_cv_t<T>>>;
 
@@ -471,7 +472,7 @@ enum class DataTypeConversionFlags : unsigned char {
 ///
 /// \id DataTypeConversionFlags
 /// \relates DataTypeConversionFlags
-inline constexpr bool operator!(DataTypeConversionFlags x) {
+constexpr bool operator!(DataTypeConversionFlags x) {
   return !static_cast<bool>(x);
 }
 
@@ -479,8 +480,8 @@ inline constexpr bool operator!(DataTypeConversionFlags x) {
 ///
 /// \id DataTypeConversionFlags
 /// \relates DataTypeConversionFlags
-inline constexpr DataTypeConversionFlags operator|(DataTypeConversionFlags a,
-                                                   DataTypeConversionFlags b) {
+constexpr DataTypeConversionFlags operator|(DataTypeConversionFlags a,
+                                            DataTypeConversionFlags b) {
   return DataTypeConversionFlags(static_cast<unsigned char>(a) |
                                  static_cast<unsigned char>(b));
 }
@@ -489,7 +490,7 @@ inline constexpr DataTypeConversionFlags operator|(DataTypeConversionFlags a,
 ///
 /// \id DataTypeConversionFlags
 /// \relates DataTypeConversionFlags
-inline constexpr DataTypeConversionFlags operator~(DataTypeConversionFlags x) {
+constexpr DataTypeConversionFlags operator~(DataTypeConversionFlags x) {
   return DataTypeConversionFlags(~static_cast<unsigned char>(x));
 }
 
@@ -497,8 +498,8 @@ inline constexpr DataTypeConversionFlags operator~(DataTypeConversionFlags x) {
 ///
 /// \id DataTypeConversionFlags
 /// \relates DataTypeConversionFlags
-inline constexpr DataTypeConversionFlags operator&(DataTypeConversionFlags a,
-                                                   DataTypeConversionFlags b) {
+constexpr DataTypeConversionFlags operator&(DataTypeConversionFlags a,
+                                            DataTypeConversionFlags b) {
   return DataTypeConversionFlags(static_cast<unsigned char>(a) &
                                  static_cast<unsigned char>(b));
 }
@@ -821,7 +822,10 @@ constexpr std::string_view GetTypeName() {
 #define TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME(T, ...)                 \
   template <>                                                          \
   constexpr std::string_view GetTypeName<::tensorstore::dtypes::T>() { \
-    return std::string_view(#T, sizeof(#T) - 3);                       \
+    constexpr std::string_view s(#T);                                  \
+    static_assert(s.size() > 2 && s[s.size() - 2] == '_' &&            \
+                  s[s.size() - 1] == 't');                             \
+    return s.substr(0, s.size() - 2);                                  \
   }                                                                    \
   /**/
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME)
@@ -1232,9 +1236,9 @@ class StaticDataType {
 
   static constexpr bool valid() { return true; }
 
-  constexpr static StaticDataType dtype() { return {}; }
+  static constexpr StaticDataType dtype() { return {}; }
 
-  constexpr static DataTypeId id() { return DataTypeIdOf<T>; }
+  static constexpr DataTypeId id() { return DataTypeIdOf<T>; }
 
   constexpr std::string_view name() const {
     return internal_data_type::GetTypeName<T>();
@@ -1363,7 +1367,7 @@ using dtype_t = std::conditional_t<
 ///     Any const/volatile qualifiers are ignored.
 /// \relates DataType
 template <typename T>
-inline constexpr auto dtype_v = dtype_t<T>();
+constexpr inline auto dtype_v = dtype_t<T>();
 
 // Returns `{ func(dtype_v<T>)... }` where `T` ranges over the canonical
 // data types.
@@ -1420,8 +1424,8 @@ constexpr ElementInitialization value_init = ElementInitialization::value_init;
 ///
 /// \relates DataType
 /// \membergroup Allocation
-void* AllocateAndConstruct(ptrdiff_t n, ElementInitialization initialization,
-                           DataType r);
+TENSORSTORE_NODISCARD void* AllocateAndConstruct(
+    ptrdiff_t n, ElementInitialization initialization, DataType r);
 
 /// Frees memory allocated by AllocateAndConsruct.
 ///
@@ -1468,8 +1472,8 @@ inline bool IsPossiblySameDataType(DataType a, DataType b) {
   return !b.valid() || !a.valid() || a == b;
 }
 template <typename T, typename U>
-constexpr inline bool IsPossiblySameDataType(StaticDataType<T> a,
-                                             StaticDataType<U> b) {
+constexpr bool IsPossiblySameDataType(StaticDataType<T> a,
+                                      StaticDataType<U> b) {
   return std::is_same_v<T, U>;
 }
 

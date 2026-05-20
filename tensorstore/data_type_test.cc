@@ -376,7 +376,7 @@ TEST(ElementOperationsTest, FloatCompareIdentical) {
 }
 
 struct X {
-  constexpr static int constant_value = 0;
+  static constexpr int constant_value = 0;
   std::shared_ptr<const int> value =
       std::shared_ptr<const int>(std::shared_ptr<void>{}, &constant_value);
 };
@@ -496,13 +496,32 @@ TYPED_TEST(AllocateAndConstructTest, ValueInitialization) {
 #if !defined(THREAD_SANITIZER)
 TEST(AllocateAndConsructSharedDeathTest, OutOfMemory) {
   const auto allocate = [] {
-    AllocateAndConstructShared<int>(0xFFFFFFFFFFFFFFF,
-                                    tensorstore::default_init);
+    return tensorstore::AllocateAndConstructShared<int>(
+        0xFFFFFFFFFFFFFFF, tensorstore::default_init);
   };
 #if ABSL_HAVE_EXCEPTIONS
   EXPECT_THROW(allocate(), std::bad_alloc);
 #else
   EXPECT_DEATH(allocate(), "");
+#endif
+}
+
+TEST(AllocateAndConstructOverflowTest, IntegerOverflow) {
+  ptrdiff_t n = 576460752303423489;
+#if ABSL_HAVE_EXCEPTIONS
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] void* ptr = tensorstore::AllocateAndConstruct(
+            n, tensorstore::default_init, tensorstore::dtype_v<std::string>);
+      },
+      std::bad_alloc);
+#else
+  EXPECT_DEATH(
+      {
+        [[maybe_unused]] void* ptr = tensorstore::AllocateAndConstruct(
+            n, tensorstore::default_init, tensorstore::dtype_v<std::string>);
+      },
+      "");
 #endif
 }
 #endif  // defined(THREAD_SANITIZER)

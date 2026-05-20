@@ -320,6 +320,16 @@ TEST(SpanTest, FirstDynamicDynamic) {
   static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr, 2));
 }
+
+TEST(SpanTest, FirstOutOfBoundsCrash) {
+  int arr[] = {1, 2, 3};
+  span<int> s(arr);
+  EXPECT_DEBUG_DEATH(s.first(4), "");
+  EXPECT_DEBUG_DEATH(s.first<4>(), "");
+
+  span<int, 3> s_static(arr);
+  EXPECT_DEBUG_DEATH(s_static.first(4), "");
+}
 }  // namespace first_tests
 namespace last_tests {
 
@@ -353,6 +363,16 @@ TEST(SpanTest, LastDynamicDynamic) {
   auto s2 = s.last(2);
   static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
+}
+
+TEST(SpanTest, LastOutOfBoundsCrash) {
+  int arr[] = {1, 2, 3};
+  span<int> s(arr);
+  EXPECT_DEBUG_DEATH(s.last(4), "");
+  EXPECT_DEBUG_DEATH(s.last<4>(), "");
+
+  span<int, 3> s_static(arr);
+  EXPECT_DEBUG_DEATH(s_static.last(4), "");
 }
 }  // namespace last_tests
 
@@ -540,6 +560,18 @@ TEST(SpanTest, SubspanDynamicDynamic) {
   static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
+
+TEST(SpanTest, SubspanOutOfBoundsCrash) {
+  int arr[] = {1, 2, 3};
+  span<int> s(arr);
+  EXPECT_DEBUG_DEATH(s.subspan(4), "");
+  EXPECT_DEBUG_DEATH(s.subspan<4>(), "");
+
+  span<int, 3> s_static(arr);
+  EXPECT_DEBUG_DEATH(s_static.subspan(4), "");
+  EXPECT_DEBUG_DEATH(s_static.subspan<4>(), "");
+}
+
 }  // namespace subspan_tests
 
 namespace deduction_tests {

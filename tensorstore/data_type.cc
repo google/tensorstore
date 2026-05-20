@@ -20,6 +20,7 @@
 #include <array>
 #include <cassert>
 #include <complex>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -34,14 +35,32 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
+namespace {
+
+// Invokes operator delete with alignment if alignment is greater than
+// __STDCPP_DEFAULT_NEW_ALIGNMENT__.
+struct AlignedDeleter {
+  std::align_val_t alignment;
+  void operator()(void* p) const {
+    if (static_cast<size_t>(alignment) > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
+      ::operator delete(p, alignment);
+    } else {
+      ::operator delete(p);
+    }
+  }
+};
+
+}  // namespace
 
 // On all common platforms, these assumptions holds.
 //
@@ -59,19 +78,25 @@ std::ostream& operator<<(std::ostream& os, DataType r) {
   return os << absl::StreamFormat("%v", r);
 }
 
-void* AllocateAndConstruct(ptrdiff_t n, ElementInitialization initialization,
-                           DataType r) {
+TENSORSTORE_NODISCARD void* AllocateAndConstruct(
+    ptrdiff_t n, ElementInitialization initialization, DataType r) {
   assert(n >= 0);
   assert(n < kInfSize);
+  size_t bytes;
+  if (internal::MulOverflow(static_cast<size_t>(r->size),
+                            static_cast<size_t>(n), &bytes)) {
+#if ABSL_HAVE_EXCEPTIONS
+    throw std::bad_alloc();
+#else
+    std::abort();
+#endif
+  }
+  // AlignedDeleter is only used when the constructor throws an exception.
   size_t alignment =
       RoundUpTo(static_cast<size_t>(r->alignment), sizeof(void*));
-  size_t total_size = RoundUpTo(static_cast<size_t>(r->size * n), alignment);
-  struct AlignedDeleter {
-    std::align_val_t alignment;
-    void operator()(void* p) const { ::operator delete(p, alignment); }
-  };
+  size_t total_size = RoundUpTo(bytes, alignment);
   std::unique_ptr<void, AlignedDeleter> ptr(
-      alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__
+      (alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
           ? ::operator new(total_size, std::align_val_t(alignment))
           : ::operator new(total_size),
       AlignedDeleter{std::align_val_t(alignment)});
@@ -89,11 +114,10 @@ void* AllocateAndConstruct(ptrdiff_t n, ElementInitialization initialization,
 
 void DestroyAndFree(ptrdiff_t n, DataType r, void* ptr) {
   r->destroy(n, ptr);
-  if (r->alignment > static_cast<ptrdiff_t>(__STDCPP_DEFAULT_NEW_ALIGNMENT__)) {
-    ::operator delete(ptr, std::align_val_t(r->alignment));
-  } else {
-    ::operator delete(ptr);
-  }
+  size_t alignment =
+      RoundUpTo(static_cast<size_t>(r->alignment), sizeof(void*));
+  AlignedDeleter deleter{std::align_val_t(alignment)};
+  deleter(ptr);
 }
 
 template <>

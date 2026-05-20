@@ -305,6 +305,7 @@ class span {
     static_assert(Count >= 0, "Invalid Count");
     static_assert(Extent == dynamic_extent || Extent >= Count,
                   "Invalid Count for Extent.");
+    assert(size() >= Count);
     return {data(), Count};
   }
 
@@ -326,6 +327,7 @@ class span {
     static_assert(Count >= 0, "Invalid Count");
     static_assert(Extent == dynamic_extent || Extent >= Count,
                   "Invalid Count for Extent.");
+    assert(size() >= Count);
     return {end() - Count, Count};
   }
 
@@ -351,7 +353,7 @@ class span {
                   "Count must be non-negative or dynamic_extent.");
     static_assert(Count == dynamic_extent || Extent == dynamic_extent ||
                       Offset + Count <= Extent,
-                  "Offset must be non-negative.");
+                  "Requested subspan range exceeds static extent.");
     return {begin() + Offset,
             Count == dynamic_extent ? size() - Offset : Count};
   }
@@ -359,11 +361,13 @@ class span {
   /// Returns a dynamic extent subspan from the starting `offset` and specified
   /// `count`.
   ///
+  /// \dchecks `offset >= 0 && offset <= size()`
+  /// \dchecks `count >= 0 && (offset + count) <= size()`
   /// \id dynamic
   constexpr span<element_type, dynamic_extent> subspan(
       ptrdiff_t offset, ptrdiff_t count = dynamic_extent) const {
-    assert(offset >= 0 && (count == dynamic_extent ||
-                           (count >= 0 && offset + count <= size())));
+    assert(offset >= 0 && offset <= size());
+    assert(count == dynamic_extent || (count >= 0 && offset + count <= size()));
     return {begin() + offset,
             count == dynamic_extent ? size() - offset : count};
   }

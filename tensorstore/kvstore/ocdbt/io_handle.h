@@ -136,6 +136,7 @@ class FlushPromise {
   /// Returns the associated future, and resets this object to a
   /// default-constructed state.
   Future<const void> future() && {
+    absl::MutexLock lock(mutex_);
     auto future =
         future_.null() ? std::move(prev_linked_future_) : std::move(future_);
     prev_linked_future_ = {};

@@ -209,13 +209,12 @@ struct BtreeInteriorNodeWriteMutationCodec {
           return false;
         }
       }
-
-      if (!BtreeNodeReferenceArrayCodec{data_file_table,
-                                        [](auto& e) -> decltype(auto) {
-                                          return (e.node);
-                                        }}(io, value.new_entries)) {
-        return false;
-      }
+    }
+    if (!BtreeNodeReferenceArrayCodec{data_file_table,
+                                      [](auto& e) -> decltype(auto) {
+                                        return (e.node);
+                                      }}(io, value.new_entries)) {
+      return false;
     }
     return true;
   }

@@ -141,6 +141,7 @@ tensorstore_cc_test(
     srcs = ["flush_promise_test.cc"],
     deps = [
         ":io_handle",
+        "//tensorstore/internal/testing:concurrent",
         "//tensorstore/util:future",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",

@@ -81,15 +81,17 @@ class KeyRangeMap {
       }
 
       if (it != table_.end() && it->range.inclusive_min < range.exclusive_max) {
-        // Adjust the final entry.
-#if 0
-        // The proper way to do this, however.
+        // Adjust the final entry. See the commented-out code below for
+        // the proper way to adjust the key via extraction and reinsertion.
+#if 1
+        const_cast<KeyRange&>(it->range).inclusive_min = range.exclusive_max;
+#else
+        // TODO: use absl::btree_set::extract_and_get_next.
         auto node = table_.extract(it);
         node.value().range.inclusive_min = range.exclusive_max;
         auto insert_result = table_.insert(std::move(node));
         assert(insert_result.inserted);
 #endif
-        const_cast<KeyRange&>(it->range).inclusive_min = range.exclusive_max;
       }
     }
   }
