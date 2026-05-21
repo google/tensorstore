@@ -135,4 +135,38 @@ TEST(GenericStringifyTest, Span) {
               StrEq("{1, 2, 3}"));
 }
 
+TEST(GenericStringifyTest, NullCharPointerCrash) {
+  auto expect_null = [](const char* p) {
+    EXPECT_THAT(absl::StrCat(GenericStringify(p)), StrEq("null"));
+  };
+  expect_null(nullptr);
+  expect_null("null");
+}
+
+TEST(GenericStringifyTest, RValueMatters) {
+  static const char kABC[] = "abc";
+  {
+    auto result = GenericStringify(kABC);
+    EXPECT_THAT(absl::StrCat(result), StrEq("abc"));
+  }
+
+  {
+    auto stringified1 = []() {
+      std::string s = "a";
+      return GenericStringify(std::move(s));
+    }();
+    auto stringified2 = []() {
+      std::string s = "bc";
+      return GenericStringify(std::move(s));
+    }();
+    EXPECT_THAT(absl::StrCat(stringified1, stringified2), StrEq("abc"));
+  }
+
+  {
+    const std::vector<int> v = {1, 2, 3};
+    EXPECT_THAT(absl::StrCat(GenericStringify(std::move(v))),
+                StrEq("{1, 2, 3}"));
+  }
+}
+
 }  // namespace
