@@ -72,9 +72,14 @@ absl::Status ZarrCodecSpec::DoMergeFrom(
     return absl::InvalidArgumentError("");
   }
   auto& other = static_cast<const ZarrCodecSpec&>(other_base);
+
   // Set filters if set in either spec.
-  if (other.filters) {
-    filters = nullptr;
+  if (other.filters.is_null()) {
+    // Ignore other.filters.
+  } else if (filters.is_null()) {
+    filters = other.filters;
+  } else if (!internal_json::JsonSame(filters, other.filters)) {
+    return absl::InvalidArgumentError("\"filters\" does not match");
   }
 
   if (other.compressor) {
@@ -90,9 +95,10 @@ absl::Status ZarrCodecSpec::DoMergeFrom(
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     ZarrCodecSpec,
-    jb::Sequence(
-        jb::Member("compressor", jb::Projection(&ZarrCodecSpec::compressor)),
-        jb::Member("filters", jb::Projection(&ZarrCodecSpec::filters))))
+    jb::Sequence(jb::Member("compressor",
+                            jb::Projection(&ZarrCodecSpec::compressor)),
+                 jb::OptionalMember("filters",
+                                    jb::Projection(&ZarrCodecSpec::filters))));
 
 namespace {
 const internal::CodecSpecRegistration<ZarrCodecSpec> encoding_registration{
@@ -554,12 +560,11 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
 
 namespace {
 std::string GetFieldNames(const ZarrDType& dtype) {
-  std::vector<std::string> field_names;
-  field_names.reserve(dtype.fields.size());
+  auto field_names = nlohmann::json::array();
   for (const auto& field : dtype.fields) {
     field_names.push_back(field.name);
   }
-  return ::nlohmann::json(field_names).dump();
+  return field_names.dump();
 }
 }  // namespace
 

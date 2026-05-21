@@ -437,7 +437,7 @@ Example:
       'read_chunk': {'shape': [100, 200, 300]},
       'write_chunk': {'shape': [100, 200, 300]},
     },
-    'codec': {'driver': 'zarr'},
+    'codec': {'driver': 'zarr', 'filters': None},
     'domain': {
       'exclusive_max': [[1000], [2000], [3000]],
       'inclusive_min': [0, 0, 0],
@@ -560,7 +560,7 @@ Example:
   ...     }
   ... })
   >>> spec.codec
-  CodecSpec({'compressor': None, 'driver': 'zarr'})
+  CodecSpec({'compressor': None, 'driver': 'zarr', 'filters': None})
 
 Note:
 

@@ -845,9 +845,9 @@ TEST(ZarrCodecSpecTest, Merge) {
               ::testing::Optional(codec1));
   EXPECT_THAT(CodecSpec::Merge(CodecSpec(), CodecSpec()),
               ::testing::Optional(CodecSpec()));
-  EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec1));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
-  EXPECT_THAT(CodecSpec::Merge(codec2, codec3), ::testing::Optional(codec5));
+  EXPECT_THAT(CodecSpec::Merge(codec2, codec3), ::testing::Optional(codec3));
   EXPECT_THAT(CodecSpec::Merge(codec3, codec4),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        MatchesRegex(".*Cannot merge codec spec .* with .*: "
@@ -888,6 +888,19 @@ TEST(GetSpecRankAndFieldInfoTest, SelectedFieldAndOpenAsVoidMutuallyExclusive) {
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("\"field\" and \"open_as_void\" are mutually "
                          "exclusive")));
+}
+
+TEST(ZarrCodecSpecTest, MergeFiltersLogicalErasureRegression) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec_a, CodecSpec::FromJson({{"driver", "zarr2"},
+                                        {"filters", {{{"id", "delta"}}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec_b, CodecSpec::FromJson({{"driver", "zarr2"},
+                                        {"filters", {{{"id", "delta"}}}}}));
+  TENSORSTORE_EXPECT_OK(spec_a.MergeFrom(spec_b));
+  EXPECT_THAT(spec_a.ToJson(),
+              ::testing::Optional(MatchesJson(
+                  {{"driver", "zarr"}, {"filters", {{{"id", "delta"}}}}})));
 }
 
 }  // namespace
