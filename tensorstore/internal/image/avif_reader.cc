@@ -118,7 +118,7 @@ avifIO* AvifRiegeli::Create(riegeli::Reader* reader) {
   io->write = nullptr;
   io->sizeHint = 0;
   if (reader->SupportsSize()) {
-    absl::optional<size_t> reader_size = reader->Size();
+    std::optional<size_t> reader_size = reader->Size();
     io->sizeHint = reader_size.value_or(0);
   }
   io->reader = reader;

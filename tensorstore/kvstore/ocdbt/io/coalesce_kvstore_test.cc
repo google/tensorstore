@@ -215,7 +215,7 @@ TEST(CoalesceKvstoreTest, ReadWithInterval) {
 
   auto coalesce_driver = MakeCoalesceKvStoreDriver(
       mock_key_value_store, /*threshold=*/1, /*merged_threshold=*/0,
-      /*interval=*/absl::Milliseconds(10),
+      /*interval=*/absl::Milliseconds(100),
       tensorstore::internal::DetachedThreadPool(1));
 
   auto write_future =
@@ -230,10 +230,11 @@ TEST(CoalesceKvstoreTest, ReadWithInterval) {
   ReadOptions ro1, ro2, ro3, ro4;
   ro1.byte_range = OptionalByteRangeRequest(0, 1);  // will be coalesced as well
   ro2.byte_range = OptionalByteRangeRequest(2, 3);  // coalesced
-  ro3.byte_range = OptionalByteRangeRequest(4, 5);  /// coalesced
+  ro3.byte_range = OptionalByteRangeRequest(4, 5);  // coalesced
   ro4.byte_range =
       OptionalByteRangeRequest(7, 8);  // out of threshold to be coalesced
 
+  // NOTE: The coalescing is sensitive to OS scheduling.
   auto read_future1 = kvstore::Read(coalesce_driver, "a", ro1);
   auto read_future2 = kvstore::Read(coalesce_driver, "a", ro2);
   auto read_future3 = kvstore::Read(coalesce_driver, "a", ro3);

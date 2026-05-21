@@ -52,7 +52,7 @@ class DigestCodec : public ZarrBytesToBytesCodec {
   static constexpr int64_t kChecksumSize =
       static_cast<int64_t>(DigestVerifierTraits::template Size<DigestType>());
 
-  class State : public ZarrBytesToBytesCodec::PreparedState {
+  class State final : public ZarrBytesToBytesCodec::PreparedState {
    public:
     explicit State(int64_t decoded_size) {
       if (decoded_size == -1 ||
@@ -74,6 +74,7 @@ class DigestCodec : public ZarrBytesToBytesCodec {
 
     int64_t encoded_size() const override { return encoded_size_; }
 
+   private:
     int64_t encoded_size_;
   };
 
@@ -101,6 +102,7 @@ Result<ZarrBytesToBytesCodec::Ptr> Crc32cCodecSpec::Resolve(
     BytesCodecResolveParameters&& decoded, BytesCodecResolveParameters& encoded,
     ZarrBytesToBytesCodecSpec::Ptr* resolved_spec) const {
   if (resolved_spec) resolved_spec->reset(this);
+  decoded = BytesCodecResolveParameters{};
   return internal::MakeIntrusivePtr<Crc32cCodec>();
 }
 
