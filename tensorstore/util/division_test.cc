@@ -24,8 +24,14 @@ static_assert(-4 == tensorstore::FloorOfRatio(-10, 3));
 static_assert(4 == tensorstore::CeilOfRatio(10, 3));
 static_assert(-3 == tensorstore::CeilOfRatio(-10, 3));
 
+static_assert(0 == tensorstore::RoundUpTo(0, 1));
 static_assert(10 == tensorstore::RoundUpTo(7, 5));
 static_assert(10 == tensorstore::RoundUpTo(10, 5));
+static_assert(2147483645 == tensorstore::RoundUpTo(2147483641, 5));
+static_assert(0xffffffffu == tensorstore::RoundUpTo(0xfffffffeu, 3u));
+static_assert(0xffffffffu == tensorstore::RoundUpTo<uint32_t>(2, 0xffffffffu));
+// Overflow scenario.
+static_assert(0u == tensorstore::RoundUpTo<uint32_t>(0xffffffffu, 2u));
 
 static_assert(3 == tensorstore::NonnegativeMod(10, 7));
 static_assert(4 == tensorstore::NonnegativeMod(-10, 7));
@@ -47,4 +53,6 @@ static_assert(8 == tensorstore::GreatestCommonDivisor<int32_t>(8, -0x80000000));
 static_assert(8 ==
               tensorstore::GreatestCommonDivisor<int32_t>(-8, -0x80000000));
 
+static_assert(1 ==
+              tensorstore::GreatestCommonDivisor<int32_t>(-0x80000000, -1));
 }  // namespace

@@ -33,18 +33,23 @@
 // limitations under the License.
 
 #include <cassert>
-#include <limits>
+#include <numeric>
 #include <type_traits>
 
 namespace tensorstore {
 
+// Returns the smallest integer value which is a multiple of `rounding_value`,
+// and greater than or equal to `input`.
+// `rounding_value` must be greater than zero.
+// Overflow is possible when the values are near the limits of the type.
 template <typename IntegralType>
 constexpr IntegralType RoundUpTo(IntegralType input,
                                  IntegralType rounding_value) {
-  static_assert(std::is_integral<IntegralType>::value,
+  static_assert(std::is_integral_v<IntegralType>,
                 "IntegralType must be an integral type.");
   assert(input >= 0 && rounding_value > 0);
-  return ((input + rounding_value - 1) / rounding_value) * rounding_value;
+  const IntegralType remainder = input % rounding_value;
+  return remainder == 0 ? input : input + (rounding_value - remainder);
 }
 
 template <typename IntegralType, bool ceil>
@@ -136,35 +141,24 @@ constexpr IntegralType NonnegativeMod(IntegralType numerator,
   return modulus + (modulus < 0) * denominator;
 }
 
-/// Computes the non-negative greater common divisor of `x` and `y` using
-/// Euclid's Algorithm.
-///
-/// GreatestCommonDivisor(0, 0) is undefined.
-/// GreatestCommonDivisor(x, 0) == x
-/// GreatestCommonDivisor(0, x) == x
+// Computes the non-negative greater common divisor of `x` and `y` using
+// Euclid's Algorithm.
+//
+// GreatestCommonDivisor(0, 0) is undefined.
+// GreatestCommonDivisor(x, 0) == x
+// GreatestCommonDivisor(0, x) == x
 template <typename IntegralType>
 constexpr IntegralType GreatestCommonDivisor(IntegralType x, IntegralType y) {
   assert(x != 0 || y != 0);
-  if (std::is_signed_v<IntegralType> &&
-      x == std::numeric_limits<IntegralType>::min()) {
-    // If `y == 0`, the mathematical result is `-x`, which overflows.  Instead,
-    // this traps due to division by 0.
-    x = x % y;
-  }
-  if (std::is_signed_v<IntegralType> &&
-      y == std::numeric_limits<IntegralType>::min()) {
-    // If `x == 0`, the mathematical result is `-y`, which overflows.  Instead,
-    // this traps due to division by 0.
-    y = y % x;
-  }
-  if (std::is_signed_v<IntegralType> && x < 0) x = -x;
-  if (std::is_signed_v<IntegralType> && y < 0) y = -y;
-  while (y != 0) {
-    IntegralType r = x % y;
-    x = y;
-    y = r;
-  }
-  return x;
+  using UnsignedType = std::make_unsigned_t<IntegralType>;
+  UnsignedType ux = (x < 0 && std::is_signed_v<IntegralType>)
+                        ? -static_cast<UnsignedType>(x)
+                        : static_cast<UnsignedType>(x);
+  UnsignedType uy = (y < 0 && std::is_signed_v<IntegralType>)
+                        ? -static_cast<UnsignedType>(y)
+                        : static_cast<UnsignedType>(y);
+
+  return static_cast<IntegralType>(std::gcd(ux, uy));
 }
 
 }  // namespace tensorstore
