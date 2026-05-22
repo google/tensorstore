@@ -78,14 +78,14 @@ namespace tensorstore {
 namespace internal_zarr3 {
 
 internal::ChunkGridSpecification CreateFieldGridSpecification(
-    span<const Index> chunk_shape, const ZarrDType& dtype,
+    span<const Index> chunk_shape, const ZarrDType& zarr_dtype,
     span<const DimensionIndex> inner_order,
     const std::vector<SharedArray<const void>>* fill_values) {
   const DimensionIndex chunked_rank = chunk_shape.size();
   internal::ChunkGridSpecification::ComponentList components;
 
-  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
-    const auto& field = dtype.fields[field_i];
+  for (size_t field_i = 0; field_i < zarr_dtype.fields.size(); ++field_i) {
+    const auto& field = zarr_dtype.fields[field_i];
     const size_t field_rank = field.field_shape.size();
     const DimensionIndex total_rank = chunked_rank + field_rank;
 
@@ -148,11 +148,11 @@ ZarrChunkCache::~ZarrChunkCache() = default;
 
 ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
-    ZarrDType dtype, std::vector<Index> field_shape,
+    ZarrDType zarr_dtype, std::vector<Index> field_shape,
     internal::CachePool::WeakPtr /*data_cache_pool*/)
     : Base(std::move(store)),
       codec_state_(std::move(codec_state)),
-      dtype_(std::move(dtype)),
+      zarr_dtype_(std::move(zarr_dtype)),
       field_shape_(std::move(field_shape)) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
@@ -228,7 +228,7 @@ std::string ZarrLeafChunkCache::GetChunkStorageKey(
 Result<absl::InlinedVector<SharedArray<const void>, 1>>
 ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
                                 absl::Cord data) {
-  const size_t num_fields = dtype_.fields.size();
+  const size_t num_fields = zarr_dtype_.fields.size();
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
   if (field_shape_.empty()) {
@@ -248,7 +248,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
       auto byte_array, codec_state_->DecodeArray(decode_shape, std::move(data)));
 
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
-    const auto& field = dtype_.fields[field_i];
+    const auto& field = zarr_dtype_.fields[field_i];
     const auto& component_shape = grid().components[field_i].shape();
     auto result_array =
         AllocateArray(component_shape, c_order, default_init, field.dtype);
@@ -258,7 +258,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
                       field.field_shape.end());
 
     std::vector<Index> src_byte_strides(view_shape.size());
-    ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
+    ComputeStrides(c_order, zarr_dtype_.bytes_per_outer_element, chunk_shape,
                    tensorstore::span(src_byte_strides.data(), chunk_shape.size()));
     if (!field.field_shape.empty()) {
       ComputeStrides(c_order, static_cast<Index>(field.dtype.size()),
@@ -283,7 +283,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
 Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     span<const Index> chunk_indices,
     span<const SharedArray<const void>> component_arrays) {
-  const size_t num_fields = dtype_.fields.size();
+  const size_t num_fields = zarr_dtype_.fields.size();
 
   if (field_shape_.empty()) {
     assert(num_fields == 1);
@@ -301,7 +301,7 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
   auto byte_array = AllocateArray<std::byte>(encode_shape, c_order, value_init);
 
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
-    const auto& field = dtype_.fields[field_i];
+    const auto& field = zarr_dtype_.fields[field_i];
     const auto& field_array = component_arrays[field_i];
 
     std::vector<Index> view_shape(chunk_shape.begin(), chunk_shape.end());
@@ -309,7 +309,7 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
                       field.field_shape.end());
 
     std::vector<Index> dest_byte_strides(view_shape.size());
-    ComputeStrides(c_order, dtype_.bytes_per_outer_element, chunk_shape,
+    ComputeStrides(c_order, zarr_dtype_.bytes_per_outer_element, chunk_shape,
                    tensorstore::span(dest_byte_strides.data(), chunk_shape.size()));
     if (!field.field_shape.empty()) {
       ComputeStrides(c_order, static_cast<Index>(field.dtype.size()),
@@ -334,11 +334,11 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 
 ZarrShardedChunkCache::ZarrShardedChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
-    ZarrDType dtype, std::vector<Index> field_shape,
+    ZarrDType zarr_dtype, std::vector<Index> field_shape,
     internal::CachePool::WeakPtr data_cache_pool)
     : base_kvstore_(std::move(store)),
       codec_state_(std::move(codec_state)),
-      dtype_(std::move(dtype)),
+      zarr_dtype_(std::move(zarr_dtype)),
       field_shape_(std::move(field_shape)),
       data_cache_pool_(std::move(data_cache_pool)) {}
 
@@ -649,7 +649,7 @@ void ZarrShardedChunkCache::Entry::DoInitialize() {
                 *sharding_state.sub_chunk_codec_chain,
                 std::move(sharding_kvstore), cache.executor(),
                 ZarrShardingCodec::PreparedState::Ptr(&sharding_state),
-                cache.dtype_, cache.field_shape_, cache.data_cache_pool_);
+                cache.zarr_dtype_, cache.field_shape_, cache.data_cache_pool_);
         zarr_chunk_cache = new_cache.release();
         return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
       })

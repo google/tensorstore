@@ -151,18 +151,18 @@ class ZarrDriverSpec
   }
 
   Result<IndexDomain<>> GetDomain() const override {
-    if (!metadata_constraints.data_type || !metadata_constraints.shape) {
+    if (!metadata_constraints.zarr_dtype || !metadata_constraints.shape) {
       return GetEffectiveDomain(metadata_constraints, schema);
     }
 
     const Index byte_dim =
-        metadata_constraints.data_type->bytes_per_outer_element;
+        metadata_constraints.zarr_dtype->bytes_per_outer_element;
     span<const Index> field_shape;
     if (open_as_void) {
       field_shape = span<const Index>(&byte_dim, 1);
     } else if (!selected_field.empty()) {
-      const auto& dtype = *metadata_constraints.data_type;
-      for (const auto& field : dtype.fields) {
+      const auto& zarr_dtype = *metadata_constraints.zarr_dtype;
+      for (const auto& field : zarr_dtype.fields) {
         if (field.name == selected_field && !field.field_shape.empty()) {
           field_shape = span<const Index>(field.field_shape.data(),
                                           field.field_shape.size());
@@ -209,12 +209,12 @@ class ZarrDriverSpec
 
     const auto& vec = *constraints.fill_value;
 
-    if (!constraints.data_type) {
+    if (!constraints.zarr_dtype) {
       if (!vec.empty()) return vec[0];
       return fill_value;
     }
 
-    const ZarrDType& dtype = *constraints.data_type;
+    const ZarrDType& zarr_dtype = *constraints.zarr_dtype;
 
     if (open_as_void) {
       const ZarrCodecChainSpec empty_codec_specs;
@@ -222,11 +222,11 @@ class ZarrDriverSpec
           constraints.codec_specs ? *constraints.codec_specs
                                   : empty_codec_specs;
       return SharedArray<const void>(
-          MakeVoidFillValue(dtype, codec_specs, vec));
+          MakeVoidFillValue(zarr_dtype, codec_specs, vec));
     }
 
     TENSORSTORE_ASSIGN_OR_RETURN(
-        size_t field_index, GetFieldIndex(dtype, selected_field));
+        size_t field_index, GetFieldIndex(zarr_dtype, selected_field));
     if (field_index < vec.size()) {
       return vec[field_index];
     }
@@ -354,7 +354,7 @@ class DataCacheBase
       implicit_upper_bounds[i] = true;
     }
     if (bounds.rank() > static_cast<DimensionIndex>(metadata.shape.size()) &&
-        metadata.data_type.fields.size() == 1 &&
+        metadata.zarr_dtype.fields.size() == 1 &&
         !metadata.field_shape.empty()) {
       const DimensionIndex chunked_rank =
           static_cast<DimensionIndex>(metadata.shape.size());
@@ -390,7 +390,7 @@ class DataCacheBase
       const ZarrMetadata& metadata) {
     assert(!metadata.fill_value.empty());
     return CreateFieldGridSpecification(
-        metadata.chunk_shape, metadata.data_type,
+        metadata.chunk_shape, metadata.zarr_dtype,
         span(metadata.inner_order.data(), metadata.rank), &metadata.fill_value);
   }
 
@@ -478,7 +478,7 @@ class DataCacheBase
   Result<IndexTransform<>> GetExternalToInternalTransform(
       const void* metadata_ptr, size_t component_index) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-    const auto& field = metadata.data_type.fields[component_index];
+    const auto& field = metadata.zarr_dtype.fields[component_index];
     const DimensionIndex rank = metadata.rank;
     const DimensionIndex field_rank = field.field_shape.size();
     const DimensionIndex total_rank = rank + field_rank;
@@ -515,9 +515,9 @@ class DataCacheBase
     auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     spec.metadata_constraints = ZarrMetadataConstraints(metadata);
-    if (metadata.data_type.has_fields &&
-        component_index < metadata.data_type.fields.size()) {
-      spec.selected_field = metadata.data_type.fields[component_index].name;
+    if (metadata.zarr_dtype.has_fields &&
+        component_index < metadata.zarr_dtype.fields.size()) {
+      spec.selected_field = metadata.zarr_dtype.fields[component_index].name;
     } else {
       spec.selected_field.clear();
     }
@@ -530,8 +530,8 @@ class DataCacheBase
     ChunkLayout chunk_layout;
     SpecRankAndFieldInfo info;
     info.chunked_rank = metadata.rank;
-    if (!metadata.data_type.fields.empty()) {
-      info.field = &metadata.data_type.fields[0];
+    if (!metadata.zarr_dtype.fields.empty()) {
+      info.field = &metadata.zarr_dtype.fields[0];
     }
     std::optional<span<const Index>> chunk_shape_span;
     chunk_shape_span.emplace(metadata.chunk_shape.data(),
@@ -797,7 +797,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
       effective_metadata = std::static_pointer_cast<const ZarrMetadata>(
           initializer.metadata);
     }
-    ZarrDType dtype = effective_metadata->data_type;
+    ZarrDType zarr_dtype = effective_metadata->zarr_dtype;
     ZarrCodecChain::PreparedState::Ptr codec_state =
         effective_metadata->codec_state;
     std::vector<Index> field_shape = effective_metadata->field_shape;
@@ -805,7 +805,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
         std::move(effective_metadata), is_substituted, std::move(codec_state),
-        std::move(dtype), std::move(field_shape),
+        std::move(zarr_dtype), std::move(field_shape),
         /*data_cache_pool=*/*cache_pool());
   }
 
@@ -827,7 +827,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto field_index,
-        GetFieldIndex(metadata.data_type, spec().selected_field));
+        GetFieldIndex(metadata.zarr_dtype, spec().selected_field));
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadataSchema(metadata, field_index, spec().schema));
     return field_index;

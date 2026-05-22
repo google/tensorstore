@@ -77,10 +77,10 @@ struct ChunkKeyEncoding {
 };
 
 struct FillValueJsonBinder {
-  ZarrDType dtype;
+  ZarrDType zarr_dtype;
   bool allow_missing_dtype = false;
   FillValueJsonBinder() = default;
-  explicit FillValueJsonBinder(ZarrDType dtype,
+  explicit FillValueJsonBinder(ZarrDType zarr_dtype,
                                bool allow_missing_dtype = false);
   explicit FillValueJsonBinder(DataType dtype,
                                bool allow_missing_dtype = false);
@@ -114,7 +114,7 @@ struct ZarrMetadata {
 
   int zarr_format;
   std::vector<Index> shape;
-  ZarrDType data_type;
+  ZarrDType zarr_dtype;
   ::nlohmann::json::object_t user_attributes;
   std::optional<DimensionUnitsVector> dimension_units;
   std::vector<std::optional<std::string>> dimension_names;
@@ -160,7 +160,7 @@ struct ZarrMetadataConstraints {
 
   std::optional<int> zarr_format;
   std::optional<std::vector<Index>> shape;
-  std::optional<ZarrDType> data_type;
+  std::optional<ZarrDType> zarr_dtype;
   ::nlohmann::json::object_t user_attributes;
   std::optional<DimensionUnitsVector> dimension_units;
   std::optional<std::vector<std::optional<std::string>>> dimension_names;
@@ -267,7 +267,7 @@ absl::Status ValidateDataType(DataType dtype);
 ///
 /// If `selected_field` is empty, requires the dtype to have a single field and
 /// returns 0.
-Result<size_t> GetFieldIndex(const ZarrDType& dtype,
+Result<size_t> GetFieldIndex(const ZarrDType& zarr_dtype,
                              std::string_view selected_field);
 
 /// Returns a synthetic single-field "void view" `ZarrDType` whose only field
@@ -290,7 +290,7 @@ ZarrDType MakeVoidDType(Index bytes_per_outer_element);
 /// returned for a missing chunk is byte-identical to what `read` returns for
 /// a present chunk.
 SharedArray<const void> MakeVoidFillValue(
-    const ZarrDType& dtype, const ZarrCodecChainSpec& codec_specs,
+    const ZarrDType& zarr_dtype, const ZarrCodecChainSpec& codec_specs,
     span<const SharedArray<const void>> per_field_fill);
 
 /// Returns a void-access view of `metadata`: a new `ZarrMetadata` whose

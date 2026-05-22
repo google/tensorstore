@@ -355,18 +355,18 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
 
 }  // namespace
 
-absl::Status ValidateDType(ZarrDType& dtype) {
+absl::Status ValidateDType(ZarrDType& zarr_dtype) {
   // JSON parsers always produce at least one field; this guards programmatic
   // constructions, since downstream consumers index `fields[0]` directly.
-  if (dtype.fields.empty()) {
+  if (zarr_dtype.fields.empty()) {
     return absl::FailedPreconditionError(
         "zarr3 data type must have at least one field");
   }
-  dtype.bytes_per_outer_element = 0;
-  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
-    auto& field = dtype.fields[field_i];
+  zarr_dtype.bytes_per_outer_element = 0;
+  for (size_t field_i = 0; field_i < zarr_dtype.fields.size(); ++field_i) {
+    auto& field = zarr_dtype.fields[field_i];
     if (std::any_of(
-            dtype.fields.begin(), dtype.fields.begin() + field_i,
+            zarr_dtype.fields.begin(), zarr_dtype.fields.begin() + field_i,
             [&](const ZarrDType::Field& f) { return f.name == field.name; })) {
       return absl::InvalidArgumentError(absl::StrFormat(
           "Field name %v occurs more than once", QuoteString(field.name)));
@@ -384,9 +384,10 @@ absl::Status ValidateDType(ZarrDType& dtype) {
                               &field.num_bytes)) {
       return absl::InvalidArgumentError("Field size in bytes is too large");
     }
-    field.byte_offset = dtype.bytes_per_outer_element;
-    if (internal::AddOverflow(dtype.bytes_per_outer_element, field.num_bytes,
-                              &dtype.bytes_per_outer_element)) {
+    field.byte_offset = zarr_dtype.bytes_per_outer_element;
+    if (internal::AddOverflow(zarr_dtype.bytes_per_outer_element,
+                              field.num_bytes,
+                              &zarr_dtype.bytes_per_outer_element)) {
       return absl::InvalidArgumentError(
           "Total number of bytes per outer array element is too large");
     }
@@ -395,9 +396,10 @@ absl::Status ValidateDType(ZarrDType& dtype) {
 }
 
 Result<ZarrDType> ParseDType(const nlohmann::json& value) {
-  TENSORSTORE_ASSIGN_OR_RETURN(ZarrDType dtype, ParseDTypeNoDerived(value));
-  TENSORSTORE_RETURN_IF_ERROR(ValidateDType(dtype));
-  return dtype;
+  TENSORSTORE_ASSIGN_OR_RETURN(ZarrDType zarr_dtype,
+                               ParseDTypeNoDerived(value));
+  TENSORSTORE_RETURN_IF_ERROR(ValidateDType(zarr_dtype));
+  return zarr_dtype;
 }
 
 void to_json(::nlohmann::json& out, const ZarrDType::Field& field) {
@@ -408,15 +410,15 @@ void to_json(::nlohmann::json& out, const ZarrDType::Field& field) {
 }
 
 void to_json(::nlohmann::json& out,  // NOLINT
-             const ZarrDType& dtype) {
-  if (!dtype.has_fields) {
-    out = dtype.fields[0].encoded_dtype;
+             const ZarrDType& zarr_dtype) {
+  if (!zarr_dtype.has_fields) {
+    out = zarr_dtype.fields[0].encoded_dtype;
   } else {
     // Zarr v3 struct extension format: {"name": "struct", "configuration": {"fields": [...]}}
     out = ::nlohmann::json::object();
     out["name"] = "struct";
     out["configuration"] = ::nlohmann::json::object();
-    out["configuration"]["fields"] = dtype.fields;
+    out["configuration"]["fields"] = zarr_dtype.fields;
   }
 }
 

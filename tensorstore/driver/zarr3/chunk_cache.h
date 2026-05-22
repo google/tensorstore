@@ -63,11 +63,11 @@ namespace internal_zarr3 {
 /// Creates a ChunkGridSpecification for multi-field structured types.
 ///
 /// \param chunk_shape Spatial chunk dimensions (no bytes dimension).
-/// \param dtype Provides field info (name, dtype, field_shape, etc.).
+/// \param zarr_dtype Provides field info (name, dtype, field_shape, etc.).
 /// \param inner_order Optional layout permutation; empty span if unavailable.
 /// \param fill_values Per-field fill values, or nullptr to zero-initialize.
 internal::ChunkGridSpecification CreateFieldGridSpecification(
-    span<const Index> chunk_shape, const ZarrDType& dtype,
+    span<const Index> chunk_shape, const ZarrDType& zarr_dtype,
     span<const DimensionIndex> inner_order,
     const std::vector<SharedArray<const void>>* fill_values);
 
@@ -177,7 +177,7 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
 
   explicit ZarrLeafChunkCache(kvstore::DriverPtr store,
                               ZarrCodecChain::PreparedState::Ptr codec_state,
-                              ZarrDType dtype,
+                              ZarrDType zarr_dtype,
                               std::vector<Index> field_shape,
                               internal::CachePool::WeakPtr data_cache_pool);
 
@@ -206,7 +206,7 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
   kvstore::Driver* GetKvStoreDriver() override;
 
   ZarrCodecChain::PreparedState::Ptr codec_state_;
-  ZarrDType dtype_;
+  ZarrDType zarr_dtype_;
   std::vector<Index> field_shape_;
 };
 
@@ -217,7 +217,7 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
  public:
   explicit ZarrShardedChunkCache(kvstore::DriverPtr store,
                                  ZarrCodecChain::PreparedState::Ptr codec_state,
-                                 ZarrDType dtype,
+                                 ZarrDType zarr_dtype,
                                  std::vector<Index> field_shape,
                                  internal::CachePool::WeakPtr data_cache_pool);
 
@@ -268,7 +268,7 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
 
   kvstore::DriverPtr base_kvstore_;
   ZarrCodecChain::PreparedState::Ptr codec_state_;
-  ZarrDType dtype_;
+  ZarrDType zarr_dtype_;
   std::vector<Index> field_shape_;
 
   // Data cache pool, if it differs from `this->pool()` (which is equal to the
@@ -319,12 +319,12 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
   explicit ZarrShardSubChunkCache(
       kvstore::DriverPtr store, Executor executor,
       ZarrShardingCodec::PreparedState::Ptr sharding_state,
-      ZarrDType dtype, std::vector<Index> field_shape,
+      ZarrDType zarr_dtype, std::vector<Index> field_shape,
       internal::CachePool::WeakPtr data_cache_pool)
       : ChunkCacheImpl(std::move(store),
                        ZarrCodecChain::PreparedState::Ptr(
                            sharding_state->sub_chunk_codec_state),
-                       std::move(dtype), std::move(field_shape),
+                       std::move(zarr_dtype), std::move(field_shape),
                        std::move(data_cache_pool)),
         sharding_state_(std::move(sharding_state)),
         executor_(std::move(executor)) {
@@ -340,7 +340,7 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
         original_grid.chunk_shape.begin() + spatial_rank);
 
     field_grid_.emplace(CreateFieldGridSpecification(
-        spatial_chunk_shape, ChunkCacheImpl::dtype_,
+        spatial_chunk_shape, ChunkCacheImpl::zarr_dtype_,
         span<const DimensionIndex>(),  // no inner_order available
         nullptr));                     // zero-init fill values
 

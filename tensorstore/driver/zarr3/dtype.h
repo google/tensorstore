@@ -121,7 +121,7 @@ struct ZarrDType {
                                           internal_json_binding::NoOptions)
 
   friend void to_json(::nlohmann::json& out,  // NOLINT
-                      const ZarrDType& dtype);
+                      const ZarrDType& zarr_dtype);
 
   friend bool operator==(const ZarrDType& a, const ZarrDType& b) {
     return a.has_fields == b.has_fields &&
@@ -138,12 +138,12 @@ struct ZarrDType {
 /// \error `absl::StatusCode::kInvalidArgument` if `value` is not valid.
 Result<ZarrDType> ParseDType(const ::nlohmann::json& value);
 
-/// Validates `dtype and computes derived values.
+/// Validates `zarr_dtype` and computes derived values.
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if two fields have the same
 ///     name.
 /// \error `absl::StatusCode::kInvalidArgument` if the field size is too large.
-absl::Status ValidateDType(ZarrDType& dtype);
+absl::Status ValidateDType(ZarrDType& zarr_dtype);
 
 /// Parses a Zarr 3 data type string.
 ///
