@@ -106,7 +106,7 @@ absl::Status OpenModeSpec::ApplyOptions(const SpecOptions& options) {
         !assume_metadata && ((open_mode & OpenMode::assume_cached_metadata) ==
                              OpenMode::assume_cached_metadata);
   }
-  return absl::Status();
+  return absl::OkStatus();
 }
 
 absl::Status OpenModeSpec::Validate(ReadWriteMode read_write_mode) const {

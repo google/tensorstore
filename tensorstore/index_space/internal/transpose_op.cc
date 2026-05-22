@@ -95,6 +95,10 @@ Result<IndexTransform<>> ApplyTranspose(IndexTransform<> transform,
         absl::StrFormat("Number of dimensions (%d) must equal input_rank (%d).",
                         dimensions->size(), transform.input_rank()));
   }
+  if (!IsValidPermutation(*dimensions)) {
+    return absl::InvalidArgumentError(
+        "Dimensions are not a valid permutation.");
+  }
   TransformRep::Ptr<> rep = TransposeInputDimensions(
       TransformAccess::rep_ptr<container>(std::move(transform)), *dimensions,
       domain_only);

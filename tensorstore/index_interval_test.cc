@@ -1171,6 +1171,12 @@ TEST(GetAffineTransformDomainTest, DivisorInvalid) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
+TEST(GetAffineTransformDomainTest, DivisorZero) {
+  EXPECT_THAT(GetAffineTransformDomain(IndexInterval::UncheckedClosed(1, 10),
+                                       /*offset=*/0, /*divisor=*/0),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 TEST(GetAffineTransformDomainTest, OffsetInvalid) {
   EXPECT_THAT(GetAffineTransformDomain(
                   IndexInterval::UncheckedClosed(1, 10),

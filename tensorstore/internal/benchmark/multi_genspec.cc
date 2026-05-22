@@ -43,6 +43,7 @@ bazel run //tensorstore/internal/benchmark:multi_genspec -- \
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
@@ -253,6 +254,10 @@ void FillShardVariableFields(const TensorStore<>& ts, ShardVariable& var) {
                     layout->read_chunk_shape().cend());
   var.dtype = ts.dtype().name();
   ABSL_CHECK_EQ(var.shape.size(), var.chunks.size()) << var.name;
+
+  for (auto c : var.chunks) {
+    CHECK_GT(c, 0);
+  }
 }
 
 void SetHostSpecArrayBoxes(ShardVariable& var, const HostSpec& host) {
@@ -272,6 +277,7 @@ void SetHostSpecArrayBoxes(ShardVariable& var, const HostSpec& host) {
     total_chunks *= grid_shape[i];
   }
 
+  CHECK_GT(host.total_partitions, 0);
   int64_t local_chunks_to_write = tensorstore::CeilOfRatio(
       total_chunks * host.partitions_per_host, host.total_partitions);
   int64_t local_start_chunk_i =

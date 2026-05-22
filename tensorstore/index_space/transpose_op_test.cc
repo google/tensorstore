@@ -14,17 +14,22 @@
 
 /// Tests for the `DimExpression::Transpose()` operation.
 
+#include "tensorstore/index_space/internal/transpose_op.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::DimensionIndexBuffer;
 using ::tensorstore::Dims;
 using ::tensorstore::Index;
 using ::tensorstore::IndexInterval;
@@ -191,6 +196,21 @@ TEST(TransposeTest, Labeled) {
                         .Finalize()
                         .value(),
                     /*equivalent_indices=*/{{{2, 4, 3, 5}, {3, 2, 4, 5}}});
+}
+
+TEST(ApplyTransposeTest, InvalidPermutation) {
+  auto transform = IndexTransformBuilder<>(2, 2)
+                       .input_origin({1, 2})
+                       .input_shape({5, 6})
+                       .output_identity_transform()
+                       .Finalize()
+                       .value();
+  // Dimensions are not a permutation of {0, 1}.
+  DimensionIndexBuffer dimensions = {0, 0};
+  EXPECT_THAT(
+      tensorstore::internal_index_space::ApplyTranspose(transform, &dimensions,
+                                                        /*domain_only=*/false),
+      tensorstore::StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

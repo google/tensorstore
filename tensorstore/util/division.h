@@ -99,6 +99,7 @@ constexpr IntegralType FloorOfRatio(IntegralType numerator,
 template <typename IntegralType, bool ceil>
 constexpr IntegralType CeilOrFloorOfRatio(IntegralType numerator,
                                           IntegralType denominator) {
+  assert(denominator != 0);
   const IntegralType rounded_toward_zero = numerator / denominator;
   const IntegralType intermediate_product = rounded_toward_zero * denominator;
 

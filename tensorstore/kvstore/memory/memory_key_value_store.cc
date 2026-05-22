@@ -216,7 +216,7 @@ class MemoryDriver
     // `Result`, as that simplifies use cases involving composition via
     // inheritance.
     spec = spec_;
-    return absl::Status();
+    return absl::OkStatus();
   }
 
   SupportedFeatures GetSupportedFeatures(

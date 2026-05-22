@@ -361,7 +361,7 @@ absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
   spec.target_data_file_size = target_data_file_size_;
   spec.coordinator = coordinator_;
   spec.version_spec = version_spec_;
-  return absl::Status();
+  return absl::OkStatus();
 }
 
 kvstore::SupportedFeatures OcdbtDriver::GetSupportedFeatures(
