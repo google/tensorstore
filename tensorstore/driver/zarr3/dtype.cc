@@ -28,6 +28,7 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/data_type.h"
@@ -52,27 +53,21 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
     return D{std::string(dtype), result_dtype, {}};
   };
 
-  if (dtype == "bool") return make_dtype(dtype_v<bool>);
-  if (dtype == "uint8") return make_dtype(dtype_v<uint8_t>);
-  if (dtype == "uint16") return make_dtype(dtype_v<uint16_t>);
-  if (dtype == "uint32") return make_dtype(dtype_v<uint32_t>);
-  if (dtype == "uint64") return make_dtype(dtype_v<uint64_t>);
-  if (dtype == "int8") return make_dtype(dtype_v<int8_t>);
-  if (dtype == "int16") return make_dtype(dtype_v<int16_t>);
-  if (dtype == "int32") return make_dtype(dtype_v<int32_t>);
-  if (dtype == "int64") return make_dtype(dtype_v<int64_t>);
-  if (dtype == "bfloat16")
-    return make_dtype(dtype_v<::tensorstore::dtypes::bfloat16_t>);
-  if (dtype == "float16")
-    return make_dtype(dtype_v<::tensorstore::dtypes::float16_t>);
-  if (dtype == "float32")
-    return make_dtype(dtype_v<::tensorstore::dtypes::float32_t>);
-  if (dtype == "float64")
-    return make_dtype(dtype_v<::tensorstore::dtypes::float64_t>);
-  if (dtype == "complex64")
-    return make_dtype(dtype_v<::tensorstore::dtypes::complex64_t>);
-  if (dtype == "complex128")
-    return make_dtype(dtype_v<::tensorstore::dtypes::complex128_t>);
+  // Match against every tensorstore numeric data type.  The encoded name is the
+  // value returned by `internal_data_type::GetTypeName`, which matches the
+  // Zarr v3 spec dtype names (e.g. "bool", "int8", "bfloat16", "float8_e3m4",
+  // "complex64").
+#define TENSORSTORE_INTERNAL_DO_PARSE_ZARR3_DTYPE(T)            \
+  if (dtype == internal_data_type::GetTypeName<dtypes::T>()) {  \
+    return make_dtype(dtype_v<dtypes::T>);                      \
+  }                                                             \
+  /**/
+  TENSORSTORE_INTERNAL_DO_PARSE_ZARR3_DTYPE(bool_t)
+  TENSORSTORE_FOR_EACH_INT_DATA_TYPE(TENSORSTORE_INTERNAL_DO_PARSE_ZARR3_DTYPE)
+  TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(TENSORSTORE_INTERNAL_DO_PARSE_ZARR3_DTYPE)
+  TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+      TENSORSTORE_INTERNAL_DO_PARSE_ZARR3_DTYPE)
+#undef TENSORSTORE_INTERNAL_DO_PARSE_ZARR3_DTYPE
 
   // Handle r<N> raw bits type, where N is a positive multiple of 8.  Parse N
   // as uint64_t to accept values above INT32_MAX (e.g. `r8589934592`);
@@ -93,9 +88,22 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
                                 {num_bytes}};
   }
 
-  constexpr std::string_view kSupported =
-      "bool, uint8, uint16, uint32, uint64, int8, int16, int32, int64, "
-      "bfloat16, float16, float32, float64, complex64, complex128, r<N>";
+  // Lazily build the supported-name list using the same macros as the
+  // dispatch above so the error message stays in sync with the parser.
+  static const auto& kSupported = *new std::string{[] {
+    std::vector<std::string_view> names;
+#define TENSORSTORE_INTERNAL_DO_APPEND_DTYPE_NAME(T) \
+  names.push_back(internal_data_type::GetTypeName<dtypes::T>());
+    TENSORSTORE_INTERNAL_DO_APPEND_DTYPE_NAME(bool_t)
+    TENSORSTORE_FOR_EACH_INT_DATA_TYPE(
+        TENSORSTORE_INTERNAL_DO_APPEND_DTYPE_NAME)
+    TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+        TENSORSTORE_INTERNAL_DO_APPEND_DTYPE_NAME)
+    TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+        TENSORSTORE_INTERNAL_DO_APPEND_DTYPE_NAME)
+#undef TENSORSTORE_INTERNAL_DO_APPEND_DTYPE_NAME
+    return absl::StrCat(absl::StrJoin(names, ", "), ", r<N>");
+  }()};
   return absl::InvalidArgumentError(absl::StrFormat(
       "%s data type is not one of the supported data types: %s", dtype,
       kSupported));
@@ -425,31 +433,24 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrDType, [](auto is_loading,
 
 Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
   using D = ZarrDType::BaseDType;
-  const auto make_dtype = [&](std::string_view name) -> Result<D> {
-    return D{std::string(name), dtype, {}};
-  };
 
-  if (dtype == dtype_v<bool>) return make_dtype("bool");
-  if (dtype == dtype_v<uint8_t>) return make_dtype("uint8");
-  if (dtype == dtype_v<uint16_t>) return make_dtype("uint16");
-  if (dtype == dtype_v<uint32_t>) return make_dtype("uint32");
-  if (dtype == dtype_v<uint64_t>) return make_dtype("uint64");
-  if (dtype == dtype_v<int8_t>) return make_dtype("int8");
-  if (dtype == dtype_v<int16_t>) return make_dtype("int16");
-  if (dtype == dtype_v<int32_t>) return make_dtype("int32");
-  if (dtype == dtype_v<int64_t>) return make_dtype("int64");
-  if (dtype == dtype_v<::tensorstore::dtypes::bfloat16_t>)
-    return make_dtype("bfloat16");
-  if (dtype == dtype_v<::tensorstore::dtypes::float16_t>)
-    return make_dtype("float16");
-  if (dtype == dtype_v<::tensorstore::dtypes::float32_t>)
-    return make_dtype("float32");
-  if (dtype == dtype_v<::tensorstore::dtypes::float64_t>)
-    return make_dtype("float64");
-  if (dtype == dtype_v<::tensorstore::dtypes::complex64_t>)
-    return make_dtype("complex64");
-  if (dtype == dtype_v<::tensorstore::dtypes::complex128_t>)
-    return make_dtype("complex128");
+  // Match against every tensorstore numeric data type.  The encoded name is the
+  // value returned by `internal_data_type::GetTypeName`, which matches the
+  // Zarr v3 spec dtype names.
+#define TENSORSTORE_INTERNAL_DO_CHOOSE_ZARR3_DTYPE(T)                       \
+  if (dtype == dtype_v<dtypes::T>) {                                        \
+    return D{std::string(internal_data_type::GetTypeName<dtypes::T>()),     \
+             dtype, {}};                                                    \
+  }                                                                         \
+  /**/
+  TENSORSTORE_INTERNAL_DO_CHOOSE_ZARR3_DTYPE(bool_t)
+  TENSORSTORE_FOR_EACH_INT_DATA_TYPE(TENSORSTORE_INTERNAL_DO_CHOOSE_ZARR3_DTYPE)
+  TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+      TENSORSTORE_INTERNAL_DO_CHOOSE_ZARR3_DTYPE)
+  TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+      TENSORSTORE_INTERNAL_DO_CHOOSE_ZARR3_DTYPE)
+#undef TENSORSTORE_INTERNAL_DO_CHOOSE_ZARR3_DTYPE
+
   // `byte_t` and `char_t` both encode as `r8`; `r8` parses back to `byte_t`.
   if (dtype == dtype_v<::tensorstore::dtypes::byte_t>) {
     return D{"r8", dtype, {1}};

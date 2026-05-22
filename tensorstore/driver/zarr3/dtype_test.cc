@@ -73,21 +73,23 @@ void AddFieldToZarrDType(ZarrDType& dtype, ZarrDType::Field field) {
 }
 
 TEST(ParseBaseDType, Success) {
-  EXPECT_THAT("bool", ParsesAsBaseDType(dtype_v<bool>, std::vector<Index>{}));
-  EXPECT_THAT("int8", ParsesAsBaseDType(dtype_v<int8_t>, std::vector<Index>{}));
-  EXPECT_THAT("uint8", ParsesAsBaseDType(dtype_v<uint8_t>, std::vector<Index>{}));
-  EXPECT_THAT("int16", ParsesAsBaseDType(dtype_v<int16_t>, std::vector<Index>{}));
-  EXPECT_THAT("uint16", ParsesAsBaseDType(dtype_v<uint16_t>, std::vector<Index>{}));
-  EXPECT_THAT("int32", ParsesAsBaseDType(dtype_v<int32_t>, std::vector<Index>{}));
-  EXPECT_THAT("uint32", ParsesAsBaseDType(dtype_v<uint32_t>, std::vector<Index>{}));
-  EXPECT_THAT("int64", ParsesAsBaseDType(dtype_v<int64_t>, std::vector<Index>{}));
-  EXPECT_THAT("uint64", ParsesAsBaseDType(dtype_v<uint64_t>, std::vector<Index>{}));
-  EXPECT_THAT("float16", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::float16_t>, std::vector<Index>{}));
-  EXPECT_THAT("bfloat16", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::bfloat16_t>, std::vector<Index>{}));
-  EXPECT_THAT("float32", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::float32_t>, std::vector<Index>{}));
-  EXPECT_THAT("float64", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::float64_t>, std::vector<Index>{}));
-  EXPECT_THAT("complex64", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::complex64_t>, std::vector<Index>{}));
-  EXPECT_THAT("complex128", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::complex128_t>, std::vector<Index>{}));
+  // Exhaustively cover every tensorstore numeric data type using the
+  // TENSORSTORE_FOR_EACH_*_DATA_TYPE macros so new dtypes are picked up
+  // automatically.
+#define TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE(T)                            \
+  EXPECT_THAT(                                                                 \
+      std::string(                                                             \
+          tensorstore::internal_data_type::GetTypeName<tensorstore::dtypes::T>()), \
+      ParsesAsBaseDType(dtype_v<tensorstore::dtypes::T>,                       \
+                        std::vector<Index>{}));                                \
+  /**/
+  TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE(bool_t)
+  TENSORSTORE_FOR_EACH_INT_DATA_TYPE(TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE)
+  TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE)
+  TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+      TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE)
+#undef TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE
+
   EXPECT_THAT("r8", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{1}));
   EXPECT_THAT("r16", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{2}));
   EXPECT_THAT("r64", ParsesAsBaseDType(dtype_v<tensorstore::dtypes::byte_t>, std::vector<Index>{8}));
@@ -256,19 +258,26 @@ TEST(ParseDType, InvalidFieldBaseDType) {
 }
 
 TEST(ChooseBaseDTypeTest, RoundTrip) {
+  // Exhaustively cover every tensorstore numeric data type using the
+  // TENSORSTORE_FOR_EACH_*_DATA_TYPE macros, plus the byte/char types that
+  // round-trip through `r8`.
+  // clang-format off
   constexpr tensorstore::DataType kSupportedDataTypes[] = {
-      dtype_v<bool>, dtype_v<uint8_t>, dtype_v<uint16_t>, dtype_v<uint32_t>,
-      dtype_v<uint64_t>, dtype_v<int8_t>, dtype_v<int16_t>,
-      dtype_v<int32_t>,  dtype_v<int64_t>,
-      dtype_v<tensorstore::dtypes::bfloat16_t>,
-      dtype_v<tensorstore::dtypes::float16_t>,
-      dtype_v<tensorstore::dtypes::float32_t>,
-      dtype_v<tensorstore::dtypes::float64_t>,
-      dtype_v<tensorstore::dtypes::complex64_t>,
-      dtype_v<tensorstore::dtypes::complex128_t>,
+#define TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE(T) \
+      dtype_v<tensorstore::dtypes::T>, \
+      /**/
+      TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE(bool_t)
+      TENSORSTORE_FOR_EACH_INT_DATA_TYPE(
+          TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE)
+      TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+          TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE)
+      TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+          TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE)
+#undef TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE
       dtype_v<tensorstore::dtypes::byte_t>,
       dtype_v<tensorstore::dtypes::char_t>,
   };
+  // clang-format on
   for (auto dtype : kSupportedDataTypes) {
     SCOPED_TRACE(absl::StrCat("dtype=", dtype));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_zarr_dtype,
