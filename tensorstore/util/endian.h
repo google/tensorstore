@@ -22,6 +22,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/config.h"
+#include "absl/base/macros.h"
 #include "absl/base/nullability.h"
 #include "absl/strings/str_format.h"
 
@@ -84,7 +85,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint16_t gbswap_16(uint16_t x) {
 #if ABSL_HAVE_BUILTIN(__builtin_bswap16) || defined(__GNUC__)
   return __builtin_bswap16(x);
 #else
-  return (((x & uint16_t{0xFF}) << 8) | ((x & uint16_t{0xFF00}) >> 8));
+  return static_cast<uint16_t>((x << 8) | (x >> 8));
 #endif
 }
 // clang-format on
@@ -217,7 +218,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
                  ElementSize == 8),
                 "ElementSize must be 1, 2, 4, or 8.");
   if constexpr (ElementSize == 1) {
-    std::memcpy(dest, source, 1);
+    *static_cast<uint8_t*>(dest) = *static_cast<const uint8_t*>(source);
   } else if constexpr (ElementSize == 2) {
     uint16_t temp;
     std::memcpy(&temp, source, ElementSize);
@@ -245,6 +246,8 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
 /// In generic code, this can also be used with `SubElementSize = 1` as an
 /// equivalent for `std::memcpy(dest, source, Count)`.
 ///
+/// \warning Overlapping buffers (other than `source == dest`) are not
+/// supported and may result in Undefined Behavior.
 /// \tparam SubElementSize Size in bytes of each sub-element.
 /// \tparam Count Number of elements.
 /// \param source Pointer to source array of `SubElementSize*Count` bytes.
@@ -252,8 +255,15 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
 template <size_t SubElementSize, size_t Count>
 inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
     const void* absl_nonnull source, void* absl_nonnull dest) {
+  // Either source == dest, or the ranges [source, source + SubElementSize *
+  // Count) and [dest, dest + SubElementSize * Count) must be non-overlapping.
+  [[maybe_unused]] const size_t total_size = SubElementSize * Count;
+  [[maybe_unused]] const char* src_char = reinterpret_cast<const char*>(source);
+  [[maybe_unused]] const char* dest_char = reinterpret_cast<const char*>(dest);
+  ABSL_ASSERT(source == dest || (src_char + total_size <= dest_char ||
+                                 dest_char + total_size <= src_char));
   if constexpr (SubElementSize == 1) {
-    std::memcpy(dest, source, Count);
+    if (source != dest) std::memcpy(dest, source, Count);
   } else {
     for (size_t i = 0; i < Count; ++i) {
       SwapEndianUnaligned<SubElementSize>(source, dest);
