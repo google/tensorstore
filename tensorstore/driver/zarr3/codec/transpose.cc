@@ -16,6 +16,7 @@
 
 #include <array>
 #include <cassert>
+#include <numeric>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -323,12 +324,11 @@ Result<ZarrArrayToArrayCodec::Ptr> TransposeCodecSpec::Resolve(
   const DimensionIndex chunked_rank = decoded.rank;
   const DimensionIndex inner_rank =
       static_cast<DimensionIndex>(decoded.inner_shape.size());
-  std::vector<DimensionIndex> runtime_inverse_order(chunked_rank + inner_rank);
-  std::copy(inverse_order.begin(), inverse_order.end(),
-            runtime_inverse_order.begin());
-  for (DimensionIndex i = 0; i < inner_rank; ++i) {
-    runtime_inverse_order[chunked_rank + i] = chunked_rank + i;
-  }
+  std::vector<DimensionIndex> runtime_inverse_order =
+      std::move(inverse_order);
+  runtime_inverse_order.resize(chunked_rank + inner_rank);
+  std::iota(runtime_inverse_order.begin() + chunked_rank,
+            runtime_inverse_order.end(), chunked_rank);
   return internal::MakeIntrusivePtr<TransposeCodec>(
       std::move(runtime_inverse_order));
 }
