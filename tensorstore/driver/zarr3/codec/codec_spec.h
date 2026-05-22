@@ -58,6 +58,12 @@
 //    `ZarrArrayToBytesCodecSpec::GetDecodedChunkLayout` and
 //    `ZarrArrayToArrayCodecSpec::GetDecodedChunkLayout`.
 //
+//    Inner dimensions contributed by the data type (e.g. for `open_as_void`
+//    or structured fields with a `field_shape`) are carried via `inner_shape`
+//    and are *not* included in `rank`.  "array -> array" codecs forward
+//    `inner_shape` unchanged; the "array -> bytes" codec is the consumer and
+//    sees runtime rank `rank + inner_shape.size()`.
+//
 // 5. To convert the codec specs into actual codecs, the
 //    `Zarr{ArrayToArray,ArrayToBytes,BytesToBytes}CodecSpec::Resolve` methods
 //    is called, propagating parameters forward from one codec to the next.  The

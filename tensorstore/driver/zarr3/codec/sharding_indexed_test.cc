@@ -29,6 +29,7 @@
 
 namespace {
 
+using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
@@ -232,6 +233,68 @@ TEST(ShardingIndexedTest, IndexLocationEndNotStored) {
                              },
                          }},
                     }}}})));
+}
+
+// Helper: build a `sharding_indexed` chain with an inner `bytes` codec.
+::nlohmann::json ShardingIndexedWithInnerBytes() {
+  return {
+      {{"name", "sharding_indexed"},
+       {"configuration",
+        {
+            {"chunk_shape", {2, 3}},
+            {"codecs",
+             {{
+                 {"name", "bytes"},
+                 {"configuration", {{"endian", "little"}}},
+             }}},
+            {"index_codecs",
+             {
+                 {
+                     {"name", "bytes"},
+                     {"configuration", {{"endian", "little"}}},
+                 },
+                 {
+                     {"name", "crc32c"},
+                 },
+             }},
+        }}},
+  };
+}
+
+// `inner_shape` (dtype-contributed trailing dims, e.g. for `open_as_void`)
+// must be forwarded by `sharding_indexed` to its sub-chunk codecs in both
+// `Resolve` and `GetDecodedChunkLayout`.
+TEST(ShardingIndexedTest, ResolveForwardsInnerShape) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, ZarrCodecChainSpec::FromJson(ShardingIndexedWithInnerBytes()));
+  ArrayCodecResolveParameters decoded_params;
+  decoded_params.dtype = tensorstore::dtype_v<uint8_t>;
+  decoded_params.rank = 2;
+  decoded_params.inner_shape = {4};
+  decoded_params.fill_value = MakeScalarArray<uint8_t>(0);
+  BytesCodecResolveParameters encoded_params;
+  TENSORSTORE_ASSERT_OK(
+      spec.Resolve(std::move(decoded_params), encoded_params, nullptr));
+  // The sub-chunk `bytes` codec ran successfully, which requires that
+  // `inner_shape` was forwarded into the sub-chunk decoded params *and* used
+  // to extend the runtime sub-chunk shape / fill-value rank.
+  EXPECT_EQ(encoded_params.item_bits, 8);
+}
+
+TEST(ShardingIndexedTest, GetDecodedChunkLayoutForwardsInnerShape) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, ZarrCodecChainSpec::FromJson(ShardingIndexedWithInnerBytes()));
+  tensorstore::internal_zarr3::ArrayDataTypeAndShapeInfo array_info;
+  array_info.dtype = tensorstore::dtype_v<uint8_t>;
+  array_info.rank = 2;
+  array_info.inner_shape = {4};
+  tensorstore::internal_zarr3::ArrayCodecChunkLayoutInfo decoded;
+  TENSORSTORE_ASSERT_OK(spec.GetDecodedChunkLayout(array_info, decoded));
+  // Sub-chunk `bytes` codec received `sub_chunk_info` with the configured
+  // `chunk_shape = {2, 3}` and produced the corresponding read_chunk_shape.
+  ASSERT_TRUE(decoded.read_chunk_shape.has_value());
+  EXPECT_EQ((*decoded.read_chunk_shape)[0], 2);
+  EXPECT_EQ((*decoded.read_chunk_shape)[1], 3);
 }
 
 }  // namespace
