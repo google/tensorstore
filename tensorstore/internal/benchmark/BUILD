@@ -249,6 +249,7 @@ tensorstore_cc_binary(
         "@abseil-cpp//absl/log",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:string_view",
         "@abseil-cpp//absl/synchronization",

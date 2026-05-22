@@ -61,8 +61,28 @@ TEST(RationalTest, Initialization) {
   static_assert(r9.denominator() == 5);
 
   static_assert(Rational<int>(0, 0).is_nan());
+  static_assert(!Rational<int>(0, std::numeric_limits<int>::min()).is_nan());
   static_assert(Rational<int>(1, std::numeric_limits<int>::min()).is_nan());
   static_assert(!Rational<int>(1, -std::numeric_limits<int>::max()).is_nan());
+  static_assert(!Rational<int>(std::numeric_limits<int>::min(),
+                               std::numeric_limits<int>::min())
+                     .is_nan());
+  static_assert(Rational<int>(std::numeric_limits<int>::max(),
+                              std::numeric_limits<int>::min())
+                    .is_nan());
+}
+
+TEST(RationalTest, ConstructorMin) {
+  // i/-max can always be represented with a positive denominator.
+  for (int i = 0; i < 100; ++i) {
+    EXPECT_FALSE(Rational<int>(i, -std::numeric_limits<int>::max()).is_nan());
+    EXPECT_FALSE(Rational<int>(-i, -std::numeric_limits<int>::max()).is_nan());
+  }
+  // Some of i/min cannot be represented with a positive denominator.
+  for (int i : {1, 3, 5, 7, 9}) {
+    EXPECT_TRUE(Rational<int>(i, std::numeric_limits<int>::min()).is_nan());
+    EXPECT_TRUE(Rational<int>(-i, std::numeric_limits<int>::min()).is_nan());
+  }
 }
 
 TEST(RationalTest, Compare) {

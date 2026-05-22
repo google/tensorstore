@@ -134,11 +134,17 @@ void GenericStringifyImpl(Sink& sink, const T& v) {
                        std::is_same_v<T, std::string> ||
                        std::is_same_v<T, char*> ||
                        std::is_same_v<T, const char*>) {
+    if constexpr (std::is_pointer_v<T>) {
+      if (v == nullptr) {
+        sink.Append("null");
+        return;
+      }
+    }
     sink.Append(std::string_view(v));
   } else if constexpr (std::is_same_v<T, char> ||
                        std::is_same_v<T, signed char> ||
                        std::is_same_v<T, unsigned char>) {
-    absl::Format(&sink, "%c", v);
+    sink.Append(1, static_cast<char>(v));
   } else if constexpr (std::is_same_v<T, bool>) {
     sink.Append(v ? "true" : "false");
   } else if constexpr (std::is_floating_point_v<T> || std::is_integral_v<T>) {
@@ -153,7 +159,7 @@ void GenericStringifyImpl(Sink& sink, const T& v) {
     // Non-streamable enum without an AbslStringify or operator<< implementation
     // will be formatted as an integer.
     using I = typename std::underlying_type<T>::type;
-    absl::Format(&sink, "%d", static_cast<I>(v));
+    absl::Format(&sink, "%v", static_cast<I>(v));
   } else if constexpr (
       internal_meta::Requires<const T>(
           [&](auto&& w)
@@ -213,7 +219,7 @@ template <typename T>
 struct GenericStringify {
   T v;
 
-  explicit GenericStringify(T v) : v(v) {}
+  explicit GenericStringify(T v) : v(std::move(v)) {}
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, GenericStringify self) {
@@ -227,8 +233,11 @@ struct GenericStringify {
 
 struct GenericStringifyNiebloid {
   template <typename T>
-  GenericStringify<const T&> operator()(const T& v) const {
-    return GenericStringify<const T&>{v};
+  auto operator()(T&& v) const {
+    using CapturedType =
+        std::conditional_t<std::is_lvalue_reference_v<T>,
+                           const std::remove_reference_t<T>&, std::decay_t<T>>;
+    return GenericStringify<CapturedType>{std::forward<T>(v)};
   }
 };
 

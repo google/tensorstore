@@ -109,7 +109,7 @@ def test_spec_indexing_unknown_rank() -> None:
 
 def test_codec_spec() -> None:
   s = ts.CodecSpec({"driver": "zarr", "compressor": None})
-  assert s.to_json() == {"driver": "zarr", "compressor": None}
+  assert s.to_json() == {"driver": "zarr", "compressor": None, "filters": None}
 
 
 def test_schema_from_json() -> None:

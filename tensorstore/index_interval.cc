@@ -409,7 +409,9 @@ absl::Status ComputeStridedSliceMap(OptionallyImplicitIndexInterval orig,
 
 Result<IndexInterval> GetAffineTransformDomain(IndexInterval interval,
                                                Index offset, Index divisor) {
-  assert(divisor != 0);
+  if (divisor == 0) {
+    return absl::InvalidArgumentError("Divisor (stride) must be non-zero");
+  }
   if (interval == IndexInterval()) {
     // Special case for fully unbounded interval.  Divisor and offset don't need
     // to be checked in this case (and the checks below are too restrictive for

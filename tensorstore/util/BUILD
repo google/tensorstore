@@ -770,7 +770,6 @@ tensorstore_cc_library(
     deps = [
         ":division",
         "//tensorstore/internal:integer_overflow",
-        "//tensorstore/serialization",
         "@abseil-cpp//absl/strings:str_format",
     ],
 )

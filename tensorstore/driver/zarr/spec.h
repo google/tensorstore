@@ -51,7 +51,7 @@ class ZarrCodecSpec : public internal::CodecDriverSpec {
   absl::Status DoMergeFrom(const internal::CodecDriverSpec& other_base) final;
 
   std::optional<Compressor> compressor;
-  std::optional<std::nullptr_t> filters;
+  ::nlohmann::json filters = nullptr;
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrCodecSpec, FromJsonOptions,
                                           ToJsonOptions,
                                           ::nlohmann::json::object_t)

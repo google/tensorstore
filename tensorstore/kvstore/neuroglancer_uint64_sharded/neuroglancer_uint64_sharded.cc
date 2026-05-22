@@ -1790,7 +1790,7 @@ absl::Status ShardedKeyValueStore::GetBoundSpecData(
   spec.data_copy_concurrency = data_copy_concurrency_resource_;
   spec.cache_pool = cache_pool_resource_;
   spec.metadata = sharding_spec();
-  return absl::Status();
+  return absl::OkStatus();
 }
 
 Future<kvstore::DriverPtr> ShardedKeyValueStoreSpec::DoOpen() const {

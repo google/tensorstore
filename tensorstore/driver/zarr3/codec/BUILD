@@ -232,6 +232,18 @@ tensorstore_cc_test(
     ],
 )
 
+tensorstore_cc_test(
+    name = "crc32c_test",
+    size = "small",
+    srcs = ["crc32c_test.cc"],
+    deps = [
+        ":bytes",
+        ":codec_test_util",
+        ":crc32c",
+        "@googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "sharding_indexed",
     srcs = ["sharding_indexed.cc"],

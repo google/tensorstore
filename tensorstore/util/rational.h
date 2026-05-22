@@ -23,15 +23,17 @@
 #ifndef TENSORSTORE_UTIL_RATIONAL_H_
 #define TENSORSTORE_UTIL_RATIONAL_H_
 
+#include <algorithm>
+#include <cassert>
 #include <climits>
 #include <cmath>
 #include <limits>
 #include <ostream>
 #include <type_traits>
+#include <utility>
 
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/division.h"
 
 namespace tensorstore {
@@ -57,6 +59,8 @@ class Rational {
                 std::numeric_limits<I>::is_integer &&
                 std::numeric_limits<I>::is_signed);
 
+  struct reduced_tag {};
+
  public:
   /// The base integer type.
   using int_type = I;
@@ -66,29 +70,10 @@ class Rational {
   /// \id integer
   constexpr Rational(I value = 0) : n_(value), d_(1) {}
 
-  /// Constructs `n / d`.
+  /// Constructs `n / d`. Unrepresentable values will convert to a NaN value.
   ///
   /// \id n, d
-  constexpr Rational(I n, I d) {
-    if (d != 0) {
-      I gcd = tensorstore::GreatestCommonDivisor(n, d);
-      n /= gcd;
-      d /= gcd;
-      if (n == 0) {
-        d = 1;
-      } else if (d < 0) {
-        if (n == std::numeric_limits<I>::min() ||
-            d == std::numeric_limits<I>::min()) {
-          d = 0;
-        } else {
-          d = -d;
-          n = -n;
-        }
-      }
-    }
-    n_ = n;
-    d_ = d;
-  }
+  constexpr Rational(I n, I d) : Rational(reduced_tag{}, Reduce(n, d)) {}
 
   /// Assigns to an integer.
   constexpr Rational& operator=(I value) {
@@ -145,9 +130,9 @@ class Rational {
     if (x.is_nan()) {
       sink.Append("nan");
     } else if (x.d_ == 1) {
-      absl::Format(&sink, "%d", x.n_);
+      absl::Format(&sink, "%v", x.n_);
     } else {
-      absl::Format(&sink, "%d/%d", x.n_, x.d_);
+      absl::Format(&sink, "%v/%v", x.n_, x.d_);
     }
   }
 
@@ -561,9 +546,10 @@ class Rational {
         // Determine by how much we should reduce the final term.
         U x = (max_denominator - q0) / q1;
         auto result = (x * 2 >= a)
-                          ? FromReduced(static_cast<I>(p0 + x * p1),
-                                        static_cast<I>(q0 + x * q1))
-                          : FromReduced(static_cast<I>(p1), static_cast<I>(q1));
+                          ? Rational(reduced_tag{}, static_cast<I>(p0 + x * p1),
+                                     static_cast<I>(q0 + x * q1))
+                          : Rational(reduced_tag{}, static_cast<I>(p1),
+                                     static_cast<I>(q1));
         if (negative) {
           result.n_ *= -1;
         }
@@ -588,11 +574,41 @@ class Rational {
   //
   // This saves the cost of the GCD computation when the factors are already
   // known to be incorrect.
-  static constexpr Rational FromReduced(I n, I d) {
-    Rational r;
-    r.n_ = n;
-    r.d_ = d;
-    return r;
+  constexpr Rational(reduced_tag, I n, I d) : n_(n), d_(d) {}
+  constexpr Rational(reduced_tag, std::pair<I, I> p)
+      : n_(p.first), d_(p.second) {}
+
+  // Reduce the fraction to lowest terms with a positive denominator.
+  //
+  // If the denominator is zero, the numerator is set to the numerator of the
+  // input and the denominator is set to 0.
+  static constexpr std::pair<I, I> Reduce(I n, I d) {
+    if (d == 0) {
+      // NaN
+    } else if (n == 0) {
+      d = 1;
+    } else if (n == d) {
+      n = 1;
+      d = 1;
+    } else {
+      // Reduce the fraction by the greatest common divisor.
+      I gcd = tensorstore::GreatestCommonDivisor(n, d);
+      n /= gcd;
+      d /= gcd;
+
+      // Ensure the denominator is positive.
+      if (d < 0) {
+        if (n == std::numeric_limits<I>::min() ||
+            d == std::numeric_limits<I>::min()) {
+          // Unable to represent with a positive denominator -> NaN.
+          d = 0;
+        } else {
+          d = -d;
+          n = -n;
+        }
+      }
+    }
+    return {n, d};
   }
 
   struct ContinuedFraction {
@@ -619,8 +635,8 @@ class Rational {
     I n, d, q, r;
   };
 
-  I n_ = 0;
-  I d_ = 0;
+  I n_;
+  I d_;
 };
 
 }  // namespace tensorstore

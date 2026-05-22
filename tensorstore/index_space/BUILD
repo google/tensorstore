@@ -1133,9 +1133,12 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
+        ":dimension_index_buffer",
         ":index_transform",
+        ":transpose_op",
         "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
     ],

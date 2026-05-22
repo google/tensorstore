@@ -258,7 +258,7 @@ class KvStack
       spec.layers.push_back(
           KvStackLayer{v.range, std::move(base), v.value.strip_prefix_length});
     }
-    return absl::Status();
+    return absl::OkStatus();
   }
 
   SupportedFeatures GetSupportedFeatures(
