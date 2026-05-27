@@ -1850,7 +1850,8 @@ TEST(DriverTest, UrlSchemeRoundtrip) {
 }
 
 // Returns a create spec for a structured type array with field selection.
-// The structured type has fields x (uint8) and y (int16).
+// Fields: x (uint8), y (int16).  Default `codecs` pins `endian=little`
+// because the struct contains a multi-byte field.
 ::nlohmann::json GetStructuredCreateSpec(
     std::string_view kvstore_path,
     std::vector<Index> shape,
@@ -1862,9 +1863,8 @@ TEST(DriverTest, UrlSchemeRoundtrip) {
       {"chunk_grid",
        {{"name", "regular"}, {"configuration", {{"chunk_shape", chunk_shape}}}}},
   };
-  if (codecs.has_value()) {
-    metadata["codecs"] = *codecs;
-  }
+  metadata["codecs"] = codecs.value_or(::nlohmann::json::array(
+      {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}}));
   return {
       {"driver", "zarr3"},
       {"kvstore", {{"driver", "memory"}, {"path", kvstore_path}}},
@@ -2046,7 +2046,9 @@ TEST(Zarr3OpenAsVoidTest, DimensionNamesPropagate) {
 
 TEST(Zarr3OpenAsVoidTest, WithCompression) {
   auto context = Context::Default();
-  ::nlohmann::json gzip_codecs = {{{"name", "bytes"}}, {{"name", "gzip"}}};
+  ::nlohmann::json gzip_codecs = {
+      {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
+      {{"name", "gzip"}}};
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -2892,15 +2894,11 @@ TEST(Zarr3OpenAsVoidTest, StructBigEndian) {
                                          {0, 0, 0}, {1, 1, 3}))
           .result());
 
-  // Struct: x (uint8) = 0, + y (int16) = 0x1234.
-  // open_as_void doesn't handle endianness conversion so it remains in native
-  // endianness.
+  // x (uint8)=0, y (int16, codec endian=big)=0x1234 -> {0, 0x12, 0x34}
+  // on every host.
   auto expected_array =
-      tensorstore::endian::native == tensorstore::endian::little
-          ? tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
-                {{{std::byte{0}, std::byte{0x34}, std::byte{0x12}}}})
-          : tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
-                {{{std::byte{0}, std::byte{0x12}, std::byte{0x34}}}});
+      tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+          {{{std::byte{0}, std::byte{0x12}, std::byte{0x34}}}});
 
   EXPECT_THAT(byte_array, MatchesArray(expected_array));
 }
@@ -2926,7 +2924,10 @@ TEST(Zarr3OpenAsVoidTest, ShardedSubChunkShapeIsUserForm) {
            {"codecs",
             {{{"name", "sharding_indexed"},
               {"configuration",
-               {{"chunk_shape", {4, 4}}, {"codecs", {{{"name", "bytes"}}}}}}}}},
+               {{"chunk_shape", {4, 4}},
+                {"codecs",
+                 {{{"name", "bytes"},
+                   {"configuration", {{"endian", "little"}}}}}}}}}}},
        }},
       {"field", "x"},
   };
@@ -2958,8 +2959,9 @@ TEST(Zarr3OpenAsVoidTest, ShardedSubChunkShapeIsUserForm) {
            {"/configuration/chunk_shape", ::nlohmann::json({4, 4})}})));
 }
 
-// Helper: returns a JSON spec for creating a sharded structured array.
-// Struct layout: x (uint8, 1 byte) + y (int16, 2 bytes) = 3 bytes total.
+// Returns a JSON spec for creating a sharded structured array.
+// Struct: x (uint8) + y (int16) = 3 bytes; bytes codec pins
+// `endian=little` (required for multi-byte struct fields).
 ::nlohmann::json ShardedStructSpec(const std::string& field,
                                    const std::string& path = "prefix/") {
   ::nlohmann::json spec{
@@ -2982,7 +2984,9 @@ TEST(Zarr3OpenAsVoidTest, ShardedSubChunkShapeIsUserForm) {
             {{{"name", "sharding_indexed"},
               {"configuration",
                {{"chunk_shape", {4, 4}},
-                {"codecs", {{{"name", "bytes"}}}},
+                {"codecs",
+                 {{{"name", "bytes"},
+                   {"configuration", {{"endian", "little"}}}}}},
                 {"index_codecs",
                  {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
        }},
@@ -3044,6 +3048,169 @@ TEST(Zarr3StructuredTest, ShardedFieldXWriteRead) {
       tensorstore::Read(store | tensorstore::Dims(0, 1).SizedInterval(
                                     {0, 0}, {2, 2}))
           .result());
+  EXPECT_EQ(data, read_back);
+}
+
+// Cross-endian round-trip: typed write of a struct, then `open_as_void`
+// read sees on-disk bytes in codec endian regardless of host endian.
+TEST(Zarr3StructuredTest, BigEndianStructFieldWriteThenVoidReadIsCodecEndian) {
+  auto context = Context::Default();
+
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "x"}, {"data_type", "uint8"}},
+                     {{"name", "y"}, {"data_type", "int16"}}})}}}}},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {2, 2}}}}}},
+           {"codecs",
+            {{{"name", "bytes"},
+              {"configuration", {{"endian", "big"}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  auto data = tensorstore::MakeArray<int16_t>({{0x1234, 0x5678}});
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(data, store | tensorstore::Dims(0, 1).SizedInterval(
+                                           {0, 0}, {1, 2}))
+          .result());
+  store = {};
+
+  ::nlohmann::json void_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"open_as_void", true},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_store,
+      tensorstore::Open(void_spec, context,
+                        dtype_v<tensorstore::dtypes::byte_t>,
+                        tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_array,
+      tensorstore::Read(byte_store | tensorstore::Dims(0, 1, 2).SizedInterval(
+                                         {0, 0, 0}, {1, 2, 3}))
+          .result());
+
+  // 3 bytes/elem: x(uint8,fill=0), then int16(y) big-endian.
+  EXPECT_EQ(tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+                {{{std::byte{0}, std::byte{0x12}, std::byte{0x34}},
+                  {std::byte{0}, std::byte{0x56}, std::byte{0x78}}}}),
+            byte_array);
+}
+
+// Modern `"struct"` with multi-byte fields and no explicit `endian` is
+// rejected via the public `Open` API (mirrors the metadata-level check).
+TEST(Zarr3StructuredTest, ModernStructWithoutEndianRejectedAtOpen) {
+  auto context = Context::Default();
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "x"}, {"data_type", "uint8"}},
+                     {{"name", "y"}, {"data_type", "int16"}}})}}}}},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {2, 2}}}}}},
+           {"codecs", {{{"name", "bytes"}}}},
+       }},
+  };
+  EXPECT_THAT(tensorstore::Open(create_spec, context,
+                                tensorstore::OpenMode::create,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
+                                         ".*specify an explicit `endian`.*"));
+}
+
+// End-to-end check that `endian` survives create -> drop -> reopen.
+// Guards against `Resolve` stripping `endian` under the byte-substituted
+// struct dtype (re-injected in `GetNewMetadata`).
+TEST(Zarr3StructuredTest, CreateThenReopenPreservesBigEndian) {
+  auto context = Context::Default();
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "x"}, {"data_type", "uint8"}},
+                     {{"name", "y"}, {"data_type", "int16"}}})}}}}},
+           {"shape", {2, 2}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {2, 2}}}}}},
+           {"codecs",
+            {{{"name", "bytes"},
+              {"configuration", {{"endian", "big"}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+  auto data = tensorstore::MakeArray<int16_t>({{0x1234, 0x5678},
+                                                {0x0001, 0x0002}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(data, store).result());
+
+  // Reopen with no codec hints: persisted zarr.json is the sole source of
+  // byte-order truth.
+  ::nlohmann::json reopen_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"field", "y"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto reopened,
+      tensorstore::Open(reopen_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto reopened_spec, reopened.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto reopened_json,
+                                   reopened_spec.ToJson());
+  EXPECT_THAT(reopened_json["metadata"]["codecs"],
+              ::testing::Contains(JsonSubValuesMatch(
+                  {{"/name", "bytes"},
+                   {"/configuration/endian", "big"}})));
+
+  // And the data round-trips correctly: a host-endian read of int16 must
+  // yield the same values regardless of native byte order.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_back,
+                                   tensorstore::Read(reopened).result());
   EXPECT_EQ(data, read_back);
 }
 
@@ -3139,7 +3306,11 @@ TEST_P(ShardedVoidWriteThenFieldReadTest, VoidWriteThenFieldRead) {
             {{{"name", "sharding_indexed"},
               {"configuration",
                {{"chunk_shape", {4, 4}},
-                {"codecs", {{{"name", "bytes"}}}},
+                // `endian` required for multi-byte field (`int16`);
+                // harmless for raw-bytes parametrizations.
+                {"codecs",
+                 {{{"name", "bytes"},
+                   {"configuration", {{"endian", "little"}}}}}},
                 {"index_codecs",
                  {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
        }},
@@ -3688,7 +3859,9 @@ TEST(Zarr3StructuredTest, ShardedWiderFieldRoundtrip) {
             {{{"name", "sharding_indexed"},
               {"configuration",
                {{"chunk_shape", {4, 4}},
-                {"codecs", {{{"name", "bytes"}}}},
+                {"codecs",
+                 {{{"name", "bytes"},
+                   {"configuration", {{"endian", "little"}}}}}},
                 {"index_codecs",
                  {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
        }},

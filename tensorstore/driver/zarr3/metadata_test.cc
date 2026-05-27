@@ -696,6 +696,7 @@ TEST(FillValueTest, StructuredObjectFormat) {
 TEST(FillValueTest, StructuredLegacyArrayFormat) {
   ZarrDType dtype;
   dtype.has_fields = true;
+  dtype.is_legacy_structured = true;
   dtype.fields.resize(2);
   dtype.fields[0].name = "a";
   dtype.fields[0].dtype = dtype_v<int32_t>;
@@ -1039,26 +1040,17 @@ TEST(GetVoidMetadataTest, RoundTripsStructuredFillValue) {
   EXPECT_EQ(void_metadata->shape, metadata.shape);
   EXPECT_EQ(void_metadata->chunk_shape, metadata.chunk_shape);
 
-  // Fill value is the per-field bytes packed at their byte_offsets, in the
-  // same byte order the bytes codec would produce on disk.  Multi-field
-  // structs follow the chunk cache's native-endian CopyArray convention.
-  // Layout (native-endian):
-  //   x (uint8)  at offset 0 -> 0xAA
-  //   y (int16)  at offset 1 -> {0x34, 0x12} on little-endian hosts,
-  //                             {0x12, 0x34} on big-endian hosts.
+  // Per-field bytes packed at byte_offsets in codec endian (little):
+  //   x (uint8) @0 -> 0xAA
+  //   y (int16) @1 -> {0x34, 0x12}
   ASSERT_EQ(void_metadata->fill_value.size(), 1u);
   const auto& packed = void_metadata->fill_value[0];
   ASSERT_EQ(packed.rank(), 1);
   ASSERT_EQ(packed.shape()[0], 3);
   const auto* bytes = static_cast<const std::byte*>(packed.data());
   EXPECT_EQ(bytes[0], std::byte{0xAA});
-  if (tensorstore::endian::native == tensorstore::endian::little) {
-    EXPECT_EQ(bytes[1], std::byte{0x34});
-    EXPECT_EQ(bytes[2], std::byte{0x12});
-  } else {
-    EXPECT_EQ(bytes[1], std::byte{0x12});
-    EXPECT_EQ(bytes[2], std::byte{0x34});
-  }
+  EXPECT_EQ(bytes[1], std::byte{0x34});
+  EXPECT_EQ(bytes[2], std::byte{0x12});
 }
 
 TEST(GetVoidMetadataTest, ScalarFillEncodedInCodecEndian) {
@@ -1084,6 +1076,223 @@ TEST(GetVoidMetadataTest, ScalarFillEncodedInCodecEndian) {
   // Big-endian uint16(0x1234) = {0x12, 0x34} regardless of host endianness.
   EXPECT_EQ(bytes[0], std::byte{0x12});
   EXPECT_EQ(bytes[1], std::byte{0x34});
+}
+
+// Struct byte-order spec compliance.  See
+// https://github.com/zarr-developers/zarr-extensions/tree/main/data-types/struct
+// and .../data-types/structured.
+
+TEST(StructEndianTest, ModernStructRequiresExplicitEndianForMultiByteField) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                  {{"name", "y"}, {"data_type", "int16"}}})}}}};
+  metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
+  metadata_json["codecs"] =
+      ::nlohmann::json::array_t{{{"name", "bytes"}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(metadata_json),
+              tensorstore::MatchesStatus(
+                  absl::StatusCode::kInvalidArgument,
+                  ".*specify an explicit `endian`.*"));
+}
+
+// All single-byte fields: no byte order to disambiguate.
+TEST(StructEndianTest, ModernStructAllowsMissingEndianForByteOnlyStruct) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                  {{"name", "y"}, {"data_type", "int8"}}})}}}};
+  metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
+  metadata_json["codecs"] =
+      ::nlohmann::json::array_t{{{"name", "bytes"}}};
+  TENSORSTORE_EXPECT_OK(ZarrMetadata::FromJson(metadata_json));
+}
+
+// Legacy `"structured"`: missing `endian` defaults to little.  Fields use
+// the tuple form `[name, type]`.
+TEST(StructEndianTest, LegacyStructuredDefaultsToLittleEndian) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "structured"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array(
+             {{"x", "uint8"}, {"y", "int16"}})}}}};
+  metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
+  metadata_json["codecs"] =
+      ::nlohmann::json::array_t{{{"name", "bytes"}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(metadata_json));
+  EXPECT_EQ(GetBytesCodecEndian(metadata.codec_specs),
+            tensorstore::endian::little);
+}
+
+// Bare-array dtype (numpy-style) is also a legacy form.
+TEST(StructEndianTest, LegacyBareArrayDefaultsToLittleEndian) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = ::nlohmann::json::array(
+      {{"x", "uint8"}, {"y", "int32"}});
+  metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
+  metadata_json["codecs"] =
+      ::nlohmann::json::array_t{{{"name", "bytes"}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(metadata_json));
+  EXPECT_EQ(GetBytesCodecEndian(metadata.codec_specs),
+            tensorstore::endian::little);
+}
+
+TEST(StructEndianTest, ExplicitBigEndianRoundTrips) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                  {{"name", "y"}, {"data_type", "int16"}}})}}}};
+  metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
+  metadata_json["codecs"] = ::nlohmann::json::array_t{
+      {{"name", "bytes"}, {"configuration", {{"endian", "big"}}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(metadata_json));
+  EXPECT_EQ(GetBytesCodecEndian(metadata.codec_specs),
+            tensorstore::endian::big);
+}
+
+// Returns a sharding_indexed wrapper around a `bytes` codec.
+// `data_endian=nullopt` omits `endian` (provokes struct rejection /
+// legacy default).  `index_codecs` endian is pinned to isolate the
+// struct's endian behavior.
+::nlohmann::json::array_t ShardingWrappedBytes(
+    std::optional<std::string> data_endian) {
+  ::nlohmann::json data_bytes = {{"name", "bytes"}};
+  if (data_endian.has_value()) {
+    data_bytes["configuration"] = {{"endian", *data_endian}};
+  }
+  return ::nlohmann::json::array_t{
+      {{"name", "sharding_indexed"},
+       {"configuration",
+        {{"chunk_shape", {1, 2, 3}},
+         {"codecs", ::nlohmann::json::array_t{data_bytes}},
+         {"index_codecs",
+          ::nlohmann::json::array_t{
+              {{"name", "bytes"},
+               {"configuration", {{"endian", "little"}}}},
+              {{"name", "crc32c"}}}}}}}};
+}
+
+// Validator must reach the leaf bytes codec through any sharding nesting.
+TEST(StructEndianTest, ShardedModernStructWithoutLeafEndianRejected) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                  {{"name", "y"}, {"data_type", "int16"}}})}}}};
+  metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
+  metadata_json["codecs"] = ShardingWrappedBytes(std::nullopt);
+  EXPECT_THAT(ZarrMetadata::FromJson(metadata_json),
+              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
+                                         ".*specify an explicit `endian`.*"));
+}
+
+// Legacy default must be injected at the leaf bytes codec, not the
+// sharding wrapper.
+TEST(StructEndianTest, ShardedLegacyStructuredDefaultsLittleAtLeaf) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "structured"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{"x", "uint8"}, {"y", "int16"}})}}}};
+  metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
+  metadata_json["codecs"] = ShardingWrappedBytes(std::nullopt);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(metadata_json));
+  EXPECT_EQ(GetBytesCodecEndian(metadata.codec_specs),
+            tensorstore::endian::little);
+}
+
+// Struct fill_value form: modern `"struct"` requires the object form.
+// Base64 / positional-array forms are legacy `"structured"` only.
+
+TEST(StructFillValueFormTest, ModernStructRejectsBase64Fill) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                  {{"name", "y"}, {"data_type", "int16"}}})}}}};
+  // 3 zero bytes base64-encoded: x(uint8)=0 + y(int16)=0.
+  metadata_json["fill_value"] = "AAAA";
+  metadata_json["codecs"] = ::nlohmann::json::array_t{
+      {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(metadata_json),
+              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
+                                         ".*Expected object.*"));
+}
+
+TEST(StructFillValueFormTest, ModernStructRejectsArrayFill) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "struct"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{{"name", "x"}, {"data_type", "uint8"}},
+                                  {{"name", "y"}, {"data_type", "int16"}}})}}}};
+  metadata_json["fill_value"] = ::nlohmann::json::array({0, 0});
+  metadata_json["codecs"] = ::nlohmann::json::array_t{
+      {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(metadata_json),
+              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
+                                         ".*Expected object.*"));
+}
+
+// Verifies the deferred-parse path resolves endian before decoding
+// multi-byte fields.
+TEST(StructFillValueFormTest, LegacyStructuredAcceptsBase64Fill) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "structured"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{"x", "uint8"}, {"y", "int16"}})}}}};
+  // x(uint8)=0xAA, y(int16, little)=0x1234 -> {0xAA, 0x34, 0x12}.
+  metadata_json["fill_value"] = "qjQS";
+  metadata_json["codecs"] = ::nlohmann::json::array_t{
+      {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(metadata_json));
+  ASSERT_EQ(metadata.fill_value.size(), 2u);
+  EXPECT_EQ(*static_cast<const uint8_t*>(metadata.fill_value[0].data()),
+            0xAA);
+  EXPECT_EQ(*static_cast<const int16_t*>(metadata.fill_value[1].data()),
+            int16_t{0x1234});
+}
+
+TEST(StructFillValueFormTest, LegacyStructuredAcceptsArrayFill) {
+  ::nlohmann::json metadata_json = GetBasicMetadata();
+  metadata_json["data_type"] = {
+      {"name", "structured"},
+      {"configuration",
+       {{"fields",
+         ::nlohmann::json::array({{"x", "uint8"}, {"y", "int16"}})}}}};
+  metadata_json["fill_value"] = ::nlohmann::json::array({1, 2});
+  metadata_json["codecs"] = ::nlohmann::json::array_t{
+      {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(metadata_json));
+  ASSERT_EQ(metadata.fill_value.size(), 2u);
+  EXPECT_EQ(*static_cast<const uint8_t*>(metadata.fill_value[0].data()), 1);
+  EXPECT_EQ(*static_cast<const int16_t*>(metadata.fill_value[1].data()),
+            int16_t{2});
 }
 
 TEST(GetVoidMetadataTest, AcceptsScalar) {

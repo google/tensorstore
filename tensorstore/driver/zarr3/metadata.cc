@@ -36,6 +36,7 @@
 #include "absl/algorithm/container.h"
 #include "absl/base/casts.h"
 #include "absl/base/optimization.h"
+#include "absl/log/absl_check.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
@@ -328,7 +329,9 @@ absl::Status FillValueJsonBinder::operator()(
               "Missing required field \"%s\" in fill_value object", field_name));
         }
       }
-    } else if (j->is_string()) {
+    } else if (zarr_dtype.is_legacy_structured && j->is_string()) {
+      // Base64 / array fills are legacy "structured" affordances; modern
+      // "struct" falls through to the trailing `ExpectedError("object")`.
       std::string b64_decoded;
       if (!absl::Base64Unescape(j->get<std::string>(), &b64_decoded)) {
         return absl::InvalidArgumentError(absl::StrFormat(
@@ -346,11 +349,14 @@ absl::Status FillValueJsonBinder::operator()(
         const auto& field = zarr_dtype.fields[i];
         auto arr = AllocateArray(span<const Index, 0>{}, c_order, default_init,
                                  field.dtype);
-        std::memcpy(arr.data(), b64_decoded.data() + field.byte_offset,
-                    field.dtype->size);
+        ArrayView<const void> src_view(
+            {static_cast<const void*>(b64_decoded.data() + field.byte_offset),
+             field.dtype},
+            arr.layout());
+        internal::DecodeArray(src_view, fill_endian, arr);
         (*obj)[i] = std::move(arr);
       }
-    } else if (j->is_array()) {
+    } else if (zarr_dtype.is_legacy_structured && j->is_array()) {
       if (j->size() != zarr_dtype.fields.size()) {
         return internal_json::ExpectedError(
             *j, absl::StrFormat("array of size %d", zarr_dtype.fields.size()));
@@ -361,7 +367,9 @@ absl::Status FillValueJsonBinder::operator()(
       }
     } else {
       return internal_json::ExpectedError(
-          *j, "object, array, or base64-encoded string");
+          *j, zarr_dtype.is_legacy_structured
+                  ? "object, array, or base64-encoded string"
+                  : "object");
     }
   }
   return absl::OkStatus();
@@ -549,15 +557,40 @@ constexpr auto MetadataJsonBinder = [] {
                        jb::DefaultBinder<>))),
         jb::Member(
             "fill_value",
-            jb::Projection<&Self::fill_value>(maybe_optional(
-                [&](auto is_loading, const auto& options, auto* obj, auto* j) {
+            [&](auto is_loading, const auto& options, auto* obj,
+                auto* j) -> absl::Status {
+              if constexpr (std::is_same_v<Self, ZarrMetadata>) {
+                TENSORSTORE_ASSIGN_OR_RETURN(auto zarr_dtype,
+                                             ensure_zarr_dtype());
+                // Defer base64 decoding to `ValidateMetadata`: the bytes
+                // codec's `endian` (per
+                // https://github.com/zarr-developers/zarr-extensions/tree/main/data-types/structured)
+                // isn't resolved yet here.
+                if constexpr (is_loading) {
+                  if (zarr_dtype.is_legacy_structured &&
+                      zarr_dtype.fields.size() > 1 && j->is_string()) {
+                    obj->deferred_base64_fill_value = *j;
+                    obj->fill_value.assign(zarr_dtype.fields.size(),
+                                           SharedArray<const void>());
+                    return absl::OkStatus();
+                  }
+                } else {
+                  ABSL_DCHECK(!obj->deferred_base64_fill_value.has_value())
+                      << "Call ValidateMetadata before serializing";
+                }
+                return FillValueJsonBinder{std::move(zarr_dtype),
+                                           /*allow_missing_dtype=*/true}(
+                    is_loading, options, &obj->fill_value, j);
+              } else {
+                return jb::Optional([&](auto is_loading, const auto& options,
+                                        auto* obj, auto* j) {
                   TENSORSTORE_ASSIGN_OR_RETURN(auto zarr_dtype,
                                                ensure_zarr_dtype());
-                  constexpr bool allow_missing_dtype =
-                      std::is_same_v<Self, ZarrMetadata>;
-                  return FillValueJsonBinder{zarr_dtype, allow_missing_dtype}(
+                  return FillValueJsonBinder{std::move(zarr_dtype)}(
                       is_loading, options, obj, j);
-                }))),
+                })(is_loading, options, &obj->fill_value, j);
+              }
+            }),
         non_compatibility_field(
             jb::Member("shape", jb::Projection<&Self::shape>(
                                     maybe_optional(jb::ShapeVector(rank))))),
@@ -640,51 +673,11 @@ std::string ZarrMetadata::GetCompatibilityKey() const {
       .dump();
 }
 
-namespace {
-// Walks `codec_specs` (transparently descending through any
-// `sharding_indexed` layers) and returns the endianness selected by the
-// innermost `bytes` codec.  Falls back to `endian::native` when no `bytes`
-// codec is reachable, when the codec was resolved against an endian-invariant
-// data type, or when the user did not pin an explicit endian.
-endian GetBytesCodecEndianImpl(const ZarrCodecChainSpec& codec_specs) {
-  const ZarrArrayToBytesCodecSpec* a2b = codec_specs.array_to_bytes.get();
-  while (a2b != nullptr) {
-    if (auto* sharding = dynamic_cast<const ShardingIndexedCodecSpec*>(a2b)) {
-      const ZarrCodecChainSpec* sub = sharding->GetSubChunkCodecs();
-      if (sub == nullptr) break;
-      a2b = sub->array_to_bytes.get();
-      continue;
-    }
-    if (auto* bytes_codec = dynamic_cast<const BytesCodecSpec*>(a2b)) {
-      return bytes_codec->options.endianness.value_or(endian::native);
-    }
-    break;
-  }
-  return endian::native;
+endian GetBytesCodecEndian(const ZarrCodecChainSpec& codec_specs) {
+  const BytesCodecSpec* leaf = GetLeafBytesCodec(codec_specs);
+  if (leaf == nullptr) return endian::native;
+  return leaf->options.endianness.value_or(endian::native);
 }
-
-// Returns the byte order in which a per-field typed fill must be written
-// when packed into the synthetic byte view consumed under `open_as_void`.
-//
-// The void byte buffer must mirror what would be read from a present chunk
-// after the original codec chain encoded it:
-//
-//   * Single scalar field (`field_shape` empty, dtype != byte): the chunk
-//     cache hands the typed array to the bytes codec, which performs endian
-//     conversion to the codec's configured endian.  The fill must follow.
-//   * Multi-field struct, or `rN` raw byte field: the chunk cache packs
-//     bytes via `CopyArray` (native-endian memcpy) and the bytes codec at
-//     the bottom is resolved against `byte` (endian-invariant).  Fill must
-//     therefore stay native-endian.
-endian SelectFillTargetEndian(const ZarrDType& zarr_dtype,
-                              const ZarrCodecChainSpec& codec_specs) {
-  if (zarr_dtype.fields.size() == 1 &&
-      zarr_dtype.fields[0].field_shape.empty()) {
-    return GetBytesCodecEndianImpl(codec_specs);
-  }
-  return endian::native;
-}
-}  // namespace
 
 SharedArray<const void> MakeVoidFillValue(
     const ZarrDType& zarr_dtype, const ZarrCodecChainSpec& codec_specs,
@@ -694,7 +687,9 @@ SharedArray<const void> MakeVoidFillValue(
                                  value_init,
                                  dtype_v<tensorstore::dtypes::byte_t>);
   auto* dst = static_cast<std::byte*>(byte_fill.data());
-  const endian target_endian = SelectFillTargetEndian(zarr_dtype, codec_specs);
+  // Match `ZarrLeafChunkCache::EncodeChunk`: every multi-byte field on
+  // disk is in the bytes codec's `endian`.
+  const endian target_endian = GetBytesCodecEndian(codec_specs);
   const size_t num_fields = std::min<size_t>(
       zarr_dtype.fields.size(), static_cast<size_t>(per_field_fill.size()));
   for (size_t i = 0; i < num_fields; ++i) {
@@ -725,26 +720,16 @@ ZarrDType MakeVoidDType(Index bytes_per_outer_element) {
 }
 
 absl::Status ValidateVoidCodecChain(const ZarrCodecChainSpec& codec_specs) {
-  // After the inner-shape architecture change, array-to-array codecs operate
-  // strictly on the chunked dimensions and propagate the inner dims via the
-  // `inner_shape` resolve parameter; they cannot rearrange or reshape the
-  // byte dim, and the chain Resolve enforces that they preserve the dtype.
-  // The only structural precondition this function still checks is that the
-  // innermost array-to-bytes codec (after unwinding any `sharding_indexed`
-  // layers) is the `bytes` codec, since other a-to-b codecs would alter the
-  // on-disk byte layout in ways `open_as_void` cannot reproduce.
-  const ZarrArrayToBytesCodecSpec* a2b = codec_specs.array_to_bytes.get();
-  while (auto* sharding =
-             dynamic_cast<const ShardingIndexedCodecSpec*>(a2b)) {
-    const ZarrCodecChainSpec* sub = sharding->GetSubChunkCodecs();
-    if (sub == nullptr) {
-      return absl::InvalidArgumentError(
-          "open_as_void: nested sharding_indexed codec is missing its "
-          "sub-chunk codec specification");
-    }
-    a2b = sub->array_to_bytes.get();
+  // open_as_void requires the leaf array-to-bytes codec to be `bytes`;
+  // other codecs would alter the on-disk byte layout.
+  const ZarrCodecChainSpec* leaf = GetLeafChainSpec(codec_specs);
+  if (leaf == nullptr) {
+    return absl::InvalidArgumentError(
+        "open_as_void: nested sharding_indexed codec is missing its "
+        "sub-chunk codec specification");
   }
-  if (dynamic_cast<const BytesCodecSpec*>(a2b) == nullptr) {
+  if (dynamic_cast<const BytesCodecSpec*>(leaf->array_to_bytes.get()) ==
+      nullptr) {
     return absl::InvalidArgumentError(
         "open_as_void requires the innermost array-to-bytes codec to be the "
         "`bytes` codec (after unwrapping any sharding_indexed layers).  "
@@ -786,6 +771,11 @@ Result<std::shared_ptr<const ZarrMetadata>> GetVoidMetadata(
   // time metadata.
   void_metadata->field_shape.clear();
 
+  // `MakeVoidFillValue` already produced the typed fill above; drop any
+  // deferred base64 JSON so `ValidateMetadata` doesn't re-decode it
+  // against the synthetic byte dtype.
+  void_metadata->deferred_base64_fill_value.reset();
+
   // Force re-resolution of the codec chain against the byte data type.  The
   // codec chain spec itself (endianness selections, sharding parameters, etc.)
   // is unchanged; only the resolved codec instances and prepared state are
@@ -818,10 +808,53 @@ void DeriveFieldShape(ZarrMetadata& metadata) {
     metadata.field_shape.push_back(zarr_dtype.bytes_per_outer_element);
   }
 }
+
 }  // namespace
+
+absl::Status ValidateStructEndianness(const ZarrDType& dtype,
+                                      ZarrCodecChainSpec& codec_specs) {
+  if (!dtype.has_fields) return absl::OkStatus();
+
+  const bool has_multi_byte_field = std::any_of(
+      dtype.fields.begin(), dtype.fields.end(), [](const auto& field) {
+        return field.dtype.valid() && field.dtype->size > 1;
+      });
+  if (!has_multi_byte_field) return absl::OkStatus();
+
+  const BytesCodecSpec* leaf = GetLeafBytesCodec(codec_specs);
+  if (leaf == nullptr) return absl::OkStatus();
+  if (leaf->options.endianness.has_value()) return absl::OkStatus();
+
+  if (dtype.is_legacy_structured) {
+    return SetLeafBytesCodecEndian(codec_specs, endian::little);
+  }
+  return absl::InvalidArgumentError(
+      "Zarr v3 \"struct\" data types with multi-byte fields require the "
+      "innermost `bytes` codec to specify an explicit `endian` (\"little\" "
+      "or \"big\").");
+}
 
 absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   DeriveFieldShape(metadata);
+
+  // Skip when codecs are already resolved: the create path runs the
+  // pre-Resolve check itself in `GetNewMetadata`, and post-Resolve the
+  // leaf bytes spec has its `endian` stripped.
+  if (!metadata.codecs) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateStructEndianness(metadata.zarr_dtype, metadata.codec_specs));
+  }
+
+  // Resolve any base64 fill deferred from JSON parse (see
+  // `MetadataJsonBinder`); the bytes codec's `endian` is now known.
+  if (metadata.deferred_base64_fill_value.has_value()) {
+    FillValueJsonBinder fill_binder{metadata.zarr_dtype};
+    fill_binder.fill_endian = GetBytesCodecEndian(metadata.codec_specs);
+    TENSORSTORE_RETURN_IF_ERROR(fill_binder(
+        std::true_type{}, jb::NoOptions{}, &metadata.fill_value,
+        &*metadata.deferred_base64_fill_value));
+    metadata.deferred_base64_fill_value.reset();
+  }
 
   // The codec chain is resolved at the *chunked* rank only.  Inner trailing
   // dimensions contributed by the dtype's field_shape (multi-field structs,
@@ -1636,12 +1669,30 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
     }
   }
 
+  // Must run before `Resolve` strips `endian` under the byte-substituted
+  // inner dtype.
+  if (codec_spec->codecs) {
+    TENSORSTORE_RETURN_IF_ERROR(ValidateStructEndianness(metadata->zarr_dtype,
+                                                          *codec_spec->codecs));
+  }
+
   const auto set_up_codecs =
       [&](const ZarrCodecChainSpec& codec_specs) -> absl::Status {
     BytesCodecResolveParameters encoded;
     TENSORSTORE_ASSIGN_OR_RETURN(
         metadata->codecs, codec_specs.Resolve(std::move(decoded), encoded,
                                               &metadata->codec_specs));
+    // `Resolve` strips `endian` from the leaf bytes spec under the
+    // byte-substituted inner dtype; re-inject the validated user value.
+    if (metadata->zarr_dtype.has_fields) {
+      const BytesCodecSpec* resolved_leaf =
+          GetLeafBytesCodec(metadata->codec_specs);
+      if (resolved_leaf != nullptr &&
+          !resolved_leaf->options.endianness.has_value()) {
+        TENSORSTORE_RETURN_IF_ERROR(SetLeafBytesCodecEndian(
+            metadata->codec_specs, GetBytesCodecEndian(codec_specs)));
+      }
+    }
     return absl::OkStatus();
   };
   TENSORSTORE_RETURN_IF_ERROR(set_up_codecs(

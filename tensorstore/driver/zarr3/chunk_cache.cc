@@ -49,6 +49,7 @@
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
+#include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
@@ -67,6 +68,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/future.h"
@@ -149,11 +151,13 @@ ZarrChunkCache::~ZarrChunkCache() = default;
 ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType zarr_dtype, std::vector<Index> field_shape,
+    endian codec_endian,
     internal::CachePool::WeakPtr /*data_cache_pool*/)
     : Base(std::move(store)),
       codec_state_(std::move(codec_state)),
       zarr_dtype_(std::move(zarr_dtype)),
-      field_shape_(std::move(field_shape)) {}
+      field_shape_(std::move(field_shape)),
+      codec_endian_(codec_endian) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
                               AnyFlowReceiver<absl::Status, internal::ReadChunk,
@@ -273,7 +277,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
          field.dtype},
         StridedLayoutView<>(view_shape, src_byte_strides));
 
-    CopyArray(src_field_view, result_array);
+    internal::DecodeArray(src_field_view, codec_endian_, result_array);
     field_arrays[field_i] = std::move(result_array);
   }
 
@@ -322,7 +326,7 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
         {static_cast<void*>(byte_array.data() + field.byte_offset), field.dtype},
         StridedLayoutView<>(view_shape, dest_byte_strides));
 
-    CopyArray(field_array, dest_field_view);
+    internal::EncodeArray(field_array, dest_field_view, codec_endian_);
   }
 
   return codec_state_->EncodeArray(byte_array);
@@ -335,11 +339,13 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 ZarrShardedChunkCache::ZarrShardedChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType zarr_dtype, std::vector<Index> field_shape,
+    endian codec_endian,
     internal::CachePool::WeakPtr data_cache_pool)
     : base_kvstore_(std::move(store)),
       codec_state_(std::move(codec_state)),
       zarr_dtype_(std::move(zarr_dtype)),
       field_shape_(std::move(field_shape)),
+      codec_endian_(codec_endian),
       data_cache_pool_(std::move(data_cache_pool)) {}
 
 Result<IndexTransform<>> TranslateCellToSourceTransformForShard(
@@ -649,7 +655,8 @@ void ZarrShardedChunkCache::Entry::DoInitialize() {
                 *sharding_state.sub_chunk_codec_chain,
                 std::move(sharding_kvstore), cache.executor(),
                 ZarrShardingCodec::PreparedState::Ptr(&sharding_state),
-                cache.zarr_dtype_, cache.field_shape_, cache.data_cache_pool_);
+                cache.zarr_dtype_, cache.field_shape_, cache.codec_endian_,
+                cache.data_cache_pool_);
         zarr_chunk_cache = new_cache.release();
         return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
       })

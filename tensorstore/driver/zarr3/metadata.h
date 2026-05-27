@@ -46,6 +46,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -79,6 +80,10 @@ struct ChunkKeyEncoding {
 struct FillValueJsonBinder {
   ZarrDType zarr_dtype;
   bool allow_missing_dtype = false;
+  // Byte order of base64-encoded fill payloads (legacy `"structured"`
+  // only; unused for typed JSON values).  Caller passes the bytes
+  // codec's resolved endian.
+  endian fill_endian = endian::native;
   FillValueJsonBinder() = default;
   explicit FillValueJsonBinder(ZarrDType zarr_dtype,
                                bool allow_missing_dtype = false);
@@ -146,6 +151,13 @@ struct ZarrMetadata {
   //
   // Not part of the persisted zarr.json -- derived during `ValidateMetadata`.
   std::vector<Index> field_shape;
+
+  // Parser scratch: populated by `MetadataJsonBinder` for legacy
+  // `"structured"` multi-field base64 fills, and cleared by
+  // `ValidateMetadata` once the bytes codec's `endian` is known.  Not
+  // serialized, not equality-compared; private to the JSON
+  // parse / `ValidateMetadata` pipeline.
+  std::optional<::nlohmann::json> deferred_base64_fill_value;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrMetadata,
                                           internal_json_binding::NoOptions,
@@ -277,18 +289,31 @@ Result<size_t> GetFieldIndex(const ZarrDType& zarr_dtype,
 /// field (no separate `open_as_void` plumbing required).
 ZarrDType MakeVoidDType(Index bytes_per_outer_element);
 
-/// Packs `per_field_fill` (one fill value per field of `dtype`) into a single
-/// 1-D byte `SharedArray` of length `dtype.bytes_per_outer_element`, following
-/// the struct's `byte_offset` layout.
+/// Returns the leaf `bytes` codec's configured `endian`, descending
+/// through any sharding wrappers.  Falls back to `endian::native` when
+/// the chain has no reachable `bytes` leaf or no explicit `endian`.
 ///
-/// The byte order of each typed field in the packed buffer matches the byte
-/// order that the bytes codec would write for a chunk encoded under the
-/// supplied `codec_specs` -- for a single non-byte scalar field this means
-/// the codec's configured endian; for multi-field structs and `rN` raw byte
-/// fields it is native-endian (matching the chunk cache's CopyArray-based
-/// per-field packing path).  This guarantees that the synthetic void fill
-/// returned for a missing chunk is byte-identical to what `read` returns for
-/// a present chunk.
+/// Callers requiring a meaningful value for a multi-byte struct field
+/// must invoke `ValidateStructEndianness` first.
+endian GetBytesCodecEndian(const ZarrCodecChainSpec& codec_specs);
+
+/// Enforces the Zarr v3 struct byte-order rule on `codec_specs`.  Modern
+/// `"struct"` (https://github.com/zarr-developers/zarr-extensions/tree/main/data-types/struct)
+/// rejects a multi-byte struct without explicit `endian`; legacy
+/// `"structured"` (https://github.com/zarr-developers/zarr-extensions/tree/main/data-types/structured)
+/// defaults the missing `endian` to little.  No-op for non-struct dtypes
+/// or structs with no multi-byte fields.
+///
+/// Must run on the user-supplied (pre-`Resolve`) codec spec; `Resolve`
+/// strips `endian` under the byte-substituted inner dtype.
+absl::Status ValidateStructEndianness(const ZarrDType& dtype,
+                                      ZarrCodecChainSpec& codec_specs);
+
+/// Packs `per_field_fill` into a 1-D byte `SharedArray` of length
+/// `dtype.bytes_per_outer_element`, following the struct's `byte_offset`
+/// layout with each typed field encoded in `GetBytesCodecEndian(codec_specs)`.
+/// Matches `ZarrLeafChunkCache::EncodeChunk`, so the synthetic fill is
+/// byte-identical to a written chunk.
 SharedArray<const void> MakeVoidFillValue(
     const ZarrDType& zarr_dtype, const ZarrCodecChainSpec& codec_specs,
     span<const SharedArray<const void>> per_field_fill);

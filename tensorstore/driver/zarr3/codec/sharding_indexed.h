@@ -59,6 +59,10 @@ class ShardingIndexedCodecSpec : public ZarrShardingCodecSpec {
 
   const ZarrCodecChainSpec* GetSubChunkCodecs() const override;
 
+  Result<std::pair<internal::IntrusivePtr<ZarrShardingCodecSpec>,
+                   ZarrCodecChainSpec*>>
+  CloneWithMutableSubChunkCodecs() const override;
+
   absl::Status GetDecodedChunkLayout(
       const ArrayDataTypeAndShapeInfo& array_info,
       ArrayCodecChunkLayoutInfo& decoded) const override;

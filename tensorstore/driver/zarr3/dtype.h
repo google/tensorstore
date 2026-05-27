@@ -117,6 +117,13 @@ struct ZarrDType {
   /// Bytes per "outer" element (derived value).
   Index bytes_per_outer_element;
 
+  /// True if parsed from the legacy `"structured"` alias (see
+  /// https://github.com/zarr-developers/zarr-extensions/tree/main/data-types/structured);
+  /// gates the legacy affordances (tuple fields, missing-endian default,
+  /// base64/array fill).  Not equality-compared; `to_json` always emits
+  /// the modern `"struct"` form.
+  bool is_legacy_structured = false;
+
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrDType,
                                           internal_json_binding::NoOptions)
 

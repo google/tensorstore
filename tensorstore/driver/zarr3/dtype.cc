@@ -214,7 +214,10 @@ absl::Status ParseTupleField(const nlohmann::json& field_json,
 
 /// Parses the fields array for "struct" dtype.
 ///
-/// Each field must be an object with "name" and "data_type" keys.
+/// Each field must be an object with "name" and "data_type" keys, where
+/// `data_type` is a core Zarr v3 dtype string.  Nested struct and
+/// extension dtypes with their own configuration are rejected by
+/// `ParseObjectField`.
 ///
 /// \param fields_json The JSON array of field objects.
 /// \param out[out] Filled with the parsed fields on success.
@@ -305,6 +308,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
               "'fields' array");
         }
         TENSORSTORE_RETURN_IF_ERROR(ParseStructuredFieldsArray(config["fields"], out));
+        out.is_legacy_structured = true;
         return out;
       }
       if (type_name == "raw_bytes") {
@@ -350,6 +354,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
   // Handle bare array format: [["field1", "type1"], ["field2", "type2"], ...]
   // This is the legacy format, so fields must be tuples
   TENSORSTORE_RETURN_IF_ERROR(ParseStructuredFieldsArray(value, out));
+  out.is_legacy_structured = true;
   return out;
 }
 

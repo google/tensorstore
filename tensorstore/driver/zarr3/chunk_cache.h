@@ -51,6 +51,7 @@
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -179,6 +180,7 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
                               ZarrCodecChain::PreparedState::Ptr codec_state,
                               ZarrDType zarr_dtype,
                               std::vector<Index> field_shape,
+                              endian codec_endian,
                               internal::CachePool::WeakPtr data_cache_pool);
 
   void Read(ZarrChunkCache::ReadRequest request,
@@ -208,6 +210,9 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
   ZarrCodecChain::PreparedState::Ptr codec_state_;
   ZarrDType zarr_dtype_;
   std::vector<Index> field_shape_;
+  // Byte order for per-field endian conversion in `EncodeChunk` /
+  // `DecodeChunk`; resolved via `GetBytesCodecEndian`.
+  endian codec_endian_;
 };
 
 /// Chunk cache for a Zarr array where each chunk is a shard.
@@ -219,6 +224,7 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
                                  ZarrCodecChain::PreparedState::Ptr codec_state,
                                  ZarrDType zarr_dtype,
                                  std::vector<Index> field_shape,
+                                 endian codec_endian,
                                  internal::CachePool::WeakPtr data_cache_pool);
 
   const ZarrShardingCodec::PreparedState& sharding_codec_state() const {
@@ -270,6 +276,9 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
   ZarrCodecChain::PreparedState::Ptr codec_state_;
   ZarrDType zarr_dtype_;
   std::vector<Index> field_shape_;
+  // Forwarded verbatim into the sub-chunk cache; see
+  // `ZarrLeafChunkCache::codec_endian_`.
+  endian codec_endian_;
 
   // Data cache pool, if it differs from `this->pool()` (which is equal to the
   // metadata cache pool).
@@ -320,11 +329,13 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
       kvstore::DriverPtr store, Executor executor,
       ZarrShardingCodec::PreparedState::Ptr sharding_state,
       ZarrDType zarr_dtype, std::vector<Index> field_shape,
+      endian codec_endian,
       internal::CachePool::WeakPtr data_cache_pool)
       : ChunkCacheImpl(std::move(store),
                        ZarrCodecChain::PreparedState::Ptr(
                            sharding_state->sub_chunk_codec_state),
                        std::move(zarr_dtype), std::move(field_shape),
+                       codec_endian,
                        std::move(data_cache_pool)),
         sharding_state_(std::move(sharding_state)),
         executor_(std::move(executor)) {

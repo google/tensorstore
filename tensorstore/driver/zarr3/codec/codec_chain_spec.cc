@@ -496,6 +496,51 @@ size_t ZarrShardingCodecSpec::sharding_height() const {
   return 1 + (sub_chunk_codecs ? sub_chunk_codecs->sharding_height() : 0);
 }
 
+const ZarrCodecChainSpec* GetLeafChainSpec(const ZarrCodecChainSpec& chain) {
+  const ZarrCodecChainSpec* current = &chain;
+  while (true) {
+    auto* a2b = current->array_to_bytes.get();
+    auto* sharding = dynamic_cast<const ZarrShardingCodecSpec*>(a2b);
+    if (sharding == nullptr) return current;
+    auto* sub = sharding->GetSubChunkCodecs();
+    if (sub == nullptr) return nullptr;
+    current = sub;
+  }
+}
+
+const BytesCodecSpec* GetLeafBytesCodec(const ZarrCodecChainSpec& chain) {
+  const ZarrCodecChainSpec* leaf = GetLeafChainSpec(chain);
+  if (leaf == nullptr) return nullptr;
+  return dynamic_cast<const BytesCodecSpec*>(leaf->array_to_bytes.get());
+}
+
+absl::Status SetLeafBytesCodecEndian(ZarrCodecChainSpec& chain, endian e) {
+  ZarrCodecChainSpec* current = &chain;
+  while (true) {
+    auto* a2b = current->array_to_bytes.get();
+    if (a2b == nullptr) {
+      return absl::InvalidArgumentError(
+          "Cannot set endian: codec chain has no array-to-bytes codec");
+    }
+    if (auto* sharding = dynamic_cast<const ZarrShardingCodecSpec*>(a2b)) {
+      TENSORSTORE_ASSIGN_OR_RETURN(auto cloned_pair,
+                                   sharding->CloneWithMutableSubChunkCodecs());
+      current->array_to_bytes = std::move(cloned_pair.first);
+      current = cloned_pair.second;
+      continue;
+    }
+    if (auto* bytes_codec = dynamic_cast<const BytesCodecSpec*>(a2b)) {
+      auto new_bytes =
+          internal::MakeIntrusivePtr<BytesCodecSpec>(*bytes_codec);
+      new_bytes->options.endianness = e;
+      current->array_to_bytes = std::move(new_bytes);
+      return absl::OkStatus();
+    }
+    return absl::InvalidArgumentError(
+        "Cannot set endian: leaf array-to-bytes codec is not `bytes`");
+  }
+}
+
 CodecSpec TensorStoreCodecSpec::Clone() const {
   return internal::CodecDriverSpec::Make<TensorStoreCodecSpec>(*this);
 }

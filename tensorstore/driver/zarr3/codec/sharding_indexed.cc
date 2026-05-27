@@ -211,6 +211,19 @@ const ZarrCodecChainSpec* ShardingIndexedCodecSpec::GetSubChunkCodecs() const {
   return options.sub_chunk_codecs ? &*options.sub_chunk_codecs : nullptr;
 }
 
+Result<std::pair<internal::IntrusivePtr<ZarrShardingCodecSpec>,
+                 ZarrCodecChainSpec*>>
+ShardingIndexedCodecSpec::CloneWithMutableSubChunkCodecs() const {
+  auto cloned = internal::MakeIntrusivePtr<ShardingIndexedCodecSpec>(*this);
+  if (!cloned->options.sub_chunk_codecs.has_value()) {
+    return absl::InvalidArgumentError(
+        "sharding_indexed codec is missing sub_chunk_codecs");
+  }
+  ZarrCodecChainSpec* sub = &*cloned->options.sub_chunk_codecs;
+  return std::pair<internal::IntrusivePtr<ZarrShardingCodecSpec>,
+                   ZarrCodecChainSpec*>{std::move(cloned), sub};
+}
+
 absl::Status ShardingIndexedCodecSpec::GetDecodedChunkLayout(
     const ArrayDataTypeAndShapeInfo& array_info,
     ArrayCodecChunkLayoutInfo& decoded) const {

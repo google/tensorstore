@@ -20,6 +20,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -32,12 +33,15 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
+
+class BytesCodecSpec;
 
 // Specifies a precise configuration of codecs (when loading from stored zarr v3
 // metadata), or constraints on a sequence of codecs (when parsed from a
@@ -163,11 +167,31 @@ class ZarrShardingCodecSpec : public ZarrArrayToBytesCodecSpec {
   // Returns the sub-chunk codec spec, or `nullptr` if unspecified.
   virtual const ZarrCodecChainSpec* GetSubChunkCodecs() const = 0;
 
+  // Returns a clone of `*this` plus a mutable pointer into the clone's
+  // sub-chunk chain (path-clone mutation; see `SetLeafBytesCodecEndian`).
+  // Returns InvalidArgument if sub-chunk codecs are unset.
+  virtual Result<std::pair<internal::IntrusivePtr<ZarrShardingCodecSpec>,
+                           ZarrCodecChainSpec*>>
+  CloneWithMutableSubChunkCodecs() const = 0;
+
   // Returns the sharding height.
   //
   // This does not need to be overridden by subclasses.
   size_t sharding_height() const override;
 };
+
+// Returns the innermost leaf chain spec after unwrapping any sharding
+// wrappers, or `nullptr` if a sharding layer is missing sub-chunk codecs.
+const ZarrCodecChainSpec* GetLeafChainSpec(const ZarrCodecChainSpec& chain);
+
+// Returns the leaf `BytesCodecSpec`, or `nullptr` if the chain is
+// incomplete or the leaf array-to-bytes codec is not `bytes`.
+const BytesCodecSpec* GetLeafBytesCodec(const ZarrCodecChainSpec& chain);
+
+// Path-clones `chain` and replaces the leaf `bytes` codec's `endian`
+// configuration with `e`.  Returns InvalidArgument if the chain is
+// incomplete or the leaf is not `bytes`.
+absl::Status SetLeafBytesCodecEndian(ZarrCodecChainSpec& chain, endian e);
 
 // JSON binder for `ZarrCodecChain` where the
 // `ZarrCodecSpec::FromJsonOptions::constraints` parameter is fixed at
