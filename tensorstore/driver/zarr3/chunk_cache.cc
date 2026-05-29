@@ -22,6 +22,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -144,6 +145,28 @@ internal::ChunkGridSpecification CreateFieldGridSpecification(
   }
 
   return internal::ChunkGridSpecification(std::move(components));
+}
+
+std::string FieldKeyParserWrapper::FormatKey(
+    span<const Index> grid_indices) const {
+  std::vector<Index> padded(grid_indices.begin(), grid_indices.end());
+  while (static_cast<DimensionIndex>(padded.size()) < full_rank_) {
+    padded.push_back(0);
+  }
+  return inner_.FormatKey(padded);
+}
+
+Index FieldKeyParserWrapper::MinGridIndexForLexicographicalOrder(
+    DimensionIndex dim, IndexInterval grid_interval) const {
+  return inner_.MinGridIndexForLexicographicalOrder(dim, grid_interval);
+}
+
+bool FieldKeyParserWrapper::ParseKey(std::string_view key,
+                                     span<Index> grid_indices) const {
+  std::vector<Index> full_indices(full_rank_);
+  if (!inner_.ParseKey(key, full_indices)) return false;
+  std::copy_n(full_indices.begin(), grid_indices.size(), grid_indices.begin());
+  return true;
 }
 
 ZarrChunkCache::~ZarrChunkCache() = default;

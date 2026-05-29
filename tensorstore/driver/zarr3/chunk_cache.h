@@ -21,6 +21,7 @@
 #include <numeric>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -285,46 +286,34 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
   internal::CachePool::WeakPtr data_cache_pool_;
 };
 
+/// Wraps an inner grid index key parser, padding grid indices out to the full
+/// rank (including field dimensions) before delegating to the inner parser.
+class FieldKeyParserWrapper
+    : public internal::LexicographicalGridIndexKeyParser {
+ public:
+  explicit FieldKeyParserWrapper(
+      const internal::LexicographicalGridIndexKeyParser& inner,
+      DimensionIndex full_rank)
+      : inner_(inner), full_rank_(full_rank) {}
+
+  std::string FormatKey(span<const Index> grid_indices) const override;
+
+  Index MinGridIndexForLexicographicalOrder(
+      DimensionIndex dim, IndexInterval grid_interval) const override;
+
+  bool ParseKey(std::string_view key,
+                span<Index> grid_indices) const override;
+
+ private:
+  const internal::LexicographicalGridIndexKeyParser& inner_;
+  DimensionIndex full_rank_;
+};
+
 /// Chunk cache mixin for a chunk cache where the entire chunk cache corresponds
 /// to a single shard.
 template <typename ChunkCacheImpl>
 class ZarrShardSubChunkCache : public ChunkCacheImpl {
  public:
-  class FieldKeyParserWrapper
-      : public internal::LexicographicalGridIndexKeyParser {
-   public:
-    explicit FieldKeyParserWrapper(
-        const internal::LexicographicalGridIndexKeyParser& inner,
-        DimensionIndex full_rank)
-        : inner_(inner), full_rank_(full_rank) {}
-
-    std::string FormatKey(span<const Index> grid_indices) const override {
-      std::vector<Index> padded(grid_indices.begin(), grid_indices.end());
-      while (static_cast<DimensionIndex>(padded.size()) < full_rank_) {
-        padded.push_back(0);
-      }
-      return inner_.FormatKey(padded);
-    }
-
-    Index MinGridIndexForLexicographicalOrder(
-        DimensionIndex dim, IndexInterval grid_interval) const override {
-      return inner_.MinGridIndexForLexicographicalOrder(dim, grid_interval);
-    }
-
-    bool ParseKey(std::string_view key,
-                  span<Index> grid_indices) const override {
-      std::vector<Index> full_indices(full_rank_);
-      if (!inner_.ParseKey(key, full_indices)) return false;
-      std::copy_n(full_indices.begin(), grid_indices.size(),
-                  grid_indices.begin());
-      return true;
-    }
-
-   private:
-    const internal::LexicographicalGridIndexKeyParser& inner_;
-    DimensionIndex full_rank_;
-  };
-
   explicit ZarrShardSubChunkCache(
       kvstore::DriverPtr store, Executor executor,
       ZarrShardingCodec::PreparedState::Ptr sharding_state,
