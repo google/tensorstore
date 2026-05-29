@@ -24,6 +24,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
 #include "tensorstore/index.h"
@@ -36,7 +37,9 @@ namespace {
 using ::tensorstore::Index;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal::MakeIntrusivePtr;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
+using ::tensorstore::internal_zarr3::ZarrCodecChain;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
 using ::tensorstore::zarr3_sharding_indexed::DecodeShard;
 using ::tensorstore::zarr3_sharding_indexed::EncodeShard;
@@ -127,8 +130,22 @@ TEST(DecodeShardTest, TooShort) {
 
 TEST(DecodeShardTest, ByteRangeOutOfRange) {
   absl::Cord encoded(std::string{
-      0, 0, 0, 0, 0, 0, 0, 0,   //
-      17, 0, 0, 0, 0, 0, 0, 0,  //
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,  //
+      17,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,  //
   });
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto p, GetParams(ShardIndexLocation::kEnd, {1},
@@ -155,6 +172,32 @@ TEST(DecodeShardTest, ByteRangeInvalid) {
   EXPECT_THAT(DecodeShard(encoded, p),
               StatusIs(absl::StatusCode::kDataLoss,
                        MatchesRegex("Invalid shard index entry 0 with .*")));
+}
+
+TEST(InitializeTest, StackAllocationUB) {
+  // Create a valid index_codec_chain first using standard specs
+  auto chain_spec = ZarrCodecChainSpec::FromJson(
+                        {GetDefaultBytesCodecJson(), {{"name", "crc32c"}}})
+                        .value();
+  auto chain = tensorstore::zarr3_sharding_indexed::InitializeIndexCodecChain(
+                   chain_spec, 2)
+                   .value();
+
+  // Create a stack-allocated codec chain and copy the codecs into it.
+  // This is technically allowed since ZarrCodecChain has default copy
+  // constructor.
+  ZarrCodecChain stack_chain;
+  stack_chain.array_to_array = chain->array_to_array;
+  stack_chain.array_to_bytes = chain->array_to_bytes;
+  stack_chain.bytes_to_bytes = chain->bytes_to_bytes;
+
+  const Index grid_shape[] = {2, 3};
+
+  {
+    ShardIndexParameters p;
+    TENSORSTORE_EXPECT_OK(p.Initialize(
+        MakeIntrusivePtr<ZarrCodecChain>(stack_chain), grid_shape));
+  }
 }
 
 }  // namespace

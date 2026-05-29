@@ -27,7 +27,6 @@
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/wrapping_writer.h"
@@ -39,6 +38,7 @@
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/unowned_to_shared.h"
@@ -173,7 +173,7 @@ Result<ZarrCodecChain::Ptr> InitializeIndexCodecChain(
 }
 
 absl::Status ShardIndexParameters::InitializeIndexShape(
-    span<const Index> grid_shape) {
+    tensorstore::span<const Index> grid_shape) {
   TENSORSTORE_RETURN_IF_ERROR(ValidateGridShape(grid_shape));
   num_entries = ProductOfExtents(grid_shape);
   index_shape.resize(grid_shape.size() + 1);
@@ -183,23 +183,20 @@ absl::Status ShardIndexParameters::InitializeIndexShape(
 }
 
 absl::Status ShardIndexParameters::Initialize(
-    const ZarrCodecChainSpec& codec_chain_spec, span<const Index> grid_shape,
+    const ZarrCodecChainSpec& codec_chain_spec,
+    tensorstore::span<const Index> grid_shape,
     ZarrCodecChainSpec* resolved_codec_chain_spec) {
   TENSORSTORE_ASSIGN_OR_RETURN(
-      index_codec_chain,
+      auto my_codec_chain,
       InitializeIndexCodecChain(codec_chain_spec, grid_shape.size(),
                                 resolved_codec_chain_spec));
-  return Initialize(*index_codec_chain, grid_shape);
-  return absl::OkStatus();
+  return Initialize(std::move(my_codec_chain), grid_shape);
 }
 
-absl::Status ShardIndexParameters::Initialize(const ZarrCodecChain& codec_chain,
-                                              span<const Index> grid_shape) {
-  // Avoid redundant assignment if `Initialize` is being called with
-  // `index_codec_chain` already assigned.
-  if (index_codec_chain.get() != &codec_chain) {
-    index_codec_chain.reset(&codec_chain);
-  }
+absl::Status ShardIndexParameters::Initialize(
+    ZarrCodecChain::Ptr codec_chain,
+    tensorstore::span<const Index> grid_shape) {
+  index_codec_chain = std::move(codec_chain);
   TENSORSTORE_RETURN_IF_ERROR(InitializeIndexShape(grid_shape));
   TENSORSTORE_ASSIGN_OR_RETURN(index_codec_state,
                                index_codec_chain->Prepare(index_shape));

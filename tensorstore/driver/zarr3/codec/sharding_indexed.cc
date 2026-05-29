@@ -161,7 +161,7 @@ class ShardingIndexedCodec : public ZarrShardingCodec {
     state->sub_chunk_codec_state = state->codec_state_.get();
     state->shard_index_params_.index_location = index_location_;
     TENSORSTORE_RETURN_IF_ERROR(state->shard_index_params_.Initialize(
-        *index_codec_chain_, sub_chunk_grid_shape));
+        index_codec_chain_, sub_chunk_grid_shape));
     return {std::in_place, std::move(state)};
   }
 

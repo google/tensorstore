@@ -30,6 +30,7 @@
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/zarr3_sharding_indexed/key.h"
 #include "tensorstore/util/extents.h"
@@ -112,13 +113,14 @@ struct ShardIndexParameters {
   }
 
   // Initializes just `index_shape` and `num_entries`.
-  absl::Status InitializeIndexShape(span<const Index> grid_shape);
+  absl::Status InitializeIndexShape(tensorstore::span<const Index> grid_shape);
 
   // Initializes all members.
-  absl::Status Initialize(const ZarrCodecChain& codec_chain,
-                          span<const Index> grid_shape);
+  absl::Status Initialize(ZarrCodecChain::Ptr codec_chain,
+                          tensorstore::span<const Index> grid_shape);
   absl::Status Initialize(
-      const ZarrCodecChainSpec& codec_chain_spec, span<const Index> grid_shape,
+      const ZarrCodecChainSpec& codec_chain_spec,
+      tensorstore::span<const Index> grid_shape,
       ZarrCodecChainSpec* resolved_codec_chain_spec = nullptr);
 
   ShardIndexLocation index_location;
