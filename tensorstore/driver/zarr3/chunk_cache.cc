@@ -267,7 +267,8 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
   }
 
   const auto& chunk_shape = grid().chunk_shape;
-  std::vector<Index> decode_shape(chunk_shape.begin(), chunk_shape.end());
+  absl::InlinedVector<Index, kMaxRank> decode_shape(chunk_shape.begin(),
+                                                    chunk_shape.end());
   decode_shape.insert(decode_shape.end(), field_shape_.begin(),
                       field_shape_.end());
 
@@ -280,11 +281,12 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
     auto result_array =
         AllocateArray(component_shape, c_order, default_init, field.dtype);
 
-    std::vector<Index> view_shape(chunk_shape.begin(), chunk_shape.end());
+    absl::InlinedVector<Index, kMaxRank> view_shape(chunk_shape.begin(),
+                                                    chunk_shape.end());
     view_shape.insert(view_shape.end(), field.field_shape.begin(),
                       field.field_shape.end());
 
-    std::vector<Index> src_byte_strides(view_shape.size());
+    absl::InlinedVector<Index, kMaxRank> src_byte_strides(view_shape.size());
     ComputeStrides(c_order, zarr_dtype_.bytes_per_outer_element, chunk_shape,
                    tensorstore::span(src_byte_strides.data(), chunk_shape.size()));
     if (!field.field_shape.empty()) {
@@ -321,7 +323,8 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
   assert(component_arrays.size() == num_fields);
 
   const auto& chunk_shape = grid().chunk_shape;
-  std::vector<Index> encode_shape(chunk_shape.begin(), chunk_shape.end());
+  absl::InlinedVector<Index, kMaxRank> encode_shape(chunk_shape.begin(),
+                                                    chunk_shape.end());
   encode_shape.insert(encode_shape.end(), field_shape_.begin(),
                       field_shape_.end());
 
@@ -331,11 +334,12 @@ Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     const auto& field = zarr_dtype_.fields[field_i];
     const auto& field_array = component_arrays[field_i];
 
-    std::vector<Index> view_shape(chunk_shape.begin(), chunk_shape.end());
+    absl::InlinedVector<Index, kMaxRank> view_shape(chunk_shape.begin(),
+                                                    chunk_shape.end());
     view_shape.insert(view_shape.end(), field.field_shape.begin(),
                       field.field_shape.end());
 
-    std::vector<Index> dest_byte_strides(view_shape.size());
+    absl::InlinedVector<Index, kMaxRank> dest_byte_strides(view_shape.size());
     ComputeStrides(c_order, zarr_dtype_.bytes_per_outer_element, chunk_shape,
                    tensorstore::span(dest_byte_strides.data(), chunk_shape.size()));
     if (!field.field_shape.empty()) {
