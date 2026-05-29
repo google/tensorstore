@@ -290,6 +290,7 @@ struct CopyRangeOptions {
 /// \param options Specifies options for reading.
 /// \returns A Future that resolves when the read completes successfully or with
 ///     an error.
+/// \error `absl::StatusCode::kInvalidArgument` if `!store.valid()`.
 /// \relates KvStore
 Future<ReadResult> Read(const KvStore& store, std::string_view key,
                         ReadOptions options = {});
@@ -315,6 +316,7 @@ Future<ReadResult> Read(const KvStore& store, std::string_view key,
 /// \returns A Future that resolves to the generation corresponding to the new
 ///     value on success, or to `StorageGeneration::Unknown()` if the conditions
 ///     in `options` are not satisfied.
+/// \error `absl::StatusCode::kInvalidArgument` if `!store.valid()`.
 /// \relates KvStore
 Future<TimestampedStorageGeneration> Write(const KvStore& store,
                                            std::string_view key,
@@ -334,6 +336,7 @@ Future<TimestampedStorageGeneration> WriteCommitted(const KvStore& store,
 /// \param key Key to delete, interpreted as a suffix to be appended to
 ///     `store.path`.
 /// \param options Specifies options for deleting.
+/// \error `absl::StatusCode::kInvalidArgument` if `!store.valid()`.
 /// \relates KvStore
 Future<TimestampedStorageGeneration> Delete(const KvStore& store,
                                             std::string_view key,
@@ -353,6 +356,7 @@ Future<TimestampedStorageGeneration> DeleteCommitted(const KvStore& store,
 /// \param range Range of keys to delete, relative to `store.path`.
 /// \returns A Future that becomes ready when the operation has completed
 ///     either successfully or with an error.
+/// \error `absl::StatusCode::kInvalidArgument` if `!store.valid()`.
 /// \relates KvStore
 Future<const void> DeleteRange(const KvStore& store, KeyRange range);
 
@@ -365,6 +369,8 @@ Future<const void> DeleteRange(Driver* driver,
 /// \param source Source store.
 /// \param target Target store.
 /// \param options Specifies options for copying.
+/// \error `absl::StatusCode::kInvalidArgument` if `!source.valid()` or
+///     `!target.valid()`.
 /// \relates KvStore
 Future<const void> ExperimentalCopyRange(const KvStore& source,
                                          const KvStore& target,
@@ -380,6 +386,7 @@ ListSender List(const KvStore& store, ListOptions options);
 /// \param store `KvStore` from which to list keys.
 /// \param options List options.  The `options.range` is interpreted relative to
 ///     `store.path`.
+/// \error `absl::StatusCode::kInvalidArgument` if `!store.valid()`.
 /// \relates KvStore
 Future<std::vector<ListEntry>> ListFuture(const KvStore& store,
                                           ListOptions options = {});

@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
@@ -73,6 +74,9 @@ Future<std::vector<ListEntry>> ListFuture(const KvStore& store,
 
 Future<ReadResult> Read(const KvStore& store, std::string_view key,
                         ReadOptions options) {
+  if (!store.valid()) {
+    return absl::InvalidArgumentError("KvStore is not valid");
+  }
   auto full_key = absl::StrCat(store.path, key);
   if (store.transaction == no_transaction) {
     // Regular non-transactional read.
@@ -89,6 +93,9 @@ Future<TimestampedStorageGeneration> Write(const KvStore& store,
                                            std::string_view key,
                                            std::optional<Value> value,
                                            WriteOptions options) {
+  if (!store.valid()) {
+    return absl::InvalidArgumentError("KvStore is not valid");
+  }
   auto full_key = absl::StrCat(store.path, key);
   if (store.transaction == no_transaction) {
     // Regular non-transactional write.
@@ -123,6 +130,9 @@ Future<TimestampedStorageGeneration> WriteCommitted(const KvStore& store,
                                                     std::string_view key,
                                                     std::optional<Value> value,
                                                     WriteOptions options) {
+  if (!store.valid()) {
+    return absl::InvalidArgumentError("KvStore is not valid");
+  }
   auto full_key = absl::StrCat(store.path, key);
   if (store.transaction == no_transaction) {
     // Regular non-transactional write.
@@ -161,6 +171,10 @@ Future<const void> DeleteRange(Driver* driver,
 }
 
 Future<const void> DeleteRange(const KvStore& store, KeyRange range) {
+  if (!store.valid()) {
+    return absl::InvalidArgumentError("KvStore is not valid");
+  }
+
   range = KeyRange::AddPrefix(store.path, std::move(range));
   if (store.transaction == no_transaction) {
     return store.driver->DeleteRange(std::move(range));
@@ -175,6 +189,12 @@ Future<const void> DeleteRange(const KvStore& store, KeyRange range) {
 Future<const void> ExperimentalCopyRange(const KvStore& source,
                                          const KvStore& target,
                                          CopyRangeOptions options) {
+  if (!source.valid()) {
+    return absl::InvalidArgumentError("Source KvStore is not valid");
+  }
+  if (!target.valid()) {
+    return absl::InvalidArgumentError("Target KvStore is not valid");
+  }
   internal::OpenTransactionPtr target_transaction;
   if (target.transaction != no_transaction) {
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -193,6 +213,10 @@ void AddListOptionsPrefix(ListOptions& options, std::string_view path) {
 }  // namespace
 
 void List(const KvStore& store, ListOptions options, ListReceiver receiver) {
+  if (!store.valid()) {
+    receiver.set_error(absl::InvalidArgumentError("KvStore is not valid"));
+    return;
+  }
   AddListOptionsPrefix(options, store.path);
   if (store.transaction != no_transaction) {
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -208,6 +232,9 @@ void List(const KvStore& store, ListOptions options, ListReceiver receiver) {
 }
 
 ListSender List(const KvStore& store, ListOptions options) {
+  if (!store.valid()) {
+    return ErrorSender{absl::InvalidArgumentError("KvStore is not valid")};
+  }
   AddListOptionsPrefix(options, store.path);
   if (store.transaction != no_transaction) {
     TENSORSTORE_ASSIGN_OR_RETURN(

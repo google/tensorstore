@@ -327,6 +327,9 @@ WriteFutures DriverWrite(Executor executor,
 
 WriteFutures DriverWrite(TransformedSharedArray<const void> source,
                          DriverHandle target, WriteOptions options) {
+  if (!target.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   auto executor = target.driver->data_copy_executor();
   return internal::DriverWrite(std::move(executor), std::move(source),
                                std::move(target), {std::move(options)});

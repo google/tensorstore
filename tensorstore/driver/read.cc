@@ -276,6 +276,9 @@ Future<void> DriverRead(Executor executor, DriverHandle source,
 Future<void> DriverRead(DriverHandle source,
                         TransformedSharedArray<void> target,
                         ReadOptions options) {
+  if (!source.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   auto executor = source.driver->data_copy_executor();
   return internal::DriverRead(std::move(executor), std::move(source),
                               std::move(target), {std::move(options)});
@@ -320,6 +323,9 @@ Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
 
 Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
     DriverHandle source, ReadIntoNewArrayOptions options) {
+  if (!source.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   auto dtype = source.driver->dtype();
   auto executor = source.driver->data_copy_executor();
   return internal::DriverReadIntoNewArray(

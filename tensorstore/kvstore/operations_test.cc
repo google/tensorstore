@@ -16,12 +16,19 @@
 
 #include <string>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ReadGenerationConditions;
@@ -39,6 +46,54 @@ TEST(ListEntryTest, Stringify) {
   ListEntry entry;
   entry.key = "abc";
   EXPECT_EQ("abc", absl::StrCat(entry));
+}
+
+TEST(KvStoreOperationsTest, ReadInvalid) {
+  tensorstore::kvstore::KvStore store;
+  EXPECT_THAT(
+      tensorstore::kvstore::Read(store, "key").result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, "KvStore is not valid"));
+}
+
+TEST(KvStoreOperationsTest, WriteInvalid) {
+  tensorstore::kvstore::KvStore store;
+  EXPECT_THAT(
+      tensorstore::kvstore::Write(store, "key", absl::Cord("value")).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, "KvStore is not valid"));
+}
+
+TEST(KvStoreOperationsTest, DeleteRangeInvalid) {
+  tensorstore::kvstore::KvStore store;
+  EXPECT_THAT(
+      tensorstore::kvstore::DeleteRange(store, {}).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, "KvStore is not valid"));
+}
+
+TEST(KvStoreOperationsTest, ListInvalid) {
+  tensorstore::kvstore::KvStore store;
+  EXPECT_THAT(
+      tensorstore::kvstore::ListFuture(store, {}).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, "KvStore is not valid"));
+}
+
+TEST(KvStoreOperationsTest, CopyRangeInvalidSource) {
+  tensorstore::kvstore::KvStore store;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto valid_store, tensorstore::kvstore::Open("memory://").result());
+  EXPECT_THAT(
+      tensorstore::kvstore::ExperimentalCopyRange(store, valid_store).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Source KvStore is not valid"));
+}
+
+TEST(KvStoreOperationsTest, CopyRangeInvalidTarget) {
+  tensorstore::kvstore::KvStore store;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto valid_store, tensorstore::kvstore::Open("memory://").result());
+  EXPECT_THAT(
+      tensorstore::kvstore::ExperimentalCopyRange(valid_store, store).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Target KvStore is not valid"));
 }
 
 }  // namespace
