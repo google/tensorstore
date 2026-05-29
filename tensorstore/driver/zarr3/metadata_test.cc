@@ -910,7 +910,8 @@ TEST(TrySetMetadataConstraintsOnSchemaTest, SetsScalarDtype) {
   EXPECT_EQ(schema.rank(), 2);
 }
 
-TEST(TrySetMetadataConstraintsOnSchemaTest, RejectsSchemaForStructuredType) {
+TEST(TrySetMetadataConstraintsOnSchemaTest,
+     RejectsSchemaForStructuredTypeWithoutField) {
   ZarrMetadataConstraints constraints;
   constraints.rank = 2;
   constraints.zarr_dtype.emplace();
@@ -927,9 +928,53 @@ TEST(TrySetMetadataConstraintsOnSchemaTest, RejectsSchemaForStructuredType) {
 
   EXPECT_THAT(
       tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
-          constraints, /*selected_field=*/"x", /*open_as_void=*/false, schema),
+          constraints, /*selected_field=*/"", /*open_as_void=*/false, schema),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("schema dtype must be unspecified for structured")));
+}
+
+TEST(TrySetMetadataConstraintsOnSchemaTest, AcceptsMatchingSchemaForField) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.zarr_dtype.emplace();
+  constraints.zarr_dtype->has_fields = true;
+  constraints.zarr_dtype->fields.resize(2);
+  constraints.zarr_dtype->fields[0].name = "x";
+  constraints.zarr_dtype->fields[0].dtype = dtype_v<int32_t>;
+  constraints.zarr_dtype->fields[1].name = "y";
+  constraints.zarr_dtype->fields[1].dtype = dtype_v<int64_t>;
+  constraints.zarr_dtype->bytes_per_outer_element = 12;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<int32_t>));
+
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
+          constraints, /*selected_field=*/"x", /*open_as_void=*/false, schema));
+
+  EXPECT_EQ(schema.dtype(), dtype_v<int32_t>);
+}
+
+TEST(TrySetMetadataConstraintsOnSchemaTest, RejectsMismatchedSchemaForField) {
+  ZarrMetadataConstraints constraints;
+  constraints.rank = 2;
+  constraints.zarr_dtype.emplace();
+  constraints.zarr_dtype->has_fields = true;
+  constraints.zarr_dtype->fields.resize(2);
+  constraints.zarr_dtype->fields[0].name = "x";
+  constraints.zarr_dtype->fields[0].dtype = dtype_v<int32_t>;
+  constraints.zarr_dtype->fields[1].name = "y";
+  constraints.zarr_dtype->fields[1].dtype = dtype_v<int64_t>;
+  constraints.zarr_dtype->bytes_per_outer_element = 12;
+
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<int64_t>));
+
+  EXPECT_THAT(
+      tensorstore::internal_zarr3::TrySetMetadataConstraintsOnSchema(
+          constraints, /*selected_field=*/"x", /*open_as_void=*/false, schema),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("does not match existing value")));
 }
 
 TEST(TrySetMetadataConstraintsOnSchemaTest, SetsRankWithFieldShape) {

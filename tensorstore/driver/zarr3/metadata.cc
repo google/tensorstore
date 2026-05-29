@@ -1118,24 +1118,30 @@ Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
 absl::Status TrySetMetadataConstraintsOnSchema(
     const ZarrMetadataConstraints& metadata_constraints,
     std::string_view selected_field, bool open_as_void, Schema& schema) {
-  // Set schema dtype from metadata constraints.
-  if (metadata_constraints.zarr_dtype) {
-    const auto& zarr_dtype = *metadata_constraints.zarr_dtype;
-    if (!zarr_dtype.has_fields && !zarr_dtype.fields.empty()) {
-      TENSORSTORE_RETURN_IF_ERROR(schema.Set(zarr_dtype.fields[0].dtype));
-    } else if (schema.dtype().valid()) {
-      return absl::InvalidArgumentError(
-          "schema dtype must be unspecified for structured "
-          "zarr3 data types");
-    }
-  }
-
-  // Get rank/field info to determine schema rank.
+  // Get rank/field info to determine schema rank and the selected field.
   // This also validates that selected_field and open_as_void aren't both set.
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto info,
       GetSpecRankAndFieldInfo(metadata_constraints, selected_field, schema,
                               open_as_void));
+
+  // Set schema dtype from metadata constraints.
+  if (metadata_constraints.zarr_dtype) {
+    const auto& zarr_dtype = *metadata_constraints.zarr_dtype;
+    if (info.field) {
+      // A single field is resolved (either the sole field of an unstructured
+      // dtype or a selected field of a structured dtype).  The schema dtype
+      // need not be unspecified; it just needs to match the field's dtype,
+      // which `Schema::Set` validates.
+      TENSORSTORE_RETURN_IF_ERROR(schema.Set(info.field->dtype));
+    } else if (!zarr_dtype.has_fields && !zarr_dtype.fields.empty()) {
+      TENSORSTORE_RETURN_IF_ERROR(schema.Set(zarr_dtype.fields[0].dtype));
+    } else if (schema.dtype().valid()) {
+      return absl::InvalidArgumentError(
+          "schema dtype must be unspecified for structured zarr3 data types "
+          "unless a field is selected");
+    }
+  }
 
   if (info.full_rank != dynamic_rank) {
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(RankConstraint{info.full_rank}));
