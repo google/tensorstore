@@ -181,6 +181,8 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
                               ZarrCodecChain::PreparedState::Ptr codec_state,
                               ZarrDType zarr_dtype,
                               std::vector<Index> field_shape,
+                              std::vector<DimensionIndex> inner_order,
+                              std::vector<SharedArray<const void>> fill_value,
                               endian codec_endian,
                               internal::CachePool::WeakPtr data_cache_pool);
 
@@ -211,6 +213,13 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
   ZarrCodecChain::PreparedState::Ptr codec_state_;
   ZarrDType zarr_dtype_;
   std::vector<Index> field_shape_;
+  // Spatial (chunked) layout permutation passed to
+  // `CreateFieldGridSpecification` when a sub-chunk cache reconstructs its field
+  // grid.  Empty if no explicit inner order applies.
+  std::vector<DimensionIndex> inner_order_;
+  // Per-field fill values passed to `CreateFieldGridSpecification` when a
+  // sub-chunk cache reconstructs its field grid.
+  std::vector<SharedArray<const void>> fill_value_;
   // Byte order for per-field endian conversion in `EncodeChunk` /
   // `DecodeChunk`; resolved via `GetBytesCodecEndian`.
   endian codec_endian_;
@@ -221,12 +230,12 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
   using Base = ZarrChunkCache;
 
  public:
-  explicit ZarrShardedChunkCache(kvstore::DriverPtr store,
-                                 ZarrCodecChain::PreparedState::Ptr codec_state,
-                                 ZarrDType zarr_dtype,
-                                 std::vector<Index> field_shape,
-                                 endian codec_endian,
-                                 internal::CachePool::WeakPtr data_cache_pool);
+  explicit ZarrShardedChunkCache(
+      kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
+      ZarrDType zarr_dtype, std::vector<Index> field_shape,
+      std::vector<DimensionIndex> inner_order,
+      std::vector<SharedArray<const void>> fill_value, endian codec_endian,
+      internal::CachePool::WeakPtr data_cache_pool);
 
   const ZarrShardingCodec::PreparedState& sharding_codec_state() const {
     return static_cast<const ZarrShardingCodec::PreparedState&>(
@@ -277,6 +286,10 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
   ZarrCodecChain::PreparedState::Ptr codec_state_;
   ZarrDType zarr_dtype_;
   std::vector<Index> field_shape_;
+  // Forwarded into the sub-chunk cache; see `ZarrLeafChunkCache::inner_order_`.
+  std::vector<DimensionIndex> inner_order_;
+  // Forwarded into the sub-chunk cache; see `ZarrLeafChunkCache::fill_value_`.
+  std::vector<SharedArray<const void>> fill_value_;
   // Forwarded verbatim into the sub-chunk cache; see
   // `ZarrLeafChunkCache::codec_endian_`.
   endian codec_endian_;
@@ -318,14 +331,15 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
       kvstore::DriverPtr store, Executor executor,
       ZarrShardingCodec::PreparedState::Ptr sharding_state,
       ZarrDType zarr_dtype, std::vector<Index> field_shape,
-      endian codec_endian,
+      std::vector<DimensionIndex> inner_order,
+      std::vector<SharedArray<const void>> fill_value, endian codec_endian,
       internal::CachePool::WeakPtr data_cache_pool)
       : ChunkCacheImpl(std::move(store),
                        ZarrCodecChain::PreparedState::Ptr(
                            sharding_state->sub_chunk_codec_state),
                        std::move(zarr_dtype), std::move(field_shape),
-                       codec_endian,
-                       std::move(data_cache_pool)),
+                       std::move(inner_order), std::move(fill_value),
+                       codec_endian, std::move(data_cache_pool)),
         sharding_state_(std::move(sharding_state)),
         executor_(std::move(executor)) {
     const auto& field_shape_ref = ChunkCacheImpl::field_shape_;
@@ -340,9 +354,8 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
         original_grid.chunk_shape.begin() + spatial_rank);
 
     field_grid_.emplace(CreateFieldGridSpecification(
-        spatial_chunk_shape, ChunkCacheImpl::zarr_dtype_,
-        span<const DimensionIndex>(),  // no inner_order available
-        nullptr));                     // zero-init fill values
+        spatial_chunk_shape, this->zarr_dtype_,
+        span<const DimensionIndex>(this->inner_order_), &this->fill_value_));
 
     if (extra_field_dims != 0) {
       field_key_parser_.emplace(sharding_state_->GetSubChunkStorageKeyParser(),

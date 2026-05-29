@@ -801,13 +801,19 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     ZarrCodecChain::PreparedState::Ptr codec_state =
         effective_metadata->codec_state;
     std::vector<Index> field_shape = effective_metadata->field_shape;
+    std::vector<DimensionIndex> inner_order(
+        effective_metadata->inner_order.begin(),
+        effective_metadata->inner_order.begin() + effective_metadata->rank);
+    std::vector<SharedArray<const void>> fill_value =
+        effective_metadata->fill_value;
     const endian codec_endian =
         internal_zarr3::GetBytesCodecEndian(effective_metadata->codec_specs);
 
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
         std::move(effective_metadata), is_substituted, std::move(codec_state),
-        std::move(zarr_dtype), std::move(field_shape), codec_endian,
+        std::move(zarr_dtype), std::move(field_shape), std::move(inner_order),
+        std::move(fill_value), codec_endian,
         /*data_cache_pool=*/*cache_pool());
   }
 

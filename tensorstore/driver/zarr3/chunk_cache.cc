@@ -174,12 +174,15 @@ ZarrChunkCache::~ZarrChunkCache() = default;
 ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType zarr_dtype, std::vector<Index> field_shape,
-    endian codec_endian,
+    std::vector<DimensionIndex> inner_order,
+    std::vector<SharedArray<const void>> fill_value, endian codec_endian,
     internal::CachePool::WeakPtr /*data_cache_pool*/)
     : Base(std::move(store)),
       codec_state_(std::move(codec_state)),
       zarr_dtype_(std::move(zarr_dtype)),
       field_shape_(std::move(field_shape)),
+      inner_order_(std::move(inner_order)),
+      fill_value_(std::move(fill_value)),
       codec_endian_(codec_endian) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
@@ -366,12 +369,15 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 ZarrShardedChunkCache::ZarrShardedChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
     ZarrDType zarr_dtype, std::vector<Index> field_shape,
-    endian codec_endian,
+    std::vector<DimensionIndex> inner_order,
+    std::vector<SharedArray<const void>> fill_value, endian codec_endian,
     internal::CachePool::WeakPtr data_cache_pool)
     : base_kvstore_(std::move(store)),
       codec_state_(std::move(codec_state)),
       zarr_dtype_(std::move(zarr_dtype)),
       field_shape_(std::move(field_shape)),
+      inner_order_(std::move(inner_order)),
+      fill_value_(std::move(fill_value)),
       codec_endian_(codec_endian),
       data_cache_pool_(std::move(data_cache_pool)) {}
 
@@ -682,7 +688,8 @@ void ZarrShardedChunkCache::Entry::DoInitialize() {
                 *sharding_state.sub_chunk_codec_chain,
                 std::move(sharding_kvstore), cache.executor(),
                 ZarrShardingCodec::PreparedState::Ptr(&sharding_state),
-                cache.zarr_dtype_, cache.field_shape_, cache.codec_endian_,
+                cache.zarr_dtype_, cache.field_shape_, cache.inner_order_,
+                cache.fill_value_, cache.codec_endian_,
                 cache.data_cache_pool_);
         zarr_chunk_cache = new_cache.release();
         return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
