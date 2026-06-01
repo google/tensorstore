@@ -1182,6 +1182,20 @@ tensorstore_cc_test(
     ],
 )
 
+tensorstore_cc_test(
+    name = "tensorstore_invalid_test",
+    size = "small",
+    srcs = ["tensorstore_invalid_test.cc"],
+    deps = [
+        ":array",
+        ":tensorstore",
+        "//tensorstore/driver/array",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+    ],
+)
+
 exports_files(
     ["stack.h"],
     visibility = ["//tensorstore:internal_packages"],

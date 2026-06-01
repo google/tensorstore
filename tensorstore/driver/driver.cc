@@ -158,6 +158,9 @@ Result<DriverHandle> Driver::GetBase(ReadWriteMode read_write_mode,
 
 Future<ArrayStorageStatistics> GetStorageStatistics(
     const DriverHandle& handle, GetArrayStorageStatisticsOptions options) {
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   Driver::GetStorageStatisticsRequest request;
   TENSORSTORE_ASSIGN_OR_RETURN(
       request.transaction,
@@ -202,22 +205,32 @@ Future<ArrayStorageStatistics> Driver::GetStorageStatistics(
 }
 
 Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle) {
-  assert(handle.driver);
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   return handle.driver->GetChunkLayout(handle.transform);
 }
 
 Result<CodecSpec> GetCodec(const Driver::Handle& handle) {
-  assert(handle.driver);
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   return handle.driver->GetCodec();
 }
 
 Result<DimensionUnitsVector> GetDimensionUnits(const Driver::Handle& handle) {
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   TENSORSTORE_ASSIGN_OR_RETURN(auto units, handle.driver->GetDimensionUnits());
   return tensorstore::TransformOutputDimensionUnits(handle.transform,
                                                     std::move(units));
 }
 
 Result<Schema> GetSchema(const Driver::Handle& handle) {
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   Schema schema;
   TENSORSTORE_RETURN_IF_ERROR(schema.Set(handle.driver->dtype()));
   TENSORSTORE_RETURN_IF_ERROR(schema.Set(handle.transform.domain()));
@@ -256,6 +269,9 @@ Result<DriverHandle> GetBase(const DriverHandle& handle) {
 
 Result<TransformedDriverSpec> GetTransformedDriverSpec(
     const DriverHandle& handle, SpecRequestOptions&& options) {
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto open_transaction,
       internal::AcquireOpenTransactionPtrOrError(handle.transaction));
@@ -277,6 +293,9 @@ Result<TransformedDriverSpec> GetTransformedDriverSpec(
 }
 
 Result<std::string> GetUrl(const DriverHandle& handle) {
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   SpecRequestOptions options;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto spec, GetTransformedDriverSpec(handle, std::move(options)));
@@ -284,6 +303,9 @@ Result<std::string> GetUrl(const DriverHandle& handle) {
 }
 
 absl::Status SetReadWriteMode(DriverHandle& handle, ReadWriteMode new_mode) {
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   if (new_mode != ReadWriteMode::dynamic) {
     auto existing_mode = handle.driver.read_write_mode();
     TENSORSTORE_RETURN_IF_ERROR(
@@ -295,7 +317,7 @@ absl::Status SetReadWriteMode(DriverHandle& handle, ReadWriteMode new_mode) {
 
 bool DriverHandleNonNullSerializer::Encode(serialization::EncodeSink& sink,
                                            const DriverHandle& value) {
-  assert(value.driver);
+  assert(value.valid());
   if (value.transaction != no_transaction) {
     sink.Fail(absl::InvalidArgumentError(
         "Cannot serialize TensorStore with bound transaction"));

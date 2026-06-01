@@ -428,6 +428,7 @@ ZarrMetadataPtr ZarrMetadata::GetVoidMetadata() const {
 constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
   return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
     using T = absl::remove_cvref_t<decltype(*obj)>;
+    // rank is validated by ShapeVector and ChunkShapeVector during loading.
     DimensionIndex* rank = nullptr;
     if constexpr (is_loading) {
       rank = &obj->rank;

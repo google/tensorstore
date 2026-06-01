@@ -163,6 +163,9 @@ Result<Spec> Spec::FromUrl(std::string_view url) {
 
 namespace internal {
 Result<Spec> GetSpec(const DriverHandle& handle, SpecRequestOptions&& options) {
+  if (!handle.driver) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   Spec spec;
   TENSORSTORE_ASSIGN_OR_RETURN(
       internal_spec::SpecAccess::impl(spec),

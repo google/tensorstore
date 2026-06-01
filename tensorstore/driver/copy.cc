@@ -402,6 +402,12 @@ WriteFutures DriverCopy(Executor executor, DriverHandle source,
 
 WriteFutures DriverCopy(DriverHandle source, DriverHandle target,
                         CopyOptions options) {
+  if (!source.valid()) {
+    return absl::InvalidArgumentError("Source TensorStore is not valid");
+  }
+  if (!target.valid()) {
+    return absl::InvalidArgumentError("Target TensorStore is not valid");
+  }
   auto executor = source.driver->data_copy_executor();
   return internal::DriverCopy(std::move(executor), std::move(source),
                               std::move(target), {std::move(options)});

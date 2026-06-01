@@ -91,12 +91,14 @@ template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto DimensionIndexedVector(
     DimensionIndex* rank, ElementBinder element_binder = DefaultBinder<>) {
   return DimensionIndexedVector(
-      rank, [](auto& c) { return c.size(); },
+      rank,
+      /*get_size=*/[](auto& c) { return c.size(); },
+      /*set_size=*/
       [](auto& c, size_t size) {
         c.resize(size);
         return absl::OkStatus();
       },
-      [](auto& c, size_t i) -> decltype(auto) { return c[i]; },
+      /*get_element=*/[](auto& c, size_t i) -> decltype(auto) { return c[i]; },
       std::move(element_binder));
 }
 

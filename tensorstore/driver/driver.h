@@ -40,6 +40,7 @@
 /// `Driver` types will normally contain a `kvstore::Spec`,
 /// `kvstore::DriverPtr`, respectively.
 
+#include <string>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -298,6 +299,9 @@ Result<CodecSpec> GetCodec(const Driver::Handle& handle);
 
 template <typename Element = void>
 Result<SharedArray<const Element>> GetFillValue(const Driver::Handle& handle) {
+  if (!handle.valid()) {
+    return absl::InvalidArgumentError("TensorStore is not valid");
+  }
   TENSORSTORE_ASSIGN_OR_RETURN(auto fill_value,
                                handle.driver->GetFillValue(handle.transform));
   return tensorstore::StaticDataTypeCast<const Element>(std::move(fill_value));

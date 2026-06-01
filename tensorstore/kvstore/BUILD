@@ -92,8 +92,13 @@ tensorstore_cc_test(
     srcs = ["operations_test.cc"],
     deps = [
         ":generation",
+        ":key_range",
         ":kvstore",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
     ],
 )
