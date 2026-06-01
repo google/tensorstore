@@ -15,6 +15,7 @@
 #include "tensorstore/driver/zarr3/chunk_cache.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <cassert>
@@ -59,6 +60,7 @@
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/internal/storage_statistics.h"
+#include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -255,6 +257,46 @@ std::string ZarrLeafChunkCache::GetChunkStorageKey(
   return GetChunkStorageKeyParser().FormatKey(cell_indices);
 }
 
+namespace {
+
+// Attempts to reference `field` within the decoded `byte_array` directly,
+// without copying, returning a null array if that is not possible.
+//
+// This mirrors `internal::TryViewCordAsArray` used by the zarr v2 driver: an
+// alias-only view is possible only when no endian conversion is required and
+// the field data is suitably aligned for its data type.  `field_byte_strides`
+// is the strided layout (over `byte_array`) of the field, including the
+// preferred inner order inherited from `byte_array`.
+SharedArray<const void> TryViewFieldArray(
+    const SharedArray<const void>& byte_array, const ZarrDType::Field& field,
+    endian codec_endian, span<const Index> field_shape,
+    span<const Index> field_byte_strides) {
+  const auto& functions =
+      internal::kUnalignedDataTypeFunctions[static_cast<size_t>(
+          field.dtype.id())];
+  assert(functions.copy != nullptr);  // fail on non-trivial types
+  if (codec_endian != endian::native && functions.swap_endian_inplace) {
+    // Field data requires endian conversion.
+    return {};
+  }
+  auto field_pointer =
+      AddByteOffset(byte_array.element_pointer(), field.byte_offset);
+  const size_t alignment = field.dtype->alignment;
+  if ((reinterpret_cast<uintptr_t>(field_pointer.data()) % alignment) != 0 ||
+      !std::all_of(
+          field_byte_strides.begin(), field_byte_strides.end(),
+          [&](Index byte_stride) { return (byte_stride % alignment) == 0; })) {
+    // Field data is not suitably aligned for its data type.
+    return {};
+  }
+  return SharedArray<const void>(
+      SharedElementPointer<const void>(std::move(field_pointer).pointer(),
+                                       field.dtype),
+      StridedLayout<>(field_shape, field_byte_strides));
+}
+
+}  // namespace
+
 Result<absl::InlinedVector<SharedArray<const void>, 1>>
 ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
                                 absl::Cord data) {
@@ -280,33 +322,45 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
 
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = zarr_dtype_.fields[field_i];
-    const auto& component_shape = grid().components[field_i].shape();
-    auto result_array =
-        AllocateArray(component_shape, c_order, default_init, field.dtype);
+    const auto& component = grid().components[field_i];
 
     absl::InlinedVector<Index, kMaxRank> view_shape(chunk_shape.begin(),
                                                     chunk_shape.end());
     view_shape.insert(view_shape.end(), field.field_shape.begin(),
                       field.field_shape.end());
 
+    // The outer (chunked) dimensions inherit the byte strides of the decoded
+    // array, which already reflect the preferred inner order; the inner field
+    // dimensions are contiguous within each outer element.
     absl::InlinedVector<Index, kMaxRank> src_byte_strides(view_shape.size());
-    ComputeStrides(c_order, zarr_dtype_.bytes_per_outer_element, chunk_shape,
-                   tensorstore::span(src_byte_strides.data(), chunk_shape.size()));
+    std::copy_n(byte_array.byte_strides().begin(), chunk_shape.size(),
+                src_byte_strides.begin());
     if (!field.field_shape.empty()) {
-      ComputeStrides(c_order, static_cast<Index>(field.dtype.size()),
-                     field.field_shape,
-                     tensorstore::span(src_byte_strides.data() + chunk_shape.size(),
-                                    field.field_shape.size()));
+      ComputeStrides(
+          c_order, static_cast<Index>(field.dtype.size()), field.field_shape,
+          tensorstore::span(src_byte_strides.data() + chunk_shape.size(),
+                            field.field_shape.size()));
     }
 
-    ArrayView<const void> src_field_view(
-        {static_cast<const void*>(
-             static_cast<const std::byte*>(byte_array.data()) + field.byte_offset),
-         field.dtype},
-        StridedLayoutView<>(view_shape, src_byte_strides));
-
-    internal::DecodeArray(src_field_view, codec_endian_, result_array);
-    field_arrays[field_i] = std::move(result_array);
+    // Reference the decoded bytes directly when possible, as the zarr v2 driver
+    // does, falling back to allocating a copy in the preferred inner order.
+    if (auto field_array = TryViewFieldArray(byte_array, field, codec_endian_,
+                                             view_shape, src_byte_strides);
+        field_array.valid()) {
+      field_arrays[field_i] = std::move(field_array);
+    } else {
+      auto result_array =
+          AllocateArray(component.shape(), component.array_spec.layout_order(),
+                        default_init, field.dtype);
+      ArrayView<const void> src_field_view(
+          {static_cast<const void*>(
+               static_cast<const std::byte*>(byte_array.data()) +
+               field.byte_offset),
+           field.dtype},
+          StridedLayoutView<>(view_shape, src_byte_strides));
+      internal::DecodeArray(src_field_view, codec_endian_, result_array);
+      field_arrays[field_i] = std::move(result_array);
+    }
   }
 
   return field_arrays;

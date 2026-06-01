@@ -2399,6 +2399,112 @@ TEST(Zarr3DriverTest, StructuredFieldWithFieldShape) {
   EXPECT_EQ(data, read_data);
 }
 
+TEST(Zarr3DriverTest, StructuredTypeWithTranspose) {
+  // Regression test: a structured dtype combined with a transpose codec
+  // (non-identity inner order).  The decoded chunk's outer dimensions are
+  // stored in the transposed order, so each per-field view must use the
+  // decoded array's actual byte strides (and allocate copies in the preferred
+  // inner order) rather than assuming a plain C-order layout.
+  //
+  // A non-square chunk shape together with transpose order {1, 0} makes the
+  // transposed byte strides differ from the C-order strides, so an
+  // implementation that ignores the inner order produces scrambled values.
+  auto context = Context::Default();
+
+  // Struct: x (uint8, offset 0) + y (int16, offset 1) = 3 bytes per element.
+  // Each field is exercised in its own array so that the round-trip for one
+  // field is not affected by partial writes to the other.  Reading field "x"
+  // (offset 0, aligned) exercises the zero-copy view path; reading field "y"
+  // (offset 1, unaligned int16) exercises the copy path.
+  auto make_spec = [](std::string_view path,
+                      std::string_view field) -> ::nlohmann::json {
+    return {
+        {"driver", "zarr3"},
+        {"kvstore", {{"driver", "memory"}, {"path", path}}},
+        {"field", field},
+        {"metadata",
+         {
+             {"data_type", GetStructuredDataTypeJson()},
+             {"shape", {2, 3}},
+             {"chunk_grid",
+              {{"name", "regular"},
+               {"configuration", {{"chunk_shape", {2, 3}}}}}},
+             {"codecs",
+              {{{"name", "transpose"}, {"configuration", {{"order", {1, 0}}}}},
+               {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}}},
+         }},
+    };
+  };
+
+  // Copy path: field "y" (unaligned int16).
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store_y, tensorstore::Open(make_spec("prefix_y/", "y"), context,
+                                        tensorstore::OpenMode::create,
+                                        tensorstore::ReadWriteMode::read_write)
+                          .result());
+    auto y_data = tensorstore::MakeArray<int16_t>(
+        {{0x0102, 0x0304, 0x0506}, {0x0708, 0x090A, 0x0B0C}});
+    TENSORSTORE_EXPECT_OK(tensorstore::Write(y_data, store_y).result());
+    EXPECT_THAT(tensorstore::Read(store_y).result(),
+                ::testing::Optional(y_data));
+  }
+
+  // Zero-copy view path: field "x" (aligned uint8 at offset 0).
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store_x, tensorstore::Open(make_spec("prefix_x/", "x"), context,
+                                        tensorstore::OpenMode::create,
+                                        tensorstore::ReadWriteMode::read_write)
+                          .result());
+    auto x_data = tensorstore::MakeArray<uint8_t>({{10, 20, 30}, {40, 50, 60}});
+    TENSORSTORE_EXPECT_OK(tensorstore::Write(x_data, store_x).result());
+    EXPECT_THAT(tensorstore::Read(store_x).result(),
+                ::testing::Optional(x_data));
+  }
+}
+
+TEST(Zarr3DriverTest, StructuredTypeNonNativeEndian) {
+  // Exercises the endian-conversion fallback when decoding a struct field: an
+  // aligned multi-byte field stored in non-native byte order cannot be aliased
+  // in place, so it must be copied and byte-swapped.  The values must still
+  // round-trip regardless of which decode path is taken.
+  auto context = Context::Default();
+
+  // Struct: a (int16, offset 0) + b (int16) = 4 bytes per element.  The even
+  // element size keeps field "a" suitably aligned, so (unlike a field at an
+  // odd offset or stride) only the non-native byte order forces the copy path.
+  ::nlohmann::json create_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix_be/"}}},
+      {"field", "a"},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields", ::nlohmann::json::array(
+                              {{{"name", "a"}, {"data_type", "int16"}},
+                               {{"name", "b"}, {"data_type", "int16"}}})}}}}},
+           {"shape", {2, 3}},
+           {"chunk_grid",
+            {{"name", "regular"}, {"configuration", {{"chunk_shape", {2, 3}}}}}},
+           {"codecs",
+            {{{"name", "bytes"}, {"configuration", {{"endian", "big"}}}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(create_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+  auto a_data = tensorstore::MakeArray<int16_t>(
+      {{0x0102, 0x0304, 0x0506}, {0x0708, 0x090A, 0x0B0C}});
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(a_data, store).result());
+  EXPECT_THAT(tensorstore::Read(store).result(), ::testing::Optional(a_data));
+}
+
 // Tests for GetSpecInfo() with open_as_void (mirroring v2 tests)
 
 TEST(Zarr3OpenAsVoidTest, GetSpecInfoWithKnownRank) {
