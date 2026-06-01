@@ -887,8 +887,22 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
       std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
                   read_chunk_shape.begin());
     }
-    if (metadata.fill_value.size() == 1 && !has_field_shape) {
-      decoded.fill_value = metadata.fill_value[0];
+    if (!has_field_shape) {
+      // Plain single-field array: `decoded.fill_value` is the authoritative
+      // fill used directly by the codec chain.
+      if (metadata.fill_value.size() == 1) {
+        decoded.fill_value = metadata.fill_value[0];
+      }
+    } else {
+      // Byte-substituted view (multi-field struct, `rN` raw-bytes field, or
+      // `open_as_void`).  The codec chain requires a scalar fill (see
+      // `GetNewMetadata`), so use a scalar zero byte placeholder; the
+      // authoritative per-field fill values are materialized by the chunk
+      // cache.  Mirrors the create path so both code paths resolve codecs
+      // against an identically-shaped `decoded.fill_value` instead of leaving
+      // it unset.
+      decoded.fill_value = AllocateArray(span<const Index, 0>{}, c_order,
+                                         value_init, dtype_v<std::byte>);
     }
 
     BytesCodecResolveParameters encoded;
@@ -1632,13 +1646,24 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   decoded.rank = metadata->rank;
   decoded.inner_shape = metadata->field_shape;
   if (!has_field_shape) {
+    // Plain single-field array: `decoded.fill_value` is the authoritative
+    // fill used directly by the codec chain, so pass the field's fill value.
     if (metadata->fill_value.size() == 1) {
       decoded.fill_value = metadata->fill_value[0];
     }
   } else {
-    // Zero-filled scalar byte fill_value (broadcast to chunk shape at use).
-    decoded.fill_value = AllocateArray(
-        span<const Index, 0>{}, c_order, value_init, dtype_v<std::byte>);
+    // Byte-substituted view (multi-field struct, `rN` raw-bytes field, or
+    // `open_as_void`).  The codec chain operates on the interleaved byte
+    // stream and structurally requires a *scalar* fill (e.g. the transpose
+    // codec asserts `fill_value.rank() == 0`, and `sharding_indexed`
+    // broadcasts it against an unbounded box), so a struct's per-byte-varying
+    // fill cannot be represented here.  This scalar zero byte is only a
+    // placeholder: the authoritative per-field fill values are materialized
+    // by the chunk cache (`CreateFieldGridSpecification`), so unwritten
+    // regions still read back the configured per-field fill.  See
+    // `Zarr3StructuredTest.ShardedStructFillValue`.
+    decoded.fill_value = AllocateArray(span<const Index, 0>{}, c_order,
+                                       value_init, dtype_v<std::byte>);
   }
 
   TENSORSTORE_ASSIGN_OR_RETURN(

@@ -4055,4 +4055,252 @@ TEST(Zarr3StructuredTest, ShardedWiderFieldRoundtrip) {
   EXPECT_EQ(b_data, b_read);
 }
 
+// Non-sharded struct with non-zero per-field fill values.  Reading unwritten
+// regions must return the configured per-field fill (not zero), and the
+// packed on-disk bytes of an unwritten cell must equal the struct fill packed
+// in codec endian.  Companion to `ShardedStructFillValue`.
+TEST(Zarr3StructuredTest, StructFillValue) {
+  auto context = Context::Default();
+
+  // Struct: a (uint8) + b (int32) = 5 bytes.  fill: a=7, b=12345.
+  // 12345 = 0x00003039 -> little-endian bytes {0x39, 0x30, 0x00, 0x00}.
+  ::nlohmann::json base_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "a"}, {"data_type", "uint8"}},
+                     {{"name", "b"}, {"data_type", "int32"}}})}}}}},
+           {"shape", {8, 8}},
+           {"fill_value", {{"a", 7}, {"b", 12345}}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {4, 4}}}}}},
+           {"codecs",
+            {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}}},
+       }},
+  };
+
+  auto b_spec = base_spec;
+  b_spec["field"] = "b";
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_store,
+      tensorstore::Open(b_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Reported metadata fill value for field "b".
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto b_fill, b_store.fill_value());
+  EXPECT_EQ(tensorstore::MakeScalarArray<int32_t>(12345), b_fill);
+
+  // Read an entirely unwritten region: must be the fill value for field "b".
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_read,
+      tensorstore::Read(b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                      {0, 0}, {4, 4}))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<int32_t>({{12345, 12345, 12345, 12345},
+                                             {12345, 12345, 12345, 12345},
+                                             {12345, 12345, 12345, 12345},
+                                             {12345, 12345, 12345, 12345}}),
+            b_read);
+
+  // Field "a" fill value.
+  auto a_spec = base_spec;
+  a_spec["field"] = "a";
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto a_store,
+      tensorstore::Open(a_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto a_read,
+      tensorstore::Read(a_store | tensorstore::Dims(0, 1).SizedInterval(
+                                      {0, 0}, {2, 2}))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<uint8_t>({{7, 7}, {7, 7}}), a_read);
+
+  // Void read of an unwritten cell must equal the packed struct fill bytes.
+  auto void_spec = base_spec;
+  void_spec.erase("metadata");
+  void_spec["open_as_void"] = true;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_store,
+      tensorstore::Open(void_spec, context,
+                        dtype_v<tensorstore::dtypes::byte_t>,
+                        tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_array,
+      tensorstore::Read(byte_store | tensorstore::Dims(0, 1, 2).SizedInterval(
+                                         {0, 0, 0}, {1, 1, 5}))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+                {{{std::byte{7}, std::byte{0x39}, std::byte{0x30},
+                   std::byte{0x00}, std::byte{0x00}}}}),
+            byte_array);
+
+  // Partial chunk write: write a single cell of field "b"; the rest of the
+  // chunk must be back-filled with the configured fill (12345), not zero.
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(tensorstore::MakeArray<int32_t>({{999}}),
+                         b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                       {0, 0}, {1, 1}))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_partial,
+      tensorstore::Read(b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                      {0, 0}, {2, 2}))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<int32_t>({{999, 12345}, {12345, 12345}}),
+            b_partial);
+
+  // Writing genuine zero values must round-trip as zero, even though zero is
+  // the codec's internal placeholder fill.
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(tensorstore::MakeArray<int32_t>({{0, 0}, {0, 0}}),
+                         b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                       {4, 4}, {2, 2}))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_zero,
+      tensorstore::Read(b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                      {4, 4}, {2, 2}) |
+                        tensorstore::AllDims().TranslateTo(0))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<int32_t>({{0, 0}, {0, 0}}), b_zero);
+}
+
+// Sharded struct with non-zero per-field fill values.  Reading unwritten
+// regions of a sharded structured array must return the configured per-field
+// fill value (not zero), and the packed on-disk bytes of an unwritten cell
+// must equal the struct fill packed in codec endian.
+TEST(Zarr3StructuredTest, ShardedStructFillValue) {
+  auto context = Context::Default();
+
+  // Struct: a (uint8) + b (int32) = 5 bytes.  fill: a=7, b=12345.
+  // 12345 = 0x00003039 -> little-endian bytes {0x39, 0x30, 0x00, 0x00}.
+  ::nlohmann::json base_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type",
+            {{"name", "struct"},
+             {"configuration",
+              {{"fields",
+                ::nlohmann::json::array(
+                    {{{"name", "a"}, {"data_type", "uint8"}},
+                     {{"name", "b"}, {"data_type", "int32"}}})}}}}},
+           {"shape", {8, 8}},
+           {"fill_value", {{"a", 7}, {"b", 12345}}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {8, 8}}}}}},
+           {"codecs",
+            {{{"name", "sharding_indexed"},
+              {"configuration",
+               {{"chunk_shape", {4, 4}},
+                {"codecs",
+                 {{{"name", "bytes"},
+                   {"configuration", {{"endian", "little"}}}}}},
+                {"index_codecs",
+                 {{{"name", "bytes"}}, {{"name", "crc32c"}}}}}}}}},
+       }},
+  };
+
+  auto b_spec = base_spec;
+  b_spec["field"] = "b";
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_store,
+      tensorstore::Open(b_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Read an entirely unwritten region: must be the fill value for field "b".
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_read,
+      tensorstore::Read(b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                      {0, 0}, {4, 4}))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<int32_t>({{12345, 12345, 12345, 12345},
+                                             {12345, 12345, 12345, 12345},
+                                             {12345, 12345, 12345, 12345},
+                                             {12345, 12345, 12345, 12345}}),
+            b_read);
+
+  // Field "a" fill value.
+  auto a_spec = base_spec;
+  a_spec["field"] = "a";
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto a_store,
+      tensorstore::Open(a_spec, context, tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto a_read,
+      tensorstore::Read(a_store | tensorstore::Dims(0, 1).SizedInterval(
+                                      {0, 0}, {2, 2}))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<uint8_t>({{7, 7}, {7, 7}}), a_read);
+
+  // Void read of an unwritten cell must equal the packed struct fill bytes.
+  auto void_spec = base_spec;
+  void_spec.erase("metadata");
+  void_spec["open_as_void"] = true;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_store,
+      tensorstore::Open(void_spec, context,
+                        dtype_v<tensorstore::dtypes::byte_t>,
+                        tensorstore::OpenMode::open,
+                        tensorstore::ReadWriteMode::read)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto byte_array,
+      tensorstore::Read(byte_store | tensorstore::Dims(0, 1, 2).SizedInterval(
+                                         {0, 0, 0}, {1, 1, 5}))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<tensorstore::dtypes::byte_t>(
+                {{{std::byte{7}, std::byte{0x39}, std::byte{0x30},
+                   std::byte{0x00}, std::byte{0x00}}}}),
+            byte_array);
+
+  // Partial sub-chunk write: write a single cell of field "b" inside one
+  // 4x4 sub-chunk; the read-modify-write must back-fill the rest of that
+  // sub-chunk with the configured fill (12345), not the codec's zero fill.
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(tensorstore::MakeArray<int32_t>({{999}}),
+                         b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                       {0, 0}, {1, 1}))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_partial,
+      tensorstore::Read(b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                      {0, 0}, {2, 2}))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<int32_t>({{999, 12345}, {12345, 12345}}),
+            b_partial);
+
+  // Writing genuine zero values must round-trip as zero, even though zero is
+  // the codec's (incorrect) internal fill.
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(tensorstore::MakeArray<int32_t>({{0, 0}, {0, 0}}),
+                         b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                       {4, 4}, {2, 2}))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_zero,
+      tensorstore::Read(b_store | tensorstore::Dims(0, 1).SizedInterval(
+                                      {4, 4}, {2, 2}) |
+                        tensorstore::AllDims().TranslateTo(0))
+          .result());
+  EXPECT_EQ(tensorstore::MakeArray<int32_t>({{0, 0}, {0, 0}}), b_zero);
+}
+
 }  // namespace
