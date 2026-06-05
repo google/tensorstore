@@ -24,6 +24,7 @@
 #include "absl/strings/str_format.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
@@ -814,6 +815,13 @@ TEST(BoxTest, SubBoxView) {
   static_assert(std::is_same_v<decltype(SubBoxView(b_view, 1)), BoxView<>>);
   static_assert(
       std::is_same_v<decltype(SubBoxView(b_mut_view, 1)), MutableBoxView<>>);
+}
+
+TEST(BoxTest, DeepAssignHardening) {
+  [[maybe_unused]] Box<> b(2);
+  [[maybe_unused]] Box<> c(3);
+  [[maybe_unused]] MutableBoxView<> b_mut(b);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(b_mut.DeepAssign(c), "");
 }
 
 }  // namespace

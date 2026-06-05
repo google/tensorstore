@@ -22,6 +22,7 @@ tensorstore_cc_test(
     srcs = ["bit_span_test.cc"],
     deps = [
         ":bit_span",
+        "//tensorstore/internal/testing:hardening",
         "@googletest//:gtest_main",
     ],
 )
@@ -48,6 +49,7 @@ tensorstore_cc_test(
     deps = [
         ":bit_span",
         ":bit_vec",
+        "//tensorstore/internal/testing:hardening",
         "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
@@ -180,6 +182,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal/meta:attributes",
         "//tensorstore/internal/meta:integer_types",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/numeric:bits",
         "@abseil-cpp//absl/strings:str_format",
     ],
@@ -191,6 +194,7 @@ tensorstore_cc_test(
     srcs = ["small_bit_set_test.cc"],
     deps = [
         ":small_bit_set",
+        "//tensorstore/internal/testing:hardening",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
@@ -625,6 +629,7 @@ tensorstore_cc_test(
     srcs = ["span_test.cc"],
     deps = [
         ":span",
+        "//tensorstore/internal/testing:hardening",
         "@googletest//:gtest_main",
     ],
 )

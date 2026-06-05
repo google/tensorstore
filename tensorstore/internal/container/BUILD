@@ -190,6 +190,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/meta",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:span",
+        "@abseil-cpp//absl/base:core_headers",
     ],
 )
 

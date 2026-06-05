@@ -81,6 +81,17 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "hardening",
+    testonly = 1,
+    hdrs = ["hardening.h"],
+    deps = [
+        "@abseil-cpp//absl/base:config",
+        "@abseil-cpp//absl/base:core_headers",
+        "@googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_library(
     name = "half_gtest",
     testonly = 1,
     hdrs = ["half_gtest.h"],

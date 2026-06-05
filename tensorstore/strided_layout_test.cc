@@ -28,24 +28,11 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/meta/type_traits.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-
-/// TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY behaves similarly to
-/// `EXPECT_DEBUG_DEATH` except that `stmt` is not executed when not in debug
-/// mode.
-///
-/// This is useful in cases where `stmt` would result in undefined behavior when
-/// not in debug mode, e.g. because it is intended to `assert` statements
-/// designed to catch precondition violations.
-#ifdef NDEBUG
-#define TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(stmt, pattern)
-#else
-#define TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(stmt, pattern) \
-  EXPECT_DEATH(stmt, pattern)
-#endif
 
 namespace {
 
@@ -247,13 +234,10 @@ TEST(StridedLayoutTest, DynamicRank0) {
 }
 
 TEST(StridedLayoutDeathTest, DynamicRank0) {
-  StridedLayout<> layout;
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      layout[{1}], "Length of index vector is greater than rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      layout({1}), "Length of index vector must match rank of array.");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      layout(1), "Length of index vector must match rank of array.");
+  [[maybe_unused]] StridedLayout<> layout;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(layout[{1}], "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(layout({1}), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(layout(1), "");
 }
 
 TEST(StridedLayoutTest, DynamicRankCopyAndMove) {
@@ -320,10 +304,12 @@ TEST(StridedLayoutTest, ConstructDynamicFromShapeAndByteStrides) {
 TEST(StridedLayoutDeathTest, ConstructDynamicFromShapeAndByteStrides) {
   const Index shape_arr[] = {1, 2};
   const Index byte_strides_arr[] = {3};
-  tensorstore::span<const Index> shape(shape_arr);
-  tensorstore::span<const Index> byte_strides(byte_strides_arr);
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY((StridedLayout<>(shape, byte_strides)),
-                                      "shape");
+  [[maybe_unused]] tensorstore::span<const Index> shape(shape_arr);
+  [[maybe_unused]] tensorstore::span<const Index> byte_strides(
+      byte_strides_arr);
+
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED((StridedLayout<>(shape, byte_strides)),
+                                       "");
 }
 
 TEST(StridedLayoutTest, ConstructDynamicFromStridedLayoutView) {
@@ -386,22 +372,16 @@ TEST(StridedLayoutDeathTest, DynamicRankIndexing) {
   layout.byte_strides()[2] = 6;
   EXPECT_EQ(4 * 6, (layout[{6}]));
 
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY((layout[{7}]),
-                                      "Array index out of bounds");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY((layout[{-1}]),
-                                      "Array index out of bounds");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY((layout[{1, 2, 10}]),
-                                      "Array index out of bounds");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED((layout[{7}]), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED((layout[{-1}]), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED((layout[{1, 2, 10}]), "");
 
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (layout[{1, 2, 3, 4}]),
-      "Length of index vector is greater than rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      layout({1, 2}), "Length of index vector must match rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED((layout[{1, 2, 3, 4}]), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(layout({1, 2}), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
       (StridedLayout<>(tensorstore::span<const Index>({1}),
                        tensorstore::span<const Index>({1, 2}))),
-      "shape");
+      "");
 }
 
 TEST(StridedLayoutTest, StaticRank0) {
@@ -738,8 +718,8 @@ TEST(StridedLayoutViewTest, Static0) {
 TEST(StridedLayoutViewDeathTest, DynamicConstruct) {
   [[maybe_unused]] const Index shape[] = {5, 3};
   [[maybe_unused]] const Index byte_strides[] = {3};
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (StridedLayoutView<>(shape, byte_strides)), "shape");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      (StridedLayoutView<>(shape, byte_strides)), "");
 
   StridedLayout<> x;
   x.set_rank(2);
@@ -908,10 +888,10 @@ TEST(StridedLayoutViewTest, SubLayout) {
 }
 
 TEST(StridedLayoutViewDeathTest, SubLayout) {
-  StridedLayout<> r({1, 2, 3}, {3, 4, 5});
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(GetSubLayoutView(r, -1), "sub_rank");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(GetSubLayoutView(r, 4), "sub_rank");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(GetSubLayoutView<4>(r), "sub_rank");
+  [[maybe_unused]] StridedLayout<> r({1, 2, 3}, {3, 4, 5});
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(GetSubLayoutView(r, -1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(GetSubLayoutView(r, 4), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(GetSubLayoutView<4>(r), "");
 }
 
 TEST(StridedLayoutTest, COrderStatic) {

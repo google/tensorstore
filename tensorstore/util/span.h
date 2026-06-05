@@ -27,6 +27,7 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
 #include "tensorstore/internal/lldb_scripting.h"
@@ -201,10 +202,10 @@ class span {
                  index_type count) noexcept
       : data_(ptr), size_{} {
     if constexpr (Extent == dynamic_extent) {
-      assert(count >= 0);
+      ABSL_HARDENING_ASSERT(count >= 0);
       size_ = count;
     } else {
-      assert(count == Extent);
+      ABSL_HARDENING_ASSERT(count == Extent);
     }
   }
 
@@ -305,7 +306,7 @@ class span {
     static_assert(Count >= 0, "Invalid Count");
     static_assert(Extent == dynamic_extent || Extent >= Count,
                   "Invalid Count for Extent.");
-    assert(size() >= Count);
+    ABSL_HARDENING_ASSERT(size() >= Count);
     return {data(), Count};
   }
 
@@ -314,7 +315,8 @@ class span {
   /// \dchecks `size() >= count`
   /// \id dynamic
   constexpr span<element_type, dynamic_extent> first(ptrdiff_t count) const {
-    assert(count <= size());
+    ABSL_HARDENING_ASSERT(size() >= count);
+    ABSL_HARDENING_ASSERT(count >= 0);
     return {data(), count};
   }
 
@@ -327,7 +329,7 @@ class span {
     static_assert(Count >= 0, "Invalid Count");
     static_assert(Extent == dynamic_extent || Extent >= Count,
                   "Invalid Count for Extent.");
-    assert(size() >= Count);
+    ABSL_HARDENING_ASSERT(size() >= Count);
     return {end() - Count, Count};
   }
 
@@ -336,7 +338,8 @@ class span {
   /// \dchecks `size() >= count`
   /// \id dynamic
   constexpr span<element_type, dynamic_extent> last(ptrdiff_t count) const {
-    assert(count <= size());
+    ABSL_HARDENING_ASSERT(size() >= count);
+    ABSL_HARDENING_ASSERT(count >= 0);
     return {end() - count, count};
   }
 
@@ -354,6 +357,10 @@ class span {
     static_assert(Count == dynamic_extent || Extent == dynamic_extent ||
                       Offset + Count <= Extent,
                   "Requested subspan range exceeds static extent.");
+    ABSL_HARDENING_ASSERT(size() >= Offset);
+    if constexpr (Count != dynamic_extent) {
+      ABSL_HARDENING_ASSERT(size() - Offset >= Count);
+    }
     return {begin() + Offset,
             Count == dynamic_extent ? size() - Offset : Count};
   }
@@ -366,8 +373,12 @@ class span {
   /// \id dynamic
   constexpr span<element_type, dynamic_extent> subspan(
       ptrdiff_t offset, ptrdiff_t count = dynamic_extent) const {
-    assert(offset >= 0 && offset <= size());
-    assert(count == dynamic_extent || (count >= 0 && offset + count <= size()));
+    ABSL_HARDENING_ASSERT(offset >= 0);
+    ABSL_HARDENING_ASSERT(offset <= size());
+    if (count != dynamic_extent) {
+      ABSL_HARDENING_ASSERT(count >= 0);
+      ABSL_HARDENING_ASSERT(count <= size() - offset);
+    }
     return {begin() + offset,
             count == dynamic_extent ? size() - offset : count};
   }
@@ -378,7 +389,8 @@ class span {
   constexpr reference operator[](index_type i) const noexcept {
     // operator[] is typically unchecked:
     //   "The behavior is undefined if idx is out of range."
-    assert(i < size() && i >= 0);
+    ABSL_HARDENING_ASSERT(i >= 0);
+    ABSL_HARDENING_ASSERT(i < size());
     return *(data() + i);
   }
 
@@ -399,7 +411,7 @@ class span {
   ///
   /// \dchecks `size() > 0`
   constexpr reference front() const {
-    assert(!empty());
+    ABSL_HARDENING_ASSERT(!empty());
     return *data();
   }
 
@@ -407,7 +419,7 @@ class span {
   ///
   /// \dchecks `size() > 0`
   constexpr reference back() const {
-    assert(!empty());
+    ABSL_HARDENING_ASSERT(!empty());
     return *(data() + (size() - 1));
   }
 

@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "tensorstore/internal/testing/hardening.h"
 
 namespace {
 
@@ -319,6 +320,22 @@ TEST(SmallBitSetTest, FromIndices) {
                 (static_cast<uint32_t>(1) << 10),
             v.to_uint());
   EXPECT_THAT(v.index_view(), ::testing::ElementsAre(1, 3, 10));
+}
+
+TEST(SmallBitSetTest, Hardening) {
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(BitSet::UpTo(33), "");
+  BitSet v;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v.test(-1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v.test(32), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v.set(-1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v.set(32), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v.reset(-1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v.reset(32), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v.flip(-1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v.flip(32), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v[32], "");
+  [[maybe_unused]] const BitSet& v_const = v;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v_const[32], "");
 }
 
 }  // namespace

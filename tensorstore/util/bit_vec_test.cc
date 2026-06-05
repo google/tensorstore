@@ -25,6 +25,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/str_cat.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/util/bit_span.h"
 
 namespace {
@@ -412,6 +413,15 @@ TEST(BitVecTest, ResizeDynamicExpandFromEmpty) {
 TEST(BitVecTest, ResizeDynamicShrinkToEmpty) {
   TestResizeDynamic(13, 0, {1, 2, 12});
   TestResizeDynamic(129, 0, {1, 2, 12, 65, 73, 128});
+}
+
+TEST(BitVecTest, Hardening) {
+  BitVec<> v(10);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v[-1], "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v[11], "");
+  [[maybe_unused]] const BitVec<>& v_const = v;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v_const[-1], "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(v_const[11], "");
 }
 
 }  // namespace

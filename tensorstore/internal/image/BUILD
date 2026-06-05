@@ -244,6 +244,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:data_type",
         "//tensorstore/util:span",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
         "@riegeli//riegeli/bytes:reader",

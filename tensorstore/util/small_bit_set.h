@@ -22,6 +22,7 @@
 #include <ostream>
 #include <type_traits>
 
+#include "absl/base/macros.h"
 #include "absl/numeric/bits.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/meta/attributes.h"
@@ -466,10 +467,10 @@ class SmallBitSet {
     SmallBitSet set;
     size_t i = 0;
     while (begin != end) {
+      ABSL_HARDENING_ASSERT(i < N);
       set.bits_ |= (*begin++ ? Uint(1) : Uint(0)) << i;
       i++;
     }
-    assert(i <= N);
     return set;
   }
 
@@ -478,7 +479,7 @@ class SmallBitSet {
   /// \dchecks `k <= N`
   /// \membergroup Constructors
   static constexpr SmallBitSet UpTo(size_t k) {
-    assert(k <= N);
+    ABSL_HARDENING_ASSERT(k <= N);
     return k == 0 ? SmallBitSet()
                   : SmallBitSet::FromUint(~Uint(0) << (N - k) >> (N - k));
   }
@@ -542,25 +543,25 @@ class SmallBitSet {
 
   /// Returns `true` if the specified bit is present in the set.
   constexpr bool test(int pos) const noexcept {
-    assert(pos >= 0 && pos < N);
+    ABSL_HARDENING_ASSERT(pos >= 0 && pos < N);
     return (bits_ >> pos) & 1;
   }
 
   /// Add the specified bit to the set.
   constexpr SmallBitSet& set(int pos) noexcept {
-    assert(pos >= 0 && pos < N);
+    ABSL_HARDENING_ASSERT(pos >= 0 && pos < N);
     bits_ |= (static_cast<Uint>(1) << pos);
     return *this;
   }
 
   constexpr SmallBitSet& reset(int pos) noexcept {
-    assert(pos >= 0 && pos < N);
+    ABSL_HARDENING_ASSERT(pos >= 0 && pos < N);
     bits_ &= ~(static_cast<Uint>(1) << pos);
     return *this;
   }
 
   constexpr SmallBitSet& flip(int pos) noexcept {
-    assert(pos >= 0 && pos < N);
+    ABSL_HARDENING_ASSERT(pos >= 0 && pos < N);
     bits_ ^= (static_cast<Uint>(1) << pos);
     return *this;
   }
@@ -570,11 +571,11 @@ class SmallBitSet {
   /// \dchecks `offset >= 0 && offset < N`
   constexpr reference operator[](size_t offset)
       TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    assert(offset >= 0 && offset < N);
+    ABSL_HARDENING_ASSERT(offset >= 0 && offset < N);
     return reference(&bits_, offset);
   }
   constexpr bool operator[](size_t offset) const {
-    assert(offset >= 0 && offset < N);
+    ABSL_HARDENING_ASSERT(offset >= 0 && offset < N);
     return test(offset);
   }
 

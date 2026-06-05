@@ -21,6 +21,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/meta/type_traits.h"
@@ -112,6 +113,7 @@ class IndexVectorOrScalarView {
   IndexVectorOrScalarView(const Index scalar)
       : pointer(nullptr), size_or_scalar(scalar) {}
   Index operator[](DimensionIndex i) const {
+    ABSL_HARDENING_ASSERT(!pointer || (i >= 0 && i < size_or_scalar));
     return pointer ? pointer[i] : size_or_scalar;
   }
   const Index* pointer;

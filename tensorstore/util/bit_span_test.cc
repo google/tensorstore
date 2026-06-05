@@ -22,6 +22,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/testing/hardening.h"
 
 namespace {
 using ::tensorstore::BitIterator;
@@ -179,5 +180,19 @@ static_assert(BitVectorSizeInBlocks<uint64_t>(63) == 1, "");
 static_assert(BitVectorSizeInBlocks<uint64_t>(64) == 1, "");
 static_assert(BitVectorSizeInBlocks<uint64_t>(65) == 2, "");
 static_assert(BitVectorSizeInBlocks<uint32_t>(65) == 3, "");
+
+TEST(BitSpanTest, Hardening) {
+  uint16_t data[2] = {0};
+  BitSpan<uint16_t> s1(data, 0, 10);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s1[-1], "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s1[10], "");
+
+  [[maybe_unused]] const BitSpan<uint16_t>& s1_const = s1;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s1_const[-1], "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s1_const[10], "");
+
+  [[maybe_unused]] BitSpan<uint16_t> s2(data, 0, 5);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s1.DeepAssign(s2), "");
+}
 
 }  // namespace

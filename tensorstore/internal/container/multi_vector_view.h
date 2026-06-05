@@ -19,6 +19,7 @@
 
 #include <cassert>
 
+#include "absl/base/macros.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/lldb_scripting.h"
 #include "tensorstore/internal/meta/meta.h"
@@ -188,7 +189,7 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
                      tensorstore::span<Ts, Extent>... spans) {
     const ExtentType extent =
         GetFirstArgument(GetStaticOrDynamicExtent(spans)...);
-    assert(((spans.size() == extent) && ...));
+    ABSL_HARDENING_ASSERT(((spans.size() == extent) && ...));
     Assign(array, extent, spans.data()...);
   }
 };

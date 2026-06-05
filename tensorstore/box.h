@@ -27,6 +27,7 @@
 #include <string>
 #include <type_traits>
 
+#include "absl/base/macros.h"
 #include "absl/meta/type_traits.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/index.h"
@@ -659,7 +660,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   std::enable_if_t<(SfinaeMutable &&
                     IsBoxLikeImplicitlyConvertibleToRank<BoxType, Rank>)>
   DeepAssign(const BoxType& other) const {
-    assert(other.rank() == rank());
+    ABSL_HARDENING_ASSERT(other.rank() == rank());
     std::copy_n(other.origin().begin(), rank(), origin().begin());
     std::copy_n(other.shape().begin(), rank(), shape().begin());
   }

@@ -29,6 +29,7 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/util/small_bit_set.h"
 #include "tensorstore/util/span.h"
@@ -40,7 +41,7 @@ template <bool FillValue, typename T>
 void FillBits(T* base, ptrdiff_t offset, ptrdiff_t size) {
   constexpr ptrdiff_t kBitsPerBlock = sizeof(T) * 8;
   constexpr const T kAllOnes = ~static_cast<T>(0);
-  assert(offset >= 0);
+  ABSL_HARDENING_ASSERT(offset >= 0);
   ptrdiff_t end;
   for (base += offset / kBitsPerBlock, offset %= kBitsPerBlock,
        end = size + offset;
@@ -131,10 +132,10 @@ class BitSpan {
   /// \dchecks `Extent == dynamic_extent || Extent == size`.
   constexpr BitSpan(BitIterator<T> begin, ptrdiff_t size) : begin_(begin) {
     if constexpr (Extent == dynamic_extent) {
-      assert(size >= 0);
+      ABSL_HARDENING_ASSERT(size >= 0);
       size_ = size;
     } else {
-      assert(size == Extent);
+      ABSL_HARDENING_ASSERT(size == Extent);
     }
   }
 
@@ -165,7 +166,8 @@ class BitSpan {
   ///
   /// \dchecks `i >=0 && i < size()`.
   constexpr BitRef<T> operator[](ptrdiff_t i) const {
-    assert(i >= 0 && i <= size());
+    ABSL_HARDENING_ASSERT(i >= 0);
+    ABSL_HARDENING_ASSERT(i < size());
     return *(begin() + i);
   }
 
@@ -199,7 +201,7 @@ class BitSpan {
                    (E == Extent || Extent == dynamic_extent ||
                     E == dynamic_extent)>
   DeepAssign(BitSpan<U, E> other) {
-    assert(other.size() == size());
+    ABSL_HARDENING_ASSERT(other.size() == size());
     internal_bit_span::CopyBits(other.base(), other.offset(), base(), offset(),
                                 size());
   }
@@ -215,7 +217,7 @@ class BitSpan {
 /// \tparam Block The unsigned integer block type.
 /// \relates BitSpan
 template <typename Block>
-inline constexpr ptrdiff_t BitVectorSizeInBlocks(ptrdiff_t length) {
+constexpr ptrdiff_t BitVectorSizeInBlocks(ptrdiff_t length) {
   return (length + sizeof(Block) * 8 - 1) / (sizeof(Block) * 8);
 }
 

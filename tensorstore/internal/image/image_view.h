@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <stddef.h>
 
+#include "absl/base/macros.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/util/span.h"
@@ -31,7 +32,7 @@ class ImageView {
  public:
   using index_type = ptrdiff_t;
 
-  /// Construct an image which references the data (unowned);
+  // Construct an image which references the data (unowned);
   ImageView(const ImageInfo& info, tensorstore::span<unsigned char> data);
 
   constexpr index_type row_stride() const noexcept { return row_stride_; }
@@ -41,15 +42,16 @@ class ImageView {
 
   constexpr DataType dtype() const noexcept { return dtype_; }
 
-  /// Returns a pointer to the first element.
+  // Returns a pointer to the first element.
   constexpr tensorstore::span<unsigned char> data() const noexcept {
     return data_;
   }
 
   constexpr tensorstore::span<unsigned char> data_row(
       size_t row, size_t col = 0) const noexcept {
-    assert(row_stride_ != 0);
-    assert(col < row_stride_bytes());
+    ABSL_HARDENING_ASSERT(row_stride_ != 0);
+    ABSL_HARDENING_ASSERT(col < row_stride_bytes());
+    ABSL_HARDENING_ASSERT((row + 1) * row_stride_bytes() <= data_.size());
     return {data_.data() + row * row_stride_bytes() + col,
             row_stride_bytes() - static_cast<index_type>(col)};
   }

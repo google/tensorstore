@@ -543,6 +543,7 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:span",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
     ],

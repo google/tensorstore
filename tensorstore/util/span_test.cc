@@ -27,6 +27,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/testing/hardening.h"
 
 using ::tensorstore::span;
 using ::tensorstore::internal::ConstSpanType;
@@ -323,12 +324,12 @@ TEST(SpanTest, FirstDynamicDynamic) {
 
 TEST(SpanTest, FirstOutOfBoundsCrash) {
   int arr[] = {1, 2, 3};
-  span<int> s(arr);
-  EXPECT_DEBUG_DEATH(s.first(4), "");
-  EXPECT_DEBUG_DEATH(s.first<4>(), "");
+  [[maybe_unused]] span<int> s(arr);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s.first(4), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s.first<4>(), "");
 
-  span<int, 3> s_static(arr);
-  EXPECT_DEBUG_DEATH(s_static.first(4), "");
+  [[maybe_unused]] span<int, 3> s_static(arr);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s_static.first(4), "");
 }
 }  // namespace first_tests
 namespace last_tests {
@@ -367,12 +368,12 @@ TEST(SpanTest, LastDynamicDynamic) {
 
 TEST(SpanTest, LastOutOfBoundsCrash) {
   int arr[] = {1, 2, 3};
-  span<int> s(arr);
-  EXPECT_DEBUG_DEATH(s.last(4), "");
-  EXPECT_DEBUG_DEATH(s.last<4>(), "");
+  [[maybe_unused]] span<int> s(arr);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s.last(4), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s.last<4>(), "");
 
-  span<int, 3> s_static(arr);
-  EXPECT_DEBUG_DEATH(s_static.last(4), "");
+  [[maybe_unused]] span<int, 3> s_static(arr);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s_static.last(4), "");
 }
 }  // namespace last_tests
 
@@ -563,13 +564,24 @@ TEST(SpanTest, SubspanDynamicDynamic) {
 
 TEST(SpanTest, SubspanOutOfBoundsCrash) {
   int arr[] = {1, 2, 3};
-  span<int> s(arr);
-  EXPECT_DEBUG_DEATH(s.subspan(4), "");
-  EXPECT_DEBUG_DEATH(s.subspan<4>(), "");
+  [[maybe_unused]] span<int> s(arr);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s.subspan(4), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s.subspan<4>(), "");
 
-  span<int, 3> s_static(arr);
-  EXPECT_DEBUG_DEATH(s_static.subspan(4), "");
-  EXPECT_DEBUG_DEATH(s_static.subspan<4>(), "");
+  [[maybe_unused]] span<int, 3> s_static(arr);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s_static.subspan(4), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s_static.subspan<4>(), "");
+}
+
+TEST(SpanTest, HardenedAccessorDeath) {
+  int arr[] = {1, 2, 3};
+  [[maybe_unused]] span<int> s(arr);
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s[3], "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(s[-1], "");
+
+  [[maybe_unused]] span<int, 0> empty_s;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(empty_s.front(), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(empty_s.back(), "");
 }
 
 }  // namespace subspan_tests

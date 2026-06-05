@@ -16,6 +16,7 @@
 
 #include <assert.h>
 
+#include "absl/base/macros.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/util/span.h"
@@ -28,8 +29,8 @@ ImageView::ImageView(const ImageInfo& info,
     : data_(data),
       dtype_(info.dtype),
       row_stride_(info.num_components * info.width) {
-  assert(data.size() >=
-         info.width * info.height * info.num_components * dtype_.size());
+  ABSL_HARDENING_ASSERT(data.size() >= info.width * info.height *
+                                           info.num_components * dtype_.size());
 }
 
 }  // namespace internal_image

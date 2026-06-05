@@ -31,6 +31,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/box.h"
@@ -136,7 +137,7 @@ inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
 template <DimensionIndex Rank, typename T0, typename T1>
 inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
     tensorstore::span<T0, Rank> a, tensorstore::span<T1, Rank> b) {
-  assert(a.size() == b.size());
+  ABSL_HARDENING_ASSERT(a.size() == b.size());
   if constexpr (Rank == -1) {
     return IndexInnerProduct(a.size(), a.data(), b.data());
   } else {
@@ -463,7 +464,7 @@ class StridedLayout
           byte_strides) {
     // This check is redundant with the check done by AccessImpl::Assign,
     // but provides a better assertion error message.
-    assert(shape.size() == byte_strides.size());
+    ABSL_HARDENING_ASSERT(shape.size() == byte_strides.size());
     AccessImpl::Assign(this, GetStaticOrDynamicExtent(shape), shape.data(),
                        byte_strides.data());
   }
@@ -489,8 +490,8 @@ class StridedLayout
           shape,
       tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
           byte_strides) {
-    assert(origin.size() == shape.size());
-    assert(origin.size() == byte_strides.size());
+    ABSL_HARDENING_ASSERT(origin.size() == shape.size());
+    ABSL_HARDENING_ASSERT(origin.size() == byte_strides.size());
     AccessImpl::Assign(this, GetStaticOrDynamicExtent(origin), origin.data(),
                        shape.data(), byte_strides.data());
   }
@@ -517,7 +518,7 @@ class StridedLayout
       BoxView<RankConstraint::FromInlineRank(Rank)> domain,
       tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
           byte_strides) {
-    assert(domain.rank() == byte_strides.size());
+    ABSL_HARDENING_ASSERT(domain.rank() == byte_strides.size());
     AccessImpl::Assign(this, domain.rank(), domain.origin().data(),
                        domain.shape().data(), byte_strides.data());
   }
@@ -559,7 +560,8 @@ class StridedLayout
                      RankConstraint::FromInlineRank(R), static_rank) &&
                  (R == 0 || IsArrayOriginKindConvertible(O, OriginKind)))>>
   explicit StridedLayout(unchecked_t, const StridedLayout<R, O, C>& source) {
-    assert(RankConstraint::EqualOrUnspecified(source.rank(), static_rank));
+    ABSL_HARDENING_ASSERT(
+        RankConstraint::EqualOrUnspecified(source.rank(), static_rank));
     AccessImpl::AssignFrom(this, source);
   }
   explicit StridedLayout(unchecked_t, StridedLayout&& source)
@@ -718,10 +720,8 @@ class StridedLayout
   std::enable_if_t<IsCompatiblePartialIndexVector<static_rank, Indices>, Index>
   operator[](const Indices& indices) const {
     const auto indices_span = tensorstore::span(indices);
-    assert(indices_span.size() <= rank() &&
-           "Length of index vector is greater than rank of array");
-    assert(ContainsPartial(*this, indices_span) &&
-           "Array index out of bounds.");
+    ABSL_HARDENING_ASSERT(indices_span.size() <= rank());
+    ABSL_HARDENING_ASSERT(ContainsPartial(*this, indices_span));
     return IndexInnerProduct(indices_span.size(), byte_strides().data(),
                              indices_span.data());
   }
@@ -751,8 +751,7 @@ class StridedLayout
   std::enable_if_t<IsCompatibleFullIndexVector<static_rank, Indices>, Index>
   operator()(const Indices& indices) const {
     const auto indices_span = tensorstore::span(indices);
-    assert(indices_span.size() == rank() &&
-           "Length of index vector must match rank of array.");
+    ABSL_HARDENING_ASSERT(indices_span.size() == rank());
     return (*this)[indices_span];
   }
   template <size_t N>
@@ -771,7 +770,7 @@ class StridedLayout
   operator()(IndexType... index) const {
     constexpr size_t N = sizeof...(IndexType);
     if constexpr (N == 0) {
-      assert(rank() == 0);
+      ABSL_HARDENING_ASSERT(rank() == 0);
       return 0;
     } else {
       const Index indices[N] = {index...};
@@ -901,7 +900,8 @@ GetSubLayoutViewImpl(const StridedLayout<R, O, C>& layout,
   static_assert(RankConstraint::GreaterEqualOrUnspecified(
                     RankConstraint::FromInlineRank(R), SubRank),
                 "Rank must be >= SubRank.");
-  assert(sub_rank >= 0 && sub_rank <= layout.rank());
+  ABSL_HARDENING_ASSERT(sub_rank >= 0);
+  ABSL_HARDENING_ASSERT(sub_rank <= layout.rank());
   using NewLayout = StridedLayoutView<
       RankConstraint::Subtract(RankConstraint::FromInlineRank(R), SubRank), O>;
   if constexpr (O == zero_origin) {

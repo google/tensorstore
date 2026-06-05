@@ -23,6 +23,7 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/bit_vec_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/small_bit_set.h"
@@ -184,13 +185,17 @@ class BitVec {
   /// \dchecks `0 <= i && i < size()`
   ABSL_ATTRIBUTE_ALWAYS_INLINE BitRef<const Block> operator[](
       ptrdiff_t i) const {
-    return assert(i >= 0 && i <= size()), *(begin() + i);
+    ABSL_HARDENING_ASSERT(i >= 0);
+    ABSL_HARDENING_ASSERT(i <= size());
+    return *(begin() + i);
   }
 
   /// Returns a proxy reference to bit `i`.
   /// \dchecks `0 <= i && i < size()`
   ABSL_ATTRIBUTE_ALWAYS_INLINE BitRef<Block> operator[](ptrdiff_t i) {
-    return assert(i >= 0 && i <= size()), *(begin() + i);
+    ABSL_HARDENING_ASSERT(i >= 0);
+    ABSL_HARDENING_ASSERT(i <= size());
+    return *(begin() + i);
   }
 
   /// Compares two bit vectors for equality.

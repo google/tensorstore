@@ -41,6 +41,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/internal/data_type_random_generator.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/batch.h"
@@ -53,20 +54,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-
-/// TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY behaves similarly to
-/// `EXPECT_DEBUG_DEATH` except that `stmt` is not executed when not in debug
-/// mode.
-///
-/// This is useful in cases where `stmt` would result in undefined behavior when
-/// not in debug mode, e.g. because it is intended to `assert` statements
-/// designed to catch precondition violations.
-#ifdef NDEBUG
-#define TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(stmt, pattern)
-#else
-#define TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(stmt, pattern) \
-  EXPECT_DEATH(stmt, pattern)
-#endif
 
 namespace {
 
@@ -923,39 +910,30 @@ TEST(ArrayTest, OffsetOriginIndexing) {
 TEST(ArrayDeathTest, Indexing) {
   int data[2][3] = {{1, 2, 3}, {4, 5, 6}};
   [[maybe_unused]] ArrayView<int, 2> a = MakeArrayView(data);
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(a(-1, 1), "Array index out of bounds");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(a(2, 1), "Array index out of bounds");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (ArrayView<int>(a)[0][0][0]),
-      "Length of index vector is greater than rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      a(tensorstore::span<const Index>({1})),
-      "Length of index vector must match rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      a(tensorstore::span<const Index>({1, 2, 3})),
-      "Length of index vector must match rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (a[tensorstore::span<const Index>({1, 2, 3})]),
-      "Length of index vector is greater than rank of array");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(a(-1, 1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(a(2, 1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED((ArrayView<int>(a)[0][0][0]), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(a(tensorstore::span<const Index>({1})),
+                                       "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      a(tensorstore::span<const Index>({1, 2, 3})), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      (a[tensorstore::span<const Index>({1, 2, 3})]), "");
 }
 
 TEST(ArrayDeathTest, OffsetOriginIndexing) {
   int data[2][3] = {{1, 2, 3}, {4, 5, 6}};
   SharedArray<int, 2, offset_origin> a = MakeOffsetArray({7, 8}, data);
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(a(0, 0), "Array index out of bounds");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(a(7, 7), "Array index out of bounds");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (ArrayView<int, dynamic_rank, offset_origin>(a)[7][8][0]),
-      "Length of index vector is greater than rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      a(tensorstore::span<const Index>({1})),
-      "Length of index vector must match rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      a(tensorstore::span<const Index>({1, 2, 3})),
-      "Length of index vector must match rank of array");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (a[tensorstore::span<const Index>({1, 2, 3})]),
-      "Length of index vector is greater than rank of array");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(a(0, 0), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(a(7, 7), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      (ArrayView<int, dynamic_rank, offset_origin>(a)[7][8][0]), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(a(tensorstore::span<const Index>({1})),
+                                       "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      a(tensorstore::span<const Index>({1, 2, 3})), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      (a[tensorstore::span<const Index>({1, 2, 3})]), "");
 }
 
 }  // namespace array_indexing_tests

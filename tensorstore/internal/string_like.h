@@ -17,10 +17,11 @@
 
 #include <stddef.h>
 
-#include <cassert>
+#include <limits>
 #include <string>
 #include <string_view>
 
+#include "absl/base/macros.h"
 #include "absl/base/optimization.h"
 #include "tensorstore/util/span.h"
 
@@ -47,17 +48,27 @@ class StringLikeSpan {
   StringLikeSpan() = default;
 
   StringLikeSpan(tensorstore::span<const char* const> c_strings)
-      : c_strings_(c_strings.data()), size_and_tag_(c_strings.size() << 2) {}
+      : c_strings_(c_strings.data()), size_and_tag_(c_strings.size() << 2) {
+    ABSL_HARDENING_ASSERT(c_strings.size() <=
+                          (std::numeric_limits<ptrdiff_t>::max() >> 2));
+  }
 
   StringLikeSpan(tensorstore::span<const std::string> strings)
-      : strings_(strings.data()), size_and_tag_((strings.size() << 2) | 1) {}
+      : strings_(strings.data()), size_and_tag_((strings.size() << 2) | 1) {
+    ABSL_HARDENING_ASSERT(strings.size() <=
+                          (std::numeric_limits<ptrdiff_t>::max() >> 2));
+  }
 
   StringLikeSpan(tensorstore::span<const std::string_view> string_views)
       : string_views_(string_views.data()),
-        size_and_tag_((string_views.size() << 2) | 2) {}
+        size_and_tag_((string_views.size() << 2) | 2) {
+    ABSL_HARDENING_ASSERT(string_views.size() <=
+                          (std::numeric_limits<ptrdiff_t>::max() >> 2));
+  }
 
   std::string_view operator[](ptrdiff_t i) const {
-    assert(i >= 0 && i < size());
+    ABSL_HARDENING_ASSERT(i >= 0);
+    ABSL_HARDENING_ASSERT(i < size());
     switch (size_and_tag_ & 3) {
       case 0:
         return c_strings_[i];

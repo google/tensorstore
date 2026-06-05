@@ -184,6 +184,8 @@ tensorstore_cc_library(
     features = [
         "-use_header_modules",
         "-layering_check",
+        "-per_object_debug_info",
+        "-thin_lto",
     ],
     linkstatic = True,
     local_defines = [
