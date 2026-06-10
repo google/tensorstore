@@ -14,22 +14,36 @@
 
 #include <stdint.h>
 
+#include <array>
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/testing/json_gtest.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::AllocateArray;
+using ::tensorstore::c_order;
 using ::tensorstore::dtype_v;
+using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::StatusIs;
+using ::tensorstore::value_init;
+using ::tensorstore::internal_zarr3::ArrayCodecChunkLayoutInfo;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
+using ::tensorstore::internal_zarr3::ArrayDataTypeAndShapeInfo;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
@@ -38,6 +52,7 @@ using ::tensorstore::internal_zarr3::TestCodecRoundTrip;
 using ::tensorstore::internal_zarr3::TestCodecSpecResolve;
 using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
+using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
 
@@ -118,6 +133,89 @@ TEST(TransposeTest, AttributeMismatch) {
             {"configuration", {{"order", {0, 1}}, {"extra", 1}}}}},
           p),
       StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"extra\"")));
+}
+
+// `inner_shape` (dtype-contributed trailing dims, e.g. for `open_as_void`)
+// must be forwarded unchanged through every transpose propagation entry
+// point: `PropagateDataTypeAndShape`, `GetDecodedChunkLayout`, and `Resolve`.
+TEST(TransposeTest, PropagateDataTypeAndShapeForwardsInnerShape) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto chain_spec,
+      ZarrCodecChainSpec::FromJson(
+          {{{"name", "transpose"}, {"configuration", {{"order", {2, 0, 1}}}}},
+           GetDefaultBytesCodecJson()}));
+  ASSERT_EQ(chain_spec.array_to_array.size(), 1);
+
+  ArrayDataTypeAndShapeInfo decoded;
+  decoded.dtype = dtype_v<uint16_t>;
+  decoded.rank = 3;
+  decoded.shape = std::array<Index, tensorstore::kMaxRank>{};
+  (*decoded.shape)[0] = 5;
+  (*decoded.shape)[1] = 6;
+  (*decoded.shape)[2] = 7;
+  decoded.inner_shape = {4, 2};
+
+  ArrayDataTypeAndShapeInfo encoded;
+  TENSORSTORE_ASSERT_OK(chain_spec.array_to_array[0]->PropagateDataTypeAndShape(
+      decoded, encoded));
+
+  EXPECT_EQ(encoded.rank, decoded.rank);
+  EXPECT_EQ(encoded.dtype, decoded.dtype);
+  EXPECT_THAT(encoded.inner_shape, ElementsAre(4, 2));
+  ASSERT_TRUE(encoded.shape.has_value());
+  // order = {2, 0, 1}; only the leading `rank` dims are permuted.
+  EXPECT_EQ((*encoded.shape)[0], (*decoded.shape)[2]);
+  EXPECT_EQ((*encoded.shape)[1], (*decoded.shape)[0]);
+  EXPECT_EQ((*encoded.shape)[2], (*decoded.shape)[1]);
+}
+
+// `GetDecodedChunkLayout` must accept a non-empty `inner_shape` on the
+// array_info and produce the inverse-permutation `inner_order` over the
+// chunked dims (the inner dims do not participate).
+TEST(TransposeTest, GetDecodedChunkLayoutWithInnerShape) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto chain_spec,
+      ZarrCodecChainSpec::FromJson(
+          {{{"name", "transpose"}, {"configuration", {{"order", {2, 0, 1}}}}},
+           GetDefaultBytesCodecJson()}));
+
+  ArrayDataTypeAndShapeInfo array_info;
+  array_info.dtype = dtype_v<uint16_t>;
+  array_info.rank = 3;
+  array_info.inner_shape = {4, 2};
+
+  ArrayCodecChunkLayoutInfo decoded;
+  TENSORSTORE_ASSERT_OK(chain_spec.GetDecodedChunkLayout(array_info, decoded));
+
+  ASSERT_TRUE(decoded.inner_order.has_value());
+  // Bytes codec asks for c_order = {0, 1, 2} on the encoded side; transpose
+  // maps decoded[i] = order[encoded[i]] with order = {2, 0, 1}.
+  EXPECT_EQ((*decoded.inner_order)[0], 2);
+  EXPECT_EQ((*decoded.inner_order)[1], 0);
+  EXPECT_EQ((*decoded.inner_order)[2], 1);
+}
+
+TEST(TransposeTest, ResolveForwardsInnerShape) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto chain_spec,
+      ZarrCodecChainSpec::FromJson(
+          {{{"name", "transpose"}, {"configuration", {{"order", {2, 0, 1}}}}},
+           GetDefaultBytesCodecJson()}));
+  ASSERT_EQ(chain_spec.array_to_array.size(), 1);
+
+  ArrayCodecResolveParameters decoded;
+  decoded.dtype = dtype_v<uint16_t>;
+  decoded.rank = 3;
+  decoded.fill_value = AllocateArray(tensorstore::span<const Index>{}, c_order,
+                                     value_init, decoded.dtype);
+  decoded.inner_shape = {4, 2};
+
+  ArrayCodecResolveParameters encoded;
+  TENSORSTORE_ASSERT_OK(chain_spec.array_to_array[0]->Resolve(
+      std::move(decoded), encoded, /*resolved_spec=*/nullptr));
+
+  EXPECT_EQ(encoded.rank, 3);
+  EXPECT_THAT(encoded.inner_shape, ElementsAre(4, 2));
 }
 
 TEST(TransposeTest, Merge) {

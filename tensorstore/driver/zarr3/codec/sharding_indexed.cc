@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -60,6 +61,8 @@
 
 namespace tensorstore {
 namespace internal_zarr3 {
+
+namespace jb = ::tensorstore::internal_json_binding;
 
 absl::Status SubChunkRankMismatch(
     tensorstore::span<const Index> sub_chunk_shape, DimensionIndex outer_rank) {
@@ -208,20 +211,35 @@ const ZarrCodecChainSpec* ShardingIndexedCodecSpec::GetSubChunkCodecs() const {
   return options.sub_chunk_codecs ? &*options.sub_chunk_codecs : nullptr;
 }
 
+Result<std::pair<internal::IntrusivePtr<ZarrShardingCodecSpec>,
+                 ZarrCodecChainSpec*>>
+ShardingIndexedCodecSpec::CloneWithMutableSubChunkCodecs() const {
+  auto cloned = internal::MakeIntrusivePtr<ShardingIndexedCodecSpec>(*this);
+  if (!cloned->options.sub_chunk_codecs.has_value()) {
+    return absl::InvalidArgumentError(
+        "sharding_indexed codec is missing sub_chunk_codecs");
+  }
+  ZarrCodecChainSpec* sub = &*cloned->options.sub_chunk_codecs;
+  return std::pair<internal::IntrusivePtr<ZarrShardingCodecSpec>,
+                   ZarrCodecChainSpec*>{std::move(cloned), sub};
+}
+
 absl::Status ShardingIndexedCodecSpec::GetDecodedChunkLayout(
     const ArrayDataTypeAndShapeInfo& array_info,
     ArrayCodecChunkLayoutInfo& decoded) const {
-  ArrayDataTypeAndShapeInfo sub_chunk_info;
   if (options.sub_chunk_shape &&
-      !RankConstraint::Implies(options.sub_chunk_shape->size(),
-                               array_info.rank)) {
+      static_cast<DimensionIndex>(options.sub_chunk_shape->size()) !=
+          array_info.rank) {
     return SubChunkRankMismatch(*options.sub_chunk_shape, array_info.rank);
   }
+  ArrayDataTypeAndShapeInfo sub_chunk_info;
   sub_chunk_info.dtype = array_info.dtype;
   sub_chunk_info.rank = array_info.rank;
+  sub_chunk_info.inner_shape = array_info.inner_shape;
   if (options.sub_chunk_shape) {
+    auto& shape = sub_chunk_info.shape.emplace();
     std::copy(options.sub_chunk_shape->begin(), options.sub_chunk_shape->end(),
-              sub_chunk_info.shape.emplace().begin());
+              shape.begin());
   }
   if (options.sub_chunk_codecs) {
     TENSORSTORE_RETURN_IF_ERROR(options.sub_chunk_codecs->GetDecodedChunkLayout(
@@ -258,15 +276,21 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
   } else {
     return absl::InvalidArgumentError("\"chunk_shape\" must be specified");
   }
-  if (sub_chunk_shape.size() != decoded.rank) {
+  if (static_cast<DimensionIndex>(sub_chunk_shape.size()) != decoded.rank) {
     return SubChunkRankMismatch(sub_chunk_shape, decoded.rank);
   }
+  std::vector<Index> runtime_sub_chunk_shape(sub_chunk_shape.begin(),
+                                             sub_chunk_shape.end());
+  runtime_sub_chunk_shape.insert(runtime_sub_chunk_shape.end(),
+                                 decoded.inner_shape.begin(),
+                                 decoded.inner_shape.end());
   internal::IntrusivePtr<ShardingIndexedCodec> codec;
   auto set_up_codecs =
       [&](const ZarrCodecChainSpec& sub_chunk_codecs) -> absl::Status {
     ArrayCodecResolveParameters sub_chunk_decoded;
     sub_chunk_decoded.dtype = decoded.dtype;
     sub_chunk_decoded.rank = decoded.rank;
+    sub_chunk_decoded.inner_shape = decoded.inner_shape;
     sub_chunk_decoded.fill_value = decoded.fill_value;
     if (decoded.read_chunk_shape) {
       std::copy_n(decoded.read_chunk_shape->begin(), decoded.rank,
@@ -290,6 +314,7 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
     ArrayDataTypeAndShapeInfo array_info;
     array_info.dtype = decoded.dtype;
     array_info.rank = decoded.rank;
+    array_info.inner_shape = decoded.inner_shape;
     ArrayCodecChunkLayoutInfo layout_info;
     TENSORSTORE_RETURN_IF_ERROR(
         (resolved_options ? *resolved_options->sub_chunk_codecs
@@ -301,16 +326,23 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
                 layout_info.inner_order->begin() + decoded.rank,
                 static_cast<DimensionIndex>(0));
     }
+    // Extend the inner_order to runtime rank with identity on inner dims.
+    const DimensionIndex inner_rank =
+        static_cast<DimensionIndex>(decoded.inner_shape.size());
+    for (DimensionIndex i = 0; i < inner_rank; ++i) {
+      (*layout_info.inner_order)[decoded.rank + i] = decoded.rank + i;
+    }
+    const DimensionIndex runtime_rank = decoded.rank + inner_rank;
     internal::ChunkGridSpecification::ComponentList components;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto broadcast_fill_value,
-        BroadcastArray(decoded.fill_value, BoxView<>(sub_chunk_shape.size())));
+        BroadcastArray(decoded.fill_value, BoxView<>(runtime_rank)));
     auto& component = components.emplace_back(
         internal::AsyncWriteArray::Spec{
-            std::move(broadcast_fill_value), Box<>(sub_chunk_shape.size()),
+            std::move(broadcast_fill_value), Box<>(runtime_rank),
             ContiguousLayoutPermutation<>(tensorstore::span(
-                layout_info.inner_order->data(), decoded.rank))},
-        std::vector<Index>(sub_chunk_shape.begin(), sub_chunk_shape.end()));
+                layout_info.inner_order->data(), runtime_rank))},
+        runtime_sub_chunk_shape);
     component.array_spec.fill_value_comparison_kind =
         EqualityComparisonKind::identical;
     codec = internal::MakeIntrusivePtr<ShardingIndexedCodec>(
@@ -319,7 +351,12 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
         options.index_location.value_or(ShardIndexLocation::kEnd);
     codec->sub_chunk_codec_chain_ = std::move(sub_chunk_codec_chain);
     if (resolved_options) {
-      resolved_options->sub_chunk_shape = codec->sub_chunk_grid_.chunk_shape;
+      if (options.sub_chunk_shape) {
+        resolved_options->sub_chunk_shape = *options.sub_chunk_shape;
+      } else {
+        resolved_options->sub_chunk_shape.emplace(sub_chunk_shape.begin(),
+                                                  sub_chunk_shape.end());
+      }
       resolved_options->index_location = codec->index_location_;
     }
     return absl::OkStatus();
@@ -349,7 +386,6 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
 TENSORSTORE_GLOBAL_INITIALIZER {
   using Self = ShardingIndexedCodecSpec;
   using Options = Self::Options;
-  namespace jb = ::tensorstore::internal_json_binding;
   RegisterCodec<Self>(
       "sharding_indexed",
       jb::Projection<&Self::options>(jb::Sequence(

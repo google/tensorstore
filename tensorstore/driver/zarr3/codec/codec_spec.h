@@ -58,6 +58,12 @@
 //    `ZarrArrayToBytesCodecSpec::GetDecodedChunkLayout` and
 //    `ZarrArrayToArrayCodecSpec::GetDecodedChunkLayout`.
 //
+//    Inner dimensions contributed by the data type (e.g. for `open_as_void`
+//    or structured fields with a `field_shape`) are carried via `inner_shape`
+//    and are *not* included in `rank`.  "array -> array" codecs forward
+//    `inner_shape` unchanged; the "array -> bytes" codec is the consumer and
+//    sees runtime rank `rank + inner_shape.size()`.
+//
 // 5. To convert the codec specs into actual codecs, the
 //    `Zarr{ArrayToArray,ArrayToBytes,BytesToBytes}CodecSpec::Resolve` methods
 //    is called, propagating parameters forward from one codec to the next.  The
@@ -69,6 +75,7 @@
 
 #include <array>
 #include <optional>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
@@ -136,10 +143,17 @@ struct ArrayDataTypeAndShapeInfo {
   DataType dtype;
 
   // Specifies the rank of the array on which the codec will operate.
+  // This excludes any inner dimensions contributed by `dtype`.
   DimensionIndex rank = dynamic_rank;
 
   // Specifies the shape of the array on which the codec will operate.
+  // When present, has exactly `rank` valid entries.
   std::optional<std::array<Index, kMaxRank>> shape;
+
+  // Inner trailing dimensions contributed by `dtype` (e.g. for `open_as_void`).
+  // These are propagated unchanged through "array -> array" codecs and consumed
+  // by the "array -> bytes" codec.
+  std::vector<Index> inner_shape;
 };
 
 // Specifies information about the chunk layout that must be propagated through
@@ -166,6 +180,7 @@ struct ArrayCodecResolveParameters {
   DataType dtype;
 
   // Specifies the rank of the array on which the codec will operate.
+  // This excludes any inner dimensions contributed by `dtype`.
   DimensionIndex rank;
 
   // Specifies the fill value.
@@ -179,6 +194,9 @@ struct ArrayCodecResolveParameters {
 
   // Specifies required inner order.
   std::optional<std::array<DimensionIndex, kMaxRank>> inner_order;
+
+  // Inner trailing dimensions contributed by `dtype` (e.g. for `open_as_void`).
+  std::vector<Index> inner_shape;
 };
 
 // Spec for an "array -> array" codec.
