@@ -87,11 +87,11 @@ DefaultCurlHandleFactory::Config DefaultCurlHandleFactory::DefaultConfig() {
   config.low_speed_time_seconds =
       GetFlagOrEnvValue(FLAGS_tensorstore_curl_low_speed_time_seconds,
                         "TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS")
-          .value_or(0);
+          .value_or(120);
   config.low_speed_limit_bytes =
       GetFlagOrEnvValue(FLAGS_tensorstore_curl_low_speed_limit_bytes,
                         "TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES")
-          .value_or(0);
+          .value_or(1);
   config.max_http2_concurrent_streams = GetMaxHttp2ConcurrentStreams();
   config.ca_path =
       GetFlagOrEnvValue(FLAGS_tensorstore_ca_path, "TENSORSTORE_CA_PATH");
