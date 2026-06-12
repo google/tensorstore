@@ -24,6 +24,8 @@
 """Updates third-party dependency versions."""
 
 import argparse
+import concurrent.futures
+import dataclasses
 import functools
 import hashlib
 import io
@@ -35,7 +37,6 @@ import sys
 import tarfile
 import tempfile
 import time
-from typing import Optional, Tuple
 import urllib.parse
 import zipfile
 
@@ -44,12 +45,42 @@ import lxml.html
 import packaging.version
 import requests
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 
 _TENSORSTORE_MIRROR = 'tensorstore-bazel-mirror'
 
+_THIRD_PARTY_DIR = 'tensorstore/third_party'
 
-def _is_mirror_url(url: str) -> Tuple[str, bool]:
+GITHUB_REPO_RE = re.compile(
+    r'https://(?:api\.)?github\.com/(?:repos/)?([^/]+)/([^/]+)/(.*)'
+)
+DATE_RE = re.compile(
+    r'# ([a-z\-_]+)\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)$', re.MULTILINE
+)
+DOC_VERSION_RE = re.compile(r'doc_version\s*=\s*"([^"]*)"')
+STRIP_PREFIX_RE = re.compile(r'strip_prefix\s*=\s*"([^"]*)"')
+SHA256_RE = re.compile(r'sha256\s*=\s*"([^"]*)"')
+
+
+def parse_version(version_str: str) -> packaging.version.Version:
+  """Parses a version string into a packaging.version.Version object."""
+  try:
+    return packaging.version.parse(version_str)
+  except packaging.version.InvalidVersion:
+    # Try normalizing date-like versions: YYYY-MM-DD -> YYYY.MM.DD
+    normalized = re.sub(r'(\d{4})-(\d{2})-(\d{2})', r'\1.\2.\3', version_str)
+    return packaging.version.parse(normalized)
+
+
+def _suffix(url: str) -> str:
+  if '.tar.gz' in url or '/tarball/' in url:
+    return 'tar.gz'
+  if '.zip' in url or '/zipball/' in url:
+    return 'zip'
+  return 'unknown'
+
+
+def _is_mirror_url(url: str) -> tuple[str, bool]:
   for prefix in [
       'https://mirror.bazel.build/',
       'https://storage.googleapis.com/tensorstore-bazel-mirror/',
@@ -60,14 +91,13 @@ def _is_mirror_url(url: str) -> Tuple[str, bool]:
   return url, False
 
 
-def mirror_url(url: str) -> Tuple[str, str]:
+def mirror_url(url: str) -> tuple[str, str]:
   """Mirrors the provided url to the tensorstore mirror bucket."""
 
   url, _ = _is_mirror_url(url)
-  if url.startswith('https://'):
-    suffix = url[8:]
-  elif url.startswith('http://'):
-    suffix = url[7:]
+  # The mirrored url includes everything after the scheme.
+  if url.startswith(('https://', 'http://')):
+    suffix = url.split('://', 1)[1]
   else:
     raise ValueError(f'Failed to mirror non-url: {url}')
   dest_bucket = f'gs://{_TENSORSTORE_MIRROR}/{suffix}'
@@ -90,12 +120,18 @@ def mirror_url(url: str) -> Tuple[str, str]:
   if cmd.returncode == 0:
     return url, mirror
   print(f'Mirroring {url} to {dest_bucket}')
+  filename = None
   try:
     with tempfile.NamedTemporaryFile(delete=True) as temp:
       filename = temp.name
-    cmd = subprocess.run(['wget', '-O', filename, url], check=True)
-    # Note: The flag '-h' is not found in the guide.
-    cmd = subprocess.run(
+    subprocess.run(['wget', '-O', filename, url], check=True)
+  except subprocess.CalledProcessError as exc:
+    if filename is not None and os.path.exists(filename):
+      os.remove(filename)
+    raise ValueError(f'Downloading {url} failed') from exc
+
+  try:
+    subprocess.run(
         [
             'gcloud',
             'storage',
@@ -108,9 +144,13 @@ def mirror_url(url: str) -> Tuple[str, str]:
         check=True,
     )
   except subprocess.CalledProcessError as exc:
-    raise ValueError(f'Mirroring {url} failed') from exc
+    print(
+        f'WARNING: Uploading to mirror failed: {exc}. Proceeding with mirror'
+        ' URL in config.'
+    )
   finally:
-    os.remove(filename)
+    if os.path.exists(filename):
+      os.remove(filename)
 
   return url, mirror
 
@@ -125,32 +165,125 @@ def _get_session():
   return s
 
 
+@dataclasses.dataclass(frozen=True)
+class Workspace:
+  name: str
+  file_path: pathlib.Path
+  url: str
+  sha256: str
+  strip_prefix: str | None
+  mirror_url: str | None = None
+  branch: str | None = None
+  updated_date: str | None = None
+  doc_version: str | None = None
+
+  # Significant Derived Data
+  @property
+  def current_version(self) -> str:
+    """Returns the current version, mostly derived from the URL and fields."""
+    if self.url.startswith(('https://github.com/', 'https://api.github.com/')):
+      return self.github_tag
+    if self.doc_version:
+      return self.doc_version
+    if self.strip_prefix:
+      m = re.fullmatch(r'(.*)-v?([0-9][0-9a-zA-Z._-]*)', self.strip_prefix)
+      if m:
+        return m.group(2)[:12]
+    m = re.search(r'[-/]([0-9]+(?:\.[0-9]+)+)', self.url)
+    if m:
+      return m.group(1)
+    return 'unknown'
+
+  # Purely Derived Attributes
+  @functools.cached_property
+  def _github_info(self) -> tuple[str, str, str, bool]:
+    repo_m = GITHUB_REPO_RE.fullmatch(self.url)
+    if not repo_m:
+      raise ValueError(f'{self.url} does not appear to be a github url')
+    org = repo_m.group(1)
+    repo = repo_m.group(2)
+    tag = ''
+    is_release_asset = False
+    path = repo_m.group(3)
+    if not path:
+      return org, repo, tag, is_release_asset
+    m = re.search(r'(tarball|zipball)/(.*)', path)
+    if m:
+      tag = m.group(2)
+      return org, repo, tag, is_release_asset
+    m = re.search(r'archive/(.*)\.(tar\.gz|zip)', path)
+    if m:
+      tag = m.group(1)
+      return org, repo, tag, is_release_asset
+    m = re.search(r'releases/download/([^/]+)/(.*)\.(tar\.gz|zip)', path)
+    if m:
+      is_release_asset = True
+      tag = m.group(1)
+      return org, repo, tag, is_release_asset
+    return org, repo, tag, is_release_asset
+
+  @property
+  def github_org(self) -> str:
+    return self._github_info[0]
+
+  @property
+  def github_repo(self) -> str:
+    return self._github_info[1]
+
+  @property
+  def github_tag(self) -> str:
+    return self._github_info[2]
+
+  @property
+  def is_release_asset(self) -> bool:
+    return self._github_info[3]
+
+  @property
+  def is_github_commit(self) -> bool:
+    return re.fullmatch('[0-9a-f]{40}', self.github_tag) is not None
+
+  @property
+  def suffix(self) -> str:
+    return _suffix(self.url)
+
+
+@dataclasses.dataclass
+class UpdateResult:
+  url: str
+  version: str
+  date: str | None = None
+  branch: str | None = None
+
+
 class WorkspaceDict(dict):
   """Dictionary type used to evaluate workspace.bzl files as python."""
 
   def __init__(self):
+    super().__init__()
     self.maybe_args = {}
-    dict.__setitem__(self, 'native', self)
+    super().__setitem__('native', self)
 
   def __setitem__(self, key, val):
     if not hasattr(self, key):
-      dict.__setitem__(self, key, val)
+      super().__setitem__(key, val)
 
   def __getitem__(self, key):
     if hasattr(self, key):
       return getattr(self, key)
-    if dict.__contains__(self, key):
-      return dict.__getitem__(self, key)
+    if key in self:
+      return super().__getitem__(key)
     return self._unimplemented
 
   def _unimplemented(self, *args, **kwargs):
     pass
 
   def glob(self, *args, **kwargs):
+    del args, kwargs
     # NOTE: Non-trivial uses of glob() in BUILD files will need attention.
     return []
 
   def select(self, arg_dict):
+    del arg_dict
     return []
 
   def load(self, *args):
@@ -160,12 +293,14 @@ class WorkspaceDict(dict):
     pass
 
   def package_name(self, **kwargs):
+    del kwargs
     return ''
 
   def third_party_http_archive(self):
     pass
 
   def maybe(self, fn, **kwargs):
+    del fn
     self.maybe_args = kwargs
 
   def get_args(self):
@@ -174,154 +309,55 @@ class WorkspaceDict(dict):
     return self.maybe_args
 
   def mirror_url(self, url: str) -> list[str]:
-    self.mirror_url_args = url
     return [url]
 
 
-class WorkspaceFile:
-  """Holds the contents of a workspace.bzl file and the parse methods."""
+def parse_workspace_file(name: str, file_path: pathlib.Path) -> Workspace:
+  """Parses a workspace.bzl file into a Workspace dataclass."""
+  content = file_path.read_text()
 
-  URL_RE = re.compile(r'"(https://[^"]*)"')
-  STRIP_PREFIX_RE = re.compile('strip_prefix = "([^"]*)-([^-"]*)"')
-  SHA256_RE = re.compile('sha256 = "([^"]*)"')
-  GITHUB_REPO_RE = re.compile(
-      r'https://(?:api\.)?github\.com/(?:repos/)?([^/]+)/([^/]+)/(.*)'
+  workspace_dict = WorkspaceDict()
+  exec(content, workspace_dict)  # pylint: disable=exec-used
+  repo_args = workspace_dict.get_args()
+
+  # Extract url, mirrored url.
+  url = None
+  mirror = None
+  for u in repo_args.get('urls', []):
+    u_cleaned, m = _is_mirror_url(u)
+    if m:
+      mirror = u
+    if not url:
+      url = u_cleaned
+    elif url != u_cleaned:
+      print(f'Unexpected url {url} in {name}: {u_cleaned}')
+
+  # Extract developer-tracking / version comment attributes dynamically
+  doc_version_m = DOC_VERSION_RE.search(content)
+  doc_version = doc_version_m.group(1) if doc_version_m else None
+
+  date_m = DATE_RE.search(content, re.MULTILINE)
+  if date_m:
+    branch = date_m.group(1)
+    updated_date = date_m.group(2)
+  else:
+    branch = None
+    updated_date = None
+
+  return Workspace(
+      name=name,
+      file_path=file_path,
+      url=url,
+      sha256=repo_args.get('sha256', ''),
+      strip_prefix=repo_args.get('strip_prefix', None),
+      mirror_url=mirror,
+      branch=branch,
+      updated_date=updated_date,
+      doc_version=doc_version,
   )
-  DATE_RE = re.compile(
-      r'# ([a-z\-_]+)\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)$', re.MULTILINE
-  )
-
-  def __init__(self, name: str, filename: pathlib.Path):
-    self._name = name
-    self._filename = filename
-    self._content = filename.read_text()
-    self._is_release_asset = False
-    self._tag = ''
-    self._github_fields_updated = False
-
-    self._workspace_dict = WorkspaceDict()
-    exec(self._content, self._workspace_dict)
-    self._repo_args = self._workspace_dict.get_args()
-
-    # Extract url, mirrored url.
-    self._url = None
-    self._mirror = None
-    for url in self._repo_args.get('urls', []):
-      u, m = _is_mirror_url(url)
-      if m:
-        self._mirror = url
-      if not self._url:
-        self._url = u
-      elif self._url != u:
-        print(f'Unexpected url {self._url} in {self._name}: {u}')
-
-  def _update_github_fields(self):
-    """Updates the .github properties.
-
-           Extract .github fields from url formats like:
-    https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-cpp-3.19.1.tar.gz",
-    https://api.github.com/repos/abseil/abseil-cpp/tarball/20211102.0
-    https://api.github.com/repos/abseil/abseil-cpp/tarball/refs/tags/20211102.0
-    https://github.com/pybind/pybind11/archive/refs/tags/archive/pr2672_test_unique_ptr_member.zip
-    https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4994.tar.gz
-    """
-    if self._github_fields_updated:
-      return
-    self._github_fields_updated = True  # run_once
-
-    repo_m = self.GITHUB_REPO_RE.fullmatch(self.url)
-    if not repo_m:
-      raise ValueError(f'{self.url} does not appear to be a github url')
-    self._github_org = str(repo_m.group(1))
-    self._github_repo = str(repo_m.group(2))
-    path = str(repo_m.group(3))
-    if not path:
-      return
-    m = re.search(r'(tarball|zipball)/(.*)', path)
-    if m:
-      self._tag = str(m.group(2))
-      return
-    m = re.search(r'archive/(.*)\.(tar\.gz|zip)', path)
-    if m:
-      self._tag = str(m.group(1))
-      return
-    m = re.search(r'releases/download/([^/]+)/(.*)\.(tar\.gz|zip)', path)
-    if m:
-      self._is_release_asset = True
-      self._tag = str(m.group(1))
-      return
-
-  @property
-  def name(self):
-    return self._name
-
-  @property
-  def content(self):
-    return self._content
-
-  @property
-  def url(self) -> str:
-    return self._url
-
-  @property
-  def mirror(self) -> Optional[str]:
-    return self._mirror
-
-  @property
-  def github_org(self):
-    self._update_github_fields()
-    return self._github_org
-
-  @property
-  def github_repo(self):
-    self._update_github_fields()
-    return self._github_repo
-
-  @property
-  def github_tag(self):
-    self._update_github_fields()
-    return self._tag
-
-  @property
-  @functools.cache
-  def suffix(self):
-    if self.url.find('.tar.gz') != -1 or self.url.find('/tarball/') != -1:
-      return 'tar.gz'
-    if self.url.find('/zipball/') != -1 or self.url.find('.zip') != -1:
-      return 'zip'
-    return 'unknown'
-
-  @property
-  def is_release_asset(self):
-    self._update_github_fields()
-    return self._is_release_asset
-
-  @property
-  def is_github_commit(self):
-    return re.fullmatch('[0-9a-f]{40}', self.github_tag) is not None
-
-  @property
-  @functools.cache
-  def url_m(self):
-    return self.URL_RE.search(self._content)
-
-  @property
-  @functools.cache
-  def sha256_m(self):
-    return self.SHA256_RE.search(self._content)
-
-  @property
-  @functools.cache
-  def strip_prefix_m(self):
-    return self.STRIP_PREFIX_RE.search(self._content)
-
-  @property
-  @functools.cache
-  def date_m(self):
-    return self.DATE_RE.search(self._content, re.MULTILINE)
 
 
-def get_latest_download(webpage_url: str, url_pattern: str) -> Tuple[str, str]:
+def get_latest_download(webpage_url: str, url_pattern: str) -> tuple[str, str]:
   """Finds a matching link corresponding to the latest version.
 
   Retrieves `webpage_url`, finds links matching regular expression
@@ -337,7 +373,7 @@ def get_latest_download(webpage_url: str, url_pattern: str) -> Tuple[str, str]:
   Returns:
     A tuple `(url, version)` for the latest version.
   """
-  r = _get_session().get(webpage_url)
+  r = _get_session().get(webpage_url, timeout=10)
   r.raise_for_status()
   tree = lxml.html.fromstring(r.text)
   link_list = tree.xpath('//a')
@@ -352,7 +388,7 @@ def get_latest_download(webpage_url: str, url_pattern: str) -> Tuple[str, str]:
     url = urllib.parse.urljoin(base_url, link.get('href'))
     m = re.fullmatch(url_pattern, url)
     if m is not None:
-      v = packaging.version.parse(m.group(1))
+      v = parse_version(m.group(1))
       if not v.is_prerelease:
         versions.append((v, m.group(0), m.group(1)))
   versions.sort()
@@ -382,7 +418,7 @@ def make_url_pattern(url: str, version: str) -> str:
 
 
 @functools.cache
-def github_releases(github_org, github_repo):
+def github_releases(github_org: str, github_repo: str) -> list[dict]:
   uri = f'https://api.github.com/repos/{github_org}/{github_repo}/releases'
   # eg. https://api.github.com/repos/abseil/abseil-cpp/releases
   r = _get_session().get(uri, timeout=5)
@@ -391,292 +427,561 @@ def github_releases(github_org, github_repo):
 
 
 @functools.cache
-def git_references(github_org, github_repo):
+def github_containing_branches_and_tags(
+    org: str, repo: str, commit_sha: str
+) -> tuple[list[str], list[str]]:
+  """Looks up the branches and tags containing a commit on GitHub."""
+  url = f'https://github.com/{org}/{repo}/branch_commits/{commit_sha}'
+  r = _get_session().get(url, timeout=5)
+  r.raise_for_status()
+  doc = lxml.html.fromstring(r.content)
+
+  branches = [
+      a.text.strip()
+      for a in doc.xpath(
+          '//ul[contains(@class, "branches-list")]/li[contains(@class,'
+          ' "branch")]/a'
+      )
+  ]
+  tags = [
+      a.text.strip()
+      for a in doc.xpath('//ul[contains(@class, "branches-tag-list")]//a')
+  ]
+  return branches, tags
+
+
+@functools.cache
+def git_references(repo_url: str) -> dict[str, str]:
+  """Returns a mapping of git references to their commit hashes."""
   all_refs = {}
   # Check for new version
   tag_output = subprocess.check_output(
-      ['git', 'ls-remote', f'https://github.com/{github_org}/{github_repo}'],
+      ['git', 'ls-remote', repo_url],
       encoding='utf-8',
+      timeout=15,
   )
   for line in tag_output.splitlines():
     line = line.strip()
     if not line:
       continue
     m = re.fullmatch(r'([0-9a-f]+)\s+([^\s]+)$', line)
-    ref_name = str(m.group(2))
-    if ref_name.endswith('^{}'):
+    if not m:
       continue
-    if ref_name.startswith('refs/pull/'):
+    commit, ref_name = m.groups()
+    if ref_name.endswith('^{}') or ref_name.startswith('refs/pull/'):
       continue
-    all_refs[ref_name] = str(m.group(1))
+    all_refs[ref_name] = commit
   return all_refs
 
 
-def update_github_workspace(
-    workspace: WorkspaceFile, github_release: bool
-) -> Optional[Tuple[str, str, str]]:
-  """Updates a single github workspace.bzl file for dependency `identifier`.
+def _select_best_branch(branches: list[str]) -> str | None:
+  """Returns the first matching preferred branch or first available."""
+  for b in ['main', 'master', 'trunk', 'develop']:
+    if b in branches:
+      return b
+  return branches[0] if branches else None
 
-  Args:
-    workspace: WorkspaceFile object with content of the workspace.bzl file to
-      check/update.
-    github_release: Prefer updating to the latest github releases
 
-  Returns:
-    tuple of (new_url, new_version, new_date)
-  """
+def _determine_tag_prefix(
+    workspace: Workspace,
+    name: str | None,
+    github_org: str,
+    github_repo: str,
+) -> str:
+  """Resolves the version tag prefix for the workspace."""
+  if workspace.github_tag.startswith('v'):
+    return 'v'
+  if name is not None and workspace.github_tag.startswith(name + '-'):
+    return name + '-'
+  if re.match(r'[0-9a-f]{40}', workspace.github_tag):
+    try:
+      _, tags = github_containing_branches_and_tags(
+          github_org, github_repo, workspace.github_tag
+      )
+      for t in tags:
+        if t.startswith('v') and t[1:2].isdigit():
+          return 'v'
+        if name is not None and t.startswith(name + '-'):
+          return name + '-'
+    except Exception:
+      pass
+  return ''
 
-  github_org = workspace.github_org
-  github_repo = workspace.github_repo
+
+class Scraper:
+  """Base class for workspace archive checkers/updaters."""
+
+  def matches(self, url: str) -> bool:
+    raise NotImplementedError()
+
+  def update(
+      self,
+      workspace: Workspace,
+      github_release: bool,
+      status_mode: bool = False,
+  ) -> UpdateResult | None:
+    raise NotImplementedError()
+
+
+class GitHubScraper(Scraper):
+  """Scraper for dependencies hosted on GitHub."""
+
+  def matches(self, url: str) -> bool:
+    return url.startswith('https://github.com/') or url.startswith(
+        'https://api.github.com/'
+    )
 
   # url refers to a "release" asset, so look at the "release" download
   # page for a later version of that asset.
-  def _try_update_release_asset():
+  def _try_update_release_asset(
+      self,
+      workspace: Workspace,
+      github_org: str,
+      github_repo: str,
+      status_mode: bool,
+  ) -> UpdateResult | None:
     if not workspace.is_release_asset:
       return None
-    existing_version = workspace.github_tag
-    if existing_version.startswith('v'):
-      existing_version = existing_version[1:]
+    existing_tag = workspace.github_tag
+    existing_bare_version = existing_tag
+    if existing_bare_version.startswith('v'):
+      existing_bare_version = existing_bare_version[1:]
+    tag_prefix = existing_tag[: len(existing_tag) - len(existing_bare_version)]
 
     release_url = f'https://github.com/{github_org}/{github_repo}/releases/'
     try:
-      new_url, new_version = get_latest_download(
+      new_url, new_bare_version = get_latest_download(
           release_url,
-          make_url_pattern(workspace.url, existing_version),
+          make_url_pattern(workspace.url, existing_bare_version),
       )
-      return (new_url, new_version, None)
+      new_tag = tag_prefix + new_bare_version
+      return UpdateResult(new_url, new_tag)
     except Exception as e:
-      print(f'Failed to get release assets from {release_url}: {e}')
+      if not status_mode:
+        print(f'Failed to get release assets from {release_url}: {e}')
       return None
 
   # url refers to specific commit on a branch, and the workspace.bzl file has a
   # branch(date) comment, so look for a later commit on the branch.
-  def _try_update_based_on_branch():
-    if not workspace.date_m:
+  def _try_update_based_on_branch(
+      self,
+      workspace: Workspace,
+      github_org: str,
+      github_repo: str,
+      status_mode: bool,
+  ) -> UpdateResult | None:
+    if not workspace.branch:
       if workspace.is_github_commit:
+        try:
+          branches, _ = github_containing_branches_and_tags(
+              github_org, github_repo, workspace.github_tag
+          )
+          branch = _select_best_branch(branches)
+          if not branch:
+            if not status_mode:
+              print(
+                  f'{workspace.name} is a commit reference but no containing'
+                  ' branch was found'
+              )
+            return None
+        except Exception as e:
+          if not status_mode:
+            print(
+                'Failed to check branches for commit'
+                f' {workspace.github_tag}: {e}'
+            )
+          return None
+      else:
+        return None
+    else:
+      branch = workspace.branch
+
+    key = f'refs/heads/{branch}'
+    all_refs = git_references(f'https://github.com/{github_org}/{github_repo}')
+    if key not in all_refs:
+      if not status_mode:
         print(
-            f'{workspace.name} appears to be a commit reference without a'
-            ' branch'
+            f'{workspace.name} appears to be missing branch "{branch}" on'
+            f' https://github.com/{github_org}/{github_repo}'
         )
       return None
-    branch = str(workspace.date_m.group(1))
-    key = f'refs/heads/{branch}'
-    all_refs = git_references(github_org, github_repo)
-    if key not in all_refs:
-      print(
-          f'{workspace.name} appears to be missing branch "{branch}" on'
-          f' https://github.com/{github_org}/{github_repo}'
-      )
-      return None
     new_version = all_refs[key]
-    new_url = f'https://github.com/{github_org}/{github_repo}/archive/{new_version}.{workspace.suffix}'
-    new_date = branch + '(' + time.strftime('%Y-%m-%d') + ')'
-    return (new_url, new_version, new_date)
+    new_url = (
+        f'https://github.com/{github_org}/{github_repo}/archive/'
+        f'{new_version}.{workspace.suffix}'
+    )
+    new_date = (
+        branch + '(' + time.strftime('%Y-%m-%d') + ')'
+        if workspace.branch
+        else None
+    )
+    return UpdateResult(new_url, new_version, new_date, branch=branch)
 
   # url refers to some tag rather than a commit, look for a later tag with
   # the same prefix as the currently selected tag.
-  def _try_update_tag():
-    if workspace.strip_prefix_m:
-      name = str(workspace.strip_prefix_m.group(1))
+  def _try_update_tag(
+      self, workspace: Workspace, github_org: str, github_repo: str
+  ) -> UpdateResult | None:
+    if workspace.strip_prefix:
+      m = re.fullmatch(r'(.*)-v?([0-9][0-9a-zA-Z._-]*)', workspace.strip_prefix)
+      name = m.group(1) if m else None
     else:
       name = None
 
-    if workspace.github_tag.startswith('v'):
-      tag_prefix = 'v'
-    elif name is not None and workspace.github_tag.startswith(name + '-'):
-      tag_prefix = name + '-'
-    else:
-      tag_prefix = ''
+    tag_prefix = _determine_tag_prefix(workspace, name, github_org, github_repo)
     ref_prefix = 'refs/tags/' + tag_prefix
 
     # Sort the versions and chose the "latest"
     versions = []
-    for ref_name in git_references(github_org, github_repo):
+    for ref_name in git_references(
+        f'https://github.com/{github_org}/{github_repo}'
+    ):
       if not ref_name.startswith(ref_prefix):
         continue
       ver_str = ref_name[len(ref_prefix) :]
       try:
-        v = packaging.version.parse(ver_str)
-      except:
+        v = parse_version(ver_str)
+        if not v.is_prerelease:
+          versions.append((v, ver_str))
+      except packaging.version.InvalidVersion:
         continue
-      versions.append((v, ver_str))
     if not versions:
       return None
     versions.sort()
-    new_version = versions[-1][1]
-    new_url = f'https://github.com/{github_org}/{github_repo}/archive/{tag_prefix}{new_version}.{workspace.suffix}'
-    return (new_url, new_version, None)
+    new_version_with_prefix = tag_prefix + versions[-1][1]
+    new_url = (
+        f'https://github.com/{github_org}/{github_repo}/archive/'
+        f'{new_version_with_prefix}.{workspace.suffix}'
+    )
+    return UpdateResult(new_url, new_version_with_prefix)
 
   # retrieve the latest release based on the github api
-  def _try_update_to_latest_release():
+  def _try_update_to_latest_release(
+      self, workspace: Workspace, github_org: str, github_repo: str
+  ) -> UpdateResult | None:
     all_releases = github_releases(github_org, github_repo)
     if not all_releases:
       return None
 
     # Sort the versions and chose the "latest"
     versions = []
-    for x in range(0, len(all_releases)):
-      v = packaging.version.parse(all_releases[x]['tag_name'])
-      if not v.is_prerelease:
-        versions.append((v, x))
+    for release in all_releases:
+      try:
+        v = parse_version(release['tag_name'])
+        if not v.is_prerelease:
+          versions.append((v, release['tag_name']))
+      except packaging.version.InvalidVersion:
+        continue
+    if not versions:
+      return None
     versions.sort()
-    idx = versions[-1][1]
-    new_version = all_releases[idx]['tag_name']
-    new_url = f'https://github.com/{github_org}/{github_repo}/archive/refs/tags/{new_version}.{workspace.suffix}'
-    # We could extract url and date, but api.github.com maybe throttled (it is
-    # for non asset requests) and may require additional updates to regexes to
-    # match github api download urls, which look like:
-    # https://api.github.com/repos/abseil/abseil-cpp/tarball/refs/tags/20211102
-    # url = all_releases[0]['tarball_url' if tarball else 'zipball_url']
-    # date = dateutil.parser.isoparse(all_releases[0]['created_at'])
-    return (new_url, new_version, '')
+    new_version = versions[-1][1]
+    new_url = (
+        f'https://github.com/{github_org}/{github_repo}/archive/'
+        f'refs/tags/{new_version}.{workspace.suffix}'
+    )
+    return UpdateResult(new_url, new_version, '')
 
-  tmp = _try_update_release_asset()
-  if not tmp and github_release:
-    tmp = _try_update_to_latest_release()
-  if not tmp:
-    tmp = _try_update_based_on_branch()
-  if not tmp:
-    tmp = _try_update_tag()
-  if not tmp and not github_release:
-    tmp = _try_update_to_latest_release()
+  def update(
+      self,
+      workspace: Workspace,
+      github_release: bool,
+      status_mode: bool = False,
+  ) -> UpdateResult | None:
+    github_org = workspace.github_org
+    github_repo = workspace.github_repo
 
-  if not tmp:
+    tmp = self._try_update_release_asset(
+        workspace, github_org, github_repo, status_mode
+    )
+    if not tmp and github_release:
+      tmp = self._try_update_to_latest_release(
+          workspace, github_org, github_repo
+      )
+    if not tmp:
+      tmp = self._try_update_based_on_branch(
+          workspace, github_org, github_repo, status_mode
+      )
+    if not tmp:
+      tmp = self._try_update_tag(workspace, github_org, github_repo)
+    if not tmp and not github_release:
+      tmp = self._try_update_to_latest_release(
+          workspace, github_org, github_repo
+      )
+
+    if not tmp:
+      return None
+
+    if tmp.version == workspace.github_tag:
+      return UpdateResult(
+          workspace.url, workspace.github_tag, branch=tmp.branch
+      )
+
+    return tmp
+
+
+class GoogleSourceScraper(Scraper):
+  """Scraper for dependencies hosted on GoogleSource."""
+
+  def matches(self, url: str) -> bool:
+    return '.googlesource.com/' in url
+
+  def update(
+      self,
+      workspace: Workspace,
+      github_release: bool,
+      status_mode: bool = False,
+  ) -> UpdateResult | None:
+    # Extract git repo URL from GoogleSource URL
+    m = re.match(
+        r'(?P<repo_url>https://[^/]+\.googlesource\.com/[^+?#]+)\+archive/',
+        workspace.url,
+    )
+    if not m:
+      return None
+    repo_url = m.group('repo_url').rstrip('/')
+
+    if workspace.branch:
+      branch = workspace.branch
+      key = f'refs/heads/{branch}'
+      try:
+        all_refs = git_references(repo_url)
+      except Exception as e:
+        if not status_mode:
+          print(f'Failed to get git references for {repo_url}: {e}')
+        return None
+
+      if key not in all_refs:
+        print(
+            f'{workspace.name} appears to be missing branch "{branch}" on'
+            f' {repo_url}'
+        )
+        return None
+      new_version = all_refs[key]
+
+      commit_m = re.search(r'[0-9a-f]{40}', workspace.url)
+      if commit_m:
+        new_url = workspace.url.replace(commit_m.group(0), new_version)
+        new_date = branch + '(' + time.strftime('%Y-%m-%d') + ')'
+        return UpdateResult(new_url, new_version, new_date, branch=branch)
+      else:
+        print(f'Could not find commit hash in URL {workspace.url} to replace')
+        return None
+
     return None
 
-  if tmp[1] == workspace.github_tag:
-    return (workspace.url, workspace.github_tag, None)
 
-  return tmp
+class WebpageScraper(Scraper):
+  """Scraper for dependencies published on standard webpages."""
 
+  def matches(self, url: str) -> bool:
+    return True
 
-def update_non_github_workspace(
-    workspace: WorkspaceFile,
-) -> Optional[Tuple[str, str, str]]:
-  """Updates a single non-github workspace.bzl file for dependency `identifier`.
+  def update(
+      self,
+      workspace: Workspace,
+      github_release: bool,
+      status_mode: bool = False,
+  ) -> UpdateResult | None:
+    if not workspace.strip_prefix:
+      return None
+    m = re.fullmatch(r'(.*)-v?([0-9][0-9a-zA-Z._-]*)', workspace.strip_prefix)
+    if not m:
+      return None
+    existing_version = m.group(2)[:12]
 
-  Args:
-    workspace: WorkspaceFile object with content of the workspace.bzl file to
-      check/update.
+    new_url, new_version = get_latest_download(
+        os.path.dirname(workspace.url) + '/',
+        make_url_pattern(workspace.url, existing_version),
+    )
 
-  Returns:
-    tuple of (new_url, new_version, new_date)
-  """
-  if not workspace.strip_prefix_m:
-    return None
-  existing_version = workspace.strip_prefix_m.group(2)[:12]
+    if new_version == existing_version:
+      return UpdateResult(workspace.url, new_version)
 
-  new_url, new_version = get_latest_download(
-      os.path.dirname(workspace.url) + '/',
-      make_url_pattern(workspace.url, existing_version),
-  )
-
-  if new_version == existing_version:
-    return (workspace.url, new_version, None)
-
-  return (new_url, new_version, None)
+    return UpdateResult(new_url, new_version)
 
 
-def update_workspace(
-    workspace_bzl_file: pathlib.Path,
-    identifier: str,
-    github_release: bool,
-    dry_run: bool,
-) -> None:
-  """Updates a single workspace.bzl file for dependency `identifier`.
+class SourcewareScraper(Scraper):
+  """Scraper for dependencies hosted on Sourceware."""
 
-  Args:
-    workspace_bzl_file: Path to workspace.bzl file to check/update.
-    identifier: Identifier of dependency.
-    github_release: Prefer updating to the latest github releases
-    dry_run: Indicates whether to skip updating the workspace.
-  """
-  workspace = WorkspaceFile(identifier, workspace_bzl_file)
+  def matches(self, url: str) -> bool:
+    return 'sourceware.org/pub/' in url
 
-  if not workspace.url:
-    print('Workspace url not found: %r' % (identifier,))
-    return
-  url = workspace.url
+  def update(
+      self,
+      workspace: Workspace,
+      github_release: bool,
+      status_mode: bool = False,
+  ) -> UpdateResult | None:
+    # Extract project name from URL
+    m = re.search(r'sourceware\.org/pub/([^/]+)/', workspace.url)
+    if not m:
+      return None
+    project = m.group(1)
+    repo_url = f'git://sourceware.org/git/{project}.git'
 
-  try:
-    if url.startswith('https://github.com/') or url.startswith(
-        'https://api.github.com/'
-    ):
-      new = update_github_workspace(workspace, github_release)
+    try:
+      all_refs = git_references(repo_url)
+    except Exception as e:
+      if not status_mode:
+        print(f'Failed to get git references for {repo_url}: {e}')
+      return None
+
+    # Version comparison
+    if workspace.strip_prefix:
+      m_prefix = re.fullmatch(
+          r'^(.*)-v?([0-9][0-9a-zA-Z._-]*)$', workspace.strip_prefix
+      )
+      name = m_prefix.group(1) if m_prefix else None
     else:
-      new = update_non_github_workspace(workspace)
-  except Exception as e:
-    print(e)
-    print('Failed to update: %r' % (identifier,))
+      name = None
+
+    if name is not None:
+      tag_prefix = name + '-'
+    else:
+      tag_prefix = project + '-'
+
+    ref_prefix = 'refs/tags/' + tag_prefix
+
+    versions = []
+    for ref_name in all_refs:
+      if not ref_name.startswith(ref_prefix):
+        continue
+      ver_str = ref_name[len(ref_prefix) :]
+      try:
+        v = parse_version(ver_str)
+        if not v.is_prerelease:
+          versions.append((v, ver_str))
+      except packaging.version.InvalidVersion:
+        continue
+
+    if not versions:
+      return None
+    versions.sort()
+    new_version = versions[-1][1]
+
+    new_url = (
+        f'https://sourceware.org/pub/{project}/{tag_prefix}'
+        f'{new_version}.{workspace.suffix}'
+    )
+    return UpdateResult(new_url, new_version)
+
+
+_SCRAPERS = [
+    GitHubScraper(),
+    GoogleSourceScraper(),
+    SourcewareScraper(),
+    WebpageScraper(),
+]
+
+
+def apply_workspace_update(
+    workspace: Workspace | None,
+    update: UpdateResult | None,
+    dry_run: bool,
+):
+  """Updates a single workspace.bzl file for dependency `identifier`."""
+  if not workspace:
+    return
+  if not update:
+    print(f'No update found for {workspace.name}')
     return
 
-  new_url, new_version, new_date = new if new else (None, None, None)
-
-  if new_url is None:
-    print('Failed to update: %r' % (identifier,))
-    print('   Old URL: %s' % (url,))
+  if update.url == workspace.url:
+    # Nothing to update.
     return
 
-  if new_url == workspace.url:
-    return
-
-  print('Updating %s' % (identifier,))
-  print('   Old URL: %s' % (url,))
-  print('   New URL: %s' % (new_url,))
-
+  print(f'Updating {workspace.name}')
+  print(f'   Old URL: {workspace.url}')
+  print(f'   New URL: {update.url}')
   if dry_run:
     print('   ... not updated')
     return
 
   # Retrieve the new repository to checksum and extract
   # the repository prefix.
-  new_url, mirrored_url = mirror_url(new_url)
+  new_url, mirrored_url = mirror_url(update.url)
+  try:
+    r = _get_session().get(mirrored_url)
+    r.raise_for_status()
+  except Exception as e:
+    print(
+        f'WARNING: Failed to download from mirror {mirrored_url}: {e}. Falling'
+        f' back to original URL {new_url} for checksumming.'
+    )
+    r = _get_session().get(new_url)
+    r.raise_for_status()
 
-  r = _get_session().get(mirrored_url)
-  r.raise_for_status()
-  new_h = hashlib.sha256(r.content).hexdigest()
+  # Calculate the new checksum.
+  new_sha256 = hashlib.sha256(r.content).hexdigest()
 
-  folder = None
-  if workspace.suffix == 'zip':
+  # Extract the folder name from the archive.
+  suffix = _suffix(update.url)
+  if suffix == 'tar.gz':
+    with tarfile.open(fileobj=io.BytesIO(r.content)) as t:
+      folder = t.getnames()[0]
+  elif suffix == 'zip':
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
       folder = z.namelist()[0]
   else:
-    with tarfile.open(fileobj=io.BytesIO(r.content)) as t:
-      folder = t.getnames()[0]
-  end = folder.find('/')
-  if end != -1:
-    folder = folder[0:end]
+    folder = ''
 
-  # Update the workspace content; always use a mirrored url.
-  new_workspace_content = workspace.content
-  if workspace.mirror:
-    new_workspace_content = new_workspace_content.replace(
-        workspace.mirror, mirrored_url
-    )
-    new_workspace_content = new_workspace_content.replace(url, new_url)
+  folder = folder.split('/')[0]
+
+  # Read and update the workspace.bzl file.
+  content = workspace.file_path.read_text()
+  if workspace.mirror_url:
+    content = content.replace(workspace.mirror_url, update.url)
   else:
-    new_workspace_content = new_workspace_content.replace(url, mirrored_url)
+    content = content.replace(workspace.url, update.url)
 
-  # update sha256 =
-  new_workspace_content = new_workspace_content.replace(
-      workspace.sha256_m.group(0), 'sha256 = "' + new_h + '"'
-  )
-
-  # update strip_prefix =
-  if workspace.strip_prefix_m:
-    new_workspace_content = new_workspace_content.replace(
-        workspace.strip_prefix_m.group(0), f'strip_prefix = "{folder}"'
+  # Update sha256
+  sha256_m = SHA256_RE.search(content)
+  if sha256_m:
+    content = content.replace(
+        sha256_m.group(0),
+        f'sha256 = "{new_sha256}"',
     )
 
-  # update date comment
-  if new_date is not None and workspace.date_m:
-    new_workspace_content = new_workspace_content.replace(
-        workspace.date_m.group(0), '# ' + new_date
+  # Update strip_prefix
+  strip_prefix_m = STRIP_PREFIX_RE.search(content)
+  if strip_prefix_m:
+    content = content.replace(
+        strip_prefix_m.group(0), f'strip_prefix = "{folder}"'
     )
 
-  workspace_bzl_file.write_text(new_workspace_content)
+  # Update date comment
+  date_m = DATE_RE.search(content, re.MULTILINE)
+  if update.date is not None and date_m:
+    content = content.replace(date_m.group(0), f'# {update.date}')
 
-  post_update = workspace_bzl_file.parent / 'post_update.py'
+  # Update doc_version
+  doc_version_m = DOC_VERSION_RE.search(content)
+  if doc_version_m:
+    if re.fullmatch(r'[0-9a-f]{40}', update.version.lower()):
+      date_str = time.strftime('%Y%m%d')
+      cur_doc_val = doc_version_m.group(1)
+      m_prefix = re.match(r'^(.*?)[0-9]{8}(?:-([0-9a-f]{7,40}))?$', cur_doc_val)
+      if m_prefix:
+        prefix = m_prefix.group(1)
+        has_hash = m_prefix.group(2) is not None
+      else:
+        prefix = ''
+        has_hash = False
+      if has_hash or not prefix:
+        doc_version = f'{prefix}{date_str}-{update.version[:7]}'
+      else:
+        doc_version = f'{prefix}{date_str}'
+    else:
+      doc_version = re.sub(r'^v(?=[0-9])', '', update.version)
+    content = content.replace(
+        doc_version_m.group(0), f'doc_version = "{doc_version}"'
+    )
+
+  workspace.file_path.write_text(content)
+
+  # Apply post-update script if it exists.
+  post_update = workspace.file_path.parent / 'post_update.py'
   if post_update.exists():
     print(f'Running post update script: {post_update}')
     subprocess.run([sys.executable, post_update], check=True)
@@ -684,7 +989,11 @@ def update_workspace(
 
 def main():
   ap = argparse.ArgumentParser()
-  script_dir = os.path.dirname(os.path.abspath(__file__))
+  workspace_dir = os.environ.get('BUILD_WORKSPACE_DIRECTORY')
+  if workspace_dir:
+    script_dir = pathlib.Path(workspace_dir) / _THIRD_PARTY_DIR
+  else:
+    script_dir = pathlib.Path(__file__).resolve().parent
   ap.add_argument(
       'dependencies',
       nargs='*',
@@ -700,26 +1009,79 @@ def main():
       action='store_true',
       help='Show changes that would be made but do not modify workspace files.',
   )
+  ap.add_argument(
+      '--status',
+      action='store_true',
+      help='Prints version status of all packages without modifying files.',
+  )
   args = ap.parse_args()
   dependencies = args.dependencies
   if not dependencies:
-    for name in os.listdir(script_dir):
-      if name == 'pypa':
+    for dep in script_dir.iterdir():
+      if dep.name == 'pypa':
         continue
-      dep = pathlib.Path(script_dir) / name
-      workspace_bzl_file = dep / 'workspace.bzl'
-      if not workspace_bzl_file.exists():
-        continue
-      dependencies.append(name)
+      if (dep / 'workspace.bzl').exists():
+        dependencies.append(dep.name)
+    dependencies.sort()
+
+  # Parse all workspace files.
+  workspaces = {}
   for name in dependencies:
-    dep = pathlib.Path(script_dir) / name
-    workspace_bzl_file = dep / 'workspace.bzl'
-    update_workspace(
-        workspace_bzl_file,
-        name,
-        github_release=args.github_release,
-        dry_run=args.dry_run,
-    )
+    workspace_bzl_file = script_dir / name / 'workspace.bzl'
+    ws = parse_workspace_file(name, workspace_bzl_file)
+    if ws.url:
+      workspaces[name] = ws
+
+  # Resolve updated versions for all workspaces in parallel.
+  def check_update(name: str, ws: Workspace) -> tuple[str, UpdateResult | None]:
+    try:
+      for scraper in _SCRAPERS:
+        if scraper.matches(ws.url):
+          return name, scraper.update(
+              ws, args.github_release, status_mode=args.status
+          )
+    except Exception as e:
+      if not args.status:
+        print(e)
+        print('Failed to update: %r' % (name,))
+    return name, None
+
+  updates = {}
+  with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+    futures = [
+        executor.submit(check_update, name, ws)
+        for name, ws in workspaces.items()
+    ]
+    for future in concurrent.futures.as_completed(futures):
+      name, u = future.result()
+      if u is not None:
+        if workspaces[name].current_version != u.version:
+          updates[name] = u
+
+  # Print update status.
+  if not updates:
+    print('All packages are up to date.')
+    return
+
+  for name in dependencies:
+    if name in updates and name in workspaces:
+      ws = workspaces[name]
+      u = updates[name]
+      if u.branch:
+        print(f'{name} ({u.branch}): {ws.current_version} -> {u.version}')
+      else:
+        print(f'{name}: {ws.current_version} -> {u.version}')
+
+  if args.status:
+    return
+
+  # Apply updates
+  print('Applying workspace updates')
+  for name in dependencies:
+    if name in workspaces:
+      apply_workspace_update(
+          workspaces[name], updates.get(name), dry_run=args.dry_run
+      )
 
 
 if __name__ == '__main__':
