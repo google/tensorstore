@@ -15,11 +15,13 @@
 #include "tensorstore/internal/aws/credentials/test_utils.h"
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/strip.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -30,27 +32,27 @@ namespace internal_aws {
 using ::tensorstore::internal_http::HeaderMap;
 
 std::vector<std::pair<std::string, internal_http::HttpResponse>>
-DefaultImdsCredentialFlow(const std::string& api_token,
-                          const std::string& access_key,
-                          const std::string& secret_key,
-                          const std::string& session_token,
-                          const absl::Time& expires_at) {
-  static constexpr char kDefaultEndpoint[] = "http://169.254.169.254:80";
+DefaultImdsCredentialFlow(std::string_view api_token,
+                          std::string_view access_key,
+                          std::string_view secret_key,
+                          std::string_view session_token, absl::Time expires_at,
+                          std::string_view endpoint) {
+  endpoint = absl::StripSuffix(endpoint, "/");
   return std::vector<std::pair<std::string, internal_http::HttpResponse>>{
-      {absl::StrFormat("PUT %s/latest/api/token", kDefaultEndpoint),
+      {absl::StrFormat("PUT %s/latest/api/token", endpoint),
        internal_http::HttpResponse{200, absl::Cord{api_token}}},
-      {absl::StrFormat("GET %s/latest/meta-data/iam/", kDefaultEndpoint),
+      {absl::StrFormat("GET %s/latest/meta-data/iam/", endpoint),
        internal_http::HttpResponse{
            200, absl::Cord{"info"},
            HeaderMap{{"x-aws-ec2-metadata-token", api_token}}}},
       {absl::StrFormat("GET %s/latest/meta-data/iam/security-credentials/",
-                       kDefaultEndpoint),
+                       endpoint),
        internal_http::HttpResponse{
            200, absl::Cord{"mock-iam-role"},
            HeaderMap{{"x-aws-ec2-metadata-token", api_token}}}},
       {absl::StrFormat(
            "GET %s/latest/meta-data/iam/security-credentials/mock-iam-role",
-           kDefaultEndpoint),
+           endpoint),
        internal_http::HttpResponse{
            200,
            absl::Cord(absl::StrFormat(

@@ -16,6 +16,7 @@
 #define TENSORSTORE_KVSTORE_S3_CREDENTIALS_TEST_UTILS_H_
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -28,11 +29,11 @@ namespace internal_aws {
 /// Return a Default EC2 Metadata Credential Retrieval Flow, suitable
 /// for passing to EC2MetadataMockTransport
 std::vector<std::pair<std::string, internal_http::HttpResponse>>
-DefaultImdsCredentialFlow(const std::string& api_token,
-                          const std::string& access_key,
-                          const std::string& secret_key,
-                          const std::string& session_token,
-                          const absl::Time& expires_at);
+DefaultImdsCredentialFlow(
+    std::string_view api_token, std::string_view access_key,
+    std::string_view secret_key, std::string_view session_token,
+    absl::Time expires_at,
+    std::string_view endpoint = "http://169.254.169.254:80");
 
 }  // namespace internal_aws
 }  // namespace tensorstore

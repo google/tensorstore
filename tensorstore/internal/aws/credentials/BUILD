@@ -29,6 +29,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:http_header",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",

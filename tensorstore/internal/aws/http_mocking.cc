@@ -27,6 +27,7 @@
 #include "absl/base/attributes.h"
 #include "absl/debugging/leak_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
@@ -185,8 +186,9 @@ internal_http::HttpRequest BuildHttpRequest(
     aws_http_header header;
     AWS_ZERO_STRUCT(header);
     aws_http_headers_get_index(headers, i, &header);
-    request.headers.SetHeader(AwsByteCursorToStringView(header.name),
-                              AwsByteCursorToStringView(header.value));
+    request.headers.SetHeader(
+        absl::AsciiStrToLower(AwsByteCursorToStringView(header.name)),
+        AwsByteCursorToStringView(header.value));
   }
   return request;
 }

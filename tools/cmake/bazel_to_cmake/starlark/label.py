@@ -67,6 +67,10 @@ class Label:
     return self.target_id.repository_name
 
   @property
+  def repo_name(self) -> str:
+    return self.target_id.repository_name
+
+  @property
   def package(self) -> str:
     return self.target_id.package_name
 

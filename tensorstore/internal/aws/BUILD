@@ -82,7 +82,10 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "string_view",
     hdrs = ["string_view.h"],
-    deps = ["@aws_c_common"],
+    deps = [
+        "//tensorstore/internal/meta:attributes",
+        "@aws_c_common",
+    ],
 )
 
 tensorstore_cc_library(

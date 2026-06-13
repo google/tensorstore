@@ -74,4 +74,7 @@ class Struct(object):
     raise NotImplementedError
 
   def __getattr__(self, attr: str) -> Any:
-    return self.__dict__[attr]
+    try:
+      return self.__dict__[attr]
+    except KeyError as e:
+      raise AttributeError(attr) from e

@@ -21,6 +21,7 @@
 
 #include <aws/common/byte_buf.h>
 #include <aws/common/string.h>
+#include "tensorstore/internal/meta/attributes.h"
 
 namespace tensorstore {
 namespace internal_aws {
@@ -35,7 +36,8 @@ inline std::string_view AwsByteCursorToStringView(const aws_byte_cursor *c) {
 }
 
 /// Converts aws_string to std::string_view
-inline std::string_view AwsStringToStringView(const aws_string &s) {
+inline std::string_view AwsStringToStringView(
+    const aws_string& s TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND) {
   return std::string_view(reinterpret_cast<const char *>(s.bytes), s.len);
 }
 

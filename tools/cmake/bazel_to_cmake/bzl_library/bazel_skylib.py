@@ -396,6 +396,20 @@ class BazelSkylibCommonSettingsLibrary(ScopeCommon):
         visibility=visibility,
     )
 
+  def bazel_string_list_flag(
+      self,
+      name: str,
+      visibility: list[RelativeLabel] | None = None,
+      **kwargs,
+  ):
+    context = self._context.snapshot()
+    target = context.resolve_target(name)
+    context.add_rule(
+        target,
+        lambda: _string_list_flag_impl(context, target, **kwargs),
+        visibility=visibility,
+    )
+
 
 def _bool_flag_impl(
     _context: InvocationContext,
@@ -443,3 +457,29 @@ def _string_flag_impl(
       f"""option({cmake_name} "" {quote_string(value)})\n"""
   )
   _context.add_analyzed_target(_target, TargetInfo(BuildSettingInfo(value)))
+
+
+def _string_list_flag_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    build_setting_default: Configurable[list[str]],
+    **kwargs,
+):
+  del kwargs
+  active_repo = _context.access(EvaluationState).active_repo
+
+  cmake_name = str(
+      active_repo.repository.get_cmake_target_pair(_target).target
+  ).upper()
+  existing_value = active_repo.workspace.cmake_vars.get(cmake_name)
+  default_value = _context.evaluate_configurable_list(build_setting_default)
+  if existing_value is None:
+    value = ";".join(default_value)
+  else:
+    value = existing_value
+  _context.access(CMakeBuilder).addtext(
+      f"""option({cmake_name} "" {quote_string(value)})\n"""
+  )
+  _context.add_analyzed_target(
+      _target, TargetInfo(BuildSettingInfo(value.split(";") if value else []))
+  )

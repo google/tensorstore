@@ -43,6 +43,10 @@ class BazelNativeBuildRules:
     del kwargs
     pass
 
+  def test_suite(self, **kwargs):
+    del kwargs
+    pass
+
   def py_binary(self, **kwargs):
     del kwargs
     pass
@@ -78,6 +82,11 @@ class ScopeBuildBzlFile(ScopeCommon):
   def bazel_DebugPackageInfo(self):
     return IgnoredObject()
 
+  def bazel_exec_group(self, *args, **kwargs):
+    del args
+    del kwargs
+    return IgnoredObject()
+
   def bazel_select(self, conditions: dict[RelativeLabel, T]) -> Select[T]:
     return Select({
         self._context.resolve_target_or_label(condition): value
@@ -100,6 +109,10 @@ class ScopeBuildBzlFile(ScopeCommon):
     return None
 
   def bazel_exports_files(self, *args, **kwargs):
+    del args
+    del kwargs
+
+  def bazel_visibility(self, *args, **kwargs):
     del args
     del kwargs
 
