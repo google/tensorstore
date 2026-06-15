@@ -79,9 +79,8 @@ TEST_F(ImdsCredentialsProviderTest, Basic) {
 }
 
 TEST_F(ImdsCredentialsProviderTest, WithEnvironmentVariable) {
-  // Verify that the environment variable is used to determine the endpoint.
-  static constexpr char kEndpoint[] = "http://localhost:1234/";
-  SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT", kEndpoint);
+  SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT", "http://localhost:1234/");
+  SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE", "IPv4");
 
   auto flow1 = DefaultImdsCredentialFlow(kApiToken, kAccessKey, kSecretKey,
                                          kSessionToken, expiry);
