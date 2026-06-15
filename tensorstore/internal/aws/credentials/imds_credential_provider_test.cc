@@ -79,7 +79,10 @@ TEST_F(ImdsCredentialsProviderTest, Basic) {
 }
 
 TEST_F(ImdsCredentialsProviderTest, WithEnvironmentVariable) {
-  SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT", "http://localhost:1234/");
+  // Depending on the aws_c_auth library version, the endpoint may be set to
+  // localhost or it may be read from the environment variable.
+  static constexpr char kEndpoint[] = "http://localhost:1234/";
+  SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT", kEndpoint);
   SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE", "IPv4");
 
   auto flow1 = DefaultImdsCredentialFlow(kApiToken, kAccessKey, kSecretKey,
