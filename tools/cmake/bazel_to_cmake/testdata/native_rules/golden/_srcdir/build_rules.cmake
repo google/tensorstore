@@ -77,19 +77,26 @@ add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
 # @native_rules_test_repo//:aspect_cpp__2c7be24c
 # genproto cpp @native_rules_test_repo//:c.proto
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp")
+file(GENERATE
+OUTPUT
+    "${PROJECT_BINARY_DIR}/_gen_cpp/_protoc_inc_eade179c.txt"
+CONTENT
+    "$<$<BOOL:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>;$<TARGET_PROPERTY:Protobuf_timestamp_proto,INTERFACE_INCLUDE_DIRECTORIES>>:-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>;$<TARGET_PROPERTY:Protobuf_timestamp_proto,INTERFACE_INCLUDE_DIRECTORIES>,
+-I>>"
+)
 add_custom_command(
 OUTPUT
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc"
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
-    "-I$<JOIN:$<TARGET_PROPERTY:Protobuf_timestamp_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "@${PROJECT_BINARY_DIR}/_gen_cpp/_protoc_inc_eade179c.txt"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_cpp/_protoc_inc_eade179c.txt"
     "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/c.proto"
@@ -551,18 +558,26 @@ add_library(CMakeProject::subdir_z_proto ALIAS CMakeProject_subdir_z_proto)
 # @native_rules_test_repo//subdir:aspect_cpp__2eff1b8c
 # genproto cpp @native_rules_test_repo//subdir:z.proto
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp/subdir")
+file(GENERATE
+OUTPUT
+    "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/_protoc_inc_99b6bce1.txt"
+CONTENT
+    "$<$<BOOL:$<TARGET_PROPERTY:CMakeProject_subdir_z_proto,INTERFACE_INCLUDE_DIRECTORIES>>:-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_subdir_z_proto,INTERFACE_INCLUDE_DIRECTORIES>,
+-I>>"
+)
 add_custom_command(
 OUTPUT
     "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.cc"
     "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_subdir_z_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "@${PROJECT_BINARY_DIR}/_gen_cpp/subdir/_protoc_inc_99b6bce1.txt"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/subdir/z.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/_protoc_inc_99b6bce1.txt"
     "${TEST_SRCDIR}/subdir/z.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/subdir/z.proto"

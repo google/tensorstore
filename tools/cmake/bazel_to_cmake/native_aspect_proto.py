@@ -69,7 +69,6 @@ from .util import quote_path
 from .util import quote_path_list
 from .util import quote_string
 
-
 PROTO_REPO = RepositoryId("com_google_protobuf")
 PROTO_COMPILER = PROTO_REPO.parse_target("//:protoc")
 _HEADER_SRC_PATTERN = r"\.(?:h|hpp|inc)$"
@@ -136,7 +135,7 @@ def btc_protobuf(
 
   _sep = "\n    "
 
-  mkdirs = set()
+  mkdirs: set[pathlib.PurePath] = set()
 
   def _generated_files():
     for x in sorted(generated_files):
@@ -148,16 +147,42 @@ def btc_protobuf(
   # Emit.
   if mkdirs:
     out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(mkdirs))})\n")
+
+  # Write protoc -I flags to a response file using file(GENERATE).
+  # This works around Windows command line length limits.
+  # protoc supports @<file> argument files with one argument per line.
+  args_file = ""
+  if import_targets:
+    targets = sorted(set(import_targets))
+    h_input = ";".join(
+        [plugin_settings.name, str(proto_src)] + quoted_paths + targets
+    )
+    h = hashlib.sha1(h_input.encode()).hexdigest()[:8]
+    my_dir = next(iter(mkdirs)) if mkdirs else output_dir
+    args_file = f"{my_dir}/_protoc_inc_{h}.txt"
+    cmake_depends.add(args_file)
+    # Actually emit the target.
+    all_props = ";".join(
+        f"$<TARGET_PROPERTY:{x},INTERFACE_INCLUDE_DIRECTORIES>" for x in targets
+    )
+    content = f"-I$<JOIN:{all_props},\n-I>"
+    content = f"$<$<BOOL:{all_props}>:{content}>"
+
+    out.write(f"""file(GENERATE
+OUTPUT
+    {quote_path(args_file)}
+CONTENT
+    "{content}"
+)
+""")
+
   out.write(f"""add_custom_command(
 OUTPUT
     {_sep.join(quoted_paths)}
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional{plugin}""")
-  for x in sorted(set(import_targets)):
-    _prop = f"$<TARGET_PROPERTY:{x},INTERFACE_INCLUDE_DIRECTORIES>"
-    _expr = f"-I$<JOIN:{_prop},$<SEMICOLON>-I>"
-    # _ifexists = f"$<$<TARGET_EXISTS:{x}>:$<$<BOOL:${_prop}>:{_expr}>>"
-    out.write(f"\n    {quote_string(_expr)}")
+  if args_file:
+    out.write(f"\n    {quote_string('@' + args_file)}")
   out.write(f"""
     {quote_string(flags)}
     {quote_path(proto_src)}
