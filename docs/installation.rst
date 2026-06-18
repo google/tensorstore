@@ -331,14 +331,12 @@ Build Requirements
 TensorStore is written in C++ with python bindings and is compatible with the
 following C++ compilers:
 
-- GCC 10 or later (Linux)
-- Clang 8 or later (Linux)
-- Microsoft Visual Studio 2022 version 17.0 (MSVC 14.30.30705) or later
-- Clang-cl 9 or later (Windows)
-- Mingw64 GCC 12 or later (Windows); CMake only, Bazel is not supported, and
+- GCC 12 or later (Linux)
+- Clang 16 or later (Linux)
+- Microsoft Visual Studio 2022 version 17.8 (MSVC 14.38) or later
+- Mingw64 GCC 13 or later (Windows); CMake only, Bazel is not supported, and
   ``lld`` is recommended over ``ld`` for speed.
-- Apple Xcode 11.3.1 or later (earlier versions of XCode 11 have a code
-  generation bug related to stack alignment)
+- Apple Xcode 15.0 or later
 
 In order to build from source, one of the above compilers is necessary along
 with some additional tools detailed in the sections below.
