@@ -26,6 +26,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -35,6 +36,7 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -93,11 +95,12 @@ namespace jb = ::tensorstore::internal_json_binding;
 
 struct OcdbtMetrics : public internal_kvstore::CommonReadMetrics,
                       public internal_kvstore::CommonWriteMetrics {};
+ABSL_CONST_INIT static OcdbtMetrics ocdbt_metrics;
 
-auto ocdbt_metrics = []() -> OcdbtMetrics {
-  return {TENSORSTORE_KVSTORE_COMMON_READ_METRICS(ocdbt),
-          TENSORSTORE_KVSTORE_COMMON_WRITE_METRICS(ocdbt)};
-}();
+TENSORSTORE_GLOBAL_INITIALIZER {
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_READ_METRICS(&ocdbt_metrics, ocdbt);
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_WRITE_METRICS(&ocdbt_metrics, ocdbt);
+}
 
 constexpr absl::Duration kDefaultLeaseDuration = absl::Seconds(10);
 

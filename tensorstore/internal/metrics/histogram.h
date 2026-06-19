@@ -18,11 +18,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cmath>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -30,14 +28,9 @@
 #include <vector>
 
 #include "absl/base/optimization.h"
-#include "absl/debugging/leak_check.h"
-#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/metrics/collect.h"
-#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/metric_impl.h"
-#include "tensorstore/internal/metrics/registry.h"
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -88,45 +81,28 @@ struct DefaultBucketer {
 /// bool.
 ///
 /// Example:
-///   namespace {
-///   auto* animals = Histogram<DefaultBucketer, std::string>::New(
-///        "/animal/weight", "category");
-///   }
+///   TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+///       animals, (Histogram<DefaultBucketer, std::string>),
+///       MetricMetadata("/animal/weight", "Animal weight"), "category");
 ///
-///   animals->Observe(1.0, "cat");
-///   animals->Observe(33.0, "dog");
+///   animals.Observe(1.0, "cat");
+///   animals.Observe(33.0, "dog");
 ///
 template <typename Bucketer, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Histogram {
   using Cell = HistogramCell<Bucketer>;
-  using Impl = AbstractMetric<Cell, false, Fields...>;
+  using Impl = MetricImplSelect<Cell, false, Fields...>;
 
  public:
   using value_type = double;
   using count_type = int64_t;
 
-  static std::unique_ptr<Histogram> Allocate(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    return absl::WrapUnique(new Histogram(std::string(metric_name),
-                                          std::move(metadata),
-                                          {std::string(field_names)...}));
-  }
+  constexpr Histogram() = default;
 
-  static Histogram& New(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    auto histogram = Allocate(metric_name, field_names..., metadata);
-    GetMetricRegistry().Add(histogram.get());
-    return *absl::IgnoreLeak(histogram.release());
-  }
+  Histogram(const Histogram&) = delete;
+  Histogram& operator=(const Histogram&) = delete;
 
-  auto tag() const { return Cell::kTag; }
-  auto metric_name() const { return impl_.metric_name(); }
-  const auto& field_names() const { return impl_.field_names(); }
-  MetricMetadata metadata() const { return impl_.metadata(); }
+  static constexpr std::string_view tag() { return Cell::kTag; }
 
   /// Observe a histogram value.
   void Observe(value_type value,
@@ -151,14 +127,8 @@ class ABSL_CACHELINE_ALIGNED Histogram {
     return cell ? cell->GetBucket(idx) : std::vector<int64_t>{};
   }
 
-  /// Collect the histogram. There is potential tearing between the sum and the
-  /// counts, however the current assumption is that it is unlikely to matter.
-  CollectedMetric Collect() const {
-    CollectedMetric result{};
-    result.tag = Cell::kTag;
-    result.metric_name = impl_.metric_name();
-    result.metadata = impl_.metadata();
-    result.field_names = impl_.field_names_vector();
+  /// Collect the histogram.
+  void Collect(CollectedMetric& result) const {
     impl_.CollectCells([&result](const Cell& cell, const auto& fields) {
       result.histograms.emplace_back(std::apply(
           [&](const auto&... item) {
@@ -172,7 +142,6 @@ class ABSL_CACHELINE_ALIGNED Histogram {
     if (!result.histograms.empty()) {
       Bucketer::SetHistogramLabels(result.histogram_labels);
     }
-    return result;
   }
 
   /// Collect the individual Cells: on_cell is invoked for each entry.
@@ -181,18 +150,13 @@ class ABSL_CACHELINE_ALIGNED Histogram {
   }
 
   /// Expose an individual cell, which avoids frequent lookups.
-  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) const {
     return *impl_.GetCell(labels...);
   }
 
   void Reset() { impl_.Reset(); }
 
  private:
-  Histogram(std::string metric_name, MetricMetadata metadata,
-            typename Impl::field_names_type field_names)
-      : impl_(std::move(metric_name), std::move(metadata),
-              std::move(field_names)) {}
-
   Impl impl_;
 };
 
@@ -203,12 +167,13 @@ class ABSL_CACHELINE_ALIGNED HistogramCell : public Bucketer {
   using count_type = int64_t;
   using Bucketer::Max;
 
-  HistogramCell() = default;
+  constexpr HistogramCell()
+      : count_(0), mean_(0.0), sum_squared_deviation_(0.0), buckets_() {}
 
   void Observe(double value) {
     if (!std::isfinite(value)) return;  // Ignore INF, NaN.
     size_t idx = Bucketer::BucketForValue(value);
-    if (idx < 0 || idx >= Max) return;
+    if (idx >= Max) return;
 
     // Use bit0 of count as a spinlock.
     uint64_t count = AcquireCountSpinlock();
@@ -280,10 +245,10 @@ class ABSL_CACHELINE_ALIGNED HistogramCell : public Bucketer {
     return count;
   }
 
-  mutable std::atomic<uint64_t> count_{0};  // mutable for spinlock.
-  std::atomic<double> mean_{0.0};
-  std::atomic<double> sum_squared_deviation_{0.0};
-  std::array<std::atomic<int64_t>, Max> buckets_{};
+  mutable std::atomic<uint64_t> count_;  // mutable for spinlock.
+  std::atomic<double> mean_;
+  std::atomic<double> sum_squared_deviation_;
+  std::array<std::atomic<int64_t>, Max> buckets_;
 };
 
 #else
@@ -300,13 +265,9 @@ class Histogram {
   using value_type = double;
   using Cell = HistogramCell<Bucketer>;
 
-  static Histogram& New(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    static constexpr Histogram metric;
-    return const_cast<Histogram&>(metric);
-  }
+  constexpr Histogram() = default;
+
+  static constexpr std::string_view tag() { return "histogram"; }
   static void Observe(value_type value,
                       typename FieldTraits<Fields>::param_type... labels) {}
   static Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {

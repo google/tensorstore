@@ -111,15 +111,18 @@
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/memory_region.h"
+#include "tensorstore/internal/os/open_flags.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/path.h"
@@ -187,21 +190,28 @@ namespace {
 namespace jb = tensorstore::internal_json_binding;
 
 struct FileMetrics : public internal_kvstore::CommonMetrics {
-  internal_metrics::Counter<int64_t>& open_read;
-  internal_metrics::Counter<int64_t>& lock_contention;
-  internal_metrics::Counter<int64_t>& direct_io_read;
-  // no additional members
+  internal_metrics::Counter<int64_t> open_read;
+  internal_metrics::Counter<int64_t> lock_contention;
+  internal_metrics::Counter<int64_t> direct_io_read;
 };
+ABSL_CONST_INIT static FileMetrics file_metrics;
 
-auto file_metrics = []() -> FileMetrics {
-  return {TENSORSTORE_KVSTORE_COMMON_METRICS(file),
-          TENSORSTORE_KVSTORE_COUNTER_IMPL(
-              file, open_read, "Number of times a file is opened for reading"),
-          TENSORSTORE_KVSTORE_COUNTER_IMPL(file, lock_contention,
-                                           " kvstore::Write lock contention"),
-          TENSORSTORE_KVSTORE_COUNTER_IMPL(file, direct_io_read,
-                                           " kvstore::Reads using direct IO")};
-}();
+TENSORSTORE_GLOBAL_INITIALIZER {
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_METRICS(&file_metrics, file);
+  auto& r = internal_metrics::GetMetricRegistry();
+  r.Register(&file_metrics.open_read,
+             internal_metrics::MetricMetadata(
+                 "/tensorstore/kvstore/file/open_read",
+                 "file Number of times a file is opened for reading"));
+  r.Register(&file_metrics.lock_contention,
+             internal_metrics::MetricMetadata(
+                 "/tensorstore/kvstore/file/lock_contention",
+                 "file kvstore::Write lock contention"));
+  r.Register(&file_metrics.direct_io_read,
+             internal_metrics::MetricMetadata(
+                 "/tensorstore/kvstore/file/direct_io_read",
+                 "file kvstore::Reads using direct IO"));
+}
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("file");
 

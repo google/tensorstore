@@ -33,6 +33,11 @@ tensorstore_cc_library(
     hdrs = ["stringify.h"],
 )
 
+tensorstore_cc_library(
+    name = "strip_parens",
+    hdrs = ["strip_parens.h"],
+)
+
 tensorstore_cc_compile_test(
     name = "stringify_test",
     srcs = ["stringify_test.cc"],

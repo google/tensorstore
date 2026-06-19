@@ -22,41 +22,58 @@
 #include <vector>
 
 #include "absl/base/no_destructor.h"
-#include "absl/container/flat_hash_map.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_check.h"
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/metrics/collect.h"
+#include "tensorstore/internal/metrics/metadata.h"
 
 namespace tensorstore {
 namespace internal_metrics {
 
-void MetricRegistry::AddInternal(std::string_view metric_name,
-                                 MetricRegistry::Metric m,
-                                 std::shared_ptr<void> hook) {
-  ABSL_CHECK(m) << metric_name;
-  absl::MutexLock l(mu_);
-  ABSL_CHECK(
-      entries_.try_emplace(metric_name, Entry{std::move(m), std::move(hook)})
-          .second)
-      << metric_name;
+void MetricRegistry::RegisterInternalLocked(MetricMetadata metadata,
+                                            std::string_view tag,
+                                            MetricRegistry::Metric m,
+                                            std::shared_ptr<void> hook,
+                                            const void* metric_ptr)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  ABSL_CHECK(m) << metadata.metric_name;
+  std::string_view metric_name = metadata.metric_name;
+  auto it = entries_.find(metric_name);
+  if (it != entries_.end()) {
+    ABSL_CHECK(metric_ptr != nullptr && it->metric_ptr == metric_ptr)
+        << "Metric path conflict: " << metric_name;
+    return;
+  }
+  entries_.insert(Entry{std::move(metadata), tag, std::move(m), std::move(hook),
+                        metric_ptr});
 }
 
 std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
     std::string_view prefix) {
   std::vector<CollectedMetric> all;
-  all.reserve(entries_.size());
-  absl::MutexLock l(mu_);
-  for (auto& kv : entries_) {
-    if (prefix.empty() || absl::StartsWith(kv.first, prefix)) {
-      auto opt_metric = kv.second.poly(CollectMetricTag{});
-      if (opt_metric.has_value()) {
-        all.emplace_back(*std::move(opt_metric));
-        assert(all.back().metric_name == kv.first);
+  std::vector<CollectHook> hooks;
+  {
+    absl::MutexLock l(mu_);
+    for (const auto& entry : entries_) {
+      if (prefix.empty() ||
+          absl::StartsWith(entry.metadata.metric_name, prefix)) {
+        CollectedMetric result;
+        result.metric_name = entry.metadata.metric_name;
+        result.metadata = entry.metadata;
+        result.tag = entry.tag;
+        for (const auto& name : entry.metadata.fields()) {
+          result.field_names.push_back(name);
+        }
+        if (entry.poly(CollectMetricTag{}, result)) {
+          all.emplace_back(std::move(result));
+        }
       }
     }
+    hooks = collect_hooks_;
   }
-  for (auto& hook : collect_hooks_) {
+  for (auto& hook : hooks) {
     hook(prefix, all);
   }
 
@@ -67,9 +84,17 @@ std::optional<CollectedMetric> MetricRegistry::Collect(std::string_view name) {
   absl::MutexLock l(mu_);
   auto it = entries_.find(name);
   if (it == entries_.end()) return std::nullopt;
-  auto opt_metric = it->second.poly(CollectMetricTag{});
-  assert(!opt_metric.has_value() || opt_metric->metric_name == it->first);
-  return opt_metric;
+  CollectedMetric result;
+  result.metric_name = it->metadata.metric_name;
+  result.metadata = it->metadata;
+  result.tag = it->tag;
+  for (const auto& field_name : it->metadata.fields()) {
+    result.field_names.push_back(field_name);
+  }
+  if (it->poly(CollectMetricTag{}, result)) {
+    return result;
+  }
+  return std::nullopt;
 }
 
 MetricRegistry& GetMetricRegistry() {
@@ -79,7 +104,7 @@ MetricRegistry& GetMetricRegistry() {
 
 void MetricRegistry::Reset() {
   absl::MutexLock l(mu_);
-  for (auto& [k, v] : entries_) {
+  for (auto& v : entries_) {
     v.poly(ResetMetricTag{});
   }
 }

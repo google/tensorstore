@@ -38,16 +38,16 @@
 #include "grpcpp/server_context.h"  // third_party
 #include "grpcpp/support/server_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
-#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/grpc/server_credentials.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -71,7 +71,6 @@
 #include "tensorstore/util/span.h"
 
 using ::grpc::CallbackServerContext;
-using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore_grpc::EncodeGenerationAndTimestamp;
 using ::tensorstore_grpc::Handler;
@@ -87,26 +86,31 @@ using ::tensorstore_grpc::kvstore::WriteRequest;
 using ::tensorstore_grpc::kvstore::WriteResponse;
 using ::tensorstore_grpc::kvstore::grpc_gen::KvStoreService;
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    read_metric, Counter<int64_t>,
+    MetricMetadata("/tensorstore/kvstore/tsgrpc_server/read",
+                   "KvStoreService::Read calls"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    write_metric, Counter<int64_t>,
+    MetricMetadata("/tensorstore/kvstore/tsgrpc_server/write",
+                   "KvStoreService::Write calls"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    delete_metric, Counter<int64_t>,
+    MetricMetadata("/tensorstore/kvstore/tsgrpc_server/delete",
+                   "KvStoreService::Delete calls"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    list_metric, Counter<int64_t>,
+    MetricMetadata("/tensorstore/kvstore/tsgrpc_server/list",
+                   "KvStoreService::List calls"));
+
 namespace tensorstore {
 namespace {
 
+// Trigger compilation check.
 namespace jb = ::tensorstore::internal_json_binding;
-
-auto& read_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc_server/read",
-    MetricMetadata("KvStoreService::Read calls"));
-
-auto& write_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc_server/write",
-    MetricMetadata("KvStoreService::Write calls"));
-
-auto& delete_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc_server/delete",
-    MetricMetadata("KvStoreService::Delete calls"));
-
-auto& list_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc_server/list",
-    MetricMetadata("KvStoreService::List calls"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");
 

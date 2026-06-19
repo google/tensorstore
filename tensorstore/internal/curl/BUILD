@@ -59,6 +59,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/http:http_header",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
+        "//tensorstore/internal/metrics:registration",
         "//tensorstore/internal/thread",
         "//tensorstore/internal/thread:schedule_at",
         "@abseil-cpp//absl/flags:flag",

@@ -50,6 +50,7 @@ bazel run -c opt \
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -76,12 +77,13 @@ ABSL_FLAG(absl::Duration, duration, absl::Seconds(20), "Duration of read loop");
 ABSL_FLAG(size_t, parallelism, 100, "Read parallelism");
 ABSL_FLAG(size_t, max_reads, 1000000, "Maximum read operations");
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    read_throughput, Value<double>,
+    MetricMetadata("/tensorstore/kvstore_benchmark/read_throughput",
+                   "the read throughput in this test"));
+
 namespace tensorstore {
 namespace {
-
-auto& read_throughput = internal_metrics::Value<double>::New(
-    "/tensorstore/kvstore_benchmark/read_throughput",
-    internal_metrics::MetricMetadata("the read throughput in this test"));
 
 struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   std::vector<std::string> keys;

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/internal/metrics/registry.h"
 #ifndef TENSORSTORE_METRICS_DISABLED
 
 #include <stddef.h>
@@ -21,16 +22,22 @@
 #include "absl/synchronization/blocking_counter.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/metrics/registry.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/util/executor.h"
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    benchmark_counter_int64, Counter<int64_t>,
+    MetricMetadata("/tensorstore/benchmark/counter_int64", "A metric"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    benchmark_counter_double, Counter<double>,
+    MetricMetadata("/tensorstore/benchmark/counter_double", "A metric"));
 
 namespace {
 
 using ::tensorstore::Executor;
-using ::tensorstore::internal_metrics::Counter;
 using ::tensorstore::internal_metrics::GetMetricRegistry;
-using ::tensorstore::internal_metrics::MetricMetadata;
 
 Executor SetupThreadPoolTestEnv(size_t num_threads) {
   GetMetricRegistry().Reset();
@@ -39,12 +46,6 @@ Executor SetupThreadPoolTestEnv(size_t num_threads) {
   }
   return ::tensorstore::internal::DetachedThreadPool(num_threads);
 }
-
-static auto& benchmark_counter_int64 = Counter<int64_t>::New(
-    "/tensorstore/benchmark/counter_int64", MetricMetadata("A metric"));
-
-static auto& benchmark_counter_double = Counter<double>::New(
-    "/tensorstore/benchmark/counter_double", MetricMetadata("A metric"));
 
 // This is a thread pool benchmark designed to create a lot of tasks with
 // large fanout and some memory locality.  The task itself Xors data into a

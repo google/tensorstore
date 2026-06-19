@@ -80,6 +80,7 @@ bazel run -c opt \
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/path.h"
@@ -128,16 +129,18 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec>,
 ABSL_FLAG(bool, per_operation_metrics, false,
           "Whether to collect per-operation metrics.");
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    write_throughput, Value<double>,
+    MetricMetadata("/tensorstore/kvstore_benchmark/write_throughput",
+                   "the write throughput in this test"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    read_throughput, Value<double>,
+    MetricMetadata("/tensorstore/kvstore_benchmark/read_throughput",
+                   "the read throughput in this test"));
+
 namespace tensorstore {
 namespace {
-
-auto& write_throughput = internal_metrics::Value<double>::New(
-    "/tensorstore/kvstore_benchmark/write_throughput",
-    internal_metrics::MetricMetadata("the write throughput in this test"));
-
-auto& read_throughput = internal_metrics::Value<double>::New(
-    "/tensorstore/kvstore_benchmark/read_throughput",
-    internal_metrics::MetricMetadata("the read throughput in this test"));
 
 ::nlohmann::json StartMetrics() {
   ::nlohmann::json json_metrics = ::nlohmann::json::array();

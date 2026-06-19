@@ -27,7 +27,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/metrics/counter.h"
-#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/file_util.h"
@@ -37,16 +37,13 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    lock_contention, Counter<int64_t>,
+    MetricMetadata("/tensorstore/file/lock_contention",
+                   "Number of times a file lock is contended"));
+
 namespace tensorstore {
 namespace internal_os {
-namespace {
-
-auto& lock_contention = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/file/lock_contention",
-    internal_metrics::MetricMetadata(
-        "Number of times a file lock is contended"));
-
-}  // namespace
 
 FileLock::~FileLock() {
   assert(fd_ == InvalidFileDescriptor());

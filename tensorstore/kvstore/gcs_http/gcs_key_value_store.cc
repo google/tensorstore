@@ -41,6 +41,7 @@
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -52,6 +53,8 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
@@ -152,16 +155,18 @@ namespace {
 namespace jb = tensorstore::internal_json_binding;
 
 struct GcsMetrics : public internal_kvstore::CommonMetrics {
-  internal_metrics::Counter<int64_t>& retries;
-  // no additional members
+  internal_metrics::Counter<int64_t> retries;
 };
+ABSL_CONST_INIT static GcsMetrics gcs_metrics;
 
-auto gcs_metrics = []() -> GcsMetrics {
-  return {
-      TENSORSTORE_KVSTORE_COMMON_METRICS(gcs),
-      TENSORSTORE_KVSTORE_COUNTER_IMPL(
-          gcs, retries, "count of all retried requests (read/write/delete)")};
-}();
+TENSORSTORE_GLOBAL_INITIALIZER {
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_METRICS(&gcs_metrics, gcs);
+  auto& r = internal_metrics::GetMetricRegistry();
+  r.Register(&gcs_metrics.retries,
+             internal_metrics::MetricMetadata(
+                 "/tensorstore/kvstore/gcs/retries",
+                 "gcs count of all retried requests (read/write/delete)"));
+}
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_http_logging("gcs_http");
 

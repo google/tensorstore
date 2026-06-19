@@ -30,39 +30,43 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
+#include "tensorstore/internal/metrics/max_gauge.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/os/fork_detection.h"
 #include "tensorstore/internal/thread/pool_impl.h"
 #include "tensorstore/internal/thread/task.h"
 #include "tensorstore/internal/thread/task_provider.h"
 #include "tensorstore/util/span.h"
 
-using ::tensorstore::internal_metrics::MetricMetadata;
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    thread_pool_total_queue_time_ns, Counter<double>,
+    MetricMetadata(
+        "/tensorstore/thread_pool/total_queue_time_ns",
+        "DetachedThreadPool total queue time for all TaskGroup instances",
+        Units::kNanoseconds));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    thread_pool_max_delay_ns, MaxGauge<int64_t>,
+    MetricMetadata("/tensorstore/thread_pool/max_delay_ns",
+                   "DetachedThreadPool max delay for all TaskGroup instances",
+                   Units::kNanoseconds));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    thread_pool_total_work_time_ns, Counter<double>,
+    MetricMetadata(
+        "/tensorstore/thread_pool/work_time_ns",
+        "DetachedThreadPool total work time for all TaskGroup instances",
+        Units::kNanoseconds));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    thread_pool_steal_count, Counter<double>,
+    MetricMetadata("/tensorstore/thread_pool/steal_count",
+                   "DetachedThreadPool steal count"));
 
 namespace tensorstore {
 namespace internal_thread_impl {
 namespace {
-
-auto& thread_pool_total_queue_time_ns = internal_metrics::Counter<double>::New(
-    "/tensorstore/thread_pool/total_queue_time_ns",
-    MetricMetadata(
-        "DetachedThreadPool total queue time for all TaskGroup instances",
-        internal_metrics::Units::kNanoseconds));
-
-auto& thread_pool_max_delay_ns = internal_metrics::MaxGauge<int64_t>::New(
-    "/tensorstore/thread_pool/max_delay_ns",
-    MetricMetadata("DetachedThreadPool max delay for all TaskGroup instances",
-                   internal_metrics::Units::kNanoseconds));
-
-auto& thread_pool_total_work_time_ns = internal_metrics::Counter<double>::New(
-    "/tensorstore/thread_pool/work_time_ns",
-    MetricMetadata(
-        "DetachedThreadPool total work time for all TaskGroup instances",
-        internal_metrics::Units::kNanoseconds));
-
-auto& thread_pool_steal_count = internal_metrics::Counter<double>::New(
-    "/tensorstore/thread_pool/steal_count",
-    MetricMetadata("DetachedThreadPool steal count"));
 
 constexpr absl::Duration kThreadAssignmentLifetime = absl::Milliseconds(20);
 

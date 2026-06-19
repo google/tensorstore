@@ -41,6 +41,7 @@
 #include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/digest/sha256.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -50,6 +51,8 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
@@ -71,7 +74,6 @@
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/s3_resource.h"
-#include "tensorstore/kvstore/s3/s3_uri_utils.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/url_registry.h"
@@ -132,16 +134,18 @@ namespace {
 namespace jb = tensorstore::internal_json_binding;
 
 struct S3Metrics : public internal_kvstore::CommonMetrics {
-  internal_metrics::Counter<int64_t>& retries;
-  // no additional members
+  internal_metrics::Counter<int64_t> retries;
 };
+ABSL_CONST_INIT static S3Metrics s3_metrics;
 
-auto s3_metrics = []() -> S3Metrics {
-  return {
-      TENSORSTORE_KVSTORE_COMMON_METRICS(s3),
-      TENSORSTORE_KVSTORE_COUNTER_IMPL(
-          s3, retries, "count of all retried requests (read/write/delete)")};
-}();
+TENSORSTORE_GLOBAL_INITIALIZER {
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_METRICS(&s3_metrics, s3);
+  auto& r = internal_metrics::GetMetricRegistry();
+  r.Register(&s3_metrics.retries,
+             internal_metrics::MetricMetadata(
+                 "/tensorstore/kvstore/s3/retries",
+                 "s3 count of all retried requests (read/write/delete)"));
+}
 
 ABSL_CONST_INIT internal_log::VerboseFlag s3_logging("s3");
 

@@ -20,65 +20,64 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/metadata.h"  // IWYU pragma: keep
+#include "tensorstore/internal/metrics/registry.h"  // IWYU pragma: keep
 
+// Defines the common metrics containers and registration macros for
+// key-value store drivers.
+//
+// Example usage in a key-value store driver `.cc` file:
+//
+//   #include "tensorstore/internal/global_initializer.h"
+//   #include "tensorstore/kvstore/common_metrics.h"
+//
+//   namespace {
+//   static tensorstore::internal_kvstore::CommonMetrics g_metrics;
+//
+//   TENSORSTORE_GLOBAL_INITIALIZER {
+//     TENSORSTORE_KVSTORE_REGISTER_COMMON_METRICS(&g_metrics, my_driver);
+//   }
+//   }  // namespace
+//
 namespace tensorstore {
 namespace internal_kvstore {
 
-// Holds references to the common read metrics for a kvstore driver.
+// Holds the common read metrics for a kvstore driver.
 //   /tensorstore/kvstore/driver/read
 //   /tensorstore/kvstore/driver/list
 struct CommonReadMetrics {
-  internal_metrics::Counter<int64_t>& read;
-  internal_metrics::Counter<int64_t>& list;
+  internal_metrics::Counter<int64_t> read;
+  internal_metrics::Counter<int64_t> list;
 };
 
-// Holds references to the common write metrics for a kvstore driver.
+// Holds the common write metrics for a kvstore driver.
 //   /tensorstore/kvstore/driver/write
 //   /tensorstore/kvstore/driver/delete_range
 struct CommonWriteMetrics {
-  internal_metrics::Counter<int64_t>& write;
-  internal_metrics::Counter<int64_t>& delete_range;
+  internal_metrics::Counter<int64_t> write;
+  internal_metrics::Counter<int64_t> delete_range;
 };
 
-// Holds references to the common read metrics for a kvstore driver.
+// Holds the detailed read metrics for a kvstore driver.
 //   /tensorstore/kvstore/driver/batch_read
 //   /tensorstore/kvstore/driver/bytes_read
 //   /tensorstore/kvstore/driver/read_latency_ms
 struct DetailedReadMetrics {
-  internal_metrics::Counter<int64_t>& batch_read;
-  internal_metrics::Counter<int64_t>& bytes_read;
-  internal_metrics::Histogram<internal_metrics::DefaultBucketer>&
+  internal_metrics::Counter<int64_t> batch_read;
+  internal_metrics::Counter<int64_t> bytes_read;
+  internal_metrics::Histogram<internal_metrics::DefaultBucketer>
       read_latency_ms;
 };
 
-// Holds references to the common write metrics for a kvstore driver.
+// Holds the detailed write metrics for a kvstore driver.
 //   /tensorstore/kvstore/driver/bytes_written
 //   /tensorstore/kvstore/driver/write_latency_ms
 struct DetailedWriteMetrics {
-  internal_metrics::Counter<int64_t>& bytes_written;
-  internal_metrics::Histogram<internal_metrics::DefaultBucketer>&
+  internal_metrics::Counter<int64_t> bytes_written;
+  internal_metrics::Histogram<internal_metrics::DefaultBucketer>
       write_latency_ms;
 };
 
-// Holds references to the common read and write metrics for a kvstore driver.
-//   /tensorstore/kvstore/driver/read
-//   /tensorstore/kvstore/driver/list
-//   /tensorstore/kvstore/driver/write
-//   /tensorstore/kvstore/driver/delete_range
-//   /tensorstore/kvstore/driver/batch_read
-//   /tensorstore/kvstore/driver/bytes_read
-//   /tensorstore/kvstore/driver/read_latency_ms
-//   /tensorstore/kvstore/driver/bytes_written
-//   /tensorstore/kvstore/driver/write_latency_ms
-//
-// Example:
-//   namespace {
-//     auto my_metrics = TENSORSTORE_KVSTORE_COMMON_METRICS(driver);
-//   }  // namespace
-//
-//   my_metrics.read.Increment();
-//   my_metrics.bytes_read.IncrementBy(100);
-//
+// Combined struct for all common metrics.
 struct CommonMetrics : public CommonReadMetrics,
                        public CommonWriteMetrics,
                        public DetailedReadMetrics,
@@ -86,62 +85,88 @@ struct CommonMetrics : public CommonReadMetrics,
   // no additional members
 };
 
-#define TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, NAME, DESC, ...)       \
-  ::tensorstore::internal_metrics::Counter<int64_t>::New(                \
-      "/tensorstore/kvstore/" #KVSTORE "/" #NAME,                        \
-      ::tensorstore::internal_metrics::MetricMetadata(#KVSTORE " " DESC, \
-                                                      ##__VA_ARGS__))
+// Registers the common metrics.
+// Each macro corresponds to one of the common metrics structs, above.
+//
+// \param metrics_ptr Pointer to the relevant metrics struct.
+// \param KVSTORE Identifier (e.g., `file` or `gcs`).
+//
+#define TENSORSTORE_KVSTORE_REGISTER_COMMON_READ_METRICS(metrics_ptr, KVSTORE) \
+  do {                                                                         \
+    auto& r = ::tensorstore::internal_metrics::GetMetricRegistry();            \
+    r.Register(&(metrics_ptr)->read,                                           \
+               ::tensorstore::internal_metrics::MetricMetadata(                \
+                   "/tensorstore/kvstore/" #KVSTORE "/read",                   \
+                   #KVSTORE " kvstore::Read calls"));                          \
+    r.Register(&(metrics_ptr)->list,                                           \
+               ::tensorstore::internal_metrics::MetricMetadata(                \
+                   "/tensorstore/kvstore/" #KVSTORE "/list",                   \
+                   #KVSTORE " kvstore::List calls"));                          \
+  } while (false)
 
-#define TENSORSTORE_KVSTORE_LATENCY_IMPL(KVSTORE, NAME, METRIC_FN)       \
-  ::tensorstore::internal_metrics::                                      \
-      Histogram< ::tensorstore::internal_metrics::DefaultBucketer>::New( \
-          "/tensorstore/kvstore/" #KVSTORE "/" #NAME,                    \
-          ::tensorstore::internal_metrics::MetricMetadata(               \
-              #KVSTORE " kvstore::" #METRIC_FN " latency (ms)",          \
-              ::tensorstore::internal_metrics::Units::kMilliseconds))
+#define TENSORSTORE_KVSTORE_REGISTER_COMMON_WRITE_METRICS(metrics_ptr, \
+                                                          KVSTORE)     \
+  do {                                                                 \
+    auto& r = ::tensorstore::internal_metrics::GetMetricRegistry();    \
+    r.Register(&(metrics_ptr)->write,                                  \
+               ::tensorstore::internal_metrics::MetricMetadata(        \
+                   "/tensorstore/kvstore/" #KVSTORE "/write",          \
+                   #KVSTORE " kvstore::Write calls"));                 \
+    r.Register(&(metrics_ptr)->delete_range,                           \
+               ::tensorstore::internal_metrics::MetricMetadata(        \
+                   "/tensorstore/kvstore/" #KVSTORE "/delete_range",   \
+                   #KVSTORE " kvstore::DeleteRange calls"));           \
+  } while (false)
 
-#define TENSORSTORE_KVSTORE_COMMON_READ_METRICS(KVSTORE)              \
-  []() -> ::tensorstore::internal_kvstore::CommonReadMetrics {        \
-    return {TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, read,           \
-                                             "kvstore::Read calls"),  \
-            TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, list,           \
-                                             "kvstore::List calls")}; \
-  }()
+#define TENSORSTORE_KVSTORE_REGISTER_DETAILED_READ_METRICS(metrics_ptr,   \
+                                                           KVSTORE)       \
+  do {                                                                    \
+    auto& r = ::tensorstore::internal_metrics::GetMetricRegistry();       \
+    r.Register(&(metrics_ptr)->batch_read,                                \
+               ::tensorstore::internal_metrics::MetricMetadata(           \
+                   "/tensorstore/kvstore/" #KVSTORE "/batch_read",        \
+                   #KVSTORE " kvstore::Read after batching"));            \
+    r.Register(                                                           \
+        &(metrics_ptr)->bytes_read,                                       \
+        ::tensorstore::internal_metrics::MetricMetadata(                  \
+            "/tensorstore/kvstore/" #KVSTORE "/bytes_read", "bytes read") \
+            .WithUnits(::tensorstore::internal_metrics::Units::kBytes));  \
+    r.Register(                                                           \
+        &(metrics_ptr)->read_latency_ms,                                  \
+        ::tensorstore::internal_metrics::MetricMetadata(                  \
+            "/tensorstore/kvstore/" #KVSTORE "/read_latency_ms",          \
+            #KVSTORE " kvstore::Read latency (ms)")                       \
+            .WithUnits(                                                   \
+                ::tensorstore::internal_metrics::Units::kMilliseconds));  \
+  } while (false)
 
-#define TENSORSTORE_KVSTORE_COMMON_WRITE_METRICS(KVSTORE)                    \
-  []() -> ::tensorstore::internal_kvstore::CommonWriteMetrics {              \
-    return {TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, write,                 \
-                                             "kvstore::Write calls"),        \
-            TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, delete_range,          \
-                                             "kvstore::DeleteRange calls")}; \
-  }()
+#define TENSORSTORE_KVSTORE_REGISTER_DETAILED_WRITE_METRICS(metrics_ptr, \
+                                                            KVSTORE)     \
+  do {                                                                   \
+    auto& r = ::tensorstore::internal_metrics::GetMetricRegistry();      \
+    r.Register(                                                          \
+        &(metrics_ptr)->bytes_written,                                   \
+        ::tensorstore::internal_metrics::MetricMetadata(                 \
+            "/tensorstore/kvstore/" #KVSTORE "/bytes_written",           \
+            "bytes written")                                             \
+            .WithUnits(::tensorstore::internal_metrics::Units::kBytes)); \
+    r.Register(                                                          \
+        &(metrics_ptr)->write_latency_ms,                                \
+        ::tensorstore::internal_metrics::MetricMetadata(                 \
+            "/tensorstore/kvstore/" #KVSTORE "/write_latency_ms",        \
+            #KVSTORE " kvstore::Write latency (ms)")                     \
+            .WithUnits(                                                  \
+                ::tensorstore::internal_metrics::Units::kMilliseconds)); \
+  } while (false)
 
-#define TENSORSTORE_KVSTORE_DETAILED_READ_METRICS(KVSTORE)                     \
-  []() -> ::tensorstore::internal_kvstore::DetailedReadMetrics {               \
-    return {TENSORSTORE_KVSTORE_COUNTER_IMPL(KVSTORE, batch_read,              \
-                                             "kvstore::Read after batching"),  \
-            TENSORSTORE_KVSTORE_COUNTER_IMPL(                                  \
-                KVSTORE, bytes_read, "bytes read",                             \
-                tensorstore::internal_metrics::Units::kBytes),                 \
-            TENSORSTORE_KVSTORE_LATENCY_IMPL(KVSTORE, read_latency_ms, Read)}; \
-  }()
-
-#define TENSORSTORE_KVSTORE_DETAILED_WRITE_METRICS(KVSTORE)                  \
-  []() -> ::tensorstore::internal_kvstore::DetailedWriteMetrics {            \
-    return {                                                                 \
-        TENSORSTORE_KVSTORE_COUNTER_IMPL(                                    \
-            KVSTORE, bytes_written, "bytes written",                         \
-            tensorstore::internal_metrics::Units::kBytes),                   \
-        TENSORSTORE_KVSTORE_LATENCY_IMPL(KVSTORE, write_latency_ms, Write)}; \
-  }()
-
-#define TENSORSTORE_KVSTORE_COMMON_METRICS(KVSTORE)               \
-  []() -> ::tensorstore::internal_kvstore::CommonMetrics {        \
-    return {TENSORSTORE_KVSTORE_COMMON_READ_METRICS(KVSTORE),     \
-            TENSORSTORE_KVSTORE_COMMON_WRITE_METRICS(KVSTORE),    \
-            TENSORSTORE_KVSTORE_DETAILED_READ_METRICS(KVSTORE),   \
-            TENSORSTORE_KVSTORE_DETAILED_WRITE_METRICS(KVSTORE)}; \
-  }()
+// Combined registration macro for all common metrics.
+#define TENSORSTORE_KVSTORE_REGISTER_COMMON_METRICS(metrics_ptr, KVSTORE)      \
+  do {                                                                         \
+    TENSORSTORE_KVSTORE_REGISTER_COMMON_READ_METRICS(metrics_ptr, KVSTORE);    \
+    TENSORSTORE_KVSTORE_REGISTER_COMMON_WRITE_METRICS(metrics_ptr, KVSTORE);   \
+    TENSORSTORE_KVSTORE_REGISTER_DETAILED_READ_METRICS(metrics_ptr, KVSTORE);  \
+    TENSORSTORE_KVSTORE_REGISTER_DETAILED_WRITE_METRICS(metrics_ptr, KVSTORE); \
+  } while (false)
 
 }  // namespace internal_kvstore
 }  // namespace tensorstore

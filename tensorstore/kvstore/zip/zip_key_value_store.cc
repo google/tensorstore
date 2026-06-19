@@ -37,6 +37,7 @@
 #include "tensorstore/internal/compression/zip_details.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
@@ -86,7 +87,11 @@ namespace jb = tensorstore::internal_json_binding;
 
 ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip");
 
-auto zip_metrics = TENSORSTORE_KVSTORE_COMMON_READ_METRICS(zip);
+static internal_kvstore::CommonReadMetrics zip_metrics;
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_READ_METRICS(&zip_metrics, zip);
+}
 
 // -----------------------------------------------------------------------------
 

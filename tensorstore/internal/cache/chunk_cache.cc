@@ -46,7 +46,7 @@
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/metrics/counter.h"
-#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/kvstore/generation.h"
@@ -62,7 +62,15 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
-using ::tensorstore::internal_metrics::MetricMetadata;
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    num_writes, Counter<int64_t>,
+    MetricMetadata("/tensorstore/cache/chunk_cache/writes",
+                   "Number of writes to ChunkCache."));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    num_reads, Counter<int64_t>,
+    MetricMetadata("/tensorstore/cache/chunk_cache/reads",
+                   "Number of reads from ChunkCache."));
 
 #ifndef TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG
 #define TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG 0
@@ -70,14 +78,6 @@ using ::tensorstore::internal_metrics::MetricMetadata;
 
 namespace tensorstore {
 namespace internal {
-
-auto& num_writes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/chunk_cache/writes",
-    MetricMetadata("Number of writes to ChunkCache."));
-auto& num_reads = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/chunk_cache/reads",
-    MetricMetadata("Number of reads from ChunkCache."));
-
 namespace {
 
 /// Returns `true` if all components of `node` have been fully overwritten.

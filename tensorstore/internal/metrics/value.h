@@ -16,7 +16,6 @@
 #define TENSORSTORE_INTERNAL_METRICS_VALUE_H_
 
 #include <atomic>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -25,15 +24,10 @@
 #include <vector>
 
 #include "absl/base/optimization.h"
-#include "absl/debugging/leak_check.h"
-#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/metrics/collect.h"
-#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/metric_impl.h"
-#include "tensorstore/internal/metrics/registry.h"
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -53,45 +47,27 @@ class MutexValueCell;
 /// Each value has one or more Cells, which are described by Fields...,
 /// which may be int, string, or bool.
 ///
-/// Example:
-///   namespace {
-///   auto* last_fed = Value<int64_t, absl::Time>::New("/house/last_fed",
-///       "name");
-///   }
+///   TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+///       last_fed, (Value<int64_t, std::string>),
+///       MetricMetadata("/house/last_fed", "Last time fed"), "name");
 ///
-///   last_fed->Set("fido", absl::Now());
+///   last_fed.Set(absl::ToUnixMillis(absl::Now()), "fido");
 ///
 template <typename T, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Value {
   using Cell = std::conditional_t<std::is_arithmetic_v<T>, AtomicValueCell<T>,
                                   MutexValueCell<T>>;
-  using Impl = AbstractMetric<Cell, false, Fields...>;
+  using Impl = MetricImplSelect<Cell, false, Fields...>;
 
  public:
   using value_type = T;
 
-  static std::unique_ptr<Value> Allocate(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    return absl::WrapUnique(new Value(std::string(metric_name),
-                                      std::move(metadata),
-                                      {std::string(field_names)...}));
-  }
+  constexpr Value() = default;
 
-  static Value& New(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    auto value = Allocate(metric_name, field_names..., metadata);
-    GetMetricRegistry().Add(value.get());
-    return *absl::IgnoreLeak(value.release());
-  }
+  Value(const Value&) = delete;
+  Value& operator=(const Value&) = delete;
 
-  auto tag() const { return Cell::kTag; }
-  auto metric_name() const { return impl_.metric_name(); }
-  const auto& field_names() const { return impl_.field_names(); }
-  MetricMetadata metadata() const { return impl_.metadata(); }
+  static constexpr std::string_view tag() { return Cell::kTag; }
 
   /// Set the value.
   void Set(value_type value,
@@ -106,12 +82,7 @@ class ABSL_CACHELINE_ALIGNED Value {
   }
 
   /// Collect the counter.
-  CollectedMetric Collect() const {
-    CollectedMetric result{};
-    result.tag = Cell::kTag;
-    result.metric_name = impl_.metric_name();
-    result.metadata = impl_.metadata();
-    result.field_names = impl_.field_names_vector();
+  void Collect(CollectedMetric& result) const {
     impl_.CollectCells([&result](const Cell& cell, const auto& fields) {
       result.values.emplace_back(std::apply(
           [&](const auto&... item) {
@@ -126,7 +97,6 @@ class ABSL_CACHELINE_ALIGNED Value {
           },
           fields));
     });
-    return result;
   }
 
   /// Collect the individual Cells: on_cell is invoked for each entry.
@@ -135,18 +105,13 @@ class ABSL_CACHELINE_ALIGNED Value {
   }
 
   /// Expose an individual cell, which avoids frequent lookups.
-  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) const {
     return *impl_.GetCell(labels...);
   }
 
   void Reset() { impl_.Reset(); }
 
  private:
-  Value(std::string metric_name, MetricMetadata metadata,
-        typename Impl::field_names_type field_names)
-      : impl_(std::move(metric_name), std::move(metadata),
-              std::move(field_names)) {}
-
   Impl impl_;
 };
 
@@ -158,7 +123,7 @@ template <typename T>
 class ABSL_CACHELINE_ALIGNED AtomicValueCell : public ValueTag {
  public:
   using value_type = T;
-  AtomicValueCell() = default;
+  constexpr AtomicValueCell() : value_() {}
 
   void Set(T value) { value_ = value; }
   T Get() const { return value_; }
@@ -166,22 +131,22 @@ class ABSL_CACHELINE_ALIGNED AtomicValueCell : public ValueTag {
   void Reset() { Set(T()); }
 
  private:
-  std::atomic<T> value_{};
+  std::atomic<T> value_;
 };
 
 template <typename T>
 class ABSL_CACHELINE_ALIGNED MutexValueCell : public ValueTag {
  public:
   using value_type = T;
-  MutexValueCell() = default;
+  constexpr MutexValueCell() : value_() {}
 
   /// Increment the counter by value.
   void Set(T value) {
-    absl::MutexLock l(&m_);
+    absl::MutexLock l(m_);
     value_ = std::move(value);
   }
   T Get() const {
-    absl::MutexLock l(&m_);
+    absl::MutexLock l(m_);
     return value_;
   }
   void Reset() { Set(T()); }
@@ -190,7 +155,7 @@ class ABSL_CACHELINE_ALIGNED MutexValueCell : public ValueTag {
   friend class Value<T>;
 
   std::string AsString() const {
-    absl::MutexLock l(&m_);
+    absl::MutexLock l(m_);
     if constexpr (std::is_same_v<T, std::string>) {
       return value_;
     }
@@ -207,13 +172,9 @@ class Value {
  public:
   using value_type = T;
 
-  static Value& New(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    static Value metric;
-    return metric;
-  }
+  constexpr Value() = default;
+
+  static constexpr std::string_view tag() { return "value"; }
   static void Set(value_type value,
                   typename FieldTraits<Fields>::param_type... labels) {}
 };

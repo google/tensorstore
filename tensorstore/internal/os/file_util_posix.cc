@@ -42,7 +42,6 @@
 #include "absl/base/config.h"
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
-#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -54,19 +53,17 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/file_descriptor.h"
-#include "tensorstore/internal/os/file_test_hooks.h"
 #include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/open_flags.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
-#include "tensorstore/internal/os/wstring.h"
 #include "tensorstore/internal/testing/test_hook.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 #if ABSL_HAVE_MMAP
 #include <sys/mman.h>
@@ -106,21 +103,24 @@ using ::tensorstore::internal_tracing::LoggedTraceSpan;
 #endif
 #endif  // __linux__
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    mmap_count, Counter<int64_t>,
+    MetricMetadata("/tensorstore/file/mmap_count",
+                   "Count of total mmap files"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    mmap_bytes, Counter<int64_t>,
+    MetricMetadata("/tensorstore/file/mmap_bytes",
+                   "Count of total mmap bytes"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    mmap_active, Gauge<int64_t>,
+    MetricMetadata("/tensorstore/file/mmap_active",
+                   "Count of active mmap files"));
+
 namespace tensorstore {
 namespace internal_os {
 namespace {
-
-auto& mmap_count = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/file/mmap_count",
-    internal_metrics::MetricMetadata("Count of total mmap files"));
-
-auto& mmap_bytes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/file/mmap_bytes",
-    internal_metrics::MetricMetadata("Count of total mmap bytes"));
-
-auto& mmap_active = internal_metrics::Gauge<int64_t>::New(
-    "/tensorstore/file/mmap_active",
-    internal_metrics::MetricMetadata("Count of active mmap files"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
 

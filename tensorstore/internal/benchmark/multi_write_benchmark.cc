@@ -68,15 +68,14 @@ bazel run -c opt \
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/benchmark/multi_spec.h"
 #include "tensorstore/internal/data_type_random_generator.h"
-#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
-#include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/division.h"
@@ -119,14 +118,15 @@ ABSL_FLAG(bool, reuse_context, false,
 ABSL_FLAG(std::optional<std::string>, metrics_prefix, std::nullopt,
           "Prefix for metrics.");
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    write_throughput, Value<double>,
+    MetricMetadata("/tensorstore/ts_write_benchmark/write_throughput",
+                   "the write throughput in this test"));
+
 namespace tensorstore {
 namespace {
 
 using ::tensorstore::internal_benchmark::ReadSpecsFromFile;
-
-auto& write_throughput = internal_metrics::Value<double>::New(
-    "/tensorstore/ts_write_benchmark/write_throughput",
-    internal_metrics::MetricMetadata("the write throughput in this test"));
 
 using KeyType = std::pair<std::string_view, std::vector<Index>>;
 struct ArrayMapEq {

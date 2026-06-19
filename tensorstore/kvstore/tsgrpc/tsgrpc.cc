@@ -33,23 +33,25 @@
 #include "absl/time/time.h"
 #include "grpcpp/channel.h"  // third_party
 #include "grpcpp/client_context.h"  // third_party
+#include "grpcpp/impl/call_op_set.h"  // third_party
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "grpcpp/support/client_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "grpcpp/support/sync_stream.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/internal/concurrency_resource.h"
-#include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/grpc/client_credentials.h"
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/clientauth/create_channel.h"
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
@@ -106,16 +108,19 @@ namespace jb = tensorstore::internal_json_binding;
 
 struct TsGrpcMetrics : public internal_kvstore::CommonReadMetrics,
                        public internal_kvstore::CommonWriteMetrics {
-  internal_metrics::Counter<int64_t>& delete_calls;
-  // no additional members
+  internal_metrics::Counter<int64_t> delete_calls;
 };
+ABSL_CONST_INIT static TsGrpcMetrics tsgrpc_metrics;
 
-auto tsgrpc_metrics = []() -> TsGrpcMetrics {
-  return {TENSORSTORE_KVSTORE_COMMON_READ_METRICS(tsgrpc),
-          TENSORSTORE_KVSTORE_COMMON_WRITE_METRICS(tsgrpc),
-          TENSORSTORE_KVSTORE_COUNTER_IMPL(
-              tsgrpc, delete_calls, "kvstore::Write calls deleting a key")};
-}();
+TENSORSTORE_GLOBAL_INITIALIZER {
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_READ_METRICS(&tsgrpc_metrics, tsgrpc);
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_WRITE_METRICS(&tsgrpc_metrics, tsgrpc);
+  auto& r = internal_metrics::GetMetricRegistry();
+  r.Register(&tsgrpc_metrics.delete_calls,
+             internal_metrics::MetricMetadata(
+                 "/tensorstore/kvstore/tsgrpc/delete_calls",
+                 "tsgrpc kvstore::Write calls deleting a key"));
+}
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");
 

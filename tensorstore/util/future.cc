@@ -34,28 +34,27 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
-#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/util/future_impl.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
-using ::tensorstore::internal_metrics::MetricMetadata;
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    live_futures, Gauge<int64_t>,
+    MetricMetadata("/tensorstore/futures/live", "Live futures"));
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    future_ready_callbacks, Counter<int64_t>,
+    MetricMetadata("/tensorstore/futures/ready_callbacks", "Ready callbacks"));
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    future_not_needed_callbacks, Counter<int64_t>,
+    MetricMetadata("/tensorstore/futures/not_needed_callbacks",
+                   "Not needed callbacks"));
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    future_force_callbacks, Counter<int64_t>,
+    MetricMetadata("/tensorstore/futures/force_callbacks", "Force callbacks"));
 
 namespace tensorstore {
 namespace internal_future {
-namespace {
-
-auto& live_futures = internal_metrics::Gauge<int64_t>::New(
-    "/tensorstore/futures/live", MetricMetadata("Live futures"));
-auto& future_ready_callbacks = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/futures/ready_callbacks", MetricMetadata("Ready callbacks"));
-auto& future_not_needed_callbacks = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/futures/not_needed_callbacks",
-    MetricMetadata("Not needed callbacks"));
-auto& future_force_callbacks = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/futures/force_callbacks", MetricMetadata("Force callbacks"));
-
-}  // namespace
 
 /// Special value to which CallbackListNode::next points to indicate that
 /// unregistration was requested.

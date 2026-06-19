@@ -23,7 +23,6 @@
 #include <iterator>
 #include <memory>
 #include <mutex>
-#include <new>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -43,7 +42,7 @@
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
-#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -61,14 +60,14 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    kvstore_transaction_retries, Counter<int64_t>,
+    MetricMetadata("/tensorstore/kvstore/transaction_retries",
+                   "Count of kvstore transaction retries"));
+
 namespace tensorstore {
 namespace internal_kvstore {
-
 namespace {
-
-auto& kvstore_transaction_retries = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/transaction_retries",
-    internal_metrics::MetricMetadata("Count of kvstore transaction retries"));
 
 template <typename Controller>
 void ReportWritebackError(Controller controller, std::string_view action,

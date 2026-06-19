@@ -36,12 +36,11 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/function_ref.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/metrics/counter.h"
-#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/mutex.h"
 
 // A CacheEntry owns a strong reference to the Cache that contains it only
@@ -50,18 +49,21 @@
 // A Cache owns a weak reference to the CachePool that contains it only if
 // its reference count is > 0.
 
-using ::tensorstore::internal_metrics::MetricMetadata;
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    hit_count, Counter<int64_t>,
+    MetricMetadata("/tensorstore/cache/hit_count", "Number of cache hits."));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    miss_count, Counter<int64_t>,
+    MetricMetadata("/tensorstore/cache/miss_count", "Number of cache misses."));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    evict_count, Counter<int64_t>,
+    MetricMetadata("/tensorstore/cache/evict_count",
+                   "Number of evictions from the cache."));
 
 namespace tensorstore {
 namespace internal_cache {
-
-auto& hit_count = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/hit_count", MetricMetadata("Number of cache hits."));
-auto& miss_count = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/miss_count", MetricMetadata("Number of cache misses."));
-auto& evict_count = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/evict_count",
-    MetricMetadata("Number of evictions from the cache."));
 
 using ::tensorstore::internal::PinnedCacheEntry;
 

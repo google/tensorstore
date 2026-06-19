@@ -18,7 +18,6 @@
 #include <stdint.h>
 
 #include <atomic>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -27,14 +26,9 @@
 #include <vector>
 
 #include "absl/base/optimization.h"
-#include "absl/debugging/leak_check.h"
-#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/metrics/collect.h"
-#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/metric_impl.h"
-#include "tensorstore/internal/metrics/registry.h"
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -43,8 +37,6 @@ namespace internal_metrics {
 
 template <typename T>
 class GaugeCell;
-template <typename T>
-class MaxCell;
 
 /// A Gauge metric represents values that can increase and decrease.
 ///
@@ -56,45 +48,29 @@ class MaxCell;
 /// which may be int, string, or bool.
 ///
 /// Example:
-///   namespace {
-///   auto* temperature = Gauge<double>::New("/my/cpu/temperature");
-///   }
+///   TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+///       temperature, Gauge<double>,
+///       MetricMetadata("/my/cpu/temperature", "CPU temperature"));
 ///
-///   temperature->Set(33.5);
-///   temperature->IncrementBy(3.5);
-///   temperature->IncrementBy(-3.5);
+///   temperature.Set(33.5);
+///   temperature.IncrementBy(3.5);
+///   temperature.IncrementBy(-3.5);
 ///
 template <typename T, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Gauge {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
   using Cell = GaugeCell<T>;
-  using Impl = AbstractMetric<Cell, false, Fields...>;
+  using Impl = MetricImplSelect<Cell, false, Fields...>;
 
  public:
   using value_type = T;
 
-  static std::unique_ptr<Gauge> Allocate(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    return absl::WrapUnique(new Gauge(std::string(metric_name),
-                                      std::move(metadata),
-                                      {std::string(field_names)...}));
-  }
+  constexpr Gauge() = default;
 
-  static Gauge& New(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    auto gauge = Allocate(metric_name, field_names..., metadata);
-    GetMetricRegistry().Add(gauge.get());
-    return *absl::IgnoreLeak(gauge.release());
-  }
+  Gauge(const Gauge&) = delete;
+  Gauge& operator=(const Gauge&) = delete;
 
-  auto tag() const { return Cell::kTag; }
-  auto metric_name() const { return impl_.metric_name(); }
-  const auto& field_names() const { return impl_.field_names(); }
-  MetricMetadata metadata() const { return impl_.metadata(); }
+  static constexpr std::string_view tag() { return Cell::kTag; }
 
   /// Increment the counter by 1.
   void Increment(typename FieldTraits<Fields>::param_type... labels) {
@@ -136,12 +112,7 @@ class ABSL_CACHELINE_ALIGNED Gauge {
   }
 
   /// Collect the gauge.
-  CollectedMetric Collect() const {
-    CollectedMetric result{};
-    result.tag = Cell::kTag;
-    result.metric_name = impl_.metric_name();
-    result.metadata = impl_.metadata();
-    result.field_names = impl_.field_names_vector();
+  void Collect(CollectedMetric& result) const {
     impl_.CollectCells([&result](const Cell& cell, const auto& fields) {
       result.values.emplace_back(std::apply(
           [&](const auto&... item) {
@@ -153,7 +124,6 @@ class ABSL_CACHELINE_ALIGNED Gauge {
           },
           fields));
     });
-    return result;
   }
 
   /// Collect the individual Cells: on_cell is invoked for each entry.
@@ -162,121 +132,16 @@ class ABSL_CACHELINE_ALIGNED Gauge {
   }
 
   /// Expose an individual cell, which avoids frequent lookups.
-  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) const {
     return *impl_.GetCell(labels...);
   }
 
   void Reset() { impl_.Reset(); }
 
  private:
-  Gauge(std::string metric_name, MetricMetadata metadata,
-        typename Impl::field_names_type field_names)
-      : impl_(std::move(metric_name), std::move(metadata),
-              std::move(field_names)) {}
-
   Impl impl_;
 };
 
-/// A MaxGauge metric tracks the max of a value.
-///
-/// MaxGauge may be used where only the max of a Gauge value is desired.
-///
-/// MaxGauge is parameterized by the type, int64_t or double.
-/// Each gauge has one or more Cells, which are described by Fields...,
-/// which may be int, string, or bool.
-///
-/// Example:
-///   namespace {
-///   auto* max_delay = MaxGauge<double>::New("/my/scheduler/max_delay");
-///   }
-///
-///   max_delay->Set(33.5);
-///   max_delay->Set(44.2);
-///
-template <typename T, typename... Fields>
-class ABSL_CACHELINE_ALIGNED MaxGauge {
-  static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
-  using Cell = MaxCell<T>;
-  using Impl = AbstractMetric<Cell, true, Fields...>;
-
- public:
-  using value_type = T;
-
-  static std::unique_ptr<MaxGauge> Allocate(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    return absl::WrapUnique(new MaxGauge(std::string(metric_name),
-                                         std::move(metadata),
-                                         {std::string(field_names)...}));
-  }
-
-  static MaxGauge& New(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    auto gauge = Allocate(metric_name, field_names..., metadata);
-    GetMetricRegistry().Add(gauge.get());
-    return *absl::IgnoreLeak(gauge.release());
-  }
-
-  auto tag() const { return Cell::kTag; }
-  auto metric_name() const { return impl_.metric_name(); }
-  const auto& field_names() const { return impl_.field_names(); }
-  MetricMetadata metadata() const { return impl_.metadata(); }
-
-  /// Set the counter to the value.
-  void Set(value_type value,
-           typename FieldTraits<Fields>::param_type... labels) {
-    impl_.GetCell(labels...)->Set(value);
-  }
-
-  /// Get the counter.
-  value_type Get(typename FieldTraits<Fields>::param_type... labels) const {
-    auto* cell = impl_.FindCell(labels...);
-    return cell ? cell->Get() : value_type{};
-  }
-
-  /// Collect the gauge.
-  CollectedMetric Collect() const {
-    CollectedMetric result{};
-    result.tag = Cell::kTag;
-    result.metric_name = impl_.metric_name();
-    result.metadata = impl_.metadata();
-    result.field_names = impl_.field_names_vector();
-    impl_.CollectCells([&result](const Cell& cell, const auto& fields) {
-      result.values.emplace_back(std::apply(
-          [&](const auto&... item) {
-            std::vector<std::string> fields;
-            fields.reserve(sizeof...(item));
-            (fields.push_back(absl::StrCat(item)), ...);
-            return CollectedMetric::Value{std::move(fields), {}, cell.Get()};
-          },
-          fields));
-    });
-    return result;
-  }
-
-  /// Collect the individual Cells: on_cell is invoked for each entry.
-  void CollectCells(typename Impl::CollectCellFn on_cell) const {
-    return impl_.CollectCells(on_cell);
-  }
-
-  /// Expose an individual cell, which avoids frequent lookups.
-  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
-    return *impl_.GetCell(labels...);
-  }
-
-  void Reset() { impl_.Reset(); }
-
- private:
-  MaxGauge(std::string metric_name, MetricMetadata metadata,
-           typename Impl::field_names_type field_names)
-      : impl_(std::move(metric_name), std::move(metadata),
-              std::move(field_names)) {}
-
-  Impl impl_;
-};
 
 // GaugeCell
 struct GaugeTag {
@@ -287,7 +152,7 @@ template <>
 class ABSL_CACHELINE_ALIGNED GaugeCell<double> : public GaugeTag {
  public:
   using value_type = double;
-  GaugeCell() = default;
+  constexpr GaugeCell() : value_(0.0), max_(0.0) {}
 
   void IncrementBy(double value) {
     // C++ 20 will add std::atomic::fetch_add support for floating point types
@@ -298,7 +163,7 @@ class ABSL_CACHELINE_ALIGNED GaugeCell<double> : public GaugeTag {
     SetMax(old + value);
   }
 
-  void DecrementBy(int64_t value) { IncrementBy(-value); }
+  void DecrementBy(double value) { IncrementBy(-value); }
   void Set(double value) {
     value_ = value;
     SetMax(value);
@@ -318,22 +183,22 @@ class ABSL_CACHELINE_ALIGNED GaugeCell<double> : public GaugeTag {
   }
 
  private:
-  inline void SetMax(double value) {
+  void SetMax(double value) {
     double h = max_.load(std::memory_order_relaxed);
     while (h < value && !max_.compare_exchange_weak(h, value)) {
       // repeat
     }
   }
 
-  std::atomic<double> value_{0};
-  std::atomic<double> max_{0};
+  std::atomic<double> value_;
+  std::atomic<double> max_;
 };
 
 template <>
 class ABSL_CACHELINE_ALIGNED GaugeCell<int64_t> : public GaugeTag {
  public:
   using value_type = int64_t;
-  GaugeCell() = default;
+  constexpr GaugeCell() : value_(0), max_(0) {}
 
   /// Increment the counter by value.
   void IncrementBy(int64_t value) {
@@ -360,46 +225,17 @@ class ABSL_CACHELINE_ALIGNED GaugeCell<int64_t> : public GaugeTag {
   }
 
  private:
-  inline void SetMax(int64_t value) {
+  void SetMax(int64_t value) {
     int64_t h = max_.load(std::memory_order_relaxed);
     while (h < value && !max_.compare_exchange_weak(h, value)) {
       // repeat
     }
   }
 
-  std::atomic<int64_t> value_{0};
-  std::atomic<int64_t> max_{0};
+  std::atomic<int64_t> value_;
+  std::atomic<int64_t> max_;
 };
 
-template <typename T>
-class ABSL_CACHELINE_ALIGNED MaxCell {
- public:
-  using value_type = T;
-  static constexpr const char kTag[] = "max_gauge";
-
-  MaxCell() = default;
-
-  inline void Set(value_type value) {
-    value_type h = max_.load(std::memory_order_relaxed);
-    while (h < value && !max_.compare_exchange_weak(h, value)) {
-      // repeat
-    }
-  }
-
-  value_type Get() const { return max_; }
-
-  void Reset() { max_ = 0; }
-
-  void Combine(MaxCell& other) const {
-    auto m = max_.load(std::memory_order_relaxed);
-    if (other.max_.load(std::memory_order_relaxed) < m) {
-      other.max_.store(m, std::memory_order_relaxed);
-    }
-  }
-
- private:
-  std::atomic<T> max_{0};
-};
 
 #else
 template <typename T>
@@ -423,13 +259,9 @@ class Gauge {
   using value_type = T;
   using Cell = GaugeCell<T>;
 
-  static Gauge& New(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    static constexpr Gauge metric;
-    return const_cast<Gauge&>(metric);
-  }
+  constexpr Gauge() = default;
+
+  static constexpr std::string_view tag() { return "gauge"; }
   static void Increment(typename FieldTraits<Fields>::param_type... labels) {}
   static void IncrementBy(value_type value,
                           typename FieldTraits<Fields>::param_type... labels) {}
@@ -443,19 +275,7 @@ class Gauge {
     return const_cast<Cell&>(cell);
   }
 };
-template <typename T, typename... Fields>
-class MaxGauge : public Gauge<T, Fields...> {
- public:
-  using value_type = T;
 
-  static MaxGauge& New(
-      std::string_view metric_name,
-      typename internal::FirstType<std::string_view, Fields>... field_names,
-      MetricMetadata metadata) {
-    static constexpr MaxGauge metric;
-    return const_cast<MaxGauge&>(metric);
-  }
-};
 #endif  // TENSORSTORE_METRICS_DISABLED
 
 }  // namespace internal_metrics

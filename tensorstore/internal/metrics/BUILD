@@ -66,6 +66,7 @@ tensorstore_cc_library(
     srcs = ["metadata.cc"],
     hdrs = ["metadata.h"],
     deps = [
+        "//tensorstore/util:span",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/strings",
     ],
@@ -80,12 +81,51 @@ tensorstore_cc_test(
     ],
 )
 
+tensorstore_cc_test(
+    name = "domain_field_test",
+    srcs = ["domain_field_test.cc"],
+    deps = [
+        ":domain_field",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_binary(
+    name = "find_seed",
+    srcs = ["find_seed.cc"],
+    deps = [
+        ":domain_field",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/flags:parse",
+        "@abseil-cpp//absl/flags:usage",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/strings",
+        "@re2",
+    ],
+)
+
 tensorstore_cc_library(
     name = "metric_hook",
     hdrs = ["metric_hook.h"],
     deps = [
         ":metadata",
+        ":metric_impl",
         "//tensorstore/internal/meta:type_traits",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "domain_field",
+    hdrs = [
+        "domain_field.h",
+        "domain_impl.h",
+    ],
+    deps = [
+        "//tensorstore/internal/meta:requires",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -94,12 +134,13 @@ tensorstore_cc_library(
     srcs = ["metric_impl.cc"],
     hdrs = ["metric_impl.h"],
     deps = [
-        ":metadata",
+        ":domain_field",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/container:node_hash_map",
+        "@abseil-cpp//absl/debugging:leak_check",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/hash",
-        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/synchronization",
     ],
 )
@@ -113,6 +154,7 @@ tensorstore_cc_library(
         "counter.h",
         "gauge.h",
         "histogram.h",
+        "max_gauge.h",
         "value.h",
     ],
     defines = select({
@@ -121,17 +163,17 @@ tensorstore_cc_library(
     }),
     deps = [
         ":collect",
-        ":metadata",
         ":metric_impl",
-        ":registry",
-        "//tensorstore/internal/meta:type_traits",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",
-        "@abseil-cpp//absl/debugging:leak_check",
-        "@abseil-cpp//absl/memory",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/synchronization",
     ],
+)
+
+tensorstore_cc_library(
+    name = "fwd",
+    hdrs = ["fwd.h"],
 )
 
 tensorstore_cc_test(
@@ -139,6 +181,7 @@ tensorstore_cc_test(
     srcs = ["metrics_test.cc"],
     deps = [
         ":collect",
+        ":domain_field",
         ":metadata",
         ":metrics",
         ":registry",
@@ -153,6 +196,7 @@ tensorstore_cc_binary(
     deps = [
         ":metadata",
         ":metrics",
+        ":registration",
         ":registry",
         "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/util:executor",
@@ -195,8 +239,11 @@ tensorstore_cc_test(
     srcs = ["prometheus_test.cc"],
     deps = [
         ":collect",
+        ":domain_field",
         ":metadata",
+        ":metrics",
         ":prometheus",
+        ":registry",
         "@googletest//:gtest_main",
     ],
 )
@@ -210,6 +257,7 @@ tensorstore_cc_test(
         ":metrics",
         ":metrics_cc_proto",
         ":protobuf",
+        ":registration",
         ":registry",
         "//tensorstore/proto:protobuf_matchers",
         "@googletest//:gtest_main",
@@ -222,14 +270,31 @@ tensorstore_cc_library(
     hdrs = ["registry.h"],
     deps = [
         ":collect",
+        ":fwd",
         ":metadata",
         ":metric_hook",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/poly",
+        "//tensorstore/util:span",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",
-        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/hash",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "registration",
+    hdrs = ["registration.h"],
+    deps = [
+        ":fwd",
+        ":metadata",
+        ":registry",
+        "//tensorstore/internal/preprocessor:strip_parens",
+        "@abseil-cpp//absl/base:core_headers",
     ],
 )
 
@@ -249,14 +314,9 @@ tensorstore_cc_library(
     hdrs = ["histogram.h"],
     deps = [
         ":collect",
-        ":metadata",
         ":metric_impl",
-        ":registry",
-        "//tensorstore/internal/meta:type_traits",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",
-        "@abseil-cpp//absl/debugging:leak_check",
-        "@abseil-cpp//absl/memory",
         "@abseil-cpp//absl/strings",
     ],
 )

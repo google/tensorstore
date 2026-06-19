@@ -39,20 +39,19 @@
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/support/client_callback.h"  // third_party
-#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
-#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/percent_coder.h"
-#include "tensorstore/json_serialization_options.h"
-#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/exp_credentials_resource.h"
@@ -77,7 +76,6 @@
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -114,16 +112,18 @@ namespace internal_gcs_grpc {
 namespace {
 
 struct GcsMetrics : public internal_kvstore::CommonMetrics {
-  internal_metrics::Counter<int64_t>& retries;
-  // no additional members
+  internal_metrics::Counter<int64_t> retries;
 };
+ABSL_CONST_INIT static GcsMetrics gcs_grpc_metrics;
 
-auto gcs_grpc_metrics = []() -> GcsMetrics {
-  return {TENSORSTORE_KVSTORE_COMMON_METRICS(gcs_grpc),
-          TENSORSTORE_KVSTORE_COUNTER_IMPL(
-              gcs_grpc, retries,
-              "Ccunt of all retried requests (read/write/delete)")};
-}();
+TENSORSTORE_GLOBAL_INITIALIZER {
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_METRICS(&gcs_grpc_metrics, gcs_grpc);
+  auto& r = internal_metrics::GetMetricRegistry();
+  r.Register(&gcs_grpc_metrics.retries,
+             internal_metrics::MetricMetadata(
+                 "/tensorstore/kvstore/gcs_grpc/retries",
+                 "gcs_grpc Count of all retried requests (read/write/delete)"));
+}
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 

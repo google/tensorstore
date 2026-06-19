@@ -1,4 +1,4 @@
-// Copyright 2020 The TensorStore Authors
+// Copyright 2026 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_METRICS_METRIC_HOOK_H_
-#define TENSORSTORE_INTERNAL_METRICS_METRIC_HOOK_H_
+#ifndef TENSORSTORE_INTERNAL_METRICS_FWD_H_
+#define TENSORSTORE_INTERNAL_METRICS_FWD_H_
 
-#include <memory>
-
+// Forward declarations for use in TENSORSTORE_DECLARE_AND_REGISTER_METRIC.
 namespace tensorstore {
 namespace internal_metrics {
+struct DefaultBucketer;
 
-template <typename MetricType, typename... Args>
-std::shared_ptr<void> RegisterMetricHook(const MetricType* metric, Args&&...) {
-  return nullptr;
-}
+// Domains
+template <typename Spec, bool CaseSensitive>
+class DomainField;
+
+// Metrics
+template <typename T, typename... Fields>
+class Counter;
+template <typename T, typename... Fields>
+class Gauge;
+template <typename T, typename... Fields>
+class MaxGauge;
+template <typename Bucketer, typename... Fields>
+class Histogram;
+template <typename Bucketer, typename... Fields>
+class Value;
 
 }  // namespace internal_metrics
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_METRICS_METRIC_HOOK_H_
+#endif  // TENSORSTORE_INTERNAL_METRICS_FWD_H_

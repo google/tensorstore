@@ -46,7 +46,6 @@ bazel run -c opt \
 #include "absl/log/absl_log.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
@@ -60,8 +59,8 @@ bazel run -c opt \
 #include "tensorstore/internal/benchmark/multi_spec.h"
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/metrics/value.h"
-#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/hugepages.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -101,14 +100,14 @@ ABSL_FLAG(std::optional<std::string>, metrics_prefix, std::nullopt,
 
 ABSL_FLAG(int64_t, ith_spec, -1, "Start at the ith spec in the config file.");
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    read_throughput, Value<double>,
+    MetricMetadata("/tensorstore/ts_read_benchmark/read_throughput",
+                   "the read throughput in this test"));
 namespace tensorstore {
 namespace {
 
 using ::tensorstore::internal_benchmark::ReadSpecsFromFile;
-
-auto& read_throughput = internal_metrics::Value<double>::New(
-    "/tensorstore/ts_read_benchmark/read_throughput",
-    internal_metrics::MetricMetadata("the read throughput in this test"));
 
 std::vector<tensorstore::TensorStore<>> MultiOpen(
     std::vector<tensorstore::Context> context,

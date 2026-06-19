@@ -31,7 +31,7 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
@@ -40,15 +40,14 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    indirect_data_writer_histogram, Histogram<DefaultBucketer>,
+    MetricMetadata("/tensorstore/kvstore/ocdbt/indirect_data_write_size",
+                   "Histogram of OCDBT buffered write sizes.", Units::kBytes));
+
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
-auto& indirect_data_writer_histogram =
-    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/kvstore/ocdbt/indirect_data_write_size",
-        internal_metrics::MetricMetadata(
-            "Histogram of OCDBT buffered write sizes.",
-            internal_metrics::Units::kBytes));
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 

@@ -372,7 +372,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/meta:integer_sequence",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/metrics",
-        "//tensorstore/internal/metrics:metadata",
+        "//tensorstore/internal/metrics:registration",
         "//tensorstore/internal/tracing",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",

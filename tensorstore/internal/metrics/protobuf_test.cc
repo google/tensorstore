@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/internal/metrics/registry.h"
 #ifndef TENSORSTORE_METRICS_DISABLED
-
-#include "tensorstore/internal/metrics/protobuf.h"
 
 #include <stdint.h>
 
@@ -28,7 +27,8 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/metrics.pb.h"
-#include "tensorstore/internal/metrics/registry.h"
+#include "tensorstore/internal/metrics/protobuf.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/proto/protobuf_matchers.h"
 
@@ -107,85 +107,96 @@ TEST(ProtobufTest, BasicConversion) {
               )pb"))));
 }
 
-TEST(ProtobufTest, FromRegistry) {
-  {
-    auto& counter = Counter<int64_t>::New("/protobuf_test/counter1",
-                                          MetricMetadata("A metric"));
-    counter.Increment();
-    counter.IncrementBy(2);
-  }
-  {
-    auto& counter = Counter<double>::New("/protobuf_test/counter2",
-                                         MetricMetadata("A metric"));
-    counter.Increment();
-    counter.IncrementBy(2);
-  }
-  {
-    auto& counter = Counter<int64_t, std::string>::New(
-        "/protobuf_test/counter3", "field1", MetricMetadata("A metric"));
-    counter.Increment("a");
-    counter.IncrementBy(2, "b");
-  }
-  {
-    auto& counter = Counter<double, int>::New(
-        "/protobuf_test/counter4", "field1", MetricMetadata("A metric"));
-    counter.Increment(1);
-    counter.IncrementBy(2, 2);
-  }
-  {
-    auto& gauge = Gauge<int64_t>::New("/protobuf_test/gauge1",
-                                      MetricMetadata("A metric"));
-    gauge.Set(3);
-    gauge.Increment();
-    gauge.IncrementBy(2);
-  }
-  {
-    auto& gauge =
-        Gauge<double>::New("/protobuf_test/gauge2", MetricMetadata("A metric"));
-    gauge.Set(3);
-    gauge.Increment();
-    gauge.IncrementBy(2);
-  }
-  {
-    auto& gauge = Gauge<int64_t, std::string>::New(
-        "/protobuf_test/gauge3", "field1", MetricMetadata("A metric"));
-    gauge.Increment("a");
-    gauge.IncrementBy(2, "a");
-    gauge.Set(3, "b");
-  }
-  {
-    auto& gauge = Gauge<double, bool>::New("/protobuf_test/gauge4", "field1",
-                                           MetricMetadata("A metric"));
-    gauge.Increment(false);
-    gauge.IncrementBy(2, false);
-    gauge.Set(3, true);
-  }
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    test_counter1, Counter<int64_t>,
+    MetricMetadata("/protobuf_test/counter1", "A metric"));
 
-  {
-    auto& histogram = Histogram<DefaultBucketer>::New(
-        "/protobuf_test/hist1", MetricMetadata("A metric"));
-    histogram.Observe(1);
-    histogram.Observe(2);
-    histogram.Observe(1000);
-  }
-  {
-    auto& histogram = Histogram<DefaultBucketer, int>::New(
-        "/protobuf_test/hist2", "field1", MetricMetadata("A metric"));
-    histogram.Observe(-1.0, 1);  // =0
-    histogram.Observe(0.11, 2);  // =1
-    histogram.Observe(1.2, 3);   // =2
-    histogram.Observe(2.1, 4);   // =3
-  }
-  {
-    auto& value = Value<int64_t>::New("/protobuf_test/value1",
-                                      MetricMetadata("A metric"));
-    value.Set(3);
-  }
-  {
-    auto& gauge = Value<std::string>::New("/protobuf_test/value2",
-                                          MetricMetadata("A metric"));
-    gauge.Set("foo");
-  }
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    test_counter2, Counter<double>,
+    MetricMetadata("/protobuf_test/counter2", "A metric"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    test_counter3, (Counter<int64_t, std::string>),
+    MetricMetadata("/protobuf_test/counter3", "A metric"), "field1");
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    test_counter4, (Counter<double, int>),
+    MetricMetadata("/protobuf_test/counter4", "A metric"), "field1");
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(test_gauge1, Gauge<int64_t>,
+                                        MetricMetadata("/protobuf_test/gauge1",
+                                                       "A metric"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(test_gauge2, Gauge<double>,
+                                        MetricMetadata("/protobuf_test/gauge2",
+                                                       "A metric"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    test_gauge3, (Gauge<int64_t, std::string>),
+    MetricMetadata("/protobuf_test/gauge3", "A metric"), "field1");
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(test_gauge4, (Gauge<double, bool>),
+                                        MetricMetadata("/protobuf_test/gauge4",
+                                                       "A metric"),
+                                        "field1");
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(test_hist1, Histogram<DefaultBucketer>,
+                                        MetricMetadata("/protobuf_test/hist1",
+                                                       "A metric"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    test_hist2, (Histogram<DefaultBucketer, int>),
+    MetricMetadata("/protobuf_test/hist2", "A metric"), "field1");
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(test_value1, Value<int64_t>,
+                                        MetricMetadata("/protobuf_test/value1",
+                                                       "A metric"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(test_value2, Value<std::string>,
+                                        MetricMetadata("/protobuf_test/value2",
+                                                       "A metric"));
+
+TEST(ProtobufTest, FromRegistry) {
+  test_counter1.Increment();
+  test_counter1.IncrementBy(2);
+
+  test_counter2.Increment();
+  test_counter2.IncrementBy(2);
+
+  test_counter3.Increment("a");
+  test_counter3.IncrementBy(2, "b");
+
+  test_counter4.Increment(1);
+  test_counter4.IncrementBy(2, 2);
+
+  test_gauge1.Set(3);
+  test_gauge1.Increment();
+  test_gauge1.IncrementBy(2);
+
+  test_gauge2.Set(3);
+  test_gauge2.Increment();
+  test_gauge2.IncrementBy(2);
+
+  test_gauge3.Increment("a");
+  test_gauge3.IncrementBy(2, "a");
+  test_gauge3.Set(3, "b");
+
+  test_gauge4.Increment(false);
+  test_gauge4.IncrementBy(2, false);
+  test_gauge4.Set(3, true);
+
+  test_hist1.Observe(1);
+  test_hist1.Observe(2);
+  test_hist1.Observe(1000);
+
+  test_hist2.Observe(-1.0, 1);  // =0
+  test_hist2.Observe(0.11, 2);  // =1
+  test_hist2.Observe(1.2, 3);   // =2
+  test_hist2.Observe(2.1, 4);   // =3
+
+  test_value1.Set(3);
+
+  test_value2.Set("foo");
 
   tensorstore::metrics_proto::MetricCollection metric;
   tensorstore::internal_metrics::CollectedMetricToProtoCollection(

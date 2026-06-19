@@ -37,6 +37,7 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/endian.h"
@@ -46,23 +47,20 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
-using ::tensorstore::internal_metrics::MetricMetadata;
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    contiguous_bytes, Counter<int64_t>,
+    MetricMetadata("/tensorstore/internal/riegeli/contiguous_bytes",
+                   "Endian codec bytes from contiguous buffers",
+                   Units::kBytes));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    noncontiguous_bytes, Counter<int64_t>,
+    MetricMetadata("/tensorstore/internal/riegeli/noncontiguous_bytes",
+                   "Endian codec bytes from non-contiguous buffers",
+                   Units::kBytes));
 
 namespace tensorstore {
 namespace internal {
-namespace {
-
-auto& contiguous_bytes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/internal/riegeli/contiguous_bytes",
-    MetricMetadata("Endian codec bytes from contiguous buffers",
-                   internal_metrics::Units::kBytes));
-
-auto& noncontiguous_bytes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/internal/riegeli/noncontiguous_bytes",
-    MetricMetadata("Endian codec bytes from non-contiguous buffers",
-                   internal_metrics::Units::kBytes));
-
-}  // namespace
 
 [[nodiscard]] bool EncodeArrayEndian(SharedArrayView<const void> decoded,
                                      endian encoded_endian,

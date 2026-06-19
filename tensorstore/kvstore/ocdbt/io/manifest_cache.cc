@@ -21,7 +21,6 @@
 #include <charconv>
 #include <memory>
 #include <optional>
-#include <ostream>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -39,13 +38,14 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
-#include "tensorstore/internal/estimate_heap_usage/std_variant.h"
-#include "tensorstore/internal/estimate_heap_usage/std_vector.h"
+#include "tensorstore/internal/estimate_heap_usage/std_variant.h"  // IWYU pragma: keep
+#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/registration.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
@@ -55,7 +55,6 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -63,19 +62,23 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
-using ::tensorstore::internal_metrics::MetricMetadata;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    manifest_updates, Counter<int64_t>,
+    MetricMetadata("/tensorstore/kvstore/ocdbt/manifest_updates",
+                   "OCDBT driver manifest updates"));
+
+TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
+    manifest_update_errors, Counter<int64_t>,
+    MetricMetadata("/tensorstore/kvstore/ocdbt/manifest_update_errors",
+                   "OCDBT driver manifest update errors (typically retried)"));
+#pragma clang diagnostic pop
 
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
 
-auto& manifest_updates = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/manifest_updates",
-    MetricMetadata("OCDBT driver manifest updates"));
-
-auto& manifest_update_errors = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/manifest_update_errors",
-    MetricMetadata("OCDBT driver manifest update errors (typically retried)"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 

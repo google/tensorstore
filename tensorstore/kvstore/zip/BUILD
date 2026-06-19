@@ -28,6 +28,7 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore:transaction",
         "//tensorstore/internal:data_copy_concurrency_resource",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:async_cache",

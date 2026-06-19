@@ -33,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
+        "//tensorstore/internal/metrics:registration",
         "//tensorstore/internal/uri:ascii_set",
         "//tensorstore/internal/uri:parse",
         "//tensorstore/internal/uri:percent_coder",
