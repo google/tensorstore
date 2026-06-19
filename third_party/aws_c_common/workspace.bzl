@@ -25,9 +25,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_common",
-        sha256 = "138822ecdcaff1d702f37d4751f245847d088592724921cc6bf61c232b198d6b",
-        strip_prefix = "aws-c-common-0.12.6",
-        urls = mirror_url("https://github.com/awslabs/aws-c-common/archive/v0.12.6.tar.gz"),
+        sha256 = "3684076ec5da899074336722ba58a01f7166a1a2e5ad72f846f6fd468ecdf2ec",
+        doc_version = "0.14.0",
+        strip_prefix = "aws-c-common-0.14.0",
+        urls = mirror_url("https://github.com/awslabs/aws-c-common/archive/v0.14.0.tar.gz"),
         build_file = Label("//third_party:aws_c_common/aws_c_common.BUILD.bazel"),
         cmake_name = "aws_c_common",
         cmake_target_mapping = {

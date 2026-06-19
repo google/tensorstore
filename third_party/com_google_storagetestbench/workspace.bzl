@@ -27,8 +27,8 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_storagetestbench",
-        strip_prefix = "storage-testbench-bc7738b9f0c737c198d67e03a12d21600c3e771b",
-        urls = mirror_url("https://github.com/googleapis/storage-testbench/archive/bc7738b9f0c737c198d67e03a12d21600c3e771b.tar.gz"),  # main(2024-09-10)
-        sha256 = "7a71839be3c5e0502cb699f4bf6f22f878cce7af4e7a593a6b2a0d1002bee873",
+        strip_prefix = "storage-testbench-b5c8fece39022c5c976a3db1fbdce0bf2c2c7cd9",
+        urls = mirror_url("https://github.com/googleapis/storage-testbench/archive/b5c8fece39022c5c976a3db1fbdce0bf2c2c7cd9.tar.gz"),  # main(2026-06-12)
+        sha256 = "ceab9780e99225648dc06df431ea69dc9fe12deb76a2ec465ebb9c63a7c67bcf",
         build_file = Label("//third_party:com_google_storagetestbench/storagetestbench.BUILD.bazel"),
     )

@@ -25,11 +25,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "xz",
-        strip_prefix = "xz-5.8.2",
+        strip_prefix = "xz-5.8.3",
         doc_homepage = "https://tukaani.org/xz/",
-        doc_version = "5.8.1",
-        urls = mirror_url("https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz"),
-        sha256 = "ce09c50a5962786b83e5da389c90dd2c15ecd0980a258dd01f70f9e7ce58a8f1",
+        doc_version = "5.8.3",
+        urls = mirror_url("https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3.tar.gz"),
+        sha256 = "3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0",
         patches = [
             Label("//third_party:xz/patches/remove_have_config.diff"),
         ],

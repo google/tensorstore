@@ -11,6 +11,7 @@ PYPA_DEPS = [
     "@pypa_werkzeug//:werkzeug",
     "@pypa_requests_toolbelt//:requests_toolbelt",
     "@pypa_grpcio//:grpcio",
+    "@pypa_grpcio_status//:grpcio_status",
     "@pypa_googleapis_common_protos//:googleapis_common_protos",
     "@pypa_protobuf//:protobuf",
 ]

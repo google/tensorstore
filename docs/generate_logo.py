@@ -2,6 +2,19 @@
 """Generates the TensorStore logo in SVG format."""
 
 import argparse
+import os
+
+# Some required DLLs may be present in the PATH rather than in the system
+# directory or other search paths, so expand the DLL paths for testing.
+if hasattr(os, 'add_dll_directory'):
+  env_value = os.environ.get('PATH')
+  if env_value:
+    # Avoid duplicate additions and skip empty paths
+    path_list = [p for p in env_value.split(os.pathsep) if p]
+    for prefix_path in dict.fromkeys(path_list):
+      if os.path.isdir(prefix_path):
+        os.add_dll_directory(os.path.abspath(prefix_path))
+
 
 import numpy as np
 

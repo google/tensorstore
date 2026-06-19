@@ -195,19 +195,19 @@ def add_repositories(workspace: Workspace):
 
   # upb
   persist_cmake_name(
-      '@com_google_protobuf//upb_generator:protoc-gen-upb_minitable_stage1',
+      '@com_google_protobuf//upb_generator/minitable:protoc-gen-upb_minitable_stage1',
       CMakeTarget('protobuf::protoc_gen_upb_minitable_stage1'),
   )
   persist_cmake_name(
-      '@com_google_protobuf//upb_generator:protoc-gen-upb',
+      '@com_google_protobuf//upb_generator/c:protoc-gen-upb',
       CMakeTarget('protobuf::protoc_gen_upb'),
   )
   persist_cmake_name(
-      '@com_google_protobuf//upb_generator:protoc-gen-upb_stage1',
+      '@com_google_protobuf//upb_generator/c:protoc-gen-upb_stage1',
       CMakeTarget('protobuf::protoc_gen_upb_stage1'),
   )
   persist_cmake_name(
-      '@com_google_protobuf//upb_generator:protoc-gen-upbdefs',
+      '@com_google_protobuf//upb_generator/reflection:protoc-gen-upbdefs',
       CMakeTarget('protobuf::protoc_gen_upbdefs'),
   )
 

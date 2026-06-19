@@ -29,11 +29,11 @@ def repo():
         name = "zlib",
         # We use the chromium fork of zlib, but generally it tracks here:
         doc_name = "chromium-zlib",
-        doc_version = "1.3.1.1-20260217",
+        doc_version = "1.3.1.1-20260612",
         doc_homepage = "https://chromium.googlesource.com/chromium/src/third_party/zlib/",
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
-        sha256 = "8e2657298e19e4df9d97591531a7dc5b764ca00a4c4debbb92d9cc0a9936d81a",
-        urls = mirror_url("https://chromium.googlesource.com/chromium/src/third_party/zlib/+archive/7eda07b1e067ef3fd7eea0419c88b5af45c9a776.tar.gz"),  # main(2026-02-17)
+        sha256 = "9d502714149bd586d7c00aa810b74a0e647b00dff07f946655a28efbbb2ffaf5",
+        urls = mirror_url("https://chromium.googlesource.com/chromium/src/third_party/zlib/+archive/3246f1b60849cc505e231c5d19d0cbf358093555.tar.gz"),  # main(2026-06-12)
         build_file = Label("//third_party:zlib/zlib.BUILD.bazel"),
         system_build_file = Label("//third_party:zlib/system.BUILD.bazel"),
         cmake_name = "ZLIB",

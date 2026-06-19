@@ -1,4 +1,4 @@
-# Copyright 2020 The TensorStore Authors
+# Copyright 2026 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,26 +21,11 @@ load(
     "third_party_http_archive",
 )
 
-# REPO_BRANCH = main
-
 def repo():
     maybe(
         third_party_http_archive,
-        name = "googletest",
-        doc_version = "20260612-7140cd4",
-        urls = mirror_url("https://github.com/google/googletest/archive/7140cd416cecd7462a8aae488024abeee55598e4.zip"),  # main(2026-06-12)
-        sha256 = "b4916454ac39744bea81f8365a8ae43bc21d9da222cb7b2c01ee71d6ce09a033",
-        strip_prefix = "googletest-7140cd416cecd7462a8aae488024abeee55598e4",
-        cmake_name = "GTest",
-        bazel_to_cmake = {
-            "include": [""],
-        },
-        cmake_target_mapping = {
-            "//:gtest": "GTest::gmock",
-            "//:gtest_main": "GTest::gmock_main",
-        },
-        cmake_aliases = {
-            "GTest::gtest": "GTest::gmock",
-            "GTest::gtest_main": "GTest::gmock_main",
-        },
+        name = "package_metadata",
+        sha256 = "0e89367f1cb6d93a5a1afea4b55b11ea6b28f63f653b47154153677ca7d4afea",
+        strip_prefix = "supply-chain-0.0.3/metadata",
+        urls = mirror_url("https://github.com/bazel-contrib/supply-chain/releases/download/v0.0.3/supply-chain-v0.0.3.tar.gz"),
     )

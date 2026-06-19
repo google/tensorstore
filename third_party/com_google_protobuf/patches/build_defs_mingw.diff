@@ -12,7 +12,7 @@ diff -Nur protobuf-33.0/build_defs/BUILD.bazel b/build_defs/BUILD.bazel
 +
  platform(
      name = "x64_windows-clang-cl",
-     constraint_values = [
+     constraint_values = PLATFORMS["win64"] + [
 diff -Nur protobuf-33.0/build_defs/cpp_opts.bzl b/build_defs/cpp_opts.bzl
 --- protobuf-33.0/build_defs/cpp_opts.bzl	2025-10-15 18:33:29.000000000 +0000
 +++ b/build_defs/cpp_opts.bzl	2025-11-04 07:23:08.702309825 +0000

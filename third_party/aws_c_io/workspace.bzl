@@ -25,9 +25,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_io",
-        sha256 = "5481178b99f074314b23b39b35786715fb0c1bf9773023ff83efe0d62d6e0ce2",
-        strip_prefix = "aws-c-io-0.26.1",
-        urls = mirror_url("https://github.com/awslabs/aws-c-io/archive/v0.26.1.tar.gz"),
+        sha256 = "e89a1f784e7c97e4197031ffdcf30f67d66d7c14f8a391edf5764f17dae982ee",
+        doc_version = "0.27.0",
+        strip_prefix = "aws-c-io-0.27.0",
+        urls = mirror_url("https://github.com/awslabs/aws-c-io/archive/v0.27.0.tar.gz"),
         build_file = Label("//third_party:aws_c_io/aws_c_io.BUILD.bazel"),
         cmake_name = "aws_c_io",
         cmake_target_mapping = {

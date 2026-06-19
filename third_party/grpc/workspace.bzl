@@ -25,15 +25,12 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "grpc",
-        sha256 = "0af37b800953130b47c075b56683ee60bdc3eda3c37fc6004193f5b569758204",
-        strip_prefix = "grpc-1.76.0",
-        urls = mirror_url("https://github.com/grpc/grpc/archive/v1.76.0.tar.gz"),
+        sha256 = "48ae0d05f87206112d9e9144a923191ee1e482141a70686ec58dc86d0b40fddc",
+        strip_prefix = "grpc-1.81.1",
+        urls = mirror_url("https://github.com/grpc/grpc/archive/v1.81.1.tar.gz"),
         patches = [
-            # Fixes -trigraph warning
-            Label("//third_party:grpc/patches/fix_trigraph.diff"),
             # Fixes, including https://github.com/grpc/grpc/issues/34482
             Label("//third_party:grpc/patches/update_build_system.diff"),
-            Label("//third_party:grpc/patches/pull41351.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {

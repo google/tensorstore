@@ -1,7 +1,7 @@
 diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
 --- a/bazel/grpc_build_system.bzl	2025-10-18 02:30:24.000000000 +0000
 +++ b/bazel/grpc_build_system.bzl	2025-11-03 16:40:43.369920060 +0000
-@@ -27,9 +27,9 @@
+@@ -27,7 +27,7 @@
  Contains macros used throughout the repo.
  """
  
@@ -12,8 +12,6 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
 +# load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
 +# load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
  load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
- load("@com_google_protobuf//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
- load("@rules_proto//proto:defs.bzl", "proto_library")
 @@ -45,6 +45,14 @@
  # The set of known EventEngines to test
  EVENT_ENGINES = {"default": {"tags": []}}
@@ -129,14 +127,4 @@ diff -Nur a/BUILD b/BUILD
      visibility = ["//visibility:public"],
      deps = [
          "config_vars",
-diff -Nur a/src/core/BUILD b/src/core/BUILD
---- a/src/core/BUILD	2025-10-18 02:30:24.000000000 +0000
-+++ b/src/core/BUILD	2025-11-03 16:32:32.750355604 +0000
-@@ -2949,6 +2949,7 @@
-     external_deps = [
-         "absl/strings",
-         "absl/strings:str_format",
-+        "absl/status",
-     ],
-     deps = [
-         "error",
+

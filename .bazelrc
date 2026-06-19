@@ -36,6 +36,13 @@ build:msvc --host_cxxopt=/Zc:sizedDealloc
 build:msvc --cxxopt=/Zc:hiddenFriend
 build:msvc --host_cxxopt=/Zc:hiddenFriend
 
+# NOTE: To statically link the C++ runtime for MSVC uncomment the following:
+# build:msvc --copt=/MT
+# build:msvc --cxxopt=/MT
+# build:msvc --host_copt=/MT
+# build:msvc --host_cxxopt=/MT
+# build:msvc --linkopt=/NODEFAULTLIB:MSVCRT
+
 # ----------------------------------------
 
 # protobuf/upb has some functions where errors are incorrectly raised:

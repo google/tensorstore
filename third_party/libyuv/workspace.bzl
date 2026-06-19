@@ -27,9 +27,9 @@ def repo():
         name = "libyuv",
         doc_name = "libyuv",
         doc_homepage = "https://chromium.googlesource.com/libyuv/libyuv/",
-        urls = mirror_url("https://chromium.googlesource.com/libyuv/libyuv/+archive/1e40e34573c3861480d107cd4a4ce290df79951f.tar.gz"),  # main(2025-04-26)
+        urls = mirror_url("https://chromium.googlesource.com/libyuv/libyuv/+archive/d23308a2a7442be8e559b1b471862fd7588d6a57.tar.gz"),  # main(2026-06-12)
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
-        sha256 = "dc032a4462e6ce994c2c0f01d07a8742f0355661d4f9716ddb621f4578a4f4fc",
+        sha256 = "0a0d4ae51a9a767129400a0ea7da16aaf4de7bfe6704773169f79a88556b8c1e",
         build_file = Label("//third_party:libyuv/libyuv.BUILD.bazel"),
         cmake_name = "libyuv",
         cmake_target_mapping = {

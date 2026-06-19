@@ -25,10 +25,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "snappy",
-        doc_version = "1.2.2-20250426-6af9287",
-        urls = mirror_url("https://github.com/google/snappy/archive/da459b5263676ccf0dc65a3fcf93fb876e09baac.tar.gz"),  # main(2026-02-06)
-        sha256 = "8fceeed9ad799d1e5a82fe89574e598db5a89b18ff828cd18011031f8a6d634e",
-        strip_prefix = "snappy-da459b5263676ccf0dc65a3fcf93fb876e09baac",
+        doc_version = "1.2.2-20260612-27ab5f7",
+        urls = mirror_url("https://github.com/google/snappy/archive/27ab5f7f518430a021239bc26a5b2fd64affbc7b.tar.gz"),  # main(2026-06-12)
+        sha256 = "d0ce758440920c0e636579da02092296a64aed5a8296e1175fdf1783a8440082",
+        strip_prefix = "snappy-27ab5f7f518430a021239bc26a5b2fd64affbc7b",
         build_file = Label("//third_party:snappy/snappy.BUILD.bazel"),
         system_build_file = Label("//third_party:snappy/system.BUILD.bazel"),
         cmake_name = "Snappy",

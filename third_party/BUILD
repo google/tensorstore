@@ -20,3 +20,11 @@ filegroup(
         "**/*.h",
     ]),
 )
+
+filegroup(
+    name = "exclude_from_buildify",
+    srcs = glob([
+        "*.py",
+        "*.bzl",
+    ]),
+)

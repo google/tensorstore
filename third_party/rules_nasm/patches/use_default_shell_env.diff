@@ -1,12 +1,9 @@
 diff --git a/nasm/private/rules/library.bzl b/nasm/private/rules/library.bzl
-index d3dbd9b..13e7f56 100644
 --- a/nasm/private/rules/library.bzl
 +++ b/nasm/private/rules/library.bzl
-@@ -82,6 +82,7 @@ def nasm_assemble(
-         inputs = inputs,
+@@ -166,4 +166,5 @@
          outputs = [out],
          tools = nasm_toolchain.all_files,
+         env = env | ctx.configuration.default_shell_env,
 +        use_default_shell_env = True,
-     )
-
-     return out
+         toolchain = Label("//nasm:toolchain_type"),

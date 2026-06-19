@@ -25,9 +25,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "blake3",
-        strip_prefix = "BLAKE3-1.8.3",
-        sha256 = "5a11e3f834719b6c1cae7aced1e848a37013f6f10f97272e7849aa0da769f295",
-        urls = mirror_url("https://github.com/BLAKE3-team/BLAKE3/archive/1.8.3.tar.gz"),
+        strip_prefix = "BLAKE3-1.8.5",
+        doc_version = "1.8.5",
+        sha256 = "220bd81286e2a0585beac66d41ac3f4c2c33ae8a4e339fc88cf22d5e00514fe9",
+        urls = mirror_url("https://github.com/BLAKE3-team/BLAKE3/archive/1.8.5.tar.gz"),
         build_file = Label("//third_party:blake3/blake3.BUILD.bazel"),
         system_build_file = Label("//third_party:blake3/system.BUILD.bazel"),
         cmake_name = "BLAKE3",

@@ -25,11 +25,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_protobuf",
-        doc_version = "30.2",
+        doc_version = "35.1",
         doc_homepage = "https://protobuf.dev/",
-        strip_prefix = "protobuf-33.0",
-        urls = mirror_url("https://github.com/protocolbuffers/protobuf/archive/v33.0.tar.gz"),
-        sha256 = "b6b03fbaa3a90f3d4f2a3fa4ecc41d7cd0326f92fcc920a7843f12206c8d52cd",
+        strip_prefix = "protobuf-35.1",
+        urls = mirror_url("https://github.com/protocolbuffers/protobuf/archive/v35.1.tar.gz"),
+        sha256 = "22775f9376938295efa2d59a59bde4cd075a42df5a9b4d27aa9b99fa6a413bd2",
         patches = [
             # Add mingw config properly
             Label("//third_party:com_google_protobuf/patches/build_defs_mingw.diff"),
@@ -144,6 +144,8 @@ PROTOBUF_CMAKE_MAPPING = {
     "//:protobuf_lite": "protobuf::libprotobuf-lite",
     "//:protoc": "protobuf::protoc",
     "//:protoc_lib": "protobuf::libprotoc",
+    "//:protobuf_headers": "protobuf::libprotobuf",
+    "//src/google/protobuf:protobuf_headers": "protobuf::libprotobuf",
 }
 
 # bazelisk query "//:all" | grep "_proto$"

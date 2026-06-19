@@ -21,6 +21,7 @@ from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.scope_common import ScopeCommon
 from ..starlark.select import Configurable
+from ..ordered_set import OrderedSet
 from ..util import quote_path
 from .register import register_bzl_library
 from .upb_proto_library import UPB_PLUGIN  # pylint: disable=unused-import
@@ -136,16 +137,17 @@ def _generate_grpc_cc_impl(
 
   cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
 
-  # Construct the generated paths, installing this rule as a dependency.
-  # TODO: Handle skip_import_prefix?
-  proto_cmake_target = state.generate_cmake_target_pair(
-      proto_library_provider.bazel_target
-  ).target
-
-  import_targets = set(
-      state.collect_deps(proto_library_provider.deps).link_libraries()
+  # Collect CMake target names for proto dependencies
+  # whose INTERFACE_INCLUDE_DIRECTORIES will be queried
+  # via generator expressions in the response file.
+  import_targets = OrderedSet()
+  proto_cmake = state.generate_cmake_target_pair(
+      proto_library_provider.bazel_target, alias=False
   )
-  import_targets.add(proto_cmake_target)
+  import_targets.add(proto_cmake.target)
+  deps_collector = state.collect_deps(proto_library_provider.deps)
+  for t in deps_collector.targets():
+    import_targets.add(t)
 
   # Emit the generated files.
   # See also native_aspect_proto.py

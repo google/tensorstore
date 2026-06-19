@@ -12,4 +12,5 @@ scalpl
 crc32c
 werkzeug
 googleapis-common-protos
-protobuf
+protobuf<7.0
+grpcio-status

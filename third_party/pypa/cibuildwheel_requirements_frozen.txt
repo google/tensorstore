@@ -9,17 +9,17 @@ bracex==2.6 \
     --hash=sha256:0b0049264e7340b3ec782b5cb99beb325f36c3782a32e36e876452fd49a09952 \
     --hash=sha256:98f1347cd77e22ee8d967a30ad4e310b233f7754dbf31ff3fceb76145ba47dc7
     # via cibuildwheel, -c /dev/stdin
-build==1.3.0 \
-    --hash=sha256:698edd0ea270bde950f53aed21f3a0135672206f3911e0176261a31e0e07b397 \
-    --hash=sha256:7145f0b5061ba90a1500d60bd1b13ca0a8a4cebdd0cc16ed8adf1c0e739f43b4
+build==1.5.0 \
+    --hash=sha256:13f3eecb844759ab66efec90ca17639bbf14dc06cb2fdf37a9010322d9c50a6f \
+    --hash=sha256:302c22c3ba2a0fd5f3911918651341ebb3896176cbdec15bd421f80b1afc7647
     # via cibuildwheel, -c /dev/stdin, -r cibuildwheel_requirements.txt
-certifi==2025.10.5 \
-    --hash=sha256:0f212c2744a9bb6de0c56639a6f68afe01ecd92d91f14ae897c4fe7bbeeef0de \
-    --hash=sha256:47c09d31ccf2acf0be3f701ea53595ee7e0b8fa08801c6624be771df09ae7b43
+certifi==2026.6.17 \
+    --hash=sha256:024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432 \
+    --hash=sha256:2227dcbaafe0d2f59279d1762ddddc37783ed4354594f194ffc31d20f41fc3db
     # via cibuildwheel, -c /dev/stdin
-cibuildwheel==3.2.1 \
-    --hash=sha256:48fc815b4768c394c2041de21a0664b84a8090788887c729bcc858a6adc10455 \
-    --hash=sha256:98beb9700e2447172b0855fc0e5cf6b5145ac058c35e8e1256d2db86daf02722
+cibuildwheel==4.1.0 \
+    --hash=sha256:aac6f526c0c06039feedd09f9bbceb989ab244ef0543eaea84c8abdeafb81858 \
+    --hash=sha256:b9dabe7713f16aec4e7064d031daa2da010e7431d58964e0b97b3eb346952454
     # via -c /dev/stdin, -r cibuildwheel_requirements.txt
 colorama==0.4.6 ; os_name == 'nt' \
     --hash=sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44 \
@@ -29,42 +29,23 @@ dependency-groups==1.3.1 \
     --hash=sha256:51aeaa0dfad72430fcfb7bcdbefbd75f3792e5919563077f30bc0d73f4493030 \
     --hash=sha256:78078301090517fd938c19f64a53ce98c32834dfe0dee6b88004a569a6adfefd
     # via cibuildwheel, -c /dev/stdin
-filelock==3.20.0 \
-    --hash=sha256:339b4732ffda5cd79b13f4e2711a31b0365ce445d95d243bb996273d072546a2 \
-    --hash=sha256:711e943b4ec6be42e1d4e6690b48dc175c822967466bb31c0c293f34334c13f4
+filelock==3.29.4 \
+    --hash=sha256:10cdb3656fc44541cdf30652a93fb10ec6b05325620eb316bd26893e4201538a \
+    --hash=sha256:dac1648087d5115554850d113e7dd8c83ab2d38e3435dde2d4f163847e57b767
     # via cibuildwheel, -c /dev/stdin
-humanize==4.14.0 \
-    --hash=sha256:2fa092705ea640d605c435b1ca82b2866a1b601cdf96f076d70b79a855eba90d \
-    --hash=sha256:d57701248d040ad456092820e6fde56c930f17749956ac47f4f655c0c547bfff
+humanize==4.15.0 \
+    --hash=sha256:1dd098483eb1c7ee8e32eb2e99ad1910baefa4b75c3aff3a82f4d78688993b10 \
+    --hash=sha256:b1186eb9f5a9749cd9cb8565aee77919dd7c8d076161cf44d70e59e3301e1769
     # via cibuildwheel, -c /dev/stdin
-packaging==25.0 \
-    --hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484 \
-    --hash=sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f
+packaging==26.2 \
+    --hash=sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e \
+    --hash=sha256:ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661
     # via build, cibuildwheel, dependency-groups, -c /dev/stdin
-patchelf==0.17.2.4 ; (platform_machine == 'aarch64' and sys_platform == 'darwin') or (platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux') \
-    --hash=sha256:09fd848d625a165fc7b7e07745508c24077129b019c4415a882938781d43adf8 \
-    --hash=sha256:2931a1b5b85f3549661898af7bf746afbda7903c7c9a967cfc998a3563f84fad \
-    --hash=sha256:343bb1b94e959f9070ca9607453b04390e36bbaa33c88640b989cefad0aa049e \
-    --hash=sha256:680a266a70f60a7a4f4c448482c5bdba80cc8e6bb155a49dcc24238ba49927b0 \
-    --hash=sha256:7076d9e127230982e20a81a6e2358d3343004667ba510d9f822d4fdee29b0d71 \
-    --hash=sha256:970ee5cd8af33e5ea2099510b2f9013fa1b8d5cd763bf3fd3961281c18101a09 \
-    --hash=sha256:ae44cb3c857d50f54b99e5697aa978726ada33a8a6129d4b8b7ffd28b996652d \
-    --hash=sha256:d842b51f0401460f3b1f3a3a67d2c266a8f515a5adfbfa6e7b656cb3ac2ed8bc \
-    --hash=sha256:d9b35ebfada70c02679ad036407d9724ffe1255122ba4ac5e4be5868618a5689
-    # via cibuildwheel, -c /dev/stdin
-platformdirs==4.5.0 \
-    --hash=sha256:70ddccdd7c99fc5942e9fc25636a8b34d04c24b335100223152c2803e4063312 \
-    --hash=sha256:e578a81bb873cbb89a41fcc904c7ef523cc18284b7e3b3ccf06aca1403b7ebd3
-    # via cibuildwheel, -c /dev/stdin
-pyelftools==0.32 \
-    --hash=sha256:013df952a006db5e138b1edf6d8a68ecc50630adbd0d83a2d41e7f846163d738 \
-    --hash=sha256:6de90ee7b8263e740c8715a925382d4099b354f29ac48ea40d840cf7aa14ace5
+platformdirs==4.10.0 \
+    --hash=sha256:31e761a6a0ca04faf7353ea759bdba55652be214725111e5aac52dfa29d4bef7 \
+    --hash=sha256:fb516cdb12eb0d857d0cd85a7c57cea4d060bee4578d6cf5a14dfdf8cbf8784a
     # via cibuildwheel, -c /dev/stdin
 pyproject-hooks==1.2.0 \
     --hash=sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8 \
     --hash=sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913
     # via build, -c /dev/stdin
-wheel==0.45.1 \
-    --hash=sha256:661e1abd9198507b1409a20c02106d9670b2576e916d58f520316666abca6729 \
-    --hash=sha256:708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248
-    # via cibuildwheel, -c /dev/stdin

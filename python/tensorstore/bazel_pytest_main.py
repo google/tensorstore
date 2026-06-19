@@ -18,6 +18,7 @@
 # substituted with constants.
 
 import os
+import stat
 import sys
 
 import pytest
@@ -41,18 +42,40 @@ def invoke_tests(argv):
   implicit_args += PYTEST_TARGETS
   print(implicit_args + argv[1:])
 
-  # Monkey patch os.path.samefile to swallow FileNotFoundError, to avoid flakes
-  # on Windows due to pytest finding temporary `local-spawn-runner.XXXX` files
-  # created and deleted by Bazel for other concurrent test runs.
-  orig_samefile = os.path.samefile
+  # Monkey patch os.path.samefile and os.lstat only on Windows to avoid flakes
+  # from the 'local-spawn-runner' race condition.
+  #
+  # Because Bazel on Windows lacks native mount namespaces for sandboxing,
+  # concurrent Bazel test runs execute in a shared directory hierarchy.
+  # During test discovery, Pytest lists files (finding temporary files named
+  # 'local-spawn-runner.XXXX' files from peer actions) and subsequently queries
+  # their metadata. If a concurrent Bazel action deletes these temporary files
+  # after listing but before Pytest queries them, os.lstat or os.path.samefile
+  # fails with a FileNotFoundError, causing the test runner execution to
+  # crash/flake.
+  if sys.platform == 'win32':
+    orig_samefile = os.path.samefile
 
-  def samefile(*args, **kwargs):
-    try:
-      return orig_samefile(*args, **kwargs)
-    except FileNotFoundError:
-      return False
+    def samefile(*args, **kwargs):
+      try:
+        return orig_samefile(*args, **kwargs)
+      except FileNotFoundError:
+        return False
 
-  os.path.samefile = samefile
+    os.path.samefile = samefile
+
+    orig_lstat = os.lstat
+
+    def lstat(path, *args, **kwargs):
+      try:
+        return orig_lstat(path, *args, **kwargs)
+      except FileNotFoundError:
+        if 'local-spawn-runner' in str(path):
+          # Return a stat result of a fake empty regular file.
+          return os.stat_result((stat.S_IFREG, 0, 0, 1, 0, 0, 0, 0, 0, 0))
+        raise
+
+    os.lstat = lstat
 
   return pytest.main(args=implicit_args + argv[1:])
 

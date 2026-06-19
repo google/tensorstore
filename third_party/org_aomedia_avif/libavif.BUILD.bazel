@@ -21,7 +21,6 @@ cc_library(
             "src/codec_libgav1.c",
             "src/codec_rav1e.c",
             "src/codec_svt.c",
-            "src/sampletransform.c",
         ],
     ),
     hdrs = glob(

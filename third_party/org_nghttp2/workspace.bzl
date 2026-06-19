@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_nghttp2",
-        strip_prefix = "nghttp2-1.68.0",
-        urls = mirror_url("https://github.com/nghttp2/nghttp2/archive/v1.68.0.tar.gz"),
-        sha256 = "07dfdadf670193baa7d6c23a007afa6ff2d3e4301b2a701c41dfd053e3468f09",
+        strip_prefix = "nghttp2-1.69.0",
+        urls = mirror_url("https://github.com/nghttp2/nghttp2/archive/v1.69.0.tar.gz"),
+        sha256 = "e5ebde703437d4a0bb39e0e2ba03dfda0ee74beba2395003ec71efaf8fb15d03",
         build_file = Label("//third_party:org_nghttp2/nghttp2.BUILD.bazel"),
         system_build_file = Label("//third_party:org_nghttp2/system.BUILD.bazel"),
         # https://github.com/nghttp2/nghttp2/blob/master/CMakeLists.txt

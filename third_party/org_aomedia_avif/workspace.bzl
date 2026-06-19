@@ -28,9 +28,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_aomedia_avif",
-        urls = mirror_url("https://github.com/AOMediaCodec/libavif/archive/v1.3.0.tar.gz"),
-        sha256 = "0a545e953cc049bf5bcf4ee467306a2f113a75110edf59e61248873101cd26c1",
-        strip_prefix = "libavif-1.3.0",
+        urls = mirror_url("https://github.com/AOMediaCodec/libavif/archive/v1.4.2.tar.gz"),
+        sha256 = "2b645287340ba5a631d268b551dc2d72bd73ac33335962dd36dcdb6d8366921d",
+        strip_prefix = "libavif-1.4.2",
         build_file = Label("//third_party:org_aomedia_avif/libavif.BUILD.bazel"),
         system_build_file = Label("//third_party:org_aomedia_avif/system.BUILD.bazel"),
         cmake_name = "AVIF",

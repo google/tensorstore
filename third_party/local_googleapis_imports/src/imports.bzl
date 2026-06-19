@@ -3,8 +3,11 @@
 #
 # See: https://github.com/googleapis/googleapis/blob/master/repository_rules.bzl
 load(
-    "@com_google_protobuf//bazel:upb_proto_library.bzl",
-    _upb_proto_library = "upb_proto_library",
+    "@com_google_protobuf//bazel:upb_c_proto_library.bzl",
+    _upb_proto_library = "upb_c_proto_library",
+)
+load(
+    "@com_google_protobuf//bazel:upb_proto_reflection_library.bzl",
     _upb_proto_reflection_library = "upb_proto_reflection_library",
 )
 load(

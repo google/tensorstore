@@ -25,7 +25,7 @@ def repo():
     maybe(
         http_archive,
         name = "platforms",
-        urls = mirror_url("https://github.com/bazelbuild/platforms/archive/1.0.0.tar.gz"),
-        sha256 = "852b71bfa15712cec124e4a57179b6bc95d59fdf5052945f5d550e072501a769",
-        strip_prefix = "platforms-1.0.0",
+        urls = mirror_url("https://github.com/bazelbuild/platforms/archive/1.1.0.tar.gz"),
+        sha256 = "324f5381753a610e472f79563d44e2026438195042aae4dc660b8c021f7de7f5",
+        strip_prefix = "platforms-1.1.0",
     )

@@ -27,9 +27,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "cel-spec",
-        sha256 = "d60bdb05d3e596468a27b4171c8e0f7ac88d835c06394990686e412c1b0bd8dd",
-        strip_prefix = "cel-spec-0.25.1",
-        urls = mirror_url("https://github.com/google/cel-spec/archive/v0.25.1.zip"),
+        sha256 = "3a5af02376ff33f4538eedc45dec1533ca87ade8f568a908679c0041d29c3bf8",
+        strip_prefix = "cel-spec-0.25.2",
+        urls = mirror_url("https://github.com/google/cel-spec/archive/v0.25.2.zip"),
         repo_mapping = {
             "@io_bazel_rules_go": "@local_rules_go",
             "@com_google_googleapis": "@googleapis",

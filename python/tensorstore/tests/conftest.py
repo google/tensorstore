@@ -28,11 +28,12 @@ GcTester = Callable[[Any], None]
 # directory or other search paths, so expand the DLL paths for testing.
 if hasattr(os, "add_dll_directory"):
   env_value = os.environ.get("PATH")
-  path_list = env_value.split(os.pathsep) if env_value is not None else []
-  for prefix_path in path_list:
-    # Only add directories that exist
-    if os.path.isdir(prefix_path):
-      os.add_dll_directory(os.path.abspath(prefix_path))
+  if env_value:
+    # Avoid duplicate additions and skip empty paths
+    path_list = [p for p in env_value.split(os.pathsep) if p]
+    for prefix_path in dict.fromkeys(path_list):
+      if os.path.isdir(prefix_path):
+        os.add_dll_directory(os.path.abspath(prefix_path))
 
 
 @pytest.fixture

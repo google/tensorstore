@@ -41,3 +41,5 @@ fallback_version = "0.0.0"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+norecursedirs = [".*", "build", "dist", "CVS", "_darcs", "{arch}", "*.egg", "venv"]
+

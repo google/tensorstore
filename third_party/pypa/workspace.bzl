@@ -47,6 +47,7 @@ def repo():
     repo_pypa_googleapis_common_protos()
     repo_pypa_graphql_core()
     repo_pypa_grpcio()
+    repo_pypa_grpcio_status()
     repo_pypa_h2()
     repo_pypa_hpack()
     repo_pypa_humanize()
@@ -65,7 +66,7 @@ def repo():
     repo_pypa_jsonpath_ng()
     repo_pypa_jsonpointer()
     repo_pypa_jsonschema()
-    repo_pypa_jsonschema_spec()
+    repo_pypa_jsonschema_path()
     repo_pypa_jsonschema_specifications()
     repo_pypa_lazy_object_proxy()
     repo_pypa_libclang()
@@ -81,15 +82,14 @@ def repo():
     repo_pypa_openapi_spec_validator()
     repo_pypa_packaging()
     repo_pypa_parso()
-    repo_pypa_patchelf()
     repo_pypa_pathable()
     repo_pypa_pathspec()
     repo_pypa_pexpect()
     repo_pypa_platformdirs()
     repo_pypa_pluggy()
-    repo_pypa_ply()
     repo_pypa_prompt_toolkit()
     repo_pypa_protobuf()
+    repo_pypa_psutil()
     repo_pypa_ptyprocess()
     repo_pypa_pure_eval()
     repo_pypa_py_partiql_parser()
@@ -98,13 +98,14 @@ def repo():
     repo_pypa_pydantic()
     repo_pypa_pydantic_core()
     repo_pypa_pydantic_extra_types()
-    repo_pypa_pyelftools()
+    repo_pypa_pydantic_settings()
     repo_pypa_pygments()
     repo_pypa_pyparsing()
     repo_pypa_pyproject_hooks()
     repo_pypa_pytest()
     repo_pypa_pytest_asyncio()
     repo_pypa_python_dateutil()
+    repo_pypa_python_dotenv()
     repo_pypa_pytokens()
     repo_pypa_pywin32()
     repo_pypa_pyyaml()
@@ -114,6 +115,7 @@ def repo():
     repo_pypa_requests_toolbelt()
     repo_pypa_responses()
     repo_pypa_rfc3339_validator()
+    repo_pypa_roman_numerals()
     repo_pypa_roman_numerals_py()
     repo_pypa_rpds_py()
     repo_pypa_s3transfer()
@@ -136,6 +138,7 @@ def repo():
     repo_pypa_typing_extensions()
     repo_pypa_typing_inspection()
     repo_pypa_urllib3()
+    repo_pypa_vcs_versioning()
     repo_pypa_wcwidth()
     repo_pypa_werkzeug()
     repo_pypa_wheel()
@@ -149,9 +152,9 @@ def repo_pypa_absl_py():
         name = "pypa_absl_py",
         target = "absl_py",
         requirement = [
-            "absl-py==2.3.1",
-            "--hash=sha256:a97820526f7fbfd2ec1bce83f3f25e3a14840dac0d8e02a0b71cd75db3f77fc9",
-            "--hash=sha256:eeecf07f0c2a93ace0772c92e596ace6d3d3996c042b2128459aaae2a76de11d",
+            "absl-py==2.4.0",
+            "--hash=sha256:88476fd881ca8aab94ffa78b7b6c632a782ab3ba1cd19c9bd423abc4fb4cd28d",
+            "--hash=sha256:8c6af82722b35cf71e0f4d1d47dcaebfff286e27110a99fc359349b247dfb5d4",
         ],
     )
 
@@ -209,9 +212,9 @@ def repo_pypa_asttokens():
         name = "pypa_asttokens",
         target = "asttokens",
         requirement = [
-            "asttokens==3.0.0",
-            "--hash=sha256:0dcd8baa8d62b0c1d118b399b2ddba3c4aff271d0d7a9e0d4c1681c79035bbc7",
-            "--hash=sha256:e3078351a059199dd5138cb1c706e6430c05eff2ff136af5eb4790f9d28932e2",
+            "asttokens==3.0.1",
+            "--hash=sha256:15a3ebc0f43c2d0a50eeafea25e19046c68398e487b9f1f5b517f7c0f40f976a",
+            "--hash=sha256:71a4ee5de0bde6a31d64f6b13f2293ac190344478f081c3d1bccfcf5eacb0cb7",
         ],
     )
 
@@ -221,9 +224,9 @@ def repo_pypa_attrs():
         name = "pypa_attrs",
         target = "attrs",
         requirement = [
-            "attrs==25.4.0",
-            "--hash=sha256:16d5969b87f0859ef33a48b35d55ac1be6e42ae49d5e853b597db70c35c57e11",
-            "--hash=sha256:adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373",
+            "attrs==26.1.0",
+            "--hash=sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+            "--hash=sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32",
         ],
     )
 
@@ -237,9 +240,9 @@ def repo_pypa_aws_sam_translator():
         name = "pypa_aws_sam_translator",
         target = "aws_sam_translator",
         requirement = [
-            "aws-sam-translator==1.101.0",
-            "--hash=sha256:234c1ca29d47f2cd276858371d4a646bc5cdb0de1e07724721d9358d6de005aa",
-            "--hash=sha256:a83f0c2e1712a7695446675faf93276518a690d75e190f861636d5326a3d2f30",
+            "aws-sam-translator==1.110.0",
+            "--hash=sha256:466ee0e8200992c51b7fd5ede5e56ca2e8dd5473cc551e8495c14f2f4d636127",
+            "--hash=sha256:69b09aacf2d305ac747037b7b913224cb8a9d653f47a0306509c1d20e420b670",
         ],
         deps = [
             "@pypa_boto3//:boto3",
@@ -257,9 +260,9 @@ def repo_pypa_aws_xray_sdk():
         name = "pypa_aws_xray_sdk",
         target = "aws_xray_sdk",
         requirement = [
-            "aws-xray-sdk==2.14.0",
-            "--hash=sha256:aab843c331af9ab9ba5cefb3a303832a19db186140894a523edafc024cc0493c",
-            "--hash=sha256:cfbe6feea3d26613a2a869d14c9246a844285c97087ad8f296f901633554ad94",
+            "aws-xray-sdk==2.15.0",
+            "--hash=sha256:422d62ad7d52e373eebb90b642eb1bb24657afe03b22a8df4a8b2e5108e278a3",
+            "--hash=sha256:794381b96e835314345068ae1dd3b9120bd8b4e21295066c37e8814dbb341365",
         ],
         deps = [
             "@pypa_botocore//:botocore",
@@ -273,9 +276,9 @@ def repo_pypa_babel():
         name = "pypa_babel",
         target = "babel",
         requirement = [
-            "babel==2.17.0",
-            "--hash=sha256:0c54cffb19f690cdcc52a3b50bcbf71e07a808d1c80d549f2459b9d2cf0afb9d",
-            "--hash=sha256:4d0b53093fdfb4b21c92b5213dba5a1b23885afa8383709427046b21c366e5f2",
+            "babel==2.18.0",
+            "--hash=sha256:b80b99a14bd085fcacfa15c9165f651fbb3406e66cc603abf11c5750937c992d",
+            "--hash=sha256:e2b422b277c2b9a9630c1d7903c2a00d0830c409c59ac8cae9081c92f1aeba35",
         ],
     )
 
@@ -292,48 +295,53 @@ def repo_pypa_bashlex():
     )
 
 def repo_pypa_black():
-    repo_pypa_pytokens()
-    repo_pypa_platformdirs()
-    repo_pypa_packaging()
     repo_pypa_click()
     repo_pypa_mypy_extensions()
+    repo_pypa_packaging()
     repo_pypa_pathspec()
+    repo_pypa_platformdirs()
+    repo_pypa_pytokens()
     maybe(
         third_party_python_package,
         name = "pypa_black",
         target = "black",
         requirement = [
-            "black==25.9.0",
-            "--hash=sha256:0172a012f725b792c358d57fe7b6b6e8e67375dd157f64fa7a3097b3ed3e2175",
-            "--hash=sha256:0474bca9a0dd1b51791fcc507a4e02078a1c63f6d4e4ae5544b9848c7adfb619",
-            "--hash=sha256:154b06d618233fe468236ba1f0e40823d4eb08b26f5e9261526fde34916b9140",
-            "--hash=sha256:1b9dc70c21ef8b43248f1d86aedd2aaf75ae110b958a7909ad8463c4aa0880b0",
-            "--hash=sha256:2ab0ce111ef026790e9b13bd216fa7bc48edd934ffc4cbf78808b235793cbc92",
-            "--hash=sha256:3bec74ee60f8dfef564b573a96b8930f7b6a538e846123d5ad77ba14a8d7a64f",
-            "--hash=sha256:456386fe87bad41b806d53c062e2974615825c7a52159cde7ccaeb0695fa28fa",
-            "--hash=sha256:474b34c1342cdc157d307b56c4c65bce916480c4a8f6551fdc6bf9b486a7c4ae",
-            "--hash=sha256:77e7060a00c5ec4b3367c55f39cf9b06e68965a4f2e61cecacd6d0d9b7ec945a",
-            "--hash=sha256:846d58e3ce7879ec1ffe816bb9df6d006cd9590515ed5d17db14e17666b2b357",
-            "--hash=sha256:8e46eecf65a095fa62e53245ae2795c90bdecabd53b50c448d0a8bcd0d2e74c4",
-            "--hash=sha256:9101ee58ddc2442199a25cb648d46ba22cd580b00ca4b44234a324e3ec7a0f7e",
-            "--hash=sha256:a16b14a44c1af60a210d8da28e108e13e75a284bf21a9afa6b4571f96ab8bb9d",
-            "--hash=sha256:aaf319612536d502fdd0e88ce52d8f1352b2c0a955cc2798f79eeca9d3af0608",
-            "--hash=sha256:b756fc75871cb1bcac5499552d771822fd9db5a2bb8db2a7247936ca48f39831",
-            "--hash=sha256:c0372a93e16b3954208417bfe448e09b0de5cc721d521866cd9e0acac3c04a1f",
-            "--hash=sha256:ce41ed2614b706fd55fd0b4a6909d06b5bab344ffbfadc6ef34ae50adba3d4f7",
-            "--hash=sha256:d119957b37cc641596063cd7db2656c5be3752ac17877017b2ffcdb9dfc4d2b1",
-            "--hash=sha256:e3c1f4cd5e93842774d9ee4ef6cd8d17790e65f44f7cdbaab5f2cf8ccf22a823",
-            "--hash=sha256:e593466de7b998374ea2585a471ba90553283fb9beefcfa430d84a2651ed5933",
-            "--hash=sha256:ef69351df3c84485a8beb6f7b8f9721e2009e20ef80a8d619e2d1788b7816d47",
-            "--hash=sha256:f96b6726d690c96c60ba682955199f8c39abc1ae0c3a494a9c62c0184049a713",
+            "black==26.5.1",
+            "--hash=sha256:0e48b87e03bf109288e55cfceadcfa15ff5470aca2851a851950ed2926f450d7",
+            "--hash=sha256:1037d5ac7b7b310b2632ad867ec8d0e4c4819dcdb0b820f63135da746a24e418",
+            "--hash=sha256:1ef92b76f7733f282fd096ea406200b5a286c42947412b0eaff3a74e3616cefe",
+            "--hash=sha256:1f7ea64ebfa01b50f693508fc39f875e264446d3b097088f84f203b9d09618a0",
+            "--hash=sha256:22f2cd76d069cc54c71f10360744ba8983fbb616903b4304a85b734915c8e1b4",
+            "--hash=sha256:2b36cf2ddf5566e205f6535f782a62194a184d33e175b64ae8c40b1737522be3",
+            "--hash=sha256:30d3c14661f2792e9142cce3eeeb1cbc175b3eb5f733be0c8eeb99651e52b0c3",
+            "--hash=sha256:32d5ea7f6c8bdfa6e648326ebca1f02b0764e2a029edc6f8dce2627e19d468c3",
+            "--hash=sha256:3915f256e75a2d7cf88d8953d37f780455dc586cc72dee059c528fe77f581217",
+            "--hash=sha256:4ad6fa01f941920f54f2bbb35f3df7673428a0ef98a0b0840c2eaef3b110efa8",
+            "--hash=sha256:4ed7f7da04046d2e488437170797d3b4a4ad83906683bcb7dfc68b673bbce5e2",
+            "--hash=sha256:5119fa92ae61f786e8c3662fd60aece1d0a2dd5cca5d0c79417a95e7a4272a59",
+            "--hash=sha256:577f21094ea469ef92ec1adaf2c9441a226d2144d01a5be2fa823cecf6543e50",
+            "--hash=sha256:58b4bd92cf88aacf83d88479c8f9caee044b1ec55f2451a337354a7ea2590a22",
+            "--hash=sha256:5c34b25da232ead53a6f335b76dbea124f4d152ad568b9080d6f944bc2b34b52",
+            "--hash=sha256:87ed5c6f450580a2f6790bc7cbfb016dfc73bc750249762268a3695361315eef",
+            "--hash=sha256:89c93167a74d3a75dfaa38a5c7cca015537d5820dd7f17d63267d674a61cae90",
+            "--hash=sha256:96ae2c733b2aabdd9986e2c5df628ff3473676cd1c5faded1ff496cf6d74083c",
+            "--hash=sha256:9942db8888e06943c5dde66ca0037dcff82a2a4ec1ad0ada9e0d2ee9d9823893",
+            "--hash=sha256:9d98d4137277c75dfb898ec8d846c4fd68ba1e9cf77f95e2865c203dc18f4c3d",
+            "--hash=sha256:a1dca32d9f1784af512a13410ec204c6f7f0aa9797a111c42e1c03449821c264",
+            "--hash=sha256:dd321f668053961824bcc1be1cc1df748b2d7e4fa28086b08331e577b0100a73",
+            "--hash=sha256:e1a26503279b6b310669fb0b219c39e4820b77e8189fe80f522bb511f247db0a",
+            "--hash=sha256:e88976690a64b0af98312ca958415849cb42423423c5f2ee74af4b49a97a2168",
+            "--hash=sha256:ea8d16dc41655aa113cd64665e7219446cd7e4ff2248d7178eaa905190c86b18",
+            "--hash=sha256:ecb3e624844c798144e9bd986954e0adc81d8911a1f30f375e1252fe26e8c294",
+            "--hash=sha256:ed1a20af114c301a0269bf01163d51dbef72737fd65f850001e7cbe7f3c7abae",
         ],
         deps = [
-            "@pypa_pytokens//:pytokens",
-            "@pypa_platformdirs//:platformdirs",
-            "@pypa_packaging//:packaging",
             "@pypa_click//:click",
             "@pypa_mypy_extensions//:mypy_extensions",
+            "@pypa_packaging//:packaging",
             "@pypa_pathspec//:pathspec",
+            "@pypa_platformdirs//:platformdirs",
+            "@pypa_pytokens//:pytokens",
         ],
     )
 
@@ -358,9 +366,9 @@ def repo_pypa_boto3():
         name = "pypa_boto3",
         target = "boto3",
         requirement = [
-            "boto3==1.40.58",
-            "--hash=sha256:5a99c0bd2e282af4afde1af10d8838b397120722b6b685f0c0fa6b8cac351304",
-            "--hash=sha256:951515c1ea0ae9e99e56c3b6f408a2f59e1b57fab4d96dab737e73956f729177",
+            "boto3==1.43.31",
+            "--hash=sha256:69c5521ad864f33d4d53b0e18a3927697f4558210693b1cb4dd97da959d1f7b9",
+            "--hash=sha256:8165b79c02955affbe4b4e9aa7c560684d0d4d86b4b9de66a37b45eb79fc4b69",
         ],
         deps = [
             "@pypa_botocore//:botocore",
@@ -370,21 +378,21 @@ def repo_pypa_boto3():
     )
 
 def repo_pypa_botocore():
-    repo_pypa_python_dateutil()
     repo_pypa_jmespath()
+    repo_pypa_python_dateutil()
     repo_pypa_urllib3()
     maybe(
         third_party_python_package,
         name = "pypa_botocore",
         target = "botocore",
         requirement = [
-            "botocore==1.40.58",
-            "--hash=sha256:2571ca3aec8150e1b5a597794da6fd06284de72f29d3ea806804b798755f2e5a",
-            "--hash=sha256:cf2de7f5538f23c8067408a984ed32221e8b196ce98e66945a479d06b2663c33",
+            "botocore==1.43.31",
+            "--hash=sha256:4c51c63f39515fc1a2b8e3e2c29e452009c988ba55ad489251658fdd3aedad6e",
+            "--hash=sha256:c249625faaa353c5b4004043706a394a4f3bcd3643e242f6b01fff6dc70e988b",
         ],
         deps = [
-            "@pypa_python_dateutil//:python_dateutil",
             "@pypa_jmespath//:jmespath",
+            "@pypa_python_dateutil//:python_dateutil",
             "@pypa_urllib3//:urllib3",
         ],
     )
@@ -410,9 +418,9 @@ def repo_pypa_build():
         name = "pypa_build",
         target = "build",
         requirement = [
-            "build==1.3.0",
-            "--hash=sha256:698edd0ea270bde950f53aed21f3a0135672206f3911e0176261a31e0e07b397",
-            "--hash=sha256:7145f0b5061ba90a1500d60bd1b13ca0a8a4cebdd0cc16ed8adf1c0e739f43b4",
+            "build==1.5.0",
+            "--hash=sha256:13f3eecb844759ab66efec90ca17639bbf14dc06cb2fdf37a9010322d9c50a6f",
+            "--hash=sha256:302c22c3ba2a0fd5f3911918651341ebb3896176cbdec15bd421f80b1afc7647",
         ],
         deps = [
             "@pypa_colorama//:colorama",
@@ -427,9 +435,9 @@ def repo_pypa_certifi():
         name = "pypa_certifi",
         target = "certifi",
         requirement = [
-            "certifi==2025.10.5",
-            "--hash=sha256:0f212c2744a9bb6de0c56639a6f68afe01ecd92d91f14ae897c4fe7bbeeef0de",
-            "--hash=sha256:47c09d31ccf2acf0be3f701ea53595ee7e0b8fa08801c6624be771df09ae7b43",
+            "certifi==2026.6.17",
+            "--hash=sha256:024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432",
+            "--hash=sha256:2227dcbaafe0d2f59279d1762ddddc37783ed4354594f194ffc31d20f41fc3db",
         ],
     )
 
@@ -532,30 +540,30 @@ def repo_pypa_cffi():
     )
 
 def repo_pypa_cfn_lint():
-    repo_pypa_jsonpatch()
-    repo_pypa_regex()
-    repo_pypa_typing_extensions()
-    repo_pypa_pyyaml()
-    repo_pypa_networkx()
-    repo_pypa_sympy()
     repo_pypa_aws_sam_translator()
+    repo_pypa_jsonpatch()
+    repo_pypa_networkx()
+    repo_pypa_pyyaml()
+    repo_pypa_regex()
+    repo_pypa_sympy()
+    repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
         name = "pypa_cfn_lint",
         target = "cfn_lint",
         requirement = [
-            "cfn-lint==1.40.2",
-            "--hash=sha256:5822b2c90f7f2646823a47db9df7a60c23df46bbac34b2081d8a0b3b806c91eb",
-            "--hash=sha256:fa44a3101bd8d7f644bc146b8a9e63d0fa2b64cd61c8a767e65c46920646277c",
+            "cfn-lint==1.51.5",
+            "--hash=sha256:018a00f1f9eeadc196afbdc0ac8c6221c29411747c8dcff2f431d48d4080c83b",
+            "--hash=sha256:e17c11a1485a2586c5ddf48d0041f8fa3da3038612fd7dbc559ec87935f53452",
         ],
         deps = [
-            "@pypa_jsonpatch//:jsonpatch",
-            "@pypa_regex//:regex",
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_pyyaml//:pyyaml",
-            "@pypa_networkx//:networkx",
-            "@pypa_sympy//:sympy",
             "@pypa_aws_sam_translator//:aws_sam_translator",
+            "@pypa_jsonpatch//:jsonpatch",
+            "@pypa_networkx//:networkx",
+            "@pypa_pyyaml//:pyyaml",
+            "@pypa_regex//:regex",
+            "@pypa_sympy//:sympy",
+            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -565,158 +573,168 @@ def repo_pypa_charset_normalizer():
         name = "pypa_charset_normalizer",
         target = "charset_normalizer",
         requirement = [
-            "charset-normalizer==3.4.4",
-            "--hash=sha256:027f6de494925c0ab2a55eab46ae5129951638a49a34d87f4c3eda90f696b4ad",
-            "--hash=sha256:077fbb858e903c73f6c9db43374fd213b0b6a778106bc7032446a8e8b5b38b93",
-            "--hash=sha256:0a98e6759f854bd25a58a73fa88833fba3b7c491169f86ce1180c948ab3fd394",
-            "--hash=sha256:0d3d8f15c07f86e9ff82319b3d9ef6f4bf907608f53fe9d92b28ea9ae3d1fd89",
-            "--hash=sha256:0f04b14ffe5fdc8c4933862d8306109a2c51e0704acfa35d51598eb45a1e89fc",
-            "--hash=sha256:11d694519d7f29d6cd09f6ac70028dba10f92f6cdd059096db198c283794ac86",
-            "--hash=sha256:194f08cbb32dc406d6e1aea671a68be0823673db2832b38405deba2fb0d88f63",
-            "--hash=sha256:1bee1e43c28aa63cb16e5c14e582580546b08e535299b8b6158a7c9c768a1f3d",
-            "--hash=sha256:21d142cc6c0ec30d2efee5068ca36c128a30b0f2c53c1c07bd78cb6bc1d3be5f",
-            "--hash=sha256:2437418e20515acec67d86e12bf70056a33abdacb5cb1655042f6538d6b085a8",
-            "--hash=sha256:244bfb999c71b35de57821b8ea746b24e863398194a4014e4c76adc2bbdfeff0",
-            "--hash=sha256:2677acec1a2f8ef614c6888b5b4ae4060cc184174a938ed4e8ef690e15d3e505",
-            "--hash=sha256:277e970e750505ed74c832b4bf75dac7476262ee2a013f5574dd49075879e161",
-            "--hash=sha256:2aaba3b0819274cc41757a1da876f810a3e4d7b6eb25699253a4effef9e8e4af",
-            "--hash=sha256:2b7d8f6c26245217bd2ad053761201e9f9680f8ce52f0fcd8d0755aeae5b2152",
-            "--hash=sha256:2c9d3c380143a1fedbff95a312aa798578371eb29da42106a29019368a475318",
-            "--hash=sha256:3162d5d8ce1bb98dd51af660f2121c55d0fa541b46dff7bb9b9f86ea1d87de72",
-            "--hash=sha256:31fd66405eaf47bb62e8cd575dc621c56c668f27d46a61d975a249930dd5e2a4",
-            "--hash=sha256:362d61fd13843997c1c446760ef36f240cf81d3ebf74ac62652aebaf7838561e",
-            "--hash=sha256:376bec83a63b8021bb5c8ea75e21c4ccb86e7e45ca4eb81146091b56599b80c3",
-            "--hash=sha256:44c2a8734b333e0578090c4cd6b16f275e07aa6614ca8715e6c038e865e70576",
-            "--hash=sha256:47cc91b2f4dd2833fddaedd2893006b0106129d4b94fdb6af1f4ce5a9965577c",
-            "--hash=sha256:4902828217069c3c5c71094537a8e623f5d097858ac6ca8252f7b4d10b7560f1",
-            "--hash=sha256:4bd5d4137d500351a30687c2d3971758aac9a19208fc110ccb9d7188fbe709e8",
-            "--hash=sha256:4fe7859a4e3e8457458e2ff592f15ccb02f3da787fcd31e0183879c3ad4692a1",
-            "--hash=sha256:542d2cee80be6f80247095cc36c418f7bddd14f4a6de45af91dfad36d817bba2",
-            "--hash=sha256:554af85e960429cf30784dd47447d5125aaa3b99a6f0683589dbd27e2f45da44",
-            "--hash=sha256:5833d2c39d8896e4e19b689ffc198f08ea58116bee26dea51e362ecc7cd3ed26",
-            "--hash=sha256:5947809c8a2417be3267efc979c47d76a079758166f7d43ef5ae8e9f92751f88",
-            "--hash=sha256:5ae497466c7901d54b639cf42d5b8c1b6a4fead55215500d2f486d34db48d016",
-            "--hash=sha256:5bd2293095d766545ec1a8f612559f6b40abc0eb18bb2f5d1171872d34036ede",
-            "--hash=sha256:5bfbb1b9acf3334612667b61bd3002196fe2a1eb4dd74d247e0f2a4d50ec9bbf",
-            "--hash=sha256:5cb4d72eea50c8868f5288b7f7f33ed276118325c1dfd3957089f6b519e1382a",
-            "--hash=sha256:5dbe56a36425d26d6cfb40ce79c314a2e4dd6211d51d6d2191c00bed34f354cc",
-            "--hash=sha256:5f819d5fe9234f9f82d75bdfa9aef3a3d72c4d24a6e57aeaebba32a704553aa0",
-            "--hash=sha256:64b55f9dce520635f018f907ff1b0df1fdc31f2795a922fb49dd14fbcdf48c84",
-            "--hash=sha256:6515f3182dbe4ea06ced2d9e8666d97b46ef4c75e326b79bb624110f122551db",
-            "--hash=sha256:65e2befcd84bc6f37095f5961e68a6f077bf44946771354a28ad434c2cce0ae1",
-            "--hash=sha256:6aee717dcfead04c6eb1ce3bd29ac1e22663cdea57f943c87d1eab9a025438d7",
-            "--hash=sha256:6b39f987ae8ccdf0d2642338faf2abb1862340facc796048b604ef14919e55ed",
-            "--hash=sha256:6e1fcf0720908f200cd21aa4e6750a48ff6ce4afe7ff5a79a90d5ed8a08296f8",
-            "--hash=sha256:74018750915ee7ad843a774364e13a3db91682f26142baddf775342c3f5b1133",
-            "--hash=sha256:74664978bb272435107de04e36db5a9735e78232b85b77d45cfb38f758efd33e",
-            "--hash=sha256:74bb723680f9f7a6234dcf67aea57e708ec1fbdf5699fb91dfd6f511b0a320ef",
-            "--hash=sha256:752944c7ffbfdd10c074dc58ec2d5a8a4cd9493b314d367c14d24c17684ddd14",
-            "--hash=sha256:778d2e08eda00f4256d7f672ca9fef386071c9202f5e4607920b86d7803387f2",
-            "--hash=sha256:780236ac706e66881f3b7f2f32dfe90507a09e67d1d454c762cf642e6e1586e0",
-            "--hash=sha256:798d75d81754988d2565bff1b97ba5a44411867c0cf32b77a7e8f8d84796b10d",
-            "--hash=sha256:799a7a5e4fb2d5898c60b640fd4981d6a25f1c11790935a44ce38c54e985f828",
-            "--hash=sha256:7a32c560861a02ff789ad905a2fe94e3f840803362c84fecf1851cb4cf3dc37f",
-            "--hash=sha256:7c308f7e26e4363d79df40ca5b2be1c6ba9f02bdbccfed5abddb7859a6ce72cf",
-            "--hash=sha256:7fa17817dc5625de8a027cb8b26d9fefa3ea28c8253929b8d6649e705d2835b6",
-            "--hash=sha256:81d5eb2a312700f4ecaa977a8235b634ce853200e828fbadf3a9c50bab278328",
-            "--hash=sha256:82004af6c302b5d3ab2cfc4cc5f29db16123b1a8417f2e25f9066f91d4411090",
-            "--hash=sha256:837c2ce8c5a65a2035be9b3569c684358dfbf109fd3b6969630a87535495ceaa",
-            "--hash=sha256:840c25fb618a231545cbab0564a799f101b63b9901f2569faecd6b222ac72381",
-            "--hash=sha256:8a6562c3700cce886c5be75ade4a5db4214fda19fede41d9792d100288d8f94c",
-            "--hash=sha256:8af65f14dc14a79b924524b1e7fffe304517b2bff5a58bf64f30b98bbc5079eb",
-            "--hash=sha256:8ef3c867360f88ac904fd3f5e1f902f13307af9052646963ee08ff4f131adafc",
-            "--hash=sha256:94537985111c35f28720e43603b8e7b43a6ecfb2ce1d3058bbe955b73404e21a",
-            "--hash=sha256:99ae2cffebb06e6c22bdc25801d7b30f503cc87dbd283479e7b606f70aff57ec",
-            "--hash=sha256:9a26f18905b8dd5d685d6d07b0cdf98a79f3c7a918906af7cc143ea2e164c8bc",
-            "--hash=sha256:9b35f4c90079ff2e2edc5b26c0c77925e5d2d255c42c74fdb70fb49b172726ac",
-            "--hash=sha256:9cd98cdc06614a2f768d2b7286d66805f94c48cde050acdbbb7db2600ab3197e",
-            "--hash=sha256:9d1bb833febdff5c8927f922386db610b49db6e0d4f4ee29601d71e7c2694313",
-            "--hash=sha256:9f7fcd74d410a36883701fafa2482a6af2ff5ba96b9a620e9e0721e28ead5569",
-            "--hash=sha256:a59cb51917aa591b1c4e6a43c132f0cdc3c76dbad6155df4e28ee626cc77a0a3",
-            "--hash=sha256:a61900df84c667873b292c3de315a786dd8dac506704dea57bc957bd31e22c7d",
-            "--hash=sha256:a79cfe37875f822425b89a82333404539ae63dbdddf97f84dcbc3d339aae9525",
-            "--hash=sha256:a8a8b89589086a25749f471e6a900d3f662d1d3b6e2e59dcecf787b1cc3a1894",
-            "--hash=sha256:a8bf8d0f749c5757af2142fe7903a9df1d2e8aa3841559b2bad34b08d0e2bcf3",
-            "--hash=sha256:a9768c477b9d7bd54bc0c86dbaebdec6f03306675526c9927c0e8a04e8f94af9",
-            "--hash=sha256:ac1c4a689edcc530fc9d9aa11f5774b9e2f33f9a0c6a57864e90908f5208d30a",
-            "--hash=sha256:af2d8c67d8e573d6de5bc30cdb27e9b95e49115cd9baad5ddbd1a6207aaa82a9",
-            "--hash=sha256:b435cba5f4f750aa6c0a0d92c541fb79f69a387c91e61f1795227e4ed9cece14",
-            "--hash=sha256:b5b290ccc2a263e8d185130284f8501e3e36c5e02750fc6b6bdeb2e9e96f1e25",
-            "--hash=sha256:b5d84d37db046c5ca74ee7bb47dd6cbc13f80665fdde3e8040bdd3fb015ecb50",
-            "--hash=sha256:b7cf1017d601aa35e6bb650b6ad28652c9cd78ee6caff19f3c28d03e1c80acbf",
-            "--hash=sha256:bc7637e2f80d8530ee4a78e878bce464f70087ce73cf7c1caf142416923b98f1",
-            "--hash=sha256:c0463276121fdee9c49b98908b3a89c39be45d86d1dbaa22957e38f6321d4ce3",
-            "--hash=sha256:c4ef880e27901b6cc782f1b95f82da9313c0eb95c3af699103088fa0ac3ce9ac",
-            "--hash=sha256:c8ae8a0f02f57a6e61203a31428fa1d677cbe50c93622b4149d5c0f319c1d19e",
-            "--hash=sha256:ca5862d5b3928c4940729dacc329aa9102900382fea192fc5e52eb69d6093815",
-            "--hash=sha256:cb01158d8b88ee68f15949894ccc6712278243d95f344770fa7593fa2d94410c",
-            "--hash=sha256:cb6254dc36b47a990e59e1068afacdcd02958bdcce30bb50cc1700a8b9d624a6",
-            "--hash=sha256:cc00f04ed596e9dc0da42ed17ac5e596c6ccba999ba6bd92b0e0aef2f170f2d6",
-            "--hash=sha256:cd09d08005f958f370f539f186d10aec3377d55b9eeb0d796025d4886119d76e",
-            "--hash=sha256:cd4b7ca9984e5e7985c12bc60a6f173f3c958eae74f3ef6624bb6b26e2abbae4",
-            "--hash=sha256:ce8a0633f41a967713a59c4139d29110c07e826d131a316b50ce11b1d79b4f84",
-            "--hash=sha256:cead0978fc57397645f12578bfd2d5ea9138ea0fac82b2f63f7f7c6877986a69",
-            "--hash=sha256:d055ec1e26e441f6187acf818b73564e6e6282709e9bcb5b63f5b23068356a15",
-            "--hash=sha256:d1f13550535ad8cff21b8d757a3257963e951d96e20ec82ab44bc64aeb62a191",
-            "--hash=sha256:d9c7f57c3d666a53421049053eaacdd14bbd0a528e2186fcb2e672effd053bb0",
-            "--hash=sha256:d9e45d7faa48ee908174d8fe84854479ef838fc6a705c9315372eacbc2f02897",
-            "--hash=sha256:da3326d9e65ef63a817ecbcc0df6e94463713b754fe293eaa03da99befb9a5bd",
-            "--hash=sha256:de00632ca48df9daf77a2c65a484531649261ec9f25489917f09e455cb09ddb2",
-            "--hash=sha256:e1f185f86a6f3403aa2420e815904c67b2f9ebc443f045edd0de921108345794",
-            "--hash=sha256:e824f1492727fa856dd6eda4f7cee25f8518a12f3c4a56a74e8095695089cf6d",
-            "--hash=sha256:e912091979546adf63357d7e2ccff9b44f026c075aeaf25a52d0e95ad2281074",
-            "--hash=sha256:eaabd426fe94daf8fd157c32e571c85cb12e66692f15516a83a03264b08d06c3",
-            "--hash=sha256:ebf3e58c7ec8a8bed6d66a75d7fb37b55e5015b03ceae72a8e7c74495551e224",
-            "--hash=sha256:ecaae4149d99b1c9e7b88bb03e3221956f68fd6d50be2ef061b2381b61d20838",
-            "--hash=sha256:eecbc200c7fd5ddb9a7f16c7decb07b566c29fa2161a16cf67b8d068bd21690a",
-            "--hash=sha256:f155a433c2ec037d4e8df17d18922c3a0d9b3232a396690f17175d2946f0218d",
-            "--hash=sha256:f1e34719c6ed0b92f418c7c780480b26b5d9c50349e9a9af7d76bf757530350d",
-            "--hash=sha256:f34be2938726fc13801220747472850852fe6b1ea75869a048d6f896838c896f",
-            "--hash=sha256:f820802628d2694cb7e56db99213f930856014862f3fd943d290ea8438d07ca8",
-            "--hash=sha256:f8bf04158c6b607d747e93949aa60618b61312fe647a6369f88ce2ff16043490",
-            "--hash=sha256:f8e160feb2aed042cd657a72acc0b481212ed28b1b9a95c0cee1621b524e1966",
-            "--hash=sha256:f9d332f8c2a2fcbffe1378594431458ddbef721c1769d78e2cbc06280d8155f9",
-            "--hash=sha256:fa09f53c465e532f4d3db095e0c55b615f010ad81803d383195b6b5ca6cbf5f3",
-            "--hash=sha256:faa3a41b2b66b6e50f84ae4a68c64fcd0c44355741c6374813a800cd6695db9e",
-            "--hash=sha256:fd44c878ea55ba351104cb93cc85e74916eb8fa440ca7903e57575e97394f608",
+            "charset-normalizer==3.4.7",
+            "--hash=sha256:007d05ec7321d12a40227aae9e2bc6dca73f3cb21058999a1df9e193555a9dcc",
+            "--hash=sha256:03853ed82eeebbce3c2abfdbc98c96dc205f32a79627688ac9a27370ea61a49c",
+            "--hash=sha256:07d9e39b01743c3717745f4c530a6349eadbfa043c7577eef86c502c15df2c67",
+            "--hash=sha256:08e721811161356f97b4059a9ba7bafb23ea5ee2255402c42881c214e173c6b4",
+            "--hash=sha256:0c96c3b819b5c3e9e165495db84d41914d6894d55181d2d108cc1a69bfc9cce0",
+            "--hash=sha256:0ea948db76d31190bf08bd371623927ee1339d5f2a0b4b1b4a4439a65298703c",
+            "--hash=sha256:0f7eb884681e3938906ed0434f20c63046eacd0111c4ba96f27b76084cd679f5",
+            "--hash=sha256:12a6fff75f6bc66711b73a2f0addfc4c8c15a20e805146a02d147a318962c444",
+            "--hash=sha256:12d8baf840cc7889b37c7c770f478adea7adce3dcb3944d02ec87508e2dcf153",
+            "--hash=sha256:14265bfe1f09498b9d8ec91e9ec9fa52775edf90fcbde092b25f4a33d444fea9",
+            "--hash=sha256:16d971e29578a5e97d7117866d15889a4a07befe0e87e703ed63cd90cb348c01",
+            "--hash=sha256:177a0ba5f0211d488e295aaf82707237e331c24788d8d76c96c5a41594723217",
+            "--hash=sha256:1a87ca9d5df6fe460483d9a5bbf2b18f620cbed41b432e2bddb686228282d10b",
+            "--hash=sha256:1c2a768fdd44ee4a9339a9b0b130049139b8ce3c01d2ce09f67f5a68048d477c",
+            "--hash=sha256:1c2aed2e5e41f24ea8ef1590b8e848a79b56f3a5564a65ceec43c9d692dc7d8a",
+            "--hash=sha256:1dc8b0ea451d6e69735094606991f32867807881400f808a106ee1d963c46a83",
+            "--hash=sha256:1efde3cae86c8c273f1eb3b287be7d8499420cf2fe7585c41d370d3e790054a5",
+            "--hash=sha256:202389074300232baeb53ae2569a60901f7efadd4245cf3a3bf0617d60b439d7",
+            "--hash=sha256:203104ed3e428044fd943bc4bf45fa73c0730391f9621e37fe39ecf477b128cb",
+            "--hash=sha256:2257141f39fe65a3fdf38aeccae4b953e5f3b3324f4ff0daf9f15b8518666a2c",
+            "--hash=sha256:298930cec56029e05497a76988377cbd7457ba864beeea92ad7e844fe74cd1f1",
+            "--hash=sha256:2cd4a60d0e2fb04537162c62bbbb4182f53541fe0ede35cdf270a1c1e723cc42",
+            "--hash=sha256:2d6eb928e13016cea4f1f21d1e10c1cebd5a421bc57ddf5b1142ae3f86824fab",
+            "--hash=sha256:2fe249cb4651fd12605b7288b24751d8bfd46d35f12a20b1ba33dea122e690df",
+            "--hash=sha256:30b8d1d8c52a48c2c5690e152c169b673487a2a58de1ec7393196753063fcd5e",
+            "--hash=sha256:320ade88cfb846b8cd6b4ddf5ee9e80ee0c1f52401f2456b84ae1ae6a1a5f207",
+            "--hash=sha256:3534e7dcbdcf757da6b85a0bbf5b6868786d5982dd959b065e65481644817a18",
+            "--hash=sha256:36836d6ff945a00b88ba1e4572d721e60b5b8c98c155d465f56ad19d68f23734",
+            "--hash=sha256:38c0109396c4cfc574d502df99742a45c72c08eff0a36158b6f04000043dbf38",
+            "--hash=sha256:3946fa46a0cf3e4c8cb1cc52f56bb536310d34f25f01ca9b6c16afa767dab110",
+            "--hash=sha256:3bec022aec2c514d9cf199522a802bd007cd588ab17ab2525f20f9c34d067c18",
+            "--hash=sha256:3c9a494bc5ec77d43cea229c4f6db1e4d8fe7e1bbffa8b6f0f0032430ff8ab44",
+            "--hash=sha256:3dce51d0f5e7951f8bb4900c257dad282f49190fdbebecd4ba99bcc41fef404d",
+            "--hash=sha256:3dedcc22d73ec993f42055eff4fcfed9318d1eeb9a6606c55892a26964964e48",
+            "--hash=sha256:4042d5c8f957e15221d423ba781e85d553722fc4113f523f2feb7b188cc34c5e",
+            "--hash=sha256:481551899c856c704d58119b5025793fa6730adda3571971af568f66d2424bb5",
+            "--hash=sha256:4dc1e73c36828f982bfe79fadf5919923f8a6f4df2860804db9a98c48824ce8d",
+            "--hash=sha256:4e5163c14bffd570ef2affbfdd77bba66383890797df43dc8b4cc7d6f500bf53",
+            "--hash=sha256:511ef87c8aec0783e08ac18565a16d435372bc1ac25a91e6ac7f5ef2b0bff790",
+            "--hash=sha256:532bc9bf33a68613fd7d65e4b1c71a6a38d7d42604ecf239c77392e9b4e8998c",
+            "--hash=sha256:54523e136b8948060c0fa0bc7b1b50c32c186f2fceee897a495406bb6e311d2b",
+            "--hash=sha256:5649fd1c7bade02f320a462fdefd0b4bd3ce036065836d4f42e0de958038e116",
+            "--hash=sha256:56be790f86bfb2c98fb742ce566dfb4816e5a83384616ab59c49e0604d49c51d",
+            "--hash=sha256:5b77459df20e08151cd6f8b9ef8ef1f961ef73d85c21a555c7eed5b79410ec10",
+            "--hash=sha256:5ed6ab538499c8644b8a3e18debabcd7ce684f3fa91cf867521a7a0279cab2d6",
+            "--hash=sha256:6178f72c5508bfc5fd446a5905e698c6212932f25bcdd4b47a757a50605a90e2",
+            "--hash=sha256:6370e8686f662e6a3941ee48ed4742317cafbe5707e36406e9df792cdb535776",
+            "--hash=sha256:64f02c6841d7d83f832cd97ccf8eb8a906d06eb95d5276069175c696b024b60a",
+            "--hash=sha256:65bcd23054beab4d166035cabbc868a09c1a49d1efe458fe8e4361215df40265",
+            "--hash=sha256:66671f93accb62ed07da56613636f3641f1a12c13046ce91ffc923721f23c008",
+            "--hash=sha256:6696b7688f54f5af4462118f0bfa7c1621eeb87154f77fa04b9295ce7a8f2943",
+            "--hash=sha256:6785f414ae0f3c733c437e0f3929197934f526d19dfaa75e18fdb4f94c6fb374",
+            "--hash=sha256:67f6279d125ca0046a7fd386d01b311c6363844deac3e5b069b514ba3e63c246",
+            "--hash=sha256:6c114670c45346afedc0d947faf3c7f701051d2518b943679c8ff88befe14f8e",
+            "--hash=sha256:6e0d51f618228538a3e8f46bd246f87a6cd030565e015803691603f55e12afb5",
+            "--hash=sha256:6ed74185b2db44f41ef35fd1617c5888e59792da9bbc9190d6c7300617182616",
+            "--hash=sha256:708838739abf24b2ceb208d0e22403dd018faeef86ddac04319a62ae884c4f15",
+            "--hash=sha256:715479b9a2802ecac752a3b0efa2b0b60285cf962ee38414211abdfccc233b41",
+            "--hash=sha256:733784b6d6def852c814bce5f318d25da2ee65dd4839a0718641c696e09a2960",
+            "--hash=sha256:750e02e074872a3fad7f233b47734166440af3cdea0add3e95163110816d6752",
+            "--hash=sha256:752a45dc4a6934060b3b0dab47e04edc3326575f82be64bc4fc293914566503e",
+            "--hash=sha256:7579e913a5339fb8fa133f6bbcfd8e6749696206cf05acdbdca71a1b436d8e72",
+            "--hash=sha256:7641bb8895e77f921102f72833904dcd9901df5d6d72a2ab8f31d04b7e51e4e7",
+            "--hash=sha256:7804338df6fcc08105c7745f1502ba68d900f45fd770d5bdd5288ddccb8a42d8",
+            "--hash=sha256:80d04837f55fc81da168b98de4f4b797ef007fc8a79ab71c6ec9bc4dd662b15b",
+            "--hash=sha256:813c0e0132266c08eb87469a642cb30aaff57c5f426255419572aaeceeaa7bf4",
+            "--hash=sha256:82b271f5137d07749f7bf32f70b17ab6eaabedd297e75dce75081a24f76eb545",
+            "--hash=sha256:84c018e49c3bf790f9c2771c45e9313a08c2c2a6342b162cd650258b57817706",
+            "--hash=sha256:8751d2787c9131302398b11e6c8068053dcb55d5a8964e114b6e196cf16cb366",
+            "--hash=sha256:8778f0c7a52e56f75d12dae53ae320fae900a8b9b4164b981b9c5ce059cd1fcb",
+            "--hash=sha256:87fad7d9ba98c86bcb41b2dc8dbb326619be2562af1f8ff50776a39e55721c5a",
+            "--hash=sha256:8d828b6667a32a728a1ad1d93957cdf37489c57b97ae6c4de2860fa749b8fc1e",
+            "--hash=sha256:8e385e4267ab76874ae30db04c627faaaf0b509e1ccc11a95b3fc3e83f855c00",
+            "--hash=sha256:92a0a01ead5e668468e952e4238cccd7c537364eb7d851ab144ab6627dbbe12f",
+            "--hash=sha256:94e1885b270625a9a828c9793b4d52a64445299baa1fea5a173bf1d3dd9a1a5a",
+            "--hash=sha256:a180c5e59792af262bf263b21a3c49353f25945d8d9f70628e73de370d55e1e1",
+            "--hash=sha256:a277ab8928b9f299723bc1a2dabb1265911b1a76341f90a510368ca44ad9ab66",
+            "--hash=sha256:a5fe03b42827c13cdccd08e6c0247b6a6d4b5e3cdc53fd1749f5896adcdc2356",
+            "--hash=sha256:a6c5863edfbe888d9eff9c8b8087354e27618d9da76425c119293f11712a6319",
+            "--hash=sha256:a89c23ef8d2c6b27fd200a42aa4ac72786e7c60d40efdc76e6011260b6e949c4",
+            "--hash=sha256:adb2597b428735679446b46c8badf467b4ca5f5056aae4d51a19f9570301b1ad",
+            "--hash=sha256:ae196f021b5e7c78e918242d217db021ed2a6ace2bc6ae94c0fc596221c7f58d",
+            "--hash=sha256:ae89db9e5f98a11a4bf50407d4363e7b09b31e55bc117b4f7d80aab97ba009e5",
+            "--hash=sha256:aed52fea0513bac0ccde438c188c8a471c4e0f457c2dd20cdbf6ea7a450046c7",
+            "--hash=sha256:aef65cd602a6d0e0ff6f9930fcb1c8fec60dd2cfcb6facaf4bdb0e5873042db0",
+            "--hash=sha256:af21eb4409a119e365397b2adbaca4c9ccab56543a65d5dbd9f920d6ac29f686",
+            "--hash=sha256:b14b2d9dac08e28bb8046a1a0434b1750eb221c8f5b87a68f4fa11a6f97b5e34",
+            "--hash=sha256:bb6d88045545b26da47aa879dd4a89a71d1dce0f0e549b1abcb31dfe4a8eac49",
+            "--hash=sha256:bb8cc7534f51d9a017b93e3e85b260924f909601c3df002bcdb58ddb4dc41a5c",
+            "--hash=sha256:bc17a677b21b3502a21f66a8cc64f5bfad4df8a0b8434d661666f8ce90ac3af1",
+            "--hash=sha256:bd6c2a1c7573c64738d716488d2cdd3c00e340e4835707d8fdb8dc1a66ef164e",
+            "--hash=sha256:bd9b23791fe793e4968dba0c447e12f78e425c59fc0e3b97f6450f4781f3ee60",
+            "--hash=sha256:c03a41a8784091e67a39648f70c5f97b5b6a37f216896d44d2cdcb82615339a0",
+            "--hash=sha256:c0f081d69a6e58272819b70288d3221a6ee64b98df852631c80f293514d3b274",
+            "--hash=sha256:c35abb8bfff0185efac5878da64c45dafd2b37fb0383add1be155a763c1f083d",
+            "--hash=sha256:c36c333c39be2dbca264d7803333c896ab8fa7d4d6f0ab7edb7dfd7aea6e98c0",
+            "--hash=sha256:c45e9440fb78f8ddabcf714b68f936737a121355bf59f3907f4e17721b9d1aae",
+            "--hash=sha256:c593052c465475e64bbfe5dbd81680f64a67fdc752c56d7a0ae205dc8aeefe0f",
+            "--hash=sha256:cdd68a1fb318e290a2077696b7eb7a21a49163c455979c639bf5a5dcdc46617d",
+            "--hash=sha256:ce3412fbe1e31eb81ea42f4169ed94861c56e643189e1e75f0041f3fe7020abe",
+            "--hash=sha256:cf1493cd8607bec4d8a7b9b004e699fcf8f9103a9284cc94962cb73d20f9d4a3",
+            "--hash=sha256:cf29836da5119f3c8a8a70667b0ef5fdca3bb12f80fd06487cfa575b3909b393",
+            "--hash=sha256:d4a48e5b3c2a489fae013b7589308a40146ee081f6f509e047e0e096084ceca1",
+            "--hash=sha256:d560742f3c0d62afaccf9f41fe485ed69bd7661a241f86a3ef0f0fb8b1a397af",
+            "--hash=sha256:d6038d37043bced98a66e68d3aa2b6a35505dc01328cd65217cefe82f25def44",
+            "--hash=sha256:d61f00a0869d77422d9b2aba989e2d24afa6ffd552af442e0e58de4f35ea6d00",
+            "--hash=sha256:d635aab80466bc95771bb78d5370e74d36d1fe31467b6b29b8b57b2a3cd7d22c",
+            "--hash=sha256:dca4bbc466a95ba9c0234ef56d7dd9509f63da22274589ebd4ed7f1f4d4c54e3",
+            "--hash=sha256:dd915403e231e6b1809fe9b6d9fc55cf8fb5e02765ac625d9cd623342a7905d7",
+            "--hash=sha256:e044c39e41b92c845bc815e5ae4230804e8e7bc29e399b0437d64222d92809dd",
+            "--hash=sha256:e060d01aec0a910bdccb8be71faf34e7799ce36950f8294c8bf612cba65a2c9e",
+            "--hash=sha256:e1421b502d83040e6d7fb2fb18dff63957f720da3d77b2fbd3187ceb63755d7b",
+            "--hash=sha256:e17b8d5d6a8c47c85e68ca8379def1303fd360c3e22093a807cd34a71cd082b8",
+            "--hash=sha256:e5f4d355f0a2b1a31bc3edec6795b46324349c9cb25eed068049e4f472fb4259",
+            "--hash=sha256:e712b419df8ba5e42b226c510472b37bd57b38e897d3eca5e8cfd410a29fa859",
+            "--hash=sha256:e74327fb75de8986940def6e8dee4f127cc9752bee7355bb323cc5b2659b6d46",
+            "--hash=sha256:e80c8378d8f3d83cd3164da1ad2df9e37a666cdde7b1cb2298ed0b558064be30",
+            "--hash=sha256:e8ac484bf18ce6975760921bb6148041faa8fef0547200386ea0b52b5d27bf7b",
+            "--hash=sha256:eca9705049ad3c7345d574e3510665cb2cf844c2f2dcfe675332677f081cbd46",
+            "--hash=sha256:ed065083d0898c9d5b4bbec7b026fd755ff7454e6e8b73a67f8c744b13986e24",
+            "--hash=sha256:edac0f1ab77644605be2cbba52e6b7f630731fc42b34cb0f634be1a6eface56a",
+            "--hash=sha256:effc3f449787117233702311a1b7d8f59cba9ced946ba727bdc329ec69028e24",
+            "--hash=sha256:f22dec1690b584cea26fade98b2435c132c1b5f68e39f5a0b7627cd7ae31f1dc",
+            "--hash=sha256:f495a1652cf3fbab2eb0639776dad966c2fb874d79d87ca07f9d5f059b8bd215",
+            "--hash=sha256:f496c9c3cc02230093d8330875c4c3cdfc3b73612a5fd921c65d39cbcef08063",
+            "--hash=sha256:f59099f9b66f0d7145115e6f80dd8b1d847176df89b234a5a6b3f00437aa0832",
+            "--hash=sha256:f59ad4c0e8f6bba240a9bb85504faa1ab438237199d4cce5f622761507b8f6a6",
+            "--hash=sha256:fbccdc05410c9ee21bbf16a35f4c1d16123dcdeb8a1d38f33654fa21d0234f79",
+            "--hash=sha256:fea24543955a6a729c45a73fe90e08c743f0b3334bbf3201e6c4bc1b0c7fa464",
         ],
     )
 
 def repo_pypa_cibuildwheel():
-    repo_pypa_build()
-    repo_pypa_patchelf()
-    repo_pypa_platformdirs()
-    repo_pypa_humanize()
-    repo_pypa_pyelftools()
-    repo_pypa_bracex()
-    repo_pypa_wheel()
-    repo_pypa_filelock()
     repo_pypa_bashlex()
-    repo_pypa_packaging()
+    repo_pypa_bracex()
+    repo_pypa_build()
     repo_pypa_certifi()
     repo_pypa_dependency_groups()
+    repo_pypa_filelock()
+    repo_pypa_humanize()
+    repo_pypa_packaging()
+    repo_pypa_platformdirs()
     maybe(
         third_party_python_package,
         name = "pypa_cibuildwheel",
         target = "cibuildwheel",
         requirement = [
-            "cibuildwheel==3.2.1",
-            "--hash=sha256:48fc815b4768c394c2041de21a0664b84a8090788887c729bcc858a6adc10455",
-            "--hash=sha256:98beb9700e2447172b0855fc0e5cf6b5145ac058c35e8e1256d2db86daf02722",
+            "cibuildwheel==4.1.0",
+            "--hash=sha256:aac6f526c0c06039feedd09f9bbceb989ab244ef0543eaea84c8abdeafb81858",
+            "--hash=sha256:b9dabe7713f16aec4e7064d031daa2da010e7431d58964e0b97b3eb346952454",
         ],
         deps = [
-            "@pypa_build//:build",
-            "@pypa_patchelf//:patchelf",
-            "@pypa_platformdirs//:platformdirs",
-            "@pypa_humanize//:humanize",
-            "@pypa_pyelftools//:pyelftools",
-            "@pypa_bracex//:bracex",
-            "@pypa_wheel//:wheel",
-            "@pypa_filelock//:filelock",
             "@pypa_bashlex//:bashlex",
-            "@pypa_packaging//:packaging",
+            "@pypa_bracex//:bracex",
+            "@pypa_build//:build",
             "@pypa_certifi//:certifi",
             "@pypa_dependency_groups//:dependency_groups",
+            "@pypa_filelock//:filelock",
+            "@pypa_humanize//:humanize",
+            "@pypa_packaging//:packaging",
+            "@pypa_platformdirs//:platformdirs",
         ],
     )
 
@@ -726,25 +744,25 @@ def repo_pypa_clang_format():
         name = "pypa_clang_format",
         target = "clang_format",
         requirement = [
-            "clang-format==21.1.2",
-            "--hash=sha256:00498efb43d60d7ac4195362009a79936d26145a9a90cdfa7a6013a62ab3c40c",
-            "--hash=sha256:00f4459773ee3e8c0e20578ee800da1fa7fac98c4b0053e13afa450baca0764c",
-            "--hash=sha256:2d27cf0914430a73886d9a754f08ebccc21048196d958a21d9d47e2632f14b23",
-            "--hash=sha256:4071409d8b2cadeab72b0d56111c1703731ee954b686ad0e532c25d9652c3d14",
-            "--hash=sha256:5ddf9afd329c2788998a1563f98cc2a0b911497bc79bc22b7d44fd1471c047de",
-            "--hash=sha256:6d7caf74fe89154258ddfd63984c98ffe902ef98f013ac517178fc44d72861ff",
-            "--hash=sha256:7e0e98f39f16b93c8740028148c72f9ba64d0a43f51a15fb0e861610c1e1e573",
-            "--hash=sha256:8a72398bdcd5e3465dbf10882672f8a51b0beb7a6d8cf4f945d00b6523b4cf91",
-            "--hash=sha256:8d54ab01eec27899d104f32f3e7f02032174f88d4f72ba1781b209898ae5407c",
-            "--hash=sha256:95e74c050cb5246a88ba7306c82dc3a7d6adb5145f49d188d5602967e4133336",
-            "--hash=sha256:a1fe2ad12b6779b0e60e43ffe57947f51ea9fe4d5887452a31266bb6bb966195",
-            "--hash=sha256:c840849580eb5ad937f0a7fb1b938609e905756ad27d7e63f20ab929d6c0fc8d",
-            "--hash=sha256:c98e195a50c0fa40bb058449511b1b681ca7ad553579aa32425f0cfeca8d81ce",
-            "--hash=sha256:ddd64f677912253801e639f2bbe19dfe4b2ac645ddcac340f784b290603c6dd1",
-            "--hash=sha256:f316245a46dd9b26baaed33de149e06155ac09166846d9340107779306448b7d",
-            "--hash=sha256:f66d2bcf98df1373df6ab4544a2b881e9816985b606e1144e4c77dc8ac87b826",
-            "--hash=sha256:fbf860495fa096cacd8496d5220b69d2af66f8a55291d09cc03e54ad0e48aac0",
-            "--hash=sha256:fc034652dee24583633177d800bc9deebcc9c65eb7ab53b25bbd0fbd443392a9",
+            "clang-format==22.1.5",
+            "--hash=sha256:0393ce061bf7bd7e7ce349fc758a05f9ce604d8653e23b47f24322fb4843074c",
+            "--hash=sha256:2db8b07d54f2b9583327715267b8ae5e9852e8da23b49c1bf8dde19067ce6fbc",
+            "--hash=sha256:39af8c0b77fb05d1dc7073ee9e348d81a965a0b96c0307d07cd92bbd74c611c7",
+            "--hash=sha256:451efcd0738908b2bd4d76409b52920ef381e045eb6728f9286d2ae5f02f3ef2",
+            "--hash=sha256:47e73563e6c55b47d6800bcc52e53e66c73b1d801f775b118dcc7aab8410c36f",
+            "--hash=sha256:4f43424bc0944402f2166337cc330f92d31d102b5a3ee31714814823ac647a67",
+            "--hash=sha256:4f5ac3b91bb5700c43cb96beb32e360a5aa6a7f94105d7900054f6496554d9b9",
+            "--hash=sha256:5028f730a1acd0a2ff5fde309c3a064b2f8375caa664e57ff99c69a524d6cfd2",
+            "--hash=sha256:7a93aad78b03f190d8a73e5e81d6942bc0e4f449add21e62c7fad1be2cdfec03",
+            "--hash=sha256:86838932bcbfebdb4c900ea9e7c4dc4356a56aa75990c38065863c82c0d5e39f",
+            "--hash=sha256:94401741d1db878ee1e002e3c33305a7c8e50ff1a9b0a4b8c713690f404d535c",
+            "--hash=sha256:a6f700f948a0eeccdc74966a773d3f2f348ffedab4b49b10b71439f26d1b8ad2",
+            "--hash=sha256:a73a500dcabdac1ebc993b99f77fe61de967c7ab9c26d12d664f02def31f0464",
+            "--hash=sha256:a89ec86dd33f367b4e10dc1f243508709deed8576bb75a7b01c1412de47504df",
+            "--hash=sha256:b40d0d264003c831cda317d09db31f0ebbcddd5dc13f04af52be5664d2b8aa89",
+            "--hash=sha256:c1c2c4b9c9b7fba124c1b60647706ac6d4950e52830303951e7004403bb07006",
+            "--hash=sha256:cbafc220a1ad3da603f0e4a469f52cf31be60da384d213727b62af0684cfd96b",
+            "--hash=sha256:f0fb5226525c846a8770b8adaba3a323261b6031a13d065d4d4c4aa0bf6dbbc4",
         ],
     )
 
@@ -755,9 +773,9 @@ def repo_pypa_click():
         name = "pypa_click",
         target = "click",
         requirement = [
-            "click==8.3.0",
-            "--hash=sha256:9b9f285302c6e3064f4330c05f05b81945b2a39544279343e6e7c5f27a9baddc",
-            "--hash=sha256:e7b8232224eba16f4ebe410c25ced9f7875cb5f3263ffc93cc3e8da705e229c4",
+            "click==8.4.1",
+            "--hash=sha256:482be17c6991b8c19c5429a1e995d9b0efdbb63172824c41f99965dc0ade8ec2",
+            "--hash=sha256:918b5633eddf6b41c32d4f454bf0de810065c74e3f7dbf8ee5452f8be88d3e96",
         ],
         deps = [
             "@pypa_colorama//:colorama",
@@ -770,9 +788,9 @@ def repo_pypa_cloudpickle():
         name = "pypa_cloudpickle",
         target = "cloudpickle",
         requirement = [
-            "cloudpickle==3.1.1",
-            "--hash=sha256:b216fa8ae4019d5482a8ac3c95d8f6346115d8835911fd4aefd1a445e4242c64",
-            "--hash=sha256:c8c5a44295039331ee9dad40ba100a9c7297b6f988e50e87ccdf3765a668350e",
+            "cloudpickle==3.1.2",
+            "--hash=sha256:7fda9eb655c9c230dab534f1983763de5835249750e85fbcef43aaa30a9a2414",
+            "--hash=sha256:9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a",
         ],
     )
 
@@ -892,61 +910,53 @@ def repo_pypa_cryptography():
         name = "pypa_cryptography",
         target = "cryptography",
         requirement = [
-            "cryptography==46.0.3",
-            "--hash=sha256:00a5e7e87938e5ff9ff5447ab086a5706a957137e6e433841e9d24f38a065217",
-            "--hash=sha256:01ca9ff2885f3acc98c29f1860552e37f6d7c7d013d7334ff2a9de43a449315d",
-            "--hash=sha256:09859af8466b69bc3c27bdf4f5d84a665e0f7ab5088412e9e2ec49758eca5cbc",
-            "--hash=sha256:0abf1ffd6e57c67e92af68330d05760b7b7efb243aab8377e583284dbab72c71",
-            "--hash=sha256:1000713389b75c449a6e979ffc7dcc8ac90b437048766cef052d4d30b8220971",
-            "--hash=sha256:109d4ddfadf17e8e7779c39f9b18111a09efb969a301a31e987416a0191ed93a",
-            "--hash=sha256:10b01676fc208c3e6feeb25a8b83d81767e8059e1fe86e1dc62d10a3018fa926",
-            "--hash=sha256:10ca84c4668d066a9878890047f03546f3ae0a6b8b39b697457b7757aaf18dbc",
-            "--hash=sha256:15ab9b093e8f09daab0f2159bb7e47532596075139dd74365da52ecc9cb46c5d",
-            "--hash=sha256:191bb60a7be5e6f54e30ba16fdfae78ad3a342a0599eb4193ba88e3f3d6e185b",
-            "--hash=sha256:22d7e97932f511d6b0b04f2bfd818d73dcd5928db509460aaf48384778eb6d20",
-            "--hash=sha256:23b1a8f26e43f47ceb6d6a43115f33a5a37d57df4ea0ca295b780ae8546e8044",
-            "--hash=sha256:36e627112085bb3b81b19fed209c05ce2a52ee8b15d161b7c643a7d5a88491f3",
-            "--hash=sha256:39b6755623145ad5eff1dab323f4eae2a32a77a7abef2c5089a04a3d04366715",
-            "--hash=sha256:3b51b8ca4f1c6453d8829e1eb7299499ca7f313900dd4d89a24b8b87c0a780d4",
-            "--hash=sha256:402b58fc32614f00980b66d6e56a5b4118e6cb362ae8f3fda141ba4689bd4506",
-            "--hash=sha256:416260257577718c05135c55958b674000baef9a1c7d9e8f306ec60d71db850f",
-            "--hash=sha256:46acf53b40ea38f9c6c229599a4a13f0d46a6c3fa9ef19fc1a124d62e338dfa0",
-            "--hash=sha256:4b7387121ac7d15e550f5cb4a43aef2559ed759c35df7336c402bb8275ac9683",
-            "--hash=sha256:50fc3343ac490c6b08c0cf0d704e881d0d660be923fd3076db3e932007e726e3",
-            "--hash=sha256:516ea134e703e9fe26bcd1277a4b59ad30586ea90c365a87781d7887a646fe21",
-            "--hash=sha256:549e234ff32571b1f4076ac269fcce7a808d3bf98b76c8dd560e42dbc66d7d91",
-            "--hash=sha256:5d7f93296ee28f68447397bf5198428c9aeeab45705a55d53a6343455dcb2c3c",
-            "--hash=sha256:5ecfccd2329e37e9b7112a888e76d9feca2347f12f37918facbb893d7bb88ee8",
-            "--hash=sha256:6276eb85ef938dc035d59b87c8a7dc559a232f954962520137529d77b18ff1df",
-            "--hash=sha256:6b5063083824e5509fdba180721d55909ffacccc8adbec85268b48439423d78c",
-            "--hash=sha256:6eae65d4c3d33da080cff9c4ab1f711b15c1d9760809dad6ea763f3812d254cb",
-            "--hash=sha256:6f61efb26e76c45c4a227835ddeae96d83624fb0d29eb5df5b96e14ed1a0afb7",
-            "--hash=sha256:71e842ec9bc7abf543b47cf86b9a743baa95f4677d22baa4c7d5c69e49e9bc04",
-            "--hash=sha256:760f83faa07f8b64e9c33fc963d790a2edb24efb479e3520c14a45741cd9b2db",
-            "--hash=sha256:78a97cf6a8839a48c49271cdcbd5cf37ca2c1d6b7fdd86cc864f302b5e9bf459",
-            "--hash=sha256:7ce938a99998ed3c8aa7e7272dca1a610401ede816d36d0693907d863b10d9ea",
-            "--hash=sha256:8a6e050cb6164d3f830453754094c086ff2d0b2f3a897a1d9820f6139a1f0914",
-            "--hash=sha256:9394673a9f4de09e28b5356e7fff97d778f8abad85c9d5ac4a4b7e25a0de7717",
-            "--hash=sha256:94cd0549accc38d1494e1f8de71eca837d0509d0d44bf11d158524b0e12cebf9",
-            "--hash=sha256:a04bee9ab6a4da801eb9b51f1b708a1b5b5c9eb48c03f74198464c66f0d344ac",
-            "--hash=sha256:a23582810fedb8c0bc47524558fb6c56aac3fc252cb306072fd2815da2a47c32",
-            "--hash=sha256:a2c0cd47381a3229c403062f764160d57d4d175e022c1df84e168c6251a22eec",
-            "--hash=sha256:a8b17438104fed022ce745b362294d9ce35b4c2e45c1d958ad4a4b019285f4a1",
-            "--hash=sha256:a9a3008438615669153eb86b26b61e09993921ebdd75385ddd748702c5adfddb",
-            "--hash=sha256:b02cf04496f6576afffef5ddd04a0cb7d49cf6be16a9059d793a30b035f6b6ac",
-            "--hash=sha256:b419ae593c86b87014b9be7396b385491ad7f320bde96826d0dd174459e54665",
-            "--hash=sha256:c0a7bb1a68a5d3471880e264621346c48665b3bf1c3759d682fc0864c540bd9e",
-            "--hash=sha256:c70cc23f12726be8f8bc72e41d5065d77e4515efae3690326764ea1b07845cfb",
-            "--hash=sha256:c8daeb2d2174beb4575b77482320303f3d39b8e81153da4f0fb08eb5fe86a6c5",
-            "--hash=sha256:cb3d760a6117f621261d662bccc8ef5bc32ca673e037c83fbe565324f5c46936",
-            "--hash=sha256:d55f3dffadd674514ad19451161118fd010988540cee43d8bc20675e775925de",
-            "--hash=sha256:d89c3468de4cdc4f08a57e214384d0471911a3830fcdaf7a8cc587e42a866372",
-            "--hash=sha256:db391fa7c66df6762ee3f00c95a89e6d428f4d60e7abc8328f4fe155b5ac6e54",
-            "--hash=sha256:dfb781ff7eaa91a6f7fd41776ec37c5853c795d3b358d4896fdbb5df168af422",
-            "--hash=sha256:e5bf0ed4490068a2e72ac03d786693adeb909981cc596425d09032d372bcc849",
-            "--hash=sha256:e7aec276d68421f9574040c26e2a7c3771060bc0cff408bae1dcb19d3ab1e63c",
-            "--hash=sha256:ef639cb3372f69ec44915fafcd6698b6cc78fbe0c2ea41be867f6ed612811963",
-            "--hash=sha256:f260d0d41e9b4da1ed1e0f1ce571f97fe370b152ab18778e9e8f67d6af432018",
+            "cryptography==49.0.0",
+            "--hash=sha256:026ac7423e6fa66872d3bf889be5974507da3944f866f704fa200eadacd00001",
+            "--hash=sha256:07cab27cc7b7e0fd28e5e26bb9eeedde5c135c868b46de4a27845abe94af6122",
+            "--hash=sha256:084ef1af862eb07ec46d25f68689f2102a9fc0e05ce7b80f14f5fe51e4eef0f6",
+            "--hash=sha256:0b82e28ee398a386f0807bba7884d30f25218855690f45115831bcce5d90822c",
+            "--hash=sha256:0e959b578856a3924bc0cbb710fc12c387b9412a951389f3ca61704a9e25f325",
+            "--hash=sha256:0f21641cf4b30fca7aee061ced0ec7ad7b073518088b7c9969a297c0ae796c69",
+            "--hash=sha256:196ecd6a36e4e9aa10270393bb98d8df88fccee0bf1e5128b91ae4eb4375896d",
+            "--hash=sha256:2400ef9c9e2299a25614eb1dea3db54a69b1349efd043bfac9c67630d136df36",
+            "--hash=sha256:28d8b15e6275f12c8a207dc309dfa957903c927d08d0cc937ee3f63f200693cc",
+            "--hash=sha256:2afe9051da7ae7bd5905da5a949280c7d2bb75682e188f650a9d0f2756b834c6",
+            "--hash=sha256:2eda353d8a27bcbcaa4cbed18994a74ab4d19a2ca897db188ea269ab9b71419b",
+            "--hash=sha256:32703d93296f5c1f4b53349ad3a250c2cae0fdecd3a3dd5d47e616d8d616af27",
+            "--hash=sha256:33cd0565932807baddb67b96dbee92f2c374b5c89dee09fd74079aeb8c8dba61",
+            "--hash=sha256:35b151772baff2c74cba7fa290ceaff4c3b11c0c881eb93eb5dbc05a7cfbba18",
+            "--hash=sha256:36d1709f992593689b45bda411498d62c6e365f2ca00b84657d4dadd24de16db",
+            "--hash=sha256:42b0684e0e40cf26122427802486f6d93aea593612603a94fbf260c7eb1e9c1b",
+            "--hash=sha256:4ae387c9cb68ea569ca17e490d66d8142b81c3cc814bf179974b7d146e490bbb",
+            "--hash=sha256:53ecee2e23f7169b6117e99fc8a944e5e50f79e69758a83b52a00cb98ab2b2d2",
+            "--hash=sha256:66ec79c3904820572d7e987abdf304281f141d37ad9a489b8e97066e7b9b6459",
+            "--hash=sha256:67e1d20ad9ef3a563c59ef22e7a8a0b8210bd26604369ea4a30a7c66aefe504e",
+            "--hash=sha256:6f2debedf9ca60cf1d5bd466475638af5130f89965605cd818484d19987d3a21",
+            "--hash=sha256:6fc361c34fb6aac015ce19435876635e5c6d21db31998b0920f675f131e043b8",
+            "--hash=sha256:73a205dce83953d131a4aa1e0fd917a2fd1c5b1eef251e9d7152efefcbf5caf7",
+            "--hash=sha256:7abcee80084cda3f7691f3eb1ce480d8df49cec637b429aa35986c1de71738aa",
+            "--hash=sha256:8c25ceb16df5b9435f3f6a9829204985b0e0cbee3b48aacd432c7d2c850b44d9",
+            "--hash=sha256:966fe0e9c67490071f14c0d2b1cb2dfb3023c5ce39457343931415f08382f2db",
+            "--hash=sha256:9e82dcc8e56052715fb18b2429e3bca4823b1629136a2084fc45a9a5cecb9b64",
+            "--hash=sha256:b20133d204d2bb56ba047642199603876c872026ca53e79c35b83772ab2cc505",
+            "--hash=sha256:b39efa323140595abd3ecca8529d321ae50f55f3aa3ba9cc81ea56a6011953d5",
+            "--hash=sha256:b47db11c2c3525083296069b98ac5221907455e989ae0c2e3008bde851921615",
+            "--hash=sha256:b87e65d263b3e5d3bb92a57e2a6638e2f31110fa7aa890c7b2dbba42248d0a3f",
+            "--hash=sha256:b970c6da94d5bb18629db453d14f2a1300f6bf59b61e9b82377931ef95504866",
+            "--hash=sha256:be9fcb48a55f023493482827d4f459bd263cc20efde64f204b97c123201850c6",
+            "--hash=sha256:c2bc30226390d60ea19d9f82b19db005fe0452154a23c1c410c12ea801e43561",
+            "--hash=sha256:c83782480a4a9da4d0feb51950131ba32e12e70813848b3343f6e18c28a66838",
+            "--hash=sha256:cbc77da8c523d5abd028635ba850a6966fcee2c82e2bf65a41d1d8afe0f98be9",
+            "--hash=sha256:ccac2bfebc306b862133e3bb71f3f6ee8bb525240089b2d952e4144b3a6d5da7",
+            "--hash=sha256:d0527ce944105f257f605a827d6ebead966c752038b6e8656abb9c5edee6fc68",
+            "--hash=sha256:d8ecde755e2e91bf773fc94e8c9d730cd7f2007004cb492263a794ec3899a1c8",
+            "--hash=sha256:e3fb64c420688e5319ae25113a354015abbd8dffbfbc41781a1ea66fc7622ac3",
+            "--hash=sha256:e5dfc1e64de5677cec922ffa8da89c546d0415bf6efdf081842e5d44c84e1f0e",
+            "--hash=sha256:ec5e529fb80935c94fe7b729f9972b50e351a0e6b50aa294fd5cabb109fcc29a",
+            "--hash=sha256:f37d847238971164fdbc68ade6f6574aecc9c0af714190e2083429ff68f4ce9d",
+            "--hash=sha256:f78ff2c9ed8dc2d036b0f4d640e22522213d047c1b14e61205a7e55c80a494d4",
+            "--hash=sha256:f89660a348f4f78a92366240a61404e337586ef7f5909a2fef59ca88ef505493",
+            "--hash=sha256:fc1e275c2f1d97b1a6450b8b0ea3ebfa6e087a611c2b26cb2404d48588abab7b",
         ],
         deps = [
             "@pypa_cffi//:cffi",
@@ -959,9 +969,9 @@ def repo_pypa_decorator():
         name = "pypa_decorator",
         target = "decorator",
         requirement = [
-            "decorator==5.2.1",
-            "--hash=sha256:65f266143752f734b0a7cc83c46f4618af75b8c5911b00ccb61d0ac9b6da0360",
-            "--hash=sha256:d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a",
+            "decorator==5.3.1",
+            "--hash=sha256:4cbcdd55a6efadb9dbea26b858f4fb3264567b52d69ca0d25b721b553f60ea82",
+            "--hash=sha256:f47fe6fdbd2edd623ecfe36875d37aba411624e2670dd395dddae1358689bb3c",
         ],
     )
 
@@ -982,8 +992,8 @@ def repo_pypa_dependency_groups():
     )
 
 def repo_pypa_docker():
-    repo_pypa_requests()
     repo_pypa_pywin32()
+    repo_pypa_requests()
     repo_pypa_urllib3()
     maybe(
         third_party_python_package,
@@ -995,8 +1005,8 @@ def repo_pypa_docker():
             "--hash=sha256:c96b93b7f0a746f9e77d325bcfb87422a3d8bd4f03136ae8a85b37f1898d5fc0",
         ],
         deps = [
-            "@pypa_requests//:requests",
             "@pypa_pywin32//:pywin32",
+            "@pypa_requests//:requests",
             "@pypa_urllib3//:urllib3",
         ],
     )
@@ -1031,53 +1041,53 @@ def repo_pypa_filelock():
         name = "pypa_filelock",
         target = "filelock",
         requirement = [
-            "filelock==3.20.0",
-            "--hash=sha256:339b4732ffda5cd79b13f4e2711a31b0365ce445d95d243bb996273d072546a2",
-            "--hash=sha256:711e943b4ec6be42e1d4e6690b48dc175c822967466bb31c0c293f34334c13f4",
+            "filelock==3.29.4",
+            "--hash=sha256:10cdb3656fc44541cdf30652a93fb10ec6b05325620eb316bd26893e4201538a",
+            "--hash=sha256:dac1648087d5115554850d113e7dd8c83ab2d38e3435dde2d4f163847e57b767",
         ],
     )
 
 def repo_pypa_flask():
-    repo_pypa_werkzeug()
     repo_pypa_blinker()
-    repo_pypa_markupsafe()
-    repo_pypa_itsdangerous()
     repo_pypa_click()
+    repo_pypa_itsdangerous()
     repo_pypa_jinja2()
+    repo_pypa_markupsafe()
+    repo_pypa_werkzeug()
     maybe(
         third_party_python_package,
         name = "pypa_flask",
         target = "flask",
         requirement = [
-            "flask==3.1.2",
-            "--hash=sha256:bf656c15c80190ed628ad08cdfd3aaa35beb087855e2f494910aa3774cc4fd87",
-            "--hash=sha256:ca1d8112ec8a6158cc29ea4858963350011b5c846a414cdb7a954aa9e967d03c",
+            "flask==3.1.3",
+            "--hash=sha256:0ef0e52b8a9cd932855379197dd8f94047b359ca0a78695144304cb45f87c9eb",
+            "--hash=sha256:f4bcbefc124291925f1a26446da31a5178f9483862233b23c0c96a20701f670c",
         ],
         deps = [
-            "@pypa_werkzeug//:werkzeug",
             "@pypa_blinker//:blinker",
-            "@pypa_markupsafe//:markupsafe",
-            "@pypa_itsdangerous//:itsdangerous",
             "@pypa_click//:click",
+            "@pypa_itsdangerous//:itsdangerous",
             "@pypa_jinja2//:jinja2",
+            "@pypa_markupsafe//:markupsafe",
+            "@pypa_werkzeug//:werkzeug",
         ],
     )
 
 def repo_pypa_flask_cors():
-    repo_pypa_werkzeug()
     repo_pypa_flask()
+    repo_pypa_werkzeug()
     maybe(
         third_party_python_package,
         name = "pypa_flask_cors",
         target = "flask_cors",
         requirement = [
-            "flask-cors==6.0.1",
-            "--hash=sha256:c7b2cbfb1a31aa0d2e5341eea03a6805349f7a61647daee1a15c46bbe981494c",
-            "--hash=sha256:d81bcb31f07b0985be7f48406247e9243aced229b7747219160a0559edd678db",
+            "flask-cors==6.0.5",
+            "--hash=sha256:30c5031552cd59f620ac0c8211dac45b345d3b2df310e7721879e4f46ef9c601",
+            "--hash=sha256:68fcf75693e961f3af26683b23c4b9a8fb6b64de17d20d0c37b95e8de7ab2ed8",
         ],
         deps = [
-            "@pypa_werkzeug//:werkzeug",
             "@pypa_flask//:flask",
+            "@pypa_werkzeug//:werkzeug",
         ],
     )
 
@@ -1088,9 +1098,9 @@ def repo_pypa_googleapis_common_protos():
         name = "pypa_googleapis_common_protos",
         target = "googleapis_common_protos",
         requirement = [
-            "googleapis-common-protos==1.71.0",
-            "--hash=sha256:1aec01e574e29da63c80ba9f7bbf1ccfaacf1da877f23609fe236ca7c72a2e2e",
-            "--hash=sha256:59034a1d849dc4d18971997a72ac56246570afdd17f9369a0ff68218d50ab78c",
+            "googleapis-common-protos==1.75.0",
+            "--hash=sha256:53a062ff3c32552fbd62c11fe23768b78e4ddf0494d5e5fd97d3f4689c75fbbd",
+            "--hash=sha256:961ed60399c457ceb0ee8f285a84c870aabc9c6a832b9d37bb281b5bebde43ed",
         ],
         deps = [
             "@pypa_protobuf//:protobuf",
@@ -1103,9 +1113,9 @@ def repo_pypa_graphql_core():
         name = "pypa_graphql_core",
         target = "graphql_core",
         requirement = [
-            "graphql-core==3.2.6",
-            "--hash=sha256:78b016718c161a6fb20a7d97bbf107f331cd1afe53e45566c59f776ed7f0b45f",
-            "--hash=sha256:c08eec22f9e40f0bd61d805907e3b3b1b9a320bc606e23dc145eebca07c8fbab",
+            "graphql-core==3.2.11",
+            "--hash=sha256:0b3e35ff41e9adba53021ab0cef475eb18f57c7f53f0f2ca55567fbf3c537ea0",
+            "--hash=sha256:e7e156d10beb127cab5c89ff0da71416fc73d27c484a4757d3b2d35633774802",
         ],
     )
 
@@ -1116,71 +1126,81 @@ def repo_pypa_grpcio():
         name = "pypa_grpcio",
         target = "grpcio",
         requirement = [
-            "grpcio==1.76.0",
-            "--hash=sha256:035d90bc79eaa4bed83f524331d55e35820725c9fbb00ffa1904d5550ed7ede3",
-            "--hash=sha256:04bbe1bfe3a68bbfd4e52402ab7d4eb59d72d02647ae2042204326cf4bbad280",
-            "--hash=sha256:063065249d9e7e0782d03d2bca50787f53bd0fb89a67de9a7b521c4a01f1989b",
-            "--hash=sha256:06c3d6b076e7b593905d04fdba6a0525711b3466f43b3400266f04ff735de0cd",
-            "--hash=sha256:08caea849a9d3c71a542827d6df9d5a69067b0a1efbea8a855633ff5d9571465",
-            "--hash=sha256:0aaa82d0813fd4c8e589fac9b65d7dd88702555f702fb10417f96e2a2a6d4c0f",
-            "--hash=sha256:0b7604868b38c1bfd5cf72d768aedd7db41d78cb6a4a18585e33fb0f9f2363fd",
-            "--hash=sha256:0c37db8606c258e2ee0c56b78c62fc9dee0e901b5dbdcf816c2dd4ad652b8b0c",
-            "--hash=sha256:1c9b93f79f48b03ada57ea24725d83a30284a012ec27eab2cf7e50a550cbbbcc",
-            "--hash=sha256:2107b0c024d1b35f4083f11245c0e23846ae64d02f40b2b226684840260ed054",
-            "--hash=sha256:2229ae655ec4e8999599469559e97630185fdd53ae1e8997d147b7c9b2b72cba",
-            "--hash=sha256:25a18e9810fbc7e7f03ec2516addc116a957f8cbb8cbc95ccc80faa072743d03",
-            "--hash=sha256:26ef06c73eb53267c2b319f43e6634c7556ea37672029241a056629af27c10e2",
-            "--hash=sha256:2e1743fbd7f5fa713a1b0a8ac8ebabf0ec980b5d8809ec358d488e273b9cf02a",
-            "--hash=sha256:32483fe2aab2c3794101c2a159070584e5db11d0aa091b2c0ea9c4fc43d0d749",
-            "--hash=sha256:3bf0f392c0b806905ed174dcd8bdd5e418a40d5567a05615a030a5aeddea692d",
-            "--hash=sha256:3e2a27c89eb9ac3d81ec8835e12414d73536c6e620355d65102503064a4ed6eb",
-            "--hash=sha256:40ad3afe81676fd9ec6d9d406eda00933f218038433980aa19d401490e46ecde",
-            "--hash=sha256:4215d3a102bd95e2e11b5395c78562967959824156af11fa93d18fdd18050990",
-            "--hash=sha256:45d59a649a82df5718fd9527ce775fd66d1af35e6d31abdcdc906a49c6822958",
-            "--hash=sha256:45e0111e73f43f735d70786557dc38141185072d7ff8dc1829d6a77ac1471468",
-            "--hash=sha256:479496325ce554792dba6548fae3df31a72cef7bad71ca2e12b0e58f9b336bfc",
-            "--hash=sha256:490fa6d203992c47c7b9e4a9d39003a0c2bcc1c9aa3c058730884bbbb0ee9f09",
-            "--hash=sha256:49ce47231818806067aea3324d4bf13825b658ad662d3b25fada0bdad9b8a6af",
-            "--hash=sha256:4baf3cbe2f0be3289eb68ac8ae771156971848bb8aaff60bad42005539431980",
-            "--hash=sha256:522175aba7af9113c48ec10cc471b9b9bd4f6ceb36aeb4544a8e2c80ed9d252d",
-            "--hash=sha256:5e8571632780e08526f118f74170ad8d50fb0a48c23a746bef2a6ebade3abd6f",
-            "--hash=sha256:615ba64c208aaceb5ec83bfdce7728b80bfeb8be97562944836a7a0a9647d882",
-            "--hash=sha256:61f69297cba3950a524f61c7c8ee12e55c486cb5f7db47ff9dcee33da6f0d3ae",
-            "--hash=sha256:65a20de41e85648e00305c1bb09a3598f840422e522277641145a32d42dcefcc",
-            "--hash=sha256:6a15c17af8839b6801d554263c546c69c4d7718ad4321e3166175b37eaacca77",
-            "--hash=sha256:747fa73efa9b8b1488a95d0ba1039c8e2dca0f741612d80415b1e1c560febf4e",
-            "--hash=sha256:7be78388d6da1a25c0d5ec506523db58b18be22d9c37d8d3a32c08be4987bd73",
-            "--hash=sha256:81fd9652b37b36f16138611c7e884eb82e0cec137c40d3ef7c3f9b3ed00f6ed8",
-            "--hash=sha256:83d57312a58dcfe2a3a0f9d1389b299438909a02db60e2f2ea2ae2d8034909d3",
-            "--hash=sha256:8843114c0cfce61b40ad48df65abcfc00d4dba82eae8718fab5352390848c5da",
-            "--hash=sha256:8cc3309d8e08fd79089e13ed4819d0af72aa935dd8f435a195fd152796752ff2",
-            "--hash=sha256:8ebe63ee5f8fa4296b1b8cfc743f870d10e902ca18afc65c68cf46fd39bb0783",
-            "--hash=sha256:8eddfb4d203a237da6f3cc8a540dad0517d274b5a1e9e636fd8d2c79b5c1d397",
-            "--hash=sha256:922fa70ba549fce362d2e2871ab542082d66e2aaf0c19480ea453905b01f384e",
-            "--hash=sha256:931091142fd8cc14edccc0845a79248bc155425eee9a98b2db2ea4f00a235a42",
-            "--hash=sha256:971fd5a1d6e62e00d945423a567e42eb1fa678ba89072832185ca836a94daaa6",
-            "--hash=sha256:980a846182ce88c4f2f7e2c22c56aefd515daeb36149d1c897f83cf57999e0b6",
-            "--hash=sha256:9d9adda641db7207e800a7f089068f6f645959f2df27e870ee81d44701dd9db3",
-            "--hash=sha256:9f8f757bebaaea112c00dba718fc0d3260052ce714e25804a03f93f5d1c6cc11",
-            "--hash=sha256:a6ae758eb08088d36812dd5d9af7a9859c05b1e0f714470ea243694b49278e7b",
-            "--hash=sha256:a8c2cf1209497cf659a667d7dea88985e834c24b7c3b605e6254cbb5076d985c",
-            "--hash=sha256:acab0277c40eff7143c2323190ea57b9ee5fd353d8190ee9652369fae735668a",
-            "--hash=sha256:b331680e46239e090f5b3cead313cc772f6caa7d0fc8de349337563125361a4a",
-            "--hash=sha256:c088e7a90b6017307f423efbb9d1ba97a22aa2170876223f9709e9d1de0b5347",
-            "--hash=sha256:d099566accf23d21037f18a2a63d323075bebace807742e4b0ac210971d4dd70",
-            "--hash=sha256:d388087771c837cdb6515539f43b9d4bf0b0f23593a24054ac16f7a960be16f4",
-            "--hash=sha256:dcfe41187da8992c5f40aa8c5ec086fa3672834d2be57a32384c08d5a05b4c00",
-            "--hash=sha256:e6d1db20594d9daba22f90da738b1a0441a7427552cc6e2e3d1297aeddc00378",
-            "--hash=sha256:ebea5cc3aa8ea72e04df9913492f9a96d9348db876f9dda3ad729cfedf7ac416",
-            "--hash=sha256:ebebf83299b0cb1721a8859ea98f3a77811e35dce7609c5c963b9ad90728f886",
-            "--hash=sha256:f0e34c2079d47ae9f6188211db9e777c619a21d4faba6977774e8fa43b085e48",
-            "--hash=sha256:f92f88e6c033db65a5ae3d97905c8fea9c725b63e28d5a75cb73b49bda5024d8",
-            "--hash=sha256:f9f7bd5faab55f47231ad8dba7787866b69f5e93bc306e3915606779bbfb4ba8",
-            "--hash=sha256:fd5ef5932f6475c436c4a55e4336ebbe47bd3272be04964a03d316bbf4afbcbc",
-            "--hash=sha256:ff8a59ea85a1f2191a0ffcc61298c571bc566332f82e5f5be1b83c9d8e668a62",
+            "grpcio==1.81.1",
+            "--hash=sha256:0490c30c261eded63f3f354979f9dc4502a9fb944cccb60cd9dc85f5a7349854",
+            "--hash=sha256:0a37165cc80b1a368384b383e63a4c38116a10467ae44c904d2d7468c4470ec2",
+            "--hash=sha256:12b7524c88d4026d3dcb7b0ebe16b6714f3b4af402ddd0f0639ab064a00c87c3",
+            "--hash=sha256:15641444eca4a29358107b3dceb74c1c6305c55c822fd199b458aaea4068a7fb",
+            "--hash=sha256:1b22c80559854b789a01fd89e8929b3798a156c0829b5282a8939f33ad4115ad",
+            "--hash=sha256:1e123f9b37edb8375fd74130d1f69c944bbf0a7b06761ae7211154b8759e94d2",
+            "--hash=sha256:24c8e57504c8f45b237e40b99262d181071e5099a07053695b75d97bb53053a0",
+            "--hash=sha256:2c2e2ae6867c2966b8daccc836d54a13218e0007e9a490aeb81dd05be64d22d7",
+            "--hash=sha256:30e825f6848d9f18bba350ed6c75c1b02a0b5184474a31db9a32b1fa66fd8c79",
+            "--hash=sha256:3768a5ff1b2125e6f552e561b6b2dca0e64982d8949689b4df145cf8b98d7821",
+            "--hash=sha256:3ad74f8bb1a18963914c5452d289422830b39459e8776ebbcd207be1fbfb1d94",
+            "--hash=sha256:410482da976329fe5f4067270401b12cf2bd552ff8020f054ecfaddb5475f9d6",
+            "--hash=sha256:428bec0161b48d8cf583c068591bc0016d0d9cfff52462b72b3884861ea768c5",
+            "--hash=sha256:506f48f2f9c29b143fca3dad7b0d518c188b6c9648c75a2ae6e2d9f2c13a060b",
+            "--hash=sha256:58ad1131c300d3c9b933802b3cc4dc69d380822935ba50b28703156ea826fbf7",
+            "--hash=sha256:592b5fee597faa91cce2dd294dd7d9a1c83d76c4dbf877e33ec1adb866b2fbed",
+            "--hash=sha256:61233fe8951e5c85dff81c2458b6528624760166946b5b47ea150a589168411f",
+            "--hash=sha256:62481553b1793a27e9b9c3cf9e5bd483ef045ca72462592074b46d42b0c4d9b9",
+            "--hash=sha256:6282caffb41ec326d4cb67ca9cf53b739d1b2f975a2acb498c7418e9f7d9a416",
+            "--hash=sha256:69ef28e54fc85397f91b8c19592b8ef3d81952080366914823bd8572a2958120",
+            "--hash=sha256:6f9a0c9c1cc15c112d1c053064fd032b64917062292c3d70aea280e02ae10b77",
+            "--hash=sha256:6fa10a767143a5e82e8eaab53918af0cd8909a57a27f8cb2288b80a613ac671b",
+            "--hash=sha256:766bc7c9a9c340342f4c864ccbda8e78111e4751f13b895812b9c148fb79e9d0",
+            "--hash=sha256:78e29211f26da2fdd0e9c6d2b79f489476140cf7029b6a64808ade7ca4156a42",
+            "--hash=sha256:819edbdcb42ab8598b494bcf0222684bbb7a3c772bd1b1f0be7e029a6063c28e",
+            "--hash=sha256:85b10a45b8993d195c4f3ff57025b8d1e11834909ee475c403bfa60cb4caefaf",
+            "--hash=sha256:88268ca418cacea64cecb0d1d600d3c6b3a8038fcba02e1e205178c5b1f47661",
+            "--hash=sha256:8b39472beafc0bdcafc4c8c73ad082ebfdb449d566897a61e7acb4fa88089115",
+            "--hash=sha256:8ea1936c26b99999b27479853039a7f34713f56c49375ad52b38535ec93a796c",
+            "--hash=sha256:98a07f9bf591e3a8919797bee1c53f026ba4acd587e5a4404c8e57c9ec36b2a5",
+            "--hash=sha256:a185a04039df6cae8648bc8ab6d6fde7bf94f7188ecf7828e76ac52eef1e41d6",
+            "--hash=sha256:a35009284d0d3d5c2c9601c164a911b8b4331608d98a9a66d47d97bb2f522b70",
+            "--hash=sha256:a3acb384427816dd5d470f47e62137b87f74da694faa8a50147012cf40df276a",
+            "--hash=sha256:aa2ba7d2ad6df4d80127cea65e5b8d5e2c3adbf153ff4804452836328aca7c54",
+            "--hash=sha256:b10e1ff4756ed27d5a29d7fc79cfce7ef1ff56ad20025b89bac7cf79e09abbbe",
+            "--hash=sha256:b137f4bf3ada9dc44d411478decc6ff09a79ed30b306cd2abaa98408c3588137",
+            "--hash=sha256:b259a04a737cb3496be0901328eb8b7552ed8df4865d8c8f1cf1bffcfc0776a3",
+            "--hash=sha256:b427c19380991a4eaab2f6144b64b99b412043314c6bf4ab544f97bb31ee4190",
+            "--hash=sha256:bb693b1e3d9a2f3fd228e2110daf4b5aeedb36761ca1e4282f74725f6d89f611",
+            "--hash=sha256:c261d74b1a945cf895a9d6eccd1685a8e837531beaab782da4d630a8d12deffb",
+            "--hash=sha256:c5bf2dc311127d91230cc79b92188c082634a06cf66c5234db49a43b910183b0",
+            "--hash=sha256:ca1cc11d82677b9662082e5478b7528e2b7db7beaa6bdff42bd62789d81be399",
+            "--hash=sha256:d4b2dddfc219f54f956ccd53cf76a1d338ffe68fc7f2849ec9c7feb9927ff692",
+            "--hash=sha256:d71d30f2d92f67d944631c523713934fee37292469e182ebcd2c1dd8a64ce53f",
+            "--hash=sha256:d865db4a6318e1c1bea83292e0ed231090538fc4ca45425b0f0480eb338bbc6e",
+            "--hash=sha256:e2aa72e3ce1770317ef534f63d397b55e130725f5149bd36077c3b539019db27",
+            "--hash=sha256:e3657301562ac3cb8018d30d0d3ebfa39932239f7b5703422057ef14b69949f5",
+            "--hash=sha256:e64dd101d380a115cc5a0c7856788adb535f1a4e21fc543775602f8be95180ae",
+            "--hash=sha256:e8ca6a1fcdb2943c9cbc1804a1baf3acb6071d72a471591678ded84218006e14",
+            "--hash=sha256:edb59506291b647a30884b1d51a599d605f40b20af4a7dc3d33786a47a31de60",
+            "--hash=sha256:f9a0ebbe45c29b5e5866593c12b78bd9035f0f0f0d4bc8361680cd580d99db49",
         ],
         deps = [
             "@pypa_typing_extensions//:typing_extensions",
+        ],
+    )
+
+def repo_pypa_grpcio_status():
+    repo_pypa_googleapis_common_protos()
+    repo_pypa_grpcio()
+    repo_pypa_protobuf()
+    maybe(
+        third_party_python_package,
+        name = "pypa_grpcio_status",
+        target = "grpcio_status",
+        requirement = [
+            "grpcio-status==1.81.1",
+            "--hash=sha256:08072fa9995f4a95c647fc6f4f85e2411573d00087bcabdf30f260114338f232",
+            "--hash=sha256:9389a03e746017b10f0630c064289201458f3ce01f5d7ef4b0bebc1ef6cf82ad",
+        ],
+        deps = [
+            "@pypa_googleapis_common_protos//:googleapis_common_protos",
+            "@pypa_grpcio//:grpcio",
+            "@pypa_protobuf//:protobuf",
         ],
     )
 
@@ -1220,9 +1240,9 @@ def repo_pypa_humanize():
         name = "pypa_humanize",
         target = "humanize",
         requirement = [
-            "humanize==4.14.0",
-            "--hash=sha256:2fa092705ea640d605c435b1ca82b2866a1b601cdf96f076d70b79a855eba90d",
-            "--hash=sha256:d57701248d040ad456092820e6fde56c930f17749956ac47f4f655c0c547bfff",
+            "humanize==4.15.0",
+            "--hash=sha256:1dd098483eb1c7ee8e32eb2e99ad1910baefa4b75c3aff3a82f4d78688993b10",
+            "--hash=sha256:b1186eb9f5a9749cd9cb8565aee77919dd7c8d076161cf44d70e59e3301e1769",
         ],
     )
 
@@ -1244,9 +1264,9 @@ def repo_pypa_idna():
         name = "pypa_idna",
         target = "idna",
         requirement = [
-            "idna==3.11",
-            "--hash=sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea",
-            "--hash=sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902",
+            "idna==3.18",
+            "--hash=sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2",
+            "--hash=sha256:ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848",
         ],
     )
 
@@ -1256,9 +1276,9 @@ def repo_pypa_imagesize():
         name = "pypa_imagesize",
         target = "imagesize",
         requirement = [
-            "imagesize==1.4.1",
-            "--hash=sha256:0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b",
-            "--hash=sha256:69150444affb9cb0d5cc5a92b3676f0b2fb7cd9ae39e947a5e11a36b4497cd4a",
+            "imagesize==2.0.0",
+            "--hash=sha256:5667c5bbb57ab3f1fa4bc366f4fbc971db3d5ed011fd2715fd8001f782718d96",
+            "--hash=sha256:8e8358c4a05c304f1fccf7ff96f036e7243a189e9e42e90851993c558cfe9ee3",
         ],
     )
 
@@ -1275,38 +1295,40 @@ def repo_pypa_iniconfig():
     )
 
 def repo_pypa_ipython():
-    repo_pypa_stack_data()
-    repo_pypa_decorator()
-    repo_pypa_traitlets()
-    repo_pypa_jedi()
-    repo_pypa_typing_extensions()
-    repo_pypa_matplotlib_inline()
     repo_pypa_colorama()
+    repo_pypa_decorator()
+    repo_pypa_ipython_pygments_lexers()
+    repo_pypa_jedi()
+    repo_pypa_matplotlib_inline()
     repo_pypa_pexpect()
     repo_pypa_prompt_toolkit()
-    repo_pypa_ipython_pygments_lexers()
+    repo_pypa_psutil()
     repo_pypa_pygments()
+    repo_pypa_stack_data()
+    repo_pypa_traitlets()
+    repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
         name = "pypa_ipython",
         target = "ipython",
         requirement = [
-            "ipython==9.6.0",
-            "--hash=sha256:5603d6d5d356378be5043e69441a072b50a5b33b4503428c77b04cb8ce7bc731",
-            "--hash=sha256:5f77efafc886d2f023442479b8149e7d86547ad0a979e9da9f045d252f648196",
+            "ipython==9.14.1",
+            "--hash=sha256:5d4a9ecaa3b10e6e5f269dd0948bdb58ca9cb851899cd23e07c320d3eb11613c",
+            "--hash=sha256:f913bf74df06d458e46ced84ca506c23797590d594b236fe60b14df213291e7b",
         ],
         deps = [
-            "@pypa_stack_data//:stack_data",
-            "@pypa_decorator//:decorator",
-            "@pypa_traitlets//:traitlets",
-            "@pypa_jedi//:jedi",
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_matplotlib_inline//:matplotlib_inline",
             "@pypa_colorama//:colorama",
+            "@pypa_decorator//:decorator",
+            "@pypa_ipython_pygments_lexers//:ipython_pygments_lexers",
+            "@pypa_jedi//:jedi",
+            "@pypa_matplotlib_inline//:matplotlib_inline",
             "@pypa_pexpect//:pexpect",
             "@pypa_prompt_toolkit//:prompt_toolkit",
-            "@pypa_ipython_pygments_lexers//:ipython_pygments_lexers",
+            "@pypa_psutil//:psutil",
             "@pypa_pygments//:pygments",
+            "@pypa_stack_data//:stack_data",
+            "@pypa_traitlets//:traitlets",
+            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -1345,9 +1367,9 @@ def repo_pypa_jedi():
         name = "pypa_jedi",
         target = "jedi",
         requirement = [
-            "jedi==0.19.2",
-            "--hash=sha256:4770dc3de41bde3966b02eb84fbcf557fb33cce26ad23da12c742fb50ecb11f0",
-            "--hash=sha256:a8ef22bde8490f57fe5c7681a3c83cb58874daf72b4784de3cce5b6ef6edb5b9",
+            "jedi==0.20.0",
+            "--hash=sha256:7bdd9c2634f56713299976f4cbd59cb3fa92165cc5e05ea811fb253480728b67",
+            "--hash=sha256:c3f4ccbd276696f4b19c54618d4fb18f9fc24b0aef02acf704b23f487daa1011",
         ],
         deps = [
             "@pypa_parso//:parso",
@@ -1376,9 +1398,9 @@ def repo_pypa_jmespath():
         name = "pypa_jmespath",
         target = "jmespath",
         requirement = [
-            "jmespath==1.0.1",
-            "--hash=sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980",
-            "--hash=sha256:90261b206d6defd58fdd5e85f478bf633a2901798906be2ad389150c5c60edbe",
+            "jmespath==1.1.0",
+            "--hash=sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d",
+            "--hash=sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64",
         ],
     )
 
@@ -1389,9 +1411,9 @@ def repo_pypa_joserfc():
         name = "pypa_joserfc",
         target = "joserfc",
         requirement = [
-            "joserfc==1.4.0",
-            "--hash=sha256:46917e6b53f1ec0c7e20d34d6f3e6c27da0fa43d0d4ebfb89aada7c86582933a",
-            "--hash=sha256:e8c2f327bf10a937d284d57e9f8aec385381e5e5850469b50a7dade1aba59759",
+            "joserfc==1.7.1",
+            "--hash=sha256:77d0b76514879c68c6f433bc5b7357a4ab72008ff1e33d8379fd11d72bd8ca81",
+            "--hash=sha256:b3e3d655612e2e1ef67b2600f2f420e12e537b020208fab1761fad647319c164",
         ],
         deps = [
             "@pypa_cryptography//:cryptography",
@@ -1415,19 +1437,14 @@ def repo_pypa_jsonpatch():
     )
 
 def repo_pypa_jsonpath_ng():
-    repo_pypa_ply()
     maybe(
         third_party_python_package,
         name = "pypa_jsonpath_ng",
         target = "jsonpath_ng",
         requirement = [
-            "jsonpath-ng==1.7.0",
-            "--hash=sha256:898c93fc173f0c336784a3fa63d7434297544b7198124a68f9a3ef9597b0ae6e",
-            "--hash=sha256:f3d7f9e848cba1b6da28c55b1c26ff915dc9e0b1ba7e752a53d6da8d5cbd00b6",
-            "--hash=sha256:f6f5f7fd4e5ff79c785f1573b394043b39849fb2bb47bcead935d12b00beab3c",
-        ],
-        deps = [
-            "@pypa_ply//:ply",
+            "jsonpath-ng==1.8.0",
+            "--hash=sha256:54252968134b5e549ea5b872f1df1168bd7defe1a52fed5a358c194e1943ddc3",
+            "--hash=sha256:b8dde192f8af58d646fc031fac9c99fe4d00326afc4148f1f043c601a8cfe138",
         ],
     )
 
@@ -1437,53 +1454,53 @@ def repo_pypa_jsonpointer():
         name = "pypa_jsonpointer",
         target = "jsonpointer",
         requirement = [
-            "jsonpointer==3.0.0",
-            "--hash=sha256:13e088adc14fca8b6aa8177c044e12701e6ad4b28ff10e65f2267a90109c9942",
-            "--hash=sha256:2b2d729f2091522d61c3b31f82e11870f60b68f43fbc705cb76bf4b832af59ef",
+            "jsonpointer==3.1.1",
+            "--hash=sha256:0b801c7db33a904024f6004d526dcc53bbb8a4a0f4e32bfd10beadf60adf1900",
+            "--hash=sha256:8ff8b95779d071ba472cf5bc913028df06031797532f08a7d5b602d8b2a488ca",
         ],
     )
 
 def repo_pypa_jsonschema():
-    repo_pypa_jsonschema_specifications()
-    repo_pypa_rpds_py()
-    repo_pypa_referencing()
     repo_pypa_attrs()
+    repo_pypa_jsonschema_specifications()
+    repo_pypa_referencing()
+    repo_pypa_rpds_py()
     maybe(
         third_party_python_package,
         name = "pypa_jsonschema",
         target = "jsonschema",
         requirement = [
-            "jsonschema==4.25.1",
-            "--hash=sha256:3fba0169e345c7175110351d456342c364814cfcf3b964ba4587f22915230a63",
-            "--hash=sha256:e4a9655ce0da0c0b67a085847e00a3a51449e1157f4f75e9fb5aa545e122eb85",
+            "jsonschema==4.26.0",
+            "--hash=sha256:0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326",
+            "--hash=sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce",
         ],
         deps = [
-            "@pypa_jsonschema_specifications//:jsonschema_specifications",
-            "@pypa_rpds_py//:rpds_py",
-            "@pypa_referencing//:referencing",
             "@pypa_attrs//:attrs",
+            "@pypa_jsonschema_specifications//:jsonschema_specifications",
+            "@pypa_referencing//:referencing",
+            "@pypa_rpds_py//:rpds_py",
         ],
     )
 
-def repo_pypa_jsonschema_spec():
+def repo_pypa_jsonschema_path():
+    repo_pypa_attrs()
     repo_pypa_pathable()
     repo_pypa_pyyaml()
-    repo_pypa_jsonschema()
-    repo_pypa_typing_extensions()
+    repo_pypa_referencing()
     maybe(
         third_party_python_package,
-        name = "pypa_jsonschema_spec",
-        target = "jsonschema_spec",
+        name = "pypa_jsonschema_path",
+        target = "jsonschema_path",
         requirement = [
-            "jsonschema-spec==0.1.3",
-            "--hash=sha256:8d8db7c255e524fab1016a952a9143e5b6e3c074f4ed25d1878f8e97806caec0",
-            "--hash=sha256:b3cde007ad65c2e631e2f8653cf187124a2c714d02d9fafbab68ad64bf5745d6",
+            "jsonschema-path==0.5.0",
+            "--hash=sha256:2790a070bc7abb08ea3dbe4d340ece4efadf639223001f020c7503229ba068e2",
+            "--hash=sha256:493b156ba895c97602655b620a8456caa2ce08c1aa389f5a7addec065e6e855c",
         ],
         deps = [
+            "@pypa_attrs//:attrs",
             "@pypa_pathable//:pathable",
             "@pypa_pyyaml//:pyyaml",
-            "@pypa_jsonschema//:jsonschema",
-            "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_referencing//:referencing",
         ],
     )
 
@@ -1683,9 +1700,9 @@ def repo_pypa_matplotlib_inline():
         name = "pypa_matplotlib_inline",
         target = "matplotlib_inline",
         requirement = [
-            "matplotlib-inline==0.2.1",
-            "--hash=sha256:d56ce5156ba6085e00a9d54fead6ed29a9c47e215cd1bba2e976ef39f5710a76",
-            "--hash=sha256:e1ee949c340d771fc39e241ea75683deb94762c8fa5f2927ec57c83c4dffa9fe",
+            "matplotlib-inline==0.2.2",
+            "--hash=sha256:3c821cf1c209f59fb2d2d64abbf5b23b67bcb2210d663f9918dd851c6da1fcf6",
+            "--hash=sha256:72f3fe8fce36b70d4a5b612f899090cd0401deddc4ea90e1572b9f4bfb058c79",
         ],
         deps = [
             "@pypa_traitlets//:traitlets",
@@ -1746,62 +1763,58 @@ def repo_pypa_ml_dtypes():
     )
 
 def repo_pypa_moto():
-    repo_pypa_pyparsing()
-    repo_pypa_jsonpath_ng()
-    repo_pypa_python_dateutil()
-    repo_pypa_responses()
-    repo_pypa_cfn_lint()
-    repo_pypa_aws_xray_sdk()
-    repo_pypa_flask_cors()
-    repo_pypa_docker()
-    repo_pypa_xmltodict()
-    repo_pypa_joserfc()
-    repo_pypa_jinja2()
-    repo_pypa_werkzeug()
     repo_pypa_antlr4_python3_runtime()
-    repo_pypa_py_partiql_parser()
-    repo_pypa_pyyaml()
-    repo_pypa_openapi_spec_validator()
-    repo_pypa_requests()
+    repo_pypa_aws_xray_sdk()
     repo_pypa_boto3()
     repo_pypa_botocore()
-    repo_pypa_setuptools()
+    repo_pypa_cfn_lint()
     repo_pypa_cryptography()
-    repo_pypa_graphql_core()
+    repo_pypa_docker()
     repo_pypa_flask()
+    repo_pypa_flask_cors()
+    repo_pypa_graphql_core()
+    repo_pypa_joserfc()
+    repo_pypa_jsonpath_ng()
+    repo_pypa_openapi_spec_validator()
+    repo_pypa_py_partiql_parser()
+    repo_pypa_pyparsing()
+    repo_pypa_pyyaml()
+    repo_pypa_requests()
+    repo_pypa_responses()
+    repo_pypa_setuptools()
+    repo_pypa_werkzeug()
+    repo_pypa_xmltodict()
     maybe(
         third_party_python_package,
         name = "pypa_moto",
         target = "moto",
         requirement = [
-            "moto==5.1.15",
-            "--hash=sha256:0ffcf943f421bc6e7248889c7c44182a9ec26f8df3457cd4b52418dab176a720",
-            "--hash=sha256:2ad9cc9710a3460505511543dba6761c8bd2006a49954ad3988bbf20ce9e6413",
+            "moto==5.2.2",
+            "--hash=sha256:3817f1e39721ca833579b921e53e3b68547ace6a34d848c9486fbb5905808de9",
+            "--hash=sha256:aac8023a429e125e91c91f8f4730a67b54f518cda587352f7e67252fe3168f75",
         ],
         deps = [
-            "@pypa_pyparsing//:pyparsing",
-            "@pypa_jsonpath_ng//:jsonpath_ng",
-            "@pypa_python_dateutil//:python_dateutil",
-            "@pypa_responses//:responses",
-            "@pypa_cfn_lint//:cfn_lint",
-            "@pypa_aws_xray_sdk//:aws_xray_sdk",
-            "@pypa_flask_cors//:flask_cors",
-            "@pypa_docker//:docker",
-            "@pypa_xmltodict//:xmltodict",
-            "@pypa_joserfc//:joserfc",
-            "@pypa_jinja2//:jinja2",
-            "@pypa_werkzeug//:werkzeug",
             "@pypa_antlr4_python3_runtime//:antlr4_python3_runtime",
-            "@pypa_py_partiql_parser//:py_partiql_parser",
-            "@pypa_pyyaml//:pyyaml",
-            "@pypa_openapi_spec_validator//:openapi_spec_validator",
-            "@pypa_requests//:requests",
+            "@pypa_aws_xray_sdk//:aws_xray_sdk",
             "@pypa_boto3//:boto3",
             "@pypa_botocore//:botocore",
-            "@pypa_setuptools//:setuptools",
+            "@pypa_cfn_lint//:cfn_lint",
             "@pypa_cryptography//:cryptography",
-            "@pypa_graphql_core//:graphql_core",
+            "@pypa_docker//:docker",
             "@pypa_flask//:flask",
+            "@pypa_flask_cors//:flask_cors",
+            "@pypa_graphql_core//:graphql_core",
+            "@pypa_joserfc//:joserfc",
+            "@pypa_jsonpath_ng//:jsonpath_ng",
+            "@pypa_openapi_spec_validator//:openapi_spec_validator",
+            "@pypa_py_partiql_parser//:py_partiql_parser",
+            "@pypa_pyparsing//:pyparsing",
+            "@pypa_pyyaml//:pyyaml",
+            "@pypa_requests//:requests",
+            "@pypa_responses//:responses",
+            "@pypa_setuptools//:setuptools",
+            "@pypa_werkzeug//:werkzeug",
+            "@pypa_xmltodict//:xmltodict",
         ],
     )
 
@@ -1835,9 +1848,9 @@ def repo_pypa_networkx():
         name = "pypa_networkx",
         target = "networkx",
         requirement = [
-            "networkx==3.5",
-            "--hash=sha256:0030d386a9a06dee3565298b4a734b68589749a544acbb6c412dc9e2489ec6ec",
-            "--hash=sha256:d4c6f9cf81f52d69230866796b82afbccdec3db7ae4fbd1b65ea750feed50037",
+            "networkx==3.6.1",
+            "--hash=sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509",
+            "--hash=sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762",
         ],
     )
 
@@ -1847,121 +1860,131 @@ def repo_pypa_numpy():
         name = "pypa_numpy",
         target = "numpy",
         requirement = [
-            "numpy==2.3.5",
-            "--hash=sha256:00dc4e846108a382c5869e77c6ed514394bdeb3403461d25a829711041217d5b",
-            "--hash=sha256:0472f11f6ec23a74a906a00b48a4dcf3849209696dff7c189714511268d103ae",
-            "--hash=sha256:04822c00b5fd0323c8166d66c701dc31b7fbd252c100acd708c48f763968d6a3",
-            "--hash=sha256:052e8c42e0c49d2575621c158934920524f6c5da05a1d3b9bab5d8e259e045f0",
-            "--hash=sha256:09a1bea522b25109bf8e6f3027bd810f7c1085c64a0c7ce050c1676ad0ba010b",
-            "--hash=sha256:0cd00b7b36e35398fa2d16af7b907b65304ef8bb4817a550e06e5012929830fa",
-            "--hash=sha256:0d8163f43acde9a73c2a33605353a4f1bc4798745a8b1d73183b28e5b435ae28",
-            "--hash=sha256:1062fde1dcf469571705945b0f221b73928f34a20c904ffb45db101907c3454e",
-            "--hash=sha256:11e06aa0af8c0f05104d56450d6093ee639e15f24ecf62d417329d06e522e017",
-            "--hash=sha256:17531366a2e3a9e30762c000f2c43a9aaa05728712e25c11ce1dbe700c53ad41",
-            "--hash=sha256:1978155dd49972084bd6ef388d66ab70f0c323ddee6f693d539376498720fb7e",
-            "--hash=sha256:1ed1ec893cff7040a02c8aa1c8611b94d395590d553f6b53629a4461dc7f7b63",
-            "--hash=sha256:2dcd0808a421a482a080f89859a18beb0b3d1e905b81e617a188bd80422d62e9",
-            "--hash=sha256:2e2eb32ddb9ccb817d620ac1d8dae7c3f641c1e5f55f531a33e8ab97960a75b8",
-            "--hash=sha256:2feae0d2c91d46e59fcd62784a3a83b3fb677fead592ce51b5a6fbb4f95965ff",
-            "--hash=sha256:3095bdb8dd297e5920b010e96134ed91d852d81d490e787beca7e35ae1d89cf7",
-            "--hash=sha256:30bc11310e8153ca664b14c5f1b73e94bd0503681fcf136a163de856f3a50139",
-            "--hash=sha256:3101e5177d114a593d79dd79658650fe28b5a0d8abeb8ce6f437c0e6df5be1a4",
-            "--hash=sha256:396084a36abdb603546b119d96528c2f6263921c50df3c8fd7cb28873a237748",
-            "--hash=sha256:3997b5b3c9a771e157f9aae01dd579ee35ad7109be18db0e85dbdbe1de06e952",
-            "--hash=sha256:414802f3b97f3c1eef41e530aaba3b3c1620649871d8cb38c6eaff034c2e16bd",
-            "--hash=sha256:51c1e14eb1e154ebd80e860722f9e6ed6ec89714ad2db2d3aa33c31d7c12179b",
-            "--hash=sha256:51c55fe3451421f3a6ef9a9c1439e82101c57a2c9eab9feb196a62b1a10b58ce",
-            "--hash=sha256:5ee6609ac3604fa7780e30a03e5e241a7956f8e2fcfe547d51e3afa5247ac47f",
-            "--hash=sha256:612a95a17655e213502f60cfb9bf9408efdc9eb1d5f50535cc6eb365d11b42b5",
-            "--hash=sha256:6203fdf9f3dc5bdaed7319ad8698e685c7a3be10819f41d32a0723e611733b42",
-            "--hash=sha256:63c0e9e7eea69588479ebf4a8a270d5ac22763cc5854e9a7eae952a3908103f7",
-            "--hash=sha256:66f85ce62c70b843bab1fb14a05d5737741e74e28c7b8b5a064de10142fad248",
-            "--hash=sha256:6cf9b429b21df6b99f4dee7a1218b8b7ffbbe7df8764dc0bd60ce8a0708fed1e",
-            "--hash=sha256:70b37199913c1bd300ff6e2693316c6f869c7ee16378faf10e4f5e3275b299c3",
-            "--hash=sha256:727fd05b57df37dc0bcf1a27767a3d9a78cbbc92822445f32cc3436ba797337b",
-            "--hash=sha256:74ae7b798248fe62021dbf3c914245ad45d1a6b0cb4a29ecb4b31d0bfbc4cc3e",
-            "--hash=sha256:784db1dcdab56bf0517743e746dfb0f885fc68d948aba86eeec2cba234bdf1c0",
-            "--hash=sha256:86945f2ee6d10cdfd67bcb4069c1662dd711f7e2a4343db5cecec06b87cf31aa",
-            "--hash=sha256:86d835afea1eaa143012a2d7a3f45a3adce2d7adc8b4961f0b362214d800846a",
-            "--hash=sha256:872a5cf366aec6bb1147336480fef14c9164b154aeb6542327de4970282cd2f5",
-            "--hash=sha256:8b973c57ff8e184109db042c842423ff4f60446239bd585a5131cc47f06f789d",
-            "--hash=sha256:8cba086a43d54ca804ce711b2a940b16e452807acebe7852ff327f1ecd49b0d4",
-            "--hash=sha256:8f7f0e05112916223d3f438f293abf0727e1181b5983f413dfa2fefc4098245c",
-            "--hash=sha256:900218e456384ea676e24ea6a0417f030a3b07306d29d7ad843957b40a9d8d52",
-            "--hash=sha256:93eebbcf1aafdf7e2ddd44c2923e2672e1010bddc014138b229e49725b4d6be5",
-            "--hash=sha256:9c75442b2209b8470d6d5d8b1c25714270686f14c749028d2199c54e29f20b4d",
-            "--hash=sha256:9ee2197ef8c4f0dfe405d835f3b6a14f5fee7782b5de51ba06fb65fc9b36e9f1",
-            "--hash=sha256:a414504bef8945eae5f2d7cb7be2d4af77c5d1cb5e20b296c2c25b61dff2900c",
-            "--hash=sha256:a4b9159734b326535f4dd01d947f919c6eefd2d9827466a696c44ced82dfbc18",
-            "--hash=sha256:a80afd79f45f3c4a7d341f13acbe058d1ca8ac017c165d3fa0d3de6bc1a079d7",
-            "--hash=sha256:aa5bc7c5d59d831d9773d1170acac7893ce3a5e130540605770ade83280e7188",
-            "--hash=sha256:acfd89508504a19ed06ef963ad544ec6664518c863436306153e13e94605c218",
-            "--hash=sha256:aeffcab3d4b43712bb7a60b65f6044d444e75e563ff6180af8f98dd4b905dfd2",
-            "--hash=sha256:afaffc4393205524af9dfa400fa250143a6c3bc646c08c9f5e25a9f4b4d6a903",
-            "--hash=sha256:b0c7088a73aef3d687c4deef8452a3ac7c1be4e29ed8bf3b366c8111128ac60c",
-            "--hash=sha256:b46b4ec24f7293f23adcd2d146960559aaf8020213de8ad1909dba6c013bf89c",
-            "--hash=sha256:b501b5fa195cc9e24fe102f21ec0a44dffc231d2af79950b451e0d99cea02234",
-            "--hash=sha256:bf06bc2af43fa8d32d30fae16ad965663e966b1a3202ed407b84c989c3221e82",
-            "--hash=sha256:c804e3a5aba5460c73955c955bdbd5c08c354954e9270a2c1565f62e866bdc39",
-            "--hash=sha256:c8a9958e88b65c3b27e22ca2a076311636850b612d6bbfb76e8d156aacde2aaf",
-            "--hash=sha256:cc0a57f895b96ec78969c34f682c602bf8da1a0270b09bc65673df2e7638ec20",
-            "--hash=sha256:cc8920d2ec5fa99875b670bb86ddeb21e295cb07aa331810d9e486e0b969d946",
-            "--hash=sha256:ccc933afd4d20aad3c00bcef049cb40049f7f196e0397f1109dba6fed63267b0",
-            "--hash=sha256:ce581db493ea1a96c0556360ede6607496e8bf9b3a8efa66e06477267bc831e9",
-            "--hash=sha256:d0f23b44f57077c1ede8c5f26b30f706498b4862d3ff0a7298b8411dd2f043ff",
-            "--hash=sha256:d21644de1b609825ede2f48be98dfde4656aefc713654eeee280e37cadc4e0ad",
-            "--hash=sha256:d6889ec4ec662a1a37eb4b4fb26b6100841804dac55bd9df579e326cdc146227",
-            "--hash=sha256:de5672f4a7b200c15a4127042170a694d4df43c992948f5e1af57f0174beed10",
-            "--hash=sha256:e6a0bc88393d65807d751a614207b7129a310ca4fe76a74e5c7da5fa5671417e",
-            "--hash=sha256:ed89927b86296067b4f81f108a2271d8926467a8868e554eaf370fc27fa3ccaf",
-            "--hash=sha256:ee3888d9ff7c14604052b2ca5535a30216aa0a58e948cdd3eeb8d3415f638769",
-            "--hash=sha256:f0963b55cdd70fad460fa4c1341f12f976bb26cb66021a5580329bd498988310",
-            "--hash=sha256:f16417ec91f12f814b10bafe79ef77e70113a2f5f7018640e7425ff979253425",
-            "--hash=sha256:f28620fe26bee16243be2b7b874da327312240a7cdc38b769a697578d2100013",
-            "--hash=sha256:f4255143f5160d0de972d28c8f9665d882b5f61309d8362fdd3e103cf7bf010c",
-            "--hash=sha256:ffac52f28a7849ad7576293c0cb7b9f08304e8f7d738a8cb8a90ec4c55a998eb",
-            "--hash=sha256:ffe22d2b05504f786c867c8395de703937f934272eb67586817b46188b4ded6d",
-            "--hash=sha256:fffe29a1ef00883599d1dc2c51aa2e5d80afe49523c261a74933df395c15c520",
+            "numpy==2.4.6",
+            "--hash=sha256:001fbb8e08d942dd57599e781f2472269ee7f2755fae407b4f67b2f0b17da3f1",
+            "--hash=sha256:0280e0356c0829a18d9de1cb7eee50ec22ca639878d7240307ca0943d73cd2c4",
+            "--hash=sha256:043191bfa8eab18c776647b62723ac9dddece59743b13f49b2016094129c2b3f",
+            "--hash=sha256:06ca2f61ec4385a07a6977c55ba998a4466c123642b4a32694d3128fce18c079",
+            "--hash=sha256:0a041d3d761dc3c35cc56ce0351506a02bcbc25f7b169f652435141a17db9096",
+            "--hash=sha256:0ab0a9c4ffb1a6d95ef519fe4247dba8eb6b18ad93999f76b7f657039acabd47",
+            "--hash=sha256:0c9136e14ed34a9e343a31c533d78a9813a69a3148332bce5e9821cb2f996e66",
+            "--hash=sha256:110f8b71aacb688ec69062bb7f6938a0f8acb01b7c1c4beb453c65b6d234584d",
+            "--hash=sha256:112b06a867b235ef466ed3508ddf0238050df9c727cafb5301ac385b899189a1",
+            "--hash=sha256:17f9ade344e7d9b464a084d69bcf18fc691cb1db67c62ed80820bf4926d78f0e",
+            "--hash=sha256:1e254a00cdf42b1e4d5b3d68d33af63268d41340d8885df2ab6470f2e1500147",
+            "--hash=sha256:1e978ec1e8bd0e0e4de6bb75de9d30cbb74db6b6a2bb727618613703ca0167dd",
+            "--hash=sha256:25c692919ac5a01f170a3bfcd62d745b24fd095c353d50812637d6fcab442e75",
+            "--hash=sha256:260a5d70215b61ab4fadf5c7baacd64821842975eea312125ed3c39a6391b063",
+            "--hash=sha256:2803abfebfc990042cd494d8ce2d5f82e9d847af6d35ec486923aa19dbad5e73",
+            "--hash=sha256:29a287e0cf63ff528da061de6b9f64a4618da591ca1046aafc54062e40ca7eab",
+            "--hash=sha256:29cb7f67d10b479ff07c17d33e39f78c07f71c40ef30d63c153d340e96cd3fb4",
+            "--hash=sha256:3213d622a0283a39a93d188f3cf72b26862df52fbb4ca3697f51705016523d41",
+            "--hash=sha256:33111801a01c12a8a1e3721f0a9232f8cfc8ae2c6b7098167e6f623c6073f402",
+            "--hash=sha256:357cc07a6d7b0b182ff02249616a03742827ebb1277546b5c7cd7f7620a45698",
+            "--hash=sha256:38efbc8de75c7a0fc1ac190162d892787f3f47b57cc291231aafee36b80982b7",
+            "--hash=sha256:4081eb135ac24158bd51cdfbef16f1c64df7063b1143f24731387137c092bec8",
+            "--hash=sha256:40fdc1ae7125e518ea98e53e69a4ebc27e1fd50510c47b7ea130cf21e5e1d42b",
+            "--hash=sha256:4cfe66903cc32a9921a6733d96b19bb6abf310397581bbad89c228f5abaf0ee8",
+            "--hash=sha256:511dbaf848decaaaf4b4ca48032619fb3138710c4bf7da7617765edad1ef96b0",
+            "--hash=sha256:55cced7c52e981362f708ad635198e97a752dfba412cc03c23bbf3bd8d5cd662",
+            "--hash=sha256:56b39e5e0622a09a25bf5baf62f4bcf0cb8a41ae6e2819cf49bbc5a74c083f91",
+            "--hash=sha256:5dbbdb29840ca3d91ee0fece42fc29278886d908280bfec0a5846c6f901a3eb0",
+            "--hash=sha256:5f9fb9157b4ce2971008323afe46053787b526ef624fea915b261468a8421a0f",
+            "--hash=sha256:6180d8b35af935aed8ece3a85e0a43f87393ae0ac87c8d2c8bd2c993f7270ef3",
+            "--hash=sha256:68a5124b13fa6cc2086764a20005d30bc0548146f7f5322f02fce212ca14317f",
+            "--hash=sha256:68bb27509ac1b9a3443094260f6326150663b06abe40b73a2f81160623da5b67",
+            "--hash=sha256:6f41ae150c4e32db4f3310cdaf64b1593a03dbabe29eec77fc9b50fe64061df6",
+            "--hash=sha256:7265a2f3d436e54ef9f2b52b5c937e6be778781bd97a590319d7348f1c1ca997",
+            "--hash=sha256:72fbe16c6fac95aedf5937fa873445cec2110be35d8a4e9433d7501fd98dae6b",
+            "--hash=sha256:7d92c3819208a60205a12a245c91ad70cb0a85336659b19b834205573ac8456e",
+            "--hash=sha256:8155154c7c691289fe18f510b5d4657c68c67989f293f0535a91360392ff6538",
+            "--hash=sha256:81a1cca95ed5bb92aa8b10dd2cdc9a0d3853a50fad926c28b5d7e8ea54389627",
+            "--hash=sha256:89cd468399cfd2504718f0ba50e410dca55a170b61a02ad92bb18c8a65186e93",
+            "--hash=sha256:8ad03c0965fb3c692200e74d458ca28c1dbb4ce96f9a479a8aa041ad5fabca02",
+            "--hash=sha256:90f9849678c75fe7afa2d348ac842c168b0a4d3d61919687216dfc547976d853",
+            "--hash=sha256:948424b06129ce883307e8cff868c31396d8dc7630a59c61d70d98dbe70f222c",
+            "--hash=sha256:9cd5ffd25db4e7ba6a375693b3fc0fc1791ec636c17db3720da19bde7180ec43",
+            "--hash=sha256:a0df0043bdb289bde1f62da130d20df23d58b45429f752bc7a8fc5325a225ecd",
+            "--hash=sha256:a2c306dea656c12c68f51f4cea133cbe78ca7435eb28c735eac1d3ebe73be6e8",
+            "--hash=sha256:a7830bab239b79cda9c08c2da014761cafb48da6150e1da17ac06283f43b6089",
+            "--hash=sha256:a7c711e21628b52034bb5ab8d1bce291f752fcc5e92accc615778acee1ff4778",
+            "--hash=sha256:aaf159caa35993cb1f56fb9b8e4610d35758e7ca005412eb1daa856a78c9c4b1",
+            "--hash=sha256:ae506e6902902557576a26ff33eda8695e7ecb3cb36c3b573a0765dee114ebdb",
+            "--hash=sha256:b507f5c4c1d508876d1819b6bf9a49d365b96320b5d4993426b33a23ca4b8261",
+            "--hash=sha256:bf162abab1c1a736333192707cef898e735a5ca00f38f27eeedf44b39d9e85eb",
+            "--hash=sha256:c1a2af6c6ef86344a6b0db6b97834208bf598db514f2b155042439b62605601a",
+            "--hash=sha256:c2d37ab77531417474168eb79d6d80b14f821a966818505d03013d0833edb7a8",
+            "--hash=sha256:c4fc99836233ea196540b17ab0983aff60ed07941751930f5f4d05bc3b3b7359",
+            "--hash=sha256:d581b735e177fdcdce6fed8e7e8880a3fb6ee4e3653a3ac6af01c6f4c03effc5",
+            "--hash=sha256:d6da64deb6b8ed903e7560180a92f2d804ee1ba5eeb849ac2748b8c1aba1f6d7",
+            "--hash=sha256:d8e8286dd7cea7895157318d1b91cdacac64c479f3cbc8dce548331728484751",
+            "--hash=sha256:ddea102b48f9e339f3948bf22040944184627a30fdf7f858667673b9c5f033c8",
+            "--hash=sha256:dfa20cc6ca228e6b155b11da03825975ce66aea520985dbbddf0f2a5a495c605",
+            "--hash=sha256:e3e5193ef5a3dc73bceee50f7fdc2c90dbb76c42df8d8fae3d1067a583df579e",
+            "--hash=sha256:e3eeb0aabd6bd5ce64faae67e9935203a6991b4bc2a485a767fbafb2c5125f45",
+            "--hash=sha256:e5805d5a22fd19c8ccff10a9561f9df94436b0545619ea579db2d3c35294bce2",
+            "--hash=sha256:e85b752a1e912b70eaad4fafbd4d1238007ab221de2009b9a2f5ae7461239895",
+            "--hash=sha256:eaf7fa2de5c0be8ae6ff8e9bea2ccd725e980541244521d8d4b5f3354a27babe",
+            "--hash=sha256:ebfb099f8dcf083deef3ac1ca4c1503f387cf76296fcb3816b66f5ecb5f54fdb",
+            "--hash=sha256:ece3d2cfe132e7d51f44a832b303895e6f2d499c5e74dfbdb06ee246147a304a",
+            "--hash=sha256:ed9749eef4cbd126da3dc1d6bcb3a57f5eb7ac6a6484146bdbf743f552dfc577",
+            "--hash=sha256:ede83e07a75dd06bc501566c1eca2afc0d61677c1472ac9ad93fdee6e638a48d",
+            "--hash=sha256:ef4aea96ce4d3b074422cb4f2f64e216bf9e213004bb58ecfdf50ea02ea8eb9a",
+            "--hash=sha256:f3a3570c4a2a16746ac2c31a7c7c7b0c186b95ce902e33db6f28094ed7387dda",
+            "--hash=sha256:f407cb6b8e9d6d8c626bc73c945db1706035af8fd632295547bf1c9e46d092d6",
+            "--hash=sha256:f74a575920ab21fe304421a3fc28793d82e299cae9eccb37084e9fc7f3617c20",
         ],
     )
 
 def repo_pypa_openapi_schema_validator():
-    repo_pypa_rfc3339_validator()
     repo_pypa_jsonschema()
+    repo_pypa_jsonschema_specifications()
+    repo_pypa_pydantic()
+    repo_pypa_pydantic_settings()
+    repo_pypa_referencing()
+    repo_pypa_rfc3339_validator()
     maybe(
         third_party_python_package,
         name = "pypa_openapi_schema_validator",
         target = "openapi_schema_validator",
         requirement = [
-            "openapi-schema-validator==0.4.3",
-            "--hash=sha256:6940dba9f4906c97078fea6fd9d5a3a3384207db368c4e32f6af6abd7c5c560b",
-            "--hash=sha256:f1eff2a7936546a3ce62b88a17d09de93c9bd229cbc43cb696c988a61a382548",
+            "openapi-schema-validator==0.9.0",
+            "--hash=sha256:b72db64315b89d21834cd3ffef37e3e6893bc876327be2d366e8424b1029afd3",
+            "--hash=sha256:faa3bbe7c3aa8ca2087ad83f709dc3b7d920283153a570c03e24ea182558aa25",
         ],
         deps = [
-            "@pypa_rfc3339_validator//:rfc3339_validator",
             "@pypa_jsonschema//:jsonschema",
+            "@pypa_jsonschema_specifications//:jsonschema_specifications",
+            "@pypa_pydantic//:pydantic",
+            "@pypa_pydantic_settings//:pydantic_settings",
+            "@pypa_referencing//:referencing",
+            "@pypa_rfc3339_validator//:rfc3339_validator",
         ],
     )
 
 def repo_pypa_openapi_spec_validator():
-    repo_pypa_lazy_object_proxy()
-    repo_pypa_jsonschema_spec()
-    repo_pypa_openapi_schema_validator()
     repo_pypa_jsonschema()
+    repo_pypa_jsonschema_path()
+    repo_pypa_lazy_object_proxy()
+    repo_pypa_openapi_schema_validator()
+    repo_pypa_pydantic()
+    repo_pypa_pydantic_settings()
     maybe(
         third_party_python_package,
         name = "pypa_openapi_spec_validator",
         target = "openapi_spec_validator",
         requirement = [
-            "openapi-spec-validator==0.5.5",
-            "--hash=sha256:3010df5237748e25d7fac2b2aaf13457c1afd02735b2bd6f008a10079c8f443a",
-            "--hash=sha256:93ba247f585e1447214b4207728a7cce3726d148238217be69e6b8725c118fbe",
+            "openapi-spec-validator==0.9.0",
+            "--hash=sha256:222fecffc7714f6d0a6ad62c0e4b66cc2b7dbfafb7b93acfc6c308abbdb51af8",
+            "--hash=sha256:6d648cff6490ebb799dcfe273792f2941c050158854c721f086599d845da78b8",
         ],
         deps = [
-            "@pypa_lazy_object_proxy//:lazy_object_proxy",
-            "@pypa_jsonschema_spec//:jsonschema_spec",
-            "@pypa_openapi_schema_validator//:openapi_schema_validator",
             "@pypa_jsonschema//:jsonschema",
+            "@pypa_jsonschema_path//:jsonschema_path",
+            "@pypa_lazy_object_proxy//:lazy_object_proxy",
+            "@pypa_openapi_schema_validator//:openapi_schema_validator",
+            "@pypa_pydantic//:pydantic",
+            "@pypa_pydantic_settings//:pydantic_settings",
         ],
     )
 
@@ -1971,9 +1994,9 @@ def repo_pypa_packaging():
         name = "pypa_packaging",
         target = "packaging",
         requirement = [
-            "packaging==25.0",
-            "--hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484",
-            "--hash=sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f",
+            "packaging==26.2",
+            "--hash=sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e",
+            "--hash=sha256:ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661",
         ],
     )
 
@@ -1983,28 +2006,9 @@ def repo_pypa_parso():
         name = "pypa_parso",
         target = "parso",
         requirement = [
-            "parso==0.8.5",
-            "--hash=sha256:034d7354a9a018bdce352f48b2a8a450f05e9d6ee85db84764e9b6bd96dafe5a",
-            "--hash=sha256:646204b5ee239c396d040b90f9e272e9a8017c630092bf59980beb62fd033887",
-        ],
-    )
-
-def repo_pypa_patchelf():
-    maybe(
-        third_party_python_package,
-        name = "pypa_patchelf",
-        target = "patchelf",
-        requirement = [
-            "patchelf==0.17.2.4; (platform_machine == 'aarch64' and sys_platform == 'darwin') or (platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')",
-            "--hash=sha256:09fd848d625a165fc7b7e07745508c24077129b019c4415a882938781d43adf8",
-            "--hash=sha256:2931a1b5b85f3549661898af7bf746afbda7903c7c9a967cfc998a3563f84fad",
-            "--hash=sha256:343bb1b94e959f9070ca9607453b04390e36bbaa33c88640b989cefad0aa049e",
-            "--hash=sha256:680a266a70f60a7a4f4c448482c5bdba80cc8e6bb155a49dcc24238ba49927b0",
-            "--hash=sha256:7076d9e127230982e20a81a6e2358d3343004667ba510d9f822d4fdee29b0d71",
-            "--hash=sha256:970ee5cd8af33e5ea2099510b2f9013fa1b8d5cd763bf3fd3961281c18101a09",
-            "--hash=sha256:ae44cb3c857d50f54b99e5697aa978726ada33a8a6129d4b8b7ffd28b996652d",
-            "--hash=sha256:d842b51f0401460f3b1f3a3a67d2c266a8f515a5adfbfa6e7b656cb3ac2ed8bc",
-            "--hash=sha256:d9b35ebfada70c02679ad036407d9724ffe1255122ba4ac5e4be5868618a5689",
+            "parso==0.8.7",
+            "--hash=sha256:a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c",
+            "--hash=sha256:eaaac4c9fdd5e9e8852dc778d2d7405897ec510f2a298071453e5e3a07914bb1",
         ],
     )
 
@@ -2014,9 +2018,9 @@ def repo_pypa_pathable():
         name = "pypa_pathable",
         target = "pathable",
         requirement = [
-            "pathable==0.4.4",
-            "--hash=sha256:5ae9e94793b6ef5a4cbe0a7ce9dbbefc1eec38df253763fd0aeeacf2762dbbc2",
-            "--hash=sha256:6905a3cd17804edfac7875b5f6c9142a218c7caef78693c2dbbbfbac186d88b2",
+            "pathable==0.6.0",
+            "--hash=sha256:6404b8b82aef5ff0fd478934137128b99b12212ba35afdde5525ca4f8388ea58",
+            "--hash=sha256:82c4ca6c98c502ad12e0d4e9779b6210afee93c38990988c8c5d1b49bdcdf566",
         ],
     )
 
@@ -2026,9 +2030,9 @@ def repo_pypa_pathspec():
         name = "pypa_pathspec",
         target = "pathspec",
         requirement = [
-            "pathspec==0.12.1",
-            "--hash=sha256:a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
-            "--hash=sha256:a482d51503a1ab33b1c67a6c3813a26953dbdc71c31dacaef9a838c4e29f5712",
+            "pathspec==1.1.1",
+            "--hash=sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a",
+            "--hash=sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189",
         ],
     )
 
@@ -2054,9 +2058,9 @@ def repo_pypa_platformdirs():
         name = "pypa_platformdirs",
         target = "platformdirs",
         requirement = [
-            "platformdirs==4.5.0",
-            "--hash=sha256:70ddccdd7c99fc5942e9fc25636a8b34d04c24b335100223152c2803e4063312",
-            "--hash=sha256:e578a81bb873cbb89a41fcc904c7ef523cc18284b7e3b3ccf06aca1403b7ebd3",
+            "platformdirs==4.10.0",
+            "--hash=sha256:31e761a6a0ca04faf7353ea759bdba55652be214725111e5aac52dfa29d4bef7",
+            "--hash=sha256:fb516cdb12eb0d857d0cd85a7c57cea4d060bee4578d6cf5a14dfdf8cbf8784a",
         ],
     )
 
@@ -2069,18 +2073,6 @@ def repo_pypa_pluggy():
             "pluggy==1.6.0",
             "--hash=sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3",
             "--hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746",
-        ],
-    )
-
-def repo_pypa_ply():
-    maybe(
-        third_party_python_package,
-        name = "pypa_ply",
-        target = "ply",
-        requirement = [
-            "ply==3.11",
-            "--hash=sha256:00c7c1aaa88358b9c765b6d3000c6eec0ba42abca5351b095321aef446081da3",
-            "--hash=sha256:096f9b8350b65ebd2fd1346b12452efe5b9607f7482813ffca50c22722a807ce",
         ],
     )
 
@@ -2106,17 +2098,48 @@ def repo_pypa_protobuf():
         name = "pypa_protobuf",
         target = "protobuf",
         requirement = [
-            "protobuf==6.33.0",
-            "--hash=sha256:140303d5c8d2037730c548f8c7b93b20bb1dc301be280c378b82b8894589c954",
-            "--hash=sha256:25c9e1963c6734448ea2d308cfa610e692b801304ba0908d7bfa564ac5132995",
-            "--hash=sha256:35be49fd3f4fefa4e6e2aacc35e8b837d6703c37a2168a55ac21e9b1bc7559ef",
-            "--hash=sha256:905b07a65f1a4b72412314082c7dbfae91a9e8b68a0cc1577515f8df58ecf455",
-            "--hash=sha256:9a031d10f703f03768f2743a1c403af050b6ae1f3480e9c140f39c45f81b13ee",
-            "--hash=sha256:c963e86c3655af3a917962c9619e1a6b9670540351d7af9439d06064e3317cc9",
-            "--hash=sha256:cd33a8e38ea3e39df66e1bbc462b076d6e5ba3a4ebbde58219d777223a7873d3",
-            "--hash=sha256:d6101ded078042a8f17959eccd9236fb7a9ca20d3b0098bbcb91533a5680d035",
-            "--hash=sha256:e0697ece353e6239b90ee43a9231318302ad8353c70e6e45499fa52396debf90",
-            "--hash=sha256:e0a1715e4f27355afd9570f3ea369735afc853a6c3951a6afe1f80d8569ad298",
+            "protobuf==6.33.6",
+            "--hash=sha256:0cd27b587afca21b7cfa59a74dcbd48a50f0a6400cfb59391340ad729d91d326",
+            "--hash=sha256:77179e006c476e69bf8e8ce866640091ec42e1beb80b213c3900006ecfba6901",
+            "--hash=sha256:7d29d9b65f8afef196f8334e80d6bc1d5d4adedb449971fefd3723824e6e77d3",
+            "--hash=sha256:9720e6961b251bde64edfdab7d500725a2af5280f3f4c87e57c0208376aa8c3a",
+            "--hash=sha256:a6768d25248312c297558af96a9f9c929e8c4cee0659cb07e780731095f38135",
+            "--hash=sha256:bd56799fb262994b2c2faa1799693c95cc2e22c62f56fb43af311cae45d26f0e",
+            "--hash=sha256:c96c37eec15086b79762ed265d59ab204dabc53056e3443e702d2681f4b39ce3",
+            "--hash=sha256:e2afbae9b8e1825e3529f88d514754e094278bb95eadc0e199751cdd9a2e82a2",
+            "--hash=sha256:e9db7e292e0ab79dd108d7f1a94fe31601ce1ee3f7b79e0692043423020b0593",
+            "--hash=sha256:f443a394af5ed23672bc6c486be138628fbe5c651ccbc536873d7da23d1868cf",
+        ],
+    )
+
+def repo_pypa_psutil():
+    maybe(
+        third_party_python_package,
+        name = "pypa_psutil",
+        target = "psutil",
+        requirement = [
+            "psutil==7.2.2; sys_platform != 'emscripten'",
+            "--hash=sha256:0746f5f8d406af344fd547f1c8daa5f5c33dbc293bb8d6a16d80b4bb88f59372",
+            "--hash=sha256:076a2d2f923fd4821644f5ba89f059523da90dc9014e85f8e45a5774ca5bc6f9",
+            "--hash=sha256:11fe5a4f613759764e79c65cf11ebdf26e33d6dd34336f8a337aa2996d71c841",
+            "--hash=sha256:1a571f2330c966c62aeda00dd24620425d4b0cc86881c89861fbc04549e5dc63",
+            "--hash=sha256:1a7b04c10f32cc88ab39cbf606e117fd74721c831c98a27dc04578deb0c16979",
+            "--hash=sha256:1fa4ecf83bcdf6e6c8f4449aff98eefb5d0604bf88cb883d7da3d8d2d909546a",
+            "--hash=sha256:2edccc433cbfa046b980b0df0171cd25bcaeb3a68fe9022db0979e7aa74a826b",
+            "--hash=sha256:7b6d09433a10592ce39b13d7be5a54fbac1d1228ed29abc880fb23df7cb694c9",
+            "--hash=sha256:8c233660f575a5a89e6d4cb65d9f938126312bca76d8fe087b947b3a1aaac9ee",
+            "--hash=sha256:917e891983ca3c1887b4ef36447b1e0873e70c933afc831c6b6da078ba474312",
+            "--hash=sha256:ab486563df44c17f5173621c7b198955bd6b613fb87c71c161f827d3fb149a9b",
+            "--hash=sha256:ae0aefdd8796a7737eccea863f80f81e468a1e4cf14d926bd9b6f5f2d5f90ca9",
+            "--hash=sha256:b0726cecd84f9474419d67252add4ac0cd9811b04d61123054b9fb6f57df6e9e",
+            "--hash=sha256:b58fabe35e80b264a4e3bb23e6b96f9e45a3df7fb7eed419ac0e5947c61e47cc",
+            "--hash=sha256:c7663d4e37f13e884d13994247449e9f8f574bc4655d509c3b95e9ec9e2b9dc1",
+            "--hash=sha256:e452c464a02e7dc7822a05d25db4cde564444a67e58539a00f929c51eddda0cf",
+            "--hash=sha256:e78c8603dcd9a04c7364f1a3e670cea95d51ee865e4efb3556a3a63adef958ea",
+            "--hash=sha256:eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988",
+            "--hash=sha256:ed0cace939114f62738d808fdcecd4c869222507e266e574799e9c0faa17d486",
+            "--hash=sha256:eed63d3b4d62449571547b60578c5b2c4bcccc5387148db46e0c2313dad0ee00",
+            "--hash=sha256:fd04ef36b4a6d599bbdb225dd1d3f51e00105f6d48a28f006da7f9822f2606d8",
         ],
     )
 
@@ -2150,9 +2173,9 @@ def repo_pypa_py_partiql_parser():
         name = "pypa_py_partiql_parser",
         target = "py_partiql_parser",
         requirement = [
-            "py-partiql-parser==0.6.1",
-            "--hash=sha256:8583ff2a0e15560ef3bc3df109a7714d17f87d81d33e8c38b7fed4e58a63215d",
-            "--hash=sha256:ff6a48067bff23c37e9044021bf1d949c83e195490c17e020715e927fe5b2456",
+            "py-partiql-parser==0.6.3",
+            "--hash=sha256:09cecf916ce6e3da2c050f0cb6106166de42c33d34a078ec2eb19377ea70389a",
+            "--hash=sha256:deb0769c3346179d2f590dcbde556f708cdb929059fb654bad75f4cf6e07f582",
         ],
     )
 
@@ -2174,31 +2197,31 @@ def repo_pypa_pycparser():
         name = "pypa_pycparser",
         target = "pycparser",
         requirement = [
-            "pycparser==2.23; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'",
-            "--hash=sha256:78816d4f24add8f10a06d6f05b4d424ad9e96cfebf68a4ddc99c65c0720d00c2",
-            "--hash=sha256:e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934",
+            "pycparser==3.0; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'",
+            "--hash=sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29",
+            "--hash=sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992",
         ],
     )
 
 def repo_pypa_pydantic():
     repo_pypa_annotated_types()
     repo_pypa_pydantic_core()
-    repo_pypa_typing_inspection()
     repo_pypa_typing_extensions()
+    repo_pypa_typing_inspection()
     maybe(
         third_party_python_package,
         name = "pypa_pydantic",
         target = "pydantic",
         requirement = [
-            "pydantic==2.12.3",
-            "--hash=sha256:1da1c82b0fc140bb0103bc1441ffe062154c8d38491189751ee00fd8ca65ce74",
-            "--hash=sha256:6986454a854bc3bc6e5443e1369e06a3a456af9d339eda45510f517d9ea5c6bf",
+            "pydantic==2.13.4",
+            "--hash=sha256:45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba",
+            "--hash=sha256:c40756b57adaa8b1efeeced5c196f3f3b7c435f90e84ea7f443901bec8099ef6",
         ],
         deps = [
             "@pypa_annotated_types//:annotated_types",
             "@pypa_pydantic_core//:pydantic_core",
-            "@pypa_typing_inspection//:typing_inspection",
             "@pypa_typing_extensions//:typing_extensions",
+            "@pypa_typing_inspection//:typing_inspection",
         ],
     )
 
@@ -2209,124 +2232,127 @@ def repo_pypa_pydantic_core():
         name = "pypa_pydantic_core",
         target = "pydantic_core",
         requirement = [
-            "pydantic-core==2.41.4",
-            "--hash=sha256:025ba34a4cf4fb32f917d5d188ab5e702223d3ba603be4d8aca2f82bede432a4",
-            "--hash=sha256:09c2a60e55b357284b5f31f5ab275ba9f7f70b7525e18a132ec1f9160b4f1f03",
-            "--hash=sha256:0c19cb355224037c83642429b8ce261ae108e1c5fbf5c028bac63c77b0f8646e",
-            "--hash=sha256:0cf2a1f599efe57fa0051312774280ee0f650e11152325e41dfd3018ef2c1b57",
-            "--hash=sha256:0f184d657fa4947ae5ec9c47bd7e917730fa1cbb78195037e32dcbab50aca5ee",
-            "--hash=sha256:15dd504af121caaf2c95cb90c0ebf71603c53de98305621b94da0f967e572def",
-            "--hash=sha256:170ee6835f6c71081d031ef1c3b4dc4a12b9efa6a9540f93f95b82f3c7571ae8",
-            "--hash=sha256:19f3684868309db5263a11bace3c45d93f6f24afa2ffe75a647583df22a2ff89",
-            "--hash=sha256:1affa4798520b148d7182da0615d648e752de4ab1a9566b7471bc803d88a062d",
-            "--hash=sha256:1b65077a4693a98b90ec5ad8f203ad65802a1b9b6d4a7e48066925a7e1606706",
-            "--hash=sha256:1cae8851e174c83633f0833e90636832857297900133705ee158cf79d40f03e6",
-            "--hash=sha256:1e5ab4fc177dd41536b3c32b2ea11380dd3d4619a385860621478ac2d25ceb00",
-            "--hash=sha256:1ed810568aeffed3edc78910af32af911c835cc39ebbfacd1f0ab5dd53028e5c",
-            "--hash=sha256:2442d9a4d38f3411f22eb9dd0912b7cbf4b7d5b6c92c4173b75d3e1ccd84e36e",
-            "--hash=sha256:26895a4268ae5a2849269f4991cdc97236e4b9c010e51137becf25182daac405",
-            "--hash=sha256:285b643d75c0e30abda9dc1077395624f314a37e3c09ca402d4015ef5979f1a2",
-            "--hash=sha256:28ff11666443a1a8cf2a044d6a545ebffa8382b5f7973f22c36109205e65dc80",
-            "--hash=sha256:2dfe3aa529c8f501babf6e502936b9e8d4698502b2cfab41e17a028d91b1ac7b",
-            "--hash=sha256:304c54176af2c143bd181d82e77c15c41cbacea8872a2225dd37e6544dce9999",
-            "--hash=sha256:30a9876226dda131a741afeab2702e2d127209bde3c65a2b8133f428bc5d006b",
-            "--hash=sha256:31a41030b1d9ca497634092b46481b937ff9397a86f9f51bd41c4767b6fc04af",
-            "--hash=sha256:3619320641fd212aaf5997b6ca505e97540b7e16418f4a241f44cdf108ffb50d",
-            "--hash=sha256:37e516bca9264cbf29612539801ca3cd5d1be465f940417b002905e6ed79d38a",
-            "--hash=sha256:3a926768ea49a8af4d36abd6a8968b8790f7f76dd7cbd5a4c180db2b4ac9a3a2",
-            "--hash=sha256:3a95d4590b1f1a43bf33ca6d647b990a88f4a3824a8c4572c708f0b45a5290ed",
-            "--hash=sha256:3adf61415efa6ce977041ba9745183c0e1f637ca849773afa93833e04b163feb",
-            "--hash=sha256:3d88d0054d3fa11ce936184896bed3c1c5441d6fa483b498fac6a5d0dd6f64a9",
-            "--hash=sha256:3f1ea6f48a045745d0d9f325989d8abd3f1eaf47dd00485912d1a3a63c623a8d",
-            "--hash=sha256:44e7625332683b6c1c8b980461475cde9595eff94447500e80716db89b0da005",
-            "--hash=sha256:491535d45cd7ad7e4a2af4a5169b0d07bebf1adfd164b0368da8aa41e19907a5",
-            "--hash=sha256:4a9ab037b71927babc6d9e7fc01aea9e66dc2a4a34dff06ef0724a4049629f94",
-            "--hash=sha256:4c973add636efc61de22530b2ef83a65f39b6d6f656df97f678720e20de26caa",
-            "--hash=sha256:4f5d640aeebb438517150fdeec097739614421900e4a08db4a3ef38898798537",
-            "--hash=sha256:523e7da4d43b113bf8e7b49fa4ec0c35bf4fe66b2230bfc5c13cc498f12c6c3e",
-            "--hash=sha256:54d86c0cada6aba4ec4c047d0e348cbad7063b87ae0f005d9f8c9ad04d4a92a2",
-            "--hash=sha256:557a0aab88664cc552285316809cab897716a372afaf8efdbef756f8b890e894",
-            "--hash=sha256:5729225de81fb65b70fdb1907fcf08c75d498f4a6f15af005aabb1fdadc19dfa",
-            "--hash=sha256:5a28fcedd762349519276c36634e71853b4541079cab4acaaac60c4421827308",
-            "--hash=sha256:5b66584e549e2e32a1398df11da2e0a7eff45d5c2d9db9d5667c5e6ac764d77e",
-            "--hash=sha256:5cf90535979089df02e6f17ffd076f07237efa55b7343d98760bde8743c4b265",
-            "--hash=sha256:61760c3925d4633290292bad462e0f737b840508b4f722247d8729684f6539ae",
-            "--hash=sha256:62637c769dee16eddb7686bf421be48dfc2fae93832c25e25bc7242e698361ba",
-            "--hash=sha256:6273ea2c8ffdac7b7fda2653c49682db815aebf4a89243a6feccf5e36c18c347",
-            "--hash=sha256:646e76293345954acea6966149683047b7b2ace793011922208c8e9da12b0062",
-            "--hash=sha256:664b3199193262277b8b3cd1e754fb07f2c6023289c815a1e1e8fb415cb247b1",
-            "--hash=sha256:66c529f862fdba70558061bb936fe00ddbaaa0c647fd26e4a4356ef1d6561891",
-            "--hash=sha256:6916b9b7d134bff5440098a4deb80e4cb623e68974a87883299de9124126c2a8",
-            "--hash=sha256:692c622c8f859a17c156492783902d8370ac7e121a611bd6fe92cc71acf9ee8d",
-            "--hash=sha256:6c1fe4c5404c448b13188dd8bd2ebc2bdd7e6727fa61ff481bcc2cca894018da",
-            "--hash=sha256:6c9024169becccf0cb470ada03ee578d7348c119a0d42af3dcf9eda96e3a247c",
-            "--hash=sha256:6cb9cf7e761f4f8a8589a45e49ed3c0d92d1d696a45a6feaee8c904b26efc2db",
-            "--hash=sha256:6d55fb8b1e8929b341cc313a81a26e0d48aa3b519c1dbaadec3a6a2b4fcad025",
-            "--hash=sha256:6e0fc40d84448f941df9b3334c4b78fe42f36e3bf631ad54c3047a0cdddc2514",
-            "--hash=sha256:70e47929a9d4a1905a67e4b687d5946026390568a8e952b92824118063cee4d5",
-            "--hash=sha256:711156b6afb5cb1cb7c14a2cc2c4a8b4c717b69046f13c6b332d8a0a8f41ca3e",
-            "--hash=sha256:7533c76fa647fade2d7ec75ac5cc079ab3f34879626dae5689b27790a6cf5a5c",
-            "--hash=sha256:7b2a054a8725f05b4b6503357e0ac1c4e8234ad3b0c2ac130d6ffc66f0e170e2",
-            "--hash=sha256:7b74e18052fea4aa8dea2fb7dbc23d15439695da6cbe6cfc1b694af1115df09d",
-            "--hash=sha256:82df1f432b37d832709fbcc0e24394bba04a01b6ecf1ee87578145c19cde12ac",
-            "--hash=sha256:833eebfd75a26d17470b58768c1834dfc90141b7afc6eb0429c21fc5a21dcfb8",
-            "--hash=sha256:84d8854db5f55fead3b579f04bda9a36461dab0730c5d570e1526483e7bb8431",
-            "--hash=sha256:85e050ad9e5f6fe1004eec65c914332e52f429bc0ae12d6fa2092407a462c746",
-            "--hash=sha256:94dab0940b0d1fb28bcab847adf887c66a27a40291eedf0b473be58761c9799a",
-            "--hash=sha256:98f348cbb44fae6e9653c1055db7e29de67ea6a9ca03a5fa2c2e11a47cff0e47",
-            "--hash=sha256:9be1c01adb2ecc4e464392c36d17f97e9110fbbc906bcbe1c943b5b87a74aabd",
-            "--hash=sha256:a1351f5bbdbbabc689727cb91649a00cb9ee7203e0a6e54e9f5ba9e22e384b84",
-            "--hash=sha256:a1b2cfec3879afb742a7b0bcfa53e4f22ba96571c9e54d6a3afe1052d17d843b",
-            "--hash=sha256:a238dd3feee263eeaeb7dc44aea4ba1364682c4f9f9467e6af5596ba322c2332",
-            "--hash=sha256:a26d950449aae348afe1ac8be5525a00ae4235309b729ad4d3399623125b43c9",
-            "--hash=sha256:a44ac1738591472c3d020f61c6df1e4015180d6262ebd39bf2aeb52571b60f12",
-            "--hash=sha256:a870c307bf1ee91fc58a9a61338ff780d01bfae45922624816878dce784095d2",
-            "--hash=sha256:a8c2e340d7e454dc3340d3d2e8f23558ebe78c98aa8f68851b04dcb7bc37abdc",
-            "--hash=sha256:ab06d77e053d660a6faaf04894446df7b0a7e7aba70c2797465a0a1af00fc887",
-            "--hash=sha256:b0d9db5a161c99375a0c68c058e227bee1d89303300802601d76a3d01f74e258",
-            "--hash=sha256:b1eb1754fce47c63d2ff57fdb88c351a6c0150995890088b33767a10218eaa4e",
-            "--hash=sha256:b568af94267729d76e6ee5ececda4e283d07bbb28e8148bb17adad93d025d25a",
-            "--hash=sha256:b69d1973354758007f46cf2d44a4f3d0933f10b6dc9bf15cf1356e037f6f731a",
-            "--hash=sha256:b9f5f30c402ed58f90c70e12eff65547d3ab74685ffe8283c719e6bead8ef53f",
-            "--hash=sha256:bd8a5028425820731d8c6c098ab642d7b8b999758e24acae03ed38a66eca8335",
-            "--hash=sha256:c173ddcd86afd2535e2b695217e82191580663a1d1928239f877f5a1649ef39f",
-            "--hash=sha256:c4d1e854aaf044487d31143f541f7aafe7b482ae72a022c664b2de2e466ed0ad",
-            "--hash=sha256:c53ff33e603a9c1179a9364b0a24694f183717b2e0da2b5ad43c316c956901b2",
-            "--hash=sha256:ca2322da745bf2eeb581fc9ea3bbb31147702163ccbcbf12a3bb630e4bf05e1d",
-            "--hash=sha256:ca4df25762cf71308c446e33c9b1fdca2923a3f13de616e2a949f38bf21ff5a8",
-            "--hash=sha256:cc8e85a63085a137d286e2791037f5fdfff0aabb8b899483ca9c496dd5797338",
-            "--hash=sha256:d081a1f3800f05409ed868ebb2d74ac39dd0c1ff6c035b5162356d76030736d4",
-            "--hash=sha256:d175600d975b7c244af6eb9c9041f10059f20b8bbffec9e33fdd5ee3f67cdc42",
-            "--hash=sha256:d1e2906efb1031a532600679b424ef1d95d9f9fb507f813951f23320903adbd7",
-            "--hash=sha256:d25e97bc1f5f8f7985bdc2335ef9e73843bb561eb1fa6831fdfc295c1c2061cf",
-            "--hash=sha256:d34f950ae05a83e0ede899c595f312ca976023ea1db100cd5aa188f7005e3ab0",
-            "--hash=sha256:d405d14bea042f166512add3091c1af40437c2e7f86988f3915fabd27b1e9cd2",
-            "--hash=sha256:d55bbac04711e2980645af68b97d445cdbcce70e5216de444a6c4b6943ebcccd",
-            "--hash=sha256:d682cf1d22bab22a5be08539dca3d1593488a99998f9f412137bc323179067ff",
-            "--hash=sha256:d72f2b5e6e82ab8f94ea7d0d42f83c487dc159c5240d8f83beae684472864e2d",
-            "--hash=sha256:d95b253b88f7d308b1c0b417c4624f44553ba4762816f94e6986819b9c273fb2",
-            "--hash=sha256:dd96e5d15385d301733113bcaa324c8bcf111275b7675a9c6e88bfb19fc05e3b",
-            "--hash=sha256:de2cfbb09e88f0f795fd90cf955858fc2c691df65b1f21f0aa00b99f3fbc661d",
-            "--hash=sha256:de7c42f897e689ee6f9e93c4bec72b99ae3b32a2ade1c7e4798e690ff5246e02",
-            "--hash=sha256:df649916b81822543d1c8e0e1d079235f68acdc7d270c911e8425045a8cfc57e",
-            "--hash=sha256:e04e2f7f8916ad3ddd417a7abdd295276a0bf216993d9318a5d61cc058209166",
-            "--hash=sha256:e1d778fb7849a42d0ee5927ab0f7453bf9f85eef8887a546ec87db5ddb178945",
-            "--hash=sha256:e4dab9484ec605c3016df9ad4fd4f9a390bc5d816a3b10c6550f8424bb80b18c",
-            "--hash=sha256:e6ab5ab30ef325b443f379ddb575a34969c333004fca5a1daa0133a6ffaad616",
-            "--hash=sha256:e7393f1d64792763a48924ba31d1e44c2cfbc05e3b1c2c9abb4ceeadd912cced",
-            "--hash=sha256:e8cd3577c796be7231dcf80badcf2e0835a46665eaafd8ace124d886bab4d700",
-            "--hash=sha256:e9205d97ed08a82ebb9a307e92914bb30e18cdf6f6b12ca4bedadb1588a0bfe1",
-            "--hash=sha256:eae547b7315d055b0de2ec3965643b0ab82ad0106a7ffd29615ee9f266a02827",
-            "--hash=sha256:ec22626a2d14620a83ca583c6f5a4080fa3155282718b6055c2ea48d3ef35970",
-            "--hash=sha256:eca1124aced216b2500dc2609eade086d718e8249cb9696660ab447d50a758bd",
-            "--hash=sha256:ecde6dedd6fff127c273c76821bb754d793be1024bc33314a120f83a3c69460c",
-            "--hash=sha256:ed97fd56a561f5eb5706cebe94f1ad7c13b84d98312a05546f2ad036bafe87f4",
-            "--hash=sha256:ef9ee5471edd58d1fcce1c80ffc8783a650e3e3a193fe90d52e43bb4d87bff1f",
-            "--hash=sha256:f52679ff4218d713b3b33f88c89ccbf3a5c2c12ba665fb80ccc4192b4608dbab",
-            "--hash=sha256:f8e49c9c364a7edcbe2a310f12733aad95b022495ef2a8d653f645e5d20c1564",
-            "--hash=sha256:f9672ab4d398e1b602feadcffcdd3af44d5f5e6ddc15bc7d15d376d47e8e19f8",
-            "--hash=sha256:fc3b4c5a1fd3a311563ed866c2c9b62da06cb6398bee186484ce95c820db71cb",
-            "--hash=sha256:fc3b4cc4539e055cfa39a3763c939f9d409eb40e85813257dcd761985a108554",
+            "pydantic-core==2.46.4",
+            "--hash=sha256:00c603d540afdd6b80eb39f078f33ebd46211f02f33e34a32d9f053bba711de0",
+            "--hash=sha256:0186750b482eefa11d7f435892b09c5c606193ef3375bcf94aa00ae6bfb66262",
+            "--hash=sha256:041bde0a48fd37cf71cab1c9d56d3e8625a3793fef1f7dd232b3ff37e978ecda",
+            "--hash=sha256:0c563b08bca408dc7f65f700633d8442fffb2421fc47b8101377e9fd65051ff0",
+            "--hash=sha256:0cbe8b01f948de4286c74cdd6c667aceb38f5c1e26f0693b3983d9d74887c65e",
+            "--hash=sha256:0ce40cd7b21210e99342afafbd4d0f76d784eb5b1d60f3bdc566be4983c6c73b",
+            "--hash=sha256:0e96592440881c74a213e5ad528e2b24d3d4f940de2766bed9010ab1d9e51594",
+            "--hash=sha256:10e17cbb10a330363733efc4d7c4d0dd827ac0909b8f6a6542298fed1ea62f29",
+            "--hash=sha256:133878133d271ade3d41d1bfb2a45ec38dbdbda40bc065921c6b04e4630127e2",
+            "--hash=sha256:14d4edf427bdcf950a8a02d7cb44a08614388dd6e1bdcbf4f67504fa7887da9c",
+            "--hash=sha256:14f4c5d6db102bd796a627bbb3a17b4cf4574b9ae861d8b7c9a9661c6dd3362d",
+            "--hash=sha256:17299feefe090f2caa5b8e37222bb5f663e4935a8bfa6931d4102e5df1a9f398",
+            "--hash=sha256:184c081504d17f1c1066e430e117142b2c77d9448a97f7b65c6ac9fd9aee238d",
+            "--hash=sha256:18e5ceec2ab67e6d5f1a9085e5a24c9c4e2ac4545730bfe668680bca05e555f3",
+            "--hash=sha256:19e51f073cd3df251856a8a4189fbdf1de4012c3ebacfb1884f94f1eb406079f",
+            "--hash=sha256:1a7dd0b3ee80d90150e3495a3a13ac34dbcbfd4f012996a6a1d8900e91b5c0fb",
+            "--hash=sha256:1d8ba486450b14f3b1d63bc521d410ec7565e52f887b9fb671791886436a42f7",
+            "--hash=sha256:2108ba5c1c1eca18030634489dc544844144ee36357f2f9f780b93e7ddbb44b5",
+            "--hash=sha256:228ee9bae8bef5b1e97ec58302f80357c37199e0d0a99174e138d28e6957b9d9",
+            "--hash=sha256:23ace664830ee0bfe014a0c7bc248b1f7f25ed7ad103852c317624a1083af462",
+            "--hash=sha256:2412e734dcb48da14d4e4006b82b46b74f2518b8a26ee7e58c6844a6cd6d03c4",
+            "--hash=sha256:29c61fc04a3d840155ff08e475a04809278972fe6aef51e2720554e96367e34b",
+            "--hash=sha256:2f84c03c8607173d16b5a854ec68a2f9079ae03237a54fb506d13af47e1d018d",
+            "--hash=sha256:3009f12e4e90b7f88b4f9adb1b0c4a3d58fe7820f3238c190047209d148026df",
+            "--hash=sha256:3245406455a5d98187ec35530fd772b1d799b26667980872c8d4614991e2c4a2",
+            "--hash=sha256:3447661d99f75a3683a4cf5c87da72f2161964611864dbbeac7fbb118bb4bfc0",
+            "--hash=sha256:372429a130e469c9cd698925ce5fc50940b7a1336b0d82038e63d5bbc4edc519",
+            "--hash=sha256:395aebd9183f9d112f569aeb5b2214d1a10a33bec8456447f7fbdfa51d38d4cd",
+            "--hash=sha256:3a233125ac121aa3ffba9a2b59edfc4a985a76092dc8279586ab4b71390875e7",
+            "--hash=sha256:3be77f45df024d789a672ae34f8b06fb346c4f9f46ea714956660ea4862e89ac",
+            "--hash=sha256:3bf92c5d0e00fefaab325a4d27828fe6b6e2a21848686b5b60d2d9eeb09d76c6",
+            "--hash=sha256:3ecbc122d18468d06ca279dc26a8c2e2d5acb10943bb35e36ae92096dc3b5565",
+            "--hash=sha256:3fb702cd90b0446a3a1c5e470bfa0dd23c0233b676a9099ddcc964fa6ca13898",
+            "--hash=sha256:428e04521a40150c85216fc8b85e8d39fece235a9cf5e383761238c7fa9b96fb",
+            "--hash=sha256:432c179df7874eeb73307aad2df0755e1ae0efa61ff0ea89b93e194411ae3928",
+            "--hash=sha256:4a05d69cba51d852c5c3e92758653245a50c0b646ced0cf05bd793ed592839d6",
+            "--hash=sha256:4c63ebc82684aa89d9a3bcbd13d515b3be44250dc68dd3bd81526c1cb31286c3",
+            "--hash=sha256:4fc73cb559bdb54b1134a706a2802a4cddd27a0633f5abb7e53056268751ac6a",
+            "--hash=sha256:4fcbe087dbc2068af7eda3aa87634eba216dbda64d1ae73c8684b621d33f6596",
+            "--hash=sha256:56cb4851bcaf3d117eddcef4fe66afd750a50274b0da8e22be256d10e5611987",
+            "--hash=sha256:5855698a4856556d86e8e6cd8434bc3ac0314ee8e12089ae0e143f64c6256e4e",
+            "--hash=sha256:5a4330cdbc57162e4b3aa303f588ba752257694c9c9be3e7ebb11b4aca659b5d",
+            "--hash=sha256:5b712b53160b79a5850310b912a5ef8e57e56947c8ad690c227f5c9d7e561712",
+            "--hash=sha256:5d5902252db0d3cedf8d4a1bc68f70eeb430f7e4c7104c8c476753519b423008",
+            "--hash=sha256:617d7e2ca7dcb8c5cf6bcb8c59b8832c94b36196bbf1cbd1bfb56ed341905edd",
+            "--hash=sha256:62f875393d7f270851f20523dd2e29f082bcc82292d66db2b64ea71f64b6e1c1",
+            "--hash=sha256:633147d34cf4550417f12e2b1a0383973bdf5cdfde212cb09e9a581cf10820be",
+            "--hash=sha256:66ce7632c22d837c95301830e111ad0128a32b8207533b60896a96c4915192ea",
+            "--hash=sha256:6b3ace8194b0e5204818c92802dcdca7fc6d88aabbb799d7c795540d9cd6d292",
+            "--hash=sha256:6f2eeda33a839975441c86a4119e1383c50b47faf0cbb5176985565c6bb02c33",
+            "--hash=sha256:7027560ee92211647d0d34e3f7cd6f50da56399d26a9c8ad0da286d3869a53f3",
+            "--hash=sha256:7283d57845ecf5a163403eb0702dfc220cc4fbdd18919cb5ccea4f95ee1cdab4",
+            "--hash=sha256:7a5f930472650a82629163023e630d160863fce524c616f4e5186e5de9d9a49b",
+            "--hash=sha256:7bfb192b3f4b9e8a89b6277b6ce787564f62cfd272055f6e685726b111dc7826",
+            "--hash=sha256:811ff8e9c313ab425368bcbb36e5c4ebd7108c2bbf4e4089cfbb0b01eff63fac",
+            "--hash=sha256:8233f2947cf85404441fd7e0085f53b10c93e0ee78611099b5c7237e36aacbf7",
+            "--hash=sha256:82cf5301172168103724d49a1444d3378cb20cdee30b116a1bd6031236298a5d",
+            "--hash=sha256:8358a950c8909158e3df31538a7e4edc2d7265a7c54b47f0864d9e5bae9dcebf",
+            "--hash=sha256:85bb3611ff1802f3ee7fdd7dbff26b56f343fb432d57a4728fdd49b6ef35e2f4",
+            "--hash=sha256:86e1a4418c6cd97d60c95c71164158eaf7324fae7b0923264016baa993eba6fc",
+            "--hash=sha256:8b9bab013d1c7a79d3501ff86d0bc9c31bf587db4551677b96bec07df78c6b15",
+            "--hash=sha256:8c5dac79fa1614d1e06ca695109c6105923bd9c7d1d6c918d4e637b7e6b32fd3",
+            "--hash=sha256:8d0820e8192167f80d88d64038e609c31452eeca865b4e1d9950a27a4609b00b",
+            "--hash=sha256:8daafc69c93ee8a0204506a3b6b30f586ef54028f52aeeeb5c4cfc5184fd5914",
+            "--hash=sha256:9037063db01f09b09e237c282b6792bd4da634b5402c4e7f0c61effed7701a04",
+            "--hash=sha256:905a0ed8ea6f2d61c1738835f99b699348d7857379083e5fc497fa0c967a407c",
+            "--hash=sha256:90884113d8b48f760e9587002789ddd741e76ab9f89518cd1e43b1f1a52ec44b",
+            "--hash=sha256:91a06d2e259ecfbd8c901d70c3c507900458498142b3026a296b7de4d1322cc9",
+            "--hash=sha256:926c9541b14b12b1681dca8a0b75feb510b06c6341b70a8e500c2fdcff837cce",
+            "--hash=sha256:9401557acd873c3a7f3eb9383edef8ac4968f9510e340f4808d427e75667e7b4",
+            "--hash=sha256:9551187363ffc0de2a00b2e47c25aeaeb1020b69b668762966df15fc5659dd5a",
+            "--hash=sha256:962ccbab7b642487b1d8b7df90ef677e03134cf1fd8880bf698649b22a69371f",
+            "--hash=sha256:97e7cf2be5c77b7d1a9713a05605d49460d02c6078d38d8bef3cbe323c548424",
+            "--hash=sha256:9aa768456404a8bf48a4406685ac2bec8e72b62c69313734fa3b73cf33b3a894",
+            "--hash=sha256:9bc519fbf2b7578398853d815009ae5e4d4603d12f4e3f91da8c06852d3da3e9",
+            "--hash=sha256:9d56801be94b86a9da183e5f3766e6310752b99ff647e38b09a9500d88e46e76",
+            "--hash=sha256:9f444c499b3eefd3a92e348059471ea0c3a6e303d9c1cec09fa748fd9f895201",
+            "--hash=sha256:9fa8ae11da9e2b3126c6426f147e0fba88d96d65921799bb30c6abd1cb2c97fb",
+            "--hash=sha256:a0f62d0a58f4e7da165457e995725421e0064f2255d8eccebc49f41bbc23b109",
+            "--hash=sha256:a396dcc17e5a0b164dbe026896245a4fa9ff402edca1dff0be3d53a517f74de4",
+            "--hash=sha256:aaa2a54443eff1950ba5ddc6b6ccda0d9c84a364276a62f969bdf2a390650848",
+            "--hash=sha256:ad785e92e6dc634c21555edc8bd6b64957ab844541bcb96a1366c202951ae526",
+            "--hash=sha256:af8244b2bef6aaad6d92cda81372de7f8c8d36c9f0c3ea36e827c60e7d9467a0",
+            "--hash=sha256:b078afbc25f3a1436c7a1d2cd3e322497ee99615ba97c563566fdf46aff1ee01",
+            "--hash=sha256:b2f69dec1725e79a012d920df1707de5caf7ed5e08f3be4435e25803efc47458",
+            "--hash=sha256:b8458003118a712e66286df6a707db01c52c0f52f7db8e4a38f0da1d3b94fc4e",
+            "--hash=sha256:bb63e0198ca18aad131c089b9204c23079c3afa95487e561f4c522d519e55aba",
+            "--hash=sha256:bfec22eab3c8cc2ceec0248aec886624116dc079afa027ecc8ad4a7e62010f8a",
+            "--hash=sha256:c1747f85cee84c26985853c6f3d9bd3e75da5212912443fa111c113b9c246f39",
+            "--hash=sha256:c1b3f518abeca3aa13c712fd202306e145abf59a18b094a6bafb2d2bbf59192c",
+            "--hash=sha256:c50f2528cf200c5eed56faf3f4e22fcd5f38c157a8b78576e6ba3168ec35f000",
+            "--hash=sha256:c68fcd102d71ea85c5b2dfac3f4f8476eff42a9e078fd5faefff6d145063536b",
+            "--hash=sha256:c7a7bd4e39e8e4c12c39cd480356842b6a8a06e41b23a55a5e3e191718838ddf",
+            "--hash=sha256:c94f0688e7b8d0a67abf40e57a7eaaecd17cc9586706a31b76c031f63df052b4",
+            "--hash=sha256:cbaf13819775b7f769bf4a1f066cb6df7a28d4480081a589828ef190226881cd",
+            "--hash=sha256:cd2213145bcc2ba85884d0ac63d222fece9209678f77b9b4d76f054c561adb28",
+            "--hash=sha256:ce5c1d2a8b27468f433ca974829c44060b8097eedc39933e3c206a90ee49c4a9",
+            "--hash=sha256:d396ec2b979760aaf3218e76c24e65bd0aca24983298653b3a9d7a45f9e47b30",
+            "--hash=sha256:d51026d73fcfd93610abc7b27789c26b313920fcfb20e27462d74a7f8b06e983",
+            "--hash=sha256:d80ee3d731373b24cebbc10d689ca4ee1875caf0d5703a245db18efd4dd37fc1",
+            "--hash=sha256:d995260fdf4e1db774581b4900e0f832abe3c7c84996726bbc161b19c8f29e76",
+            "--hash=sha256:da4b951fe36dc7c3a1ccb4e3cd1747c3542b8c9ceede8fc86cae054e764485f5",
+            "--hash=sha256:daa27d92c36f24388fe3ad306b174781c747627f134452e4f128ea00ce1fe8c4",
+            "--hash=sha256:db06ffe51636ffe9ca531fe9023dd64bdd794be8754cb5df57c5498ae5b518a7",
+            "--hash=sha256:e0d65b8c354be7fb5f720c3caa8bc940bc2d20ce749c8e06135f07f8ed95dd7c",
+            "--hash=sha256:e68b7a074f65a2fd746c52a7ce6142ab7006074ac269ace0c25cd8ba171f8066",
+            "--hash=sha256:e739fee756ba1010f8bcccb534252e85a35fe45ae92c295a06059ce58b74ccd3",
+            "--hash=sha256:e846ae7835bf0703ae43f534ab79a867146dadd59dc9ca5c8b53d5c8f7c9ef02",
+            "--hash=sha256:e9c26f834c65f5752f3f06cb08cb86a913ceb7274d0db6e267808a708b46bc89",
+            "--hash=sha256:ea793e075b70290d89d8142074262885d3f7da19634845135751bd6344f73b50",
+            "--hash=sha256:f027324c56cd5406ca49c124b0db10e56c69064fec039acc571c29020cc87c76",
+            "--hash=sha256:f13a646d65d09fbf1bc6b3a9635d30095c8e7e5cc419ff35ecc563c5fd04cd49",
+            "--hash=sha256:f47286a97f0bc9b8859519809077b91b2cefe4ae47fcbf5e466a009c1c5d742b",
+            "--hash=sha256:f747929cf940cddb5b3668a390056ddd5ba2e5010615ea2dcf4f9c4f3ab8791d",
+            "--hash=sha256:f99626688942fb746e545232e7726926f3be91b5975f8b55327665fafda991c7",
+            "--hash=sha256:f9fa868638bf362d3d138ea55829cefb3d5f4b0d7f142234382a15e2485dbec4",
+            "--hash=sha256:fbdb89b3e1c94a30cc5edfce477c6e6a5dc4d8f84665b455c27582f211a1c72c",
+            "--hash=sha256:fc010ab034c8c7452522748bf937df58020d256ccae0874463d1f4d01758af8e",
+            "--hash=sha256:fc3e9034a63de20e15e8ade85358bc6efc614008cab72898b4b4952bea0509ff",
+            "--hash=sha256:fd8b3d9fd264be37976686c7f65cd52a83f5e84f4bfd2adf9c1d469676bbb6ae",
         ],
         deps = [
             "@pypa_typing_extensions//:typing_extensions",
@@ -2341,9 +2367,9 @@ def repo_pypa_pydantic_extra_types():
         name = "pypa_pydantic_extra_types",
         target = "pydantic_extra_types",
         requirement = [
-            "pydantic-extra-types==2.10.6",
-            "--hash=sha256:6106c448316d30abf721b5b9fecc65e983ef2614399a24142d689c7546cc246a",
-            "--hash=sha256:c63d70bf684366e6bbe1f4ee3957952ebe6973d41e7802aea0b770d06b116aeb",
+            "pydantic-extra-types==2.11.1",
+            "--hash=sha256:1722ea2bddae5628ace25f2aa685b69978ef533123e5638cfbddb999e0100ec1",
+            "--hash=sha256:46792d2307383859e923d8fcefa82108b1a141f8a9c0198982b3832ab5ef1049",
         ],
         deps = [
             "@pypa_pydantic//:pydantic",
@@ -2351,15 +2377,23 @@ def repo_pypa_pydantic_extra_types():
         ],
     )
 
-def repo_pypa_pyelftools():
+def repo_pypa_pydantic_settings():
+    repo_pypa_pydantic()
+    repo_pypa_python_dotenv()
+    repo_pypa_typing_inspection()
     maybe(
         third_party_python_package,
-        name = "pypa_pyelftools",
-        target = "pyelftools",
+        name = "pypa_pydantic_settings",
+        target = "pydantic_settings",
         requirement = [
-            "pyelftools==0.32",
-            "--hash=sha256:013df952a006db5e138b1edf6d8a68ecc50630adbd0d83a2d41e7f846163d738",
-            "--hash=sha256:6de90ee7b8263e740c8715a925382d4099b354f29ac48ea40d840cf7aa14ace5",
+            "pydantic-settings==2.14.1",
+            "--hash=sha256:6e3c7edfd8277687cdc598f56e5cff0e9bfff0910a3749deaa8d4401c3a2b9de",
+            "--hash=sha256:e874d3bec7e787b0c9958277956ed9b4dd5de6a80e162188fdaff7c5e26fd5fa",
+        ],
+        deps = [
+            "@pypa_pydantic//:pydantic",
+            "@pypa_python_dotenv//:python_dotenv",
+            "@pypa_typing_inspection//:typing_inspection",
         ],
     )
 
@@ -2369,9 +2403,9 @@ def repo_pypa_pygments():
         name = "pypa_pygments",
         target = "pygments",
         requirement = [
-            "pygments==2.19.2",
-            "--hash=sha256:636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887",
-            "--hash=sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b",
+            "pygments==2.20.0",
+            "--hash=sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f",
+            "--hash=sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176",
         ],
     )
 
@@ -2381,9 +2415,9 @@ def repo_pypa_pyparsing():
         name = "pypa_pyparsing",
         target = "pyparsing",
         requirement = [
-            "pyparsing==3.2.5",
-            "--hash=sha256:2df8d5b7b2802ef88e8d016a2eb9c7aeaa923529cd251ed0fe4608275d4105b6",
-            "--hash=sha256:e38a4f02064cf41fe6593d328d0512495ad1f3d8a91c4f73fc401b3079a59a5e",
+            "pyparsing==3.3.2",
+            "--hash=sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d",
+            "--hash=sha256:c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc",
         ],
     )
 
@@ -2400,8 +2434,8 @@ def repo_pypa_pyproject_hooks():
     )
 
 def repo_pypa_pytest():
-    repo_pypa_iniconfig()
     repo_pypa_colorama()
+    repo_pypa_iniconfig()
     repo_pypa_packaging()
     repo_pypa_pluggy()
     repo_pypa_pygments()
@@ -2410,13 +2444,13 @@ def repo_pypa_pytest():
         name = "pypa_pytest",
         target = "pytest",
         requirement = [
-            "pytest==8.4.2",
-            "--hash=sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01",
-            "--hash=sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79",
+            "pytest==9.1.0",
+            "--hash=sha256:41dd9148c08072446394cefd3d79701701335a9f4cae69ba92e39f6c7f5c061c",
+            "--hash=sha256:8ebb0e7888bdf2bdfc602ec51f8f62d50200af37356c74e503c79a94f5c81f32",
         ],
         deps = [
-            "@pypa_iniconfig//:iniconfig",
             "@pypa_colorama//:colorama",
+            "@pypa_iniconfig//:iniconfig",
             "@pypa_packaging//:packaging",
             "@pypa_pluggy//:pluggy",
             "@pypa_pygments//:pygments",
@@ -2431,9 +2465,9 @@ def repo_pypa_pytest_asyncio():
         name = "pypa_pytest_asyncio",
         target = "pytest_asyncio",
         requirement = [
-            "pytest-asyncio==1.2.0",
-            "--hash=sha256:8e17ae5e46d8e7efe51ab6494dd2010f4ca8dae51652aa3c8d55acf50bfb2e99",
-            "--hash=sha256:c609a64a2a8768462d0c99811ddb8bd2583c33fd33cf7f21af1c142e824ffb57",
+            "pytest-asyncio==1.4.0",
+            "--hash=sha256:933ca923a23075a87fb7070c0ec272a6848489824d887c85c812670932835aa1",
+            "--hash=sha256:c6c0d2259945122819f171a32ecea2c349ead889ee28176caaf492143424be42",
         ],
         deps = [
             "@pypa_pytest//:pytest",
@@ -2457,15 +2491,67 @@ def repo_pypa_python_dateutil():
         ],
     )
 
+def repo_pypa_python_dotenv():
+    maybe(
+        third_party_python_package,
+        name = "pypa_python_dotenv",
+        target = "python_dotenv",
+        requirement = [
+            "python-dotenv==1.2.2",
+            "--hash=sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a",
+            "--hash=sha256:2c371a91fbd7ba082c2c1dc1f8bf89ca22564a087c2c287cd9b662adde799cf3",
+        ],
+    )
+
 def repo_pypa_pytokens():
     maybe(
         third_party_python_package,
         name = "pypa_pytokens",
         target = "pytokens",
         requirement = [
-            "pytokens==0.2.0",
-            "--hash=sha256:532d6421364e5869ea57a9523bf385f02586d4662acbcc0342afd69511b4dd43",
-            "--hash=sha256:74d4b318c67f4295c13782ddd9abcb7e297ec5630ad060eb90abf7ebbefe59f8",
+            "pytokens==0.4.1",
+            "--hash=sha256:0fc71786e629cef478cbf29d7ea1923299181d0699dbe7c3c0f4a583811d9fc1",
+            "--hash=sha256:11edda0942da80ff58c4408407616a310adecae1ddd22eef8c692fe266fa5009",
+            "--hash=sha256:140709331e846b728475786df8aeb27d24f48cbcf7bcd449f8de75cae7a45083",
+            "--hash=sha256:24afde1f53d95348b5a0eb19488661147285ca4dd7ed752bbc3e1c6242a304d1",
+            "--hash=sha256:26cef14744a8385f35d0e095dc8b3a7583f6c953c2e3d269c7f82484bf5ad2de",
+            "--hash=sha256:27b83ad28825978742beef057bfe406ad6ed524b2d28c252c5de7b4a6dd48fa2",
+            "--hash=sha256:292052fe80923aae2260c073f822ceba21f3872ced9a68bb7953b348e561179a",
+            "--hash=sha256:29d1d8fb1030af4d231789959f21821ab6325e463f0503a61d204343c9b355d1",
+            "--hash=sha256:2a44ed93ea23415c54f3face3b65ef2b844d96aeb3455b8a69b3df6beab6acc5",
+            "--hash=sha256:30f51edd9bb7f85c748979384165601d028b84f7bd13fe14d3e065304093916a",
+            "--hash=sha256:34bcc734bd2f2d5fe3b34e7b3c0116bfb2397f2d9666139988e7a3eb5f7400e3",
+            "--hash=sha256:3ad72b851e781478366288743198101e5eb34a414f1d5627cdd585ca3b25f1db",
+            "--hash=sha256:3f901fe783e06e48e8cbdc82d631fca8f118333798193e026a50ce1b3757ea68",
+            "--hash=sha256:42f144f3aafa5d92bad964d471a581651e28b24434d184871bd02e3a0d956037",
+            "--hash=sha256:4a14d5f5fc78ce85e426aa159489e2d5961acf0e47575e08f35584009178e321",
+            "--hash=sha256:4a58d057208cb9075c144950d789511220b07636dd2e4708d5645d24de666bdc",
+            "--hash=sha256:4e691d7f5186bd2842c14813f79f8884bb03f5995f0575272009982c5ac6c0f7",
+            "--hash=sha256:5502408cab1cb18e128570f8d598981c68a50d0cbd7c61312a90507cd3a1276f",
+            "--hash=sha256:584c80c24b078eec1e227079d56dc22ff755e0ba8654d8383b2c549107528918",
+            "--hash=sha256:5ad948d085ed6c16413eb5fec6b3e02fa00dc29a2534f088d3302c47eb59adf9",
+            "--hash=sha256:670d286910b531c7b7e3c0b453fd8156f250adb140146d234a82219459b9640c",
+            "--hash=sha256:682fa37ff4d8e95f7df6fe6fe6a431e8ed8e788023c6bcc0f0880a12eab80ad1",
+            "--hash=sha256:6d6c4268598f762bc8e91f5dbf2ab2f61f7b95bdc07953b602db879b3c8c18e1",
+            "--hash=sha256:79fc6b8699564e1f9b521582c35435f1bd32dd06822322ec44afdeba666d8cb3",
+            "--hash=sha256:8bdb9d0ce90cbf99c525e75a2fa415144fd570a1ba987380190e8b786bc6ef9b",
+            "--hash=sha256:8fcb9ba3709ff77e77f1c7022ff11d13553f3c30299a9fe246a166903e9091eb",
+            "--hash=sha256:941d4343bf27b605e9213b26bfa1c4bf197c9c599a9627eb7305b0defcfe40c1",
+            "--hash=sha256:967cf6e3fd4adf7de8fc73cd3043754ae79c36475c1c11d514fc72cf5490094a",
+            "--hash=sha256:970b08dd6b86058b6dc07efe9e98414f5102974716232d10f32ff39701e841c4",
+            "--hash=sha256:97f50fd18543be72da51dd505e2ed20d2228c74e0464e4262e4899797803d7fa",
+            "--hash=sha256:9bd7d7f544d362576be74f9d5901a22f317efc20046efe2034dced238cbbfe78",
+            "--hash=sha256:add8bf86b71a5d9fb5b89f023a80b791e04fba57960aa790cc6125f7f1d39dfe",
+            "--hash=sha256:b35d7e5ad269804f6697727702da3c517bb8a5228afa450ab0fa787732055fc9",
+            "--hash=sha256:b49750419d300e2b5a3813cf229d4e5a4c728dae470bcc89867a9ad6f25a722d",
+            "--hash=sha256:d31b97b3de0f61571a124a00ffe9a81fb9939146c122c11060725bd5aea79975",
+            "--hash=sha256:d70e77c55ae8380c91c0c18dea05951482e263982911fc7410b1ffd1dadd3440",
+            "--hash=sha256:d9907d61f15bf7261d7e775bd5d7ee4d2930e04424bab1972591918497623a16",
+            "--hash=sha256:da5baeaf7116dced9c6bb76dc31ba04a2dc3695f3d9f74741d7910122b456edc",
+            "--hash=sha256:dc74c035f9bfca0255c1af77ddd2d6ae8419012805453e4b0e7513e17904545d",
+            "--hash=sha256:dcafc12c30dbaf1e2af0490978352e0c4041a7cde31f4f81435c2a5e8b9cabb6",
+            "--hash=sha256:ee44d0f85b803321710f9239f335aafe16553b39106384cef8e6de40cb4ef2f6",
+            "--hash=sha256:f66a6bbe741bd431f6d741e617e0f39ec7257ca1f89089593479347cc4d13324",
         ],
     )
 
@@ -2475,27 +2561,28 @@ def repo_pypa_pywin32():
         name = "pypa_pywin32",
         target = "pywin32",
         requirement = [
-            "pywin32==311; sys_platform == 'win32'",
-            "--hash=sha256:0502d1facf1fed4839a9a51ccbcc63d952cf318f78ffc00a7e78528ac27d7a2b",
-            "--hash=sha256:184eb5e436dea364dcd3d2316d577d625c0351bf237c4e9a5fabbcfa5a58b151",
-            "--hash=sha256:3aca44c046bd2ed8c90de9cb8427f581c479e594e99b5c0bb19b29c10fd6cb87",
-            "--hash=sha256:3ce80b34b22b17ccbd937a6e78e7225d80c52f5ab9940fe0506a1a16f3dab503",
-            "--hash=sha256:62ea666235135fee79bb154e695f3ff67370afefd71bd7fea7512fc70ef31e3d",
-            "--hash=sha256:6c6f2969607b5023b0d9ce2541f8d2cbb01c4f46bc87456017cf63b73f1e2d8c",
-            "--hash=sha256:718a38f7e5b058e76aee1c56ddd06908116d35147e133427e59a3983f703a20d",
-            "--hash=sha256:750ec6e621af2b948540032557b10a2d43b0cee2ae9758c54154d711cc852d31",
-            "--hash=sha256:797c2772017851984b97180b0bebe4b620bb86328e8a884bb626156295a63b3b",
-            "--hash=sha256:7b4075d959648406202d92a2310cb990fea19b535c7f4a78d3f5e10b926eeb8a",
-            "--hash=sha256:a508e2d9025764a8270f93111a970e1d0fbfc33f4153b388bb649b7eec4f9b42",
-            "--hash=sha256:a733f1388e1a842abb67ffa8e7aad0e70ac519e09b0f6a784e65a136ec7cefd2",
-            "--hash=sha256:aba8f82d551a942cb20d4a83413ccbac30790b50efb89a75e4f586ac0bb8056b",
-            "--hash=sha256:b7a2c10b93f8986666d0c803ee19b5990885872a7de910fc460f9b0c2fbf92ee",
-            "--hash=sha256:b8c095edad5c211ff31c05223658e71bf7116daa0ecf3ad85f3201ea3190d067",
-            "--hash=sha256:c8015b09fb9a5e188f83b7b04de91ddca4658cee2ae6f3bc483f0b21a77ef6cd",
-            "--hash=sha256:d03ff496d2a0cd4a5893504789d4a15399133fe82517455e78bad62efbb7f0a3",
-            "--hash=sha256:e0c4cfb0621281fe40387df582097fd796e80430597cb9944f0ae70447bacd91",
-            "--hash=sha256:e286f46a9a39c4a18b319c28f59b61de793654af2f395c102b4f819e584b5852",
-            "--hash=sha256:f95ba5a847cba10dd8c4d8fefa9f2a6cf283b8b88ed6178fa8a6c1ab16054d0d",
+            "pywin32==312; sys_platform == 'win32'",
+            "--hash=sha256:02ebca0f0242b75292e218065004310d6a477407c09fa449bfe4f6022bc0c0fc",
+            "--hash=sha256:17948aeadbdb091f0ced6ef0841620794e68327b94ee415571c1203594b7215c",
+            "--hash=sha256:3020656e34f1cf7faeb7bccd2b84653a607c6ff0c55ada85e6487d61716deabd",
+            "--hash=sha256:59aba5d5940842075343a5ddc6b11f1cdf0d1567fe745290359dfbcc7c2eb831",
+            "--hash=sha256:5c1fbe4a937a73ae9297384a3da38518cbc694c68ad8a809b2e19acd350f03ed",
+            "--hash=sha256:5dbc35d2b5320dc07f25fa31269cfb767471002b17de5eb067d03da68c7cb2db",
+            "--hash=sha256:6017c58e12f6809fbb0555b75df144c2922a9ffd18e4b9b5afa863b6c1a9d950",
+            "--hash=sha256:772235332b5d1024c696f11cea1ae4be7930f0a8b894bb43db14e3f435f1ff7e",
+            "--hash=sha256:7a27df850933d16a8eabfbaeb73d52b273e2da667f80d70b01a89d1f6828d02c",
+            "--hash=sha256:9fce94568364e0155e6dfb781ac5d95903be8baf28670632beab1b523f300daa",
+            "--hash=sha256:a4dd3a848290ef724347b19f301045831d8e802fa4464f491b98b1e0a081432e",
+            "--hash=sha256:a77a90fbb6881238d2ca9c6fd797b25817f3768fe78d214a90137ff055a75f5b",
+            "--hash=sha256:a8597d28f267b39074aef51fa593530082b39cbe5a074226096857b1fed2dfb9",
+            "--hash=sha256:b2200a054ca6d6625c4842fc56a4976a4b47f96b73dbe5538c3f813a80359f47",
+            "--hash=sha256:b457f6d628a47e8a7346ce22acb7e1a46a4a78b52e1d17e1af56871bd19a93bc",
+            "--hash=sha256:c2f03a0f73f804a13c2735b99392b0cd426bb4f2c4d0178e5ac966a0f21618d5",
+            "--hash=sha256:c53e878d15a1c44788082bfe712a905433473aa38f86375b7cf8b45e3acbaaf9",
+            "--hash=sha256:d11417d84412f859b722fad0841b3614459ed0047f7542d8362e77884f6b6e8a",
+            "--hash=sha256:d620900033cc7531e50727c3c8333091df5dd3ffe6d68cdca38c03f5821408d5",
+            "--hash=sha256:dab4f65ac9c4e48400a2a0530c46c3c579cd5905ecd11b80692373915269208b",
+            "--hash=sha256:dc90147579a905b8635e1b0ec6514967dcb07e6e0d9c42f1477feef14cac23bb",
         ],
     )
 
@@ -2583,8 +2670,8 @@ def repo_pypa_pyyaml():
     )
 
 def repo_pypa_referencing():
-    repo_pypa_rpds_py()
     repo_pypa_attrs()
+    repo_pypa_rpds_py()
     repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
@@ -2596,8 +2683,8 @@ def repo_pypa_referencing():
             "--hash=sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8",
         ],
         deps = [
-            "@pypa_rpds_py//:rpds_py",
             "@pypa_attrs//:attrs",
+            "@pypa_rpds_py//:rpds_py",
             "@pypa_typing_extensions//:typing_extensions",
         ],
     )
@@ -2608,144 +2695,143 @@ def repo_pypa_regex():
         name = "pypa_regex",
         target = "regex",
         requirement = [
-            "regex==2025.10.23",
-            "--hash=sha256:07a3fd25d9074923e4d7258b551ae35ab6bdfe01904b8f0d5341c7d8b20eb18d",
-            "--hash=sha256:0879dd3251a42d2e9b938e1e03b1e9f60de90b4d153015193f5077a376a18439",
-            "--hash=sha256:08a15d40ce28362eac3e78e83d75475147869c1ff86bc93285f43b4f4431a741",
-            "--hash=sha256:08f52122c352eb44c3421dab78b9b73a8a77a282cc8314ae576fcaa92b780d10",
-            "--hash=sha256:0967c5b86f274800a34a4ed862dfab56928144d03cb18821c5153f8777947796",
-            "--hash=sha256:0ff1307f531a5d8cf5c20ea517254551ff0a8dc722193aab66c656c5a900ea68",
-            "--hash=sha256:16b0f1c2e2d566c562d5c384c2b492646be0a19798532fdc1fdedacc66e3223f",
-            "--hash=sha256:17bbcde374bef1c5fad9b131f0e28a6a24856dd90368d8c0201e2b5a69533daa",
-            "--hash=sha256:182c452279365a93a9f45874f7f191ec1c51e1f1eb41bf2b16563f1a40c1da3a",
-            "--hash=sha256:185d2b18c062820b3a40d8fefa223a83f10b20a674bf6e8c4a432e8dfd844627",
-            "--hash=sha256:1a32d77aeaea58a13230100dd8797ac1a84c457f3af2fdf0d81ea689d5a9105b",
-            "--hash=sha256:1a56a54be3897d62f54290190fbcd754bff6932934529fbf5b29933da28fcd43",
-            "--hash=sha256:1cb976810ac1416a67562c2e5ba0accf6f928932320fef302e08100ed681b38e",
-            "--hash=sha256:1e11d3e5887b8b096f96b4154dfb902f29c723a9556639586cd140e77e28b313",
-            "--hash=sha256:1f5799ea1787aa6de6c150377d11afad39a38afd033f0c5247aecb997978c422",
-            "--hash=sha256:1fa1186966b2621b1769fd467c7b22e317e6ba2d2cdcecc42ea3089ef04a8521",
-            "--hash=sha256:2003cc82a579107e70d013482acce8ba773293f2db534fb532738395c557ff34",
-            "--hash=sha256:238e67264b4013e74136c49f883734f68656adf8257bfa13b515626b31b20f8e",
-            "--hash=sha256:275cd1c2ed8c4a78ebfa489618d7aee762e8b4732da73573c3e38236ec5f65de",
-            "--hash=sha256:281d87fa790049c2b7c1b4253121edd80b392b19b5a3d28dc2a77579cb2a58ec",
-            "--hash=sha256:2b841698f93db3ccc36caa1900d2a3be281d9539b822dc012f08fc80b46a3224",
-            "--hash=sha256:2e9117d1d35fc2addae6281019ecc70dc21c30014b0004f657558b91c6a8f1a7",
-            "--hash=sha256:2ee3663f2c334959016b56e3bd0dd187cbc73f948e3a3af14c3caaa0c3035d10",
-            "--hash=sha256:33535dcf34f47821381e341f7b715cbd027deda4223af4d3932adcd371d3192a",
-            "--hash=sha256:345c9df49a15bf6460534b104b336581bc5f35c286cac526416e7a63d389b09b",
-            "--hash=sha256:37be9296598a30c6a20236248cb8b2c07ffd54d095b75d3a2a2ee5babdc51df1",
-            "--hash=sha256:39a7e8083959cb1c4ff74e483eecb5a65d3b3e1d821b256e54baf61782c906c6",
-            "--hash=sha256:3a36b4005770044bf08edecc798f0e41a75795b9e7c9c12fe29da8d792ef870c",
-            "--hash=sha256:3bfeff0b08f296ab28b4332a7e03ca31c437ee78b541ebc874bbf540e5932f8d",
-            "--hash=sha256:413bfea20a484c524858125e92b9ce6ffdd0a4b97d4ff96b5859aa119b0f1bdd",
-            "--hash=sha256:436b4c4352fe0762e3bfa34a5567079baa2ef22aa9c37cf4d128979ccfcad842",
-            "--hash=sha256:44383bc0c933388516c2692c9a7503e1f4a67e982f20b9a29d2fb70c6494f147",
-            "--hash=sha256:4663ff2fc367735ae7b90b4f0e05b25554446df4addafc76fdaacaaa0ba852b5",
-            "--hash=sha256:4f13450328a6634348d47a88367e06b64c9d84980ef6a748f717b13f8ce64e87",
-            "--hash=sha256:4f375c61bfc3138b13e762fe0ae76e3bdca92497816936534a0177201666f44f",
-            "--hash=sha256:563824a08c7c03d96856d84b46fdb3bbb7cfbdf79da7ef68725cda2ce169c72a",
-            "--hash=sha256:59bba9f7125536f23fdab5deeea08da0c287a64c1d3acc1c7e99515809824de8",
-            "--hash=sha256:5b5cb5b6344c4c4c24b2dc87b0bfee78202b07ef7633385df70da7fcf6f7cec6",
-            "--hash=sha256:5c084889ab2c59765a0d5ac602fd1c3c244f9b3fcc9a65fdc7ba6b74c5287490",
-            "--hash=sha256:5c259cb363299a0d90d63b5c0d7568ee98419861618a95ee9d91a41cb9954462",
-            "--hash=sha256:5f97236a67307b775f30a74ef722b64b38b7ab7ba3bb4a2508518a5de545459c",
-            "--hash=sha256:6040a86f95438a0114bba16e51dfe27f1bc004fd29fe725f54a586f6d522b079",
-            "--hash=sha256:63b81eef3656072e4ca87c58084c7a9c2b81d41a300b157be635a8a675aacfb8",
-            "--hash=sha256:651c58aecbab7e97bdf8ec76298a28d2bf2b6238c099ec6bf32e6d41e2f9a9cb",
-            "--hash=sha256:6c531155bf9179345e85032052a1e5fe1a696a6abf9cea54b97e8baefff970fd",
-            "--hash=sha256:7888475787cbfee4a7cd32998eeffe9a28129fa44ae0f691b96cb3939183ef41",
-            "--hash=sha256:78d76dd2957d62501084e7012ddafc5fcd406dd982b7a9ca1ea76e8eaaf73e7e",
-            "--hash=sha256:7a44d9c00f7a0a02d3b777429281376370f3d13d2c75ae74eb94e11ebcf4a7fc",
-            "--hash=sha256:7b426ae7952f3dc1e73a86056d520bd4e5f021397484a6835902fc5648bcacce",
-            "--hash=sha256:7c9f2c68ac6cb3de94eea08a437a75eaa2bd33f9e97c84836ca0b610a5804368",
-            "--hash=sha256:7d6606524fa77b3912c9ef52a42ef63c6cfbfc1077e9dc6296cd5da0da286044",
-            "--hash=sha256:7e24af51e907d7457cc4a72691ec458320b9ae67dc492f63209f01eecb09de32",
-            "--hash=sha256:842d449a8fefe546f311656cf8c0d6729b08c09a185f1cad94c756210286d6a8",
-            "--hash=sha256:8668e5f067e31a47699ebb354f43aeb9c0ef136f915bd864243098524482ac43",
-            "--hash=sha256:883df76ee42d9ecb82b37ff8d01caea5895b3f49630a64d21111078bbf8ef64c",
-            "--hash=sha256:89f8b9ea3830c79468e26b0e21c3585f69f105157c2154a36f6b7839f8afb351",
-            "--hash=sha256:8cbaf8ceb88f96ae2356d01b9adf5e6306fa42fa6f7eab6b97794e37c959ac26",
-            "--hash=sha256:8f3e6d202fb52c2153f532043bbcf618fd177df47b0b306741eb9b60ba96edc3",
-            "--hash=sha256:912e9df4e89d383681268d38ad8f5780d7cccd94ba0e9aa09ca7ab7ab4f8e7eb",
-            "--hash=sha256:92f565ff9beb9f51bc7cc8c578a7e92eb5c4576b69043a4c58cd05d73fda83c5",
-            "--hash=sha256:956d89e0c92d471e8f7eee73f73fdff5ed345886378c45a43175a77538a1ffe4",
-            "--hash=sha256:98fd84c4e4ea185b3bb5bf065261ab45867d8875032f358a435647285c722673",
-            "--hash=sha256:99018c331fb2529084a0c9b4c713dfa49fafb47c7712422e49467c13a636c656",
-            "--hash=sha256:9b8c72a242683dcc72d37595c4f1278dfd7642b769e46700a8df11eab19dfd82",
-            "--hash=sha256:9c9bb421cbe7012c744a5a56cf4d6c80829c72edb1a2991677299c988d6339c8",
-            "--hash=sha256:9e72e3b84b170fec02193d32620a0a7060a22e52c46e45957dcd14742e0d28fb",
-            "--hash=sha256:a0ec8bdd88d2e2659c3518087ee34b37e20bd169419ffead4240a7004e8ed03b",
-            "--hash=sha256:a32433fe3deb4b2d8eda88790d2808fed0dc097e84f5e683b4cd4f42edef6cca",
-            "--hash=sha256:a5b7a26b51a9df473ec16a1934d117443a775ceb7b39b78670b2e21893c330c9",
-            "--hash=sha256:a6ce7973384c37bdf0f371a843f95a6e6f4e1489e10e0cf57330198df72959c5",
-            "--hash=sha256:a8d7b7a0a3df9952f9965342159e0c1f05384c0f056a47ce8b61034f8cecbe83",
-            "--hash=sha256:a93e97338e1c8ea2649e130dcfbe8cd69bba5e1e163834752ab64dcb4de6d5ed",
-            "--hash=sha256:a9639ab7540cfea45ef57d16dcbea2e22de351998d614c3ad2f9778fa3bdd788",
-            "--hash=sha256:abbea548b1076eaf8635caf1071c9d86efdf0fa74abe71fca26c05a2d64cda80",
-            "--hash=sha256:af7b2661dcc032da1fae82069b5ebf2ac1dfcd5359ef8b35e1367bfc92181432",
-            "--hash=sha256:b103a752b6f1632ca420225718d6ed83f6a6ced3016dd0a4ab9a6825312de566",
-            "--hash=sha256:b1249e9ff581c5b658c8f0437f883b01f1edcf424a16388591e7c05e5e9e8b0c",
-            "--hash=sha256:b24b29402f264f70a3c81f45974323b41764ff7159655360543b7cabb73e7d2f",
-            "--hash=sha256:b2b7f19a764d5e966d5a62bf2c28a8b4093cc864c6734510bdb4aeb840aec5e6",
-            "--hash=sha256:b2eb48bd9848d66fd04826382f5e8491ae633de3233a3d64d58ceb4ecfa2113a",
-            "--hash=sha256:b4e10434279cc8567f99ca6e018e9025d14f2fded2a603380b6be2090f476426",
-            "--hash=sha256:b52bf9282fdf401e4f4e721f0f61fc4b159b1307244517789702407dd74e38ca",
-            "--hash=sha256:b577601bfe1d33913fcd9276d7607bbac827c4798d9e14d04bf37d417a6c41cb",
-            "--hash=sha256:b5d4ece8628d6e364302006366cea3ee887db397faebacc5dacf8ef19e064cf8",
-            "--hash=sha256:b6f259118ba87b814a8ec475380aee5f5ae97a75852a3507cf31d055b01b5b40",
-            "--hash=sha256:b7690f95404a1293923a296981fd943cca12c31a41af9c21ba3edd06398fc193",
-            "--hash=sha256:b83601f84fde939ae3478bb32a3aef36f61b58c3208d825c7e8ce1a735f143f2",
-            "--hash=sha256:bca7feecc72ee33579e9f6ddf8babbe473045717a0e7dbc347099530f96e8b9a",
-            "--hash=sha256:be19e7de499940cd72475fb8e46ab2ecb1cf5906bebdd18a89f9329afb1df82f",
-            "--hash=sha256:bfdf4e9aa3e7b7d02fda97509b4ceeed34542361694ecc0a81db1688373ecfbd",
-            "--hash=sha256:c037aadf4d64bdc38af7db3dbd34877a057ce6524eefcb2914d6d41c56f968cc",
-            "--hash=sha256:c5cdaf5b6d37c7da1967dbe729d819461aab6a98a072feef65bbcff0a6e60649",
-            "--hash=sha256:c70dfe58b0a00b36aa04cdb0f798bf3e0adc31747641f69e191109fd8572c9a9",
-            "--hash=sha256:ce81c5544a5453f61cb6f548ed358cfb111e3b23f3cd42d250a4077a6be2a7b6",
-            "--hash=sha256:ceabc62a0e879169cd1bf066063bd6991c3e41e437628936a2ce66e0e2071c32",
-            "--hash=sha256:d10bcde58bbdf18146f3a69ec46dd03233b94a4a5632af97aa5378da3a47d288",
-            "--hash=sha256:d36591ce06d047d0c0fe2fc5f14bfbd5b4525d08a7b6a279379085e13f0e3d0e",
-            "--hash=sha256:d614986dc68506be8f00474f4f6960e03e4ca9883f7df47744800e7d7c08a494",
-            "--hash=sha256:d7e481f9710e8e24228ce2c77b41db7662a3f68853395da86a292b49dadca2aa",
-            "--hash=sha256:d80e8eb79009bdb0936658c44ca06e2fbbca67792013e3818eea3f5f228971c2",
-            "--hash=sha256:d8d286760ee5b77fd21cf6b33cc45e0bffd1deeda59ca65b9be996f590a9828a",
-            "--hash=sha256:d97d73818c642c938db14c0668167f8d39520ca9d983604575ade3fda193afcc",
-            "--hash=sha256:d9a4953575f300a7bab71afa4cd4ac061c7697c89590a2902b536783eeb49a4f",
-            "--hash=sha256:e248cc9446081119128ed002a3801f8031e0c219b5d3c64d3cc627da29ac0a33",
-            "--hash=sha256:e9bf7f6699f490e4e43c44757aa179dab24d1960999c84ab5c3d5377714ed473",
-            "--hash=sha256:ea7a3c283ce0f06fe789365841e9174ba05f8db16e2fd6ae00a02df9572c04c0",
-            "--hash=sha256:ebf1baebef1c4088ad5a5623decec6b52950f0e4d7a0ae4d48f0a99f8c9cb7d7",
-            "--hash=sha256:ec13647907bb9d15fd192bbfe89ff06612e098a5709e7d6ecabbdd8f7908fc45",
-            "--hash=sha256:ec41a905908496ce4906dab20fb103c814558db1d69afc12c2f384549c17936a",
-            "--hash=sha256:ec506e8114fa12d21616deb44800f536d6bf2e1a69253dbf611f69af92395c99",
-            "--hash=sha256:f4b1b1991617055b46aff6f6db24888c1f05f4db9801349d23f09ed0714a9335",
-            "--hash=sha256:f668fe1fd3358c5423355a289a4a003e58005ce829d217b828f80bd605a90145",
-            "--hash=sha256:f76deef1f1019a17dad98f408b8f7afc4bd007cbe835ae77b737e8c7f19ae575",
-            "--hash=sha256:f7ada5d9dceafaab92646aa00c10a9efd9b09942dd9b0d7c5a4b73db92cc7e61",
-            "--hash=sha256:fd8aba965604d70306eb90a35528f776e59112a7114a5162824d43b76fa27f58",
+            "regex==2026.5.9",
+            "--hash=sha256:002205cafd2a9e78c6290c7d1df277bf3277b3b7a30e0b4bb0dac2e2e3f7cb2d",
+            "--hash=sha256:01f0f5f55f4b64dacec85dc116d3c05fd23ad3ff037bbc73a2085775953c2611",
+            "--hash=sha256:01f28d868834624c934b8d2e0aa1c8341337e37831f4a012f18a5afcba4cbaf3",
+            "--hash=sha256:075160bf16658e16d35233300b8453aac25de4cbea808d22348b6979668e924d",
+            "--hash=sha256:0de5cf193997384ed2ca6f1cd4f78055b255d93d82d5a8cd6ba0d11c10b167e4",
+            "--hash=sha256:0e1b1b4e496afbb24f4a62aba855ee4f88f25578927697b340702e48c9ee6bc2",
+            "--hash=sha256:0f03aa6898aaaac4592479821df16e68e8d0e29e903e65d8f2dfb2f19028a989",
+            "--hash=sha256:0f9eede6a5cbdc02d4978090186390936e1776a7d1359b21e41014c609880bcf",
+            "--hash=sha256:1268eddd8486dc561d08eee1156e40aa3a8fe10f4bdec8fa653b455fcbffd12c",
+            "--hash=sha256:15ee42209947f4ca045412eae98416317238163618ace2a8e54f99586a466733",
+            "--hash=sha256:164eba9b755ea6f244b0d881196fbc1fac09714e9782c9e2732b813142033c8e",
+            "--hash=sha256:19c16ceb4a267a8789e25733e583983eeab9f0f8664e66b0bd1c5d21f14c2d4b",
+            "--hash=sha256:1bd7587a2948b4085195d5a3374eaf4a425dc3e55784c038175355ecf3bbbf8a",
+            "--hash=sha256:1e6da47d679b7010ef27556b6e0f99771b744936db1792a10ceac6547ae1503e",
+            "--hash=sha256:205109e96b3cf5adf8f4cd62bedde9487feb282b9497a3535451e5a24cd706a0",
+            "--hash=sha256:2099f7e7ff7b6aa3192312650a56e91cc091e49d50b04e4f6f8b6e28b3b27f1c",
+            "--hash=sha256:246de9d60aa3f8538b519834dd95cbf276ea263d6a7bd5a3666dc3fa0230505b",
+            "--hash=sha256:24b2355ef5cc9aa5b8f07d17704face1c166fdcc2290fa7bd6e6c925655a8346",
+            "--hash=sha256:2a661a7d270a61f7cf460caee8b9fa2d5ef9e5c681234bcb9e0fe14f488e7dfc",
+            "--hash=sha256:2acfb48634f64996b57f90f39afa692ff362162722581921fe92239a59960f3c",
+            "--hash=sha256:2efa205e6d98b24d1f3ab395c11aa15cdf10935bca283d0285e0499c284fba21",
+            "--hash=sha256:31037c82eccb44b7ea2e9e221d7c01429430e989a1f4b91ea5a855f6017b509a",
+            "--hash=sha256:3527bb4942d2c14552155406cdedd906567456821848aed1cb4933a391bf5eca",
+            "--hash=sha256:39617fb0cde9c0e6306dc70e3bfc096f3da793219879f7ae7aa341a69fbdcf6d",
+            "--hash=sha256:398c521292f4c7fb807001dcd54694d3a1fcafc179a36ad9cc56f98df85930b6",
+            "--hash=sha256:3b1e39888c5e0c7d92cea4fc777396c4a90363b05de75d02eb459a4752200808",
+            "--hash=sha256:3dd4a3ff360dfb836fecdb93a4598f9d6e2ac81e3e397125145c6221bf58cf4c",
+            "--hash=sha256:3ddd90103f9e5c471c49c7852ecc1fe27c7e45eb99e977aefe7caa4e779f4f58",
+            "--hash=sha256:446ddd671e43ab535810c4b21cff7104945c701d4a14d1e6d1cd6f4e445a8bea",
+            "--hash=sha256:45375819235558a4ff1c4971dc32881f022613abdb180128f5cb4768c1765a1c",
+            "--hash=sha256:46f1326ca6e65b0879d23ca302c0f2415aad42ff0309b9c818e7949fe19a41d8",
+            "--hash=sha256:48036f6374aaa79eb3b754ec29c61d1c6b1606749d705a13f8854fa2539671f6",
+            "--hash=sha256:4ebe8f0b5ec5a5024dc4a4c59f444c4e9afc5f2abdbb8962065b75d27fb971f9",
+            "--hash=sha256:4eeb011098fcb77af513dcef521a3dbecbf8849b1e38940759d293b7a93f5026",
+            "--hash=sha256:508f56a89ba9cb26e4168cbc37dbd60a28d82430a9e18ad1d25fe0883c314ca2",
+            "--hash=sha256:5604dfd046dc37eca90250fc3be938b076c8059fa772ac0ed6f499b0f0fb0415",
+            "--hash=sha256:56a33f191f17d8c417f99945ebdc1e691d3af9605d86ec68c7e54a57e3e17af6",
+            "--hash=sha256:57e8915c7986aa33d25e4d3629cef711cd2863f2961b10409f0c04cb8b7d9020",
+            "--hash=sha256:57eeeb05db7979413dec5438f2db21d7ecbba787cde7a711df1a6f6df672aa06",
+            "--hash=sha256:5b73ab8afcf66c622db143d1c6fda4e58e4d537ee4f125229ad47b1ab80f34c0",
+            "--hash=sha256:5e41809d2683fcde7d5a8c87a6567ba1fb1ce0de9f31bff578de00a4b2d76daa",
+            "--hash=sha256:6351571c8a42b505eb555c0dc47d740d0fb66977dc142919eea6f4325b7c56a0",
+            "--hash=sha256:6441cc660d76107934a09c22167200839a0e89604a6297f78a974e66e931d2c0",
+            "--hash=sha256:65c8c8c37377794bd5b2f3ebe51919042bf17aec802e23c833d89782ed0c78af",
+            "--hash=sha256:6ba42b2e7e7f46cf68cc6a5ca36fa07959f9bbd9c6bdcc47b6ee76549a590248",
+            "--hash=sha256:71b61c5bfe1c806332defc42ad6c780b3c55f661986d7f40283a3a88274b4c00",
+            "--hash=sha256:728d8bfd28a8845c8b6bc5dc7ce010453d206396786c0765c2740cb65f37791e",
+            "--hash=sha256:7b92817338591505f282cf3864c145244b1edcf5381d237038df955001091538",
+            "--hash=sha256:7e30b874d341fac767d7df5a0870540541c2c054b80cfaac116e8d367a8a7ff2",
+            "--hash=sha256:7e87577720152d2caae19fe2baaf1f8d5ca12091e9e229f03915c37d1e4b9178",
+            "--hash=sha256:83d0ee4a57d1c87cb549e195ec300b8f0ec3a82eba66d835e4e2ed8634fe4499",
+            "--hash=sha256:8676474c07469d6f33dd1085ca2cd45f65785f32518f2b20e36d9953ca07f994",
+            "--hash=sha256:86f40a5d6444db30a125c9c9177e6b25dad981cbc37451fd838f145e6edac92e",
+            "--hash=sha256:872acc074bd29ffc9913ecdfedf6ea77502312ca44a4aa0d3779089c6069d8de",
+            "--hash=sha256:8abd33fef90b2a9efac5557d6033ca82d1195ed3a15fea5af15ba7b463c6a63b",
+            "--hash=sha256:8c6e4218fbdfbcd4f6c19efca40930d24a621bf4b48cb76bc6640543bd28ef20",
+            "--hash=sha256:8e76e8161ad00694cfce6767d5dea860c6391ac5b83e5c3a39661e696f11fc7e",
+            "--hash=sha256:8f3af7a4903c5c04a11a196a5aa75cdd7dd3f8508132f9fb3259d9f5908e3b88",
+            "--hash=sha256:91328f1c23d47595ca3ef0a7557fa129c5a23404b775c770697d2f35b33e0107",
+            "--hash=sha256:916714069da19329ef7de197dcbc77bb3104145c7c2c864dbfbe318f46b88b14",
+            "--hash=sha256:93a7860539414dddaefba2b40f8771765ae17949d4c7182b876ce429e11a8309",
+            "--hash=sha256:954cc214c04663ee6d266fc61739cad83054683048de65c5bd1d640ad28098ac",
+            "--hash=sha256:96f5f58b54a063d7ea9dca08e1cf57bfe10499c4d579ee672da284f57f5f0070",
+            "--hash=sha256:97cf3bc1b7d7d2306772ec07366c80d9df00ff79e79cea32898883a646d2fae2",
+            "--hash=sha256:98bd73080e8756255137e1bd3f3f00295bbc5aa383c0e0f973920e9134d7c4ad",
+            "--hash=sha256:992604d02e6d9c6d786c24a706a71ecffe1020fc1ef264044474cd81fa2c3919",
+            "--hash=sha256:a24852d3c29ad9e47593593d8a247c44ccc3d0548ef12c822d6ed0810affe676",
+            "--hash=sha256:a6a563446a41adc451393dc6b8e6ad87979efaee3c8738690a8d1b08ebead1b4",
+            "--hash=sha256:a8234aa23ec39894bfe4a3f1b85616a7032481964a13ac6fc9f10de4f6fca270",
+            "--hash=sha256:a8820737949116ffff55fe18f9fc644530063ba6ebfcb8314239416e78f1347c",
+            "--hash=sha256:a9e1328e17c84c1a5d22ec9f785ecef4a967fab9a42b6a8dc3bcbebd0a0c9e44",
+            "--hash=sha256:aa0fbdbac82cb3e4450d0ccde7d7a35607f4cb2dd9fba4b8b69bfaf8c9fa6aed",
+            "--hash=sha256:b310768746dd314ea6e2ff4cc89ef215426813396ff4e94ee8e6f7096c8b6e03",
+            "--hash=sha256:b46b0f094dc1d3b90356c85a0bd2c9bafc4a6a190b9d6f8ddd5a033b6e088ed4",
+            "--hash=sha256:b4bb445ff3f725f59df8f6014edb547ee928ec7023a774f6a39a3f953038cbb2",
+            "--hash=sha256:b6d189041f15691cfa2b6c4290448ec221244d225b3f5fe9e7771b34ffcdf6e2",
+            "--hash=sha256:b96350aa424e79d4fd6b567b344dcbe2b2d6bfc48dfe7717587e1fa6d43da6ff",
+            "--hash=sha256:be3372b9df6ddecff6486d37e19095a7b4973137caf5512407a89f4455361f41",
+            "--hash=sha256:bfe1ce50cbfb569d74e1e4337da6468961f31dbea55fd85aa5de59c0947a805a",
+            "--hash=sha256:c010eb8caca74bdb40c07498d7ece26b4428fd3f04aa8a72c9ac6f79e8faaac6",
+            "--hash=sha256:c8b9b9d294cfea3cd19c718ade7cc93492b2c4991abd9a68d0b3477ae6d8e100",
+            "--hash=sha256:c9411dd64ca95477225734a93dfc8583b51916b8d5942f99d6cac21e09965451",
+            "--hash=sha256:ca518ed29c46eecba6010b15f1b9a479314d2de409536e71b6a13aa04e3b8a77",
+            "--hash=sha256:ccf5249114cc3e772ecdd88a98a86eca0fd74c61ce32a94743758c083fc05d48",
+            "--hash=sha256:cd2846168eb9ee3c513902bc8225409cb1caab31d04728b145171fa1625d9621",
+            "--hash=sha256:d29eebfc9525db68cad3c97eedd7f754fa265aa5cd0cf4f863b2421e1b48fc9f",
+            "--hash=sha256:d3d7eb5c9a7f6df82ed3cfac9beb93882a5cbcb5b8b157b56cb2b3b276574ac1",
+            "--hash=sha256:d626b84406444b165fc0ba981604edea39f0588ff1f92baa23fe50799ea9afdb",
+            "--hash=sha256:d641a8c9a61618047796d572a39a79b26167b0411d2c3031937b2fe2d081e2cf",
+            "--hash=sha256:d659eee77986549c9ea45b861c7567e44d6287c3dc9a4565478853f7b9fe2ff6",
+            "--hash=sha256:d6b8a143aca6c39b446ea8092cde25cc8fe9304d4f5fecfbc1a9dbb0282703c2",
+            "--hash=sha256:d726ca3f0d76969bf1e8e477d160d3d666bbf999f6860bd314889e5345782046",
+            "--hash=sha256:d7bdc0ab8f3dd7e1b4f9ab88634e13374669db86bb3c72e8292f07ae313f539f",
+            "--hash=sha256:daff2bdbaf1d23e52fdff7c0b7bc2048b68f978df6a4d107ac981f94caef2e66",
+            "--hash=sha256:dd2810d22146b6d838acc5ec15602cb6b47920aa4e33015df3868eedfd20bab8",
+            "--hash=sha256:ddda5340e6c01a293027dd46232fa79eaff1b48058ce7a98f572b6445b088041",
+            "--hash=sha256:dea2e88e1cce4522496cce630e11e67b98b7076620bc4336c3f674bc21a375f4",
+            "--hash=sha256:debb893095e944091c16e641a6e33c1b0f4cb61ab945ec5afbf53ce7068834d8",
+            "--hash=sha256:dfbe4579b9f08036aa7d101d1835437a20783574ac66327e6b29b4018a138081",
+            "--hash=sha256:e1d93bf647916292e8edcec150c07ddf3dc50179ccaf770c04a7f9e452155372",
+            "--hash=sha256:e82db382b44d0111b22601c509c89f64434816c9e0eef9d1989cda8cc6ff1c04",
+            "--hash=sha256:ea9c8ecfa1b73c73b626534d6626e5340d429630943672b8480724f44e84b962",
+            "--hash=sha256:ead4b163ac30a29574510cd4b3e2e985ac5290c05fc7095557d6a5f403fc31b5",
+            "--hash=sha256:ecd353045824e4477562a2ac718c25799cdaaa41f7aa925a806a8a3e6848a5b9",
+            "--hash=sha256:ed2c9e8068b614c574d8d30e543d617cf5379b0535d46f97ef00e904745a08b5",
+            "--hash=sha256:ed457d8e98ae812ed7732bef7bf78de78e834eae0372a74e23ca90ef21d910f9",
+            "--hash=sha256:ef31cbfe458e21c6122ba8150ff060e0c7789ed0d26eb423f25472584920b555",
+            "--hash=sha256:f079e50a0d3cc3cd5091fa9ff45869a2e6b2cd35895731edafb0327901a8d86d",
+            "--hash=sha256:f3844f134e834076677dd369976e9f5068679fcb8e50102fdf6b7ac96a3ec127",
+            "--hash=sha256:f7a7c26137296beba7784de6eba69c6a93a63ccebc385e4962fe67e267a91225",
+            "--hash=sha256:fa411799ca8da32a8d38d020a88faa5b6f91657d284761352940ecf9f7c3bbdd",
+            "--hash=sha256:fd03c4f0e33280d15cae17159b899245d6b7c53d21def19b263b39655061f5ce",
+            "--hash=sha256:fd190e88a895a8901325fad284a3f74ea52b1da8525b76cc811fa9b1edf0ce2b",
+            "--hash=sha256:ff8d372ac2acdc048d1c19916f27ee61bc5722728458ba6ca5052f2c72d51763",
         ],
     )
 
 def repo_pypa_requests():
     repo_pypa_certifi()
     repo_pypa_charset_normalizer()
-    repo_pypa_urllib3()
     repo_pypa_idna()
+    repo_pypa_urllib3()
     maybe(
         third_party_python_package,
         name = "pypa_requests",
         target = "requests",
         requirement = [
-            "requests==2.32.5",
-            "--hash=sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6",
-            "--hash=sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf",
+            "requests==2.34.2",
+            "--hash=sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+            "--hash=sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed",
         ],
         deps = [
             "@pypa_certifi//:certifi",
             "@pypa_charset_normalizer//:charset_normalizer",
-            "@pypa_urllib3//:urllib3",
             "@pypa_idna//:idna",
+            "@pypa_urllib3//:urllib3",
         ],
     )
 
@@ -2766,21 +2852,21 @@ def repo_pypa_requests_toolbelt():
     )
 
 def repo_pypa_responses():
-    repo_pypa_requests()
     repo_pypa_pyyaml()
+    repo_pypa_requests()
     repo_pypa_urllib3()
     maybe(
         third_party_python_package,
         name = "pypa_responses",
         target = "responses",
         requirement = [
-            "responses==0.25.8",
-            "--hash=sha256:0c710af92def29c8352ceadff0c3fe340ace27cf5af1bbe46fb71275bcd2831c",
-            "--hash=sha256:9374d047a575c8f781b94454db5cab590b6029505f488d12899ddb10a4af1cf4",
+            "responses==0.26.1",
+            "--hash=sha256:2eb3218553cc8f79b57d257bac23af5e1bf381f5b9390b1767816f0843e01dc2",
+            "--hash=sha256:8aacc4586eb08fb2208ef64a9eb4258d9b0c6e6f4260845f2f018ab847495345",
         ],
         deps = [
-            "@pypa_requests//:requests",
             "@pypa_pyyaml//:pyyaml",
+            "@pypa_requests//:requests",
             "@pypa_urllib3//:urllib3",
         ],
     )
@@ -2801,15 +2887,31 @@ def repo_pypa_rfc3339_validator():
         ],
     )
 
+def repo_pypa_roman_numerals():
+    maybe(
+        third_party_python_package,
+        name = "pypa_roman_numerals",
+        target = "roman_numerals",
+        requirement = [
+            "roman-numerals==4.1.0",
+            "--hash=sha256:1af8b147eb1405d5839e78aeb93131690495fe9da5c91856cb33ad55a7f1e5b2",
+            "--hash=sha256:647ba99caddc2cc1e55a51e4360689115551bf4476d90e8162cf8c345fe233c7",
+        ],
+    )
+
 def repo_pypa_roman_numerals_py():
+    repo_pypa_roman_numerals()
     maybe(
         third_party_python_package,
         name = "pypa_roman_numerals_py",
         target = "roman_numerals_py",
         requirement = [
-            "roman-numerals-py==3.1.0",
-            "--hash=sha256:9da2ad2fb670bcf24e81070ceb3be72f6c11c440d73bd579fbeca1e9f330954c",
-            "--hash=sha256:be4bf804f083a4ce001b5eb7e3c0862479d10f94c936f6c4e5f250aa5ff5bd2d",
+            "roman-numerals-py==4.1.0",
+            "--hash=sha256:553114c1167141c1283a51743759723ecd05604a1b6b507225e91dc1a6df0780",
+            "--hash=sha256:f5d7b2b4ca52dd855ef7ab8eb3590f428c0b1ea480736ce32b01fef2a5f8daf9",
+        ],
+        deps = [
+            "@pypa_roman_numerals//:roman_numerals",
         ],
     )
 
@@ -2819,122 +2921,137 @@ def repo_pypa_rpds_py():
         name = "pypa_rpds_py",
         target = "rpds_py",
         requirement = [
-            "rpds-py==0.28.0",
-            "--hash=sha256:03065002fd2e287725d95fbc69688e0c6daf6c6314ba38bdbaa3895418e09296",
-            "--hash=sha256:04c1b207ab8b581108801528d59ad80aa83bb170b35b0ddffb29c20e411acdc1",
-            "--hash=sha256:05cf1e74900e8da73fa08cc76c74a03345e5a3e37691d07cfe2092d7d8e27b04",
-            "--hash=sha256:0a403460c9dd91a7f23fc3188de6d8977f1d9603a351d5db6cf20aaea95b538d",
-            "--hash=sha256:0cb7203c7bc69d7c1585ebb33a2e6074492d2fc21ad28a7b9d40457ac2a51ab7",
-            "--hash=sha256:0d3259ea9ad8743a75a43eb7819324cdab393263c91be86e2d1901ee65c314e0",
-            "--hash=sha256:1571ae4292649100d743b26d5f9c63503bb1fedf538a8f29a98dce2d5ba6b4e6",
-            "--hash=sha256:1a4c6b05c685c0c03f80dabaeb73e74218c49deea965ca63f76a752807397207",
-            "--hash=sha256:1e8ee6413cfc677ce8898d9cde18cc3a60fc2ba756b0dec5b71eb6eb21c49fa1",
-            "--hash=sha256:1f0cfd1c69e2d14f8c892b893997fa9a60d890a0c8a603e88dca4955f26d1edd",
-            "--hash=sha256:23690b5827e643150cf7b49569679ec13fe9a610a15949ed48b85eb7f98f34ec",
-            "--hash=sha256:2374e16cc9131022e7d9a8f8d65d261d9ba55048c78f3b6e017971a4f5e6353c",
-            "--hash=sha256:24743a7b372e9a76171f6b69c01aedf927e8ac3e16c474d9fe20d552a8cb45c7",
-            "--hash=sha256:25dbade8fbf30bcc551cb352376c0ad64b067e4fc56f90e22ba70c3ce205988c",
-            "--hash=sha256:28ea02215f262b6d078daec0b45344c89e161eab9526b0d898221d96fdda5f27",
-            "--hash=sha256:2e42456917b6687215b3e606ab46aa6bca040c77af7df9a08a6dcfe8a4d10ca5",
-            "--hash=sha256:2e8456b6ee5527112ff2354dd9087b030e3429e43a74f480d4a5ca79d269fd85",
-            "--hash=sha256:3114f4db69ac5a1f32e7e4d1cbbe7c8f9cf8217f78e6e002cedf2d54c2a548ed",
-            "--hash=sha256:31eb671150b9c62409a888850aaa8e6533635704fe2b78335f9aaf7ff81eec4d",
-            "--hash=sha256:389c29045ee8bbb1627ea190b4976a310a295559eaf9f1464a1a6f2bf84dde78",
-            "--hash=sha256:3aa4dc0fdab4a7029ac63959a3ccf4ed605fee048ba67ce89ca3168da34a1342",
-            "--hash=sha256:3c03002f54cc855860bfdc3442928ffdca9081e73b5b382ed0b9e8efe6e5e205",
-            "--hash=sha256:46959ef2e64f9e4a41fc89aa20dbca2b85531f9a72c21099a3360f35d10b0d5a",
-            "--hash=sha256:48b55c1f64482f7d8bd39942f376bfdf2f6aec637ee8c805b5041e14eeb771db",
-            "--hash=sha256:4b0cb8a906b1a0196b863d460c0222fb8ad0f34041568da5620f9799b83ccf0b",
-            "--hash=sha256:4c6c4db5d73d179746951486df97fd25e92396be07fc29ee8ff9a8f5afbdfb27",
-            "--hash=sha256:4e27d3a5709cc2b3e013bf93679a849213c79ae0573f9b894b284b55e729e120",
-            "--hash=sha256:4fe0438ac4a29a520ea94c8c7f1754cdd8feb1bc490dfda1bfd990072363d527",
-            "--hash=sha256:5338742f6ba7a51012ea470bd4dc600a8c713c0c72adaa0977a1b1f4327d6592",
-            "--hash=sha256:5a7306c19b19005ad98468fcefeb7100b19c79fc23a5f24a12e06d91181193fa",
-            "--hash=sha256:5ae8ee156d6b586e4292491e885d41483136ab994e719a13458055bec14cf370",
-            "--hash=sha256:5b43c6a3726efd50f18d8120ec0551241c38785b68952d240c45ea553912ac41",
-            "--hash=sha256:5cfa9af45e7c1140af7321fa0bef25b386ee9faa8928c80dc3a5360971a29e8c",
-            "--hash=sha256:5d0145edba8abd3db0ab22b5300c99dc152f5c9021fab861be0f0544dc3cbc5f",
-            "--hash=sha256:5d3fd16b6dc89c73a4da0b4ac8b12a7ecc75b2864b95c9e5afed8003cb50a728",
-            "--hash=sha256:5ee514e0f0523db5d3fb171f397c54875dbbd69760a414dccf9d4d7ad628b5bd",
-            "--hash=sha256:5f3fa06d27fdcee47f07a39e02862da0100cb4982508f5ead53ec533cd5fe55e",
-            "--hash=sha256:66e6fa8e075b58946e76a78e69e1a124a21d9a48a5b4766d15ba5b06869d1fa1",
-            "--hash=sha256:6796079e5d24fdaba6d49bda28e2c47347e89834678f2bc2c1b4fc1489c0fb01",
-            "--hash=sha256:6897bebb118c44b38c9cb62a178e09f1593c949391b9a1a6fe777ccab5934ee7",
-            "--hash=sha256:6aa1bfce3f83baf00d9c5fcdbba93a3ab79958b4c7d7d1f55e7fe68c20e63912",
-            "--hash=sha256:6b4f28583a4f247ff60cd7bdda83db8c3f5b05a7a82ff20dd4b078571747708f",
-            "--hash=sha256:6e32dd207e2c4f8475257a3540ab8a93eff997abfa0a3fdb287cae0d6cd874b8",
-            "--hash=sha256:6f0c9266c26580e7243ad0d72fc3e01d6b33866cfab5084a6da7576bcf1c4f72",
-            "--hash=sha256:735f8495a13159ce6a0d533f01e8674cec0c57038c920495f87dcb20b3ddb48a",
-            "--hash=sha256:76500820c2af232435cbe215e3324c75b950a027134e044423f59f5b9a1ba515",
-            "--hash=sha256:7a4e59c90d9c27c561eb3160323634a9ff50b04e4f7820600a2beb0ac90db578",
-            "--hash=sha256:7a52a5169c664dfb495882adc75c304ae1d50df552fbd68e100fdc719dee4ff9",
-            "--hash=sha256:7a69df082db13c7070f7b8b1f155fa9e687f1d6aefb7b0e3f7231653b79a067b",
-            "--hash=sha256:7b0f9dceb221792b3ee6acb5438eb1f02b0cb2c247796a72b016dcc92c6de829",
-            "--hash=sha256:7b14b0c680286958817c22d76fcbca4800ddacef6f678f3a7c79a1fe7067fe37",
-            "--hash=sha256:7b6013db815417eeb56b2d9d7324e64fcd4fa289caeee6e7a78b2e11fc9b438a",
-            "--hash=sha256:7b7d9d83c942855e4fdcfa75d4f96f6b9e272d42fffcb72cd4bb2577db2e2907",
-            "--hash=sha256:8014045a15b4d2b3476f0a287fcc93d4f823472d7d1308d47884ecac9e612be3",
-            "--hash=sha256:8455933b4bcd6e83fde3fefc987a023389c4b13f9a58c8d23e4b3f6d13f78c84",
-            "--hash=sha256:85beb8b3f45e4e32f6802fb6cd6b17f615ef6c6a52f265371fb916fae02814aa",
-            "--hash=sha256:8a358a32dd3ae50e933347889b6af9a1bdf207ba5d1a3f34e1a38cd3540e6733",
-            "--hash=sha256:8aa23b6f0fc59b85b4c7d89ba2965af274346f738e8d9fc2455763602e62fd5f",
-            "--hash=sha256:8d252db6b1a78d0a3928b6190156042d54c93660ce4d98290d7b16b5296fb7cc",
-            "--hash=sha256:8f60c7ea34e78c199acd0d3cda37a99be2c861dd2b8cf67399784f70c9f8e57d",
-            "--hash=sha256:961ca621ff10d198bbe6ba4957decca61aa2a0c56695384c1d6b79bf61436df5",
-            "--hash=sha256:9a5690671cd672a45aa8616d7374fdf334a1b9c04a0cac3c854b1136e92374fe",
-            "--hash=sha256:9a7548b345f66f6695943b4ef6afe33ccd3f1b638bd9afd0f730dd255c249c9e",
-            "--hash=sha256:9f1d92ecea4fa12f978a367c32a5375a1982834649cdb96539dcdc12e609ab1a",
-            "--hash=sha256:a2036d09b363aa36695d1cc1a97b36865597f4478470b0697b5ee9403f4fe399",
-            "--hash=sha256:a3b695a8fa799dd2cfdb4804b37096c5f6dba1ac7f48a7fbf6d0485bcd060316",
-            "--hash=sha256:a410542d61fc54710f750d3764380b53bf09e8c4edbf2f9141a82aa774a04f7c",
-            "--hash=sha256:a6fe887c2c5c59413353b7c0caff25d0e566623501ccfff88957fa438a69377d",
-            "--hash=sha256:a805e9b3973f7e27f7cab63a6b4f61d90f2e5557cff73b6e97cd5b8540276d3d",
-            "--hash=sha256:abd4df20485a0983e2ca334a216249b6186d6e3c1627e106651943dbdb791aea",
-            "--hash=sha256:ac9f83e7b326a3f9ec3ef84cda98fb0a74c7159f33e692032233046e7fd15da2",
-            "--hash=sha256:acbe5e8b1026c0c580d0321c8aae4b0a1e1676861d48d6e8c6586625055b606a",
-            "--hash=sha256:ad50614a02c8c2962feebe6012b52f9802deec4263946cddea37aaf28dd25a66",
-            "--hash=sha256:ada7754a10faacd4f26067e62de52d6af93b6d9542f0df73c57b9771eb3ba9c4",
-            "--hash=sha256:adc8aa88486857d2b35d75f0640b949759f79dc105f50aa2c27816b2e0dd749f",
-            "--hash=sha256:b1b553dd06e875249fd43efd727785efb57a53180e0fde321468222eabbeaafa",
-            "--hash=sha256:b1cde22f2c30ebb049a9e74c5374994157b9b70a16147d332f89c99c5960737a",
-            "--hash=sha256:b3072b16904d0b5572a15eb9d31c1954e0d3227a585fc1351aa9878729099d6c",
-            "--hash=sha256:b670c30fd87a6aec281c3c9896d3bae4b205fd75d79d06dc87c2503717e46092",
-            "--hash=sha256:b8e1e9be4fa6305a16be628959188e4fd5cd6f1b0e724d63c6d8b2a8adf74ea6",
-            "--hash=sha256:b9699fa7990368b22032baf2b2dce1f634388e4ffc03dfefaaac79f4695edc95",
-            "--hash=sha256:b9b06fe1a75e05e0713f06ea0c89ecb6452210fd60e2f1b6ddc1067b990e08d9",
-            "--hash=sha256:bbdc5640900a7dbf9dd707fe6388972f5bbd883633eb68b76591044cfe346f7e",
-            "--hash=sha256:bcf1d210dfee61a6c86551d67ee1031899c0fdbae88b2d44a569995d43797712",
-            "--hash=sha256:bd3bbba5def70b16cd1c1d7255666aad3b290fbf8d0fe7f9f91abafb73611a91",
-            "--hash=sha256:beb880a9ca0a117415f241f66d56025c02037f7c4efc6fe59b5b8454f1eaa50d",
-            "--hash=sha256:c2a34fd26588949e1e7977cfcbb17a9a42c948c100cab890c6d8d823f0586457",
-            "--hash=sha256:c9a40040aa388b037eb39416710fbcce9443498d2eaab0b9b45ae988b53f5c67",
-            "--hash=sha256:cf128350d384b777da0e68796afdcebc2e9f63f0e9f242217754e647f6d32491",
-            "--hash=sha256:cf681ac76a60b667106141e11a92a3330890257e6f559ca995fbb5265160b56e",
-            "--hash=sha256:d15431e334fba488b081d47f30f091e5d03c18527c325386091f31718952fe08",
-            "--hash=sha256:d2412be8d00a1b895f8ad827cc2116455196e20ed994bb704bf138fe91a42724",
-            "--hash=sha256:d61b355c3275acb825f8777d6c4505f42b5007e357af500939d4a35b19177259",
-            "--hash=sha256:d678e91b610c29c4b3d52a2c148b641df2b4676ffe47c59f6388d58b99cdc424",
-            "--hash=sha256:d7366b6553cdc805abcc512b849a519167db8f5e5c3472010cd1228b224265cb",
-            "--hash=sha256:dcdcb890b3ada98a03f9f2bb108489cdc7580176cb73b4f2d789e9a1dac1d472",
-            "--hash=sha256:dd8d86b5d29d1b74100982424ba53e56033dc47720a6de9ba0259cf81d7cecaa",
-            "--hash=sha256:e0a0311caedc8069d68fc2bf4c9019b58a2d5ce3cd7cb656c845f1615b577e1e",
-            "--hash=sha256:e1460ebde1bcf6d496d80b191d854adedcc619f84ff17dc1c6d550f58c9efbba",
-            "--hash=sha256:e3eb248f2feba84c692579257a043a7699e28a77d86c77b032c1d9fbb3f0219c",
-            "--hash=sha256:e5bbc701eff140ba0e872691d573b3d5d30059ea26e5785acba9132d10c8c31d",
-            "--hash=sha256:e5d9b86aa501fed9862a443c5c3116f6ead8bc9296185f369277c42542bd646b",
-            "--hash=sha256:e5deca01b271492553fdb6c7fd974659dce736a15bae5dad7ab8b93555bceb28",
-            "--hash=sha256:e80848a71c78aa328fefaba9c244d588a342c8e03bda518447b624ea64d1ff56",
-            "--hash=sha256:e819e0e37a44a78e1383bf1970076e2ccc4dc8c2bbaa2f9bd1dc987e9afff628",
-            "--hash=sha256:e9e184408a0297086f880556b6168fa927d677716f83d3472ea333b42171ee3b",
-            "--hash=sha256:edd267266a9b0448f33dc465a97cfc5d467594b600fe28e7fa2f36450e03053a",
-            "--hash=sha256:efd489fec7c311dae25e94fe7eeda4b3d06be71c68f2cf2e8ef990ffcd2cd7e8",
-            "--hash=sha256:f0b2044fdddeea5b05df832e50d2a06fe61023acb44d76978e1b060206a8a476",
-            "--hash=sha256:f274f56a926ba2dc02976ca5b11c32855cbd5925534e57cfe1fda64e04d1add2",
-            "--hash=sha256:f296ea3054e11fc58ad42e850e8b75c62d9a93a9f981ad04b2e5ae7d2186ff9c",
-            "--hash=sha256:f4794c6c3fbe8f9ac87699b131a1f26e7b4abcf6d828da46a3a52648c7930eba",
-            "--hash=sha256:f586db2e209d54fe177e58e0bc4946bea5fb0102f150b1b2f13de03e1f0976f8",
-            "--hash=sha256:f5e7101145427087e493b9c9b959da68d357c28c562792300dd21a095118ed16",
-            "--hash=sha256:f9174471d6920cbc5e82a7822de8dfd4dcea86eb828b04fc8c6519a77b0ee51e",
+            "rpds-py==2026.5.1",
+            "--hash=sha256:01d17b29c0c23d82b1f4751147ec49cf451f1fc2554eb9ef5f957e55d2656ead",
+            "--hash=sha256:036a36a87fb1cd3b214d11c4b3c4f7d2ddad933625dca1c900b56a057c07740a",
+            "--hash=sha256:0408a24e44feb919423dc6d9da677cb5cddb894d2ca9e763967d156d9c60fab4",
+            "--hash=sha256:07b24fea40541e28570e5b795a4a38fbdcd12550c06bd0748005ecc8116ca256",
+            "--hash=sha256:0957cf3c2b8632ec7aaebffebea8005b353cc2a237b6e2ae3c2cac0820704cfb",
+            "--hash=sha256:0a5ae4dbe43c1076983b72616496919872ae7bbe7a1e21cc48336bc3154d130b",
+            "--hash=sha256:0a7d1eec967df0e9b22614a5e177622e0c89611d03727fa0cb48e45028907870",
+            "--hash=sha256:0b35217adefe87f2fe4db7e9766cabe84744bfe9616d9667be18988928c7f2dc",
+            "--hash=sha256:0fa92420128dadce7f54bd73ba1825a273e9268fe9e35dbf7e6362890efa4e08",
+            "--hash=sha256:141c9498daf2ace9eda35d2b0e376f9ea8b058d84f2aef4f96fccfd449a2f251",
+            "--hash=sha256:1841d067089e117142d79b98aa0df2f08b52f2ecc1819dd2700636c0db74a473",
+            "--hash=sha256:19cb09fab7b7fc96b2a6e28f2e34b72a3705ff27b37edb77455316e5d3f3dc9b",
+            "--hash=sha256:1c27c5f6102eac8c03e7595a00827a53b271ba40a53b59ff8709170e0855ea4a",
+            "--hash=sha256:1ebb2f0ab7e16132995a72de805170e0203df0c3dd22e1ef1cd1fdd90bd7a131",
+            "--hash=sha256:1f2c391c3059798093b65df23aca2cac150460ae9c630d99dec83d703d9485b9",
+            "--hash=sha256:205dde846f24332ab0c1188699a043b8d165b79bb84529ce272c45048ff6be01",
+            "--hash=sha256:21846aac0ed2e0589f38c12dc44e77bb64e494b771eadbcf169cba00566ba7ba",
+            "--hash=sha256:21942f52dbbd5f8758bf021213d28bd45c39e873e65e2407faf5f1846f5761ad",
+            "--hash=sha256:277f6c82f0580848796c7ecc8a7173aa3bfb928e4ff831261c2f60a81dc270db",
+            "--hash=sha256:27b74c10ed6a8f190f4287f53bcfea348b92a84a9c9f70d30183d1e6172d580d",
+            "--hash=sha256:296c799becfa849c779c8725494fe9ed94959ed886787df4364b058465bad7f0",
+            "--hash=sha256:2c595a1d9255dce0599e13130d1440ab2506654f2b50294226ee06402f8fef63",
+            "--hash=sha256:2c817a189d4ee14290420e5ff051e4dd6baa13f3edf84685071dee07a6d538ee",
+            "--hash=sha256:2d88621d6a7d4dfa633d21abe90f280bb205274e16b1d1e61c6ad4640b2453b7",
+            "--hash=sha256:3350ec808fb538fe71a1f94dfaa0e29c598dfad805ce49f0caec5ae3183c652b",
+            "--hash=sha256:3397a5ed7174dc2786bb214030232fc36fe8e5584fec43a9952cc542b1a12036",
+            "--hash=sha256:3574b55c604b8f75dacb007136508bbc0db406e626301778096a133327e7f2fb",
+            "--hash=sha256:3609e9939a8a76cd904cf98a3f1f13b5dc7e150adeaee89e0ea09652ea213e16",
+            "--hash=sha256:3684a59b158a7683aaeb8e25352e9a9dd2122cec78f2d8530266e4f91b4c7b3f",
+            "--hash=sha256:3966b82dd563176396df030f3dd52a6e54cb69b718e95e78bd555ed3d1e0185d",
+            "--hash=sha256:3abe24a66e57adcfa645d718063a5fa5103ecc71ddbf26d78af8f9368018ff1d",
+            "--hash=sha256:40ff257542e04796880e011e15cd4dc21c2599975df2aaa8f2c8495ca574e1a5",
+            "--hash=sha256:413b424f7c4ee65ab5e5be91f5731be0f8b41a1ee2b12dfe810d716312e95a78",
+            "--hash=sha256:42d0f20e85e549c870749d0e247f0c10d318a45b7e9676d575d2dcb04a1b2e66",
+            "--hash=sha256:43bca78665423cabae77146f2fe7ce55272b6c8d55d82cca83effd42c7e13972",
+            "--hash=sha256:453895624ecf7db7063b1004e44037522bbaef9ff6a945e59bc71662d7a03abd",
+            "--hash=sha256:4860b603ddda0475a8885499b3729e90229d480105b42651962a5397d995fa89",
+            "--hash=sha256:4be8b1d2a705cc37d08256004e1d07de143fa0075c8e85a3df020b776f62b732",
+            "--hash=sha256:4e237e139f94d3c036fd28eb9f564c99055476ff4ff05cd42be55ce349b5aa02",
+            "--hash=sha256:4fb8d2e7cb2f850b169806d61d1b991738acec96500a75c30f49caf064ce7cef",
+            "--hash=sha256:55d8f9b7b78c9538fc9e04e82ec0e888ff0c3cffcfad152c77e57cd09351a98a",
+            "--hash=sha256:58b1d94308ddf0b1982f61f2eb54bf92997c9ece8a8093ef014250f4a517906c",
+            "--hash=sha256:5d333a7127d4b307601ac37792bee01bb95c867cbfacf21b6375b804d6bbd723",
+            "--hash=sha256:613fc4ee9eaef26dc5840666214dd6fbcebcf32f46e76f4abc473059f4e13dda",
+            "--hash=sha256:6142dbd80c4df62a5d899f0d616d417f84e0bc8d32526c8e5589019d75d028a7",
+            "--hash=sha256:62ae3853454fe9ef283a03c96c2d835d39e84b14643a9d62c82ef0fb87d702ca",
+            "--hash=sha256:63c2c4c213f1a4e3f3de28ecab029dbdee976324e729c0d7a55211be72576b02",
+            "--hash=sha256:656a042550878f12d45752452d47094b7cfe5ad1e9d7b87b5a22ad3ae5ff8015",
+            "--hash=sha256:66c93681c4729e4e3ecba31b8179fae083ff3118841672835140338b4b9867c1",
+            "--hash=sha256:6736718bd4fc49cbcb538ba30516fdbef161522acefb739657d48b97bd864fed",
+            "--hash=sha256:68700371c5d7ae1412862ddfa719090925c93ecf351c566d66f09d04b136ea00",
+            "--hash=sha256:6c3d771a46ec18b12af06ce36243a9a80b07a5d0515236332d90863ca8bb326a",
+            "--hash=sha256:6c7fcf61d44cacecaf3aea542b0e053db77972a4573e7ceda16fb2b399161195",
+            "--hash=sha256:6f249f8b860a200ad35193af961183ebe9132710484e6f6ce0cf89fd83c63a9a",
+            "--hash=sha256:73c4bd4f70294737b5206a3e8e30ccadbf8a60301831c8ea23eec5dbeea1ecfa",
+            "--hash=sha256:7559f72b94ae52659086c595dfa017cde03155f7832071d30959049052cb3ece",
+            "--hash=sha256:75808f6c38ce7749bb68cc2770161aae5045e6c6f6781a9782e74b93304399df",
+            "--hash=sha256:77c004fdc7b891967106f78ddfd7b076bfe6813c6139c6fff6aed3bcaa960b26",
+            "--hash=sha256:7818f8d0a415be74d2be3590b0a1c1f463a642f4d0217e7d10602dceef5b79aa",
+            "--hash=sha256:7944270ae71383f6e2657dd7d5ce4eeb4ac2d0059a6738f0510583d462ab4842",
+            "--hash=sha256:7bd530e6a530bb3ea892f194fafa455f3516ac25ecf7143fd33c09be62b0470a",
+            "--hash=sha256:8213afbe8a3a906fb9acb2014423fe3359ee783d0bf90995f70623a3217bfa6c",
+            "--hash=sha256:83bcf894486c9d78dd290d3c0124ff6dd8875d3025e2090a8ec49fcc37c55fdd",
+            "--hash=sha256:85264a90ff4c05c1568dd65f5921c837614b67c60358fb4c17df3b7f2e90690a",
+            "--hash=sha256:88647f43a73c4e01be19b04ceef0c8d3a1958153604d13c773becd8016f2a0cf",
+            "--hash=sha256:8895840ac4809e5f60c88fd07617cd71326e73d6e5a8aa783c5c0f7c24985de2",
+            "--hash=sha256:8ba264fa49be666cd9cc56bf34ec7002fb3d27a4aee5bcb4d43d0d18feb1bb6f",
+            "--hash=sha256:8bff7073db3899158fff55ebf57b113a67030af26f80a18978f9f0aa60250ddf",
+            "--hash=sha256:8c43a8a973270fd173bf48cdf80bbe66312421cba68d40845034f174f2389049",
+            "--hash=sha256:90bd6630002a1c7f09e7843dd79f0d24f3d2897cc25a753480917865d14f15b3",
+            "--hash=sha256:90f628283be835db980c941767d41c9a27b5239e54ba0a9c1335247e82406964",
+            "--hash=sha256:94068eb3ae6d43f5a786b7db96a406a34e6d5c24489feef32fd6e8946ea7b291",
+            "--hash=sha256:980450826cf22e133c57e0835070bdd0dd3f73b9b708c3ce223def2cb9469e14",
+            "--hash=sha256:99ab6ba7bfa2cb0f96a04e3652355bf04e3f51aceb1e943b8541dab7ba4828cc",
+            "--hash=sha256:9af8905b8f854990e40d5206aa5ac58d9b0fe0b7f351ff2bb086c20f6c8c6a47",
+            "--hash=sha256:9baffb505aff33acc69b422a19f77806680f3c8632227d79f48de8a810d1c2c5",
+            "--hash=sha256:9cdddb6c1207d284d94fd1530adf57fbd797fe7c4b8704ba85f49414f2557e7d",
+            "--hash=sha256:9e25b7088f9ccbfc0dfcaa52bf969300ca229e10ecf758974ebcbb080a4b37bb",
+            "--hash=sha256:a04df86b3f0fade39ec8fd0e0aab089b1da9fbd2b48df778a57ef96f5e7d38df",
+            "--hash=sha256:a05fa4f41f37ec97c9c260441a940450a192f78d774d2b097eee1379f1e1246a",
+            "--hash=sha256:a2999883eedf72fdfb7520b92c7d4ec2572a71ff40239377aa604cc529eecafc",
+            "--hash=sha256:aad1bff7f666b9598e573815affd666aac6a13a585dde336f843e33350c7fadc",
+            "--hash=sha256:abe76bcdba31e576cb83eeb8797aa0d882b738fef6dc65d0601fc753806a5b46",
+            "--hash=sha256:ad3773236e95f7f33991eb125224b7da66f206504d032a253a02da7e134519fb",
+            "--hash=sha256:af03e34e860047bc7a352b842856fcf78798fbb81132cc98bd2f907ab4eb9cd2",
+            "--hash=sha256:b1b964e3ab599e718dc46c018d104b1ebc007cbc6567d827c94a687fca56d77e",
+            "--hash=sha256:b1be5c35683684d5331b93600c210e8367c254683d8a6df6bd21bd2da3a334fb",
+            "--hash=sha256:b317c87a13f769a4e787819bd508aaa5d69aa09b0880de9af6d3a8a54571cdec",
+            "--hash=sha256:b3cc20c0d800af78fd0fac68086e28c1856cec51ea528bb81ea851aa40d39325",
+            "--hash=sha256:b4e4bc98639ec915f512fde3aa7a95e0041d95d9c3cc86eea841fa63cb1e8600",
+            "--hash=sha256:b5c30f3f04eef4fbd362226a6f31d7c8895ca4fbb6e0b790f6890a98d8da8559",
+            "--hash=sha256:b5f077b44a4f7808520f66dae234988d867deb9aed9be5da057ce9ba831b2a41",
+            "--hash=sha256:b6825cc329b290e93c5f6a9be2393118a763f6ccf6abd83704e0c102ca583644",
+            "--hash=sha256:b8d2f912928d426e8cfa396f7f3f8d29a59e6689c86dcca3c420730c1096322b",
+            "--hash=sha256:b95d5e11fc712b752081183a55a244c03cd00570489edd7014d8899f8ceb8162",
+            "--hash=sha256:b9a6528956191c48c52294a592dbd4a8386d7048bdb25c0efcb6b966466c6d83",
+            "--hash=sha256:ba05adbf15d994c38ec0b7ab32e858e5110c21e9009a00a86545fd220f84e038",
+            "--hash=sha256:c0f920015df2a504bebaba6d4c31ccf3fcf942f92655c086da30b671aad19aa6",
+            "--hash=sha256:c396c1304de421050b3681ea70f371874b54d41b0151e96109758144c231e30b",
+            "--hash=sha256:c39f5b67a8a2e67179ada2a954227d670fe65fa9098457f698f56ddf248709b3",
+            "--hash=sha256:c3df104083952a0e0c6f10de33e440eabe98fb6317d23e1a58c68f6df08d01b9",
+            "--hash=sha256:c74005a7bb87752acf351c93897ec63ad77a07a0da7ecad9c050e32e7286ba34",
+            "--hash=sha256:c93c629be4636cf54337bd5f06c104d55e42ced54d681f6fe21ae510a65116f6",
+            "--hash=sha256:ca653c6546386227cd9800d1bef6a348099acf8db4250341da6d90f663d6dfcb",
+            "--hash=sha256:cacedb7a6e167680acba45ad5716e89067d225dc80da0d7040cae8c81d4572fa",
+            "--hash=sha256:cc68e231a77a5f0d774ae278a1f8e55c0456501820847c1e4efb3829f3441df6",
+            "--hash=sha256:ce87129d9f2c14fa6c4a8601fb80eb4488c80d38a20cd13758ef11123e14995d",
+            "--hash=sha256:cea68bcd53467561ae2f96a6bdad1544299ba97b5b0ddcd5ac3d376e5c781c24",
+            "--hash=sha256:cef8ac28d26f4dda3533060c20fbf80a325458fa9fd23ea72a73cdfa8e978838",
+            "--hash=sha256:d0efbe45632665e53e3db8fe1e5692db58fc5cb9bab4459d570b83efefe11164",
+            "--hash=sha256:d3858b908218ee108d0bbfb2095ccc237648053c9bf98affad7cb079acaf1d97",
+            "--hash=sha256:de42116e69cb53b911cc34aee5ab98f36c597b822545045d49e938818b99e5e4",
+            "--hash=sha256:df1d2a1996755b24b9ecee92cb4d36c28f86f464a6a173349c26bab41e94b8c2",
+            "--hash=sha256:e07be2a9d7122bd6e82dea89814ef8dc893feb1aae97fec1630f3263bbb30e55",
+            "--hash=sha256:e0b360f316d966b048b085857630b3cc51f3db2f07b06f440eac8f695374d1e3",
+            "--hash=sha256:e10464d17df3b582745c25cec695cb9558bca2cb6ddb631aee1787fc72c767b2",
+            "--hash=sha256:e3a8ae58895ac107ed934a6bf51e5846f95c53b9b940c2c6d310838fd5846358",
+            "--hash=sha256:e4abbf391a70be864920858bf360f4fb380577c9a0f732438a1996726e2c195b",
+            "--hash=sha256:eaaea962c68cdc68d4a533ba985ab8e9484277910bbfaa2ab3ef7732667bfed8",
+            "--hash=sha256:ed0954b524873214369184a9c82b0eaa45a3fbb9a798cd95b17e0d98499e7ea0",
+            "--hash=sha256:edf2765d84e42447f112ad877af8fe1db0089aaec5b28e88d6eab45e7fe99cea",
+            "--hash=sha256:ef1013a8625c74043210190b246f5b1551e09757c1f356c6e4160ef96c5bc081",
+            "--hash=sha256:efef4ac29c6ff495531eb17ee705b62841ecaa291b7c7077e848ea03e237164d",
+            "--hash=sha256:f3a5b10e8ce894825f380a8f1b6444cf73c294dfea62afbb2d13e3a9e630cec1",
+            "--hash=sha256:f3df3d16ded76f1f8c9cdebd0e1ea55fdf4c23b812de189814da7cf229c22a81",
+            "--hash=sha256:f414556f6e3958300ff941e40c9f97e3dc9774ddd1b3434c475d73dd354bbed3",
+            "--hash=sha256:fc09f82e63d4bcd58149572f857a431bae851dc747e313c3b5bdf7abb907fda8",
+            "--hash=sha256:fc0c0f878ea770a0a8a462456c5ad36fc9fe6358e6b76fdadc7f17575e0b8bf1",
+            "--hash=sha256:fe71bca7d547acb17027c7fd1624ff8aae623499c498d3e7011182c4de5c25e0",
+            "--hash=sha256:fea6e836d10abbe191d557d33bd58bd5987725fe63aa1eefe557d230209855bd",
         ],
     )
 
@@ -2945,9 +3062,9 @@ def repo_pypa_s3transfer():
         name = "pypa_s3transfer",
         target = "s3transfer",
         requirement = [
-            "s3transfer==0.14.0",
-            "--hash=sha256:ea3b790c7077558ed1f02a3072fb3cb992bbbd253392f4b6e9e8976941c7d456",
-            "--hash=sha256:eff12264e7c8b4985074ccce27a3b38a485bb7f7422cc8046fee9be4983e4125",
+            "s3transfer==0.19.0",
+            "--hash=sha256:777cc2415536f1debadb5c2ef7779275d0fc0fe0e042411cdd6caebeb2685262",
+            "--hash=sha256:ce436931687addc4c1712d52d40b32f53e88315723f107ffa20ba82b05a0f685",
         ],
         deps = [
             "@pypa_botocore//:botocore",
@@ -2972,27 +3089,29 @@ def repo_pypa_setuptools():
         name = "pypa_setuptools",
         target = "setuptools",
         requirement = [
-            "setuptools==80.9.0",
-            "--hash=sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922",
-            "--hash=sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c",
+            "setuptools==82.0.1",
+            "--hash=sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9",
+            "--hash=sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb",
         ],
     )
 
 def repo_pypa_setuptools_scm():
-    repo_pypa_setuptools()
     repo_pypa_packaging()
+    repo_pypa_setuptools()
+    repo_pypa_vcs_versioning()
     maybe(
         third_party_python_package,
         name = "pypa_setuptools_scm",
         target = "setuptools_scm",
         requirement = [
-            "setuptools-scm==9.2.2",
-            "--hash=sha256:1c674ab4665686a0887d7e24c03ab25f24201c213e82ea689d2f3e169ef7ef57",
-            "--hash=sha256:30e8f84d2ab1ba7cb0e653429b179395d0c33775d54807fc5f1dd6671801aef7",
+            "setuptools-scm==10.0.5",
+            "--hash=sha256:bbba8fe754516cdefd017f4456721775e6ef9662bd7887fb52ae26813d4838c3",
+            "--hash=sha256:f611037d8aae618221503b8fa89319f073438252ae3420e01c9ceec249131a0a",
         ],
         deps = [
-            "@pypa_setuptools//:setuptools",
             "@pypa_packaging//:packaging",
+            "@pypa_setuptools//:setuptools",
+            "@pypa_vcs_versioning//:vcs_versioning",
         ],
     )
 
@@ -3014,30 +3133,30 @@ def repo_pypa_snowballstemmer():
         name = "pypa_snowballstemmer",
         target = "snowballstemmer",
         requirement = [
-            "snowballstemmer==3.0.1",
-            "--hash=sha256:6cd7b3897da8d6c9ffb968a6781fa6532dce9c3618a4b127d920dab764a19064",
-            "--hash=sha256:6d5eeeec8e9f84d4d56b847692bacf79bc2c8e90c7f80ca4444ff8b6f2e52895",
+            "snowballstemmer==3.1.1",
+            "--hash=sha256:7e207fa178741da09cdee59d3ecec3827ad5f92b1fc5c9ff3755b639f71f5752",
+            "--hash=sha256:e07bbc54a0d798fe6010a12398422e62a8bfbba95c394fd0956ef58cb4d3e260",
         ],
     )
 
 def repo_pypa_sphinx():
-    repo_pypa_imagesize()
-    repo_pypa_snowballstemmer()
-    repo_pypa_sphinxcontrib_devhelp()
-    repo_pypa_colorama()
+    repo_pypa_alabaster()
     repo_pypa_babel()
+    repo_pypa_colorama()
     repo_pypa_docutils()
-    repo_pypa_requests()
-    repo_pypa_sphinxcontrib_jsmath()
-    repo_pypa_sphinxcontrib_applehelp()
+    repo_pypa_imagesize()
+    repo_pypa_jinja2()
     repo_pypa_packaging()
+    repo_pypa_pygments()
+    repo_pypa_requests()
+    repo_pypa_roman_numerals_py()
+    repo_pypa_snowballstemmer()
+    repo_pypa_sphinxcontrib_applehelp()
+    repo_pypa_sphinxcontrib_devhelp()
+    repo_pypa_sphinxcontrib_htmlhelp()
+    repo_pypa_sphinxcontrib_jsmath()
     repo_pypa_sphinxcontrib_qthelp()
     repo_pypa_sphinxcontrib_serializinghtml()
-    repo_pypa_sphinxcontrib_htmlhelp()
-    repo_pypa_pygments()
-    repo_pypa_roman_numerals_py()
-    repo_pypa_alabaster()
-    repo_pypa_jinja2()
     maybe(
         third_party_python_package,
         name = "pypa_sphinx",
@@ -3048,34 +3167,34 @@ def repo_pypa_sphinx():
             "--hash=sha256:4405915165f13521d875a8c29c8970800a0141c14cc5416a38feca4ea5d9b9c3",
         ],
         deps = [
-            "@pypa_imagesize//:imagesize",
-            "@pypa_snowballstemmer//:snowballstemmer",
-            "@pypa_sphinxcontrib_devhelp//:sphinxcontrib_devhelp",
-            "@pypa_colorama//:colorama",
+            "@pypa_alabaster//:alabaster",
             "@pypa_babel//:babel",
+            "@pypa_colorama//:colorama",
             "@pypa_docutils//:docutils",
-            "@pypa_requests//:requests",
-            "@pypa_sphinxcontrib_jsmath//:sphinxcontrib_jsmath",
-            "@pypa_sphinxcontrib_applehelp//:sphinxcontrib_applehelp",
+            "@pypa_imagesize//:imagesize",
+            "@pypa_jinja2//:jinja2",
             "@pypa_packaging//:packaging",
+            "@pypa_pygments//:pygments",
+            "@pypa_requests//:requests",
+            "@pypa_roman_numerals_py//:roman_numerals_py",
+            "@pypa_snowballstemmer//:snowballstemmer",
+            "@pypa_sphinxcontrib_applehelp//:sphinxcontrib_applehelp",
+            "@pypa_sphinxcontrib_devhelp//:sphinxcontrib_devhelp",
+            "@pypa_sphinxcontrib_htmlhelp//:sphinxcontrib_htmlhelp",
+            "@pypa_sphinxcontrib_jsmath//:sphinxcontrib_jsmath",
             "@pypa_sphinxcontrib_qthelp//:sphinxcontrib_qthelp",
             "@pypa_sphinxcontrib_serializinghtml//:sphinxcontrib_serializinghtml",
-            "@pypa_sphinxcontrib_htmlhelp//:sphinxcontrib_htmlhelp",
-            "@pypa_pygments//:pygments",
-            "@pypa_roman_numerals_py//:roman_numerals_py",
-            "@pypa_alabaster//:alabaster",
-            "@pypa_jinja2//:jinja2",
         ],
     )
 
 def repo_pypa_sphinx_immaterial():
-    repo_pypa_typing_extensions()
-    repo_pypa_markupsafe()
-    repo_pypa_requests()
     repo_pypa_appdirs()
-    repo_pypa_pydantic_extra_types()
+    repo_pypa_markupsafe()
     repo_pypa_pydantic()
+    repo_pypa_pydantic_extra_types()
+    repo_pypa_requests()
     repo_pypa_sphinx()
+    repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
         name = "pypa_sphinx_immaterial",
@@ -3085,13 +3204,13 @@ def repo_pypa_sphinx_immaterial():
             "--hash=sha256:5ea92d2ddc6befcd0fedbd3e6766ea4746e94d9a8a5cc0ab092a946e1fde4254",
         ],
         deps = [
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_markupsafe//:markupsafe",
-            "@pypa_requests//:requests",
             "@pypa_appdirs//:appdirs",
-            "@pypa_pydantic_extra_types//:pydantic_extra_types",
+            "@pypa_markupsafe//:markupsafe",
             "@pypa_pydantic//:pydantic",
+            "@pypa_pydantic_extra_types//:pydantic_extra_types",
+            "@pypa_requests//:requests",
             "@pypa_sphinx//:sphinx",
+            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -3168,8 +3287,8 @@ def repo_pypa_sphinxcontrib_serializinghtml():
     )
 
 def repo_pypa_stack_data():
-    repo_pypa_executing()
     repo_pypa_asttokens()
+    repo_pypa_executing()
     repo_pypa_pure_eval()
     maybe(
         third_party_python_package,
@@ -3181,8 +3300,8 @@ def repo_pypa_stack_data():
             "--hash=sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695",
         ],
         deps = [
-            "@pypa_executing//:executing",
             "@pypa_asttokens//:asttokens",
+            "@pypa_executing//:executing",
             "@pypa_pure_eval//:pure_eval",
         ],
     )
@@ -3209,9 +3328,9 @@ def repo_pypa_traitlets():
         name = "pypa_traitlets",
         target = "traitlets",
         requirement = [
-            "traitlets==5.14.3",
-            "--hash=sha256:9ed0579d3502c94b4b3732ac120375cda96f923114522847de4b3bb98b96b6b7",
-            "--hash=sha256:b74e89e397b1ed28cc831db7aea759ba6640cb3de13090ca145426688ff1ac4f",
+            "traitlets==5.15.1",
+            "--hash=sha256:770a53705f84b81ac107e83a1b3328ff2dae16094d8fc3cfc004e4b22dfd8e92",
+            "--hash=sha256:7b1c07854fe25acb39e009bae49f11b79ff6cbb2f27999104e9110e7a6b53722",
         ],
     )
 
@@ -3249,9 +3368,25 @@ def repo_pypa_urllib3():
         name = "pypa_urllib3",
         target = "urllib3",
         requirement = [
-            "urllib3==2.5.0",
-            "--hash=sha256:3fc47733c7e419d4bc3f6b3dc2b4f890bb743906a30d56ba4a5bfa4bbff92760",
-            "--hash=sha256:e6b01673c0fa6a13e374b50871808eb3bf7046c4b125b216f6bf1cc604cff0dc",
+            "urllib3==2.7.0",
+            "--hash=sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c",
+            "--hash=sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+        ],
+    )
+
+def repo_pypa_vcs_versioning():
+    repo_pypa_packaging()
+    maybe(
+        third_party_python_package,
+        name = "pypa_vcs_versioning",
+        target = "vcs_versioning",
+        requirement = [
+            "vcs-versioning==1.1.1",
+            "--hash=sha256:b541e2ba79fc6aaa3850f8a7f88af43d97c1c80649c01142ee4146eddbc599e4",
+            "--hash=sha256:fabd75a3cab7dd8ac02fe24a3a9ba936bf258667b5a62ed468c9a1da0f5775bc",
+        ],
+        deps = [
+            "@pypa_packaging//:packaging",
         ],
     )
 
@@ -3261,9 +3396,9 @@ def repo_pypa_wcwidth():
         name = "pypa_wcwidth",
         target = "wcwidth",
         requirement = [
-            "wcwidth==0.2.14",
-            "--hash=sha256:4d478375d31bc5395a3c55c40ccdf3354688364cd61c4f6adacaa9215d0b3605",
-            "--hash=sha256:a7bb560c8aee30f9957e5f9895805edd20602f2d7f720186dfd906e82b4982e1",
+            "wcwidth==0.8.1",
+            "--hash=sha256:f453740b1e4a4f3291faa37944c555d71056c4da08d59809b307ef4feba695c8",
+            "--hash=sha256:faf5b4a5366a72dc49cad48cdf21f52bdf63bdda995178e483ba247ff79089b9",
         ],
     )
 
@@ -3274,9 +3409,9 @@ def repo_pypa_werkzeug():
         name = "pypa_werkzeug",
         target = "werkzeug",
         requirement = [
-            "werkzeug==3.1.3",
-            "--hash=sha256:54b78bf3716d19a65be4fceccc0d1d7b89e608834989dfae50ea87564639213e",
-            "--hash=sha256:60723ce945c19328679790e3282cc758aa4a6040e4bb330f53d30fa546d44746",
+            "werkzeug==3.1.8",
+            "--hash=sha256:63a77fb8892bf28ebc3178683445222aa500e48ebad5ec77b0ad80f8726b1f50",
+            "--hash=sha256:9bad61a4268dac112f1c5cd4630a56ede601b6ed420300677a869083d70a4c44",
         ],
         deps = [
             "@pypa_markupsafe//:markupsafe",
@@ -3284,14 +3419,18 @@ def repo_pypa_werkzeug():
     )
 
 def repo_pypa_wheel():
+    repo_pypa_packaging()
     maybe(
         third_party_python_package,
         name = "pypa_wheel",
         target = "wheel",
         requirement = [
-            "wheel==0.45.1",
-            "--hash=sha256:661e1abd9198507b1409a20c02106d9670b2576e916d58f520316666abca6729",
-            "--hash=sha256:708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248",
+            "wheel==0.47.0",
+            "--hash=sha256:212281cab4dff978f6cedd499cd893e1f620791ca6ff7107cf270781e587eced",
+            "--hash=sha256:cc72bd1009ba0cf63922e28f94d9d83b920aa2bb28f798a31d0691b02fa3c9b3",
+        ],
+        deps = [
+            "@pypa_packaging//:packaging",
         ],
     )
 
@@ -3301,114 +3440,97 @@ def repo_pypa_wrapt():
         name = "pypa_wrapt",
         target = "wrapt",
         requirement = [
-            "wrapt==2.0.0",
-            "--hash=sha256:02482fb0df89857e35427dfb844319417e14fae05878f295ee43fa3bf3b15502",
-            "--hash=sha256:028f19ec29e204fe725139d4a8b09f77ecfb64f8f02b7ab5ee822c85e330b68b",
-            "--hash=sha256:03442f2b45fa3f2b98a94a1917f52fb34670de8f96c0a009c02dbd512d855a3d",
-            "--hash=sha256:04c7c8393f25b11c0faa5d907dd9eb462e87e4e7ba55e308a046d7ed37f4bbe2",
-            "--hash=sha256:04f7a5f92c5f7324a1735043cc467b1295a1c5b4e0c1395472b7c44706e3dc61",
-            "--hash=sha256:057f02c13cce7b26c79624c06a3e1c2353e6dc9708525232232f6768118042ca",
-            "--hash=sha256:06b78cb6b9320f57737a52fede882640d93cface98332d1a3df0c5696ec9ae9f",
-            "--hash=sha256:094d348ce7e6ce37bf6ed9a6ecc11886c96f447b3ffebc7539ca197daa9a997e",
-            "--hash=sha256:0a921b657a224e40e4bc161b5d33934583b34f0c9c5bdda4e6ac66f9d2fcb849",
-            "--hash=sha256:0b9ad4fab76a0086dc364c4f17f39ad289600e73ef5c6e9ab529aff22cac1ac3",
-            "--hash=sha256:1147a84c8fc852426580af8b6e33138461ddbc65aa459a25ea539374d32069fa",
-            "--hash=sha256:12c37784b77bf043bf65cc96c7195a5db474b8e54173208af076bdbb61df7b3e",
-            "--hash=sha256:1316972a72c67936a07dbb48e2464356d91dd9674335aaec087b60094d87750b",
-            "--hash=sha256:1724dd7b84d419c80ba839da81ad78b02ac30df626e5aefcb18e94632a965f13",
-            "--hash=sha256:17ba1bdc52d0c783481850996aa26cea5237720769197335abea2ae6b4c23bc0",
-            "--hash=sha256:17d0b5c42495ba142a1cee52b76414f9210591c84aae94dffda70240753bfb3c",
-            "--hash=sha256:1a91075a5383a7cbfe46aed1845ef7c3f027e8e20e7d9a8a75e36ebc9b0dd15e",
-            "--hash=sha256:1fd4c95536975895f32571073446e614d5e2810b666b64955586dcddfd438fd3",
-            "--hash=sha256:2356f76cb99b3de5b4e5b8210367fbbb81c7309fe39b622f5d199dd88eb7f765",
-            "--hash=sha256:2b79bf04c722035b1c474980dc1a64369feab7b703d6fe67da2d8664ed0bc980",
-            "--hash=sha256:2ca35b83497276c2ca0b072d2c00da2edde4c2a6c8c650eafcd1a006c17ab231",
-            "--hash=sha256:2fc55d0da29318a5da33c2827aef8946bba046ac609a4784a90faff73c511174",
-            "--hash=sha256:309dd467a94ee38a7aa5752bda64e660aeab5723b26200d0b65a375dad9add09",
-            "--hash=sha256:35a542cc7a962331d0279735c30995b024e852cf40481e384fd63caaa391cbb9",
-            "--hash=sha256:39c5b45b056d630545e40674d1f5e1b51864b3546f25ab6a4a331943de96262e",
-            "--hash=sha256:3c7d3bee7be7a2665286103f4d1f15405c8074e6e1f89dac5774f9357c9a3809",
-            "--hash=sha256:3e02ab8c0ac766a5a6e81cd3b6cc39200c69051826243182175555872522bd5a",
-            "--hash=sha256:43dc0550ae15e33e6bb45a82a5e1b5495be2587fbaa996244b509921810ee49f",
-            "--hash=sha256:49e982b7860d325094978292a49e0418833fc7fc42c0dc7cd0b7524d7d06ee74",
-            "--hash=sha256:52878edc13dc151c58a9966621d67163a80654bc6cff4b2e1c79fa62d0352b26",
-            "--hash=sha256:59dc94afc4542c7d9b9447fb2ae1168b5a29064eca4061dbbf3b3c26df268334",
-            "--hash=sha256:5aad54ff45da9784573099696fd84841c7e559ce312f02afa6aa7e89b58e2c2f",
-            "--hash=sha256:5d3ebd784804f146b7ea55359beb138e23cc18e5a5cc2cf26ad438723c00ce3a",
-            "--hash=sha256:5d6691d4a711504a0bc10de789842ad6ac627bed22937b10f37a1211a8ab7bb3",
-            "--hash=sha256:5e09ffd31001dce71c2c2a4fc201bdba9a2f9f62b23700cf24af42266e784741",
-            "--hash=sha256:623242959cb0c53f76baeb929be79f5f6a9a1673ef51628072b91bf299af2212",
-            "--hash=sha256:65f50e356c425c061e1e17fe687ff30e294fed9bf3441dc1f13ef73859c2a817",
-            "--hash=sha256:680f707e1d26acbc60926659799b15659f077df5897a6791c7c598a5d4a211c4",
-            "--hash=sha256:6e5c86389d9964050ce50babe247d172a5e3911d59a64023b90db2b4fa00ae7c",
-            "--hash=sha256:73c6f734aecb1a030d9a265c13a425897e1ea821b73249bb14471445467ca71c",
-            "--hash=sha256:75e5c049eb583835f7a0e0e311d9dde9bfbaac723a6dd89d052540f9b2809977",
-            "--hash=sha256:79a53d86c2aff7b32cc77267e3a308365d1fcb881e74bc9cbe26f63ee90e37f0",
-            "--hash=sha256:79bdd84570267f3f43d609c892ae2d30b91ee4b8614c2cbfd311a2965f1c9bdb",
-            "--hash=sha256:7a0efbbc06d3e2077476a04f55859819d23206600b4c33f791359a8e6fa3c362",
-            "--hash=sha256:7fec8a9455c029c8cf4ff143a53b6e7c463268d42be6c17efa847ebd2f809965",
-            "--hash=sha256:804e88f824b76240a1b670330637ccfd2d18b9efa3bb4f02eb20b2f64880b324",
-            "--hash=sha256:806e2e73186eb5e3546f39fb5d0405040e0088db0fc8b2f667fd1863de2b3c99",
-            "--hash=sha256:81d234718aabe632d179fac52c7f69f0f99fbaac4d4bcd670e62462bbcbfcad7",
-            "--hash=sha256:827e6e3a3a560f6ec1f5ee92d4319c21a0549384f896ec692f3201eda31ebd11",
-            "--hash=sha256:829c8d46465dbae49dba91516f11200a2b5ea91eae8afaccbc035f0b651eb9c4",
-            "--hash=sha256:887f2a667e3cbfb19e204032d42ad7dedaa43972e4861dc7a3d51ae951d9b578",
-            "--hash=sha256:895870602d65d7338edb3b6a717d856632ad9f14f7ff566214e4fb11f0816649",
-            "--hash=sha256:8c8349ebfc3cd98bc9105e0112dd8c8ac1f3c7cb5601f9d02248cae83a63f748",
-            "--hash=sha256:8d851e526891216f89fcb7a1820dad9bd503ba3468fb9635ee28e93c781aa98e",
-            "--hash=sha256:8e08d4edb13cafe7b3260f31d4de033f73d3205774540cf583bffaa4bec97db9",
-            "--hash=sha256:9054829da4be461e3ad3192e4b6bbf1fc18af64c9975ce613aec191924e004dc",
-            "--hash=sha256:93c8b4f4d54fd401a817abbfc9bf482aa72fd447f8adf19ce81d035b3f5c762c",
-            "--hash=sha256:93cb5bff1fcd89b75f869e4f69566a91ab2c9f13e8edf0241fd5777b2fa6d48e",
-            "--hash=sha256:98223acaa25b1449d993a3f4ffc8b5a03535e4041b37bf6a25459a0c74ee4cfc",
-            "--hash=sha256:9b15940ae9debc8b40b15dc57e1ce4433f7fb9d3f8761c7fab1ddd94cb999d99",
-            "--hash=sha256:9c100b0598f3763274f2033bcc0454de7486409f85bc6da58b49e5971747eb36",
-            "--hash=sha256:9d72c725cefbcc8ebab85c8352e5062ae87b6e323858e934e16b54ced580435a",
-            "--hash=sha256:9e070c3491397fba0445b8977900271eca9656570cca7c900d9b9352186703a0",
-            "--hash=sha256:a1cb62f686c50e9dab5983c68f6c8e9cbf14a6007935e683662898a7d892fa69",
-            "--hash=sha256:a55e8edd08e2eece131d90d82cd1521962d9152829b22c56e68539526d605825",
-            "--hash=sha256:a7cebcee61f21b1e46aa32db8d9d93826d0fbf1ad85defc2ccfb93b4adef1435",
-            "--hash=sha256:a93e0f8b376c0735b2f4daf58018b4823614d2b896cb72b6641c4d3dbdca1d75",
-            "--hash=sha256:ac3d8beac68e4863c703b844fcc82693f83f933b37d2a54e9d513b2aab9c76aa",
-            "--hash=sha256:af01695c2b7bbd8d67b869d8e3de2b123a7bfbee0185bdd138c2775f75373b83",
-            "--hash=sha256:b42d13603da4416c43c430dbc6313c8d7ff745c40942f146ed4f6dd02c7d2547",
-            "--hash=sha256:b4a7f8023b8ce8a36370154733c747f8d65c8697cb977d8b6efeb89291fff23e",
-            "--hash=sha256:b6a18c813196e18146b8d041e20875bdb0cb09b94ac1d1e1146e0fa87b2deb0d",
-            "--hash=sha256:b7e221abb6c5387819db9323dac3c875b459695057449634f1111955d753c621",
-            "--hash=sha256:b952ffd77133a5a2798ee3feb18e51b0a299d2f440961e5bb7737dbb02e57289",
-            "--hash=sha256:b95733c2360c4a8656ee93c7af78e84c0bd617da04a236d7a456c8faa34e7a2d",
-            "--hash=sha256:b96fdaa4611e05c7231937930567d3c16782be9dbcf03eb9f60d83e57dd2f129",
-            "--hash=sha256:be7e316c2accd5a31dbcc230de19e2a846a325f8967fdea72704d00e38e6af06",
-            "--hash=sha256:bed9b04900204721a24bcefc652ca267b01c1e8ad8bc8c0cff81558a45a3aadc",
-            "--hash=sha256:c16f6d4eea98080f6659a8a7fc559d4a0a337ee66960659265cad2c8a40f7c0f",
-            "--hash=sha256:c2c476aa3fc2b9899c3f7b20963fac4f952e7edb74a31fc92f7745389a2e3618",
-            "--hash=sha256:c6961f05e58d919153ba311b397b7b904b907132b7b8344dde47865d4bb5ec89",
-            "--hash=sha256:c8bbd2472abf8c33480ad2314b1f8fac45d592aba6cc093e8839a7b2045660e6",
-            "--hash=sha256:c92b5a82d28491e3f14f037e1aae99a27a5e6e0bb161e65f52c0445a3fa7c940",
-            "--hash=sha256:d61214525eaf88e0d0edf3d1ad5b5889863c6f88e588c6cdc6aa4ee5d1f10a4a",
-            "--hash=sha256:d6ebfe9283209220ed9de80a3e9442aab8fc2be5a9bbf8491b99e02ca9349a89",
-            "--hash=sha256:d731a4f22ed6ffa4cb551b4d2b0c24ff940c27a88edaf8e3490a5ee3a05aef71",
-            "--hash=sha256:d7c532cc9f0a9e6017f8d3c37f478a3e3a5dffa955ebba556274e5e916c058f7",
-            "--hash=sha256:d87c285ff04e26083c4b03546e7b74df7ba4f1f32f1dcb92e9ac13c2dbb4c379",
-            "--hash=sha256:db2eea83c43f84e4e41dbbb4c1de371a53166e55f900a6b130c3ef51c6345c1a",
-            "--hash=sha256:e0eb6d155d02c7525b7ec09856cda5e611fc6eb9ab40d140e1f35f27ac7d5eae",
-            "--hash=sha256:e25fde03c480061b8234d8ee4863eb5f40a9be4fb258ce105b364de38fc6bcf9",
-            "--hash=sha256:e2ea096db28d5eb64d381af0e93464621ace38a7003a364b6b5ffb7dd713aabe",
-            "--hash=sha256:e50bcbd5b65dac21b82319fcf18486e6ac439947e9305034b00704eb7405f553",
-            "--hash=sha256:e52e50ea0a72ea48d1291cf8b8aaedcc99072d9dc5baba6b820486dcf4c67da8",
-            "--hash=sha256:e64a3a1fd9a308ab9b815a2ad7a65b679730629dbf85f8fc3f7f970d634ee5df",
-            "--hash=sha256:e761f2d2f8dbc80384af3d547b522a80e67db3e319c7b02e7fd97aded0a8a678",
-            "--hash=sha256:e7ca0562606d7bad2736b2c18f61295d61f50cd3f4bfc51753df13614dbcce1b",
-            "--hash=sha256:ea56817176834edf143df1109ae8fdaa087be82fdad3492648de0baa8ae82bf2",
-            "--hash=sha256:ec5028d26011a53c76bd91bb6198b30b438c6e0f7adb45f2ad84fe2655b6a104",
-            "--hash=sha256:ee44215e7d13e112a8fc74e12ed1a1f41cab2bc07b11cc703f2398cd114b261c",
-            "--hash=sha256:f2c7b7fead096dbf1dcc455b7f59facb05de3f5bfb04f60a69f98cdfe6049e5f",
-            "--hash=sha256:f460e1eb8e75a17c3918c8e35ba57625721eef2439ef0bcf05304ac278a65e1d",
-            "--hash=sha256:f4b8f8644602803add6848c81b7d214cfd397b1ebab2130dc8530570d888155c",
-            "--hash=sha256:f73318741b141223a4674ba96992aa2291b1b3f7a5e85cb3c2c964f86171eb45",
-            "--hash=sha256:f8255c380a79f6752d0b920e69a5d656d863675d9c433eeb5548518ee2c8d9da",
-            "--hash=sha256:fe089d9f5a4a3dea0108a8ae34bced114d0c4cca417bada1c5e8f42d98af9050",
-            "--hash=sha256:fe6eafac3bc3c957ab6597a0c0654a0a308868458d00d218743e5b5fae51951c",
+            "wrapt==2.2.1",
+            "--hash=sha256:036dfb40128819a751c6f451c6b9c10172c49e4c401aebcdb8ecf2aec1683598",
+            "--hash=sha256:03df9ebed4c73ab93fa8c07e3d41d818dfca1852b15731a3de59457b27814624",
+            "--hash=sha256:05d5cb74d1b232ec8cfa130a8f900708699ff2491d97b8f85a4cdc5996294b85",
+            "--hash=sha256:07be671fa8875971222b0ba9059ed8b4dc738631122feba17c93aa36b4213e9a",
+            "--hash=sha256:09ac16c081bebfd15d8e4dfa5bdc805990bbd52249ecff22530da7a129d6120b",
+            "--hash=sha256:0d9ff006f420b2ec8296aa56ade43ea7da3e997e85769f0aafc5e0661aacb710",
+            "--hash=sha256:0f68f478004475d97906686e702ddbddeaf717c0b68ad2794384308f2dc713ae",
+            "--hash=sha256:17de18fc12cea55b8a9587314cb830573e37fb33b247a7515696350863714188",
+            "--hash=sha256:1ae574d65c9fa8e86f64f6a7c2668f9fcd507b183e0e577619f504b883cb0a6c",
+            "--hash=sha256:1c9934ea5d92957e3cd0adbc0845539dccfd62710ebe16195a8c66c53954db36",
+            "--hash=sha256:1d676ee388bc42a04d56dd7deb5605244dac2e35cc2fadbb43c9fa25bbd93508",
+            "--hash=sha256:1ffa9cfd4bdb581539951b14ae661ff20ed0c3599b3e911a131ee0ec5ac11337",
+            "--hash=sha256:2076d2335085eb09b9547e7688656fa8f5cf0183eab589d33499cd353489d797",
+            "--hash=sha256:211f595f8e7faae5c5930fcc64708f2ba36849e0ba0fd653a843de9fa8d7db77",
+            "--hash=sha256:24c52546acf2ab82412f2ab6fc5948a7fe958d3b4f070202e8dcdd865489eaf9",
+            "--hash=sha256:2d83966dc7f4f45e8b97b5933685ac2e6e67fc0e19246ea314bceb9a8970c956",
+            "--hash=sha256:2de9e20769fe9c1f6dcdc893c6a89287c5ccf8537c90b5de78aed8017697aad5",
+            "--hash=sha256:2e08688ab16525897da6589d56d0aebaf417bbe91c2d8e3b96203b1efa596e85",
+            "--hash=sha256:2f8c90c8afde51969487be4e1343ae049b268854877d415c2510baf833775052",
+            "--hash=sha256:368eac1e20fd0bb03dd3cc42bf9887154c3861b60989389ccb5fac032617d215",
+            "--hash=sha256:3aafea2975caef8ca49400640dde02cc7426e798f24870ed01f490bc3cffd32f",
+            "--hash=sha256:3e2f02472a1cbbf3884b365714a810b5947134a95ad6952b554cb8cce9d492b0",
+            "--hash=sha256:3ffad790d9d11d8ecf9f17c4bb671a5b4089e4d8b575c46c5129597f41f836b0",
+            "--hash=sha256:401229e9d63ca09f9b8891ecf83798d26c11bbb445d11ed9f1836b6d4585b38a",
+            "--hash=sha256:436addbc4bb4fc0a88c702577f51195d7d73683a7f3e0e5b253d8404d7847243",
+            "--hash=sha256:44255c84bc57554fed822e83e70036b51afa9edb56fc7ca56c54410ece7898c9",
+            "--hash=sha256:50972a1d974ea07725a7f6b1cec5f8759008afd030a0024843ebe7d52de47f2b",
+            "--hash=sha256:5590d63f5243251641cf543009b4c9314a79d0598fdb8a8e4cfc918494536c53",
+            "--hash=sha256:585916e210db57b23543342c2f298e42331b617fd0c934caf5c64df44de8640e",
+            "--hash=sha256:5f1845c2a8cc1180ccccfa45785dd06f562730d19ef75be180334254012b6283",
+            "--hash=sha256:5fa9bf3b9e66336589d03f42abce2da1055ad5c69b0c2b764852a8471c9b9114",
+            "--hash=sha256:61a0013344674d2b648bc6e6fe9828dd4fc1d3b4eb7523809792f8cb952e2f16",
+            "--hash=sha256:61acce4257a9883669703c525447c5b4c392edf0f987ae77ec32668440158f0e",
+            "--hash=sha256:628f5220c7a904d5fc78f7075c8d7871433eb6d035c94728a22fdf85f193d2a8",
+            "--hash=sha256:64b7deeda4b70408e382328d8bbe52a256fe9bc63ae3db86d804608367e5422c",
+            "--hash=sha256:6744f504375775d7609c82c8d3d94af1c9a6f05586984536905908ba905277b9",
+            "--hash=sha256:67a97e5b6c457f0cd3cfc19ebb2d84463e60c3ece754cc831e4281a3ca29bb18",
+            "--hash=sha256:69f2e9244542cb34dd59c7f073445b9e54ad9f3fce8d93606c368a1b499fc413",
+            "--hash=sha256:6ce32763ac31ce94fe9aada947e479b1975012bff166da409b4b9e4e376cf7e5",
+            "--hash=sha256:6f56a647e4eaf5f0ca40330fb070f566bdf9f7b0db89a1af20d71c28dcd7a0ab",
+            "--hash=sha256:727ab4244622cd6ad2390f322642090c877d2e83a608d2653a7643ae5368d926",
+            "--hash=sha256:74d6a0c31472fe5d814917266b9f46495d7c61ed890af08b468acea92fb89a8d",
+            "--hash=sha256:78b0aa6bfb7be8deed0ab23e7aa028cc5210c29bc2d32a04d52b50e517a7307e",
+            "--hash=sha256:7975bc88ab4b0f72ef2a2d5ae9d77d87efb5ef95e8f8046242fa9afdaaf2030b",
+            "--hash=sha256:7a4fdb9326aab4a5a477a1640e5ad786a8495901009d7e7b038371edd23a9d2b",
+            "--hash=sha256:844c858fc3bb7eacc0ba8efa904935d16aac6a4470948ad1e7e55c9f5a2a665f",
+            "--hash=sha256:87bacdaf225117a342a20d9c03438d701c02112f6e3f351ce9b7f32354f14797",
+            "--hash=sha256:8a983a603a18c8708f024f7f6991b2e66159219abbf894634c5056243c55f3cd",
+            "--hash=sha256:8d1b4d0e0c2119587a31f5c029abd547e0c81d93b89d394566fe1588659eb579",
+            "--hash=sha256:9011395be8db1827d106c6449b4bb6dd17e331ff6ec521f227e4588f1c78e46f",
+            "--hash=sha256:93fc2bf40cd7f4a0256010dce073d44eeb4a351b9bca94d0477ce2b6e62532b3",
+            "--hash=sha256:95821352042722cd9f1108874579a47989d0a7e12a37d87d2fc4af20fd99ab8a",
+            "--hash=sha256:9907a4402ab6db12b7077a0ea5d7a4d028ecb22c8eee2b53527080d347cd1562",
+            "--hash=sha256:9a04c28c10ba7fd12842b109d2edb0678872a2fe65277ca4ff06a0d61edee245",
+            "--hash=sha256:9a5934eaea872e17936b5f45501eba5ab0bce9a74122e172b663d7c28c459c4a",
+            "--hash=sha256:9b984d1eb252145d6302c1dbd5e87fc6d404d45531447c84eadec04bf1fcb027",
+            "--hash=sha256:9c210a6994b21aa9b29e81c8d11560e8fdab54c117e9cff37870d0a27bde1343",
+            "--hash=sha256:9d8f204c8e3a8bf9ece17e0a83d137fd807440977f8a5e762d59306795011440",
+            "--hash=sha256:a8f7176b83664af44567e9cc06e0d3827823fcc1a5e52307ebb8ac3aa95860b9",
+            "--hash=sha256:a9dec1aca52dddde7df94818310fa2fe79739c8f385b2014c4cb1035f5508199",
+            "--hash=sha256:ab5be648d5a0b86b7438864f8df3c705a65cef35a2fd3e5561e3e203167e0f27",
+            "--hash=sha256:abd621552ede77c4c69be7fac44ba911225b0c812b6ba604e5964cf98085b474",
+            "--hash=sha256:ac2745950b2bff80219c15ebf2fa9d8427eba7e249739f97e55c9d169e47e9e1",
+            "--hash=sha256:aed9658797d0b45d6c49adcfc6b41f66e6f2d0c6de3ec79e16cf4b1855df240f",
+            "--hash=sha256:b6c0febfe38f22df2eb565c0ce8a092bb80411e56861ca382c443da83105423f",
+            "--hash=sha256:b9cf53ba90717db2e292401de290776c498d4bbfb0d4a559ca2895db8b9dcb5c",
+            "--hash=sha256:ba519b2d765df9871a25879e6f7fa78948ea59a2a31f9c1a257e34b651994afc",
+            "--hash=sha256:c318a64b53d97b841d7b5e637517e50a27be64bc695128422953d4b21710954e",
+            "--hash=sha256:c3723ff8eb8721f4daac98bc0256f15158e05316d5e52648ce9cebee434fbdd5",
+            "--hash=sha256:c754dafdf5aaf0b401b644a90a30046929a0dd1a536e0ff0ec959a59155d9c7f",
+            "--hash=sha256:c803a3d331796255af51ba2c79ed0ac8275865b516c09e61f248d1e7aff31ce9",
+            "--hash=sha256:c8cc5094b08abeae52da9c73c8a32003623be691a5193df2f4e3eac3d557c394",
+            "--hash=sha256:cf3638274ab9d9b724c9baa0b4c04e132cd6faefb78b4dd3dd1a02a4bdaad41e",
+            "--hash=sha256:d047f6498c973874ba08ac3f97c69a2c4b2211c8de6f4c205f75cb1c9522596e",
+            "--hash=sha256:d2beb1c7cab10603aecdc42f8edd6ff013f9a32e4543474e38e6b77ce9975aeb",
+            "--hash=sha256:d7f513d3185e6fec82d0c3518f2e6365d8b4e49f5f45f29640d5162d56a23b54",
+            "--hash=sha256:dd57607acc85678925940bd5df0385ff8332083a32fa8d7a43f8767f4997263c",
+            "--hash=sha256:e0cb7e4dd71f4c32e5e84843cd3c4cd65dda034314004bbe1d7f99af2426ab80",
+            "--hash=sha256:e3677c7146ce694874941ba82b57092cc4875445aadf29d72807351023105143",
+            "--hash=sha256:e395f7bc31851ef9b612050368cb446e9bc14cd7454b025018980349caf25ae5",
+            "--hash=sha256:e422b2d647a65d6b080cad5accd09055d3809bdff00c76fba8dca00ca935572a",
+            "--hash=sha256:ed55af48b3eb28f43228ca2306788892bcb629eb2b5c4876e2a3659872c2f17a",
+            "--hash=sha256:ed928d0fda15fc0adc8d13305c8b3c0f2fba5b0669950c9e6d019d9162a3b3e8",
+            "--hash=sha256:f4e1a92032a39cd5e3c647ca57dbf33b6a1938fd975623175793f9dbb63236de",
+            "--hash=sha256:f53ac9f3ef573326d009ed809beff4efcac6451931c2b8132586da4b9e53ff31",
+            "--hash=sha256:f5b9daf6b629fce418e0cc3dd0436eac045188fa35deadb7a7f3941d5b8203f9",
+            "--hash=sha256:f6518b94edb9150452e9aba08027d4cc293433753ec1fbefb4629a21cbc74181",
+            "--hash=sha256:f70db64e8266d7c45d3b735f2e08eeb434b5e03da9a479ae42b2e2e486a21a00",
+            "--hash=sha256:fafb4e739e43544d12cb4abd1605fd4683b6ca6a9ad682b7fd8f4d21973eafa8",
+            "--hash=sha256:fd0135d34387f5fd087d9be368ea77ea89cf2451dc1cd1c622d35021bcb3ab50",
         ],
     )
 
@@ -3418,9 +3540,9 @@ def repo_pypa_xmltodict():
         name = "pypa_xmltodict",
         target = "xmltodict",
         requirement = [
-            "xmltodict==1.0.2",
-            "--hash=sha256:54306780b7c2175a3967cad1db92f218207e5bc1aba697d887807c0fb68b7649",
-            "--hash=sha256:62d0fddb0dcbc9f642745d8bbf4d81fd17d6dfaec5a15b5c1876300aad92af0d",
+            "xmltodict==1.0.4",
+            "--hash=sha256:6d94c9f834dd9e44514162799d344d815a3a4faec913717a9ecbfa5be1bb8e61",
+            "--hash=sha256:a4a00d300b0e1c59fc2bfccb53d7b2e88c32f200df138a0dd2229f842497026a",
         ],
     )
 
