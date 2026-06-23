@@ -56,6 +56,7 @@
 #include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/file_descriptor.h"
+#include "tensorstore/internal/os/file_test_hooks.h"  // IWYU pragma: keep
 #include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/open_flags.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
