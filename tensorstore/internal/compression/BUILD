@@ -211,6 +211,7 @@ tensorstore_cc_library(
     hdrs = ["zstd_compressor.h"],
     deps = [
         ":json_specified_compressor",
+        "@abseil-cpp//absl/log:absl_check",
         "@riegeli//riegeli/bytes:reader",
         "@riegeli//riegeli/bytes:writer",
         "@riegeli//riegeli/zstd:zstd_reader",

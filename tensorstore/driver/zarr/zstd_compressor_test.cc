@@ -12,11 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <optional>
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include <nlohmann/json_fwd.hpp>
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
+#include "riegeli/bytes/write.h"
+#include "riegeli/zstd/zstd_reader.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -83,6 +93,45 @@ TEST(ZstdCompressorTest, ToJson) {
       Compressor::FromJson({{"id", "zstd"}, {"level", 5}}).value();
   EXPECT_EQ(nlohmann::json({{"id", "zstd"}, {"level", 5}}),
             compressor.ToJson());
+}
+
+TEST(ZstdCompressorTest, PledgedSize) {
+  auto compressor =
+      Compressor::FromJson({{"id", "zstd"}, {"level", 6}}).value();
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+
+  // Test with pledged_size = -1
+  {
+    absl::Cord encoded;
+    riegeli::CordWriter<absl::Cord*> base_writer(&encoded);
+    auto writer = compressor->GetWriter(base_writer, 1, -1);
+    TENSORSTORE_ASSERT_OK(riegeli::Write(input, std::move(writer)));
+    EXPECT_TRUE(base_writer.Close());
+
+    riegeli::CordReader<> reader(&encoded);
+    EXPECT_EQ(riegeli::ZstdUncompressedSize(reader), std::nullopt);
+
+    absl::Cord decoded;
+    TENSORSTORE_ASSERT_OK(compressor->Decode(encoded, &decoded, 1));
+    EXPECT_EQ(input, decoded);
+  }
+
+  // Test with pledged_size = input.size()
+  {
+    absl::Cord encoded;
+    riegeli::CordWriter<absl::Cord*> base_writer(&encoded);
+    auto writer = compressor->GetWriter(base_writer, 1,
+                                        static_cast<int64_t>(input.size()));
+    TENSORSTORE_ASSERT_OK(riegeli::Write(input, std::move(writer)));
+    EXPECT_TRUE(base_writer.Close());
+
+    riegeli::CordReader<> reader(&encoded);
+    EXPECT_EQ(riegeli::ZstdUncompressedSize(reader), input.size());
+
+    absl::Cord decoded;
+    TENSORSTORE_ASSERT_OK(compressor->Decode(encoded, &decoded, 1));
+    EXPECT_EQ(input, decoded);
+  }
 }
 
 }  // namespace

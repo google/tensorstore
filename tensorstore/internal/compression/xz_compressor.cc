@@ -15,6 +15,7 @@
 #include "tensorstore/internal/compression/xz_compressor.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <memory>
 #include <utility>
@@ -30,7 +31,8 @@ namespace tensorstore {
 namespace internal {
 
 std::unique_ptr<riegeli::Writer> XzCompressor::GetWriter(
-    riegeli::Writer& base_writer, size_t element_bytes) const {
+    riegeli::Writer& base_writer, size_t element_bytes,
+    int64_t /*pledged_size*/) const {
   using Writer = riegeli::XzWriter<riegeli::Writer*>;
   Writer::Options options;
   options.set_container(Writer::Container::kXz);

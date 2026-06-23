@@ -18,6 +18,7 @@
 /// \file Define an XZ-format JsonSpecifiedCompressor.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <memory>
 
@@ -46,7 +47,8 @@ struct XzOptions {
 class XzCompressor : public JsonSpecifiedCompressor, public XzOptions {
  public:
   std::unique_ptr<riegeli::Writer> GetWriter(
-      riegeli::Writer& base_writer, size_t element_bytes) const override;
+      riegeli::Writer& base_writer, size_t element_bytes,
+      int64_t pledged_size = -1) const override;
 
   std::unique_ptr<riegeli::Reader> GetReader(
       riegeli::Reader& base_reader, size_t element_bytes) const override;

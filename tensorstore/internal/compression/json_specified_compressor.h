@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_COMPRESSION_JSON_SPECIFIED_COMPRESSOR_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <memory>
 
@@ -41,9 +42,15 @@ class JsonSpecifiedCompressor
   virtual ~JsonSpecifiedCompressor();
 
   /// Returns a writer that encodes the compression format.
+  ///
+  /// \param base_writer Writer to which encoded output is written.
+  /// \param element_bytes Element size hint (must be > 0).
+  /// \param pledged_size Exact uncompressed size in bytes, or -1
+  ///     if unknown. May improve compression for algorithms that
+  ///     support it (e.g. zstd).
   virtual std::unique_ptr<riegeli::Writer> GetWriter(
       riegeli::Writer& base_writer ABSL_ATTRIBUTE_LIFETIME_BOUND,
-      size_t element_bytes) const = 0;
+      size_t element_bytes, int64_t pledged_size = -1) const = 0;
 
   /// Returns a reader that decodes the compression format.
   ///

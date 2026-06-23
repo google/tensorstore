@@ -15,6 +15,7 @@
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <utility>
 
@@ -37,7 +38,8 @@ absl::Status JsonSpecifiedCompressor::Encode(const absl::Cord& input,
                                              size_t element_bytes) const {
   riegeli::CordWriter<> base_writer(
       output, riegeli::CordWriterBase::Options().set_append(true));
-  auto writer = GetWriter(base_writer, element_bytes);
+  auto writer =
+      GetWriter(base_writer, element_bytes, static_cast<int64_t>(input.size()));
 
   TENSORSTORE_RETURN_IF_ERROR(riegeli::Write(input, std::move(writer)))
       .SetCode(absl::StatusCode::kInvalidArgument);

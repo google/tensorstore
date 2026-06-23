@@ -51,6 +51,7 @@
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/data_type.h"
@@ -323,8 +324,15 @@ Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
   }
   std::unique_ptr<riegeli::Writer> compressed_writer;
   if (metadata.compressor) {
-    compressed_writer =
-        metadata.compressor->GetWriter(base_writer, metadata.dtype.size());
+    int64_t pledged_size = -1;
+    int64_t temp_size;
+    if (!internal::MulOverflow(array.num_elements(),
+                               static_cast<Index>(metadata.dtype.size()),
+                               &temp_size)) {
+      pledged_size = temp_size;
+    }
+    compressed_writer = metadata.compressor->GetWriter(
+        base_writer, metadata.dtype.size(), pledged_size);
     writer = compressed_writer.get();
   }
   // Always write chunks as full size, to avoid race conditions or data loss

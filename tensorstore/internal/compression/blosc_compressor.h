@@ -18,6 +18,7 @@
 /// \file Define a blosc JsonSpecifiedCompressor.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <memory>
 #include <string>
@@ -37,7 +38,8 @@ namespace internal {
 class BloscCompressor : public JsonSpecifiedCompressor {
  public:
   std::unique_ptr<riegeli::Writer> GetWriter(
-      riegeli::Writer& base_writer, size_t element_bytes) const override;
+      riegeli::Writer& base_writer, size_t element_bytes,
+      int64_t pledged_size = -1) const override;
 
   std::unique_ptr<riegeli::Reader> GetReader(
       riegeli::Reader& base_reader, size_t element_bytes) const override;

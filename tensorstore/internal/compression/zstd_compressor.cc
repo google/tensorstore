@@ -15,10 +15,11 @@
 #include "tensorstore/internal/compression/zstd_compressor.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <memory>
-#include <utility>
 
+#include "absl/log/absl_check.h"
 #include "riegeli/bytes/writer.h"
 #include "riegeli/zstd/zstd_reader.h"
 #include "riegeli/zstd/zstd_writer.h"
@@ -27,10 +28,15 @@ namespace tensorstore {
 namespace internal {
 
 std::unique_ptr<riegeli::Writer> ZstdCompressor::GetWriter(
-    riegeli::Writer& base_writer, size_t element_bytes) const {
+    riegeli::Writer& base_writer, size_t element_bytes,
+    int64_t pledged_size) const {
   using Writer = riegeli::ZstdWriter<riegeli::Writer*>;
   Writer::Options options;
   options.set_compression_level(level);
+  ABSL_DCHECK_GE(pledged_size, -1);
+  if (pledged_size >= 0) {
+    options.set_pledged_size(static_cast<uint64_t>(pledged_size));
+  }
   return std::make_unique<Writer>(&base_writer, options);
 }
 

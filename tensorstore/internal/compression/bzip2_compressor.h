@@ -18,6 +18,7 @@
 /// \file Defines a bzip2 JsonSpecifiedCompressor.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <memory>
 
@@ -39,7 +40,8 @@ class Bzip2Compressor : public internal::JsonSpecifiedCompressor,
                         public Bzip2Options {
  public:
   std::unique_ptr<riegeli::Writer> GetWriter(
-      riegeli::Writer& base_writer, size_t element_bytes) const override;
+      riegeli::Writer& base_writer, size_t element_bytes,
+      int64_t pledged_size = -1) const override;
 
   virtual std::unique_ptr<riegeli::Reader> GetReader(
       riegeli::Reader& base_reader, size_t element_bytes) const override;

@@ -237,6 +237,7 @@ tensorstore_cc_library(
         "//tensorstore:strided_layout",
         "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:json_metadata_matching",
         "//tensorstore/internal/json:same",
         "//tensorstore/internal/json_binding",

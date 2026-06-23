@@ -15,6 +15,7 @@
 #include "tensorstore/internal/compression/blosc_compressor.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <memory>
 #include <utility>
@@ -27,7 +28,8 @@ namespace tensorstore {
 namespace internal {
 
 std::unique_ptr<riegeli::Writer> BloscCompressor::GetWriter(
-    riegeli::Writer& base_writer, size_t element_bytes) const {
+    riegeli::Writer& base_writer, size_t element_bytes,
+    int64_t /*pledged_size*/) const {
   return std::make_unique<blosc::BloscWriter>(
       blosc::Options{codec.c_str(), level, shuffle, blocksize, element_bytes},
       base_writer);

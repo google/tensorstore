@@ -507,6 +507,10 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:write",
+        "@riegeli//riegeli/zstd:zstd_reader",
     ],
 )
 
