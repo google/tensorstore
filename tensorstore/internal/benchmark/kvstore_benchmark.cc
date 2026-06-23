@@ -38,6 +38,23 @@ bazel run -c opt \
   --repeat_writes=10 \
   --repeat_reads=100
 
+# 1 GB, 4KB chunks, writes in transactions of 100
+
+bazel run -c opt \
+  //tensorstore/internal/benchmark:kvstore_benchmark -- \
+  --kvstore_spec='"file:///tmp/bm"' \
+  --chunk_size=4096 \
+  --repeat_writes=10 \
+  --write_transaction_size=100
+
+# Batch reads of 256
+
+bazel run -c opt \
+  //tensorstore/internal/benchmark:kvstore_benchmark -- \
+  --kvstore_spec='"file:///tmp/bm"' \
+  --repeat_reads=10 \
+  --read_batch_size=256
+
 # Quick size reference:
 
 16KB   --chunk_size=16384
@@ -76,8 +93,10 @@ bazel run -c opt \
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "absl/flags/parse.h"
+#include "tensorstore/internal/benchmark/benchmark_utils.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registration.h"
@@ -129,6 +148,16 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec>,
 ABSL_FLAG(bool, per_operation_metrics, false,
           "Whether to collect per-operation metrics.");
 
+ABSL_FLAG(int64_t, write_transaction_size, 0,
+          "Group writes into transactions of this size to coalesce writebacks. "
+          "Uses tensorstore::Transaction. 0 means no transaction (default). "
+          "-1 means all writes in a single transaction.");
+
+ABSL_FLAG(int64_t, read_batch_size, 0,
+          "Group reads into batches of this size to coalesce range reads. "
+          "Uses tensorstore::Batch. 0 means no batch (default). "
+          "-1 means all reads in a single batch.");
+
 TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
     write_throughput, Value<double>,
     MetricMetadata("/tensorstore/kvstore_benchmark/write_throughput",
@@ -164,6 +193,12 @@ namespace {
   json_metrics.emplace_back(::nlohmann::json{
       {"name", "/per_operation_metrics"},
       {"values", {absl::GetFlag(FLAGS_per_operation_metrics)}}});
+  json_metrics.emplace_back(::nlohmann::json{
+      {"name", "/write_transaction_size"},
+      {"values", {absl::GetFlag(FLAGS_write_transaction_size)}}});
+  json_metrics.emplace_back(
+      ::nlohmann::json{{"name", "/read_batch_size"},
+                       {"values", {absl::GetFlag(FLAGS_read_batch_size)}}});
 
   return json_metrics;
 }
@@ -269,6 +304,15 @@ Prepared DoWriteBenchmark(Context context, kvstore::Spec kvstore_spec,
 
   std::cout << "Starting write benchmark. chunk_size=" << data.size()
             << ", keys=" << result.keys.size() << std::endl;
+  int64_t tx_size = absl::GetFlag(FLAGS_write_transaction_size);
+  if (tx_size == 0) {
+    std::cout << "Write mode: no transaction" << std::endl;
+  } else if (tx_size == -1) {
+    std::cout << "Write mode: single transaction (" << result.keys.size()
+              << " keys)" << std::endl;
+  } else {
+    std::cout << "Write mode: transactions of " << tx_size << std::endl;
+  }
 
   // Repeat the benchmark `--repeat_writes` time using the same source arrays.
   for (int64_t i = 0, num_repeats = absl::GetFlag(FLAGS_repeat_writes);
@@ -294,27 +338,47 @@ Prepared DoWriteBenchmark(Context context, kvstore::Spec kvstore_spec,
           bytes_written.fetch_add(sz);
         };
 
-    // Promise/Future pair used to track completion of all reads.
+    // Promise/Future pair used to track completion of all operations.
     auto [promise, future] = PromiseFuturePair<void>::Make(absl::OkStatus());
+
+    internal_benchmark::TransactionBatcher<KvStore> batcher(kvstore, tx_size,
+                                                            result.keys.size());
     for (const auto& key : result.keys) {
       if (promise.ready()) break;
-      LinkValue(value_lambda, promise, kvstore::Write(kvstore, key, data, {}));
+      auto txn_store_result = batcher.Next(promise);
+      if (!txn_store_result.ok()) {
+        promise.SetResult(txn_store_result.status());
+        break;
+      }
+      LinkValue(value_lambda, promise,
+                kvstore::Write(*txn_store_result, key, data, {}));
     }
+    batcher.Flush(promise);
 
-    // Wait until all writes are complete.
+    // Wait until all writes are staged and committed.
+    auto commit_start = absl::Now();
     promise = {};
     TENSORSTORE_CHECK_OK(future.result());
+    auto commit_elapsed = absl::Now() - commit_start;
+    auto total_elapsed = absl::Now() - start_time;
 
-    auto elapsed_s =
-        absl::FDivDuration(absl::Now() - start_time, absl::Seconds(1));
+    double staging_elapsed_ms =
+        absl::FDivDuration(commit_start - start_time, absl::Milliseconds(1));
+    double commit_elapsed_ms =
+        absl::FDivDuration(commit_elapsed, absl::Milliseconds(1));
+    auto elapsed_s = absl::FDivDuration(total_elapsed, absl::Seconds(1));
     double write_mb = static_cast<double>(bytes_written.load()) / 1e6;
     double throughput = write_mb / elapsed_s;
     write_throughput.Set(throughput);
 
     std::cout << "Write summary: "
-              << absl::StrFormat("%d bytes in %.0f ms:  %.3f MB/second",
-                                 bytes_written.load(), elapsed_s * 1e3,
-                                 throughput)
+              << absl::StrFormat(
+                     "%d bytes, %d files, %d transactions "
+                     "in %.0f ms (staging: %.0f ms, commit: %.0f ms):  "
+                     "%.3f MB/second",
+                     bytes_written.load(), files_written.load(),
+                     batcher.num_transactions(), elapsed_s * 1e3,
+                     staging_elapsed_ms, commit_elapsed_ms, throughput)
               << std::endl;
 
     PerOperationMetricCollection(all_metrics, absl::StrFormat("write_%03d", i));
@@ -332,6 +396,16 @@ void DoReadBenchmark(Context context, kvstore::Spec kvstore_spec,
     return;
   }
   std::cout << "Starting read benchmark." << std::endl;
+  int64_t batch_size = absl::GetFlag(FLAGS_read_batch_size);
+  if (batch_size == 0) {
+    std::cout << "Read mode: no batch" << std::endl;
+  } else if (batch_size == -1) {
+    std::cout << "Read mode: single batch ("
+              << input.keys.size() * absl::GetFlag(FLAGS_read_blowup)
+              << " keys)" << std::endl;
+  } else {
+    std::cout << "Read mode: batches of " << batch_size << std::endl;
+  }
   const bool clear_metrics_before_run =
       absl::GetFlag(FLAGS_per_operation_metrics);
 
@@ -364,12 +438,28 @@ void DoReadBenchmark(Context context, kvstore::Spec kvstore_spec,
 
     // Promise/Future pair used to track completion of all reads.
     auto [promise, future] = PromiseFuturePair<void>::Make(absl::OkStatus());
+
+    internal_benchmark::ReadBatcher batcher(
+        batch_size, input.keys.size() *
+                        std::max(size_t{1}, absl::GetFlag(FLAGS_read_blowup)));
+
     for (size_t j = 0;
          j < std::max(size_t{1}, absl::GetFlag(FLAGS_read_blowup)); j++) {
+      if (promise.ready()) break;
       for (const auto& key : input.keys) {
         if (promise.ready()) break;
-        LinkValue(value_lambda, promise, kvstore::Read(kvstore, key));
+        auto next_res = batcher.NextBatch();
+        if (next_res.batch_to_release) {
+          next_res.batch_to_release.Release();
+        }
+        kvstore::ReadOptions options;
+        options.batch = next_res.batch_to_use;
+        LinkValue(value_lambda, promise, kvstore::Read(kvstore, key, options));
       }
+    }
+    Batch final_batch = batcher.Flush();
+    if (final_batch) {
+      final_batch.Release();
     }
 
     // Wait until all reads are complete.
@@ -382,8 +472,11 @@ void DoReadBenchmark(Context context, kvstore::Spec kvstore_spec,
 
     double throughput = read_mb / elapsed_s;
     std::cout << "Read Summary: "
-              << absl::StrFormat("%d bytes in %.0f ms:  %.3f MB/second",
-                                 bytes_read.load(), elapsed_s * 1e3, throughput)
+              << absl::StrFormat(
+                     "%d bytes, %d files, %d batches in %.0f ms:  "
+                     "%.3f MB/second",
+                     bytes_read.load(), files_read.load(),
+                     batcher.num_batches(), elapsed_s * 1e3, throughput)
               << std::endl;
 
     read_throughput.Set(throughput);
@@ -393,6 +486,13 @@ void DoReadBenchmark(Context context, kvstore::Spec kvstore_spec,
 }
 
 void DoKvstoreBenchmark() {
+  int64_t tx_size = absl::GetFlag(FLAGS_write_transaction_size);
+  ABSL_QCHECK(tx_size >= -1)
+      << "--write_transaction_size must be >= -1, got " << tx_size;
+  int64_t batch_size = absl::GetFlag(FLAGS_read_batch_size);
+  ABSL_QCHECK(batch_size >= -1)
+      << "--read_batch_size must be >= -1, got " << batch_size;
+
   auto kvstore_spec = absl::GetFlag(FLAGS_kvstore_spec).value;
   internal::EnsureDirectoryPath(kvstore_spec.path);
 

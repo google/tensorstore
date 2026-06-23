@@ -30,6 +30,17 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_library(
+    name = "benchmark_utils",
+    hdrs = ["benchmark_utils.h"],
+    deps = [
+        "//tensorstore:batch",
+        "//tensorstore:transaction",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+    ],
+)
+
 tensorstore_cc_binary(
     name = "ts_benchmark",
     testonly = True,
@@ -58,7 +69,9 @@ tensorstore_cc_binary(
     name = "kvstore_benchmark",
     srcs = ["kvstore_benchmark.cc"],
     deps = [
+        ":benchmark_utils",
         ":metric_utils",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore/internal:path",
         "//tensorstore/internal/metrics",
@@ -138,11 +151,13 @@ tensorstore_cc_binary(
     testonly = True,
     srcs = ["multi_read_benchmark.cc"],
     deps = [
+        ":benchmark_utils",
         ":metric_utils",
         ":multi_spec",
         "//tensorstore",
         "//tensorstore:all_drivers",
         "//tensorstore:array",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:open",
         "//tensorstore:open_mode",
@@ -175,6 +190,7 @@ tensorstore_cc_binary(
     testonly = True,
     srcs = ["multi_write_benchmark.cc"],
     deps = [
+        ":benchmark_utils",
         ":metric_utils",
         ":multi_spec",
         "//tensorstore",

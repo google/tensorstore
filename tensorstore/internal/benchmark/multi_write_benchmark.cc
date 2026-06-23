@@ -65,6 +65,7 @@ bazel run -c opt \
 #include "absl/flags/parse.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/internal/benchmark/benchmark_utils.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/benchmark/multi_spec.h"
 #include "tensorstore/internal/data_type_random_generator.h"
@@ -108,7 +109,12 @@ ABSL_FLAG(std::string, write_config, {},
           "is constructed by merging the base_spec with the path.");
 
 ABSL_FLAG(int64_t, repeat_writes, 1,
-          "Number of times to repeat read benchmark.");
+          "Number of times to repeat write benchmark.");
+
+ABSL_FLAG(int64_t, write_transaction_size, 0,
+          "Group writes into transactions of this size to coalesce writebacks. "
+          "Uses tensorstore::Transaction. 0 means no transaction (default). "
+          "-1 means all writes in a single transaction.");
 
 ABSL_FLAG(bool, clean_before_write, true, "Clean kvstore before writing.");
 
@@ -188,6 +194,8 @@ Stats DoSinglePass(tensorstore::Context context,
   auto [commit_promise, commit_future] =
       PromiseFuturePair<void>::Make(absl::OkStatus());
 
+  const int64_t transaction_size = absl::GetFlag(FLAGS_write_transaction_size);
+
   for (size_t i = 0; i < specs.size(); ++i) {
     auto cur_open_future = tensorstore::Open(
         specs[i], context, tensorstore::ReadWriteMode::read_write,
@@ -195,17 +203,27 @@ Stats DoSinglePass(tensorstore::Context context,
     // Open all tensorstores in parallel.  Once a given tensorstore is open,
     // write each of its partitions.
     Link(
-        [&, copy_promise = copy_promise, commit_promise = commit_promise](
-            Promise<void> open_promise, ReadyFuture<TensorStore<>> future) {
+        [&, copy_promise = copy_promise, commit_promise = commit_promise,
+         transaction_size](Promise<void> open_promise,
+                           ReadyFuture<TensorStore<>> future) {
           if (!future.status().ok()) {
             // If one tensorstore fails to open, keep going with the rest.
             ABSL_LOG(ERROR) << future.status();
             return;
           }
+
           auto& ts = future.value();
+          auto chunk_layout_result = ts.chunk_layout();
+          if (!chunk_layout_result.ok()) {
+            ABSL_LOG(ERROR) << "Failed to get chunk layout: "
+                            << chunk_layout_result.status();
+            return;
+          }
+          const auto& chunk_layout = chunk_layout_result.value();
+          auto write_chunk_shape = chunk_layout.write_chunk_shape();
           KeyType key(ts.dtype().name(),
-                      {ts.chunk_layout()->write_chunk_shape().begin(),
-                       ts.chunk_layout()->write_chunk_shape().end()});
+                      {write_chunk_shape.begin(), write_chunk_shape.end()});
+
           auto it = chunk_arrays.find(key);
           if (it == chunk_arrays.end()) {
             // No data to write.
@@ -218,6 +236,7 @@ Stats DoSinglePass(tensorstore::Context context,
           const auto& domain = future.value().domain();
 
           const auto rank = array.rank();
+
           std::vector<int64_t> grid_shape(rank);
           std::vector<int64_t> grid_pos(rank);
           for (size_t i = 0; i < rank; ++i) {
@@ -225,7 +244,20 @@ Stats DoSinglePass(tensorstore::Context context,
                 tensorstore::CeilOfRatio(domain.shape()[i], array.shape()[i]);
           }
           std::vector<int64_t> slice_start(rank), slice_shape(rank);
+          size_t total_chunks = 1;
+          for (size_t i = 0; i < rank; ++i) {
+            total_chunks *= grid_shape[i];
+          }
+          internal_benchmark::TransactionBatcher<TensorStore<>> batcher(
+              ts, transaction_size, total_chunks);
+
           do {
+            auto tx_ts_result = batcher.Next(commit_promise);
+            if (!tx_ts_result.ok()) {
+              commit_promise.SetResult(tx_ts_result.status());
+              return;
+            }
+
             for (size_t i = 0; i < rank; ++i) {
               slice_start[i] = grid_pos[i] * array.shape()[i];
               slice_shape[i] = array.shape()[i];
@@ -237,7 +269,7 @@ Stats DoSinglePass(tensorstore::Context context,
 
             auto write_futures = tensorstore::Write(
                 array,
-                future.value() |
+                *tx_ts_result |
                     tensorstore::AllDims().BoxSlice(target).TranslateTo(0));
 
             LinkError(copy_promise, std::move(write_futures.copy_future));
@@ -254,6 +286,8 @@ Stats DoSinglePass(tensorstore::Context context,
                 commit_promise, std::move(write_futures.commit_future));
           } while (tensorstore::internal::AdvanceIndices(rank, grid_pos.data(),
                                                          grid_shape.data()));
+
+          batcher.Flush(commit_promise);
         },
         open_promise, std::move(cur_open_future));
   }
@@ -306,9 +340,10 @@ absl::Status RunBenchmark(tensorstore::Context::Spec context_spec,
                                      tensorstore::ReadWriteMode::read_write,
                                      tensorstore::OpenMode::open_or_create)
                        .result());
+      TENSORSTORE_ASSIGN_OR_RETURN(auto chunk_layout, ts.chunk_layout());
+      auto write_chunk_shape = chunk_layout.write_chunk_shape();
       KeyType key(ts.dtype().name(),
-                  {ts.chunk_layout()->write_chunk_shape().begin(),
-                   ts.chunk_layout()->write_chunk_shape().end()});
+                  {write_chunk_shape.begin(), write_chunk_shape.end()});
       if (key.second.empty()) continue;
       if (chunk_arrays.find(key) != chunk_arrays.end()) continue;
       Box<> box(key.second);
@@ -360,6 +395,9 @@ absl::Status RunBenchmark(tensorstore::Context::Spec context_spec,
 
 void Run(int argc, char** argv) {
   ABSL_CHECK(absl::GetFlag(FLAGS_repeat_writes) > 0);
+  int64_t tx_size = absl::GetFlag(FLAGS_write_transaction_size);
+  ABSL_QCHECK(tx_size >= -1)
+      << "--write_transaction_size must be >= -1, got " << tx_size;
 
   std::vector<tensorstore::Spec> specs =
       ReadSpecsFromFile(absl::GetFlag(FLAGS_write_config));
