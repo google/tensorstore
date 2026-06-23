@@ -4,6 +4,11 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 
+exports_files(
+    ["testdata/data.zip"],
+    visibility = ["//tensorstore:internal_packages"],
+)
+
 filegroup(
     name = "testdata",
     srcs = [
@@ -221,22 +226,30 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/riegeli:find",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
+        "@riegeli//riegeli/bytes:cord_writer",
         "@riegeli//riegeli/bytes:limiting_reader",
         "@riegeli//riegeli/bytes:prefix_limiting_reader",
         "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
         "@riegeli//riegeli/bzip2:bzip2_reader",
         "@riegeli//riegeli/endian:endian_reading",
+        "@riegeli//riegeli/endian:endian_writing",
         "@riegeli//riegeli/xz:xz_reader",
+        "@riegeli//riegeli/xz:xz_writer",
         "@riegeli//riegeli/zlib:zlib_reader",
+        "@riegeli//riegeli/zlib:zlib_writer",
         "@riegeli//riegeli/zstd:zstd_reader",
+        "@riegeli//riegeli/zstd:zstd_writer",
     ],
 )
 
@@ -249,9 +262,11 @@ tensorstore_cc_test(
     data = [":testdata"],
     deps = [
         ":zip_details",
+        ":zip_easy",
         "//tensorstore/internal/riegeli:find",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/status",
@@ -259,9 +274,31 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
         "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
         "@riegeli//riegeli/bytes:fd_reader",
+        "@riegeli//riegeli/bytes:limiting_writer",
         "@riegeli//riegeli/bytes:read_all",
-        "@riegeli//riegeli/bytes:reader",
         "@riegeli//riegeli/bytes:string_reader",
+        "@riegeli//riegeli/bytes:string_writer",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "zip_easy",
+    srcs = ["zip_easy.cc"],
+    hdrs = ["zip_easy.h"],
+    deps = [
+        ":zip_details",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
+        "@riegeli//riegeli/digests:crc32_digester",
     ],
 )

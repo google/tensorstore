@@ -19,12 +19,12 @@
 #include <algorithm>
 #include <cassert>
 #include <ctime>
-#include <ios>
 #include <limits>
 #include <memory>
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
@@ -32,18 +32,25 @@
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_split.h"
 #include "absl/time/time.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/limiting_reader.h"
 #include "riegeli/bytes/prefix_limiting_reader.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bzip2/bzip2_reader.h"
 #include "riegeli/endian/endian_reading.h"
+#include "riegeli/endian/endian_writing.h"
 #include "riegeli/xz/xz_reader.h"
+#include "riegeli/xz/xz_writer.h"
 #include "riegeli/zlib/zlib_reader.h"
+#include "riegeli/zlib/zlib_writer.h"
 #include "riegeli/zstd/zstd_reader.h"
+#include "riegeli/zstd/zstd_writer.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/riegeli/find.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
 
@@ -52,62 +59,197 @@ namespace internal_zip {
 namespace {
 
 using ::riegeli::ReadLittleEndian;
+using ::riegeli::WriteLittleEndian;
+
+// General purpose bit flag (spec section 4.4.4)
+enum class ZipGeneralFlags : uint16_t {
+  kEncrypted = 0x0001,
+  kHasDataDescriptor = 0x0008,
+  kStrongEncryption = 0x0040,
+  kHeaderEncryption = 0x2000,
+};
+
+constexpr bool HasFlag(uint16_t flags, ZipGeneralFlags flag) {
+  return (flags & static_cast<uint16_t>(flag)) != 0;
+}
+
+// 32-bit signatures (little-endian representations of PK.. literals)
+constexpr uint32_t kLocalHeaderSignature = 0x04034b50;
+constexpr uint32_t kCentralHeaderSignature = 0x02014b50;
+constexpr uint32_t kEOCDSignature = 0x06054b50;
+constexpr uint32_t kEOCD64LocatorSignature = 0x07064b50;
+constexpr uint32_t kEOCD64Signature = 0x06064b50;
+constexpr uint32_t kDataDescriptorSignature = 0x08074b50;
+
+// ZIP versions (spec section 4.4.3)
+constexpr uint16_t kVersionDefault = 20;  // Version 2.0
+constexpr uint16_t kVersionZip64 = 45;    // Version 4.5
+
+// Extra field tags (spec section 4.5)
+enum class ZipExtraFieldId : uint16_t {
+  kZip64 = 0x0001,
+  kUnix = 0x000d,
+  kNtfs = 0x000a,
+  kUnixExtendedTimestamp = 0x5455,
+  kUnixUidGid = 0x7875,
+};
+
+// Unix extended timestamp flags for 0x5455.
+enum class UnixExtendedFlags : uint8_t {
+  kMtime = 0x01,
+  kAtime = 0x02,
+  kCtime = 0x04,
+};
+
+constexpr bool HasFlag(uint8_t flags, UnixExtendedFlags flag) {
+  return (flags & static_cast<uint8_t>(flag)) != 0;
+}
+
+// Size of EOCD64 record minus the signature and size fields.
+constexpr uint64_t kEOCD64RecordSizeWithoutFixedHeader = 44;
+
+// Estimated size of the data descriptor if present (for estimating read size).
+constexpr int64_t kDataDescriptorEstimatedSize = 12;
 
 ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip_details");
 
+constexpr char kLocalHeaderLiteral[4] = {'P', 'K', 0x03, 0x04};
+constexpr char kCentralHeaderLiteral[4] = {'P', 'K', 0x01, 0x02};
+constexpr char kEOCDLiteral[4] = {'P', 'K', 0x05, 0x06};
+constexpr char kEOCD64LocatorLiteral[4] = {'P', 'K', 0x06, 0x07};
+constexpr char kEOCD64Literal[4] = {'P', 'K', 0x06, 0x06};
+constexpr char kDataDescriptorLiteral[4] = {'P', 'K', 0x07, 0x08};
+
+constexpr uint32_t GetSignatureFromBytes(const char bytes[4]) {
+  return (static_cast<uint32_t>(static_cast<unsigned char>(bytes[3])) << 24) |
+         (static_cast<uint32_t>(static_cast<unsigned char>(bytes[2])) << 16) |
+         (static_cast<uint32_t>(static_cast<unsigned char>(bytes[1])) << 8) |
+         static_cast<uint32_t>(static_cast<unsigned char>(bytes[0]));
+}
+
+static_assert(GetSignatureFromBytes(kLocalHeaderLiteral) ==
+              kLocalHeaderSignature);
+static_assert(GetSignatureFromBytes(kCentralHeaderLiteral) ==
+              kCentralHeaderSignature);
+static_assert(GetSignatureFromBytes(kEOCDLiteral) == kEOCDSignature);
+static_assert(GetSignatureFromBytes(kEOCD64LocatorLiteral) ==
+              kEOCD64LocatorSignature);
+static_assert(GetSignatureFromBytes(kEOCD64Literal) == kEOCD64Signature);
+static_assert(GetSignatureFromBytes(kDataDescriptorLiteral) ==
+              kDataDescriptorSignature);
+
 // Windows epoch 1601-01-01T00:00:00Z is 11644473600 seconds before
 // Unix epoch 1970-01-01T00:00:00Z.
+constexpr int64_t kWindowsEpochSeconds = 11644473600ULL;
 const absl::Time kWindowsEpoch =
-    ::absl::UnixEpoch() - ::absl::Seconds(11644473600);
+    ::absl::UnixEpoch() - ::absl::Seconds(kWindowsEpochSeconds);
 
-absl::Time MakeMSDOSTime(uint16_t date, uint16_t time) {
+constexpr int kMSDOSYearEpoch = 80;
+constexpr int kMSDOSMaxYearOffset = 127;
+
+struct MSDOSTime {
+  uint16_t date;
+  uint16_t time;
+};
+
+absl::Time MakeMSDOSTime(MSDOSTime dos_time) {
   // Like DosDateTimeToVariantTime;
-  struct tm dos_tm;
-  dos_tm.tm_mday = (uint16_t)(date & 0x1f);
-  dos_tm.tm_mon = (uint16_t)((date >> 5) & 0xf) - 1;
-  dos_tm.tm_year = (uint16_t)(date >> 9) + 80;
-  dos_tm.tm_hour = (uint16_t)(time >> 11);
-  dos_tm.tm_min = (uint16_t)((time >> 5) & 0x1f);
-  dos_tm.tm_sec = (uint16_t)(2 * (time & 0x1f));
+  struct tm dos_tm = {};
+  dos_tm.tm_mday = static_cast<uint16_t>(dos_time.date & 0x1f);
+  dos_tm.tm_mon = static_cast<uint16_t>((dos_time.date >> 5) & 0xf) - 1;
+  dos_tm.tm_year = static_cast<uint16_t>(dos_time.date >> 9) + kMSDOSYearEpoch;
+  dos_tm.tm_hour = static_cast<uint16_t>(dos_time.time >> 11);
+  dos_tm.tm_min = static_cast<uint16_t>((dos_time.time >> 5) & 0x1f);
+  dos_tm.tm_sec = static_cast<uint16_t>(2 * (dos_time.time & 0x1f));
   dos_tm.tm_isdst = -1;
 
   // TODO: Time zone?
   return absl::FromTM(dos_tm, absl::UTCTimeZone());
 }
 
+MSDOSTime ValueToMSDOSTime(absl::Time time) {
+  struct tm dos_tm = absl::ToTM(time, absl::UTCTimeZone());
+  uint16_t date = 0;
+  date |= (dos_tm.tm_mday & 0x1f);
+  date |= (((dos_tm.tm_mon + 1) & 0xf) << 5);
+  int year_offset = dos_tm.tm_year - kMSDOSYearEpoch;
+  if (year_offset < 0) year_offset = 0;
+  if (year_offset > kMSDOSMaxYearOffset) year_offset = kMSDOSMaxYearOffset;
+  date |= ((year_offset & 0x7f) << 9);
+
+  uint16_t dos_time = 0;
+  dos_time |= ((dos_tm.tm_sec / 2) & 0x1f);
+  dos_time |= ((dos_tm.tm_min & 0x3f) << 5);
+  dos_time |= ((dos_tm.tm_hour & 0x1f) << 11);
+
+  return {date, dos_time};
+}
+
+constexpr uint64_t kMaxUncompressedSize = 2ULL << 30;  // 2 GB
+constexpr uint64_t kMaxCompressionRatio = 1024;
+constexpr uint64_t kMinSizeForRatioCheck = 1024 * 1024;  // 1 MB
+
+absl::Status ValidateEntrySizes(uint64_t uncompressed_size,
+                                uint64_t compressed_size) {
+  if (uncompressed_size > kMaxUncompressedSize) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("ZIP entry uncompressed size (%d) exceeds limit of %d",
+                        uncompressed_size, kMaxUncompressedSize));
+  }
+  if (compressed_size > 0 && uncompressed_size > kMinSizeForRatioCheck) {
+    if (uncompressed_size > compressed_size * kMaxCompressionRatio) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "ZIP entry compression ratio (%f) exceeds limit of %d",
+          static_cast<double>(uncompressed_size) / compressed_size,
+          kMaxCompressionRatio));
+    }
+  }
+  return absl::OkStatus();
+}
+
 // These could have different implementations for central headers vs.
 // local headers.
 absl::Status ReadExtraField_Zip64_0001(riegeli::Reader& reader,
                                        uint16_t tag_size, ZipEntry& entry) {
-  assert(tag_size >= 8);
+  if (tag_size < 8) {
+    return absl::InvalidArgumentError("ZIP64 extra field too small");
+  }
+
+  static constexpr auto kReadError = "Failed to read ZIP64 extra field";
 
   entry.is_zip64 = true;
-  // Only read field if the corresponding field is INT_MAX;
-  do {
-    if (tag_size >= 8 &&
-        entry.uncompressed_size == std::numeric_limits<uint32_t>::max()) {
-      if (!ReadLittleEndian<uint64_t>(reader, entry.uncompressed_size)) break;
-      tag_size -= 8;
+  // Only read a field if the corresponding 32-bit field is UINT32_MAX,
+  // indicating the real value is in the ZIP64 extra field.
+  if (tag_size >= 8 &&
+      entry.uncompressed_size == std::numeric_limits<uint32_t>::max()) {
+    if (!ReadLittleEndian<uint64_t>(reader, entry.uncompressed_size)) {
+      return absl::InvalidArgumentError(kReadError);
     }
-    if (tag_size >= 8 &&
-        entry.compressed_size == std::numeric_limits<uint32_t>::max()) {
-      if (!ReadLittleEndian<uint64_t>(reader, entry.compressed_size)) break;
-      tag_size -= 8;
+    tag_size -= 8;
+  }
+  if (tag_size >= 8 &&
+      entry.compressed_size == std::numeric_limits<uint32_t>::max()) {
+    if (!ReadLittleEndian<uint64_t>(reader, entry.compressed_size)) {
+      return absl::InvalidArgumentError(kReadError);
     }
-    if (tag_size >= 8 &&
-        entry.local_header_offset == std::numeric_limits<uint32_t>::max()) {
-      if (!ReadLittleEndian<uint64_t>(reader, entry.local_header_offset)) break;
-      tag_size -= 8;
+    tag_size -= 8;
+  }
+  if (tag_size >= 8 &&
+      entry.local_header_offset == std::numeric_limits<uint32_t>::max()) {
+    if (!ReadLittleEndian<uint64_t>(reader, entry.local_header_offset)) {
+      return absl::InvalidArgumentError(kReadError);
     }
-    // skip the disk number field
-    return absl::OkStatus();
-  } while (false);
-  return absl::InvalidArgumentError("Failed to read ZIP64 extra field");
+    tag_size -= 8;
+  }
+  // Remaining bytes (e.g. disk number) are ignored.
+  return absl::OkStatus();
 }
 
 absl::Status ReadExtraField_Unix_000D(riegeli::Reader& reader,
                                       uint16_t tag_size, ZipEntry& entry) {
-  assert(tag_size >= 12);
+  if (tag_size < 12) {
+    return absl::InvalidArgumentError("UNIX extra field too small");
+  }
   uint32_t ignored32;
   uint32_t mtime;
   uint32_t atime;
@@ -125,7 +267,9 @@ absl::Status ReadExtraField_Unix_000D(riegeli::Reader& reader,
 
 absl::Status ReadExtraField_NTFS_000A(riegeli::Reader& reader,
                                       uint16_t tag_size, ZipEntry& entry) {
-  assert(tag_size >= 8);
+  if (tag_size < 8) {
+    return absl::InvalidArgumentError("NTFS extra field too small");
+  }
   uint32_t ignored32;
   if (!ReadLittleEndian<uint32_t>(reader, ignored32)) {
     return absl::InvalidArgumentError("Failed to read NTFS extra field");
@@ -138,6 +282,9 @@ absl::Status ReadExtraField_NTFS_000A(riegeli::Reader& reader,
       break;
     }
     tag_size -= 4;
+    if (tag_size < ntfs_size) {
+      return absl::InvalidArgumentError("NTFS extra field size mismatch");
+    }
     tag_size -= ntfs_size;
     if (ntfs_tag == 0x0001 && ntfs_size == 24) {
       uint64_t mtime;
@@ -160,32 +307,41 @@ absl::Status ReadExtraField_NTFS_000A(riegeli::Reader& reader,
 
 absl::Status ReadExtraField_Unix_5455(riegeli::Reader& reader,
                                       uint16_t tag_size, ZipEntry& entry) {
-  assert(tag_size >= 1);
+  if (tag_size < 1) {
+    return absl::InvalidArgumentError("Unix timestamp extra field too small");
+  }
+
+  static constexpr auto kReadError =
+      "Failed to read unix timestamp extra field";
 
   uint8_t flags = 0;
   uint32_t tstamp = 0;
-  do {
-    if (!reader.ReadByte(flags)) break;
-    --tag_size;
-    if (flags & 0x01 && tag_size >= 4) {  // mtime
-      if (!ReadLittleEndian<uint32_t>(reader, tstamp)) break;
-      tag_size -= 4;
-      entry.mtime = absl::FromUnixSeconds(tstamp);
+  if (!reader.ReadByte(flags)) {
+    return absl::InvalidArgumentError(kReadError);
+  }
+  --tag_size;
+  if (HasFlag(flags, UnixExtendedFlags::kMtime) && tag_size >= 4) {  // mtime
+    if (!ReadLittleEndian<uint32_t>(reader, tstamp)) {
+      return absl::InvalidArgumentError(kReadError);
     }
-    if (flags & 0x02 && tag_size >= 4) {  // atime
-      if (!ReadLittleEndian<uint32_t>(reader, tstamp)) break;
-      tag_size -= 4;
-      entry.atime = absl::FromUnixSeconds(tstamp);
+    tag_size -= 4;
+    entry.mtime = absl::FromUnixSeconds(tstamp);
+  }
+  if (HasFlag(flags, UnixExtendedFlags::kAtime) && tag_size >= 4) {  // atime
+    if (!ReadLittleEndian<uint32_t>(reader, tstamp)) {
+      return absl::InvalidArgumentError(kReadError);
     }
-    if (flags & 0x04 && tag_size >= 4) {  // ctime
-      if (!ReadLittleEndian<uint32_t>(reader, tstamp)) break;
-      tag_size -= 4;
+    tag_size -= 4;
+    entry.atime = absl::FromUnixSeconds(tstamp);
+  }
+  if (HasFlag(flags, UnixExtendedFlags::kCtime) && tag_size >= 4) {
+    // ctime (ignored)
+    if (!ReadLittleEndian<uint32_t>(reader, tstamp)) {
+      return absl::InvalidArgumentError(kReadError);
     }
-    return absl::OkStatus();
-  } while (false);
-
-  return absl::InvalidArgumentError(
-      "Failed to read unix timestamp extra field");
+    tag_size -= 4;
+  }
+  return absl::OkStatus();
 }
 
 absl::Status ReadExtraField(riegeli::Reader& reader, ZipEntry& entry) {
@@ -196,30 +352,34 @@ absl::Status ReadExtraField(riegeli::Reader& reader, ZipEntry& entry) {
   while (reader.ok()) {
     if (!ReadLittleEndian<uint16_t>(reader, tag) ||
         !ReadLittleEndian<uint16_t>(reader, tag_size)) {
-      return absl::OkStatus();
+      // No more extra fields.
+      break;
     }
     ABSL_LOG_IF(INFO, zip_logging)
-        << std::hex << "extra tag " << tag << " size " << tag_size;
+        << absl::StrFormat("extra tag %04x size %d", tag, tag_size);
     auto pos = reader.pos();
-    switch (tag) {
-      case 0x0001:  // ZIP64
+    switch (static_cast<ZipExtraFieldId>(tag)) {
+      case ZipExtraFieldId::kZip64:
         status.Update(ReadExtraField_Zip64_0001(reader, tag_size, entry));
         break;
-      case 0x000d:  // UNIX
+      case ZipExtraFieldId::kUnix:
         status.Update(ReadExtraField_Unix_000D(reader, tag_size, entry));
         break;
-      case 0x000a:  // NTFS
+      case ZipExtraFieldId::kNtfs:
         status.Update(ReadExtraField_NTFS_000A(reader, tag_size, entry));
         break;
-      case 0x5455:  // Unix extended timestamp
+      case ZipExtraFieldId::kUnixExtendedTimestamp:
         status.Update(ReadExtraField_Unix_5455(reader, tag_size, entry));
         break;
-      case 0x7875:  // Unix extra info (uid/gic)
+      case ZipExtraFieldId::kUnixUidGid:
         break;
       default:
         break;
     }
-    assert(reader.pos() <= pos + tag_size);
+    if (reader.pos() > pos + tag_size) {
+      return absl::InvalidArgumentError(
+          "ZIP extra field parser read too much data");
+    }
     reader.Seek(pos + tag_size);
   }
   return status;
@@ -236,7 +396,7 @@ absl::Status ReadEOCD64Locator(riegeli::Reader& reader,
 
   uint32_t signature;
   ReadLittleEndian<uint32_t>(reader, signature);
-  if (signature != 0x07064b50) {
+  if (signature != kEOCD64LocatorSignature) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Failed to read ZIP64 End of Central Directory Locator signature %08x",
         signature));
@@ -263,7 +423,7 @@ absl::Status ReadEOCD64(riegeli::Reader& reader, ZipEOCD& eocd) {
   auto eocd_pos = reader.pos();
   uint32_t signature;
   ReadLittleEndian<uint32_t>(reader, signature);
-  if (signature != 0x06064b50) {
+  if (signature != kEOCD64Signature) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP64 Central Directory Entry signature");
   }
@@ -271,13 +431,14 @@ absl::Status ReadEOCD64(riegeli::Reader& reader, ZipEOCD& eocd) {
   // Size = SizeOfFixedFields + SizeOfVariableData - 12.
   uint64_t eocd_size;
   ReadLittleEndian<uint64_t>(reader, eocd_size);
-  if (eocd_size < 44 || !reader.Pull(eocd_size)) {
+  if (eocd_size < kEOCD64RecordSizeWithoutFixedHeader ||
+      !reader.Pull(eocd_size)) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP64 End of Central Directory");
   }
 
-  // Read remainder of OECD64.
-  riegeli::LimitingReader oecd64_reader(
+  // Read remainder of EOCD64.
+  riegeli::LimitingReader eocd64_reader(
       &reader,
       riegeli::LimitingReaderBase::Options().set_exact_length(eocd_size));
 
@@ -286,31 +447,30 @@ absl::Status ReadEOCD64(riegeli::Reader& reader, ZipEOCD& eocd) {
   uint32_t disk_number;
   uint32_t disk_number_with_cd;
   uint64_t total_num_entries;
-  ReadLittleEndian<uint16_t>(oecd64_reader, version_madeby);
-  ReadLittleEndian<uint16_t>(oecd64_reader, version_needed_to_extract);
-  ReadLittleEndian<uint32_t>(oecd64_reader, disk_number);
-  ReadLittleEndian<uint32_t>(oecd64_reader, disk_number_with_cd);
-  ReadLittleEndian<uint64_t>(oecd64_reader, eocd.num_entries);
-  ReadLittleEndian<uint64_t>(oecd64_reader, total_num_entries);
-  ReadLittleEndian<int64_t>(oecd64_reader, eocd.cd_size);
-  ReadLittleEndian<int64_t>(oecd64_reader, eocd.cd_offset);
+  ReadLittleEndian<uint16_t>(eocd64_reader, version_madeby);
+  ReadLittleEndian<uint16_t>(eocd64_reader, version_needed_to_extract);
+  ReadLittleEndian<uint32_t>(eocd64_reader, disk_number);
+  ReadLittleEndian<uint32_t>(eocd64_reader, disk_number_with_cd);
+  ReadLittleEndian<uint64_t>(eocd64_reader, eocd.num_entries);
+  ReadLittleEndian<uint64_t>(eocd64_reader, total_num_entries);
+  ReadLittleEndian<int64_t>(eocd64_reader, eocd.cd_size);
+  ReadLittleEndian<int64_t>(eocd64_reader, eocd.cd_offset);
 
   if (disk_number != disk_number_with_cd ||
       eocd.num_entries != total_num_entries ||
-      eocd.num_entries == std::numeric_limits<uint16_t>::max() ||
-      eocd.cd_size == std::numeric_limits<uint16_t>::max() ||
-      eocd.cd_offset == std::numeric_limits<uint32_t>::max() ||
+      eocd.num_entries == std::numeric_limits<uint64_t>::max() ||
+      eocd.cd_size == std::numeric_limits<int64_t>::max() ||
+      eocd.cd_offset == std::numeric_limits<int64_t>::max() ||
       eocd.cd_size < 0 || eocd.cd_offset < 0) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP64 End of Central Directory");
   }
 
-  oecd64_reader.Seek(eocd_size);
+  eocd64_reader.Seek(eocd64_reader.max_pos());
   eocd.record_offset = eocd_pos;
-
-  // minizip-ng may adjust cd_offset (in mz_zip_read_cd) by verifying
-  // a central directory signature exists at cd_offset, and adjusting the
-  // cd_offset to accommodate prepended data.
+  if (!eocd64_reader.Close()) {
+    return eocd64_reader.status();
+  }
   return absl::OkStatus();
 }
 
@@ -322,7 +482,7 @@ absl::Status ReadEOCD(riegeli::Reader& reader, ZipEOCD& eocd) {
   auto eocd_pos = reader.pos();
   uint32_t signature;
   ReadLittleEndian<uint32_t>(reader, signature);
-  if (signature != 0x06054b50) {
+  if (signature != kEOCDSignature) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP Central Directory Entry signature");
   }
@@ -341,14 +501,14 @@ absl::Status ReadEOCD(riegeli::Reader& reader, ZipEOCD& eocd) {
   ReadLittleEndian<uint32_t>(reader, cd_offset);
   ReadLittleEndian<uint16_t>(reader, comment_length);
   if (num_entries != total_num_entries) {
-    ABSL_LOG(INFO) << "ZIP num_entries mismatch " << num_entries << " vs "
-                   << total_num_entries;
+    ABSL_LOG_IF(INFO, zip_logging) << "ZIP num_entries mismatch " << num_entries
+                                   << " vs " << total_num_entries;
     return absl::InvalidArgumentError(
         "Failed to read ZIP End of Central Directory");
   }
   if (disk_number != disk_number_with_cd) {
-    ABSL_LOG(INFO) << "ZIP disk_number mismatch " << disk_number << " vs "
-                   << disk_number_with_cd;
+    ABSL_LOG_IF(INFO, zip_logging) << "ZIP disk_number mismatch " << disk_number
+                                   << " vs " << disk_number_with_cd;
     return absl::InvalidArgumentError(
         "Failed to read ZIP End of Central Directory");
   }
@@ -393,7 +553,20 @@ std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader& reader,
   ZipEOCD last_eocd{};
   TENSORSTORE_RETURN_IF_ERROR(ReadEOCD(reader, last_eocd));
 
-  if (last_eocd.cd_offset != std::numeric_limits<uint32_t>::max()) {
+  int64_t locator_start = eocd_start - ZipEOCD64Locator::kRecordSize;
+  bool has_locator = false;
+  if (eocd_start >= ZipEOCD64Locator::kRecordSize) {
+    if (reader.Seek(locator_start)) {
+      uint32_t signature;
+      if (ReadLittleEndian<uint32_t>(reader, signature) &&
+          signature == kEOCD64LocatorSignature) {
+        has_locator = true;
+      }
+    }
+  }
+
+  if (last_eocd.cd_offset != std::numeric_limits<uint32_t>::max() &&
+      !has_locator) {
     // Not a ZIP64 archive.
     eocd = last_eocd;
     reader.Seek(eocd_start + 4);
@@ -407,8 +580,8 @@ std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader& reader,
     return absl::InvalidArgumentError("Block does not contain EOCD64 Locator");
   }
 
-  if (!reader.Seek(eocd_start - ZipEOCD64Locator::kRecordSize)) {
-    if (!reader.ok() && !reader.status().ok()) {
+  if (!reader.Seek(locator_start)) {
+    if (!reader.ok()) {
       return StatusBuilder(reader.status())
           .Format("Failed to read EOCD64 Locator");
     }
@@ -434,13 +607,16 @@ std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader& reader,
     return locator.cd_offset;
   }
   if (!reader.Seek(target_pos)) {
-    if (!reader.ok() && !reader.status().ok()) {
+    if (!reader.ok()) {
       return StatusBuilder(reader.status()).Format("Failed to read EOCD64");
     }
     return absl::InvalidArgumentError("Failed to read EOCD64");
   }
 
   TENSORSTORE_RETURN_IF_ERROR(ReadEOCD64(reader, last_eocd));
+  if (reader.pos() != locator_start) {
+    return absl::InvalidArgumentError("Inconsistent ZIP64 EOCD locator offset");
+  }
   eocd = last_eocd;
   reader.Seek(eocd_start + 4);
   return absl::OkStatus();
@@ -458,7 +634,7 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
 
   uint32_t signature;
   ReadLittleEndian<uint32_t>(reader, signature);
-  if (signature != 0x02014b50) {
+  if (signature != kCentralHeaderSignature) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP Central Directory Entry signature");
   }
@@ -469,16 +645,15 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
   uint16_t file_name_length = 0;
   uint16_t extra_field_length = 0;
   uint16_t file_comment_length = 0;
-  uint16_t last_mod_time;
-  uint16_t last_mod_date;
+  MSDOSTime last_mod;
   uint16_t ignored16;
   uint16_t compression_method;
   ReadLittleEndian<uint16_t>(reader, entry.version_madeby);
   ReadLittleEndian<uint16_t>(reader, ignored16);  // version needed
   ReadLittleEndian<uint16_t>(reader, entry.flags);
   ReadLittleEndian<uint16_t>(reader, compression_method);
-  ReadLittleEndian<uint16_t>(reader, last_mod_time);
-  ReadLittleEndian<uint16_t>(reader, last_mod_date);
+  ReadLittleEndian<uint16_t>(reader, last_mod.time);
+  ReadLittleEndian<uint16_t>(reader, last_mod.date);
   ReadLittleEndian<uint32_t>(reader, entry.crc);
   ReadLittleEndian<uint32_t>(reader, compressed_size);
   ReadLittleEndian<uint32_t>(reader, uncompressed_size);
@@ -493,7 +668,7 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
   entry.compressed_size = compressed_size;
   entry.uncompressed_size = uncompressed_size;
   entry.local_header_offset = relative_header_offset;
-  entry.mtime = MakeMSDOSTime(last_mod_date, last_mod_time);
+  entry.mtime = MakeMSDOSTime(last_mod);
   entry.compression_method = static_cast<ZipCompression>(compression_method);
 
   if (file_name_length > 0 && !reader.Read(file_name_length, entry.filename)) {
@@ -504,7 +679,11 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
 
   // Read extra field.
   if (extra_field_length > 0) {
-    assert(extra_field_length > 4);
+    if (extra_field_length <= 4) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Invalid ZIP Central Directory Entry extra field length %d",
+          extra_field_length));
+    }
     riegeli::LimitingReader extra_reader(
         &reader, riegeli::LimitingReaderBase::Options().set_exact_length(
                      extra_field_length));
@@ -512,7 +691,7 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
     if (auto status = ReadExtraField(extra_reader, entry); !status.ok()) {
       return status;
     }
-    extra_reader.Seek(extra_field_length);
+    extra_reader.Seek(extra_reader.max_pos());
   }
 
   // Read central directory file comment.
@@ -526,7 +705,10 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
   entry.estimated_read_size =
       std::max(entry.compressed_size, entry.uncompressed_size) +
       file_name_length + extra_field_length + ZipEntry::kLocalRecordSize +
-      /*data descriptor size*/ (entry.flags & kHasDataDescriptor ? 12 : 0);
+      /*data descriptor size*/
+      (HasFlag(entry.flags, ZipGeneralFlags::kHasDataDescriptor)
+           ? kDataDescriptorEstimatedSize
+           : 0);
 
   return absl::OkStatus();
 }
@@ -540,14 +722,13 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
 
   uint32_t signature;
   ReadLittleEndian<uint32_t>(reader, signature);
-  if (signature != 0x04034b50) {
+  if (signature != kLocalHeaderSignature) {
     return absl::InvalidArgumentError(
         "Failed to read ZIP Local Entry signature");
   }
   uint16_t ignored16;
   uint16_t compression_method;
-  uint16_t last_mod_time;
-  uint16_t last_mod_date;
+  MSDOSTime last_mod;
   uint32_t uncompressed_size;
   uint32_t compressed_size;
   uint16_t file_name_length = 0;
@@ -555,8 +736,8 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
   ReadLittleEndian<uint16_t>(reader, ignored16);  // version needed
   ReadLittleEndian<uint16_t>(reader, entry.flags);
   ReadLittleEndian<uint16_t>(reader, compression_method);
-  ReadLittleEndian<uint16_t>(reader, last_mod_time);
-  ReadLittleEndian<uint16_t>(reader, last_mod_date);
+  ReadLittleEndian<uint16_t>(reader, last_mod.time);
+  ReadLittleEndian<uint16_t>(reader, last_mod.date);
   ReadLittleEndian<uint32_t>(reader, entry.crc);
   ReadLittleEndian<uint32_t>(reader, compressed_size);
   ReadLittleEndian<uint32_t>(reader, uncompressed_size);
@@ -570,7 +751,7 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
   entry.estimated_read_size = 0;
   entry.compressed_size = compressed_size;
   entry.uncompressed_size = uncompressed_size;
-  entry.mtime = MakeMSDOSTime(last_mod_date, last_mod_time);
+  entry.mtime = MakeMSDOSTime(last_mod);
   entry.compression_method = static_cast<ZipCompression>(compression_method);
 
   if (file_name_length > 0 && !reader.Read(file_name_length, entry.filename)) {
@@ -582,7 +763,10 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
 
   // Read extra field.
   if (extra_field_length > 0) {
-    assert(extra_field_length > 4);
+    if (extra_field_length <= 4) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Invalid ZIP Local Entry extra field length %d", extra_field_length));
+    }
     riegeli::LimitingReader extra_reader(
         &reader, riegeli::LimitingReaderBase::Options().set_exact_length(
                      extra_field_length));
@@ -590,17 +774,17 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
     if (auto status = ReadExtraField(extra_reader, entry); !status.ok()) {
       return status;
     }
-    extra_reader.Seek(extra_field_length);
+    extra_reader.Seek(extra_reader.max_pos());
   }
 
   return absl::OkStatus();
 }
 
-/// Returns whether the ZIP entry can be read.
+// Returns whether the ZIP entry can be read.
 absl::Status ValidateEntryIsSupported(const ZipEntry& entry) {
-  if (entry.flags & 0x01 ||                 // encryption
-      entry.flags & (uint16_t{1} << 6) ||   // strong encryption
-      entry.flags & (uint16_t{1} << 13) ||  // header encryption
+  if (HasFlag(entry.flags, ZipGeneralFlags::kEncrypted) ||
+      HasFlag(entry.flags, ZipGeneralFlags::kStrongEncryption) ||
+      HasFlag(entry.flags, ZipGeneralFlags::kHeaderEncryption) ||
       entry.compression_method == ZipCompression::kAes) {
     return absl::InvalidArgumentError("ZIP encryption is not supported");
   }
@@ -616,8 +800,21 @@ absl::Status ValidateEntryIsSupported(const ZipEntry& entry) {
   if (absl::EndsWith(entry.filename, "/")) {
     return absl::InvalidArgumentError("ZIP directory entries cannot be read");
   }
+  if (absl::StartsWith(entry.filename, "/")) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "ZIP entry filename cannot be absolute: %s", entry.filename));
+  }
+  std::vector<std::string_view> components =
+      absl::StrSplit(entry.filename, absl::ByAnyChar("/\\"));
+  for (auto component : components) {
+    if (component == "..") {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "ZIP entry filename contains path traversal component: %s",
+          entry.filename));
+    }
+  }
 
-  return absl::OkStatus();
+  return ValidateEntrySizes(entry.uncompressed_size, entry.compressed_size);
 }
 
 tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
@@ -628,7 +825,7 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
   // entry.flags indicates whether the actual sizes are stored in a
   // ZIP Data Descriptor, which follows the compressed data. If so, that
   // needs to be read.
-  if (entry.flags & kHasDataDescriptor) {
+  if (HasFlag(entry.flags, ZipGeneralFlags::kHasDataDescriptor)) {
     const auto start_pos = reader->pos();
     if (!reader->Skip(entry.compressed_size)) {
       return reader->status();
@@ -643,22 +840,27 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
       return absl::DataLossError("Failed to read ZIP DataDescriptor");
     }
 
-    /// 4.3.9  Data descriptor
+    // 4.3.9  Data descriptor
     uint32_t signature, crc32;
     ReadLittleEndian<uint32_t>(*reader, signature);
     ReadLittleEndian<uint32_t>(*reader, crc32);
-    if (signature != 0x08074b50) {
+    if (signature != kDataDescriptorSignature) {
       return absl::DataLossError(absl::StrFormat(
           "Failed to read ZIP DataDescriptor signature %08x", signature));
     }
-    if (entry.crc == 0) entry.crc = crc32;
+    if (entry.crc == 0) {
+      entry.crc = crc32;
+    }
     if (entry.is_zip64) {
       uint64_t compressed_size, uncompressed_size;
       ReadLittleEndian<uint64_t>(*reader, compressed_size);
       ReadLittleEndian<uint64_t>(*reader, uncompressed_size);
-      if (entry.compressed_size == 0) entry.compressed_size = compressed_size;
-      if (entry.uncompressed_size == 0)
+      if (entry.compressed_size == 0) {
+        entry.compressed_size = compressed_size;
+      }
+      if (entry.uncompressed_size == 0) {
         entry.uncompressed_size = uncompressed_size;
+      }
     } else {
       uint32_t compressed_size, uncompressed_size;
       ReadLittleEndian<uint32_t>(*reader, compressed_size);
@@ -670,6 +872,8 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
         entry.uncompressed_size = uncompressed_size;
       }
     }
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateEntrySizes(entry.uncompressed_size, entry.compressed_size));
     if (!reader->Seek(start_pos)) {
       return reader->status();
     }
@@ -716,9 +920,7 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetReader(
       return std::make_unique<XzReader>(
           std::move(base_reader), XzReader::Options()
                                       .set_container(XzReader::Container::kXz)
-                                      .set_concatenate(true)
-
-      );
+                                      .set_concatenate(true));
     }
     // case ZipCompression::kLZMA:
     // To unpack ZIP LZMA we need a modified stream header and the ability to
@@ -730,6 +932,286 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetReader(
   }
   return absl::InvalidArgumentError(absl::StrFormat(
       "Unsupported ZIP compression method %d", entry.compression_method));
+}
+
+tensorstore::Result<absl::Cord> CompressWithMethod(const absl::Cord& data,
+                                                   ZipCompression method) {
+  absl::Cord compressed;
+  riegeli::CordWriter writer(&compressed);
+  switch (method) {
+    case ZipCompression::kStore:
+      return data;
+    case ZipCompression::kDeflate: {
+      using DeflateWriter = riegeli::ZlibWriter<riegeli::Writer*>;
+      DeflateWriter deflate_writer(&writer, DeflateWriter::Options().set_header(
+                                                DeflateWriter::Header::kRaw));
+      if (!deflate_writer.Write(data) || !deflate_writer.Close()) {
+        return deflate_writer.status();
+      }
+      break;
+    }
+    case ZipCompression::kZStd: {
+      using ZstdWriter = riegeli::ZstdWriter<riegeli::Writer*>;
+      ZstdWriter zstd_writer(&writer);
+      if (!zstd_writer.Write(data) || !zstd_writer.Close()) {
+        return zstd_writer.status();
+      }
+      break;
+    }
+    case ZipCompression::kXZ: {
+      using XzWriter = riegeli::XzWriter<riegeli::Writer*>;
+      XzWriter xz_writer(
+          &writer, XzWriter::Options().set_container(XzWriter::Container::kXz));
+      if (!xz_writer.Write(data) || !xz_writer.Close()) {
+        return xz_writer.status();
+      }
+      break;
+    }
+    default:
+      return absl::InvalidArgumentError("Unsupported compression method");
+  }
+  if (!writer.Close()) {
+    return writer.status();
+  }
+  return compressed;
+}
+
+tensorstore::Result<CompressionResult> Compress(
+    const absl::Cord& data, tensorstore::span<const ZipCompression> methods) {
+  if (methods.empty()) {
+    return absl::InvalidArgumentError("No compression methods specified");
+  }
+  CompressionResult best_result;
+  bool first = true;
+  for (ZipCompression method : methods) {
+    auto result = CompressWithMethod(data, method);
+    if (!result.ok()) {
+      return result.status();
+    }
+    if (first || result->size() < best_result.data.size()) {
+      best_result.data = std::move(*result);
+      best_result.method = method;
+      first = false;
+    }
+  }
+  return best_result;
+}
+
+absl::Status WriteLocalEntry(riegeli::Writer& writer, ZipEntry& entry) {
+  uint32_t uncompressed_size_header = entry.uncompressed_size;
+  uint32_t compressed_size_header = entry.compressed_size;
+  uint16_t extra_field_length = 0;
+  bool zip64_uncompressed = false;
+  bool zip64_compressed = false;
+
+  if (entry.uncompressed_size >= std::numeric_limits<uint32_t>::max()) {
+    uncompressed_size_header = std::numeric_limits<uint32_t>::max();
+    zip64_uncompressed = true;
+    extra_field_length += 8;
+  }
+  if (entry.compressed_size >= std::numeric_limits<uint32_t>::max()) {
+    compressed_size_header = std::numeric_limits<uint32_t>::max();
+    zip64_compressed = true;
+    extra_field_length += 8;
+  }
+  if (zip64_uncompressed || zip64_compressed) {
+    extra_field_length += 4;  // tag (2 bytes) + size (2 bytes)
+  }
+
+  if (entry.filename.size() > std::numeric_limits<uint16_t>::max()) {
+    return absl::InvalidArgumentError("Filename too long");
+  }
+
+  WriteLittleEndian<uint32_t>(kLocalHeaderSignature, writer);  // Signature
+  WriteLittleEndian<uint16_t>(
+      zip64_uncompressed || zip64_compressed ? kVersionZip64 : kVersionDefault,
+      writer);  // Version needed
+  WriteLittleEndian<uint16_t>(entry.flags, writer);
+  WriteLittleEndian<uint16_t>(static_cast<uint16_t>(entry.compression_method),
+                              writer);
+
+  auto [date, time] = ValueToMSDOSTime(entry.mtime);
+  WriteLittleEndian<uint16_t>(time, writer);
+  WriteLittleEndian<uint16_t>(date, writer);
+
+  WriteLittleEndian<uint32_t>(entry.crc, writer);
+  WriteLittleEndian<uint32_t>(compressed_size_header, writer);
+  WriteLittleEndian<uint32_t>(uncompressed_size_header, writer);
+
+  WriteLittleEndian<uint16_t>(static_cast<uint16_t>(entry.filename.size()),
+                              writer);
+  WriteLittleEndian<uint16_t>(extra_field_length, writer);
+
+  writer.Write(entry.filename);
+
+  if (zip64_uncompressed || zip64_compressed) {
+    WriteLittleEndian<uint16_t>(static_cast<uint16_t>(ZipExtraFieldId::kZip64),
+                                writer);                          // Tag
+    WriteLittleEndian<uint16_t>(extra_field_length - 4, writer);  // Size
+    if (zip64_uncompressed) {
+      WriteLittleEndian<uint64_t>(entry.uncompressed_size, writer);
+    }
+    if (zip64_compressed) {
+      WriteLittleEndian<uint64_t>(entry.compressed_size, writer);
+    }
+  }
+
+  if (!writer.ok()) {
+    return writer.status();
+  }
+  entry.end_of_header_offset = writer.pos();
+  return absl::OkStatus();
+}
+
+absl::Status WriteCentralDirectoryEntry(riegeli::Writer& writer,
+                                        const ZipEntry& entry) {
+  uint32_t uncompressed_size_header = entry.uncompressed_size;
+  uint32_t compressed_size_header = entry.compressed_size;
+  uint32_t local_header_offset_header = entry.local_header_offset;
+  uint16_t extra_field_length = 0;
+  bool zip64_uncompressed = false;
+  bool zip64_compressed = false;
+  bool zip64_offset = false;
+
+  if (entry.uncompressed_size >= std::numeric_limits<uint32_t>::max()) {
+    uncompressed_size_header = std::numeric_limits<uint32_t>::max();
+    zip64_uncompressed = true;
+    extra_field_length += 8;
+  }
+  if (entry.compressed_size >= std::numeric_limits<uint32_t>::max()) {
+    compressed_size_header = std::numeric_limits<uint32_t>::max();
+    zip64_compressed = true;
+    extra_field_length += 8;
+  }
+  if (entry.local_header_offset >= std::numeric_limits<uint32_t>::max()) {
+    local_header_offset_header = std::numeric_limits<uint32_t>::max();
+    zip64_offset = true;
+    extra_field_length += 8;
+  }
+  if (zip64_uncompressed || zip64_compressed || zip64_offset) {
+    extra_field_length += 4;  // tag + size
+  }
+
+  if (entry.filename.size() > std::numeric_limits<uint16_t>::max()) {
+    return absl::InvalidArgumentError("Filename too long");
+  }
+  if (entry.comment.size() > std::numeric_limits<uint16_t>::max()) {
+    return absl::InvalidArgumentError("Comment too long");
+  }
+
+  WriteLittleEndian<uint32_t>(kCentralHeaderSignature, writer);  // Signature
+  WriteLittleEndian<uint16_t>(entry.version_madeby, writer);
+  WriteLittleEndian<uint16_t>(
+      zip64_uncompressed || zip64_compressed || zip64_offset ? kVersionZip64
+                                                             : kVersionDefault,
+      writer);  // Version needed
+  WriteLittleEndian<uint16_t>(entry.flags, writer);
+  WriteLittleEndian<uint16_t>(static_cast<uint16_t>(entry.compression_method),
+                              writer);
+
+  auto [date, time] = ValueToMSDOSTime(entry.mtime);
+  WriteLittleEndian<uint16_t>(time, writer);
+  WriteLittleEndian<uint16_t>(date, writer);
+
+  WriteLittleEndian<uint32_t>(entry.crc, writer);
+  WriteLittleEndian<uint32_t>(compressed_size_header, writer);
+  WriteLittleEndian<uint32_t>(uncompressed_size_header, writer);
+
+  WriteLittleEndian<uint16_t>(static_cast<uint16_t>(entry.filename.size()),
+                              writer);
+  WriteLittleEndian<uint16_t>(extra_field_length, writer);
+  WriteLittleEndian<uint16_t>(static_cast<uint16_t>(entry.comment.size()),
+                              writer);
+  WriteLittleEndian<uint16_t>(0, writer);  // Disk number start
+  WriteLittleEndian<uint16_t>(entry.internal_fa, writer);
+  WriteLittleEndian<uint32_t>(entry.external_fa, writer);
+  WriteLittleEndian<uint32_t>(local_header_offset_header, writer);
+
+  writer.Write(entry.filename);
+
+  if (zip64_uncompressed || zip64_compressed || zip64_offset) {
+    WriteLittleEndian<uint16_t>(static_cast<uint16_t>(ZipExtraFieldId::kZip64),
+                                writer);                          // Tag
+    WriteLittleEndian<uint16_t>(extra_field_length - 4, writer);  // Size
+    if (zip64_uncompressed) {
+      WriteLittleEndian<uint64_t>(entry.uncompressed_size, writer);
+    }
+    if (zip64_compressed) {
+      WriteLittleEndian<uint64_t>(entry.compressed_size, writer);
+    }
+    if (zip64_offset) {
+      WriteLittleEndian<uint64_t>(entry.local_header_offset, writer);
+    }
+  }
+
+  writer.Write(entry.comment);
+
+  if (!writer.ok()) {
+    return writer.status();
+  }
+  return absl::OkStatus();
+}
+
+absl::Status WriteEOCD(riegeli::Writer& writer, const ZipEOCD& eocd) {
+  if (eocd.comment.size() > std::numeric_limits<uint16_t>::max()) {
+    return absl::InvalidArgumentError("Comment too long");
+  }
+
+  bool use_zip64 = eocd.num_entries >= std::numeric_limits<uint16_t>::max() ||
+                   eocd.cd_size >= std::numeric_limits<uint32_t>::max() ||
+                   eocd.cd_offset >= std::numeric_limits<uint32_t>::max();
+
+  if (use_zip64) {
+    uint64_t zip64_eocd_offset = writer.pos();
+
+    // 1. Write ZIP64 EOCD Record
+    WriteLittleEndian<uint32_t>(kEOCD64Signature, writer);  // Signature
+    WriteLittleEndian<uint64_t>(kEOCD64RecordSizeWithoutFixedHeader,
+                                writer);                 // Size of EOCD64
+    WriteLittleEndian<uint16_t>(kVersionZip64, writer);  // Version made by
+    WriteLittleEndian<uint16_t>(kVersionZip64, writer);  // Version needed
+    WriteLittleEndian<uint32_t>(0, writer);              // Disk number
+    WriteLittleEndian<uint32_t>(0, writer);              // Disk with CD
+    WriteLittleEndian<uint64_t>(eocd.num_entries,
+                                writer);  // Num entries on disk
+    WriteLittleEndian<uint64_t>(eocd.num_entries, writer);  // Total num entries
+    WriteLittleEndian<uint64_t>(static_cast<uint64_t>(eocd.cd_size), writer);
+    WriteLittleEndian<uint64_t>(static_cast<uint64_t>(eocd.cd_offset), writer);
+
+    // 2. Write ZIP64 EOCD Locator
+    WriteLittleEndian<uint32_t>(kEOCD64LocatorSignature, writer);  // Signature
+    WriteLittleEndian<uint32_t>(0, writer);  // Disk with ZIP64 EOCD
+    WriteLittleEndian<uint64_t>(zip64_eocd_offset, writer);
+    WriteLittleEndian<uint32_t>(1, writer);  // Total number of disks
+
+    // 3. Write Standard EOCD placeholders
+    WriteLittleEndian<uint32_t>(kEOCDSignature, writer);  // Signature
+    WriteLittleEndian<uint16_t>(0, writer);               // Disk number
+    WriteLittleEndian<uint16_t>(0, writer);               // Disk with CD
+    WriteLittleEndian<uint16_t>(0xFFFF, writer);
+    WriteLittleEndian<uint16_t>(0xFFFF, writer);
+    WriteLittleEndian<uint32_t>(0xFFFFFFFF, writer);
+    WriteLittleEndian<uint32_t>(0xFFFFFFFF, writer);
+  } else {
+    WriteLittleEndian<uint32_t>(kEOCDSignature, writer);  // Signature
+    WriteLittleEndian<uint16_t>(0, writer);               // Disk number
+    WriteLittleEndian<uint16_t>(0, writer);               // Disk with CD
+    WriteLittleEndian<uint16_t>(static_cast<uint16_t>(eocd.num_entries),
+                                writer);
+    WriteLittleEndian<uint16_t>(static_cast<uint16_t>(eocd.num_entries),
+                                writer);
+    WriteLittleEndian<uint32_t>(static_cast<uint32_t>(eocd.cd_size), writer);
+    WriteLittleEndian<uint32_t>(static_cast<uint32_t>(eocd.cd_offset), writer);
+  }
+
+  WriteLittleEndian<uint16_t>(static_cast<uint16_t>(eocd.comment.size()),
+                              writer);
+  writer.Write(eocd.comment);
+
+  if (!writer.ok()) {
+    return writer.status();
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace internal_zip
