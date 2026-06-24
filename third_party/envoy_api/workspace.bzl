@@ -30,7 +30,6 @@ def repo():
         strip_prefix = "data-plane-api-84e84367f2560cdb47b9bb78fd3e615feb80c3e4",
         repo_mapping = {
             "@com_envoyproxy_protoc_gen_validate": "@local_protoc_gen_validate",
-            "@io_bazel_rules_go": "@local_rules_go",
             "@opencensus_proto": "@local_opencensus_proto",
             "@com_github_cncf_xds": "@xds",
             "@com_google_googleapis": "@googleapis",

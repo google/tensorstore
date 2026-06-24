@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # dependencies = [
+#     "brotli>=1.1.0",
 #     "lxml",
 #     "packaging",
 #     "requests",
@@ -70,6 +71,19 @@ def parse_version(version_str: str) -> packaging.version.Version:
     # Try normalizing date-like versions: YYYY-MM-DD -> YYYY.MM.DD
     normalized = re.sub(r'(\d{4})-(\d{2})-(\d{2})', r'\1.\2.\3', version_str)
     return packaging.version.parse(normalized)
+
+
+def is_stable_version(
+    package_name: str | None, version: packaging.version.Version
+) -> bool:
+  """Returns True if the version is considered stable."""
+  if version.is_prerelease:
+    return False
+  if package_name == 'libjpeg_turbo':
+    # libjpeg-turbo uses x.x.90 to x.x.94 for betas
+    if len(version.release) >= 3 and 90 <= version.release[2] <= 94:
+      return False
+  return True
 
 
 def _suffix(url: str) -> str:
@@ -357,7 +371,9 @@ def parse_workspace_file(name: str, file_path: pathlib.Path) -> Workspace:
   )
 
 
-def get_latest_download(webpage_url: str, url_pattern: str) -> tuple[str, str]:
+def get_latest_download(
+    webpage_url: str, url_pattern: str, package_name: str | None = None
+) -> tuple[str, str]:
   """Finds a matching link corresponding to the latest version.
 
   Retrieves `webpage_url`, finds links matching regular expression
@@ -369,6 +385,7 @@ def get_latest_download(webpage_url: str, url_pattern: str) -> tuple[str, str]:
     webpage_url: URL to HTML document with download links.
     url_pattern: Regular expression matching versioned download links.  The
       first match group should match a version number.
+    package_name: Optional package name for custom stable version logic.
 
   Returns:
     A tuple `(url, version)` for the latest version.
@@ -389,7 +406,7 @@ def get_latest_download(webpage_url: str, url_pattern: str) -> tuple[str, str]:
     m = re.fullmatch(url_pattern, url)
     if m is not None:
       v = parse_version(m.group(1))
-      if not v.is_prerelease:
+      if is_stable_version(package_name, v):
         versions.append((v, m.group(0), m.group(1)))
   versions.sort()
   if not versions:
@@ -553,6 +570,7 @@ class GitHubScraper(Scraper):
       new_url, new_bare_version = get_latest_download(
           release_url,
           make_url_pattern(workspace.url, existing_bare_version),
+          package_name=workspace.name,
       )
       new_tag = tag_prefix + new_bare_version
       return UpdateResult(new_url, new_tag)
@@ -641,7 +659,7 @@ class GitHubScraper(Scraper):
       ver_str = ref_name[len(ref_prefix) :]
       try:
         v = parse_version(ver_str)
-        if not v.is_prerelease:
+        if is_stable_version(workspace.name, v):
           versions.append((v, ver_str))
       except packaging.version.InvalidVersion:
         continue
@@ -668,7 +686,7 @@ class GitHubScraper(Scraper):
     for release in all_releases:
       try:
         v = parse_version(release['tag_name'])
-        if not v.is_prerelease:
+        if is_stable_version(workspace.name, v):
           versions.append((v, release['tag_name']))
       except packaging.version.InvalidVersion:
         continue
@@ -793,6 +811,7 @@ class WebpageScraper(Scraper):
     new_url, new_version = get_latest_download(
         os.path.dirname(workspace.url) + '/',
         make_url_pattern(workspace.url, existing_version),
+        package_name=workspace.name,
     )
 
     if new_version == existing_version:
@@ -850,7 +869,7 @@ class SourcewareScraper(Scraper):
       ver_str = ref_name[len(ref_prefix) :]
       try:
         v = parse_version(ver_str)
-        if not v.is_prerelease:
+        if is_stable_version(workspace.name, v):
           versions.append((v, ver_str))
       except packaging.version.InvalidVersion:
         continue
@@ -943,11 +962,18 @@ def apply_workspace_update(
         f'sha256 = "{new_sha256}"',
     )
 
-  # Update strip_prefix
+  # Update strip_prefix, preserving any subdirectory suffix beyond
+  # the archive root (e.g. "archive-1.0/subdir" -> "archive-2.0/subdir").
   strip_prefix_m = STRIP_PREFIX_RE.search(content)
   if strip_prefix_m:
+    old_prefix = strip_prefix_m.group(1)
+    old_parts = old_prefix.split('/', 1)
+    if len(old_parts) > 1:
+      new_prefix = folder + '/' + old_parts[1]
+    else:
+      new_prefix = folder
     content = content.replace(
-        strip_prefix_m.group(0), f'strip_prefix = "{folder}"'
+        strip_prefix_m.group(0), f'strip_prefix = "{new_prefix}"'
     )
 
   # Update date comment

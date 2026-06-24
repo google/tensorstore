@@ -123,6 +123,7 @@ cc_library(
                            "-DEFAULTLIB:Normaliz.lib",
                            "-DEFAULTLIB:bcrypt.lib",
                            "-DEFAULTLIB:Secur32.lib",
+                           "-DEFAULTLIB:iphlpapi.lib",
                        ],
                        "//conditions:default": [
                            "-lrt",
@@ -138,6 +139,7 @@ cc_library(
                            "-lNormaliz",
                            "-lbcrypt",
                            "-lSecur32",
+                           "-liphlpapi",
                        ],
                        "//conditions:default": [],
                    },

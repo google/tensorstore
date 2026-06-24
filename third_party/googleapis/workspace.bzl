@@ -25,10 +25,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "googleapis",
-        strip_prefix = "googleapis-1526e545e9d26f23b9c5d0f04af17297def8d045",
-        doc_version = "20260612-1526e54",
-        urls = mirror_url("https://github.com/googleapis/googleapis/archive/1526e545e9d26f23b9c5d0f04af17297def8d045.tar.gz"),  # master(2026-06-12)
-        sha256 = "de87bdf2816b1db72def4e1729168c291e077e6751c28a55e0c2a3d93d8c5e8b",
+        strip_prefix = "googleapis-4679f0c8e33ba14d27612bd607649e1f867a881c",
+        doc_version = "20260620-4679f0c",
+        urls = mirror_url("https://github.com/googleapis/googleapis/archive/4679f0c8e33ba14d27612bd607649e1f867a881c.tar.gz"),  # master(2026-06-20)
+        sha256 = "35131934f78f0eb4499feb17845ca0c060d3cfc506e0d1d626fbb1bce4d70e23",
         repo_mapping = {
             "@com_google_googleapis_imports": "@local_googleapis_imports",
             "@com_google_protobuf_upb": "@com_google_protobuf",

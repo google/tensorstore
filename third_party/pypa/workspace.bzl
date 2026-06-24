@@ -366,9 +366,9 @@ def repo_pypa_boto3():
         name = "pypa_boto3",
         target = "boto3",
         requirement = [
-            "boto3==1.43.31",
-            "--hash=sha256:69c5521ad864f33d4d53b0e18a3927697f4558210693b1cb4dd97da959d1f7b9",
-            "--hash=sha256:8165b79c02955affbe4b4e9aa7c560684d0d4d86b4b9de66a37b45eb79fc4b69",
+            "boto3==1.40.58",
+            "--hash=sha256:5a99c0bd2e282af4afde1af10d8838b397120722b6b685f0c0fa6b8cac351304",
+            "--hash=sha256:951515c1ea0ae9e99e56c3b6f408a2f59e1b57fab4d96dab737e73956f729177",
         ],
         deps = [
             "@pypa_botocore//:botocore",
@@ -386,9 +386,9 @@ def repo_pypa_botocore():
         name = "pypa_botocore",
         target = "botocore",
         requirement = [
-            "botocore==1.43.31",
-            "--hash=sha256:4c51c63f39515fc1a2b8e3e2c29e452009c988ba55ad489251658fdd3aedad6e",
-            "--hash=sha256:c249625faaa353c5b4004043706a394a4f3bcd3643e242f6b01fff6dc70e988b",
+            "botocore==1.40.58",
+            "--hash=sha256:2571ca3aec8150e1b5a597794da6fd06284de72f29d3ea806804b798755f2e5a",
+            "--hash=sha256:cf2de7f5538f23c8067408a984ed32221e8b196ce98e66945a479d06b2663c33",
         ],
         deps = [
             "@pypa_jmespath//:jmespath",
@@ -435,9 +435,9 @@ def repo_pypa_certifi():
         name = "pypa_certifi",
         target = "certifi",
         requirement = [
-            "certifi==2026.6.17",
-            "--hash=sha256:024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432",
-            "--hash=sha256:2227dcbaafe0d2f59279d1762ddddc37783ed4354594f194ffc31d20f41fc3db",
+            "certifi==2025.10.5",
+            "--hash=sha256:0f212c2744a9bb6de0c56639a6f68afe01ecd92d91f14ae897c4fe7bbeeef0de",
+            "--hash=sha256:47c09d31ccf2acf0be3f701ea53595ee7e0b8fa08801c6624be771df09ae7b43",
         ],
     )
 
@@ -552,9 +552,9 @@ def repo_pypa_cfn_lint():
         name = "pypa_cfn_lint",
         target = "cfn_lint",
         requirement = [
-            "cfn-lint==1.51.5",
-            "--hash=sha256:018a00f1f9eeadc196afbdc0ac8c6221c29411747c8dcff2f431d48d4080c83b",
-            "--hash=sha256:e17c11a1485a2586c5ddf48d0041f8fa3da3038612fd7dbc559ec87935f53452",
+            "cfn-lint==1.40.2",
+            "--hash=sha256:5822b2c90f7f2646823a47db9df7a60c23df46bbac34b2081d8a0b3b806c91eb",
+            "--hash=sha256:fa44a3101bd8d7f644bc146b8a9e63d0fa2b64cd61c8a767e65c46920646277c",
         ],
         deps = [
             "@pypa_aws_sam_translator//:aws_sam_translator",
@@ -2444,9 +2444,9 @@ def repo_pypa_pytest():
         name = "pypa_pytest",
         target = "pytest",
         requirement = [
-            "pytest==9.1.0",
-            "--hash=sha256:41dd9148c08072446394cefd3d79701701335a9f4cae69ba92e39f6c7f5c061c",
-            "--hash=sha256:8ebb0e7888bdf2bdfc602ec51f8f62d50200af37356c74e503c79a94f5c81f32",
+            "pytest==8.4.2",
+            "--hash=sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01",
+            "--hash=sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79",
         ],
         deps = [
             "@pypa_colorama//:colorama",
@@ -3062,9 +3062,9 @@ def repo_pypa_s3transfer():
         name = "pypa_s3transfer",
         target = "s3transfer",
         requirement = [
-            "s3transfer==0.19.0",
-            "--hash=sha256:777cc2415536f1debadb5c2ef7779275d0fc0fe0e042411cdd6caebeb2685262",
-            "--hash=sha256:ce436931687addc4c1712d52d40b32f53e88315723f107ffa20ba82b05a0f685",
+            "s3transfer==0.14.0",
+            "--hash=sha256:ea3b790c7077558ed1f02a3072fb3cb992bbbd253392f4b6e9e8976941c7d456",
+            "--hash=sha256:eff12264e7c8b4985074ccce27a3b38a485bb7f7422cc8046fee9be4983e4125",
         ],
         deps = [
             "@pypa_botocore//:botocore",

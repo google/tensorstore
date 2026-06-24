@@ -6,6 +6,12 @@ load("//:external.bzl", "tensorstore_dependencies")
 
 tensorstore_dependencies()
 
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+
+go_rules_dependencies()
+
+go_register_toolchains(version = "1.23.5")
+
 load("@bazel_features//:deps.bzl", "bazel_features_deps")
 
 bazel_features_deps()

@@ -1,4 +1,4 @@
-# Copyright 2020 The TensorStore Authors
+# Copyright 2026 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,28 +14,17 @@
 
 # buildifier: disable=module-docstring
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
     "mirror_url",
-    "third_party_http_archive",
 )
 
 def repo():
     maybe(
-        third_party_http_archive,
-        name = "curl",
-        doc_name = "curl",
-        doc_version = "8.20.0",
-        doc_homepage = "https://curl.se/",
-        strip_prefix = "curl-8.20.0",
-        urls = mirror_url("https://curl.se/download/curl-8.20.0.tar.gz"),
-        sha256 = "fc5819cad3f9f5482669adcdc49a782c15f36d2a0715b395b06d9173593d2dc0",
-        build_file = Label("//third_party:curl/curl.BUILD.bazel"),
-        system_build_file = Label("//third_party:curl/system.BUILD.bazel"),
-        cmake_name = "CURL",
-        bazel_to_cmake = {},
-        cmake_target_mapping = {
-            "//:curl": "CURL::libcurl",
-        },
+        http_archive,
+        name = "io_bazel_rules_go",
+        sha256 = "d93ef02f1e72c82d8bb3d5169519b36167b33cf68c252525e3b9d3d5dd143de7",
+        urls = mirror_url("https://github.com/bazelbuild/rules_go/releases/download/v0.49.0/rules_go-v0.49.0.zip"),
     )

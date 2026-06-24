@@ -25,17 +25,17 @@ blinker==1.9.0 \
     --hash=sha256:b4ce2265a7abece45e7cc896e98dbebe6cead56bcf805a3d23136d145f5445bf \
     --hash=sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc
     # via flask, -c /dev/stdin
-boto3==1.43.31 \
-    --hash=sha256:69c5521ad864f33d4d53b0e18a3927697f4558210693b1cb4dd97da959d1f7b9 \
-    --hash=sha256:8165b79c02955affbe4b4e9aa7c560684d0d4d86b4b9de66a37b45eb79fc4b69
+boto3==1.43.29 \
+    --hash=sha256:354006c512cdb87ef8214a095f2ade961c8145734475cd7a7e6b39260ff5494a \
+    --hash=sha256:77c27ada27cdbf619a3bbc41fa9e991caef818d3a2988cf92ea722e107d90108
     # via aws-sam-translator, moto, -c /dev/stdin
-botocore==1.43.31 \
-    --hash=sha256:4c51c63f39515fc1a2b8e3e2c29e452009c988ba55ad489251658fdd3aedad6e \
-    --hash=sha256:c249625faaa353c5b4004043706a394a4f3bcd3643e242f6b01fff6dc70e988b
+botocore==1.43.29 \
+    --hash=sha256:5d62f2a03ed279a50207ca2824e009313df15f082b6bb591a095a4f04c7faef3 \
+    --hash=sha256:dce39d33b707aa162aa3820975f99d7f8f746d46576169fb42ce4f2b3b56b261
     # via aws-xray-sdk, boto3, moto, s3transfer, -c /dev/stdin
-certifi==2026.6.17 \
-    --hash=sha256:024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432 \
-    --hash=sha256:2227dcbaafe0d2f59279d1762ddddc37783ed4354594f194ffc31d20f41fc3db
+certifi==2026.5.20 \
+    --hash=sha256:3c52e209ba0a4ad7aebe60436a4ab349c39e1e602e8c134221e546902ad25897 \
+    --hash=sha256:69dea482ab64caa7b9f6aba1c6bf48bb6a5448d1c0f1b17ab42ad8c763a5344d
     # via requests, -c /dev/stdin
 cffi==2.0.0 ; platform_python_implementation != 'PyPy' \
     --hash=sha256:00bdf7acc5f795150faa6957054fbbca2439db2f775ce831222b66f192f03beb \
@@ -123,9 +123,9 @@ cffi==2.0.0 ; platform_python_implementation != 'PyPy' \
     --hash=sha256:fc7de24befaeae77ba923797c7c87834c73648a05a4bde34b3b7e5588973a453 \
     --hash=sha256:fe562eb1a64e67dd297ccc4f5addea2501664954f2692b69a76449ec7913ecbf
     # via cryptography, -c /dev/stdin
-cfn-lint==1.51.5 \
-    --hash=sha256:018a00f1f9eeadc196afbdc0ac8c6221c29411747c8dcff2f431d48d4080c83b \
-    --hash=sha256:e17c11a1485a2586c5ddf48d0041f8fa3da3038612fd7dbc559ec87935f53452
+cfn-lint==1.51.4 \
+    --hash=sha256:4897321a7d90c6e48859fde0c7c7c3c919815a947ddc85d0584dc12ad5bc544c \
+    --hash=sha256:d37c48645e03abecfd826b8588103b06991abd838fe05c641f2853812289c021
     # via moto, -c /dev/stdin
 charset-normalizer==3.4.7 \
     --hash=sha256:007d05ec7321d12a40227aae9e2bc6dca73f3cb21058999a1df9e193555a9dcc \
@@ -1225,9 +1225,9 @@ rpds-py==2026.5.1 \
     --hash=sha256:fe71bca7d547acb17027c7fd1624ff8aae623499c498d3e7011182c4de5c25e0 \
     --hash=sha256:fea6e836d10abbe191d557d33bd58bd5987725fe63aa1eefe557d230209855bd
     # via jsonschema, referencing, -c /dev/stdin
-s3transfer==0.19.0 \
-    --hash=sha256:777cc2415536f1debadb5c2ef7779275d0fc0fe0e042411cdd6caebeb2685262 \
-    --hash=sha256:ce436931687addc4c1712d52d40b32f53e88315723f107ffa20ba82b05a0f685
+s3transfer==0.18.0 \
+    --hash=sha256:239c13b09e65ad0346e1be7348b8a202dcad44ac7ea7c6eb858fc881dce739b6 \
+    --hash=sha256:3760b8b7ec1315da54048b2d626276732bee4300d054d492d4e1d43e20d4ecbd
     # via boto3, -c /dev/stdin
 scalpl==0.4.2 \
     --hash=sha256:3a7a963b9b3639108722008cc2b5a42ae576b48c74fcd0f17baf7b1c9792ab7b \

@@ -27,11 +27,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "abseil-cpp",
-        doc_version = "20260206-1296124",
+        doc_version = "20260620-ce2e0bc",
         doc_homepage = "https://abseil.io/",
-        urls = mirror_url("https://github.com/abseil/abseil-cpp/archive/12961243df63faac8289c3abc79e5e417b50aa6b.tar.gz"),  # master(2026-02-06)
-        sha256 = "6646e253172d94dbd0fdca0ef6853c90272415d9321e4e163d2b0f7482419509",
-        strip_prefix = "abseil-cpp-12961243df63faac8289c3abc79e5e417b50aa6b",
+        urls = mirror_url("https://github.com/abseil/abseil-cpp/archive/ce2e0bc69560bf3287928864f780faa4daed4dd0.tar.gz"),  # master(2026-06-20)
+        sha256 = "175fd2d32c2ec6f8c317f93f959d93f7754663987e82064640c3260560df79c2",
+        strip_prefix = "abseil-cpp-ce2e0bc69560bf3287928864f780faa4daed4dd0",
         repo_mapping = {
             "@com_google_googletest": "@googletest",
         },

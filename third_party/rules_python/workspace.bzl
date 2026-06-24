@@ -25,7 +25,7 @@ def repo():
     maybe(
         http_archive,
         name = "rules_python",
-        strip_prefix = "rules_python-2.0.2",
-        urls = mirror_url("https://github.com/bazel-contrib/rules_python/archive/2.0.2.tar.gz"),
-        sha256 = "2119ca04726066c53b8f1ff42dffa090ea7f3e42a75679f1cfda937406cf7753",
+        strip_prefix = "rules_python-2.0.3",
+        urls = mirror_url("https://github.com/bazel-contrib/rules_python/archive/2.0.3.tar.gz"),
+        sha256 = "2610f57b934dc55d1df2728290199519b11cc53508dec34fd5ef0424bcb50242",
     )

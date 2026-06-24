@@ -25,7 +25,7 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "package_metadata",
-        sha256 = "0e89367f1cb6d93a5a1afea4b55b11ea6b28f63f653b47154153677ca7d4afea",
-        strip_prefix = "supply-chain-0.0.3/metadata",
-        urls = mirror_url("https://github.com/bazel-contrib/supply-chain/releases/download/v0.0.3/supply-chain-v0.0.3.tar.gz"),
+        sha256 = "bfd9bc7a9932516f997d50a2770287b277bca107db285350d0485f14a1bc2203",
+        strip_prefix = "supply-chain-0.0.10/metadata",
+        urls = mirror_url("https://github.com/bazel-contrib/supply-chain/archive/v0.0.10.tar.gz"),
     )

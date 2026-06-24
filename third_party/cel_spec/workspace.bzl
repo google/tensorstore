@@ -31,7 +31,6 @@ def repo():
         strip_prefix = "cel-spec-0.25.2",
         urls = mirror_url("https://github.com/google/cel-spec/archive/v0.25.2.zip"),
         repo_mapping = {
-            "@io_bazel_rules_go": "@local_rules_go",
             "@com_google_googleapis": "@googleapis",
         },
         cmake_name = "cel-spec",

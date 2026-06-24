@@ -106,7 +106,7 @@ bazel_to_cmake(
   "--exclude-package=third_party/local_googleapis_imports/**"
   "--exclude-package=third_party/local_opencensus_proto/**"
   "--exclude-package=third_party/local_protoc_gen_validate/**"
-  "--exclude-package=third_party/local_rules_go/**"
+  "--exclude-package=third_party/io_bazel_rules_go/**"
   --ignore-library "//bazel/repo_rules:local_python_runtime.bzl"
   --ignore-library "//docs:doctest.bzl"
   --ignore-library "//bazel:non_compile.bzl"
