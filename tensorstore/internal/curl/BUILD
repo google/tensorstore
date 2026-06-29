@@ -62,6 +62,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics:registration",
         "//tensorstore/internal/thread",
         "//tensorstore/internal/thread:schedule_at",
+        "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",

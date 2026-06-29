@@ -22,6 +22,7 @@
 
 #include "absl/log/absl_check.h"
 #include "tensorstore/internal/os/fork_detection.h"
+#include "tensorstore/internal/os/shutdown.h"  // iwyu pragma: keep
 
 namespace tensorstore {
 namespace internal {
@@ -62,15 +63,18 @@ class Thread {
   // StartDetached will be freed once the thread exits.
   template <class Function, class... Args>
   static void StartDetached(Options options, Function&& f, Args&&... args) {
-    Thread(private_t{}, options, std::forward<Function>(f),
-           std::forward<Args>(args)...)
-        .thread_.detach();
+    Thread t(private_t{}, options, std::forward<Function>(f),
+             std::forward<Args>(args)...);
+    if (t.thread_.joinable()) {
+      t.thread_.detach();
+    }
   }
 
   // Joins the thread, blocking the current thread until the thread identified
   // by *this finishes execution. Not applicable to detached threads, since
   // StartDetach method does not return Thread object.
   void Join() {
+    if (!thread_.joinable()) return;
     ABSL_CHECK_NE(this_thread_id(), get_id());
     thread_.join();
   }
@@ -88,15 +92,16 @@ class Thread {
   // and optional arguments. Used by public constructor and by StartDetached
   // factory method.
   template <class Function, class... Args>
-  Thread(private_t, Options options, Function&& f, Args&&... args)
-      : thread_((  //
-            internal_os::SetupForkDetection(),
-            [name = options.name, f = std::forward<Function>(f),
-             args = std::make_tuple(std::forward<Args>(args)...)]() mutable {
-              TrySetCurrentThreadName(name);
-              std::apply(std::move(f), std::move(args));
-            }  //
-            )) {}
+  Thread(private_t, Options options, Function&& f, Args&&... args) {
+    LogIfShutdownInProgress();
+    internal_os::SetupForkDetection();
+    thread_ = std::thread(
+        [name = options.name, f = std::forward<Function>(f),
+         args = std::make_tuple(std::forward<Args>(args)...)]() mutable {
+          TrySetCurrentThreadName(name);
+          std::apply(std::move(f), std::move(args));
+        });
+  }
 
   std::thread thread_;
 };

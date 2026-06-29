@@ -443,3 +443,14 @@ tensorstore_cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "shutdown",
+    srcs = ["shutdown.cc"],
+    hdrs = ["shutdown.h"],
+    deps = [
+        ":include_windows",
+        "//tensorstore/internal:source_location",
+        "@abseil-cpp//absl/log:absl_log",
+    ],
+)

@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/no_destructor.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -379,6 +380,8 @@ class MultiTransportImpl {
 
   void FinishRequest(std::unique_ptr<CurlRequestState> state, CURLcode code);
 
+  bool IsCurlThread() const;
+
  private:
   struct ThreadData {
     std::atomic<int64_t> count = 0;
@@ -431,6 +434,16 @@ MultiTransportImpl::~MultiTransportImpl() {
   for (size_t i = 0; i < threads_.size(); ++i) {
     factory_->CleanupMultiHandle(std::move(thread_data_[i].multi));
   }
+}
+
+bool MultiTransportImpl::IsCurlThread() const {
+  auto current_id = internal::Thread::this_thread_id();
+  for (const auto& thread : threads_) {
+    if (thread.get_id() == current_id) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void MultiTransportImpl::EnqueueRequest(const HttpRequest& request,
@@ -618,10 +631,20 @@ CurlTransport::CurlTransport(std::shared_ptr<CurlHandleFactory> factory)
                                    /*nthreads=*/GetHttpThreads())) {}
 
 CurlTransport::~CurlTransport() {
-  // The last reference to `this` may be dropped when a request receives a
-  // response, and self deletion may lead to crashes, so move the actual
-  // deletion to a background thread.
-  internal::ScheduleAt(absl::InfinitePast(), [impl = std::move(impl_)] {});
+  if (!impl_) return;
+
+  // Shutdown can crash in these cases:
+  // 1. Deleting impl from within a curl handler thread.
+  // 2. Starting a thread to delete impl when windows is shutting down.
+  //
+  // The simplest solution is to check if the delete is requested on a curl
+  // thread, and if so, move the deletion to a background thread, otherwise
+  // delete immediately.
+  if (impl_->IsCurlThread()) {
+    internal::ScheduleAt(absl::InfinitePast(), [impl = std::move(impl_)] {});
+  } else {
+    impl_.reset();
+  }
 };
 
 void CurlTransport::IssueRequestWithHandler(
@@ -633,9 +656,9 @@ void CurlTransport::IssueRequestWithHandler(
 }
 
 std::shared_ptr<HttpTransport> GetDefaultCurlTransport() {
-  static std::shared_ptr<HttpTransport> transport =
-      std::make_shared<CurlTransport>(GetDefaultCurlHandleFactory());
-  return transport;
+  static absl::NoDestructor<std::shared_ptr<HttpTransport>> transport(
+      std::make_shared<CurlTransport>(GetDefaultCurlHandleFactory()));
+  return *transport;
 }
 
 }  // namespace internal_http

@@ -53,6 +53,7 @@ tensorstore_cc_library(
     hdrs = ["thread.h"],
     deps = [
         "//tensorstore/internal/os:fork_detection",
+        "//tensorstore/internal/os:shutdown",
         "@abseil-cpp//absl/functional:any_invocable",
         "@abseil-cpp//absl/log:absl_check",
     ],
