@@ -24,6 +24,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
@@ -61,11 +62,17 @@ absl::Status EasyZipReader::Initialize() {
   // Attempt to read all the entries.
   reader_.Seek(eocd_.cd_offset);
   entries_.reserve(eocd_.num_entries);
+  absl::flat_hash_set<std::string> filenames;
   for (size_t i = 0; i < eocd_.num_entries; ++i) {
     ZipEntry entry{};
     if (auto entry_status = ReadCentralDirectoryEntry(reader_, entry);
         !entry_status.ok()) {
       return entry_status;
+    }
+    auto [iter, inserted] = filenames.insert(entry.filename);
+    if (!inserted) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Duplicate filename in ZIP archive: '%s'", entry.filename));
     }
     entries_.push_back(std::move(entry));
   }
@@ -88,6 +95,13 @@ Result<absl::Cord> EasyZipReader::ReadEntry(ZipEntry& entry) {
   uint64_t original_offset = entry.local_header_offset;
   TENSORSTORE_RETURN_IF_ERROR(ReadLocalEntry(reader_, local_header));
   local_header.local_header_offset = original_offset;
+
+  if (local_header.filename != entry.filename) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("ZIP entry local filename '%s' does not match "
+                        "central directory filename '%s'",
+                        local_header.filename, entry.filename));
+  }
 
   TENSORSTORE_RETURN_IF_ERROR(ValidateEntryIsSupported(local_header));
 

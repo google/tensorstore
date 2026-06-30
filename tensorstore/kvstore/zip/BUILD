@@ -70,9 +70,9 @@ tensorstore_cc_test(
     name = "zip_key_value_store_test",
     srcs = ["zip_key_value_store_test.cc"],
     args = [
-        "--tensorstore_test_data=$(location //tensorstore/internal/compression:testdata)",
+        "--tensorstore_test_data=$(location //tensorstore/internal/compression:testdata/data.zip)",
     ],
-    data = ["//tensorstore/internal/compression:testdata"],
+    data = ["//tensorstore/internal/compression:testdata/data.zip"],
     deps = [
         ":zip",  # build_cleaner: keep
         "//tensorstore:context",
@@ -131,9 +131,12 @@ tensorstore_cc_test(
     name = "zip_dir_cache_test",
     srcs = ["zip_dir_cache_test.cc"],
     args = [
-        "--tensorstore_test_data=$(location //tensorstore/internal/compression:testdata)",
+        "--tensorstore_test_data=$(location //tensorstore/internal/compression:testdata/data.zip)",
     ],
-    data = ["//tensorstore/internal/compression:testdata"],
+    data = [
+        "//tensorstore/internal/compression:testdata/data.zip",
+        "//tensorstore/internal/compression:testdata/zip_test2.zip",
+    ],
     deps = [
         ":zip_dir_cache",
         "//tensorstore:context",

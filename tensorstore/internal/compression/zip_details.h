@@ -139,6 +139,40 @@ std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader& reader,
                                                     ZipEOCD& eocd,
                                                     int64_t offset_adjustment);
 
+/// Represents MS-DOS date and time fields (each 16 bits), which are used
+/// by the ZIP format for entry modification times (with 2-second resolution).
+struct MSDOSTime {
+  uint16_t date;
+  uint16_t time;
+};
+
+/// Converts an MSDOSTime structure to an absl::Time.
+absl::Time MakeMSDOSTime(MSDOSTime dos_time);
+
+/// Converts an absl::Time structure to MSDOSTime (truncating to 2 seconds).
+MSDOSTime ValueToMSDOSTime(absl::Time time);
+
+// 4.4.4 General purpose bit flag
+enum class ZipGeneralFlags : uint16_t {
+  kEncrypted = 0x0001,
+  kHasDataDescriptor = 0x0008,
+  kLanguageEncoding = 0x0800,
+  kStrongEncryption = 0x0040,
+  kHeaderEncryption = 0x2000,
+};
+
+constexpr bool HasZipGeneralFlag(uint16_t flags, ZipGeneralFlags flag) {
+  return (flags & static_cast<uint16_t>(flag)) != 0;
+}
+
+// Size of a standard ZIP Data Descriptor (4-byte signature, 4-byte CRC,
+// 4-byte compressed size, 4-byte uncompressed size).
+constexpr int64_t kZipDataDescriptorSize = 16;
+
+// Size of a ZIP64 Data Descriptor (4-byte signature, 4-byte CRC,
+// 8-byte compressed size, 8-byte uncompressed size).
+constexpr int64_t kZip64DataDescriptorSize = 24;
+
 // 4.3.7   Local file header:
 // 4.3.12  Central directory structure:
 struct ZipEntry {
@@ -152,6 +186,7 @@ struct ZipEntry {
   uint32_t external_fa = 0;          // central-only
   uint64_t local_header_offset = 0;  // central-only
   uint64_t estimated_read_size = 0;  // central-only
+  uint16_t extra_field_length = 0;   // central-only
 
   // for additional bookkeeping.
   uint64_t end_of_header_offset;
@@ -180,6 +215,7 @@ struct ZipEntry {
                  "  external_fa=%x\n"
                  "  local_header_offset=%v\n"
                  "  estimated_read_size=%v\n"
+                 "  extra_field_length=%v\n"
                  "  mtime=%s\n"
                  "  atime=%s\n"
                  "  filename=\"%s\"\n"
@@ -189,8 +225,8 @@ struct ZipEntry {
                  entry.crc, entry.compressed_size, entry.uncompressed_size,
                  entry.internal_fa, entry.external_fa,
                  entry.local_header_offset, entry.estimated_read_size,
-                 absl::FormatTime(entry.mtime), absl::FormatTime(entry.atime),
-                 entry.filename, entry.comment);
+                 entry.extra_field_length, absl::FormatTime(entry.mtime),
+                 absl::FormatTime(entry.atime), entry.filename, entry.comment);
   }
 };
 

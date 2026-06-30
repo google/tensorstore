@@ -21,6 +21,7 @@
 #include <ctime>
 #include <limits>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
@@ -39,6 +40,7 @@
 #include "riegeli/bytes/prefix_limiting_reader.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bzip2/bzip2_reader.h"
+#include "riegeli/digests/crc32_digester.h"
 #include "riegeli/endian/endian_reading.h"
 #include "riegeli/endian/endian_writing.h"
 #include "riegeli/xz/xz_reader.h"
@@ -61,18 +63,6 @@ namespace {
 using ::riegeli::ReadLittleEndian;
 using ::riegeli::WriteLittleEndian;
 
-// General purpose bit flag (spec section 4.4.4)
-enum class ZipGeneralFlags : uint16_t {
-  kEncrypted = 0x0001,
-  kHasDataDescriptor = 0x0008,
-  kStrongEncryption = 0x0040,
-  kHeaderEncryption = 0x2000,
-};
-
-constexpr bool HasFlag(uint16_t flags, ZipGeneralFlags flag) {
-  return (flags & static_cast<uint16_t>(flag)) != 0;
-}
-
 // 32-bit signatures (little-endian representations of PK.. literals)
 constexpr uint32_t kLocalHeaderSignature = 0x04034b50;
 constexpr uint32_t kCentralHeaderSignature = 0x02014b50;
@@ -92,6 +82,7 @@ enum class ZipExtraFieldId : uint16_t {
   kNtfs = 0x000a,
   kUnixExtendedTimestamp = 0x5455,
   kUnixUidGid = 0x7875,
+  kUnicodePath = 0x7075,
 };
 
 // Unix extended timestamp flags for 0x5455.
@@ -147,10 +138,17 @@ const absl::Time kWindowsEpoch =
 constexpr int kMSDOSYearEpoch = 80;
 constexpr int kMSDOSMaxYearOffset = 127;
 
-struct MSDOSTime {
-  uint16_t date;
-  uint16_t time;
-};
+absl::Status ValidateAsciiString(std::string_view filename) {
+  for (char c : filename) {
+    if (static_cast<unsigned char>(c) > 127) {
+      return absl::InvalidArgumentError(
+          "Filename contains non-ASCII characters");
+    }
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
 
 absl::Time MakeMSDOSTime(MSDOSTime dos_time) {
   // Like DosDateTimeToVariantTime;
@@ -159,7 +157,7 @@ absl::Time MakeMSDOSTime(MSDOSTime dos_time) {
   dos_tm.tm_mon = static_cast<uint16_t>((dos_time.date >> 5) & 0xf) - 1;
   dos_tm.tm_year = static_cast<uint16_t>(dos_time.date >> 9) + kMSDOSYearEpoch;
   dos_tm.tm_hour = static_cast<uint16_t>(dos_time.time >> 11);
-  dos_tm.tm_min = static_cast<uint16_t>((dos_time.time >> 5) & 0x1f);
+  dos_tm.tm_min = static_cast<uint16_t>((dos_time.time >> 5) & 0x3f);
   dos_tm.tm_sec = static_cast<uint16_t>(2 * (dos_time.time & 0x1f));
   dos_tm.tm_isdst = -1;
 
@@ -184,6 +182,8 @@ MSDOSTime ValueToMSDOSTime(absl::Time time) {
 
   return {date, dos_time};
 }
+
+namespace {
 
 constexpr uint64_t kMaxUncompressedSize = 2ULL << 30;  // 2 GB
 constexpr uint64_t kMaxCompressionRatio = 1024;
@@ -344,6 +344,46 @@ absl::Status ReadExtraField_Unix_5455(riegeli::Reader& reader,
   return absl::OkStatus();
 }
 
+absl::Status ReadExtraField_InfoZipUnicodePath_7075(riegeli::Reader& reader,
+                                                    uint16_t tag_size,
+                                                    ZipEntry& entry) {
+  if (tag_size < 5) {
+    return absl::InvalidArgumentError("Unicode Path extra field too small");
+  }
+  uint8_t version;
+  if (!reader.ReadByte(version)) {
+    return absl::InvalidArgumentError("Failed to read Unicode Path version");
+  }
+  if (version != 1) {
+    reader.Skip(tag_size - 1);
+    return absl::OkStatus();
+  }
+  uint32_t name_crc32;
+  if (!ReadLittleEndian<uint32_t>(reader, name_crc32)) {
+    return absl::InvalidArgumentError("Failed to read Unicode Path NameCRC32");
+  }
+  std::string unicode_name;
+  if (!reader.Read(tag_size - 5, unicode_name)) {
+    return absl::InvalidArgumentError(
+        "Failed to read Unicode Path UnicodeName");
+  }
+  riegeli::Crc32Digester digester;
+  digester.Write(entry.filename);
+  uint32_t actual_crc = digester.Digest();
+  if (actual_crc != name_crc32) {
+    return absl::InvalidArgumentError(
+        "Info-ZIP Unicode Path CRC32 mismatch with standard filename");
+  }
+  if (unicode_name != entry.filename) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("ZIP entry filename '%s' is inconsistent with "
+                        "Unicode Path extra field filename '%s'",
+                        entry.filename, unicode_name));
+  }
+  entry.filename = std::move(unicode_name);
+  return absl::OkStatus();
+}
+
 absl::Status ReadExtraField(riegeli::Reader& reader, ZipEntry& entry) {
   // These could have different implementations for central headers vs.
   // local headers.
@@ -370,6 +410,10 @@ absl::Status ReadExtraField(riegeli::Reader& reader, ZipEntry& entry) {
         break;
       case ZipExtraFieldId::kUnixExtendedTimestamp:
         status.Update(ReadExtraField_Unix_5455(reader, tag_size, entry));
+        break;
+      case ZipExtraFieldId::kUnicodePath:
+        status.Update(
+            ReadExtraField_InfoZipUnicodePath_7075(reader, tag_size, entry));
         break;
       case ZipExtraFieldId::kUnixUidGid:
         break;
@@ -670,6 +714,7 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
   entry.local_header_offset = relative_header_offset;
   entry.mtime = MakeMSDOSTime(last_mod);
   entry.compression_method = static_cast<ZipCompression>(compression_method);
+  entry.extra_field_length = extra_field_length;
 
   if (file_name_length > 0 && !reader.Read(file_name_length, entry.filename)) {
     return absl::InvalidArgumentError(
@@ -706,7 +751,7 @@ absl::Status ReadCentralDirectoryEntry(riegeli::Reader& reader,
       std::max(entry.compressed_size, entry.uncompressed_size) +
       file_name_length + extra_field_length + ZipEntry::kLocalRecordSize +
       /*data descriptor size*/
-      (HasFlag(entry.flags, ZipGeneralFlags::kHasDataDescriptor)
+      (HasZipGeneralFlag(entry.flags, ZipGeneralFlags::kHasDataDescriptor)
            ? kDataDescriptorEstimatedSize
            : 0);
 
@@ -733,12 +778,13 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
   uint32_t compressed_size;
   uint16_t file_name_length = 0;
   uint16_t extra_field_length = 0;
+  uint32_t crc = 0;
   ReadLittleEndian<uint16_t>(reader, ignored16);  // version needed
   ReadLittleEndian<uint16_t>(reader, entry.flags);
   ReadLittleEndian<uint16_t>(reader, compression_method);
   ReadLittleEndian<uint16_t>(reader, last_mod.time);
   ReadLittleEndian<uint16_t>(reader, last_mod.date);
-  ReadLittleEndian<uint32_t>(reader, entry.crc);
+  ReadLittleEndian<uint32_t>(reader, crc);
   ReadLittleEndian<uint32_t>(reader, compressed_size);
   ReadLittleEndian<uint32_t>(reader, uncompressed_size);
   ReadLittleEndian<uint16_t>(reader, file_name_length);
@@ -749,10 +795,26 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
   entry.external_fa = 0;
   entry.local_header_offset = 0;
   entry.estimated_read_size = 0;
-  entry.compressed_size = compressed_size;
-  entry.uncompressed_size = uncompressed_size;
+  bool has_data_descriptor =
+      HasZipGeneralFlag(entry.flags, ZipGeneralFlags::kHasDataDescriptor);
+  if (!has_data_descriptor) {
+    entry.compressed_size = compressed_size;
+    entry.uncompressed_size = uncompressed_size;
+    entry.crc = crc;
+  } else {
+    if (compressed_size != 0 || entry.compressed_size == 0) {
+      entry.compressed_size = compressed_size;
+    }
+    if (uncompressed_size != 0 || entry.uncompressed_size == 0) {
+      entry.uncompressed_size = uncompressed_size;
+    }
+    if (crc != 0 || entry.crc == 0) {
+      entry.crc = crc;
+    }
+  }
   entry.mtime = MakeMSDOSTime(last_mod);
   entry.compression_method = static_cast<ZipCompression>(compression_method);
+  entry.extra_field_length = extra_field_length;
 
   if (file_name_length > 0 && !reader.Read(file_name_length, entry.filename)) {
     return absl::InvalidArgumentError(
@@ -782,9 +844,9 @@ absl::Status ReadLocalEntry(riegeli::Reader& reader, ZipEntry& entry) {
 
 // Returns whether the ZIP entry can be read.
 absl::Status ValidateEntryIsSupported(const ZipEntry& entry) {
-  if (HasFlag(entry.flags, ZipGeneralFlags::kEncrypted) ||
-      HasFlag(entry.flags, ZipGeneralFlags::kStrongEncryption) ||
-      HasFlag(entry.flags, ZipGeneralFlags::kHeaderEncryption) ||
+  if (HasZipGeneralFlag(entry.flags, ZipGeneralFlags::kEncrypted) ||
+      HasZipGeneralFlag(entry.flags, ZipGeneralFlags::kStrongEncryption) ||
+      HasZipGeneralFlag(entry.flags, ZipGeneralFlags::kHeaderEncryption) ||
       entry.compression_method == ZipCompression::kAes) {
     return absl::InvalidArgumentError("ZIP encryption is not supported");
   }
@@ -825,7 +887,7 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
   // entry.flags indicates whether the actual sizes are stored in a
   // ZIP Data Descriptor, which follows the compressed data. If so, that
   // needs to be read.
-  if (HasFlag(entry.flags, ZipGeneralFlags::kHasDataDescriptor)) {
+  if (HasZipGeneralFlag(entry.flags, ZipGeneralFlags::kHasDataDescriptor)) {
     const auto start_pos = reader->pos();
     if (!reader->Skip(entry.compressed_size)) {
       return reader->status();
@@ -833,8 +895,6 @@ tensorstore::Result<std::unique_ptr<riegeli::Reader>> GetRawReader(
 
     // There are 8 bytes of guaranteed data; then there is a variable length
     // section depending on whether the entry is a ZIP or ZIP64.
-    static constexpr size_t kZipDataDescriptorSize = 16;
-    static constexpr size_t kZip64DataDescriptorSize = 24;
     if (!reader->Pull(entry.is_zip64 ? kZip64DataDescriptorSize
                                      : kZipDataDescriptorSize)) {
       return absl::DataLossError("Failed to read ZIP DataDescriptor");
@@ -998,6 +1058,15 @@ tensorstore::Result<CompressionResult> Compress(
 }
 
 absl::Status WriteLocalEntry(riegeli::Writer& writer, ZipEntry& entry) {
+  if (entry.filename.size() > std::numeric_limits<uint16_t>::max()) {
+    return absl::InvalidArgumentError("Filename too long");
+  }
+  // Automatically set the language encoding flag if the filename is not ASCII.
+  if (!HasZipGeneralFlag(entry.flags, ZipGeneralFlags::kLanguageEncoding) &&
+      !ValidateAsciiString(entry.filename).ok()) {
+    entry.flags |= static_cast<uint16_t>(ZipGeneralFlags::kLanguageEncoding);
+  }
+
   uint32_t uncompressed_size_header = entry.uncompressed_size;
   uint32_t compressed_size_header = entry.compressed_size;
   uint16_t extra_field_length = 0;
@@ -1016,10 +1085,6 @@ absl::Status WriteLocalEntry(riegeli::Writer& writer, ZipEntry& entry) {
   }
   if (zip64_uncompressed || zip64_compressed) {
     extra_field_length += 4;  // tag (2 bytes) + size (2 bytes)
-  }
-
-  if (entry.filename.size() > std::numeric_limits<uint16_t>::max()) {
-    return absl::InvalidArgumentError("Filename too long");
   }
 
   WriteLittleEndian<uint32_t>(kLocalHeaderSignature, writer);  // Signature
@@ -1065,6 +1130,16 @@ absl::Status WriteLocalEntry(riegeli::Writer& writer, ZipEntry& entry) {
 
 absl::Status WriteCentralDirectoryEntry(riegeli::Writer& writer,
                                         const ZipEntry& entry) {
+  if (!HasZipGeneralFlag(entry.flags, ZipGeneralFlags::kLanguageEncoding)) {
+    TENSORSTORE_RETURN_IF_ERROR(ValidateAsciiString(entry.filename));
+  }
+  if (entry.filename.size() > std::numeric_limits<uint16_t>::max()) {
+    return absl::InvalidArgumentError("Filename too long");
+  }
+  if (entry.comment.size() > std::numeric_limits<uint16_t>::max()) {
+    return absl::InvalidArgumentError("Comment too long");
+  }
+
   uint32_t uncompressed_size_header = entry.uncompressed_size;
   uint32_t compressed_size_header = entry.compressed_size;
   uint32_t local_header_offset_header = entry.local_header_offset;
@@ -1090,13 +1165,6 @@ absl::Status WriteCentralDirectoryEntry(riegeli::Writer& writer,
   }
   if (zip64_uncompressed || zip64_compressed || zip64_offset) {
     extra_field_length += 4;  // tag + size
-  }
-
-  if (entry.filename.size() > std::numeric_limits<uint16_t>::max()) {
-    return absl::InvalidArgumentError("Filename too long");
-  }
-  if (entry.comment.size() > std::numeric_limits<uint16_t>::max()) {
-    return absl::InvalidArgumentError("Comment too long");
   }
 
   WriteLittleEndian<uint32_t>(kCentralHeaderSignature, writer);  // Signature

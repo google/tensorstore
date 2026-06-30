@@ -5,7 +5,17 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 licenses(["notice"])
 
 exports_files(
-    ["testdata/data.zip"],
+    [
+        "testdata/data.zip",
+        "testdata/data_descriptor_store_compression.zip",
+        "testdata/infozip_unicode_path.zip",
+        "testdata/zip64_one_empty_file.zip",
+        "testdata/zip_bzip2.zip",
+        "testdata/zip_deflate.zip",
+        "testdata/zip_test2.zip",
+        "testdata/zip_xz.zip",
+        "testdata/zip_zstd.zip",
+    ],
     visibility = ["//tensorstore:internal_packages"],
 )
 
@@ -13,6 +23,14 @@ filegroup(
     name = "testdata",
     srcs = [
         "testdata/data.zip",
+        "testdata/data_descriptor_store_compression.zip",
+        "testdata/infozip_unicode_path.zip",
+        "testdata/zip64_one_empty_file.zip",
+        "testdata/zip_bzip2.zip",
+        "testdata/zip_deflate.zip",
+        "testdata/zip_test2.zip",
+        "testdata/zip_xz.zip",
+        "testdata/zip_zstd.zip",
     ],
 )
 
@@ -243,6 +261,7 @@ tensorstore_cc_library(
         "@riegeli//riegeli/bytes:reader",
         "@riegeli//riegeli/bytes:writer",
         "@riegeli//riegeli/bzip2:bzip2_reader",
+        "@riegeli//riegeli/digests:crc32_digester",
         "@riegeli//riegeli/endian:endian_reading",
         "@riegeli//riegeli/endian:endian_writing",
         "@riegeli//riegeli/xz:xz_reader",
@@ -258,9 +277,19 @@ tensorstore_cc_test(
     name = "zip_details_test",
     srcs = ["zip_details_test.cc"],
     args = [
-        "--tensorstore_test_data=$(location :testdata)",
+        "--tensorstore_test_data=$(location testdata/data.zip)",
     ],
-    data = [":testdata"],
+    data = [
+        "testdata/data.zip",
+        "testdata/data_descriptor_store_compression.zip",
+        "testdata/infozip_unicode_path.zip",
+        "testdata/zip64_one_empty_file.zip",
+        "testdata/zip_bzip2.zip",
+        "testdata/zip_deflate.zip",
+        "testdata/zip_test2.zip",
+        "testdata/zip_xz.zip",
+        "testdata/zip_zstd.zip",
+    ],
     deps = [
         ":zip_details",
         ":zip_easy",
@@ -294,6 +323,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
