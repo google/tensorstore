@@ -115,8 +115,8 @@ struct SpanTypeHelper<T, std::void_t<internal_span::ContainerElementType<T>>> {
   constexpr static ptrdiff_t extent = dynamic_extent;
 };
 
-constexpr inline ptrdiff_t SubspanExtent(ptrdiff_t extent, ptrdiff_t offset,
-                                         ptrdiff_t count) {
+constexpr ptrdiff_t SubspanExtent(ptrdiff_t extent, ptrdiff_t offset,
+                                  ptrdiff_t count) {
   return count == dynamic_extent && extent == dynamic_extent ? dynamic_extent
          : count == dynamic_extent                           ? extent - offset
                                                              : count;
@@ -404,7 +404,7 @@ class span {
     if (ABSL_PREDICT_TRUE(i < size() && i >= 0)) {
       return *(data() + i);
     }
-    ABSL_LOG(FATAL) << "span.at(" << i << (i >= 0 ? ") >= size()" : ") i < 0");
+    AtFatal(i);
   }
 
   /// Returns a reference to the first element.
@@ -440,6 +440,10 @@ class span {
   std::conditional_t<Extent == dynamic_extent, ptrdiff_t,
                      std::integral_constant<ptrdiff_t, Extent>>
       size_;
+
+  [[noreturn]] void AtFatal(ptrdiff_t i) const {
+    ABSL_LOG(FATAL) << "span.at(" << i << (i >= 0 ? ") >= size()" : ") i < 0");
+  }
 };
 
 template <typename T>

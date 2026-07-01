@@ -136,6 +136,7 @@ tensorstore_cc_library(
     deps = [
         ":domain_field",
         "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/base:dynamic_annotations",
         "@abseil-cpp//absl/container:node_hash_map",
         "@abseil-cpp//absl/debugging:leak_check",
         "@abseil-cpp//absl/functional:function_ref",

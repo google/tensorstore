@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/dynamic_annotations.h"
 #include "absl/base/optimization.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/debugging/leak_check.h"
@@ -88,6 +89,7 @@ size_t MetricThreadCounter();
 template <typename T>
 T* LazyInit(std::atomic<T*>& ptr) {
   T* p = ptr.load(std::memory_order_acquire);
+  ABSL_ANNOTATE_MEMORY_IS_INITIALIZED(&p, sizeof(p));
   if (ABSL_PREDICT_FALSE(!p)) {
     auto* candidate = absl::IgnoreLeak(new T());
     T* expected = nullptr;
@@ -326,8 +328,7 @@ class AbstractMetric {
   using field_values_type = typename Key::tuple_type;
   using value_type = typename Cell::value_type;
 
-  constexpr AbstractMetric() : state_(nullptr) {}
-
+  constexpr AbstractMetric() = default;
   ~AbstractMetric() {
     // NOTE: State* should be "eternal", so we just leak it.
   }
@@ -384,14 +385,14 @@ class AbstractMetric {
  private:
   State* GetState() const { return LazyInit(state_); }
 
-  mutable std::atomic<State*> state_;
+  mutable std::atomic<State*> state_{nullptr};
 };
 
 // Lock-free Specialization for no fields using a sharded counter.
 template <typename Cell>
 class AbstractMetric<Cell, true> {
  public:
-  static constexpr bool kNumThreads = 4;
+  static constexpr size_t kNumThreads = 4;
   using field_values_type = std::tuple<>;
   using value_type = typename Cell::value_type;
 
@@ -432,7 +433,7 @@ class AbstractMetric<Cell, true> {
 template <typename Cell, typename Enable = void>
 class CellStorage {
  public:
-  constexpr CellStorage() : value_() {}
+  constexpr CellStorage() = default;
   ~CellStorage() = default;
 
   Cell* Get() const { return &value_; }
@@ -447,7 +448,7 @@ template <typename Cell>
 class CellStorage<Cell,
                   std::enable_if_t<!std::is_trivially_destructible_v<Cell>>> {
  public:
-  constexpr CellStorage() : ptr_(nullptr) {}
+  constexpr CellStorage() = default;
   ~CellStorage() {
     // NOTE: Cell* should be "eternal", so we just leak it.
   }
@@ -462,7 +463,7 @@ class CellStorage<Cell,
   }
 
  private:
-  mutable std::atomic<Cell*> ptr_;
+  mutable std::atomic<Cell*> ptr_{nullptr};
 };
 
 // Lock-free Specialization for no fields.

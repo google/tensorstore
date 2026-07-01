@@ -75,6 +75,17 @@ build:msvc --per_file_copt=grpc/.*\\.cc$@/wd4244
 build:msvc --host_per_file_copt=grpc/.*\\.cc$@/wd4244
 build:msvc --per_file_copt=external/xds/.*\\.cc$@/wd4244
 build:msvc --host_per_file_copt=external/xds/.*\\.cc$@/wd4244
+build:msvc --per_file_copt=grpc/.*$@/wd4715
+build:msvc --host_per_file_copt=grpc/.*$@/wd4715
+
+# Silence macro redefinition warnings from AWS SDK
+build:msvc --per_file_copt=external/aws_c_.*$@/wd4005
+build:msvc --host_per_file_copt=external/aws_c_.*$@/wd4005
+
+# Silence not all control paths return a value warnings from protobuf
+build:msvc --per_file_copt=external/com_google_protobuf/.*$@/wd4715
+build:msvc --host_per_file_copt=external/com_google_protobuf/.*$@/wd4715
+
 
 # ----------------------------------------
 # Disable warnings
