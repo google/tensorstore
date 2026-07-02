@@ -300,6 +300,7 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",

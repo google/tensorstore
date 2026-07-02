@@ -33,6 +33,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "riegeli/bytes/cord_reader.h"
@@ -213,7 +214,6 @@ static constexpr unsigned char kMinimalZip[] = {
     /*size*/ 0x0,       0x0,  0x0, 0x0,
     /*offset*/ 0x0,     0x0,  0x0, 0x0,
     /*comment*/ 0x0,    0x0};
-
 
 template <size_t N>
 std::string_view StringViewOf(const unsigned char (&str)[N]) {
@@ -737,6 +737,10 @@ TEST(ZipDetailsTest, WriteAndReadRoundtrip) {
   entry1.compression_method = ZipCompression::kStore;
   entry1.mtime = absl::FromCivil(absl::CivilSecond(2023, 8, 3, 6, 2, 22),
                                  absl::UTCTimeZone());
+  entry1.atime = absl::FromCivil(absl::CivilSecond(2023, 8, 3, 6, 2, 25),
+                                 absl::UTCTimeZone());
+  entry1.ctime = absl::FromCivil(absl::CivilSecond(2023, 8, 3, 6, 2, 28),
+                                 absl::UTCTimeZone());
   entry1.crc = 0x12345678;
   entry1.compressed_size = 5;
   entry1.uncompressed_size = 5;
@@ -786,6 +790,8 @@ TEST(ZipDetailsTest, WriteAndReadRoundtrip) {
   EXPECT_EQ(read_central_entry.comment, entry1.comment);
   EXPECT_EQ(read_central_entry.local_header_offset, entry1.local_header_offset);
   EXPECT_EQ(read_central_entry.mtime, entry1.mtime);
+  EXPECT_EQ(read_central_entry.atime, entry1.atime);
+  EXPECT_EQ(read_central_entry.ctime, entry1.ctime);
 
   reader.Seek(read_central_entry.local_header_offset);
   EXPECT_TRUE(StartsWith(reader, StringViewOf(kLocalHeaderLiteral)));
@@ -798,6 +804,8 @@ TEST(ZipDetailsTest, WriteAndReadRoundtrip) {
   EXPECT_EQ(read_local_entry.uncompressed_size, entry1.uncompressed_size);
   EXPECT_EQ(read_local_entry.filename, entry1.filename);
   EXPECT_EQ(read_local_entry.mtime, entry1.mtime);
+  EXPECT_EQ(read_local_entry.atime, entry1.atime);
+  EXPECT_EQ(read_local_entry.ctime, entry1.ctime);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto data_reader,
                                    GetReader(&reader, read_local_entry));
@@ -1418,6 +1426,33 @@ TEST(ZipEasyTest, Zip64) {
   EXPECT_TRUE(entries[0].is_zip64);
 }
 
+TEST(ZipEasyTest, EasyZipWriterZip64ManyEntries) {
+  std::string bytes;
+  riegeli::StringWriter writer(&bytes);
+  EasyZipWriter zip_writer(writer);
+
+  // Write 65536 empty entries to force ZIP64.
+  for (int i = 0; i < 65536; ++i) {
+    ZipEntry entry;
+    entry.filename = absl::StrCat("file_", i);
+    entry.compression_method = ZipCompression::kStore;
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(entry, absl::Cord()));
+  }
+
+  TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+  ASSERT_TRUE(writer.Close());
+
+  // Now read it back.
+  riegeli::StringReader reader(bytes);
+  EasyZipReader zip_reader(reader);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto entries, zip_reader.entries());
+
+  EXPECT_EQ(entries.size(), 65536);
+  for (int i = 0; i < 65536; ++i) {
+    EXPECT_EQ(entries[i].filename, absl::StrCat("file_", i));
+  }
+}
+
 TEST(ZipDetailsTest, CompressEmptyData) {
   absl::Cord original_cord;
 
@@ -1622,6 +1657,38 @@ TEST(ZipSecurityTest, DifferentZipMismatchedLfhRejected) {
       ::testing::HasSubstr("does not match central directory filename"));
 }
 
+TEST(ZipSecurityTest, DifferentZipMismatchedLfhAllowed) {
+  std::string bytes;
+  ZipEOCD eocd;
+  {
+    riegeli::StringWriter writer(&bytes);
+    EasyZipWriter zip_writer(writer);
+
+    ZipEntry entry;
+    entry.filename = "file1.txt";
+    entry.compression_method = ZipCompression::kStore;
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(entry, absl::Cord("data")));
+
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize(&eocd));
+    ASSERT_TRUE(writer.Close());
+  }
+
+  // Modify the central directory entry filename.
+  // The filename in CDH starts exactly 46 bytes after cdh_offset.
+  ASSERT_LT(eocd.cd_offset + 46 + 9, bytes.size());
+  bytes.replace(eocd.cd_offset + 46, 9, "clash.txt");
+
+  riegeli::StringReader string_reader(bytes);
+  EasyZipReader zip_reader(string_reader, /*validate_filename=*/false);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto entries, zip_reader.entries());
+  ASSERT_GE(entries.size(), 1);
+
+  ZipEntry mutable_entry = entries[0];
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto content,
+                                   zip_reader.ReadEntry(mutable_entry));
+  EXPECT_EQ(content, "data");
+}
+
 TEST(ZipDetailsTest, WriteNonAsciiEntryAutoSetsEfs) {
   ZipEntry entry;
   entry.filename = "файлы.txt";
@@ -1651,6 +1718,111 @@ TEST(ZipDetailsTest, ReadInfoZipUnicodePathSuccess) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto content,
                                    zip_reader.ReadEntry(mutable_entry));
   EXPECT_EQ(content, "Hello Unicode!");
+}
+
+TEST(ZipDetailsTest, WriteAndReadRoundtripUnixTimestamps) {
+  absl::Cord cord;
+  riegeli::CordWriter writer(&cord);
+
+  ZipEntry entry1;
+  entry1.version_madeby = 20;
+  entry1.flags = 0;
+  entry1.compression_method = ZipCompression::kStore;
+  entry1.mtime = absl::FromUnixSeconds(1234567890);
+  entry1.atime = absl::FromUnixSeconds(1234567893);
+  entry1.ctime = absl::FromUnixSeconds(1234567896);
+  entry1.crc = 0x12345678;
+  entry1.compressed_size = 5;
+  entry1.uncompressed_size = 5;
+  entry1.filename = "file1";
+  entry1.comment = "comment1";
+  entry1.local_header_offset = 0;
+
+  TENSORSTORE_ASSERT_OK(WriteLocalEntry(writer, entry1));
+  writer.Write("hello");
+
+  entry1.local_header_offset = 0;
+
+  auto cd_offset = writer.pos();
+  TENSORSTORE_ASSERT_OK(WriteCentralDirectoryEntry(writer, entry1));
+  auto cd_size = writer.pos() - cd_offset;
+
+  ZipEOCD eocd;
+  eocd.num_entries = 1;
+  eocd.cd_size = cd_size;
+  eocd.cd_offset = cd_offset;
+  TENSORSTORE_ASSERT_OK(WriteEOCD(writer, eocd));
+
+  EXPECT_TRUE(writer.Close()) << writer.status();
+
+  riegeli::CordReader reader(&cord);
+
+  EasyZipReader zip_reader(reader);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto entries, zip_reader.entries());
+  ASSERT_EQ(entries.size(), 1);
+
+  ZipEntry local_entry = entries[0];
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto content_read,
+                                   zip_reader.ReadEntry(local_entry));
+  EXPECT_EQ(content_read, "hello");
+
+  EXPECT_EQ(local_entry.mtime, entry1.mtime);
+  EXPECT_EQ(local_entry.atime, entry1.atime);
+  EXPECT_EQ(local_entry.ctime, entry1.ctime);
+}
+
+TEST(ZipDetailsTest, ReadPrefersHighResNtfsTimestamps) {
+  absl::Cord cord;
+  riegeli::CordWriter writer(&cord);
+
+  ZipEntry entry1;
+  entry1.version_madeby = 20;
+  entry1.flags = 0;
+  entry1.compression_method = ZipCompression::kStore;
+  // Sub-second precision timestamp (123 milliseconds).
+  entry1.mtime = absl::FromUnixSeconds(1234567890) + absl::Milliseconds(123);
+  entry1.atime = absl::FromUnixSeconds(1234567893) + absl::Milliseconds(456);
+  entry1.ctime = absl::FromUnixSeconds(1234567896) + absl::Milliseconds(789);
+  entry1.crc = 0x12345678;
+  entry1.compressed_size = 5;
+  entry1.uncompressed_size = 5;
+  entry1.filename = "file1";
+  entry1.comment = "comment1";
+  entry1.local_header_offset = 0;
+
+  TENSORSTORE_ASSERT_OK(WriteLocalEntry(writer, entry1));
+  writer.Write("hello");
+
+  entry1.local_header_offset = 0;
+
+  auto cd_offset = writer.pos();
+  TENSORSTORE_ASSERT_OK(WriteCentralDirectoryEntry(writer, entry1));
+  auto cd_size = writer.pos() - cd_offset;
+
+  ZipEOCD eocd;
+  eocd.num_entries = 1;
+  eocd.cd_size = cd_size;
+  eocd.cd_offset = cd_offset;
+  TENSORSTORE_ASSERT_OK(WriteEOCD(writer, eocd));
+
+  EXPECT_TRUE(writer.Close()) << writer.status();
+
+  riegeli::CordReader reader(&cord);
+
+  EasyZipReader zip_reader(reader);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto entries, zip_reader.entries());
+  ASSERT_EQ(entries.size(), 1);
+
+  ZipEntry local_entry = entries[0];
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto content_read,
+                                   zip_reader.ReadEntry(local_entry));
+  EXPECT_EQ(content_read, "hello");
+
+  // Verify high-resolution (sub-second) times are preserved from NTFS
+  // and not overwritten/truncated by the lower resolution Unix field.
+  EXPECT_EQ(local_entry.mtime, entry1.mtime);
+  EXPECT_EQ(local_entry.atime, entry1.atime);
+  EXPECT_EQ(local_entry.ctime, entry1.ctime);
 }
 
 }  // namespace

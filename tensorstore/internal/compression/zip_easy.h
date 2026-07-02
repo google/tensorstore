@@ -36,7 +36,8 @@ namespace internal_zip {
 /// Helper class for reading a ZIP file.
 class EasyZipReader {
  public:
-  explicit EasyZipReader(riegeli::Reader& reader ABSL_ATTRIBUTE_LIFETIME_BOUND);
+  explicit EasyZipReader(riegeli::Reader& reader ABSL_ATTRIBUTE_LIFETIME_BOUND,
+                         bool validate_filename = true);
 
   /// Initializes the directory by reading the EOCD and central directory.
   absl::Status Initialize();
@@ -56,6 +57,7 @@ class EasyZipReader {
   ZipEOCD eocd_;
   std::vector<ZipEntry> entries_;
   bool initialized_ = false;
+  bool validate_filename_ = true;
 };
 
 /// Helper class for writing a ZIP file.

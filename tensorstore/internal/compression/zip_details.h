@@ -56,11 +56,11 @@
 //  [central directory header 1]
 //  ...
 //  [central directory header n]
-//  [zip64 end of central directory record]
-//  [zip64 end of central directory locator]
-//  [end of central directory record]
+//  [zip64 end of central directory record] (56 bytes)
+//  [zip64 end of central directory locator] (20 bytes)
+//  [end of central directory record] (22 bytes + comment)
+//  .. [comment]
 //
-
 namespace tensorstore {
 namespace internal_zip {
 
@@ -69,7 +69,8 @@ namespace internal_zip {
 /// of up to 2^16-1 bytes, so the final 64K + 24 bytes should be examined to
 /// find the EOCD. If an EOCD64 is needed, the locator is 20 bytes, and appears
 /// immediately prior to the EOCD.
-constexpr size_t kEOCDBlockSize = 65536 + 48;
+constexpr size_t kEOCDBlockSize =
+    65536 + /*EOCD*/ 22 + /*EOCD64 Locator*/ 20 + /*EOCD64*/ 56;
 
 // 4.4.5  Compression method.
 enum class ZipCompression : uint16_t {
@@ -193,6 +194,7 @@ struct ZipEntry {
 
   absl::Time mtime;
   absl::Time atime;
+  absl::Time ctime;
 
   std::string filename;
   std::string comment;
@@ -218,6 +220,7 @@ struct ZipEntry {
                  "  extra_field_length=%v\n"
                  "  mtime=%s\n"
                  "  atime=%s\n"
+                 "  ctime=%s\n"
                  "  filename=\"%s\"\n"
                  "  comment=\"%s\"\n"
                  "}",
@@ -226,7 +229,8 @@ struct ZipEntry {
                  entry.internal_fa, entry.external_fa,
                  entry.local_header_offset, entry.estimated_read_size,
                  entry.extra_field_length, absl::FormatTime(entry.mtime),
-                 absl::FormatTime(entry.atime), entry.filename, entry.comment);
+                 absl::FormatTime(entry.atime), absl::FormatTime(entry.ctime),
+                 entry.filename, entry.comment);
   }
 };
 
@@ -242,10 +246,23 @@ absl::Status WriteLocalEntry(riegeli::Writer& writer, ZipEntry& entry);
 
 /// Write a ZIP Central Directory Entry at the current writer position.
 absl::Status WriteCentralDirectoryEntry(riegeli::Writer& writer,
-                                        const ZipEntry& entry);
+                                        ZipEntry& entry);
 
 /// Write a ZIP EOCD at the current writer position.
 absl::Status WriteEOCD(riegeli::Writer& writer, const ZipEOCD& eocd);
+
+/// Write a ZIP64 EOCD Record at the current writer position.
+absl::Status WriteEOCD64(riegeli::Writer& writer, const ZipEOCD& eocd);
+
+/// Write a ZIP64 EOCD Locator at the current writer position.
+absl::Status WriteEOCD64Locator(riegeli::Writer& writer,
+                                uint64_t zip64_eocd_offset);
+
+/// Returns true if the entry requires ZIP64 extra field.
+bool UseZip64(const ZipEntry& entry, bool is_local);
+
+/// Returns true if the EOCD requires ZIP64.
+bool UseZip64(const ZipEOCD& eocd);
 
 /// Returns an error when the zip entry cannot be read.
 absl::Status ValidateEntryIsSupported(const ZipEntry& entry);

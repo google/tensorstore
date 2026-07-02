@@ -40,7 +40,8 @@
 namespace tensorstore {
 namespace internal_zip {
 
-EasyZipReader::EasyZipReader(riegeli::Reader& reader) : reader_(reader) {}
+EasyZipReader::EasyZipReader(riegeli::Reader& reader, bool validate_filename)
+    : reader_(reader), validate_filename_(validate_filename) {}
 
 absl::Status EasyZipReader::Initialize() {
   if (initialized_) return absl::OkStatus();
@@ -96,7 +97,7 @@ Result<absl::Cord> EasyZipReader::ReadEntry(ZipEntry& entry) {
   TENSORSTORE_RETURN_IF_ERROR(ReadLocalEntry(reader_, local_header));
   local_header.local_header_offset = original_offset;
 
-  if (local_header.filename != entry.filename) {
+  if (validate_filename_ && local_header.filename != entry.filename) {
     return absl::InvalidArgumentError(
         absl::StrFormat("ZIP entry local filename '%s' does not match "
                         "central directory filename '%s'",
@@ -180,7 +181,7 @@ absl::Status EasyZipWriter::Finalize(ZipEOCD* eocd) {
     eocd_ = *eocd;
   }
   eocd_.cd_offset = writer_.pos();
-  for (const auto& entry : entries_) {
+  for (auto& entry : entries_) {
     TENSORSTORE_RETURN_IF_ERROR(WriteCentralDirectoryEntry(writer_, entry));
   }
   eocd_.cd_size = writer_.pos() - eocd_.cd_offset;
