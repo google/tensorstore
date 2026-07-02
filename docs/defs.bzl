@@ -1,5 +1,22 @@
+# Copyright 2026 The TensorStore Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Defines additional Starlark rules, transitions, and aspects for TensorStore."""
+
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "CPP_COMPILE_ACTION_NAME")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("@build_bazel_apple_support//lib:apple_support.bzl", "apple_support")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
 # Aspect for extracting the C++ compiler flags that apply to a target.
@@ -27,16 +44,8 @@ def _compilation_flags_aspect_impl(target, ctx):
     return [CompilationAspect(compiler_options = compiler_options)]
 
 compilation_flags_aspect = aspect(
-    attrs = {
-        "_xcode_config": attr.label(
-            default = configuration_field(
-                name = "xcode_config_label",
-                fragment = "apple",
-            ),
-        ),
-    },
+    attrs = apple_support.action_required_attrs(),
     fragments = [
-        "apple",
         "cpp",
     ],
     provides = [CompilationAspect],
