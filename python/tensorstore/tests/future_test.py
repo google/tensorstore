@@ -287,9 +287,9 @@ def test_future_concurrent_ops() -> None:
       try:
         callback_result[0] = f.result()
       except asyncio.CancelledError as e:
-        callback_error[0] = e
+        callback_error[0] = e  # pyrefly: ignore[unsupported-operation]
       except Exception as e:  # pylint: disable=broad-exception-caught
-        callback_error[0] = e
+        callback_error[0] = e  # pyrefly: ignore[unsupported-operation]
       finally:
         callback_called.set()
 

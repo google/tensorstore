@@ -303,7 +303,7 @@ def transform_init_ast(
   init_pyi_tree.body = new_body
 
   # Some annotations include `tensorstore.` prefix, which is incorrect.
-  init_pyi_tree = _strip_module_prefix(init_pyi_tree, "tensorstore")
+  init_pyi_tree = _strip_module_prefix(init_pyi_tree, "tensorstore")  # pyrefly: ignore[bad-assignment]
 
   return init_pyi_tree
 
@@ -322,7 +322,7 @@ def _fix_all(tree: ast.Module) -> ast.Module:
   for i, node in enumerate(tree.body):
     match node:
       case ast.AnnAssign(target=ast.Name(id="__all__")):
-        tree.body[i] = ast.Assign(
+        tree.body[i] = ast.Assign(  # pyrefly: ignore[no-matching-overload]
             targets=[node.target], value=node.value, type_comment=None
         )
         return tree
@@ -367,14 +367,14 @@ def _munge_type_stubs_file(
   stub_ast = ast.parse(content)
   _fix_all(stub_ast)
   if input_path.name == "__init__.pyi":
-    init_py_path = pathlib.Path(importlib.import_module("tensorstore").__file__)
+    init_py_path = pathlib.Path(importlib.import_module("tensorstore").__file__)  # pyrefly: ignore[bad-argument-type]
     stub_ast = transform_init_ast(
         init_py_content=init_py_path.read_text(encoding="utf-8"),
         init_pyi_tree=stub_ast,
         submodule_names=submodule_names,
     )
   if strip_generic_slice:
-    stub_ast = _strip_generic_slice(stub_ast)
+    stub_ast = _strip_generic_slice(stub_ast)  # pyrefly: ignore[bad-argument-type]
   ast.fix_missing_locations(stub_ast)
   content = ast.unparse(stub_ast)
   content = content.replace("typing.Tuple[", "tuple[")
