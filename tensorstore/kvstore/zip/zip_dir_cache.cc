@@ -17,14 +17,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <variant>
-#include <vector>
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
@@ -44,13 +41,14 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/zip/cached_dir.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 // specializations
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
-#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_zip_kvstore {
@@ -61,10 +59,12 @@ ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip");
 struct ReadDirectoryOp
     : public internal::AtomicReferenceCount<ReadDirectoryOp> {
   ZipDirectoryCache::Entry* entry_;
-  std::shared_ptr<const Directory> existing_read_data_;
 
   kvstore::ReadOptions options_;
   internal_zip::ZipEOCD eocd_;
+  std::shared_ptr<const CachedDir> existing_read_data_;
+
+  explicit ReadDirectoryOp(ZipDirectoryCache::Entry* entry) : entry_(entry) {}
 
   void StartEOCDBlockRead() {
     auto& cache = internal::GetOwningCache(*entry_);
@@ -87,7 +87,7 @@ struct ReadDirectoryOp
     if (!r.ok()) {
       ABSL_LOG_IF(INFO, zip_logging) << r.status();
       if (absl::IsOutOfRange(r.status())) {
-        // Retry, reading the full range.
+        // File is smaller than the EOCD block; retry with full read.
         assert(!options_.byte_range.IsFull());
         options_.byte_range = OptionalByteRangeRequest{};
         StartEOCDBlockRead();
@@ -101,14 +101,16 @@ struct ReadDirectoryOp
 
     auto& read_result = *r;
     if (read_result.aborted()) {
-      // yield the original data.
+      // The generation matched `if_not_equal`, indicating the cached data is
+      // still valid and unchanged. Re-publish it with the updated stamp.
       entry_->ReadSuccess(ZipDirectoryCache::ReadState{
-          entry_->read_request_state_.read_state.data,
-          std::move(read_result.stamp)});
+          std::move(existing_read_data_), std::move(read_result.stamp)});
       return;
     }
     if (read_result.not_found()) {
-      entry_->ReadError(absl::NotFoundError(""));
+      // The base file was not found. Return a missing entry.
+      entry_->ReadSuccess(
+          ZipDirectoryCache::ReadState{nullptr, std::move(read_result.stamp)});
       return;
     }
 
@@ -135,14 +137,15 @@ struct ReadDirectoryOp
 
     if (auto* inclusive_min = std::get_if<int64_t>(&read_eocd_variant);
         inclusive_min != nullptr) {
-      // Issue a retry since the initial block did not contain the entire
-      // EOCD64 Directory.
+      // Suffix was too small for the full EOCD (e.g. large comment);
+      // re-read from the position identified by TryReadFullEOCD.
       assert(!options_.byte_range.IsFull());
       options_.byte_range = OptionalByteRangeRequest::Suffix(*inclusive_min);
       StartEOCDBlockRead();
       return;
     }
 
+    // block_offset is always >= 0 (0 for full read, or the suffix start).
     if (block_offset >= 0 && block_offset <= eocd_.cd_offset) {
       // The EOCD block contains the directory, so fall through to
       // handling directory entries without another read request.
@@ -150,7 +153,7 @@ struct ReadDirectoryOp
       return;
     }
 
-    // Issue a read of the directory.
+    // Central Directory is outside the EOCD block; read it separately.
     kvstore::ReadOptions other_options = options_;
     other_options.generation_conditions.if_equal =
         ready.value().stamp.generation;
@@ -179,11 +182,18 @@ struct ReadDirectoryOp
     }
 
     auto& read_result = *r;
-    if (read_result.aborted() || read_result.not_found() ||
-        !ready.value().has_value()) {
-      // Any non-value is an error.
-      entry_->ReadError(
-          absl::InvalidArgumentError("Failed to read ZIP directory"));
+    if (read_result.aborted()) {
+      // The `if_equal` condition was not satisfied, meaning that the file was
+      // modified or replaced, so reading starts over from the EOCD block.
+      options_.byte_range =
+          OptionalByteRangeRequest::SuffixLength(internal_zip::kEOCDBlockSize);
+      StartEOCDBlockRead();
+      return;
+    }
+    if (!read_result.has_value()) {
+      // no_value and not_found are equivalent here.
+      entry_->ReadSuccess(
+          ZipDirectoryCache::ReadState{nullptr, std::move(read_result.stamp)});
       return;
     }
 
@@ -202,54 +212,20 @@ struct ReadDirectoryOp
       reader.Seek(seek_pos);
     }
 
-    Directory dir{};
+    auto dir_result =
+        DecodeDirectoryEntries(reader, eocd_.num_entries, eocd_.cd_offset);
+    if (!dir_result.ok()) {
+      // Decoding the directory failed, which is a legitimate error.
+      entry_->ReadError(dir_result.status());
+      return;
+    }
+    CachedDir dir = std::move(*dir_result);
     dir.full_read = options_.byte_range.IsFull();
-    dir.entries.reserve(eocd_.num_entries);
-    for (size_t i = 0; i < eocd_.num_entries; ++i) {
-      internal_zip::ZipEntry entry{};
-      if (auto entry_status = ReadCentralDirectoryEntry(reader, entry);
-          !entry_status.ok()) {
-        entry_->ReadError(entry_status);
-        return;
-      }
-      // Only add validated entries to the zip directory.
-      if (ValidateEntryIsSupported(entry).ok()) {
-        ABSL_LOG_IF(INFO, zip_logging) << "Adding " << entry;
-        dir.entries.push_back(
-            Directory::Entry{entry.filename, entry.crc, entry.compressed_size,
-                             entry.uncompressed_size, entry.local_header_offset,
-                             entry.estimated_read_size});
-      } else {
-        ABSL_LOG_IF(INFO, zip_logging) << "Skipping " << entry;
-      }
-    }
-
-    // Sort by local header offset first, then by name, to determine
-    // the estimated read size for each entry. Typically a ZIP file will
-    // already be ordered like this. Subsequently, the gap between the
-    // headers is used to determine how many bytes to read.
-    std::sort(dir.entries.begin(), dir.entries.end(),
-              [](const auto& a, const auto& b) {
-                return std::tie(a.local_header_offset, a.filename) <
-                       std::tie(b.local_header_offset, b.filename);
-              });
-    auto last_header_offset = eocd_.cd_offset;
-    for (auto it = dir.entries.rbegin(); it != dir.entries.rend(); ++it) {
-      it->estimated_size = last_header_offset - it->local_header_offset;
-      last_header_offset = it->local_header_offset;
-    }
-
-    // Sort directory by filename.
-    std::sort(dir.entries.begin(), dir.entries.end(),
-              [](const auto& a, const auto& b) {
-                return std::tie(a.filename, a.local_header_offset) <
-                       std::tie(b.filename, a.local_header_offset);
-              });
 
     ABSL_LOG_IF(INFO, zip_logging) << dir;
 
     entry_->ReadSuccess(ZipDirectoryCache::ReadState{
-        std::make_shared<const Directory>(std::move(dir)),
+        std::make_shared<const CachedDir>(std::move(dir)),
         std::move(ready.value().stamp)});
   }
 };
@@ -262,18 +238,22 @@ size_t ZipDirectoryCache::Entry::ComputeReadDataSizeInBytes(
 }
 
 void ZipDirectoryCache::Entry::DoRead(AsyncCacheReadRequest request) {
-  auto state = internal::MakeIntrusivePtr<ReadDirectoryOp>();
-  state->entry_ = this;
+  bool do_full_read = false;
+  auto state = internal::MakeIntrusivePtr<ReadDirectoryOp>(this);
   {
     ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*this);
-    state->existing_read_data_ = lock.shared_data();
+    if (auto data = lock.shared_data()) {
+      do_full_read = data->full_read;
+    }
     state->options_.generation_conditions.if_not_equal =
         lock.read_state().stamp.generation;
+    state->existing_read_data_ = lock.shared_data();
   }
 
-  // Setup options.
   state->options_.staleness_bound = request.staleness_bound;
-  if (state->existing_read_data_ && state->existing_read_data_->full_read) {
+  if (do_full_read) {
+    // The previous read required the full file (e.g., suffix was too small
+    // for the EOCD), so don't regress to a suffix read.
     state->options_.byte_range = OptionalByteRangeRequest{};
   } else {
     state->options_.byte_range =

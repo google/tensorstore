@@ -14,6 +14,7 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -24,9 +25,13 @@
 #include "absl/strings/cord.h"
 #include "absl/synchronization/notification.h"
 #include <nlohmann/json.hpp>
+#include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/read_all.h"
 #include "tensorstore/context.h"
+#include "tensorstore/internal/compression/zip_details.h"
+#include "tensorstore/internal/compression/zip_easy.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -50,32 +55,43 @@ using ::tensorstore::KvStore;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
-using ::testing::HasSubstr;
 
 // "key" = "abcdefghijklmnop"
-static constexpr unsigned char kReadOpZip[] = {
-    0x50, 0x4b, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb8, 0x5b,
-    0x19, 0x57, 0x93, 0xc0, 0x3a, 0x94, 0x10, 0x00, 0x00, 0x00, 0x10, 0x00,
-    0x00, 0x00, 0x03, 0x00, 0x1c, 0x00, 0x6b, 0x65, 0x79, 0x55, 0x54, 0x09,
-    0x00, 0x03, 0x1b, 0xf3, 0xe8, 0x64, 0x1c, 0xf3, 0xe8, 0x64, 0x75, 0x78,
-    0x0b, 0x00, 0x01, 0x04, 0x6c, 0x35, 0x00, 0x00, 0x04, 0x53, 0x5f, 0x01,
-    0x00, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b,
-    0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x50, 0x4b, 0x01, 0x02, 0x1e, 0x03, 0x0a,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0xb8, 0x5b, 0x19, 0x57, 0x93, 0xc0, 0x3a,
-    0x94, 0x10, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x03, 0x00, 0x18,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0xa4, 0x81, 0x00,
-    0x00, 0x00, 0x00, 0x6b, 0x65, 0x79, 0x55, 0x54, 0x05, 0x00, 0x03, 0x1b,
-    0xf3, 0xe8, 0x64, 0x75, 0x78, 0x0b, 0x00, 0x01, 0x04, 0x6c, 0x35, 0x00,
-    0x00, 0x04, 0x53, 0x5f, 0x01, 0x00, 0x50, 0x4b, 0x05, 0x06, 0x00, 0x00,
-    0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x49, 0x00, 0x00, 0x00, 0x4d, 0x00,
-    0x00, 0x00, 0x00, 0x00,
-};
-
 absl::Cord GetReadOpZip() {
-  return absl::MakeCordFromExternal(
-      std::string_view(reinterpret_cast<const char*>(kReadOpZip),
-                       sizeof(kReadOpZip)),
-      [](auto) {});
+  absl::Cord zip_data;
+  {
+    riegeli::CordWriter writer(&zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_CHECK_OK(zip_writer.WriteEntry(
+        "key", absl::Cord("abcdefghijklmnop"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_CHECK_OK(zip_writer.Finalize());
+    ABSL_CHECK(writer.Close());
+  }
+  return zip_data;
+}
+
+absl::Cord GetMultiKeyZip() {
+  absl::Cord zip_data;
+  {
+    riegeli::CordWriter writer(&zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_CHECK_OK(zip_writer.WriteEntry(
+        "key1", absl::Cord("value1"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_CHECK_OK(zip_writer.WriteEntry(
+        "key2", absl::Cord("value2"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_CHECK_OK(zip_writer.WriteEntry(
+        "key3", absl::Cord("value3"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_CHECK_OK(zip_writer.WriteEntry(
+        "key4", absl::Cord("value4"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_CHECK_OK(zip_writer.Finalize());
+    ABSL_CHECK(writer.Close());
+  }
+  return zip_data;
 }
 
 absl::Cord GetTestZipFileData() {
@@ -193,6 +209,18 @@ TEST_F(ZipKeyValueStoreTest, InvalidSpec) {
       StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
+TEST_F(ZipKeyValueStoreTest, MissingBaseFile) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  auto read_result = kvstore::Read(store, "any_key").result();
+  EXPECT_THAT(read_result, MatchesKvsReadResultNotFound());
+}
+
 TEST_F(ZipKeyValueStoreTest, SpecRoundtrip) {
   PrepareMemoryKvstore(GetTestZipFileData());
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
@@ -241,6 +269,272 @@ TEST_F(ZipKeyValueStoreTest, NormalizeUrl) {
        {"base", {{"driver", "memory"}, {"path", "abc.zip"}}}});
 }
 
+TEST_F(ZipKeyValueStoreTest, MultiKeySimple) {
+  PrepareMemoryKvstore(GetMultiKeyZip());
+  // Open the kvstore.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result,
+                                   kvstore::Read(store, "key1").result());
+  EXPECT_EQ(read_result.value, "value1");
+}
+
+TEST_F(ZipKeyValueStoreTest, MultiKeyList) {
+  PrepareMemoryKvstore(GetMultiKeyZip());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  absl::Notification notification;
+  std::vector<std::string> log;
+  tensorstore::execution::submit(
+      kvstore::List(store, {}),
+      tensorstore::CompletionNotifyingReceiver{
+          &notification, tensorstore::LoggingReceiver{&log}});
+  notification.WaitForNotification();
+
+  EXPECT_THAT(log, ::testing::UnorderedElementsAre(
+                       "set_starting", "set_value: key1", "set_value: key2",
+                       "set_value: key3", "set_value: key4", "set_done",
+                       "set_stopping"));
+}
+
+TEST_F(ZipKeyValueStoreTest, GenerationStability) {
+  absl::Cord zip_data;
+  {
+    riegeli::CordWriter writer(&zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(
+        "large_key", absl::Cord(std::string(3 * 1024 * 1024, 'A')),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+
+  PrepareMemoryKvstore(zip_data);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  kvstore::ReadOptions read_options;
+  read_options.byte_range =
+      tensorstore::OptionalByteRangeRequest::Range(100, 200);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result1,
+      kvstore::Read(store, "large_key", read_options).result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result2,
+      kvstore::Read(store, "large_key", read_options).result());
+
+  EXPECT_EQ(read_result1.stamp.generation, read_result2.stamp.generation);
+  EXPECT_NE(read_result1.stamp.generation,
+            tensorstore::StorageGeneration::Unknown());
+}
+
+TEST_F(ZipKeyValueStoreTest, DifferentKeysShareContainerGeneration) {
+  PrepareMemoryKvstore(GetMultiKeyZip());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read1,
+                                   kvstore::Read(store, "key1").result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read2,
+                                   kvstore::Read(store, "key2").result());
+
+  EXPECT_EQ(read1.stamp.generation, read2.stamp.generation);
+  EXPECT_NE(read1.stamp.generation, tensorstore::StorageGeneration::Unknown());
+  EXPECT_NE(read2.stamp.generation, tensorstore::StorageGeneration::Unknown());
+}
+
+TEST_F(ZipKeyValueStoreTest, CompressedEntryRead) {
+  absl::Cord zip_data;
+  {
+    riegeli::CordWriter writer(&zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(
+        "compressed_key", absl::Cord("abcdefghijklmnopqrstuvwxyz1234567890"),
+        tensorstore::internal_zip::ZipCompression::kDeflate));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+
+  PrepareMemoryKvstore(zip_data);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result, kvstore::Read(store, "compressed_key").result());
+  EXPECT_EQ(read_result.value, "abcdefghijklmnopqrstuvwxyz1234567890");
+}
+
+TEST_F(ZipKeyValueStoreTest, FullRangeReadOnLargeStoredEntry) {
+  absl::Cord zip_data;
+  {
+    riegeli::CordWriter writer(&zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(
+        "large_key", absl::Cord(std::string(70000, 'B')),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+
+  PrepareMemoryKvstore(zip_data);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result,
+                                   kvstore::Read(store, "large_key").result());
+  EXPECT_EQ(read_result.value, std::string(70000, 'B'));
+}
+
+TEST_F(ZipKeyValueStoreTest, ByteRangeReadOnSmallEntry) {
+  absl::Cord zip_data;
+  {
+    riegeli::CordWriter writer(&zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(
+        "small_key", absl::Cord("ABCDEFGHIJ"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+
+  PrepareMemoryKvstore(zip_data);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  kvstore::ReadOptions read_options;
+  read_options.byte_range = tensorstore::OptionalByteRangeRequest::Range(2, 5);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result,
+      kvstore::Read(store, "small_key", read_options).result());
+  EXPECT_EQ(read_result.value, "CDE");
+}
+
+TEST_F(ZipKeyValueStoreTest, RangeReadPathways) {
+  // Construct a ZIP file with a large uncompressed stored file.
+  absl::Cord zip_data;
+  {
+    riegeli::CordWriter writer(&zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(
+        "large_stored_key", absl::Cord(std::string(3 * 1024 * 1024, 'A')),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+
+  // Store it in the memory kvstore.
+  PrepareMemoryKvstore(zip_data);
+
+  // Open the kvstore.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  // Read a range from the large stored key.
+  kvstore::ReadOptions read_options;
+  read_options.byte_range =
+      tensorstore::OptionalByteRangeRequest::Range(100, 200);
+
+  // Read first time: triggers the optimized two-phase read.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result1,
+      kvstore::Read(store, "large_stored_key", read_options).result());
+  EXPECT_EQ(read_result1.value, std::string(100, 'A'));
+
+  // Read second time: hits the cached header size.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result2,
+      kvstore::Read(store, "large_stored_key", read_options).result());
+  EXPECT_EQ(read_result2.value, std::string(100, 'A'));
+}
+
+TEST_F(ZipKeyValueStoreTest, ZipFileChangesBetweenReads) {
+  absl::Cord zip_data_1;
+  {
+    riegeli::CordWriter writer(&zip_data_1);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(
+        "key", absl::Cord("value_1"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+
+  PrepareMemoryKvstore(zip_data_1);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+
+  // 1. Read the key first time. It should succeed.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result1,
+                                   kvstore::Read(store, "key").result());
+  EXPECT_EQ(read_result1.value, "value_1");
+
+  // 2. Change the zip file content in the base kvstore.
+  absl::Cord zip_data_2;
+  {
+    riegeli::CordWriter writer(&zip_data_2);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry(
+        "key", absl::Cord("value_2_changed_longer_payload"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+  PrepareMemoryKvstore(zip_data_2);
+
+  // 3. Read the key again. Although the staleness is not reached, the mismatch
+  // in base file generation will cause the base read to abort. This triggers
+  // cache invalidation and retry, fetching the latest zip registry and value.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result2,
+                                   kvstore::Read(store, "key").result());
+  EXPECT_EQ(read_result2.value, "value_2_changed_longer_payload");
+}
+
 TEST(UrlTest, NoRootKvStore) {
   EXPECT_THAT(
       kvstore::Spec::FromJson("zip:abc"),
@@ -248,6 +542,74 @@ TEST(UrlTest, NoRootKvStore) {
                testing::StrEq("Parsing spec from url: \"zip:abc\": unsupported "
                               "URL scheme \"zip\" in \"zip:abc\": \"zip\" is a "
                               "kvstore adapter URL scheme")));
+}
+
+TEST_F(ZipKeyValueStoreTest, DuplicateFilenameDetection) {
+  absl::Cord zip_data;
+  {
+    riegeli::CordWriter writer(&zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_CHECK_OK(zip_writer.WriteEntry(
+        "duplicate.txt", absl::Cord("value1"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_CHECK_OK(zip_writer.WriteEntry(
+        "duplicate.txt", absl::Cord("value2"),
+        tensorstore::internal_zip::ZipCompression::kStore));
+    TENSORSTORE_CHECK_OK(zip_writer.Finalize());
+    ABSL_CHECK(writer.Close());
+  }
+  PrepareMemoryKvstore(std::move(zip_data));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "zip"},
+                     {"base", {{"driver", "memory"}, {"path", "data.zip"}}}},
+                    context_)
+          .result());
+  auto read_result = kvstore::Read(store, "duplicate.txt").result();
+  EXPECT_FALSE(read_result.ok());
+  EXPECT_THAT(read_result.status().message(),
+              ::testing::HasSubstr("Duplicate filename in ZIP"));
+}
+
+TEST_F(ZipKeyValueStoreTest, NestedZip) {
+  absl::Cord inner_zip_data;
+  {
+    riegeli::CordWriter writer(&inner_zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(
+        zip_writer.WriteEntry("nested_file.txt", absl::Cord("hello nested")));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+
+  absl::Cord outer_zip_data;
+  {
+    riegeli::CordWriter writer(&outer_zip_data);
+    tensorstore::internal_zip::EasyZipWriter zip_writer(writer);
+    TENSORSTORE_ASSERT_OK(zip_writer.WriteEntry("inner.zip", inner_zip_data));
+    TENSORSTORE_ASSERT_OK(zip_writer.Finalize());
+    ASSERT_TRUE(writer.Close());
+  }
+
+  PrepareMemoryKvstore(std::move(outer_zip_data));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open(
+          {
+              {"driver", "zip"},
+              {"base",
+               {{"driver", "zip"},
+                {"path", "inner.zip"},
+                {"base", {{"driver", "memory"}, {"path", "data.zip"}}}}},
+          },
+          context_)
+          .result());
+
+  // Read from nested ZIP
+  auto read_result = kvstore::Read(store, "nested_file.txt").result();
+  TENSORSTORE_ASSERT_OK(read_result);
+  EXPECT_EQ(read_result->value, "hello nested");
 }
 
 }  // namespace

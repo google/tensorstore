@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/zip/zip_dir_cache.h"
 
+#include <stddef.h>
+
 #include <memory>
 #include <string>
 #include <string_view>
@@ -32,6 +34,7 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/executor.h"
@@ -44,7 +47,7 @@ using ::tensorstore::IsOk;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::GetCache;
-using ::tensorstore::internal_zip_kvstore::Directory;
+using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal_zip_kvstore::ZipDirectoryCache;
 using ::tensorstore::kvstore::DriverPtr;
 
@@ -125,8 +128,10 @@ TEST(ZipDirectoryKvsTest, MissingEntry) {
   });
 
   auto entry = GetCacheEntry(cache, "data.zip");
-  auto status = entry->Read({absl::InfinitePast()}).status();
-  EXPECT_THAT(status, StatusIs(absl::StatusCode::kNotFound));
+  TENSORSTORE_ASSERT_OK(entry->Read({absl::InfinitePast()}));
+
+  ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
+  EXPECT_FALSE(lock.data());
 }
 
 TEST(ZipDirectoryKvsTest, MinimalZip) {
@@ -158,6 +163,62 @@ TEST(ZipDirectoryKvsTest, MinimalZip) {
 
   EXPECT_THAT(dir->entries[0].filename, "test");
   EXPECT_THAT(dir->entries[1].filename, "testdir/test2");
+}
+
+TEST(ZipDirectoryKvsTest, RetryOnConcurrentModification) {
+  auto context = Context::Default();
+  auto pool = CachePool::Make(CachePool::Limits{});
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      tensorstore::KvStore memory,
+      tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
+
+  ASSERT_THAT(
+      tensorstore::kvstore::Write(memory, "data.zip", GetTestZipFileData())
+          .result(),
+      IsOk());
+
+  auto mock_store = MockKeyValueStore::Make();
+
+  auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
+    return std::make_unique<ZipDirectoryCache>(mock_store, InlineExecutor{});
+  });
+
+  auto entry = GetCacheEntry(cache, "data.zip");
+  auto future = entry->Read({absl::InfinitePast()});
+
+  // Step 1: Pop the EOCD read request and forward to memory.
+  ASSERT_EQ(1, mock_store->read_requests.size());
+  mock_store->read_requests.pop()(memory.driver);
+
+  // Step 2: Simulate concurrent modification.
+  // We rewrite to "data.zip" to change its generation on memory.
+  ASSERT_THAT(
+      tensorstore::kvstore::Write(memory, "data.zip", GetTestZipFileData())
+          .result(),
+      IsOk());
+
+  // Step 3: Pop Central Directory read request, and forward it to memory.
+  // Since generation has changed, this read request fails with aborted().
+  // And with the fix, this will trigger a retry from StartEOCDBlockRead().
+  ASSERT_EQ(1, mock_store->read_requests.size());
+  mock_store->read_requests.pop()(memory.driver);
+
+  // Step 4: Now a new EOCD read request should be queued due to retry.
+  ASSERT_EQ(1, mock_store->read_requests.size());
+  mock_store->read_requests.pop()(memory.driver);
+
+  // Step 5: Pop the new Central Directory read request.
+  ASSERT_EQ(1, mock_store->read_requests.size());
+  mock_store->read_requests.pop()(memory.driver);
+
+  // Step 6: Verify the read future succeeds.
+  ASSERT_THAT(future.status(), IsOk());
+
+  ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
+  auto* dir = lock.data();
+  ASSERT_THAT(dir, ::testing::NotNull());
+  ASSERT_THAT(dir->entries, ::testing::SizeIs(3));
 }
 
 }  // namespace

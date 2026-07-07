@@ -517,6 +517,13 @@ void AsyncCache::Entry::ReadError(absl::Status error) {
   internal::EntryOrNodeReadError(*this, std::move(error));
 }
 
+void AsyncCache::Entry::MarkStale(absl::Time time) {
+  std::unique_lock lock{*this};
+  if (read_request_state_.read_state.stamp.time < time) {
+    read_request_state_.known_to_be_stale = true;
+  }
+}
+
 AsyncCache::TransactionNode::TransactionNode(Entry& entry)
     : internal::TransactionState::Node(Cache::PinnedEntry(&entry).release()),
       reads_committed_(false),

@@ -444,6 +444,10 @@ class AsyncCache : public Cache {
     /// class method is called.
     virtual void ReadError(absl::Status error);
 
+    /// Marks the read state as known to be stale if it was last updated before
+    /// the specified `time`.
+    void MarkStale(absl::Time time);
+
     /// Derived classes should override this to return the size of the "read
     /// state".
     ///
