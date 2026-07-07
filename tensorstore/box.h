@@ -23,7 +23,6 @@
 
 #include <cassert>
 #include <iosfwd>
-#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -943,8 +942,8 @@ SubBoxView(BoxType&& box, DimensionIndex begin = 0, DimensionIndex end = -1) {
   if (end == -1) {
     end = box.rank();
   }
-  assert(begin >= 0 && begin <= end && begin <= box.rank() &&
-         end <= box.rank());
+  ABSL_HARDENING_ASSERT(begin >= 0 && begin <= end && begin <= box.rank() &&
+                        end <= box.rank());
   return BoxView<dynamic_rank, IsMutableBoxLike<BoxType>>(
       end - begin, box.origin().data() + begin, box.shape().data() + begin);
 }

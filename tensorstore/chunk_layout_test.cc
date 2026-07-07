@@ -106,6 +106,22 @@ TEST(ChunkLayoutTest, SingleLevelRank1) {
   EXPECT_THAT(layout | tensorstore::IdentityTransform(1), Optional(layout));
 }
 
+TEST(ChunkLayoutTest, LifetimeAndSharing) {
+  ChunkLayout a;
+  TENSORSTORE_ASSERT_OK(a.Set(ChunkLayout::GridOrigin({0})));
+  TENSORSTORE_ASSERT_OK(a.Set(ChunkLayout::WriteChunkShape({5})));
+
+  ChunkLayout b = a;
+  EXPECT_EQ(a.rank(), b.rank());
+
+  {
+    ChunkLayout c = b;
+    EXPECT_EQ(c.rank(), 1);
+  }
+
+  EXPECT_EQ(b.rank(), 1);
+}
+
 using HierarchicalGridCell = std::array<std::vector<Index>, 3>;
 
 HierarchicalGridCell GetHierarchicalGridCell(

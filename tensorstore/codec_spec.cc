@@ -83,6 +83,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(CodecSpec, [](auto is_loading,
 bool operator==(const CodecSpec& a, const CodecSpec& b) {
   if (!a) return !b;
   if (!b) return false;
+  if (a.get() == b.get()) return true;
   return a->EqualTo(*b);
 }
 

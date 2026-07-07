@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
@@ -172,7 +173,7 @@ class Context {
     }
     auto* operator->() const noexcept { return get(); }
     auto& operator*() const noexcept {
-      assert(has_resource());
+      ABSL_HARDENING_ASSERT(has_resource());
       return *get();
     }
 
@@ -306,7 +307,7 @@ class Context {
   }
   template <typename Provider>
   Result<Resource<Provider>> GetResource() const {
-    return GetResource<Provider>(Provider::id);
+    return GetResource<Provider>(Resource<Provider>::DefaultSpec());
   }
 
   /// Returns `true` if this is not a null context.

@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -179,6 +180,7 @@ class TensorStore {
   ///
   /// \pre `valid()`
   DataType dtype() const {
+    ABSL_HARDENING_ASSERT(valid());
     return StaticDataTypeCast<ElementType, unchecked>(handle_.driver->dtype());
   }
 
@@ -186,11 +188,13 @@ class TensorStore {
   ///
   /// \pre `valid()`
   RankType rank() const {
+    ABSL_HARDENING_ASSERT(valid());
     return StaticRankCast<Rank, unchecked>(handle_.transform.input_rank());
   }
 
   /// Returns the domain.
   IndexDomainView<Rank> domain() const {
+    ABSL_HARDENING_ASSERT(valid());
     return IndexDomainView<Rank>(unchecked, handle_.transform.domain());
   }
 

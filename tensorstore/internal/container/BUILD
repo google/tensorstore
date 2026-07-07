@@ -165,6 +165,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:division",
         "//tensorstore/util:span",
+        "@abseil-cpp//absl/base:core_headers",
     ],
 )
 
@@ -175,6 +176,7 @@ tensorstore_cc_test(
     deps = [
         ":multi_vector",
         "//tensorstore:rank",
+        "//tensorstore/internal/testing:hardening",
         "//tensorstore/util:span",
         "@googletest//:gtest_main",
     ],

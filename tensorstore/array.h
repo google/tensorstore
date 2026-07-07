@@ -899,7 +899,7 @@ class Array {
   std::enable_if_t<RankConstraint::GreaterOrUnspecified(SfinaeR, 0),
                    ArrayView<Element, RankConstraint::Subtract(SfinaeR, 1),
                              array_origin_kind>>
-  operator[](Index index) const {
+  operator[](Index index) const TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return SubArray(*this, tensorstore::span<const Index, 1>(&index, 1));
   }
 
@@ -918,31 +918,30 @@ class Array {
   std::enable_if_t<IsCompatiblePartialIndexVector<static_rank, Indices>,
                    ArrayView<Element, SubArrayStaticRank<static_rank, Indices>,
                              array_origin_kind>>
-  operator[](const Indices& indices) const {
+  operator[](const Indices& indices) const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return SubArray(*this, indices);
   }
 
   template <size_t N>
   ArrayView<Element, SubArrayStaticRank<static_rank, const Index (&)[N]>,
             array_origin_kind>
-  operator[](const Index (&indices)[N]) const {
+  operator[](const Index (&indices)[N]) const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return SubArray(*this, indices);
   }
 
   /// Returns an ArrayView that represents the same array.
-  ArrayView<Element, static_rank, OriginKind> array_view() const {
+  ArrayView<Element, static_rank, OriginKind> array_view() const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return *this;
   }
 
   /// Returns a SharedArrayView that represents the same array.
-  SharedArrayView<Element, static_rank, OriginKind> shared_array_view() const {
-    return *this;
-  }
-
-  /// Returns a SharedArray that represents the same array.
-  const SharedArray<Element, Rank, OriginKind>& shared_array() const {
+  SharedArrayView<Element, static_rank, OriginKind> shared_array_view() const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     static_assert(IsShared<ElementTag>,
-                  "Must use UnownedToShared to convert to SharedArray.");
+                  "Must use UnownedToShared to convert to SharedArrayView.");
     return *this;
   }
 

@@ -88,6 +88,7 @@ void EncodeCacheKeyAdl(std::string* out, const DriverPtr& ptr) {
 }
 
 Result<Spec> KvStore::spec(SpecRequestOptions&& options) const {
+  if (!valid()) return absl::InvalidArgumentError("Invalid kvstore");
   TENSORSTORE_ASSIGN_OR_RETURN(auto driver_spec,
                                driver->spec(std::move(options)));
   return Spec(std::move(driver_spec), path);
@@ -99,6 +100,7 @@ Result<std::string> KvStore::ToUrl() const {
 }
 
 Result<KvStore> KvStore::base() const {
+  if (!valid()) return absl::InvalidArgumentError("Invalid kvstore");
   return driver->GetBase(path, transaction);
 }
 

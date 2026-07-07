@@ -26,6 +26,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/gtest.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/on_windows.h"
 #include "tensorstore/json_serialization_options.h"
@@ -53,6 +54,29 @@ using ::testing::HasSubstr;
 TEST(SpecTest, Invalid) {
   Spec spec;
   EXPECT_FALSE(spec.valid());
+  EXPECT_THAT(spec.schema(), StatusIs(absl::StatusCode::kInvalidArgument,
+                                      "Spec is not valid"));
+  EXPECT_THAT(spec.domain(), StatusIs(absl::StatusCode::kInvalidArgument,
+                                      "Spec is not valid"));
+  EXPECT_THAT(spec.chunk_layout(), StatusIs(absl::StatusCode::kInvalidArgument,
+                                            "Spec is not valid"));
+  EXPECT_THAT(spec.codec(), StatusIs(absl::StatusCode::kInvalidArgument,
+                                     "Spec is not valid"));
+  EXPECT_THAT(spec.fill_value(), StatusIs(absl::StatusCode::kInvalidArgument,
+                                          "Spec is not valid"));
+  EXPECT_THAT(
+      spec.dimension_units(),
+      StatusIs(absl::StatusCode::kInvalidArgument, "Spec is not valid"));
+  EXPECT_THAT(spec.base(), StatusIs(absl::StatusCode::kInvalidArgument,
+                                    "Spec is not valid"));
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(spec.context_binding_state(), "");
+  EXPECT_THAT(
+      spec.BindContext(tensorstore::Context::Default()),
+      StatusIs(absl::StatusCode::kInvalidArgument, "Spec is not valid"));
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(spec.UnbindContext(), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(spec.StripContext(), "");
+  EXPECT_THAT(spec.ToUrl(), StatusIs(absl::StatusCode::kInvalidArgument,
+                                     "Spec is not valid"));
 }
 
 TEST(SpecTest, ToJson) {

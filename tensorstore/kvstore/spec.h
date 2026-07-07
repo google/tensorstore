@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
@@ -252,6 +253,7 @@ class Spec {
 
   /// Returns the context binding state of the spec.
   ContextBindingState context_binding_state() const {
+    ABSL_HARDENING_ASSERT(valid());
     return driver.context_binding_state();
   }
 

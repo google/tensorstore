@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/status_testutil.h"
@@ -66,6 +67,24 @@ TEST(KeyValueStoreTest, TensorStoreUrl) {
       kvstore::Spec::FromJson("json:"),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("unsupported URL scheme \"json\" in \"json:\"")));
+}
+
+TEST(KeyValueStoreTest, Invalid) {
+  kvstore::Spec spec;
+  EXPECT_FALSE(spec.valid());
+  EXPECT_THAT(
+      spec.BindContext(tensorstore::Context::Default()),
+      StatusIs(absl::StatusCode::kInvalidArgument, "Invalid kvstore spec"));
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(spec.UnbindContext(), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(spec.StripContext(), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(spec.context_binding_state(), "");
+
+  kvstore::KvStore store;
+  EXPECT_FALSE(store.valid());
+  EXPECT_THAT(store.spec(),
+              StatusIs(absl::StatusCode::kInvalidArgument, "Invalid kvstore"));
+  EXPECT_THAT(store.base(),
+              StatusIs(absl::StatusCode::kInvalidArgument, "Invalid kvstore"));
 }
 
 }  // namespace

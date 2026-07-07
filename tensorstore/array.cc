@@ -336,6 +336,13 @@ bool DecodeArray<OriginKind>::Decode(
   }
   array.layout().set_rank(rank);
   if (!serialization::Decode(source, array.shape())) return false;
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    if (array.shape()[i] < 0) {
+      source.Fail(serialization::DecodeError(absl::StrFormat(
+          "Invalid negative size %d for dimension %d", array.shape()[i], i)));
+      return false;
+    }
+  }
   if constexpr (OriginKind == offset_origin) {
     if (!serialization::Decode(source, array.origin())) return false;
   }

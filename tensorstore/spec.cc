@@ -19,6 +19,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/array.h"
@@ -60,26 +61,32 @@ absl::Status Spec::Set(SpecConvertOptions&& options) {
 }
 
 Result<Schema> Spec::schema() const {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
   return internal::GetEffectiveSchema(impl_);
 }
 
 Result<IndexDomain<>> Spec::domain() const {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
   return internal::GetEffectiveDomain(impl_);
 }
 
 Result<ChunkLayout> Spec::chunk_layout() const {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
   return internal::GetEffectiveChunkLayout(impl_);
 }
 
 Result<CodecSpec> Spec::codec() const {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
   return internal::GetEffectiveCodec(impl_);
 }
 
 Result<SharedArray<const void>> Spec::fill_value() const {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
   return internal::GetEffectiveFillValue(impl_);
 }
 
 Result<DimensionUnitsVector> Spec::dimension_units() const {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
   return internal::GetEffectiveDimensionUnits(impl_);
 }
 
@@ -89,12 +96,14 @@ kvstore::Spec Spec::kvstore() const {
 }
 
 Result<Spec> Spec::base() const {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
   Spec base_spec;
   TENSORSTORE_ASSIGN_OR_RETURN(base_spec.impl_, internal::GetBase(impl_));
   return base_spec;
 }
 
 ContextBindingState Spec::context_binding_state() const {
+  ABSL_HARDENING_ASSERT(valid());
   return impl_.context_binding_state();
 }
 
@@ -141,18 +150,24 @@ Result<Spec> ApplyIndexTransform(IndexTransform<> transform, Spec spec) {
 }
 
 absl::Status Spec::BindContext(const Context& context) {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
   return internal::DriverSpecBindContext(impl_.driver_spec, context);
 }
 
 void Spec::UnbindContext(const internal::ContextSpecBuilder& context_builder) {
+  ABSL_HARDENING_ASSERT(valid());
   return internal::DriverSpecUnbindContext(impl_.driver_spec, context_builder);
 }
 
 void Spec::StripContext() {
+  ABSL_HARDENING_ASSERT(valid());
   return internal::DriverSpecStripContext(impl_.driver_spec);
 }
 
-Result<std::string> Spec::ToUrl() const { return impl_.driver_spec->ToUrl(); }
+Result<std::string> Spec::ToUrl() const {
+  if (!valid()) return absl::InvalidArgumentError("Spec is not valid");
+  return impl_.driver_spec->ToUrl();
+}
 
 Result<Spec> Spec::FromUrl(std::string_view url) {
   Spec spec;

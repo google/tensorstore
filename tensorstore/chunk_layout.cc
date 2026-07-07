@@ -29,6 +29,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "absl/base/optimization.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
@@ -269,7 +270,7 @@ struct ChunkLayout::Storage : public ChunkLayoutData {
   }
   static StoragePtr Allocate(DimensionIndex rank) {
     rank = std::max(rank, DimensionIndex(0));
-    assert(rank < kMaxRank);
+    ABSL_HARDENING_ASSERT(rank <= kMaxRank);
     const size_t total_bytes =
         // Header
         sizeof(Storage) +
@@ -311,6 +312,7 @@ void intrusive_ptr_increment(Storage* p) {
 
 void intrusive_ptr_decrement(Storage* p) {
   if (p->ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+    p->~Storage();
     std::free(p);
   }
 }

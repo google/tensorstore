@@ -76,6 +76,7 @@ bool RankSerializer::Decode(DecodeSource& source, DimensionIndex& rank) {
   if (v > kMaxRank) {
     source.Fail(DecodeError(
         absl::StrFormat("Invalid rank value: %d", static_cast<size_t>(v))));
+    return false;
   }
   rank = static_cast<DimensionIndex>(v);
   return true;

@@ -34,6 +34,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/testing/concurrent.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/json_serialization_options_base.h"
@@ -194,6 +195,11 @@ TEST(IntResourceTest, InvalidDirectSpec) {
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Invalid spec or reference to "
                                  "\"int_resource\" resource: \"foo\"")));
+}
+
+TEST(IntResourceTest, Hardening) {
+  Context::Resource<IntResource> resource;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(*resource, "");
 }
 
 TEST(IntResourceTest, Default) {

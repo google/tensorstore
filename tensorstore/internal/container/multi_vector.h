@@ -23,6 +23,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "tensorstore/internal/container/multi_vector_impl.h"  // IWYU pragma: export
 #include "tensorstore/internal/lldb_scripting.h"
 #include "tensorstore/internal/meta/meta.h"
@@ -194,7 +195,7 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
 
   /// Resizes the vectors to the specified size.
   void InternalResize(ptrdiff_t new_extent) {
-    assert(new_extent >= 0);
+    ABSL_HARDENING_ASSERT(new_extent >= 0);
     if (extent_ == new_extent) return;
     if (new_extent > InlineSize) {
       void* new_data = ::operator new(Offsets::GetTotalSize(new_extent));
@@ -315,7 +316,7 @@ class MultiVectorAccess<MultiVectorStorageImpl<Extent, InlineSize, Ts...>> {
     static_assert(sizeof...(Us) == sizeof...(Ts));
     const ExtentType extent =
         GetFirstArgument(GetStaticOrDynamicExtent(spans)...);
-    assert(((spans.size() == extent) && ...));
+    ABSL_HARDENING_ASSERT(((spans.size() == extent) && ...));
     Assign(array, extent, spans.data()...);
   }
 

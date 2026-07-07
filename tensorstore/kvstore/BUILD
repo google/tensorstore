@@ -267,6 +267,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:transaction",
         "//tensorstore/driver/json",
+        "//tensorstore/internal/testing:hardening",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",

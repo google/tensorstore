@@ -18,6 +18,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
@@ -188,14 +189,21 @@ void DriverSpecPtr::StripContext() {
 }
 
 absl::Status Spec::BindContext(const Context& context) {
+  if (!driver) {
+    return absl::InvalidArgumentError("Invalid kvstore spec");
+  }
   return driver.BindContext(context);
 }
 
 void Spec::UnbindContext(const internal::ContextSpecBuilder& context_builder) {
+  ABSL_HARDENING_ASSERT(valid());
   driver.UnbindContext(context_builder);
 }
 
-void Spec::StripContext() { driver.StripContext(); }
+void Spec::StripContext() {
+  ABSL_HARDENING_ASSERT(valid());
+  driver.StripContext();
+}
 
 Result<std::string> Spec::ToUrl() const {
   if (!driver) {

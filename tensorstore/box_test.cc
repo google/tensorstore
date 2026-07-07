@@ -15,6 +15,7 @@
 #include "tensorstore/box.h"
 
 #include <array>
+#include <string>
 #include <type_traits>
 
 #include <gmock/gmock.h>
@@ -22,10 +23,13 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "riegeli/bytes/string_reader.h"
+#include "riegeli/bytes/string_writer.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/serialization/batch.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/static_cast.h"
@@ -803,6 +807,23 @@ TEST(BoxSerializationTest, DynamicRank) {
   TestSerializationRoundTrip(Box({1, 2, 3}, {4, 5, 6}));
 }
 
+TEST(BoxSerializationTest, InvalidRank) {
+  // Restore a corrupt serialization with invalid rank fails.
+  std::string buffer;
+  riegeli::StringWriter writer(&buffer);
+  tensorstore::serialization::BatchEncodeSink sink(writer);
+  ASSERT_TRUE(sink.writer().WriteByte(33));
+  ASSERT_TRUE(sink.Close());
+
+  tensorstore::DimensionIndex rank;
+  riegeli::StringReader reader(buffer);
+  tensorstore::serialization::BatchDecodeSource source(reader);
+  EXPECT_FALSE(
+      tensorstore::serialization::RankSerializer::Decode(source, rank));
+  EXPECT_THAT(source.Done(), StatusIs(absl::StatusCode::kDataLoss,
+                                      HasSubstr("Invalid rank value: 33")));
+}
+
 TEST(BoxTest, SubBoxView) {
   Box<> b({1, 2, 3}, {4, 5, 6});
   const Box<>& b_const = b;
@@ -822,6 +843,13 @@ TEST(BoxTest, DeepAssignHardening) {
   [[maybe_unused]] Box<> c(3);
   [[maybe_unused]] MutableBoxView<> b_mut(b);
   TENSORSTORE_EXPECT_DEATH_IF_HARDENED(b_mut.DeepAssign(c), "");
+}
+
+TEST(BoxTest, SubBoxViewHardening) {
+  Box<> b({1, 2, 3}, {4, 5, 6});
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(SubBoxView(b, -1, 1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(SubBoxView(b, 2, 1), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(SubBoxView(b, 1, 4), "");
 }
 
 }  // namespace

@@ -24,6 +24,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -490,7 +491,8 @@ class ChunkLayout {
     /// constraints.
     ///
     /// \id grid
-    explicit GridView(const GridView& other, bool hard_constraint)
+    explicit GridView(const GridView& other ABSL_ATTRIBUTE_LIFETIME_BOUND,
+                      bool hard_constraint)
         : GridView(other) {
       if (!hard_constraint) {
         elements_hard_constraint_ = false;
@@ -498,14 +500,17 @@ class ChunkLayout {
         aspect_ratio_hard_constraint_ = false;
       }
     }
-    explicit GridView(const Grid& grid, bool hard_constraint = true)
+    explicit GridView(const Grid& grid ABSL_ATTRIBUTE_LIFETIME_BOUND,
+                      bool hard_constraint = true)
         : GridView(GridView(grid.shape(), grid.aspect_ratio(), grid.elements()),
                    hard_constraint) {}
 
     /// Constructs from individual constraints.
     ///
     /// \id components
-    explicit GridView(ChunkShapeBase shape, ChunkAspectRatioBase aspect_ratio,
+    explicit GridView(ChunkShapeBase shape ABSL_ATTRIBUTE_LIFETIME_BOUND,
+                      ChunkAspectRatioBase aspect_ratio
+                          ABSL_ATTRIBUTE_LIFETIME_BOUND,
                       ChunkElementsBase elements)
         : shape_rank_(shape.size()),
           aspect_ratio_rank_(aspect_ratio.size()),
@@ -515,9 +520,10 @@ class ChunkLayout {
           elements_(elements),
           shape_(shape.data()),
           aspect_ratio_(aspect_ratio.data()) {}
-    explicit GridView(ChunkShapeBase shape)
+    explicit GridView(ChunkShapeBase shape ABSL_ATTRIBUTE_LIFETIME_BOUND)
         : GridView(shape, ChunkAspectRatioBase(), ChunkElementsBase()) {}
-    explicit GridView(ChunkAspectRatioBase aspect_ratio)
+    explicit GridView(
+        ChunkAspectRatioBase aspect_ratio ABSL_ATTRIBUTE_LIFETIME_BOUND)
         : GridView(ChunkShapeBase(), aspect_ratio, ChunkElementsBase()) {}
     explicit GridView(ChunkElementsBase elements)
         : GridView(ChunkShapeBase(), ChunkAspectRatioBase(), elements) {}

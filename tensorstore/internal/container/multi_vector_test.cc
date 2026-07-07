@@ -21,6 +21,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/span.h"
 
@@ -286,6 +287,15 @@ TYPED_TEST(MultiVectorStaticTest, Basic) {
       EXPECT_THAT(Access::template get<1>(&vec5), ElementsAre(7, 8));
     }
   }
+}
+
+TEST(MultiVectorHardeningTest, AssignMismatch) {
+  using Access = MultiVectorAccess<MultiVectorStorage<dynamic_rank, int, int>>;
+  MultiVectorStorage<dynamic_rank, int, int> vec;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      Access::Assign(&vec, tensorstore::span<const int>({1, 2}),
+                     tensorstore::span<const int>({3, 4, 5})),
+      "");
 }
 
 }  // namespace

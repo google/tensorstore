@@ -17,6 +17,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/driver/array/array.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -95,6 +96,13 @@ TEST(TensorStoreTest, FillValueInvalid) {
   tensorstore::TensorStore<int, 2> store;
   EXPECT_THAT(store.fill_value(), StatusIs(absl::StatusCode::kInvalidArgument,
                                            "TensorStore is not valid"));
+}
+
+TEST(TensorStoreTest, Hardening) {
+  tensorstore::TensorStore<int, 2> store;
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(store.dtype(), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(store.rank(), "");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(store.domain(), "");
 }
 
 }  // namespace
