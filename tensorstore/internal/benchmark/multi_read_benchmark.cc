@@ -174,7 +174,7 @@ static bool StartNextRead(tensorstore::Promise<void> promise,
   Batch batch_to_release = Batch::no_batch;
 
   {
-    absl::MutexLock lock(&self->mutex);
+    absl::MutexLock lock(self->mutex);
     if (finish) {
       self->in_flight -= finish;
     }
@@ -249,7 +249,7 @@ Stats DoSinglePass(const std::vector<tensorstore::TensorStore<>>& stores,
   }
   Batch final_batch = Batch::no_batch;
   if (absl::GetFlag(FLAGS_read_batch_size) != 0) {
-    absl::MutexLock lock(&cont->mutex);
+    absl::MutexLock lock(cont->mutex);
     final_batch = cont->batcher.Flush();
   }
   if (final_batch) {
