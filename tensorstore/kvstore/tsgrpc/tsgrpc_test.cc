@@ -107,12 +107,11 @@ TEST_F(TsGrpcMockTest, Read) {
   )pb");
 
   EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
-      .WillOnce(testing::Invoke(
-          [=](auto*, auto*,
-              grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
-            resp->Write(response);
-            return grpc::Status::OK;
-          }));
+      .WillOnce([=](auto*, auto*,
+                    grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
+        resp->Write(response);
+        return grpc::Status::OK;
+      });
 
   kvstore::ReadResult result;
   {
@@ -180,14 +179,13 @@ TEST_F(TsGrpcMockTest, ReadMultipart) {
   };
 
   EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
-      .WillOnce(testing::Invoke(
-          [=](auto*, auto*,
-              grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
-            for (const auto& response : responses) {
-              resp->Write(response);
-            }
-            return grpc::Status::OK;
-          }));
+      .WillOnce([=](auto*, auto*,
+                    grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
+        for (const auto& response : responses) {
+          resp->Write(response);
+        }
+        return grpc::Status::OK;
+      });
 
   kvstore::ReadResult result;
   {
@@ -218,16 +216,15 @@ TEST_F(TsGrpcMockTest, Write) {
   )pb");
 
   EXPECT_CALL(mock(), Write(_, _, _))
-      .WillOnce(
-          testing::Invoke([=](auto*, grpc::ServerReader<WriteRequest>* req,
-                              WriteResponse* resp) -> ::grpc::Status {
-            WriteRequest actual_request;
-            EXPECT_TRUE(req->Read(&actual_request));
-            EXPECT_THAT(actual_request, EqualsProto(expected_request));
-            EXPECT_FALSE(req->Read(&actual_request));
-            *resp = response;
-            return grpc::Status::OK;
-          }));
+      .WillOnce([=](auto*, grpc::ServerReader<WriteRequest>* req,
+                    WriteResponse* resp) -> ::grpc::Status {
+        WriteRequest actual_request;
+        EXPECT_TRUE(req->Read(&actual_request));
+        EXPECT_THAT(actual_request, EqualsProto(expected_request));
+        EXPECT_FALSE(req->Read(&actual_request));
+        *resp = response;
+        return grpc::Status::OK;
+      });
 
   tensorstore::TimestampedStorageGeneration result;
   {
@@ -254,16 +251,15 @@ TEST_F(TsGrpcMockTest, WriteEmpty) {
   )pb");
 
   EXPECT_CALL(mock(), Write(_, _, _))
-      .WillOnce(
-          testing::Invoke([=](auto*, grpc::ServerReader<WriteRequest>* req,
-                              WriteResponse* resp) -> ::grpc::Status {
-            WriteRequest actual_request;
-            EXPECT_TRUE(req->Read(&actual_request));
-            EXPECT_THAT(actual_request, EqualsProto(expected_request));
-            EXPECT_FALSE(req->Read(&actual_request));
-            *resp = response;
-            return grpc::Status::OK;
-          }));
+      .WillOnce([=](auto*, grpc::ServerReader<WriteRequest>* req,
+                    WriteResponse* resp) -> ::grpc::Status {
+        WriteRequest actual_request;
+        EXPECT_TRUE(req->Read(&actual_request));
+        EXPECT_THAT(actual_request, EqualsProto(expected_request));
+        EXPECT_FALSE(req->Read(&actual_request));
+        *resp = response;
+        return grpc::Status::OK;
+      });
 
   tensorstore::TimestampedStorageGeneration result;
   {
@@ -291,16 +287,15 @@ TEST_F(TsGrpcMockTest, WriteWithOptions) {
   )pb");
 
   EXPECT_CALL(mock(), Write(_, _, _))
-      .WillOnce(
-          testing::Invoke([=](auto*, grpc::ServerReader<WriteRequest>* req,
-                              WriteResponse* resp) -> ::grpc::Status {
-            WriteRequest actual_request;
-            EXPECT_TRUE(req->Read(&actual_request));
-            EXPECT_THAT(actual_request, EqualsProto(expected_request));
-            EXPECT_FALSE(req->Read(&actual_request));
-            *resp = response;
-            return grpc::Status::OK;
-          }));
+      .WillOnce([=](auto*, grpc::ServerReader<WriteRequest>* req,
+                    WriteResponse* resp) -> ::grpc::Status {
+        WriteRequest actual_request;
+        EXPECT_TRUE(req->Read(&actual_request));
+        EXPECT_THAT(actual_request, EqualsProto(expected_request));
+        EXPECT_FALSE(req->Read(&actual_request));
+        *resp = response;
+        return grpc::Status::OK;
+      });
 
   tensorstore::TimestampedStorageGeneration result;
   {
@@ -358,18 +353,17 @@ TEST_F(TsGrpcMockTest, WriteMultipart) {
   )pb");
 
   EXPECT_CALL(mock(), Write(_, _, _))
-      .WillOnce(
-          testing::Invoke([=](auto*, grpc::ServerReader<WriteRequest>* req,
-                              WriteResponse* resp) -> ::grpc::Status {
-            WriteRequest actual_request;
-            size_t i = 0;
-            while (req->Read(&actual_request)) {
-              i++;
-            }
-            EXPECT_EQ(i, 2);
-            *resp = response;
-            return grpc::Status::OK;
-          }));
+      .WillOnce([=](auto*, grpc::ServerReader<WriteRequest>* req,
+                    WriteResponse* resp) -> ::grpc::Status {
+        WriteRequest actual_request;
+        size_t i = 0;
+        while (req->Read(&actual_request)) {
+          i++;
+        }
+        EXPECT_EQ(i, 2);
+        *resp = response;
+        return grpc::Status::OK;
+      });
 
   tensorstore::TimestampedStorageGeneration result;
   {
@@ -461,12 +455,11 @@ TEST_F(TsGrpcMockTest, List) {
 
   // Set expectation and action on the mock stub.
   EXPECT_CALL(mock(), List(_, EqualsProto(expected_request), _))
-      .WillOnce(testing::Invoke(
-          [=](auto*, auto*,
-              grpc::ServerWriter<ListResponse>* resp) -> ::grpc::Status {
-            resp->Write(response);
-            return grpc::Status::OK;
-          }));
+      .WillOnce([=](auto*, auto*,
+                    grpc::ServerWriter<ListResponse>* resp) -> ::grpc::Status {
+        resp->Write(response);
+        return grpc::Status::OK;
+      });
 
   std::vector<std::string> log;
   {
