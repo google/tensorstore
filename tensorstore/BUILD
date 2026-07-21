@@ -853,6 +853,7 @@ tensorstore_cc_test(
     srcs = ["static_cast_test.cc"],
     deps = [
         ":static_cast",
+        "//tensorstore/internal/testing:hardening",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",

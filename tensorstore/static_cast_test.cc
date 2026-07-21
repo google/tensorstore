@@ -25,6 +25,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
@@ -39,6 +40,12 @@ using ::tensorstore::StatusIs;
 using ::tensorstore::unchecked;
 using ::tensorstore::unchecked_t;
 using ::testing::HasSubstr;
+
+#ifdef NDEBUG
+#define SPAN_UNCHECKED_CAST_FAILURE_DETH_MESSAGE ""
+#else
+#define SPAN_UNCHECKED_CAST_FAILURE_DETH_MESSAGE "StaticCast is not valid"
+#endif
 
 /// Define a type that follows the `unchecked_t` construction convention.
 template <ptrdiff_t Extent>
@@ -182,8 +189,9 @@ TEST(DefaultCastTraitsTest, CheckedFailure) {
 TEST(DefaultCastTraitsDeathTest, UncheckedFailure) {
   std::vector<int> vec{1, 2, 3};
   X<dynamic_extent> x(vec);
-  EXPECT_DEBUG_DEATH((StaticCast<X<2>, unchecked>(x)),
-                     "StaticCast is not valid");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      (StaticCast<X<2>, unchecked>(x)),
+      SPAN_UNCHECKED_CAST_FAILURE_DETH_MESSAGE);
 }
 
 TEST(CustomTraitsTest, Success) {
@@ -214,8 +222,9 @@ TEST(CustomTraitsTest, CheckedFailure) {
 TEST(CustomTraitsDeathTest, UncheckedFailure) {
   std::vector<int> vec{1, 2, 3};
   Y<dynamic_extent> x(vec);
-  EXPECT_DEBUG_DEATH((StaticCast<Y<2>, unchecked>(x)),
-                     "StaticCast is not valid");
+  TENSORSTORE_EXPECT_DEATH_IF_HARDENED(
+      (StaticCast<Y<2>, unchecked>(x)),
+      SPAN_UNCHECKED_CAST_FAILURE_DETH_MESSAGE);
 }
 
 }  // namespace
