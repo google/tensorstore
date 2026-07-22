@@ -18,8 +18,8 @@ This invokes bazel via the included `bazelisk.py` wrapper script.
 
 import sys
 
-if sys.version_info < (3, 10):
-  print('Python >= 3.10 is required to build')
+if sys.version_info < (3, 11):
+  print('Python >= 3.11 is required to build')
   sys.exit(1)
 
 # Import setuptools before distutils because setuptools monkey patches
