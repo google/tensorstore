@@ -884,6 +884,7 @@ using InternalLowPrecisionFloatTypes =
                      ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
                      ::tensorstore::dtypes::float8_e5m2_t,
                      ::tensorstore::dtypes::float8_e5m2fnuz_t,
+                     ::tensorstore::dtypes::float8_e8m0fnu_t,
                      ::tensorstore::dtypes::float4_e2m1fn_t>;
 
 TYPED_TEST_SUITE(InternalLowPrecisionFloatTest, InternalLowPrecisionFloatTypes);

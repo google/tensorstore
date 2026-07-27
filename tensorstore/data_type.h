@@ -175,6 +175,9 @@ using float8_e5m2_t = ::tensorstore::Float8e5m2;
 using float8_e5m2fnuz_t = ::tensorstore::Float8e5m2fnuz;
 ///
 /// \ingroup data types
+using float8_e8m0fnu_t = ::tensorstore::Float8e8m0fnu;
+///
+/// \ingroup data types
 using float4_e2m1fn_t = ::tensorstore::Float4e2m1fn;
 ///
 /// \ingroup data types
@@ -250,6 +253,7 @@ enum class DataTypeId {
   float8_e4m3b11fnuz_t,
   float8_e5m2_t,
   float8_e5m2fnuz_t,
+  float8_e8m0fnu_t,
   float4_e2m1fn_t,
   float16_t,
   bfloat16_t,
@@ -301,6 +305,7 @@ constexpr inline size_t kNumDataTypeIds =
   X(float8_e4m3b11fnuz_t, ##__VA_ARGS__)              \
   X(float8_e5m2_t, ##__VA_ARGS__)                     \
   X(float8_e5m2fnuz_t, ##__VA_ARGS__)                 \
+  X(float8_e8m0fnu_t, ##__VA_ARGS__)                  \
   /**/
 
 #define TENSORSTORE_FOR_EACH_MXFLOAT_DATA_TYPE(X, ...) \

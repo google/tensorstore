@@ -87,6 +87,11 @@ inline dtypes::float8_e5m2fnuz_t GetDefaultNaN<dtypes::float8_e5m2fnuz_t>() {
 }
 
 template <>
+inline dtypes::float8_e8m0fnu_t GetDefaultNaN<dtypes::float8_e8m0fnu_t>() {
+  return std::numeric_limits<Float8e8m0fnu>::quiet_NaN();
+}
+
+template <>
 inline dtypes::float4_e2m1fn_t GetDefaultNaN<dtypes::float4_e2m1fn_t>() {
   // only a single Nan representation is supported
   return std::numeric_limits<Float4e2m1fn>::quiet_NaN();

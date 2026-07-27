@@ -102,8 +102,14 @@ void TestFillValueRoundTrip(
 
 template <typename FloatType>
 void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
-  TestFillValueRoundTrip(
-      dtype, 3.5, {MakeScalarArray<FloatType>(static_cast<FloatType>(3.5))});
+  if constexpr (std::is_same_v<FloatType,
+                               tensorstore::dtypes::float8_e8m0fnu_t>) {
+    TestFillValueRoundTrip(
+        dtype, 4.0, {MakeScalarArray<FloatType>(static_cast<FloatType>(3.5))});
+  } else {
+    TestFillValueRoundTrip(
+        dtype, 3.5, {MakeScalarArray<FloatType>(static_cast<FloatType>(3.5))});
+  }
   if constexpr (std::numeric_limits<FloatType>::has_infinity) {
     TestFillValueRoundTrip(
         dtype, "Infinity",

@@ -443,6 +443,9 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float8_e5m2fnuz_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float8_e8m0fnu_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float4_e2m1fn_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -477,6 +480,10 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex128_t,
     ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex128_t,
+    ::tensorstore::dtypes::float8_e8m0fnu_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float4_e2m1fn_t,

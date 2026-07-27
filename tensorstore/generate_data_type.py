@@ -16,43 +16,79 @@
 
 import io
 import os
+import typing
 
 import update_generated_source_code
 
-MAP = {
-    'BOOL': ['bool_t'],
-    'BYTE': ['char_t', 'byte_t'],
-    'INT': [
-        'int2_t',
-        'int4_t',
-        # 'uint4_t',  # TODO(summivox): b/295577703
-        'int8_t',
-        'uint8_t',
-        'int16_t',
-        'uint16_t',
-        'int32_t',
-        'uint32_t',
-        'int64_t',
-        'uint64_t',
-    ],
-    'FLOAT': [
-        'float8_e3m4_t',
-        'float8_e4m3fn_t',
-        'float8_e4m3fnuz_t',
-        'float8_e4m3b11fnuz_t',
-        'float8_e5m2_t',
-        'float8_e5m2fnuz_t',
-        'float4_e2m1fn_t',
-        'float16_t',
-        'bfloat16_t',
-        'float32_t',
-        'float64_t',
-    ],
-    'COMPLEX': ['complex64_t', 'complex128_t'],
-    'STRING': ['string_t', 'ustring_t'],
-    'JSON': ['json_t'],
-}
 
+class MacroSpec(typing.NamedTuple):
+  name: str
+  types: list[str] = []
+  sub_macros: list[str] = []
+
+
+MACRO_SPECS = [
+    MacroSpec('BOOL', ['bool_t']),
+    MacroSpec('BYTE', ['char_t', 'byte_t']),
+    MacroSpec('LOW_PRECISION_INT', ['int2_t', 'int4_t']),
+    MacroSpec(
+        'INT',
+        [
+            # 'uint4_t',  # TODO(summivox): b/295577703
+            'int8_t',
+            'uint8_t',
+            'int16_t',
+            'uint16_t',
+            'int32_t',
+            'uint32_t',
+            'int64_t',
+            'uint64_t',
+        ],
+        sub_macros=['LOW_PRECISION_INT'],
+    ),
+    MacroSpec(
+        'FLOAT8',
+        [
+            'float8_e3m4_t',
+            'float8_e4m3fn_t',
+            'float8_e4m3fnuz_t',
+            'float8_e4m3b11fnuz_t',
+            'float8_e5m2_t',
+            'float8_e5m2fnuz_t',
+            'float8_e8m0fnu_t',
+        ],
+    ),
+    MacroSpec('MXFLOAT', ['float4_e2m1fn_t']),
+    MacroSpec(
+        'LOW_PRECISION_FLOAT',
+        ['float16_t', 'bfloat16_t'],
+        sub_macros=['FLOAT8', 'MXFLOAT'],
+    ),
+    MacroSpec(
+        'FLOAT',
+        ['float32_t', 'float64_t'],
+        sub_macros=['LOW_PRECISION_FLOAT'],
+    ),
+    MacroSpec('COMPLEX', ['complex64_t', 'complex128_t']),
+    MacroSpec('STRING', ['string_t', 'ustring_t']),
+    MacroSpec('JSON', ['json_t']),
+]
+
+CATEGORY_KEYS = ['BOOL', 'BYTE', 'INT', 'FLOAT', 'COMPLEX', 'STRING', 'JSON']
+
+MACRO_DICT = {spec.name: spec for spec in MACRO_SPECS}
+
+
+def get_all_types(name):
+  spec = MACRO_DICT[name]
+  res = []
+  for p in spec.sub_macros:
+    res.extend(get_all_types(p))
+  res.extend(spec.types)
+  return res
+
+
+MAP = {k: get_all_types(k) for k in CATEGORY_KEYS}
 KEYS = MAP.keys()
 
 
@@ -204,16 +240,25 @@ inline constexpr size_t kNumDataTypeIds =
 // X(datatype, ...) for each tensorstore data type.
 """)
 
-  for k in KEYS:
-    out.write(f'#define TENSORSTORE_FOR_EACH_{k}_DATA_TYPE(X, ...) \\\n')
-    for t in MAP[k]:
-      out.write(f'X({t}, ##__VA_ARGS__) \\\n')
+  def write_macro(name='', types=(), sub_macros=()):
+    macro_name = (
+        f'TENSORSTORE_FOR_EACH_{name}_DATA_TYPE'
+        if name
+        else 'TENSORSTORE_FOR_EACH_DATA_TYPE'
+    )
+    out.write(f'#define {macro_name}(X, ...) \\\n')
+    for sub in sub_macros:
+      out.write(
+          f'  TENSORSTORE_FOR_EACH_{sub}_DATA_TYPE(X, ##__VA_ARGS__) \\\n'
+      )
+    for t in types:
+      out.write(f'  X({t}, ##__VA_ARGS__) \\\n')
     out.write('  /**/\n\n')
 
-  out.write('#define TENSORSTORE_FOR_EACH_DATA_TYPE(X, ...) \\\n')
-  for k in KEYS:
-    out.write(f'TENSORSTORE_FOR_EACH_{k}_DATA_TYPE(X, ##__VA_ARGS__) \\\n')
-  out.write('  /**/\n\n')
+  for spec in MACRO_SPECS:
+    write_macro(spec.name, spec.types, spec.sub_macros)
+
+  write_macro(sub_macros=CATEGORY_KEYS)
   return out
 
 

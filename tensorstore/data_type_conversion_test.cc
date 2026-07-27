@@ -535,7 +535,8 @@ class InternalFloat8Test : public ::testing::Test {};
 
 using InternalFloat8Types =
     ::testing::Types<float8_e3m4_t, float8_e4m3fn_t, float8_e4m3fnuz_t,
-                     float8_e4m3b11fnuz_t, float8_e5m2_t, float8_e5m2fnuz_t>;
+                     float8_e4m3b11fnuz_t, float8_e5m2_t, float8_e5m2fnuz_t,
+                     float8_e8m0fnu_t>;
 
 TYPED_TEST_SUITE(InternalFloat8Test, InternalFloat8Types);
 
@@ -579,7 +580,11 @@ TYPED_TEST(InternalFloat8Test, DataTypeConversionTest_InternalFloat8Types) {
   if (!std::is_same_v<T, float8_e5m2_t>) {
     EXPECT_EQ(float8_e5m2_t(pos), TestConversion<float8_e5m2_t>(pos));
   }
-  if (std::is_same_v<T, float8_e5m2fnuz_t>) {
+  if (!std::is_same_v<T, float8_e8m0fnu_t>) {
+    EXPECT_EQ(float8_e8m0fnu_t(pos), TestConversion<float8_e8m0fnu_t>(pos));
+  }
+  if (std::is_same_v<T, float8_e5m2fnuz_t> ||
+      std::is_same_v<T, float8_e8m0fnu_t>) {
     EXPECT_EQ(float16_t(pos), TestConversion<float16_t>(pos));
   } else {
     EXPECT_EQ(float16_t(pos), TestConversion<float16_t>(pos, kSafeAndImplicit));
@@ -591,9 +596,15 @@ TYPED_TEST(InternalFloat8Test, DataTypeConversionTest_InternalFloat8Types) {
             TestConversion<complex64_t>(pos, kSafeAndImplicit));
   EXPECT_EQ(complex128_t(float64_t(pos)),
             TestConversion<complex128_t>(pos, kSafeAndImplicit));
-  EXPECT_EQ("3.5", TestConversion<string_t>(pos));
-  EXPECT_EQ(ustring_t{"3.5"}, TestConversion<ustring_t>(pos));
-  EXPECT_EQ(json_t(3.5), TestConversion<json_t>(pos, kSafeAndImplicit));
+  if (std::is_same_v<T, float8_e8m0fnu_t>) {
+    EXPECT_EQ("4", TestConversion<string_t>(pos));
+    EXPECT_EQ(ustring_t{"4"}, TestConversion<ustring_t>(pos));
+    EXPECT_EQ(json_t(4.0), TestConversion<json_t>(pos, kSafeAndImplicit));
+  } else {
+    EXPECT_EQ("3.5", TestConversion<string_t>(pos));
+    EXPECT_EQ(ustring_t{"3.5"}, TestConversion<ustring_t>(pos));
+    EXPECT_EQ(json_t(3.5), TestConversion<json_t>(pos, kSafeAndImplicit));
+  }
 }
 
 template <typename InternalFloat>

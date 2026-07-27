@@ -77,6 +77,7 @@ class Float8e4m3fnuz;
 class Float8e4m3b11fnuz;
 class Float8e5m2;
 class Float8e5m2fnuz;
+class Float8e8m0fnu;
 
 template <typename Derived>
 class Float8Base {
@@ -425,6 +426,27 @@ class Float8e5m2fnuz : public Float8Base<Float8e5m2fnuz> {
   }
 
   Float8e5m2fnuz operator-(const Float8e5m2fnuz& other) const {
+    return Base::operator-(other);
+  }
+
+  explicit operator bool() const { return rep() != 0; }
+};
+
+class Float8e8m0fnu : public Float8Base<Float8e8m0fnu> {
+  // Exponent: 8, Mantissa: 0, bias: 127.
+  // No inf, unsigned zero, NaN represented by 0xFF.
+ private:
+  using Base = Float8Base<Float8e8m0fnu>;
+  friend class Float8Base<Float8e8m0fnu>;
+  using Base::Float8Base;
+
+ public:
+  template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
+  explicit Float8e8m0fnu(T f8) : Float8e8m0fnu(ConvertFrom(f8)) {}
+
+  constexpr Float8e8m0fnu operator-() const { return *this; }
+
+  Float8e8m0fnu operator-(const Float8e8m0fnu& other) const {
     return Base::operator-(other);
   }
 
@@ -878,6 +900,54 @@ struct numeric_limits_float8_e5m2fnuz : public numeric_limits_float8_base {
   }
 };
 
+struct numeric_limits_float8_e8m0fnu : public numeric_limits_float8_base {
+ private:
+  static inline constexpr const int kExponentBias = 127;
+  static inline constexpr const int kMantissaBits = 0;
+
+ public:
+  // NOLINTBEGIN: these names must match std::numeric_limits.
+  static inline constexpr const int digits = kMantissaBits + 1;
+  static inline constexpr const int digits10 = Digits10FromDigits(digits);
+  static inline constexpr const int max_digits10 =
+      MaxDigits10FromDigits(digits);
+  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
+  static inline constexpr const int min_exponent10 =
+      MinExponent10FromMinExponent(min_exponent);
+  static inline constexpr const int max_exponent =
+      (0b11111110 - kExponentBias) + 1;
+  static inline constexpr const int max_exponent10 =
+      MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
+  static inline constexpr const bool is_iec559 = false;
+  static inline constexpr const bool has_infinity = false;
+  static inline constexpr const bool has_signaling_NaN = false;
+  // NOLINTEND
+
+  static constexpr Float8e8m0fnu min() { return Float8e8m0fnu::FromRep(0x01); }
+  static constexpr Float8e8m0fnu lowest() {
+    return Float8e8m0fnu::FromRep(0x00);
+  }
+  static constexpr Float8e8m0fnu max() { return Float8e8m0fnu::FromRep(0xFE); }
+  static constexpr Float8e8m0fnu epsilon() {
+    return Float8e8m0fnu::FromRep(kExponentBias);
+  }
+  static constexpr Float8e8m0fnu round_error() {
+    return Float8e8m0fnu::FromRep(kExponentBias);
+  }
+  static constexpr Float8e8m0fnu quiet_NaN() {
+    return Float8e8m0fnu::FromRep(0xFF);
+  }
+  static constexpr Float8e8m0fnu signaling_NaN() {
+    return Float8e8m0fnu::FromRep(0xFF);
+  }
+  static constexpr Float8e8m0fnu infinity() {
+    return Float8e8m0fnu::FromRep(0xFF);
+  }
+  static constexpr Float8e8m0fnu denorm_min() {
+    return Float8e8m0fnu::FromRep(0x00);
+  }
+};
+
 }  // namespace float8_internal
 }  // namespace tensorstore
 
@@ -906,6 +976,10 @@ struct numeric_limits<tensorstore::float8_internal::Float8e5m2>
 template <>
 struct numeric_limits<tensorstore::float8_internal::Float8e5m2fnuz>
     : public tensorstore::float8_internal::numeric_limits_float8_e5m2fnuz {};
+
+template <>
+struct numeric_limits<tensorstore::float8_internal::Float8e8m0fnu>
+    : public tensorstore::float8_internal::numeric_limits_float8_e8m0fnu {};
 
 }  // namespace std
 
@@ -961,6 +1035,10 @@ constexpr inline Float8e5m2fnuz abs(const Float8e5m2fnuz& a) {
 }
 
 constexpr inline bool isnan(const Float8e5m2fnuz& a) { return a.rep() == 0x80; }
+
+constexpr inline Float8e8m0fnu abs(const Float8e8m0fnu& a) { return a; }
+
+constexpr inline bool(isnan)(const Float8e8m0fnu& a) { return a.rep() == 0xFF; }
 
 template <typename Float8>
 constexpr inline bool(isinf)(const Float8Base<Float8>& a) {
@@ -1520,6 +1598,7 @@ TENSORSTORE_INTERNAL_FPCLASSIFY(Float8e4m3fnuz);
 TENSORSTORE_INTERNAL_FPCLASSIFY(Float8e4m3b11fnuz);
 TENSORSTORE_INTERNAL_FPCLASSIFY(Float8e5m2);
 TENSORSTORE_INTERNAL_FPCLASSIFY(Float8e5m2fnuz);
+TENSORSTORE_INTERNAL_FPCLASSIFY(Float8e8m0fnu);
 #undef TENSORSTORE_INTERNAL_FPCLASSIFY
 #endif
 
@@ -1538,6 +1617,7 @@ using Float8e4m3fnuz = float8_internal::Float8e4m3fnuz;
 using Float8e4m3b11fnuz = float8_internal::Float8e4m3b11fnuz;
 using Float8e5m2 = float8_internal::Float8e5m2;
 using Float8e5m2fnuz = float8_internal::Float8e5m2fnuz;
+using Float8e8m0fnu = float8_internal::Float8e8m0fnu;
 
 }  // namespace tensorstore
 

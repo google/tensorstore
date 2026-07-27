@@ -248,6 +248,15 @@ Group:
   Data types
 """
 
+float8_e8m0fnu: dtype
+"""8-bit floating-point data type.
+
+Details in https://github.com/jax-ml/ml_dtypes#float8_e8m0fnu
+
+Group:
+  Data types
+"""
+
 float8_e5m2fnuz: dtype
 """8-bit floating-point data type.
 

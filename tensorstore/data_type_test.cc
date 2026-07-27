@@ -549,6 +549,7 @@ TEST(DataTypeTest, Name) {
             DataType(dtype_v<float8_e4m3b11fnuz_t>).name());
   EXPECT_EQ("float8_e5m2", DataType(dtype_v<float8_e5m2_t>).name());
   EXPECT_EQ("float8_e5m2fnuz", DataType(dtype_v<float8_e5m2fnuz_t>).name());
+  EXPECT_EQ("float8_e8m0fnu", DataType(dtype_v<float8_e8m0fnu_t>).name());
   EXPECT_EQ("float4_e2m1fn", DataType(dtype_v<float4_e2m1fn_t>).name());
 
   EXPECT_EQ("bfloat16", DataType(dtype_v<bfloat16_t>).name());
@@ -587,6 +588,7 @@ TEST(DataTypeTest, GetDataType) {
   EXPECT_EQ(dtype_v<float8_e4m3b11fnuz_t>, GetDataType("float8_e4m3b11fnuz"));
   EXPECT_EQ(dtype_v<float8_e5m2_t>, GetDataType("float8_e5m2"));
   EXPECT_EQ(dtype_v<float8_e5m2fnuz_t>, GetDataType("float8_e5m2fnuz"));
+  EXPECT_EQ(dtype_v<float8_e8m0fnu_t>, GetDataType("float8_e8m0fnu"));
   EXPECT_EQ(dtype_v<float4_e2m1fn_t>, GetDataType("float4_e2m1fn"));
 
   EXPECT_EQ(dtype_v<bfloat16_t>, GetDataType("bfloat16"));

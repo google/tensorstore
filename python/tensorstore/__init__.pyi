@@ -74,6 +74,8 @@ float8_e4m3b11fnuz: dtype
 "8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz\n\nGroup:\n  Data types\n"
 float8_e5m2: dtype
 "8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e5m2\n\nGroup:\n  Data types\n"
+float8_e8m0fnu: dtype
+"8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e8m0fnu\n\nGroup:\n  Data types\n"
 float8_e5m2fnuz: dtype
 "8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e5m2fnuz\n\nGroup:\n  Data types\n"
 float4_e2m1fn: dtype
@@ -179,6 +181,7 @@ __all__ = [
     "float8_e4m3fnuz",
     "float8_e5m2",
     "float8_e5m2fnuz",
+    "float8_e8m0fnu",
     "inf",
     "int16",
     "int2",
