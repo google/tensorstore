@@ -18,6 +18,7 @@
 #include <stddef.h>
 
 #include <iosfwd>
+#include <iterator>
 #include <utility>
 
 #include "absl/base/macros.h"
@@ -87,7 +88,7 @@ void AbslStringify(Sink& sink, ResolveBoundsMode mode) {
   };
   const char* sep = "";
   constexpr const char* kSep = "|";
-  for (size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
+  for (size_t i = 0; i < std::size(kModeNames); ++i) {
     if (static_cast<int>(mode) & (1 << i)) {
       sink.Append(sep);
       sink.Append(kModeNames[i]);
@@ -197,7 +198,7 @@ void AbslStringify(Sink& sink, ResizeMode mode) {
   };
   const char* sep = "";
   constexpr const char* kSep = "|";
-  for (size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
+  for (size_t i = 0; i < std::size(kModeNames); ++i) {
     if (static_cast<int>(mode) & (1 << i)) {
       sink.Append(sep);
       sink.Append(kModeNames[i]);
