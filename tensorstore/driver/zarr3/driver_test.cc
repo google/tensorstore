@@ -259,6 +259,44 @@ TEST(ZarrDriverTest, ShardedTranspose) {
   EXPECT_THAT(tensorstore::Read(store).result(), ::testing::Optional(array));
 }
 
+TEST(ZarrDriverTest, ShardedTranspose3D) {
+  std::vector<Index> shape{35, 33, 26};
+  auto array = tensorstore::AllocateArray<int64_t>(shape);
+  for (Index i = 0; i < shape[0]; ++i) {
+    for (Index j = 0; j < shape[1]; ++j) {
+      for (Index k = 0; k < shape[2]; ++k) {
+        array(i, j, k) = i * 10000 + j * 100 + k;
+      }
+    }
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {
+              {"driver", "zarr3"},
+              {"kvstore", "memory://"},
+              {"metadata",
+               {
+                   {"data_type", "int64"},
+                   {"shape", shape},
+                   {"chunk_grid",
+                    {{"name", "regular"},
+                     {"configuration", {{"chunk_shape", shape}}}}},
+                   {"codecs",
+                    {
+                        {{"name", "transpose"},
+                         {"configuration", {{"order", {1, 2, 0}}}}},
+                        {{"name", "sharding_indexed"},
+                         {"configuration", {{"chunk_shape", {11, 13, 7}}}}},
+                    }},
+               }},
+          },
+          tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(array, store));
+  EXPECT_THAT(tensorstore::Read(store).result(), ::testing::Optional(array));
+}
+
 TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions options;
   options.test_name = "zarr3";

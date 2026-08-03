@@ -120,8 +120,9 @@ ZarrCodecSpec::Ptr TransposeCodecSpec::Clone() const {
 namespace {
 class TransposeCodec : public ZarrArrayToArrayCodec {
  public:
-  explicit TransposeCodec(std::vector<DimensionIndex> inverse_order)
-      : inverse_order_(std::move(inverse_order)) {}
+  explicit TransposeCodec(std::vector<DimensionIndex> order,
+                          std::vector<DimensionIndex> inverse_order)
+      : order_(std::move(order)), inverse_order_(std::move(inverse_order)) {}
 
   class State : public ZarrArrayToArrayCodec::PreparedState {
    public:
@@ -167,7 +168,7 @@ class TransposeCodec : public ZarrArrayToArrayCodec {
               IndexTransform<> transform,
               AnyFlowReceiver<absl::Status, internal::ReadChunk,
                               IndexTransform<>>&& receiver) const final {
-      next(std::move(transform).TransposeOutput(codec_->inverse_order_),
+      next(std::move(transform).TransposeOutput(codec_->order_),
            std::move(receiver));
     }
 
@@ -175,7 +176,7 @@ class TransposeCodec : public ZarrArrayToArrayCodec {
                IndexTransform<> transform,
                AnyFlowReceiver<absl::Status, internal::WriteChunk,
                                IndexTransform<>>&& receiver) const final {
-      next(std::move(transform).TransposeOutput(codec_->inverse_order_),
+      next(std::move(transform).TransposeOutput(codec_->order_),
            std::move(receiver));
     }
 
@@ -185,7 +186,7 @@ class TransposeCodec : public ZarrArrayToArrayCodec {
         internal::IntrusivePtr<
             internal::GetStorageStatisticsAsyncOperationState>
             state) const final {
-      next(std::move(transform).TransposeOutput(codec_->inverse_order_),
+      next(std::move(transform).TransposeOutput(codec_->order_),
            std::move(state));
     }
 
@@ -212,6 +213,7 @@ class TransposeCodec : public ZarrArrayToArrayCodec {
   }
 
  private:
+  std::vector<DimensionIndex> order_;
   std::vector<DimensionIndex> inverse_order_;
 };
 
@@ -324,12 +326,16 @@ Result<ZarrArrayToArrayCodec::Ptr> TransposeCodecSpec::Resolve(
   const DimensionIndex chunked_rank = decoded.rank;
   const DimensionIndex inner_rank =
       static_cast<DimensionIndex>(decoded.inner_shape.size());
+  std::vector<DimensionIndex> runtime_order(order.begin(), order.end());
+  runtime_order.resize(chunked_rank + inner_rank);
+  std::iota(runtime_order.begin() + chunked_rank, runtime_order.end(),
+            chunked_rank);
   std::vector<DimensionIndex> runtime_inverse_order = std::move(inverse_order);
   runtime_inverse_order.resize(chunked_rank + inner_rank);
   std::iota(runtime_inverse_order.begin() + chunked_rank,
             runtime_inverse_order.end(), chunked_rank);
   return internal::MakeIntrusivePtr<TransposeCodec>(
-      std::move(runtime_inverse_order));
+      std::move(runtime_order), std::move(runtime_inverse_order));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
