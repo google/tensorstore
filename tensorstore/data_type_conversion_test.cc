@@ -14,6 +14,7 @@
 
 #include "tensorstore/data_type_conversion.h"
 
+#include <limits>
 #include <type_traits>
 #include <utility>
 
@@ -596,7 +597,7 @@ TYPED_TEST(InternalFloat8Test, DataTypeConversionTest_InternalFloat8Types) {
             TestConversion<complex64_t>(pos, kSafeAndImplicit));
   EXPECT_EQ(complex128_t(float64_t(pos)),
             TestConversion<complex128_t>(pos, kSafeAndImplicit));
-  if (std::is_same_v<T, float8_e8m0fnu_t>) {
+  if constexpr (std::numeric_limits<T>::digits == 1) {
     EXPECT_EQ("4", TestConversion<string_t>(pos));
     EXPECT_EQ(ustring_t{"4"}, TestConversion<ustring_t>(pos));
     EXPECT_EQ(json_t(4.0), TestConversion<json_t>(pos, kSafeAndImplicit));
