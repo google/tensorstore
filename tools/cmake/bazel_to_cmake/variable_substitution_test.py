@@ -56,7 +56,7 @@ class MyContext(InvocationContext):
   def caller_package_id(self) -> PackageId:
     return self._caller_package_id
 
-  def access(self, provider_type: Any) -> MyContext:
+  def access(self, provider_type: Any) -> MyContext:  # pyrefly: ignore[bad-override]
     del provider_type
     return self
 

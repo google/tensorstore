@@ -415,7 +415,7 @@ def _ast_asyncify(code: str, wrapper_name: str) -> ast.Module:
   )
   tree = ast.parse(wrapped_code)
   function_def = tree.body[0]
-  function_def.name = wrapper_name
+  function_def.name = wrapper_name  # pyrefly: ignore[missing-attribute]
   lastexpr = function_def.body[-1]  # type: ignore
   if isinstance(lastexpr, (ast.Expr, ast.Await)):
     function_def.body[-1] = ast.Return(lastexpr.value)  # type: ignore

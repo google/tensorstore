@@ -72,7 +72,7 @@ class MyContext(InvocationContext):
             "repository_id": RepositoryId("foo"),
         },
     )
-    self.workspace.all_repositories[RepositoryId("foo")] = mock_cmake_repo
+    self.workspace.all_repositories[RepositoryId("foo")] = mock_cmake_repo  # pyrefly: ignore[unsupported-operation]
 
     mock_repo = Repository(self.workspace, RepositoryId("foo"), {}, True)
     self.evaluation_state = EvaluationImpl(mock_repo)
