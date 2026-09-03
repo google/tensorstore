@@ -34,9 +34,21 @@ def glob_pattern_to_regexp(glob_pattern: str) -> str:
   Returns:
     Corresponding regular expression.
   """
-  regexp_parts = []
+  parts = glob_pattern.split("/")
 
-  for i, part in enumerate(glob_pattern.split("/")):
+  # A leading `**` matches zero or more directory components, so for example
+  # `**/*.cc` must also match `a.cc` at the top level.  Consume any leading
+  # `**` components and let the remainder of the pattern match at any depth.
+  prefix = ""
+  while parts and parts[0] == "**":
+    parts.pop(0)
+    if not parts:
+      # The entire pattern is `**`, which matches any path.
+      return ".*"
+    prefix = "(?:[^/]+/)*"
+
+  regexp_parts = [prefix]
+  for i, part in enumerate(parts):
     sep_prefix = "/" if i > 0 else ""
     if part == "**":
       regexp_parts.append(f"(?:{sep_prefix}.*)?")
