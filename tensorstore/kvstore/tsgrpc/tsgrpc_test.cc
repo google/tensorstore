@@ -20,12 +20,14 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/time.h"
 #include "grpcpp/grpcpp.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "grpcpp/support/sync_stream.h"  // third_party
+#include "tensorstore/context.h"
 #include "tensorstore/internal/grpc/grpc_mock.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -79,11 +81,14 @@ class TsGrpcMockTest : public testing::Test {
     ON_CALL(mock(), List).WillByDefault(Return(grpc::Status::CANCELLED));
   }
 
-  tensorstore::KvStore OpenStore() {
-    return kvstore::Open({
-                             {"driver", "tsgrpc_kvstore"},
-                             {"address", mock_service_.server_address()},
-                         })
+  tensorstore::KvStore OpenStore(
+      tensorstore::Context context = tensorstore::Context::Default()) {
+    return kvstore::Open(
+               {
+                   {"driver", "tsgrpc_kvstore"},
+                   {"address", mock_service_.server_address()},
+               },
+               context)
         .value();
   }
 
@@ -478,6 +483,325 @@ TEST_F(TsGrpcMockTest, List) {
   EXPECT_THAT(log, ::testing::UnorderedElementsAre(
                        "set_starting", "set_value: a", "set_value: b",
                        "set_value: c", "set_done", "set_stopping"));
+}
+
+TEST_F(TsGrpcMockTest, ReadRetrySuccess) {
+  ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+  )pb");
+
+  ReadResponse response = ParseTextProtoOrDie(R"pb(
+    state: 2
+    value_part: '1234'
+    generation_and_timestamp {
+      generation: '\x001'
+      timestamp { seconds: 1634327736 nanos: 123456 }
+    }
+  )pb");
+
+  EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
+      .WillOnce(Return(::grpc::Status(::grpc::StatusCode::UNAVAILABLE,
+                                      "recvmsg: Connection reset by peer")))
+      .WillOnce([=](auto*, auto*,
+                    grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
+        resp->Write(response);
+        return grpc::Status::OK;
+      });
+
+  kvstore::ReadResult result;
+  {
+    auto context =
+        tensorstore::Context::FromJson({
+                                           {"tsgrpc_request_retries",
+                                            {{"max_retries", 3},
+                                             {"initial_delay", "1ms"},
+                                             {"max_delay", "10ms"}}},
+                                       })
+            .value();
+    auto store = OpenStore(context);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        result, kvstore::Read(store, expected_request.key()).result());
+  }
+
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(result.value, "1234");
+  EXPECT_EQ(result.stamp.generation, StorageGeneration::FromString("1"));
+}
+
+TEST_F(TsGrpcMockTest, ReadRetryFailsAfterMaxRetries) {
+  ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+  )pb");
+
+  EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
+      .Times(3)
+      .WillRepeatedly(Return(::grpc::Status(::grpc::StatusCode::UNAVAILABLE,
+                                            "Connection reset by peer")));
+
+  auto context = tensorstore::Context::FromJson({
+                                                    {"tsgrpc_request_retries",
+                                                     {{"max_retries", 2},
+                                                      {"initial_delay", "1ms"},
+                                                      {"max_delay", "10ms"}}},
+                                                })
+                     .value();
+  auto store = OpenStore(context);
+  EXPECT_THAT(kvstore::Read(store, expected_request.key()).result(),
+              tensorstore::MatchesStatus(absl::StatusCode::kAborted,
+                                         ".*All 2 retry attempts failed.*"));
+}
+
+TEST_F(TsGrpcMockTest, ReadRetryMultipartPartialFailure) {
+  ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+  )pb");
+
+  std::vector<ReadResponse> responses{
+      ParseTextProtoOrDie(R"pb(
+        state: 2
+        value_part: '1234'
+        generation_and_timestamp {
+          generation: '\x001'
+          timestamp { seconds: 1634327736 nanos: 123456 }
+        }
+      )pb"),
+      ParseTextProtoOrDie(R"pb(
+        value_part: '5678'
+      )pb"),
+  };
+
+  EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
+      .WillOnce([=](auto*, auto*,
+                    grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
+        resp->Write(responses[0]);
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE,
+                              "sendmsg: Broken pipe");
+      })
+      .WillOnce([=](auto*, auto*,
+                    grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
+        for (const auto& response : responses) {
+          resp->Write(response);
+        }
+        return grpc::Status::OK;
+      });
+
+  kvstore::ReadResult result;
+  {
+    auto context =
+        tensorstore::Context::FromJson({
+                                           {"tsgrpc_request_retries",
+                                            {{"max_retries", 3},
+                                             {"initial_delay", "1ms"},
+                                             {"max_delay", "10ms"}}},
+                                       })
+            .value();
+    auto store = OpenStore(context);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        result, kvstore::Read(store, expected_request.key()).result());
+  }
+
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(result.value, "12345678");
+  EXPECT_EQ(result.stamp.generation, StorageGeneration::FromString("1"));
+}
+
+TEST_F(TsGrpcMockTest, ReadUnauthenticatedRetry) {
+  ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+  )pb");
+
+  ReadResponse response = ParseTextProtoOrDie(R"pb(
+    state: 2
+    value_part: '1234'
+    generation_and_timestamp {
+      generation: '\x001'
+      timestamp { seconds: 1634327736 nanos: 123456 }
+    }
+  )pb");
+
+  EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
+      .WillOnce(Return(
+          ::grpc::Status(::grpc::StatusCode::UNAUTHENTICATED, "token expired")))
+      .WillOnce([=](auto*, auto*,
+                    grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
+        resp->Write(response);
+        return grpc::Status::OK;
+      });
+
+  kvstore::ReadResult result;
+  {
+    auto store = OpenStore();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        result, kvstore::Read(store, expected_request.key()).result());
+  }
+
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(result.value, "1234");
+}
+
+TEST_F(TsGrpcMockTest, WriteRetry) {
+  WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+    value_part: '1234'
+  )pb");
+
+  WriteResponse response = ParseTextProtoOrDie(R"pb(
+    generation_and_timestamp {
+      generation: '\x001'
+      timestamp { seconds: 1634327736 nanos: 123456 }
+    }
+  )pb");
+
+  EXPECT_CALL(mock(), Write(_, _, _))
+      .WillOnce(Return(::grpc::Status(::grpc::StatusCode::UNAVAILABLE,
+                                      "Connection reset by peer")))
+      .WillOnce([=](auto*, grpc::ServerReader<WriteRequest>* req,
+                    WriteResponse* resp) -> ::grpc::Status {
+        WriteRequest actual_request;
+        EXPECT_TRUE(req->Read(&actual_request));
+        EXPECT_THAT(actual_request, EqualsProto(expected_request));
+        EXPECT_FALSE(req->Read(&actual_request));
+        *resp = response;
+        return grpc::Status::OK;
+      });
+
+  tensorstore::TimestampedStorageGeneration result;
+  {
+    auto context =
+        tensorstore::Context::FromJson({
+                                           {"tsgrpc_request_retries",
+                                            {{"max_retries", 3},
+                                             {"initial_delay", "1ms"},
+                                             {"max_delay", "10ms"}}},
+                                       })
+            .value();
+    auto store = OpenStore(context);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        result, kvstore::Write(store, expected_request.key(),
+                               absl::Cord(expected_request.value_part()))
+                    .result());
+  }
+  EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
+}
+
+TEST_F(TsGrpcMockTest, DeleteRetry) {
+  DeleteRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+  )pb");
+
+  DeleteResponse response = ParseTextProtoOrDie(R"pb(
+    generation_and_timestamp {
+      generation: '\x001'
+      timestamp { seconds: 1634327736 nanos: 123456 }
+    }
+  )pb");
+
+  EXPECT_CALL(mock(), Delete(_, EqualsProto(expected_request), _))
+      .WillOnce(Return(::grpc::Status(::grpc::StatusCode::UNAVAILABLE,
+                                      "Connection reset by peer")))
+      .WillOnce(DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+
+  tensorstore::TimestampedStorageGeneration result;
+  {
+    auto context =
+        tensorstore::Context::FromJson({
+                                           {"tsgrpc_request_retries",
+                                            {{"max_retries", 3},
+                                             {"initial_delay", "1ms"},
+                                             {"max_delay", "10ms"}}},
+                                       })
+            .value();
+    auto store = OpenStore(context);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        result, kvstore::Delete(store, expected_request.key()).result());
+  }
+  EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
+}
+
+TEST_F(TsGrpcMockTest, ReadNonRetriableErrorNotRetried) {
+  ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+  )pb");
+
+  // NOT_FOUND is not retriable; the call should fail immediately
+  // without any retry attempt.
+  EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
+      .WillOnce(
+          Return(::grpc::Status(::grpc::StatusCode::NOT_FOUND, "key missing")));
+
+  {
+    auto context =
+        tensorstore::Context::FromJson({
+                                           {"tsgrpc_request_retries",
+                                            {{"max_retries", 3},
+                                             {"initial_delay", "1ms"},
+                                             {"max_delay", "10ms"}}},
+                                       })
+            .value();
+    auto store = OpenStore(context);
+    EXPECT_THAT(kvstore::Read(store, expected_request.key()).result(),
+                tensorstore::MatchesStatus(absl::StatusCode::kNotFound, ".*"));
+  }
+}
+
+TEST_F(TsGrpcMockTest, ReadUnauthenticatedOneShotExhausted) {
+  ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+  )pb");
+
+  // UNAUTHENTICATED gets exactly one retry (attempt==0 check).
+  // If both attempts return UNAUTHENTICATED, the error must
+  // propagate without further retries.
+  EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
+      .Times(2)
+      .WillRepeatedly(Return(::grpc::Status(::grpc::StatusCode::UNAUTHENTICATED,
+                                            "token expired")));
+
+  {
+    auto store = OpenStore();
+    EXPECT_THAT(
+        kvstore::Read(store, expected_request.key()).result(),
+        tensorstore::MatchesStatus(absl::StatusCode::kUnauthenticated, ".*"));
+  }
+}
+
+TEST_F(TsGrpcMockTest, ListTransientErrorNotRetried) {
+  ListRequest expected_request = ParseTextProtoOrDie(R"pb(
+    range: {}
+  )pb");
+
+  // ListTask does not implement retry logic (unlike Read/Write/Delete).
+  // Verify that a transient error immediately propagates as set_error.
+  EXPECT_CALL(mock(), List(_, EqualsProto(expected_request), _))
+      .WillOnce(Return(::grpc::Status(::grpc::StatusCode::UNAVAILABLE,
+                                      "Connection reset by peer")));
+
+  std::vector<std::string> log;
+  {
+    auto context =
+        tensorstore::Context::FromJson({
+                                           {"tsgrpc_request_retries",
+                                            {{"max_retries", 3},
+                                             {"initial_delay", "1ms"},
+                                             {"max_delay", "10ms"}}},
+                                       })
+            .value();
+    auto store = OpenStore(context);
+
+    absl::Notification notification;
+    tensorstore::execution::submit(
+        tensorstore::kvstore::List(store, {}),
+        tensorstore::CompletionNotifyingReceiver{
+            &notification, tensorstore::LoggingReceiver{&log}});
+
+    notification.WaitForNotification();
+  }
+
+  // Expect set_error rather than retry+set_done.
+  EXPECT_THAT(
+      log, ::testing::UnorderedElementsAre(
+               "set_starting", ::testing::HasSubstr("set_error: UNAVAILABLE"),
+               "set_stopping"));
 }
 
 }  // namespace

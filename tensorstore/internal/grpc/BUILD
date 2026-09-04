@@ -130,3 +130,55 @@ tensorstore_cc_library(
         "@re2",
     ],
 )
+
+tensorstore_cc_library(
+    name = "channel_options",
+    srcs = ["channel_options.cc"],
+    hdrs = ["channel_options.h"],
+    deps = [
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:span",
+        "@grpc",
+        "@grpc//:grpc++",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "stub_pool",
+    hdrs = ["stub_pool.h"],
+    deps = [
+        ":channel_options",
+        "//tensorstore/internal/grpc/clientauth:authentication_strategy",
+        "//tensorstore/internal/grpc/clientauth:create_channel",
+        "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:span",
+        "@grpc",
+        "@grpc//:grpc++",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "channel_options_test",
+    srcs = ["channel_options_test.cc"],
+    deps = [
+        ":channel_options",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "stub_pool_test",
+    srcs = ["stub_pool_test.cc"],
+    deps = [
+        ":stub_pool",
+        "//tensorstore/internal/grpc/clientauth:channel_authentication",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
+    ],
+)

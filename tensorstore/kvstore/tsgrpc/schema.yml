@@ -17,6 +17,14 @@ allOf:
       type: string
       description: |-
         Timeout for requests to the gRPC service.
+    tsgrpc_request_retries:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.tsgrpc_request_retries`.  It is typically more
+        convenient to specify a default `~Context.tsgrpc_request_retries` in
+        the `.context`.
+      default: tsgrpc_request_retries
     data_copy_concurrency:
       $ref: ContextResource
       description: |-
@@ -25,5 +33,35 @@ allOf:
         convenient to specify a default `~Context.data_copy_concurrency` in
         the `.context`.
       default: data_copy_concurrency
+    grpc_client_credentials:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        Context.grpc_client_credentials.
+      default: grpc_client_credentials
   required:
   - address
+definitions:
+  tsgrpc_request_retries:
+    $id: Context.tsgrpc_request_retries
+    description: |
+      Specifies retry parameters for handling transient network errors.
+    type: object
+    properties:
+      max_retries:
+        type: integer
+        minimum: 1
+        description: |-
+          Maximum number of attempts in the case of transient errors.
+        default: 32
+      initial_delay:
+        type: string
+        description: |-
+          Initial backoff delay for transient errors.
+        default: "1s"
+      max_delay:
+        type: string
+        description: |-
+          Maximum backoff delay for transient errors.
+        default: "32s"
+

@@ -10,10 +10,13 @@ tensorstore_grpc.kvstore.KvStoreService.
 
 .. json:schema:: Context.data_copy_concurrency
 
+.. json:schema:: Context.tsgrpc_request_retries
+
 Limitations
 -----------
 
 .. note::
    This is an experimental driver and should be considered a work-in-progress.
-   There are known limitations around retries, large values, and authenticated
+   There are known limitations around large values and authenticated
    connections.
+
