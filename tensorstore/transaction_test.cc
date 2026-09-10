@@ -17,6 +17,7 @@
 #include <stdint.h>
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -530,6 +531,63 @@ TEST(TransactionTest, DeferredAbort) {
   node->AbortDone();
   ASSERT_TRUE(txn.future().ready());
   EXPECT_THAT(txn.future().result(), StatusIs(absl::StatusCode::kCancelled));
+}
+
+TEST(TransactionTest, AutoAbortAfterFutureDiscard) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+
+  // Create a TestNode and associate it with the transaction.
+  WeakTransactionNodePtr<TestNode> node(new TestNode(&log, 1));
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    node->SetTransaction(*open_ptr);
+    TENSORSTORE_EXPECT_OK(node->Register());
+  }
+  // Discard the `Transaction` reference. Note that the future is still valid.
+  txn = no_transaction;
+  EXPECT_THAT(log, ::testing::ElementsAre());
+  EXPECT_FALSE(future.ready());
+
+  // Discard the `Future` reference. The transaction should be aborted.
+  future = tensorstore::Future<void>();
+  EXPECT_THAT(log, ::testing::ElementsAre("abort:1"));
+  node->AbortDone();
+}
+
+TEST(TransactionTest, AutoAbortWithLinkError) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+
+  // Create a TestNode and associate it with the transaction.
+  WeakTransactionNodePtr<TestNode> node(new TestNode(&log, 1));
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    node->SetTransaction(*open_ptr);
+    TENSORSTORE_EXPECT_OK(node->Register());
+  }
+
+  // Link a `Promise` to the transaction's `Future`.
+  auto [write_promise, write_future] =
+      tensorstore::PromiseFuturePair<void>::Make();
+  auto registration = tensorstore::LinkError(std::move(write_promise), future);
+
+  // Discard the `Transaction` reference. Note that the future is still valid.
+  txn = no_transaction;
+  EXPECT_THAT(log, ::testing::ElementsAre());
+
+  // Discard the `Future` reference.
+  future = {};
+  EXPECT_THAT(log, ::testing::ElementsAre());
+
+  // Discard the `Write Future` reference. The transaction should be aborted.
+  write_future = tensorstore::Future<void>();
+  EXPECT_THAT(log, ::testing::ElementsAre("abort:1"));
+  node->AbortDone();
 }
 
 TEST(TransactionTest, MultiPhaseNode) {
