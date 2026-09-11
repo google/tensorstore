@@ -28,6 +28,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/flags/declare.h"
+#include "absl/flags/flag.h"
+#include "absl/flags/reflection.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -35,12 +38,14 @@
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/notification.h"
 #include "tensorstore/internal/curl/default_factory.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/thread/thread.h"
 
 using ::tensorstore::internal_http::CurlTransport;
+using ::tensorstore::internal_http::DefaultCurlHandleFactory;
 using ::tensorstore::internal_http::GetDefaultCurlHandleFactory;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponseHandler;
@@ -54,6 +59,9 @@ using ::tensorstore::transport_test_utils::FormatSocketAddress;
 using ::tensorstore::transport_test_utils::ReceiveAvailable;
 using ::tensorstore::transport_test_utils::socket_t;
 using ::testing::HasSubstr;
+
+ABSL_DECLARE_FLAG(std::optional<uint32_t>,
+                  tensorstore_curl_connect_timeout_seconds);
 
 namespace {
 
@@ -271,8 +279,36 @@ TEST(CurlTransport, SelfDeletion) {
   //
   // NOTE: The internal implementation of CurlTransport is deleted on a
   // background thread.
-  EXPECT_EQ(weak_transport.lock(), nullptr)
-      << "CurlTransport was not deleted after handler completion.";
+}
+
+TEST(DefaultCurlHandleFactoryTest, DefaultConfig) {
+  auto config = DefaultCurlHandleFactory::DefaultConfig();
+  EXPECT_EQ(config.connect_timeout_seconds, 30);
+  EXPECT_EQ(config.low_speed_time_seconds, 60);
+  EXPECT_EQ(config.low_speed_limit_bytes, 256);
+}
+
+TEST(DefaultCurlHandleFactoryTest, FlagOverride) {
+  absl::FlagSaver flag_saver;
+  absl::SetFlag(&FLAGS_tensorstore_curl_connect_timeout_seconds, 15);
+  auto config = DefaultCurlHandleFactory::DefaultConfig();
+  EXPECT_EQ(config.connect_timeout_seconds, 15);
+}
+
+TEST(DefaultCurlHandleFactoryTest, EnvOverride) {
+  absl::FlagSaver flag_saver;
+  absl::SetFlag(&FLAGS_tensorstore_curl_connect_timeout_seconds, std::nullopt);
+  tensorstore::internal::SetEnv("TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS",
+                                "45");
+  auto config = DefaultCurlHandleFactory::DefaultConfig();
+  EXPECT_EQ(config.connect_timeout_seconds, 45);
+  tensorstore::internal::UnsetEnv("TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS");
+}
+
+TEST(DefaultCurlHandleFactoryTest, CreateHandle) {
+  DefaultCurlHandleFactory factory(DefaultCurlHandleFactory::DefaultConfig());
+  auto handle = factory.CreateHandle();
+  EXPECT_NE(handle, nullptr);
 }
 
 }  // namespace

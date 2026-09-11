@@ -190,7 +190,15 @@ Tensorstore Curl Options
 .. envvar:: TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS
 
    If set to a postive value, then curl HTTP requests will be set with the
-   ``CURLOPT_LOW_SPEED_TIME`` option to detect stalled connections.
+   ``CURLOPT_LOW_SPEED_TIME`` option to detect stalled connections. Defaults
+   to 60 seconds.
+
+.. envvar:: TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS
+
+   If set to a positive value, then curl HTTP requests will be set with the
+   ``CURLOPT_CONNECTTIMEOUT`` option to detect connection establishment stalls.
+   Defaults to 30 seconds. Setting to 0 restores libcurl's default (300
+   seconds).
 
 .. envvar:: TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS
 

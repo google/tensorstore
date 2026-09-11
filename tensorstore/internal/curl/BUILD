@@ -82,9 +82,12 @@ tensorstore_cc_test(
     deps = [
         ":curl_transport",
         ":default_factory",
+        "//tensorstore/internal:env",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:transport_test_utils",
         "//tensorstore/internal/thread",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/flags:reflection",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",

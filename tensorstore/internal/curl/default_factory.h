@@ -37,6 +37,7 @@ class DefaultCurlHandleFactory : public CurlHandleFactory {
   struct Config {
     int64_t low_speed_time_seconds;
     int64_t low_speed_limit_bytes;
+    int64_t connect_timeout_seconds;
     int32_t max_http2_concurrent_streams;
     std::optional<std::string> ca_path;
     std::optional<std::string> ca_bundle;

@@ -45,6 +45,11 @@ ABSL_FLAG(std::optional<uint32_t>, tensorstore_curl_low_speed_limit_bytes,
           "Bytes threshold for low speed transfer detection. "
           "Overrides TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES.");
 
+ABSL_FLAG(std::optional<uint32_t>, tensorstore_curl_connect_timeout_seconds,
+          std::nullopt,
+          "Timeout threshold for connection establishment. "
+          "Overrides TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS.");
+
 ABSL_FLAG(std::optional<std::string>, tensorstore_ca_path, std::nullopt,
           "CA path used with http connections. "
           "Overrides TENSORSTORE_CA_PATH.");
@@ -87,11 +92,15 @@ DefaultCurlHandleFactory::Config DefaultCurlHandleFactory::DefaultConfig() {
   config.low_speed_time_seconds =
       GetFlagOrEnvValue(FLAGS_tensorstore_curl_low_speed_time_seconds,
                         "TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS")
-          .value_or(120);
+          .value_or(60);
   config.low_speed_limit_bytes =
       GetFlagOrEnvValue(FLAGS_tensorstore_curl_low_speed_limit_bytes,
                         "TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES")
-          .value_or(1);
+          .value_or(256);
+  config.connect_timeout_seconds =
+      GetFlagOrEnvValue(FLAGS_tensorstore_curl_connect_timeout_seconds,
+                        "TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS")
+          .value_or(30);
   config.max_http2_concurrent_streams = GetMaxHttp2ConcurrentStreams();
   config.ca_path =
       GetFlagOrEnvValue(FLAGS_tensorstore_ca_path, "TENSORSTORE_CA_PATH");
@@ -134,6 +143,12 @@ CurlPtr DefaultCurlHandleFactory::CreateHandle() {
                                              CURLOPT_LOW_SPEED_TIME, seconds));
     ABSL_CHECK_EQ(CURLE_OK, curl_easy_setopt(handle.get(),
                                              CURLOPT_LOW_SPEED_LIMIT, bytes));
+  }
+
+  if (config_.connect_timeout_seconds > 0) {
+    ABSL_CHECK_EQ(CURLE_OK,
+                  curl_easy_setopt(handle.get(), CURLOPT_CONNECTTIMEOUT,
+                                   config_.connect_timeout_seconds));
   }
 
   // Set ca_path or ca_bundle, if provided.
