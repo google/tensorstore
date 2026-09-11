@@ -911,7 +911,19 @@
       <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span>
     
     <span class="md-ellipsis">
-      <span title="TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS (environment variable) — If set to a postive value, then curl HTTP requests will be set with the CURLOPT_LOW_SPEED_TIME option to detect stalled connections."><span>TENSORSTORE_<wbr>CURL_<wbr>LOW_<wbr>SPEED_<wbr>TIME_<wbr>SECONDS</span></span>
+      <span title="TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS (environment variable) — If set to a postive value, then curl HTTP requests will be set with the CURLOPT_LOW_SPEED_TIME option to detect stalled connections. Defaults to 60 seconds."><span>TENSORSTORE_<wbr>CURL_<wbr>LOW_<wbr>SPEED_<wbr>TIME_<wbr>SECONDS</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS" class="md-nav__link">
+    
+      <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span>
+    
+    <span class="md-ellipsis">
+      <span title="TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS (environment variable) — If set to a positive value, then curl HTTP requests will be set with the CURLOPT_CONNECTTIMEOUT option to detect connection establishment stalls. Defaults to 30 seconds. Setting to 0 restores libcurl&#39;s default (300 seconds)."><span>TENSORSTORE_<wbr>CURL_<wbr>CONNECT_<wbr>TIMEOUT_<wbr>SECONDS</span></span>
     </span>
   </a>
   
@@ -1536,7 +1548,19 @@
       <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span>
     
     <span class="md-ellipsis">
-      <span title="TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS (environment variable) — If set to a postive value, then curl HTTP requests will be set with the CURLOPT_LOW_SPEED_TIME option to detect stalled connections."><span>TENSORSTORE_<wbr>CURL_<wbr>LOW_<wbr>SPEED_<wbr>TIME_<wbr>SECONDS</span></span>
+      <span title="TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS (environment variable) — If set to a postive value, then curl HTTP requests will be set with the CURLOPT_LOW_SPEED_TIME option to detect stalled connections. Defaults to 60 seconds."><span>TENSORSTORE_<wbr>CURL_<wbr>LOW_<wbr>SPEED_<wbr>TIME_<wbr>SECONDS</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS" class="md-nav__link">
+    
+      <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span>
+    
+    <span class="md-ellipsis">
+      <span title="TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS (environment variable) — If set to a positive value, then curl HTTP requests will be set with the CURLOPT_CONNECTTIMEOUT option to detect connection establishment stalls. Defaults to 30 seconds. Setting to 0 restores libcurl&#39;s default (300 seconds)."><span>TENSORSTORE_<wbr>CURL_<wbr>CONNECT_<wbr>TIMEOUT_<wbr>SECONDS</span></span>
     </span>
   </a>
   
@@ -1786,7 +1810,17 @@ Defaults to allowed.</p>
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS">
 <span class="sig-name descname"><span class="pre">TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS" title="Link to this definition">¶</a></dt>
 <dd><p>If set to a postive value, then curl HTTP requests will be set with the
-<code class="docutils literal notranslate"><span class="pre">CURLOPT_LOW_SPEED_TIME</span></code> option to detect stalled connections.</p>
+<code class="docutils literal notranslate"><span class="pre">CURLOPT_LOW_SPEED_TIME</span></code> option to detect stalled connections. Defaults
+to 60 seconds.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS" title="Link to this definition">¶</a></dt>
+<dd><p>If set to a positive value, then curl HTTP requests will be set with the
+<code class="docutils literal notranslate"><span class="pre">CURLOPT_CONNECTTIMEOUT</span></code> option to detect connection establishment stalls.
+Defaults to 30 seconds. Setting to 0 restores libcurl’s default (300
+seconds).</p>
 </dd></dl>
 
 <dl class="std envvar objdesc">
