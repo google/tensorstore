@@ -24,6 +24,8 @@ machines to a network filesystem is also safe.
 
 .. json:schema:: Context.file_io_mode
 
+.. json:schema:: Context.file_io_retries
+
 Durability of writes
 --------------------
 

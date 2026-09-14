@@ -413,35 +413,34 @@ struct ReadTask {
   Result<kvstore::ReadResult> operator()() {
     absl::Time start_time;
     absl::Status status;
-    const int max_retries = owner->spec_.retries->max_retries;
+    const auto& retries = *owner->spec_.retries;
     int attempt = 0;
-    for (; attempt < max_retries; attempt++) {
+    while (true) {
       start_time = absl::Now();
       status = DoRead();
       if (status.ok() || !IsRetriable(status)) break;
 
-      auto delay = internal::BackoffForAttempt(
-          attempt, owner->spec_.retries->initial_delay,
-          owner->spec_.retries->max_delay,
-          std::min(absl::Seconds(1), owner->spec_.retries->initial_delay));
+      auto delay = retries.BackoffForAttempt(attempt);
+      if (!delay) {
+        if (attempt > 0) {
+          return StatusBuilder(std::move(status))
+              .SetCode(absl::StatusCode::kAborted)
+              .Format("All %d retry attempts failed", attempt);
+        }
+        return status;
+      }
 
       ABSL_LOG_IF(INFO, http_logging)
           << "The operation failed and will be automatically retried in "
-          << delay << " seconds (attempt " << attempt + 1 << " out of "
-          << max_retries << "), caused by: " << status;
+          << *delay << " (attempt " << attempt + 1 << " out of "
+          << retries.max_retries << "), caused by: " << status;
 
       // NOTE: At some point migrate from a sleep-based retry to an operation
       // queue.
-      absl::SleepFor(delay);
+      absl::SleepFor(*delay);
+      attempt++;
     }
     if (!status.ok()) {
-      // Return AbortedError, so that it doesn't get retried again somewhere
-      // at a higher level.
-      if (IsRetriable(status)) {
-        return StatusBuilder(std::move(status))
-            .SetCode(absl::StatusCode::kAborted)
-            .Format("All %d retry attempts failed", attempt);
-      }
       return status;
     }
 

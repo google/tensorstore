@@ -27,6 +27,10 @@ allOf:
       $ref: ContextResource
       description: |-
         Specifies or references a previously defined `Context.file_io_locking`.
+    file_io_retries:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.file_io_retries`.
   required:
   - path
 definitions:
@@ -170,4 +174,27 @@ definitions:
         default: 60s
         description: |
           Timeout for acquiring a lock when using ``"lockfile"`` locking.
+
+  file_io_retries:
+    $id: Context.file_io_retries
+    description: |-
+      Specifies retry parameters for handling transient I/O errors (EIO).
+    type: object
+    properties:
+      max_retries:
+        type: integer
+        minimum: 0
+        description: |-
+          Maximum number of retry attempts in the case of transient errors.
+        default: 0
+      initial_delay:
+        type: string
+        description: |-
+          Initial backoff delay for transient errors.
+        default: "1s"
+      max_delay:
+        type: string
+        description: |-
+          Maximum backoff delay for transient errors.
+        default: "32s"
 

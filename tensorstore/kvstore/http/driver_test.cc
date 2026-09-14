@@ -371,12 +371,14 @@ TEST_F(HttpKeyValueStoreTest, Retry) {
 
 TEST_F(HttpKeyValueStoreTest, RetryMax) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      kvstore::Open(
-          {{"driver", "http"},
-           {"base_url", "https://example.com/my/path/"},
-           {"context", {{"http_request_retries", {{"max_retries", 1}}}}}})
-          .result());
+      auto store, kvstore::Open({{"driver", "http"},
+                                 {"base_url", "https://example.com/my/path/"},
+                                 {"context",
+                                  {{"http_request_retries",
+                                    {{"max_retries", 1},
+                                     {"initial_delay", "1ms"},
+                                     {"max_delay", "5ms"}}}}}})
+                      .result());
 
   auto read_future = kvstore::Read(store, "abc");
   {
@@ -386,7 +388,64 @@ TEST_F(HttpKeyValueStoreTest, RetryMax) {
                 ElementsAre(Pair("cache-control", "no-cache")));
     request.set_result(HttpResponse{503, absl::Cord()});
   }
+  {
+    auto request = mock_transport->requests_.pop();
+    EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
+    EXPECT_THAT(request.request.headers,
+                ElementsAre(Pair("cache-control", "no-cache")));
+    request.set_result(HttpResponse{503, absl::Cord()});
+  }
   EXPECT_THAT(read_future.result(), StatusIs(absl::StatusCode::kAborted));
+}
+
+TEST_F(HttpKeyValueStoreTest, RetryZero) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "http"},
+                                 {"base_url", "https://example.com/my/path/"},
+                                 {"context",
+                                  {{"http_request_retries",
+                                    {{"max_retries", 0},
+                                     {"initial_delay", "1ms"},
+                                     {"max_delay", "5ms"}}}}}})
+                      .result());
+
+  auto read_future = kvstore::Read(store, "abc");
+  {
+    auto request = mock_transport->requests_.pop();
+    EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
+    EXPECT_THAT(request.request.headers,
+                ElementsAre(Pair("cache-control", "no-cache")));
+    request.set_result(HttpResponse{503, absl::Cord()});
+  }
+  EXPECT_THAT(read_future.result(), StatusIs(absl::StatusCode::kUnavailable));
+}
+
+TEST_F(HttpKeyValueStoreTest, RetrySuccess) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "http"},
+                                 {"base_url", "https://example.com/my/path/"},
+                                 {"context",
+                                  {{"http_request_retries",
+                                    {{"max_retries", 2},
+                                     {"initial_delay", "1ms"},
+                                     {"max_delay", "5ms"}}}}}})
+                      .result());
+
+  auto read_future = kvstore::Read(store, "abc");
+  {
+    auto request = mock_transport->requests_.pop();
+    EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
+    request.set_result(HttpResponse{503, absl::Cord()});
+  }
+  {
+    auto request = mock_transport->requests_.pop();
+    EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
+    request.set_result(
+        HttpResponse{200, absl::Cord("value"), HeaderMap{{"etag", "\"xyz\""}}});
+  }
+  EXPECT_THAT(read_future.result(),
+              MatchesKvsReadResult(absl::Cord("value"),
+                                   StorageGeneration::FromString("xyz")));
 }
 
 TEST_F(HttpKeyValueStoreTest, Date) {

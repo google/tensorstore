@@ -113,6 +113,7 @@ tensorstore_cc_test(
     defines = TEST_HOOK_DEFINES,
     deps = [
         ":file",
+        "//tensorstore/internal/os:error_code",
         "//tensorstore/internal/os:file_descriptor",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/internal/testing:test_hook",
@@ -130,6 +131,7 @@ tensorstore_cc_library(
     hdrs = ["file_resource.h"],
     deps = [
         "//tensorstore:context",
+        "//tensorstore/internal:retries_context_resource",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",

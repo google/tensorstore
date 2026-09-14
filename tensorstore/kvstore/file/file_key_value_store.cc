@@ -193,6 +193,7 @@ struct FileMetrics : public internal_kvstore::CommonMetrics {
   internal_metrics::Counter<int64_t> open_read;
   internal_metrics::Counter<int64_t> lock_contention;
   internal_metrics::Counter<int64_t> direct_io_read;
+  internal_metrics::Counter<int64_t> retries;
 };
 ABSL_CONST_INIT static FileMetrics file_metrics;
 
@@ -211,6 +212,9 @@ TENSORSTORE_GLOBAL_INITIALIZER {
              internal_metrics::MetricMetadata(
                  "/tensorstore/kvstore/file/direct_io_read",
                  "file kvstore::Reads using direct IO"));
+  r.Register(&file_metrics.retries, internal_metrics::MetricMetadata(
+                                        "/tensorstore/kvstore/file/retries",
+                                        "file kvstore retry count"));
 }
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("file");
@@ -228,10 +232,11 @@ struct FileKeyValueStoreSpecData {
   Context::Resource<FileIoSyncResource> file_io_sync;
   Context::Resource<FileIoLockingResource> file_io_locking;
   Context::Resource<FileIoModeResource> file_io_mode;
+  Context::Resource<FileIoRetries> file_io_retries;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.file_io_concurrency, x.file_io_sync, x.file_io_locking,
-             x.file_io_mode);
+             x.file_io_mode, x.file_io_retries);
   };
 
   // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
@@ -258,7 +263,9 @@ struct FileKeyValueStoreSpecData {
       jb::Member(FileIoLockingResource::id,
                  jb::Projection<&FileKeyValueStoreSpecData::file_io_locking>()),
       jb::Member(FileIoModeResource::id,
-                 jb::Projection<&FileKeyValueStoreSpecData::file_io_mode>())
+                 jb::Projection<&FileKeyValueStoreSpecData::file_io_mode>()),
+      jb::Member(FileIoRetries::id,
+                 jb::Projection<&FileKeyValueStoreSpecData::file_io_retries>())
       //
   );
 };
@@ -325,8 +332,23 @@ class FileKeyValueStore
     return *spec_.file_io_locking;
   }
 
+  const FileIoRetries::Spec& file_io_retries() const {
+    return *spec_.file_io_retries;
+  }
+
   FileKeyValueStoreSpecData spec_;
 };
+
+bool IsRetriable(const absl::Status& status) {
+  auto error_code = internal::GetOsErrorCode(status);
+  if (!error_code.has_value()) return false;
+#ifdef _WIN32
+  return *error_code == ERROR_IO_DEVICE || *error_code == ERROR_WRITE_FAULT ||
+         *error_code == ERROR_READ_FAULT || *error_code == ERROR_CRC;
+#else
+  return *error_code == EIO;
+#endif
+}
 
 absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
@@ -406,36 +428,84 @@ class BatchReadTask final
   }
 
   Result<kvstore::ReadResult> DoByteRangeRead(ByteRange byte_range) {
-    file_metrics.batch_read.Increment();
-    absl::Time start_time = absl::Now();
-    auto read_result =
-        ReadFromFileDescriptor(fd_.get(), byte_range, block_alignment_);
-    if (read_result.ok()) {
-      file_metrics.bytes_read.IncrementBy(read_result->size());
-    }
-    file_metrics.read_latency_ms.Observe(
-        absl::ToInt64Milliseconds(absl::Now() - start_time));
+    const auto& retries = driver().file_io_retries();
+    int attempt = 0;
+    while (true) {
+      file_metrics.batch_read.Increment();
+      absl::Time start_time = absl::Now();
+      auto read_result =
+          ReadFromFileDescriptor(fd_.get(), byte_range, block_alignment_);
+      if (read_result.ok()) {
+        file_metrics.bytes_read.IncrementBy(read_result->size());
+        file_metrics.read_latency_ms.Observe(
+            absl::ToInt64Milliseconds(absl::Now() - start_time));
+        return kvstore::ReadResult::Value(*std::move(read_result), stamp_);
+      }
+      file_metrics.read_latency_ms.Observe(
+          absl::ToInt64Milliseconds(absl::Now() - start_time));
 
-    if (!read_result.ok()) {
-      return StatusBuilder(std::move(read_result).status())
-          .Format("Error reading from open file %s",
-                  std::get<std::string>(batch_entry_key));
+      absl::Status status = StatusBuilder(std::move(read_result).status())
+                                .Format("Error reading from open file %s",
+                                        std::get<std::string>(batch_entry_key));
+      if (!IsRetriable(status)) return status;
+      auto delay = retries.BackoffForAttempt(attempt);
+      if (!delay) {
+        if (attempt > 0) {
+          return StatusBuilder(std::move(status))
+              .SetCode(absl::StatusCode::kAborted)
+              .Format("All %d retry attempts failed", attempt);
+        }
+        return status;
+      }
+      file_metrics.retries.Increment();
+      ABSL_LOG_IF(INFO, verbose_logging)
+          << "The read operation failed and will be automatically retried in "
+          << *delay << " (attempt " << attempt + 1 << " out of "
+          << retries.max_retries << "), caused by: " << status;
+      absl::SleepFor(*delay);
+      attempt++;
     }
-    return kvstore::ReadResult::Value(*std::move(read_result), stamp_);
   }
 
   void ProcessBatch() {
     ABSL_LOG_IF(INFO, verbose_logging)
         << "BatchReadTask " << std::get<std::string>(batch_entry_key);
 
-    stamp_.time = absl::Now();
-    file_metrics.open_read.Increment();
+    const auto& retries = driver().file_io_retries();
+    int attempt = 0;
     auto& requests = request_batch.requests;
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        fd_,
-        OpenValueFile(std::get<std::string>(batch_entry_key),
-                      &stamp_.generation, &size_),
-        internal_kvstore_batch::SetCommonResult(requests, std::move(_)));
+    while (true) {
+      stamp_.time = absl::Now();
+      file_metrics.open_read.Increment();
+      auto fd_result = OpenValueFile(std::get<std::string>(batch_entry_key),
+                                     &stamp_.generation, &size_);
+      if (!fd_result.ok()) {
+        auto status = std::move(fd_result).status();
+        if (IsRetriable(status)) {
+          auto delay = retries.BackoffForAttempt(attempt);
+          if (delay) {
+            file_metrics.retries.Increment();
+            ABSL_LOG_IF(INFO, verbose_logging)
+                << "The read operation failed and will be automatically "
+                   "retried in "
+                << *delay << " (attempt " << attempt + 1 << " out of "
+                << retries.max_retries << "), caused by: " << status;
+            absl::SleepFor(*delay);
+            attempt++;
+            continue;
+          }
+          if (attempt > 0) {
+            status = StatusBuilder(std::move(status))
+                         .SetCode(absl::StatusCode::kAborted)
+                         .Format("All %d retry attempts failed", attempt);
+          }
+        }
+        internal_kvstore_batch::SetCommonResult(requests, std::move(status));
+        return;
+      }
+      fd_ = *std::move(fd_result);
+      break;
+    }
     if (!fd_.valid()) {
       internal_kvstore_batch::SetCommonResult(
           requests, kvstore::ReadResult::Missing(stamp_.time));
@@ -602,8 +672,9 @@ struct WriteTask {
   kvstore::WriteOptions options;
   bool sync;
   FileIoLockingResource::Spec file_io_locking;
+  FileIoRetries::Spec file_io_retries;
 
-  Result<TimestampedStorageGeneration> operator()() const {
+  Result<TimestampedStorageGeneration> DoWrite() const {
     ABSL_LOG_IF(INFO, verbose_logging) << "WriteTask " << full_path;
     TimestampedStorageGeneration r;
     r.time = absl::Now();
@@ -707,6 +778,32 @@ struct WriteTask {
     }
     return r;
   }
+
+  Result<TimestampedStorageGeneration> operator()() const {
+    int attempt = 0;
+    while (true) {
+      auto result = DoWrite();
+      if (result.ok() || !IsRetriable(result.status())) {
+        return result;
+      }
+      auto delay = file_io_retries.BackoffForAttempt(attempt);
+      if (!delay) {
+        if (attempt > 0) {
+          return StatusBuilder(std::move(result).status())
+              .SetCode(absl::StatusCode::kAborted)
+              .Format("All %d retry attempts failed", attempt);
+        }
+        return result;
+      }
+      file_metrics.retries.Increment();
+      ABSL_LOG_IF(INFO, verbose_logging)
+          << "Write failed and will be automatically retried in " << *delay
+          << " (attempt " << attempt + 1 << " out of "
+          << file_io_retries.max_retries << "), caused by: " << result.status();
+      absl::SleepFor(*delay);
+      attempt++;
+    }
+  }
 };
 
 /// Implements `FileKeyValueStore::Delete`.
@@ -715,8 +812,9 @@ struct DeleteTask {
   kvstore::WriteOptions options;
   bool sync;
   FileIoLockingResource::Spec file_io_locking;
+  FileIoRetries::Spec file_io_retries;
 
-  Result<TimestampedStorageGeneration> operator()() const {
+  Result<TimestampedStorageGeneration> DoDelete() const {
     ABSL_LOG_IF(INFO, verbose_logging) << "DeleteTask " << full_path;
     TimestampedStorageGeneration r;
     r.time = absl::Now();
@@ -774,6 +872,32 @@ struct DeleteTask {
     r.generation = *std::move(generation_result);
     return r;
   }
+
+  Result<TimestampedStorageGeneration> operator()() const {
+    int attempt = 0;
+    while (true) {
+      auto result = DoDelete();
+      if (result.ok() || !IsRetriable(result.status())) {
+        return result;
+      }
+      auto delay = file_io_retries.BackoffForAttempt(attempt);
+      if (!delay) {
+        if (attempt > 0) {
+          return StatusBuilder(std::move(result).status())
+              .SetCode(absl::StatusCode::kAborted)
+              .Format("All %d retry attempts failed", attempt);
+        }
+        return result;
+      }
+      file_metrics.retries.Increment();
+      ABSL_LOG_IF(INFO, verbose_logging)
+          << "Delete failed and will be automatically retried in " << *delay
+          << " (attempt " << attempt + 1 << " out of "
+          << file_io_retries.max_retries << "), caused by: " << result.status();
+      absl::SleepFor(*delay);
+      attempt++;
+    }
+  }
 };
 
 Future<TimestampedStorageGeneration> FileKeyValueStore::Write(
@@ -781,12 +905,14 @@ Future<TimestampedStorageGeneration> FileKeyValueStore::Write(
   file_metrics.write.Increment();
   TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
   if (value) {
-    return MapFuture(executor(),
-                     WriteTask{std::move(key), std::move(*value),
-                               std::move(options), sync(), file_io_locking()});
+    return MapFuture(
+        executor(),
+        WriteTask{std::move(key), std::move(*value), std::move(options), sync(),
+                  file_io_locking(), file_io_retries()});
   } else {
-    return MapFuture(executor(), DeleteTask{std::move(key), std::move(options),
-                                            sync(), file_io_locking()});
+    return MapFuture(executor(),
+                     DeleteTask{std::move(key), std::move(options), sync(),
+                                file_io_locking(), file_io_retries()});
   }
 }
 
@@ -795,43 +921,72 @@ Future<TimestampedStorageGeneration> FileKeyValueStore::Write(
 /// Implements `FileKeyValueStore::DeleteRange`.
 struct DeleteRangeTask {
   KeyRange range;
+  FileIoRetries::Spec file_io_retries;
 
   // TODO(jbms): Add fsync support
 
   void operator()(Promise<void> promise) {
-    ABSL_LOG_IF(INFO, verbose_logging) << "DeleteRangeTask " << range;
-    std::string prefix(internal_file_util::LongestDirectoryPrefix(range));
-    absl::Status delete_status;
-    auto status = internal_os::RecursiveFileList(
-        prefix,
-        [&](std::string_view path) {
-          return tensorstore::IntersectsPrefix(range, path);
-        },
-        [&](auto entry) -> absl::Status {
-          if (!promise.result_needed()) return absl::CancelledError("");
-          bool do_delete = false;
-          if (entry.IsDirectory()) {
-            // Delete fully contained directories.
-            do_delete = tensorstore::ContainsPrefix(range, entry.GetFullPath());
-          } else {
-            do_delete = tensorstore::Contains(range, entry.GetFullPath());
-          }
-          if (do_delete) {
-            auto s = entry.Delete();
-            if (!s.ok() && !absl::IsNotFound(s) &&  // Already deleted
-                !absl::IsFailedPrecondition(s)) {   // No delete permissions
-              ABSL_LOG_IF(INFO, verbose_logging) << s;
-              delete_status.Update(s);
+    int attempt = 0;
+    while (true) {
+      if (!promise.result_needed()) {
+        promise.SetResult(MakeResult(absl::CancelledError("")));
+        return;
+      }
+      ABSL_LOG_IF(INFO, verbose_logging) << "DeleteRangeTask " << range;
+      std::string prefix(internal_file_util::LongestDirectoryPrefix(range));
+      absl::Status delete_status;
+      auto status = internal_os::RecursiveFileList(
+          prefix,
+          [&](std::string_view path) {
+            return tensorstore::IntersectsPrefix(range, path);
+          },
+          [&](auto entry) -> absl::Status {
+            if (!promise.result_needed()) return absl::CancelledError("");
+            bool do_delete = false;
+            if (entry.IsDirectory()) {
+              // Delete fully contained directories.
+              do_delete =
+                  tensorstore::ContainsPrefix(range, entry.GetFullPath());
+            } else {
+              do_delete = tensorstore::Contains(range, entry.GetFullPath());
             }
-          }
-          // Even when failing to delete the current file, continue to the
-          // next file.
-          return absl::OkStatus();
-        });
-    if (!status.ok()) {
-      promise.SetResult(MakeResult(std::move(status)));
+            if (do_delete) {
+              auto s = entry.Delete();
+              if (!s.ok() && !absl::IsNotFound(s) &&  // Already deleted
+                  !absl::IsFailedPrecondition(s)) {   // No delete permissions
+                ABSL_LOG_IF(INFO, verbose_logging) << s;
+                delete_status.Update(s);
+              }
+            }
+            // Even when failing to delete the current file, continue to the
+            // next file.
+            return absl::OkStatus();
+          });
+      if (!status.ok()) {
+        delete_status.Update(std::move(status));
+      }
+      if (delete_status.ok() || !IsRetriable(delete_status)) {
+        promise.SetResult(MakeResult(std::move(delete_status)));
+        return;
+      }
+      auto delay = file_io_retries.BackoffForAttempt(attempt);
+      if (!delay) {
+        if (attempt > 0) {
+          delete_status = StatusBuilder(std::move(delete_status))
+                              .SetCode(absl::StatusCode::kAborted)
+                              .Format("All %d retry attempts failed", attempt);
+        }
+        promise.SetResult(MakeResult(std::move(delete_status)));
+        return;
+      }
+      file_metrics.retries.Increment();
+      ABSL_LOG_IF(INFO, verbose_logging)
+          << "DeleteRange failed and will be automatically retried in "
+          << *delay << " (attempt " << attempt + 1 << " out of "
+          << file_io_retries.max_retries << "), caused by: " << delete_status;
+      absl::SleepFor(*delay);
+      attempt++;
     }
-    promise.SetResult(MakeResult(std::move(delete_status)));
   }
 };
 
@@ -840,7 +995,8 @@ Future<const void> FileKeyValueStore::DeleteRange(KeyRange range) {
   if (range.empty()) return absl::OkStatus();  // Converted to a ReadyFuture.
   TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
   return PromiseFuturePair<void>::Link(
-             WithExecutor(executor(), DeleteRangeTask{std::move(range)}))
+             WithExecutor(executor(),
+                          DeleteRangeTask{std::move(range), file_io_retries()}))
       .future;
 }
 
@@ -922,6 +1078,8 @@ Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
       Context::Resource<FileIoLockingResource>::DefaultSpec();
   driver_spec->data_.file_io_mode =
       Context::Resource<FileIoModeResource>::DefaultSpec();
+  driver_spec->data_.file_io_retries =
+      Context::Resource<FileIoRetries>::DefaultSpec();
 
   return {std::in_place, std::move(driver_spec), std::move(path)};
 }

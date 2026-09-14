@@ -130,6 +130,7 @@ TEST(AutoTest, UnbindContextSimple) {
                 {"file_io_concurrency", ::nlohmann::json::object_t()},
                 {"file_io_locking", ::nlohmann::json::object_t()},
                 {"file_io_mode", ::nlohmann::json::object_t()},
+                {"file_io_retries", ::nlohmann::json::object_t()},
                 {"file_io_sync", true},
                 {"ocdbt_coordinator", ::nlohmann::json::object_t()},
             }}})));
@@ -167,6 +168,7 @@ TEST(AutoTest, UnbindContext1) {
                 {"file_io_concurrency", ::nlohmann::json::object_t()},
                 {"file_io_locking", ::nlohmann::json::object_t()},
                 {"file_io_mode", ::nlohmann::json::object_t()},
+                {"file_io_retries", ::nlohmann::json::object_t()},
                 {"file_io_sync", true},
                 {"ocdbt_coordinator", ::nlohmann::json::object_t()},
             }}})));

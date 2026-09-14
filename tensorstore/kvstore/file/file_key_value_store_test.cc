@@ -482,6 +482,31 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
        {
            {"file_io_concurrency", ::nlohmann::json::object_t()},
            {"file_io_mode", ::nlohmann::json::object_t()},
+           {"file_io_retries", ::nlohmann::json::object_t()},
+           {"file_io_locking", {{"mode", "lockfile"}}},
+       }},
+  };
+  options.url = AsFileUri(root);
+  options.spec_request_options.Set(tensorstore::retain_context).IgnoreError();
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
+TEST(FileKeyValueStoreTest, SpecRoundtripRetries) {
+  ScopedTemporaryDirectory tempdir;
+  std::string root = absl::StrCat(tempdir.path(), "/root/");
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.full_spec = {
+      {"driver", "file"},
+      {"path", root},
+      {"file_io_sync", true},
+      {"context",
+       {
+           {"file_io_concurrency", ::nlohmann::json::object_t()},
+           {"file_io_mode", ::nlohmann::json::object_t()},
+           {"file_io_retries",
+            {{"max_retries", 5},
+             {"initial_delay", "500ms"},
+             {"max_delay", "10s"}}},
            {"file_io_locking", {{"mode", "lockfile"}}},
        }},
   };

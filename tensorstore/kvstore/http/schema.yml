@@ -108,9 +108,9 @@ definitions:
     properties:
       max_retries:
         type: integer
-        minimum: 1
+        minimum: 0
         description: |-
-          Maximum number of attempts in the case of transient errors.
+          Maximum number of retry attempts in the case of transient errors.
         default: 32
       initial_delay:
         type: string

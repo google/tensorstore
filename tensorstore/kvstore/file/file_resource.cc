@@ -32,4 +32,8 @@ const tensorstore::internal::ContextResourceRegistration<
     tensorstore::internal_file_kvstore::FileIoModeResource>
     file_io_mode_registration;
 
+const tensorstore::internal::ContextResourceRegistration<
+    tensorstore::internal_file_kvstore::FileIoRetries>
+    file_io_retries_registration;
+
 }  // namespace

@@ -49,7 +49,7 @@ struct RetriesResource : public ContextResourceTraits<Derived> {
     // Retry delay for the attempt, or nullopt when the attempt exceeds the
     // maximum allowable.
     // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
-    std::optional<absl::Duration> BackoffForAttempt(int attempt) {
+    std::optional<absl::Duration> BackoffForAttempt(int attempt) const {
       if (attempt >= max_retries) return std::nullopt;
       return internal::BackoffForAttempt(
           attempt, initial_delay, max_delay,
@@ -67,7 +67,7 @@ struct RetriesResource : public ContextResourceTraits<Derived> {
                        &Spec::max_retries,
                        jb::DefaultValue(
                            [](auto* v) { *v = Derived::Default().max_retries; },
-                           jb::Integer<int64_t>(1)))),
+                           jb::Integer<int64_t>(0)))),
         jb::Member(
             "initial_delay",  //
             jb::Projection(&Spec::initial_delay, jb::DefaultValue([](auto* v) {

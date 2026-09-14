@@ -345,6 +345,7 @@ TEST(SpecTest, SetContextAndKvstoreIncludeDefaults) {
                {"file_io_sync", {"file_io_sync"}},
                {"file_io_locking", {"file_io_locking"}},
                {"file_io_mode", {"file_io_mode"}},
+               {"file_io_retries", {"file_io_retries"}},
            }},
           {"schema",
            {{"dtype", "uint8"},
@@ -360,6 +361,10 @@ TEST(SpecTest, SetContextAndKvstoreIncludeDefaults) {
                {"file_io_locking", ::nlohmann::json::object_t()},
                {"file_io_sync", true},
                {"file_io_mode", ::nlohmann::json::object_t()},
+               {"file_io_retries",
+                {{"max_retries", 0},
+                 {"initial_delay", "1s"},
+                 {"max_delay", "32s"}}},
            }},
       })));
 }
@@ -395,6 +400,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"file_io_sync", {"file_io_sync"}},
                {"file_io_locking", {"file_io_locking"}},
                {"file_io_mode", {"file_io_mode"}},
+               {"file_io_retries", {"file_io_retries"}},
            }},
           {"dtype", "uint8"},
           {"cache_pool", {"cache_pool"}},
@@ -411,6 +417,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"file_io_locking", ::nlohmann::json::object_t()},
                {"file_io_sync", true},
                {"file_io_mode", ::nlohmann::json::object_t()},
+               {"file_io_retries", ::nlohmann::json::object_t()},
            }},
       })));
 }

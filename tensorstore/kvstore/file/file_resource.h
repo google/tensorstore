@@ -24,6 +24,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -165,6 +166,16 @@ struct FileIoModeResource
 
   static Spec GetSpec(Resource v, const internal::ContextSpecBuilder& builder) {
     return v;
+  }
+};
+
+/// Specifies a limit on the number of retries for the "file" kvstore.
+struct FileIoRetries : public internal::RetriesResource<FileIoRetries> {
+  static constexpr char id[] = "file_io_retries";
+  using Spec = internal::RetriesResource<FileIoRetries>::Spec;
+  static Spec Default() {
+    return Spec{/*max_retries=*/0, /*initial_delay=*/absl::Seconds(1),
+                /*max_delay=*/absl::Seconds(32)};
   }
 };
 
