@@ -407,8 +407,11 @@ void FormatCollectedMetric(
       while (end > 0 && v.buckets[end - 1] == 0) end--;
 
       for (size_t i = 0; i < end; ++i) {
-        assert(i < metric.histogram_labels.size());
-        tmp[absl::StrCat(metric.histogram_labels[i])] = v.buckets[i];
+        if (i < metric.histogram_labels.size()) {
+          tmp[absl::StrCat(metric.histogram_labels[i])] = v.buckets[i];
+        } else {
+          tmp[absl::StrCat("bucket_", i)] = v.buckets[i];
+        }
       }
       values.push_back(std::move(tmp));
     }

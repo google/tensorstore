@@ -43,6 +43,7 @@ static const absl::NoDestructor<std::vector<std::string>> kDefaultBucketLabels(
         }
         if (labels.size() == DefaultBucketer::OverflowBucket) break;
       }
+      labels.push_back("Inf");
       return labels;
     }());
 

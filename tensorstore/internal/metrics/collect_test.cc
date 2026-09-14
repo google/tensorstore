@@ -173,6 +173,35 @@ TEST(CollectTest, CollectedMetricToJson) {
                                   {"3", 1},
                               }}}}));
   }
+
+  {
+    // Buckets exceeding histogram_labels size fall back to "bucket_<idx>".
+    metric.histograms.clear();
+    metric.histograms.push_back(CollectedMetric::Histogram{});
+    auto& h = metric.histograms.back();
+    h.fields.push_back("hh");
+    h.count = 1;
+    h.mean = 1;
+    h.sum_of_squared_deviation = 1;
+    h.buckets.push_back(0);
+    h.buckets.push_back(1);
+    h.buckets.push_back(0);
+    h.buckets.push_back(2);
+
+    EXPECT_THAT(CollectedMetricToJson(metric),
+                MatchesJson({{"name", "metric_name"},
+                             {"values",
+                              {{
+                                  {"count", 1},
+                                  {"field_name", "hh"},
+                                  {"mean", 1.0},
+                                  {"sum_of_squared_deviation", 1.0},
+                                  {"0", 0},
+                                  {"3", 1},
+                                  {"Inf", 0},
+                                  {"bucket_3", 2},
+                              }}}}));
+  }
 }
 
 TEST(CollectTest, CompareCollectedMetricByName) {

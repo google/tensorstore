@@ -312,6 +312,11 @@ TEST(MetricTest, DefaultBucketer) {
 
   EXPECT_EQ("Inf",
             DefaultBucketer::LabelForBucket(DefaultBucketer::OverflowBucket));
+
+  std::vector<std::string_view> labels;
+  DefaultBucketer::SetHistogramLabels(labels);
+  EXPECT_EQ(DefaultBucketer::Max, labels.size());
+  EXPECT_EQ("Inf", labels.back());
 }
 
 TEST(MetricTest, Histogram) {
