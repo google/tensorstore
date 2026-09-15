@@ -459,7 +459,9 @@ class TransactionState {
     /// e.g. `"write to local file xyz"`.
     virtual std::string Describe();
 
-    /// Sets an error status on the entire transaction.
+    /// Sets an error status on the entire transaction. This may only be called
+    /// while holding an open transaction node or while performing a commit
+    /// operation.
     ///
     /// \dchecks `!error.ok()`
     void SetError(const absl::Status& error);

@@ -977,6 +977,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:inlined_vector",
         "@abseil-cpp//absl/functional:function_ref",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
@@ -992,6 +993,7 @@ tensorstore_cc_test(
     srcs = ["transaction_test.cc"],
     deps = [
         ":transaction",
+        "//tensorstore/internal/thread",
         "//tensorstore/util:future",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",

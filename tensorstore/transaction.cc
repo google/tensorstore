@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "absl/base/optimization.h"
+#include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -40,7 +41,7 @@
 namespace tensorstore {
 namespace internal {
 
-/// Ensure `kAtomic` remains consistent with `TransactionMode` definitions.
+// Ensure `kAtomic` remains consistent with `TransactionMode` definitions.
 static_assert(TransactionState::kAtomic ==
               TransactionMode::atomic_isolated - TransactionMode::isolated);
 
@@ -177,6 +178,7 @@ void TransactionState::RequestCommit() {
       commit_state_ = kCommitStarted;
     }
   }
+  // Serialized state machine transition.
   ExecuteCommit();
 }
 
@@ -190,6 +192,8 @@ void TransactionState::RequestAbort(const absl::Status& error,
                                     std::unique_lock<absl::Mutex> lock) {
   auto commit_state = commit_state_;
   if (commit_state > kOpenAndCommitRequested) return;
+  // Serialized state machine transition.
+  Promise<void> promise = promise_;
   if (open_reference_count_.load(std::memory_order_relaxed) != 0) {
     // A thread is not permitted to increase `open_reference_count_` from 0
     // except while owning a lock on `mutex_`.  If another thread concurrently
@@ -197,18 +201,19 @@ void TransactionState::RequestAbort(const absl::Status& error,
     // care of calling `ExecuteAbort()`.
     commit_state_ = kAbortRequested;
     lock.unlock();
-    SetDeferredResult(promise_, error);
+    SetDeferredResult(promise, error);
     return;
   } else {
     commit_state_ = kAborted;
   }
   // Ensure `ExecuteAbort` is run with the lock released.
   lock.unlock();
-  SetDeferredResult(promise_, error);
+  SetDeferredResult(promise, error);
   ExecuteAbort();
 }
 
 void TransactionState::ExecuteAbort() {
+  // Serialized state machine transition method.
   // Release the promise callback to break the reference cycle.
   promise_force_callback_.Unregister();
   promise_not_needed_callback_.Unregister();
@@ -222,9 +227,10 @@ void TransactionState::ExecuteAbort() {
   // finished aborting, they call `AbortDone`, which invokes
   // `DecrementNodesPendingAbort`.
   //
-  // Unlike in `DecrementNodesPendingReadyForCommit`, we do not need to hold an
-  // additional weak reference to `this` while calling `node->Abort()`, because
-  // the caller of `ExecuteAbort` must be holding a weak reference to `this`.
+  // Unlike in `DecrementNodesPendingReadyForCommit`, we do not need to hold
+  // an additional weak reference to `this` while calling `node->Abort()`,
+  // because the caller of `ExecuteAbort` must be holding a weak reference
+  // to `this`.
   nodes_pending_abort_.store(0, std::memory_order_relaxed);
   size_t count = 0;
   for (Node *next, *node = nodes_.ExtremeNode(Tree::kLeft); node; node = next) {
@@ -244,6 +250,7 @@ void TransactionState::ExecuteAbort() {
 }
 
 void TransactionState::DecrementNodesPendingAbort(size_t count) {
+  // Serialized state machine transition method.
   if (nodes_pending_abort_.fetch_sub(count, std::memory_order_acq_rel) !=
       count) {
     // Count hasn't reached zero, some nodes still aborting.
@@ -255,6 +262,7 @@ void TransactionState::DecrementNodesPendingAbort(size_t count) {
 }
 
 void TransactionState::ExecuteCommit() {
+  // Serialized state machine transition method.
   assert(commit_state_ == kCommitStarted);
   // Release the promise callback to break the reference cycle.
   promise_force_callback_.Unregister();
@@ -263,6 +271,7 @@ void TransactionState::ExecuteCommit() {
 }
 
 void TransactionState::ExecuteCommitPhase() {
+  // Serialized state machine transition method.
   if (nodes_.empty()) {
     // All phases completed.
     promise_ = Promise<void>();
@@ -289,6 +298,7 @@ void TransactionState::ExecuteCommitPhase() {
 
 void TransactionState::ContinuePrepareForCommit(Node* node,
                                                 size_t current_phase) {
+  // Serialized state machine transition method.
   while (true) {
     if (!node || node->phase() != current_phase) {
       // End of phase.
@@ -310,6 +320,7 @@ void TransactionState::ContinuePrepareForCommit(Node* node,
 }
 
 void TransactionState::DecrementNodesPendingReadyForCommit() {
+  // Serialized state machine transition method.
   if (nodes_pending_commit_.fetch_sub(1, std::memory_order_acq_rel) != 1) {
     // Not all nodes have called `ReadyForCommit` yet, or
     // `ContinuePrepareForCommit` is not done yet.
@@ -321,8 +332,23 @@ void TransactionState::DecrementNodesPendingReadyForCommit() {
   // call to `node->Commit()` below may cause `node` to be freed, which might
   // otherwise hold the last reference to `this`.
   WeakPtrTraits::increment(this);
-  Node* node = nodes_.ExtremeNode(Tree::kLeft);
-  const size_t current_phase = node->phase();
+
+  // Since Node::Commit can schedule synchronous or asynchronous completion
+  // of Node::CommitDone, detach the nodes from the tree to avoid concurrent
+  // modification of the tree.
+  absl::InlinedVector<Node*, 32> nodes_to_commit;
+  {
+    Node* node = nodes_.ExtremeNode(Tree::kLeft);
+    const size_t current_phase = node->phase();
+    while (true) {
+      Node* next = Tree::Traverse(*node, Tree::kRight);
+      nodes_to_commit.push_back(node);
+      nodes_.Remove(*node);
+      if (!next || next->phase() != current_phase) break;
+      node = next;
+    }
+  }
+
   // Reuse the `nodes_pending_commit_` counter (which is guaranteed to be 0) to
   // count the number of nodes that still need to call `CommitDone`.  As in
   // `ExecuteAbort`, we increment the counter just once after all the calls to
@@ -330,27 +356,19 @@ void TransactionState::DecrementNodesPendingReadyForCommit() {
   // before the loop ends and our call to `DecrementNodesPendingCommit`, the
   // counter will just wrap around, but is still guaranteed not to equal 0 until
   // the call to `DecrementNodesPendingCommit` below.
-  size_t count = 0;
-  while (true) {
-    // Save next node before removing `node`.
-    Node* next = Tree::Traverse(*node, Tree::kRight);
-    // Nodes destroy themselves when they finish committing; remove them before
-    // commit starts since that avoids the need for locks.
-    nodes_.Remove(*node);
-    ++count;
+  for (Node* node : nodes_to_commit) {
     assert((node->node_commit_state_.fetch_or(Node::kCommit) &
             ~Node::kCommitDone) ==
            (Node::kRegister | Node::kPrepareForCommit | Node::kPrepareDone |
             Node::kReadyForCommit));
     node->Commit();
-    if (!next || next->phase() != current_phase) break;
-    node = next;
   }
-  DecrementNodesPendingCommit(-count);
+  DecrementNodesPendingCommit(-nodes_to_commit.size());
   WeakPtrTraits::decrement(this);
 }
 
 void TransactionState::DecrementNodesPendingCommit(size_t count) {
+  // Serialized state machine transition method.
   if (nodes_pending_commit_.fetch_sub(count, std::memory_order_acq_rel) !=
       count) {
     // Not all nodes have called `CommitDone`, or
@@ -359,20 +377,20 @@ void TransactionState::DecrementNodesPendingCommit(size_t count) {
     return;
   }
   // Current phase completed.
-  if (!nodes_.empty()) {
-    if (promise_.raw_result().ok()) {
-      // Commit next phase.
-      ExecuteCommitPhase();
-    } else {
-      // An error occurred during commit of the last phase.  Abort remaining
-      // phases.
-      ExecuteAbort();
-    }
-  } else {
+  if (nodes_.empty()) {
     // All phases completed.  Release the reference to `promise_` so that it
     // becomes ready either with success or with the error set previously by
     // `SetDeferredResult`.
     promise_ = Promise<void>();
+    return;
+  }
+  if (promise_.raw_result().ok()) {
+    // Commit next phase.
+    ExecuteCommitPhase();
+  } else {
+    // An error occurred during commit of the last phase.  Abort remaining
+    // phases.
+    ExecuteAbort();
   }
 }
 
@@ -507,7 +525,10 @@ TransactionState::GetExistingMultiPhaseNode(void* associated_data) {
   return OpenTransactionNodePtr<Node>(found_result.node);
 }
 
-void TransactionState::NoMoreWeakReferences() { delete this; }
+void TransactionState::NoMoreWeakReferences() {
+  // Serialized state machine transition method.
+  delete this;
+}
 
 void TransactionState::NoMoreOpenReferences() {
   bool abort;
@@ -530,6 +551,8 @@ void TransactionState::NoMoreOpenReferences() {
         return;
     }
   }
+
+  // Serialized state machine transition.
   if (abort) {
     this->ExecuteAbort();
   } else {
@@ -570,13 +593,16 @@ void TransactionState::Node::CommitDone(size_t next_phase) {
     assert(next_phase > this->phase_);
     phase_ = next_phase;
     // Node was previously removed from the `transaction.nodes_` tree by
-    // `PrepareDone`.
-    transaction.nodes_.FindOrInsert(
-        [next_phase, associated_data = associated_data_](Node& node) {
-          return NodeTreeCompare(next_phase, associated_data, node.phase_,
-                                 node.associated_data_);
-        },
-        [&] { return this; });
+    // `DecrementNodesPendingReadyForCommit`.
+    {
+      absl::MutexLock lock(transaction.mutex_);
+      transaction.nodes_.FindOrInsert(
+          [next_phase, associated_data = associated_data_](Node& node) {
+            return NodeTreeCompare(next_phase, associated_data, node.phase_,
+                                   node.associated_data_);
+          },
+          [&] { return this; });
+    }
   }
   this->transaction()->DecrementNodesPendingCommit(1);
   if (!next_phase) {
