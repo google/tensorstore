@@ -487,7 +487,7 @@ struct CoalescingOptions {
 
 constexpr CoalescingOptions kDefaultRemoteStorageCoalescingOptions = {
     /*.max_extra_read_bytes=*/4095,
-    /*.target_coalesced_size=*/128 * 1024 * 10248,
+    /*.target_coalesced_size=*/128 * 1024 * 1024,
 };
 
 }  // namespace internal_kvstore_batch

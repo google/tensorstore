@@ -217,6 +217,8 @@ TEST(ForEachCoalescedRequestTest, DefaultExtraReadBytes_Gap) {
 
 TEST(ForEachCoalescedRequestTest, DefaultExtraReadBytes_Max) {
   // Two reads that are not coalesced due to size limit.
+  static_assert(kDefaultRemoteStorageCoalescingOptions.target_coalesced_size ==
+                128 * 1024 * 1024);
   constexpr int64_t kSize =
       kDefaultRemoteStorageCoalescingOptions.target_coalesced_size;
   std::vector<R> requests = {
