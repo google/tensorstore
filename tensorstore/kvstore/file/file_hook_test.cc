@@ -36,6 +36,7 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
+using ::tensorstore::IsOk;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::StatusFromOsError;
 using ::tensorstore::internal_os::CloseOpTag;
@@ -324,7 +325,7 @@ TEST_P(FileHookTest, PutDefaultDoesNotRetryOnEio) {
         });
 
     auto result = kvstore::Write(store, "foo", absl::Cord("abc")).result();
-    EXPECT_THAT(result, StatusIs(absl::StatusCode::kUnavailable));
+    EXPECT_THAT(result, StatusIs(StatusFromOsError(kIoError).status_code));
     EXPECT_EQ(call_count, 1);
   }
 }
