@@ -233,6 +233,10 @@ from .register import register_bzl_library
     "@tensorstore//bazel/repo_rules:third_party_http_archive.bzl",
     workspace=True,
 )
+@register_bzl_library(
+    "@tensorstore//bazel/repo_rules:third_party_http_archive.bzl",
+    workspace=False,
+)
 class ThirdPartyRepoLibrary(ScopeCommon):
 
   def bazel_third_party_http_archive(self, **kwargs):
@@ -255,11 +259,48 @@ class _CollectPatchCommands:
         return True
     return False
 
-  @property
-  def patch_command(self) -> bool:
+  def get_patch_command(self, _active_repo: Repository, cmake_name: str) -> str:
     if not self._patch_commands:
       return ""
-    return " && ".join(self._patch_commands)
+    patch_script_path = os.path.join(
+        _get_third_party_dir(_active_repo.repository),
+        f"{cmake_name}-patch.cmake",
+    )
+    script_content = []
+    has_patch = False
+    for cmd in self._patch_commands:
+      if "orig_CMakeLists.cmake" in cmd:
+        script_content.append(
+            "if(NOT EXISTS orig_CMakeLists.cmake)\n  execute_process(COMMAND"
+            f" {cmd} COMMAND_ERROR_IS_FATAL ANY)\nendif()\n"
+        )
+      elif "${Patch_EXECUTABLE}" in cmd:
+        has_patch = True
+        dry_run_cmd = cmd.replace(
+            "${Patch_EXECUTABLE} --binary",
+            "${Patch_EXECUTABLE} --binary -R --dry-run -s -f",
+            1,
+        )
+        script_content.append(
+            "if(NOT EXISTS .tensorstore_patched)\n  execute_process(COMMAND"
+            f" {dry_run_cmd} RESULT_VARIABLE _patch_already_applied"
+            " OUTPUT_QUIET ERROR_QUIET)\n  if(NOT _patch_already_applied EQUAL"
+            f" 0)\n    execute_process(COMMAND {cmd} COMMAND_ERROR_IS_FATAL"
+            " ANY)\n  endif()\nendif()\n"
+        )
+      else:
+        script_content.append(
+            f"execute_process(COMMAND {cmd} COMMAND_ERROR_IS_FATAL ANY)\n"
+        )
+    if has_patch:
+      script_content.append('file(WRITE .tensorstore_patched "")\n')
+    pathlib.Path(patch_script_path).write_text(
+        "".join(script_content), encoding="utf-8"
+    )
+    return (
+        "${CMAKE_COMMAND} -DPatch_EXECUTABLE=${Patch_EXECUTABLE} -P"
+        f" {quote_path(patch_script_path)}"
+    )
 
   def process_patch_commands(
       self,
@@ -281,7 +322,7 @@ class _CollectPatchCommands:
       assert patch_path is not None
       quoted_patch_path = quote_path(patch_path)
       self._patch_commands.append(
-          f"""${{Patch_EXECUTABLE}} --binary {" ".join(patch_args or ())} < {quoted_patch_path}"""
+          f"""${{Patch_EXECUTABLE}} --binary {" ".join(patch_args or ())} -i {quoted_patch_path}"""
       )
     if patch_cmds:
       self._patch_commands.extend(patch_cmds)
@@ -537,7 +578,9 @@ def _emit_fetch_content_impl(
 
   urls = kwargs.get("urls", [])
   sha256 = kwargs.get("sha256", "")
-  patch_command = collect_patch_commands.patch_command
+  patch_command = collect_patch_commands.get_patch_command(
+      state.active_repo, cmake_name
+  )
 
   out = io.StringIO()
   out.write(f"# Loading {new_repository.repository_id.repository_name}\n")

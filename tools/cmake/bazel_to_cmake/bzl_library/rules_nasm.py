@@ -316,9 +316,11 @@ def _emit_nasm_assemble(
     cmake_deps: list[CMakeTarget],
 ):
   """Generates an NASM library target."""
+  out_dir = os.path.dirname(str(generated_obj))
   out.write(f"""add_custom_command(
   OUTPUT {quote_path(generated_obj)}
   DEPENDS {quote_path_list([src] + cast(list[str], cmake_deps))}
+  COMMAND ${{CMAKE_COMMAND}} -E make_directory {quote_path(out_dir)}
   COMMAND ${{CMAKE_ASM_NASM_COMPILER}}
           -f ${{CMAKE_ASM_NASM_OBJECT_FORMAT}}
           ${{CMAKE_ASM_NASM_FLAGS}}

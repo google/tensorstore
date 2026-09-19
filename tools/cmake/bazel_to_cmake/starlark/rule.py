@@ -41,7 +41,27 @@ class Attr:
     self._handle = handle
 
 
-class AttrModule:
+class AttrModuleMeta(type):
+  """Metaclass to provide fallback for arbitrary attr attributes."""
+
+  def __getattr__(cls, name: str):
+    def _generic_attr(*args, **kwargs):
+      del args, kwargs
+
+      def handle(context, attr_name, value, outs):
+        del context, outs
+
+        def impl(ctx):
+          setattr(ctx.attr, attr_name, value)
+
+        return impl
+
+      return Attr(handle)
+
+    return _generic_attr
+
+
+class AttrModule(metaclass=AttrModuleMeta):
   """Defines rule attribute types."""
 
   @staticmethod

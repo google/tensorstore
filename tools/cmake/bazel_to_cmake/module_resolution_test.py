@@ -20,6 +20,7 @@ import unittest.mock
 from .cmake_repository import CMakeRepository
 from .cmake_target import CMakePackage
 from .module_resolution import ModuleResolver
+from .module_resolution import ResolvedModuleSpec
 from .starlark.bazel_target import RepositoryId
 from .workspace import Workspace
 
@@ -35,7 +36,7 @@ def test_set_module_name_version():
 def test_load_lockfile():
   state = unittest.mock.MagicMock()
   resolver = ModuleResolver(state)
-  
+
   lockfile_data = {
       "moduleExtensions": {
           "//:ext.bzl%ext": {
@@ -45,19 +46,22 @@ def test_load_lockfile():
                           "repoRuleId": "http_archive",
                           "attributes": {
                               "urls": ["http://example.com"],
-                          }
+                          },
                       }
                   }
               }
           }
       }
   }
-  
+
   resolver.load_lockfile(lockfile_data)
-  
+
   assert "//:ext.bzl%ext" in resolver._lockfile_repos
   assert "repo" in resolver._lockfile_repos["//:ext.bzl%ext"]
-  assert resolver._lockfile_repos["//:ext.bzl%ext"]["repo"]["repoRuleId"] == "http_archive"
+  assert (
+      resolver._lockfile_repos["//:ext.bzl%ext"]["repo"]["repoRuleId"]
+      == "http_archive"
+  )
 
 
 def test_add_module_override_local_path():
@@ -311,7 +315,7 @@ def test_use_repo():
   state = unittest.mock.MagicMock()
   state.workspace.all_repositories = {}
   resolver = ModuleResolver(state)
-  
+
   lockfile_data = {
       "moduleExtensions": {
           "//:ext.bzl%ext": {
@@ -321,28 +325,140 @@ def test_use_repo():
                           "repoRuleId": "http_archive",
                           "attributes": {
                               "urls": ["http://example.com"],
-                          }
+                          },
                       }
                   }
               }
           }
       }
   }
-  
+
   resolver.load_lockfile(lockfile_data)
-  
+
   proxy = unittest.mock.MagicMock()
   proxy.bzl_file = "//:ext.bzl"
   proxy.name = "ext"
-  
+
   with unittest.mock.patch(
       f"{ModuleResolver.__module__}.third_party_http_archive._emit_fetch_content_impl"
   ) as mock_emit:
     resolver.use_repo(proxy, local_name="remote_repo")
-    
+
     state.workspace.add_cmake_repository.assert_called_once()
     repo = state.workspace.add_cmake_repository.call_args.args[0]
     assert repo.repository_id == RepositoryId("local_name")
     mock_emit.assert_called_once()
 
 
+def test_resolve_module_override_types():
+  state = unittest.mock.MagicMock()
+  state.active_repo.source_directory = pathlib.Path("/workspace")
+  resolver = ModuleResolver(state)
+
+  # local_path
+  spec = resolver._resolve_module_override(
+      "foo", "1.0", "foo", {"type": "local_path", "path": "third_party/foo"}
+  )
+  assert spec is not None
+  assert spec.source_type == "local_path"
+  assert spec.source_directory == pathlib.Path("/workspace/third_party/foo")
+  assert spec.cmake_project_name == "foo"
+
+  # archive
+  spec = resolver._resolve_module_override(
+      "bar",
+      "2.0",
+      "bar",
+      {
+          "type": "archive",
+          "urls": ["http://example.com/bar.tar.gz"],
+          "integrity": "sha256-abc",
+          "strip_prefix": "bar-2.0",
+      },
+  )
+  assert spec is not None
+  assert spec.source_type == "archive"
+  assert spec.config["urls"] == ["http://example.com/bar.tar.gz"]
+  assert spec.config["sha256"] == "sha256-abc"
+  assert spec.config["strip_prefix"] == "bar-2.0"
+
+  # git
+  spec = resolver._resolve_module_override(
+      "baz",
+      "3.0",
+      "baz",
+      {
+          "type": "git",
+          "remote": "https://github.com/baz/baz.git",
+          "commit": "deadbeef",
+      },
+  )
+  assert spec is not None
+  assert spec.source_type == "git"
+  assert spec.config["git_repository"] == "https://github.com/baz/baz.git"
+  assert spec.config["git_tag"] == "deadbeef"
+
+  # single
+  mock_spec = ResolvedModuleSpec(
+      repository_id=RepositoryId("qux"),
+      cmake_project_name="qux",
+      source_type="archive",
+      config={"patches": ["//:existing.patch"]},
+  )
+  resolver._resolve_from_registries = unittest.mock.MagicMock(
+      return_value=mock_spec
+  )
+  spec = resolver._resolve_module_override(
+      "qux",
+      "1.0",
+      "qux",
+      {
+          "type": "single",
+          "version": "1.5",
+          "patches": ["//:override.patch"],
+          "patch_strip": 1,
+      },
+  )
+  assert spec is not None
+  resolver._resolve_from_registries.assert_called_once_with(
+      "qux", "1.5", "qux"
+  )
+  assert spec.config["patches"] == [
+      "//:existing.patch",
+      "//:override.patch",
+  ]
+  assert spec.config["patch_args"] == ["-p1"]
+
+
+def test_resolve_dep_pipeline_precedence(tmp_path):
+  state = unittest.mock.MagicMock()
+  state.active_repo.source_directory = tmp_path
+  state.workspace.all_repositories = {}
+  state.workspace._parsed_bazelrc.registries = []
+
+  # 1. External config present
+  state.workspace._external_repo_configs = {
+      RepositoryId("dep"): {
+          "urls": ["http://external.com/dep.tar.gz"],
+          "cmake_project_name": "DepExternal",
+      }
+  }
+
+  resolver = ModuleResolver(state)
+  # External config is picked when no override is set
+  spec = resolver._resolve_dep("dep", "1.0", "dep")
+  assert spec is not None
+  assert spec.cmake_project_name == "DepExternal"
+
+  # 2. Add override: override must take precedence over external config
+  resolver.add_module_override(
+      "dep",
+      {
+          "type": "archive",
+          "urls": ["http://override.com/dep.tar.gz"],
+          "integrity": "sha256-xyz",
+      },
+  )
+  spec = resolver._resolve_dep("dep", "1.0", "dep")
+  assert spec is not None
+  assert spec.config["urls"] == ["http://override.com/dep.tar.gz"]

@@ -32,6 +32,7 @@ for x in (
   ignore_bzl_library(f"@com_google_protobuf{x}")
 
 
+@register_bzl_library("@protobuf//bazel:proto_library.bzl")
 @register_bzl_library("@com_google_protobuf//bazel:proto_library.bzl")
 class ProtobufProtoLibrary(ScopeCommon):
 
@@ -39,6 +40,7 @@ class ProtobufProtoLibrary(ScopeCommon):
     return native_rules_proto.proto_library(self._context, name, **kwargs)
 
 
+@register_bzl_library("@protobuf//bazel:cc_proto_library.bzl")
 @register_bzl_library("@com_google_protobuf//bazel:cc_proto_library.bzl")
 class ProtobufCcProtoLibrary(ScopeCommon):
 

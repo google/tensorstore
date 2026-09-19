@@ -174,3 +174,7 @@ def register_native_build_rule(impl):
   setattr(BazelNativeBuildRules, name, wrapper)
   setattr(ScopeBuildFile, f'bazel_{name}', wrapper)
   return impl
+
+
+# Ensure rule and attr are attached to ScopeBuildBzlFile
+from . import rule as _  # pylint: disable=unused-import,g-import-not-at-top

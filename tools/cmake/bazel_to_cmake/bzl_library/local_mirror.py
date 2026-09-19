@@ -38,6 +38,7 @@ from .register import register_bzl_library
 
 
 @register_bzl_library("@tensorstore//bazel:local_mirror.bzl", workspace=True)
+@register_bzl_library("@tensorstore//bazel:local_mirror.bzl", workspace=False)
 class ThirdPartyLocalMirrorLibrary(ScopeCommon):
 
   def bazel_local_mirror(self, **kwargs):

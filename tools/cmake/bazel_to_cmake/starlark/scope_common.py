@@ -18,10 +18,16 @@
 from .bazel_target import TargetId
 from .depset import DepSet
 from .dict_polyfill import DictWithUnion
+from .ignored import IgnoredObject
 from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
 from .struct import Struct
+
+
+def _ignored(*args, **kwargs):
+  del args, kwargs
+  return IgnoredObject()
 
 
 class ScopeCommon(dict):
@@ -108,3 +114,24 @@ class ScopeCommon(dict):
 
   bazel_depset = staticmethod(DepSet)  # type: ignore[not-callable]
   bazel_struct = staticmethod(Struct)  # type: ignore[not-callable]
+
+  # Bzlmod globals
+  def bazel_module_extension(self, *args, **kwargs):
+    return Struct(implementation=kwargs.get('implementation'))
+
+  def bazel_repository_rule(self, *args, **kwargs):
+    def _repo_rule_impl(*a, **kw):
+      return None
+
+    return _repo_rule_impl
+
+  bazel_use_extension = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_use_repo = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_bazel_dep = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_single_version_override = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_archive_override = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_git_override = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_local_path_override = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_multiple_version_override = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_include = staticmethod(_ignored)  # type: ignore[not-callable]
+  bazel_tag_class = staticmethod(_ignored)  # type: ignore[not-callable]

@@ -251,8 +251,13 @@ class UpbMinitableProtoLibrary(ScopeCommon):
 
 
 @register_bzl_library(
+    "@com_google_protobuf//bazel:upb_proto_reflection_library.bzl"
+)
+@register_bzl_library(
     "@com_google_protobuf//upb/bazel:upb_proto_reflection_library.bzl"
 )
+@register_bzl_library("@protobuf//bazel:upb_proto_reflection_library.bzl")
+@register_bzl_library("@protobuf//upb/bazel:upb_proto_reflection_library.bzl")
 class UpbProtoReflectionLibrary(ScopeCommon):
 
   def bazel_upb_proto_reflection_library(
@@ -292,7 +297,10 @@ class UpbWrappedCcInfo(Provider):
     return f"{self.__class__.__name__}({repr(self.cc_info)},{repr(self.cc_info_with_thunks)})"
 
 
+@register_bzl_library("@com_google_protobuf//bazel:upb_c_proto_library.bzl")
 @register_bzl_library("@com_google_protobuf//upb/bazel:upb_c_proto_library.bzl")
+@register_bzl_library("@protobuf//bazel:upb_c_proto_library.bzl")
+@register_bzl_library("@protobuf//upb/bazel:upb_c_proto_library.bzl")
 class UpbCProtoLibrary(ScopeCommon):
 
   def __init__(self, *args, **kwargs):
@@ -326,7 +334,10 @@ class UpbCProtoLibrary(ScopeCommon):
 #############################################################################
 
 
+@register_bzl_library("@com_google_protobuf//bazel:upb_proto_library.bzl")
 @register_bzl_library("@com_google_protobuf//upb/bazel:upb_proto_library.bzl")
+@register_bzl_library("@protobuf//bazel:upb_proto_library.bzl")
+@register_bzl_library("@protobuf//upb/bazel:upb_proto_library.bzl")
 class UpbProtoLibrary(UpbCProtoLibrary, UpbProtoReflectionLibrary):
 
   def __init__(self, *args, **kwargs):

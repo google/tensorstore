@@ -107,11 +107,22 @@ bazel_to_cmake(
   "--exclude-package=third_party/local_opencensus_proto/**"
   "--exclude-package=third_party/local_protoc_gen_validate/**"
   "--exclude-package=third_party/io_bazel_rules_go/**"
+  "--exclude-package=third_party/registry/**"
   --ignore-library "//bazel/repo_rules:local_python_runtime.bzl"
   --ignore-library "//docs:doctest.bzl"
   --ignore-library "//bazel:non_compile.bzl"
   --ignore-library "@com_google_protobuf//:protobuf.bzl"
   --ignore-library "@rules_python//python:packaging.bzl"
+  --ignore-library "@io_bazel_rules_go//go:deps.bzl"
+  --ignore-library "@bazel_features//:deps.bzl"
+  --ignore-library "@rules_cc//cc:extensions.bzl"
+  --ignore-library "@rules_shell//shell:repositories.bzl"
+  --ignore-library "@rules_python//python:repositories.bzl"
+  --ignore-library "@rules_python//python/local_toolchains:repos.bzl"
+  --ignore-library "@rules_proto//proto:toolchains.bzl"
+  --ignore-library "@build_bazel_apple_support//lib:repositories.bzl"
+  --ignore-library "@toolchains_llvm//toolchain:rules.bzl"
+  --ignore-library "@llvm_toolchain//:toolchains.bzl"
   --bazelrc .bazelrc
   --module bazel_to_cmake.bzl_library.all
 )

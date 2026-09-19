@@ -22,6 +22,9 @@ from .register import register_bzl_library
 @register_bzl_library(
     "@bazel_tools//tools/build_defs/repo:utils.bzl", workspace=True
 )
+@register_bzl_library(
+    "@bazel_tools//tools/build_defs/repo:utils.bzl", workspace=False
+)
 class BazelToolsRepoUtilsLibrary(ScopeCommon):
 
   def bazel_maybe(self, fn, **kwargs):
@@ -38,4 +41,16 @@ class BazelToolsRepoUtilsLibrary(ScopeCommon):
 
   def bazel_workspace_and_buildfile(self, ctx):
     del self  # Unused.
+    pass
+
+
+@register_bzl_library(
+    "@bazel_tools//tools/build_defs/repo:http.bzl", workspace=True
+)
+@register_bzl_library(
+    "@bazel_tools//tools/build_defs/repo:http.bzl", workspace=False
+)
+class BazelToolsRepoHttpLibrary(ScopeCommon):
+
+  def bazel_http_archive(self, **kwargs):
     pass

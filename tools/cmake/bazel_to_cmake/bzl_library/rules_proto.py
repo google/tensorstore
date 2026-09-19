@@ -24,6 +24,7 @@ from ..starlark.scope_common import ScopeCommon
 from .register import register_bzl_library
 
 
+@register_bzl_library("@rules_proto_bzlmod//proto:defs.bzl")
 @register_bzl_library("@rules_proto//proto:defs.bzl")
 class RulesProtoDefs(ScopeCommon):
 

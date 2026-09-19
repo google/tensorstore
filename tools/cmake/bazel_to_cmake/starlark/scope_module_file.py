@@ -18,6 +18,13 @@ from .scope_common import ScopeCommon
 from .struct import Struct
 
 
+class ModuleExtensionProxy(Struct):
+  """Proxy object returned by use_extension supporting tag class calls."""
+
+  def __getattr__(self, attr: str):
+    return IgnoredObject()
+
+
 class ScopeModuleFile(ScopeCommon):
   """Globals for MODULE.bazel and .bzl libraries loaded from the MODULE."""
 
@@ -60,7 +67,9 @@ class ScopeModuleFile(ScopeCommon):
       isolate=False,
   ):
     if dev_dependency or isolate:
-      return Struct()
+      return ModuleExtensionProxy(
+          bzl_file=extension_bzl_file, name=extension_name
+      )
     library_target = self._context.resolve_target_or_label(extension_bzl_file)
     library = self._context.load_library(library_target)
     impl = library.get(extension_name, IgnoredObject()).implementation
@@ -68,7 +77,9 @@ class ScopeModuleFile(ScopeCommon):
       impl(Struct())
     except Exception as e:
       print(f'Warning: Failed to evaluate extension implementation: {e}')
-    return Struct(bzl_file=extension_bzl_file, name=extension_name)
+    return ModuleExtensionProxy(
+        bzl_file=extension_bzl_file, name=extension_name
+    )
 
   def bazel_include(self, label):
     self._context.include_module_file(label, self)

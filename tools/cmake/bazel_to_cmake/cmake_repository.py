@@ -217,8 +217,8 @@ def make_repo_mapping(
 def label_to_generated_cmake_target(
     target_id: TargetId, cmake_project: CMakePackage
 ) -> CMakeTargetPair:
-  """Computes the generated CMake target corresponding to a Bazel target."""
-  assert isinstance(cmake_project, CMakePackage), f"{repr(cmake_project)}"
+  if not isinstance(cmake_project, CMakePackage):
+    cmake_project = CMakePackage(cmake_project)
 
   parts: list[str] = []
   parts.extend(x for x in _SPLIT_RE.split(target_id.package_name) if x)

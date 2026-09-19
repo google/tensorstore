@@ -13,3 +13,5 @@ tools/cmake/bazel_to_cmake/testdata/grpc_generate_cc
 tools/cmake/bazel_to_cmake/testdata/local_mirror
 tools/cmake/bazel_to_cmake/testdata/local_mirror/golden/_cmake_binary_dir_/local_mirror/lpm
 tools/cmake/bazel_to_cmake/testdata/third_party_http_archive
+third_party/registry
+build

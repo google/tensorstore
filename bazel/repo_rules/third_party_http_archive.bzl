@@ -64,14 +64,19 @@ def _third_party_http_archive_impl(ctx):
     if ctx.attr.build_file and ctx.attr.build_file_content:
         logger.fail("Only one of build_file and build_file_content can be provided.")
 
-    download_info = ctx.download_and_extract(
-        url = ctx.attr.urls,
-        output = "",
-        sha256 = ctx.attr.sha256,
-        type = ctx.attr.type,
-        stripPrefix = ctx.attr.strip_prefix,
-        canonical_id = ctx.attr.canonical_id,
-    )
+    download_kwargs = {
+        "url": ctx.attr.urls,
+        "output": "",
+        "type": ctx.attr.type,
+        "stripPrefix": ctx.attr.strip_prefix,
+        "canonical_id": ctx.attr.canonical_id,
+    }
+    if ctx.attr.sha256 and ctx.attr.sha256.endswith("="):
+        download_kwargs["integrity"] = "sha256-" + ctx.attr.sha256
+    else:
+        download_kwargs["sha256"] = ctx.attr.sha256
+
+    download_info = ctx.download_and_extract(**download_kwargs)
     for path in ctx.attr.remove_paths:
         ctx.delete(path)
     patch(ctx)
@@ -120,7 +125,6 @@ _third_party_http_archive_attrs = {
     "doc_name": attr.string(),
     "doc_version": attr.string(),
     "doc_homepage": attr.string(),
-    "repo_mapping": attr.string_dict(),
     "_rule_name": attr.string(default = "third_party_http_archive"),
 }
 

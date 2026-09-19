@@ -20,10 +20,13 @@ from .register import register_bzl_library
     "@tensorstore//bazel/repo_rules:third_party_pypa_package.bzl",
     workspace=True,
 )
+@register_bzl_library(
+    "@tensorstore//bazel/repo_rules:third_party_pypa_package.bzl",
+    workspace=False,
+)
 class ThirdPartyPypaPackage(ScopeCommon):
 
   def bazel_third_party_pypa_package(self, *args, **kwargs):
     del args
     del kwargs
     pass
-

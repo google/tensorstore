@@ -262,6 +262,8 @@ def run_main(args: argparse.Namespace) -> int:
   if active_repo.top_level:
     # Load the WORKSPACE file
     state.process_workspace()
+    if workspace._parsed_bazelrc.enable_bzlmod:
+      state.process_module()
 
   targets_to_analyze = do_process_build_files(args, active_repo, state)
   state.analyze(sorted(targets_to_analyze))
