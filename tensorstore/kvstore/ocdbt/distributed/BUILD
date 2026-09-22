@@ -313,8 +313,9 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "driver_test",
-    size = "small",
+    size = "medium",
     srcs = ["driver_test.cc"],
+    shard_count = 4,
     tags = ["cpu:2"],
     deps = [
         ":coordinator_server",
