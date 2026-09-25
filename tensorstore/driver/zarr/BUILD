@@ -208,6 +208,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal/json",
         "//tensorstore/internal/json:value_as",

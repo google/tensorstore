@@ -36,6 +36,7 @@
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/generic_stringify.h"
@@ -290,8 +291,10 @@ absl::Status ValidateDType(ZarrDType& dtype) {
       return absl::InvalidArgumentError(absl::StrFormat(
           "Field name %v occurs more than once", QuoteString(field.name)));
     }
-    field.field_shape.resize(field.flexible_shape.size() +
-                             field.outer_shape.size());
+    const DimensionIndex field_rank =
+        field.flexible_shape.size() + field.outer_shape.size();
+    TENSORSTORE_RETURN_IF_ERROR(ValidateRank(field_rank));
+    field.field_shape.resize(field_rank);
     std::copy(field.flexible_shape.begin(), field.flexible_shape.end(),
               std::copy(field.outer_shape.begin(), field.outer_shape.end(),
                         field.field_shape.begin()));

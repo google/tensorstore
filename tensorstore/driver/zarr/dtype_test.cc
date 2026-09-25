@@ -337,6 +337,17 @@ TEST(ParseDType, BytesPerOuterElementOverflow) {
               "Total number of bytes per outer array element is too large")));
 }
 
+TEST(ParseDType, FieldShapeRankTooLarge) {
+  EXPECT_THAT(ParseDType(::nlohmann::json::array_t{
+                  {"x", "<i2", std::vector<Index>(33, 1)}}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank 33 is outside valid range [0, 32]")));
+  EXPECT_THAT(ParseDType(::nlohmann::json::array_t{
+                  {"x", "|S10", std::vector<Index>(32, 1)}}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Rank 33 is outside valid range [0, 32]")));
+}
+
 TEST(ChooseBaseDTypeTest, RoundTrip) {
   // clang-format off
   constexpr tensorstore::DataType kSupportedDataTypes[] = {
