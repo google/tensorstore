@@ -595,6 +595,12 @@ TEST(KvStoreTest, ListInvalid) {
 
   EXPECT_THAT(kvstore::ListFuture(store).result(),
               StatusIs(absl::StatusCode::kUnimplemented));
+  EXPECT_TRUE(mock_driver->list_requests.empty());
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("value")));
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              StatusIs(absl::StatusCode::kUnimplemented));
+  EXPECT_TRUE(mock_driver->list_requests.empty());
 }
 
 }  // namespace

@@ -773,6 +773,7 @@ void TransactionalListImpl(Driver* driver,
                           "repeatable_read mode not supported for "
                           "transactional list operations")},
                       std::move(receiver));
+    return;
   }
   auto node = internal_kvstore::GetExistingTransactionNode<TransactionNode>(
       driver, transaction);
