@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <limits>
 #include <random>
 #include <string>
 #include <vector>
@@ -1901,6 +1902,51 @@ TEST(HasHardConstraints, Basic) {
     TENSORSTORE_ASSERT_OK(
         layout1.Set(tensorstore::ChunkLayout::ReadChunkElements(200)));
     EXPECT_FALSE(layout1.HasHardConstraints());
+  }
+}
+
+TEST(ChunkLayoutTest, ExtremeAndInfiniteAspectRatioDoesNotHang) {
+  {
+    tensorstore::ChunkLayout layout;
+    EXPECT_THAT(layout.Set(tensorstore::ChunkLayout::ReadChunkAspectRatio(
+                    {std::numeric_limits<double>::infinity(), 1.0})),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(layout.Set(tensorstore::ChunkLayout::ReadChunkAspectRatio(
+                    {std::numeric_limits<double>::quiet_NaN(), 1.0})),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+  }
+  {
+    // Case A: Valid positive finite numbers whose quotient overflows double.
+    Box box(2);
+    TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+        /*origin_constraints=*/{},
+        ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                              ChunkLayout::ChunkAspectRatio({1.0, 1e-308}),
+                              ChunkLayout::ChunkElements(1024)),
+        BoxView(2), box));
+    EXPECT_EQ(Box({1024, 1}), box);
+  }
+  {
+    // Case B: Ratio >= ~1e17 where min_factor_increment < ulp(min_factor).
+    Box box(2);
+    TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+        /*origin_constraints=*/{},
+        ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                              ChunkLayout::ChunkAspectRatio({1e18, 1.0}),
+                              ChunkLayout::ChunkElements(2000)),
+        BoxView({100, 10000}), box));
+    EXPECT_EQ(Box({100, 20}), box);
+  }
+  {
+    // Extreme large ratio {1e300, 1.0}.
+    Box box(2);
+    TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+        /*origin_constraints=*/{},
+        ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                              ChunkLayout::ChunkAspectRatio({1e300, 1.0}),
+                              ChunkLayout::ChunkElements(1024)),
+        BoxView(2), box));
+    EXPECT_EQ(Box({1024, 1}), box);
   }
 }
 
