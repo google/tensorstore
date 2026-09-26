@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
@@ -180,6 +181,35 @@ TEST_F(MockStoreTest, ReadErrorDueToValidateDuringWriteback) {
   transaction.CommitAsync().IgnoreFuture();
   auto read_req = mock_store->read_requests.pop();
   read_req.promise.SetResult(absl::FailedPreconditionError("read error"));
+  EXPECT_THAT(transaction.future().result(),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("Error reading \"a\": read error")));
+}
+
+TEST_F(MockStoreTest, ReadErrorDueToRepeatableReadDuringWriteback) {
+  auto entry = GetCacheEntry(cache, "a");
+
+  auto transaction = Transaction(tensorstore::atomic_isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+    auto read_future = entry->ReadValue(open_transaction);
+    mock_store->read_requests.pop()(memory_store);
+    EXPECT_THAT(read_future.result(), ::testing::Optional(absl::Cord()));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto node, entry->Modify(open_transaction, true, "abc"));
+    std::unique_lock lock(*node);
+    TENSORSTORE_ASSERT_OK(
+        node->RequireRepeatableRead(StorageGeneration::NoValue()));
+  }
+  TENSORSTORE_ASSERT_OK(memory_store->Write("a", absl::Cord("xyz")));
+  transaction.CommitAsync().IgnoreFuture();
+  mock_store->write_requests.pop()(memory_store);
+  auto read_req = mock_store->read_requests.pop();
+  read_req.promise.SetResult(absl::FailedPreconditionError("read error"));
+  EXPECT_TRUE(mock_store->read_requests.empty());
+  ASSERT_TRUE(transaction.future().ready());
   EXPECT_THAT(transaction.future().result(),
               StatusIs(absl::StatusCode::kFailedPrecondition,
                        HasSubstr("Error reading \"a\": read error")));

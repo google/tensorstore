@@ -348,6 +348,10 @@ class KvsBackedCache : public Parent {
             [this, options = std::move(options),
              receiver =
                  std::move(receiver)](ReadyFuture<const void> future) mutable {
+              if (!future.status().ok()) {
+                execution::set_error(receiver, future.status());
+                return;
+              }
               this->KvsWriteback(std::move(options), std::move(receiver));
             });
         return;
