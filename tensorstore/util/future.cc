@@ -231,42 +231,47 @@ inline void RunAndReleaseCallbacks(FutureStateBase* shared_state,
                                    CallbackListNode* head,
                                    BeforeUnregisterFunc before_func,
                                    AfterUnregisterFunc after_func) {
+  shared_state->combined_reference_count_.fetch_add(1,
+                                                    std::memory_order_relaxed);
   const auto thread_id = std::this_thread::get_id();
   auto* mutex = GetMutex(shared_state);
-  // Pointer to callback that was just run.
-  CallbackPointer prev_node;
+  {
+    // Pointer to callback that was just run.
+    CallbackPointer prev_node;
 
-  while (true) {
-    CallbackListNode* next_node;
-    {
-      absl::MutexLock lock(*mutex);
-      if (prev_node != nullptr) {
-        // Reset prev_node->next pointer, which marks that the callback has
-        // finished running.
-        using Id = std::thread::id;
-        prev_node->running_callback_thread.~Id();
-        prev_node->next = prev_node.get();
+    while (true) {
+      CallbackListNode* next_node;
+      {
+        absl::MutexLock lock(*mutex);
+        if (prev_node != nullptr) {
+          // Reset prev_node->next pointer, which marks that the callback has
+          // finished running.
+          using Id = std::thread::id;
+          prev_node->running_callback_thread.~Id();
+          prev_node->next = prev_node.get();
+        }
+        // Run callbacks in the order that they were added.
+        next_node = head->next;
+        if (next_node == head) {
+          // No more callbacks to run.
+          break;
+        }
+        Remove(CallbackListAccessor{}, next_node);
+        next_node->next = nullptr;
+        new (&next_node->running_callback_thread) std::thread::id(thread_id);
       }
-      // Run callbacks in the order that they were added.
-      next_node = head->next;
-      if (next_node == head) {
-        // No more callbacks to run.
-        break;
-      }
-      Remove(CallbackListAccessor{}, next_node);
-      next_node->next = nullptr;
-      new (&next_node->running_callback_thread) std::thread::id(thread_id);
+      // Call after_func on the previous callback if this is not the first
+      // iteration of the loop.
+      if (prev_node) after_func(prev_node.get());
+      prev_node.reset(static_cast<CallbackBase*>(next_node),
+                      internal::adopt_object_ref);
+      before_func(prev_node.get());
     }
-    // Call after_func on the previous callback if this is not the first
-    // iteration of the loop.
+    // Call after_func on the last callback processed by the loop, if the loop
+    // processed at least one callback.
     if (prev_node) after_func(prev_node.get());
-    prev_node.reset(static_cast<CallbackBase*>(next_node),
-                    internal::adopt_object_ref);
-    before_func(prev_node.get());
   }
-  // Call after_func on the last callback processed by the loop, if the loop
-  // processed at least one callback.
-  if (prev_node) after_func(prev_node.get());
+  shared_state->ReleaseCombinedReference();
 }
 
 void RunReadyCallbacks(FutureStateBase* shared_state) {
@@ -391,13 +396,16 @@ void FutureStateBase::Force() noexcept {
     return;
   }
 
+  combined_reference_count_.fetch_add(1, std::memory_order_relaxed);
   RunForceCallbacks(this);
   prior_state = state_.fetch_or(kForced);
-  if (prior_state & kResultLocked) {
-    // kResultLocked state was set before forced was set.  It is our
-    // responsibility to unregister promise callbacks.
+  if ((prior_state & kResultLocked) != 0 || !has_future()) {
+    // kResultLocked state was set or all Future references were released before
+    // forced was set.  It is our responsibility to unregister promise
+    // callbacks.
     DestroyPromiseCallbacks(this);
   }
+  ReleaseCombinedReference();
 }
 
 void FutureStateBase::ReleaseFutureReference() {

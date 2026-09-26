@@ -2033,6 +2033,41 @@ TEST(FutureTest, LinkValueTwoErrors) {
   EXPECT_FALSE(future3.result().ok());
 }
 
+TEST(FutureTest, ForceReleasesAllReferences) {
+  {
+    auto [promise, future] = PromiseFuturePair<int>::Make();
+    promise.ExecuteWhenForced([](Promise<int> p) { p.SetResult(42); });
+    promise = {};
+    int result = 0;
+    future.ExecuteWhenReady([&](ReadyFuture<int> f) {
+      result = f.value();
+      future = {};
+    });
+    future.Force();
+    EXPECT_EQ(42, result);
+  }
+  {
+    auto [promise, future] = PromiseFuturePair<int>::Make();
+    bool not_needed = false;
+    promise.ExecuteWhenForced([&](Promise<int> p) { future = {}; });
+    promise.ExecuteWhenNotNeeded([&] { not_needed = true; });
+    future.Force();
+    EXPECT_TRUE(not_needed);
+  }
+}
+
+TEST(FutureTest, SetResultReadyCallbackReleasesAllReferences) {
+  auto [promise, future] = PromiseFuturePair<int>::Make();
+  int result = 0;
+  future.ExecuteWhenReady([&](ReadyFuture<int> f) {
+    result = f.value();
+    promise = {};
+  });
+  future = {};
+  promise.SetResult(42);
+  EXPECT_EQ(42, result);
+}
+
 static void BM_Future_ExecuteWhenReady(benchmark::State& state) {
   int num_callbacks = state.range(0);
   for (auto _ : state) {
