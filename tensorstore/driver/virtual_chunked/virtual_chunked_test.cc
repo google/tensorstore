@@ -617,8 +617,9 @@ TEST(VirtualChunkedTest, ReadNoBatch) {
 
   EXPECT_FALSE(output_batch.has_value());
   auto data = tensorstore::Read(virtual_chunked).result();
+  TENSORSTORE_EXPECT_OK(data);
 
-  EXPECT_TRUE(output_batch.has_value());
+  ASSERT_TRUE(output_batch.has_value());
   EXPECT_FALSE(*output_batch);
 }
 
@@ -636,8 +637,9 @@ TEST(VirtualChunkedTest, ReadWithBatch) {
   EXPECT_FALSE(output_batch.has_value());
   batch.Release();
   auto data = read_future.result();
+  TENSORSTORE_EXPECT_OK(data);
 
-  EXPECT_TRUE(output_batch.has_value());
+  ASSERT_TRUE(output_batch.has_value());
   EXPECT_TRUE(*output_batch);
 }
 

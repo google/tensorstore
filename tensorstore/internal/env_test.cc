@@ -30,7 +30,7 @@ TEST(GetEnvTest, Basic) {
   SetEnv("TENSORSTORE_TEST_ENV_VAR", "test env var");
   {
     auto var = GetEnv("TENSORSTORE_TEST_ENV_VAR");
-    EXPECT_TRUE(var);
+    ASSERT_TRUE(var.has_value());
     EXPECT_EQ("test env var", *var);
   }
 

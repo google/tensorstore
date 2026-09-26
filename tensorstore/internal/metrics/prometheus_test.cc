@@ -30,6 +30,7 @@
 #include "tensorstore/internal/metrics/domain_field.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registry.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
@@ -43,12 +44,11 @@ using ::tensorstore::internal_metrics::PushGatewayConfig;
 using ::tensorstore::internal_metrics::Units;
 
 TEST(PrometheusTest, BuildPrometheusPushRequest) {
-  auto request = BuildPrometheusPushRequest(
-      PushGatewayConfig{"http://localhost:8080", "my_job", "1", {}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto request, BuildPrometheusPushRequest(PushGatewayConfig{
+                        "http://localhost:8080", "my_job", "1", {}}));
 
-  EXPECT_TRUE(request.has_value());
-  EXPECT_EQ("http://localhost:8080/metrics/job/my_job/instance/1",
-            request->url);
+  EXPECT_EQ("http://localhost:8080/metrics/job/my_job/instance/1", request.url);
 }
 
 TEST(PrometheusTest, PrometheusExpositionFormat) {

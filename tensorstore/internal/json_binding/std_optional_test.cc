@@ -75,7 +75,7 @@ TEST(JsonBindingTest, OptionalResult) {
   // loading value -> value
   j = 4;
   EXPECT_TRUE(jb::Optional()(std::true_type{}, jb::NoOptions{}, &x, &j).ok());
-  EXPECT_TRUE(x.has_value());
+  ASSERT_TRUE(x.has_value());
   EXPECT_EQ(4, x.value());
 
   // saving value -> value
@@ -87,7 +87,7 @@ TEST(JsonBindingTest, OptionalResult) {
   // loading discarded -> no change.
   j = ::nlohmann::json::value_t::discarded;
   EXPECT_TRUE(jb::Optional()(std::true_type{}, jb::NoOptions{}, &x, &j).ok());
-  EXPECT_TRUE(x.has_value());
+  ASSERT_TRUE(x.has_value());
   EXPECT_EQ(4, x.value());
 }
 

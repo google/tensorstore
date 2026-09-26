@@ -245,6 +245,7 @@ tensorstore_cc_test(
         ":metrics",
         ":prometheus",
         ":registry",
+        "//tensorstore/util:status_testutil",
         "@googletest//:gtest_main",
     ],
 )
