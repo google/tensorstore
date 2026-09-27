@@ -122,6 +122,9 @@ tensorstore_cc_library(
     defines = GCS_CREDENTIALS_DEFINES,
     deps = GCS_CREDENTIALS_DEPS + [
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/cache_key:json",
+        "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal/grpc/clientauth:authentication_strategy",
         "//tensorstore/internal/grpc/clientauth:call_authentication",
         "//tensorstore/internal/grpc/clientauth:channel_authentication",
@@ -147,8 +150,13 @@ tensorstore_cc_test(
     deps = [
         ":exp_credentials_spec",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/cache_key:json",
+        "//tensorstore/internal/grpc/clientauth:access_token",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
         "@grpc//:grpc++",
         "@nlohmann_json//:json",

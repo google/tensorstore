@@ -18,8 +18,15 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
+#include "absl/time/time.h"
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/cache_key/json.h"  // IWYU pragma: keep
+#include "tensorstore/internal/cache_key/std_variant.h"  // IWYU pragma: keep
+#include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/internal/grpc/clientauth/access_token.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/status_testutil.h"
@@ -225,6 +232,60 @@ TEST_P(SpecTest, Create) {
   grpc::ChannelArguments args;
   auto creds = strategy.value()->GetChannelCredentials("localhost:1", args);
   EXPECT_THAT(creds.get(), testing::NotNull());
+}
+
+TEST(AccessTokenTest, AbslStringifyRedactsSecret) {
+  tensorstore::internal_grpc::AccessToken token{
+      "ya29.secret_token_value_that_should_not_appear", absl::UnixEpoch()};
+  std::string formatted = absl::StrCat(token);
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("ya29.secret_token")));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("<redacted>"));
+
+  tensorstore::internal_grpc::AccessToken empty_token{"", absl::UnixEpoch()};
+  EXPECT_THAT(absl::StrCat(empty_token), ::testing::HasSubstr("token=<>"));
+}
+
+TEST(SpecCacheKeyTest, DoesNotEmbedRawSecrets) {
+  {
+    Spec spec1{Spec::AccessToken{{"ya29.secret_access_token_1"}}};
+    Spec spec2{Spec::AccessToken{{"ya29.secret_access_token_2"}}};
+    std::string key1;
+    std::string key2;
+    tensorstore::internal::EncodeCacheKey(&key1, spec1);
+    tensorstore::internal::EncodeCacheKey(&key2, spec2);
+    EXPECT_THAT(
+        key1, ::testing::Not(::testing::HasSubstr("ya29.secret_access_token")));
+    EXPECT_NE(key1, key2);
+  }
+  {
+    Spec spec{Spec::ServiceAccount{{}, kServiceAccountJsonObject}};
+    std::string key;
+    tensorstore::internal::EncodeCacheKey(&key, spec);
+    EXPECT_THAT(key, ::testing::Not(::testing::HasSubstr("BEGIN PRIVATE KEY")));
+    EXPECT_THAT(
+        key, ::testing::Not(::testing::HasSubstr(
+                 "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCltiF2o")));
+  }
+  {
+    Spec spec{Spec::ExternalAccount{{}, {}, kExternalAWSAccountJsonObject}};
+    std::string key;
+    tensorstore::internal::EncodeCacheKey(&key, spec);
+    EXPECT_THAT(key, ::testing::Not(::testing::HasSubstr("client_secret")));
+  }
+  {
+    Spec spec{Spec::ImpersonateServiceAccount{
+        {"target"},
+        {},
+        {},
+        ::nlohmann::json::object_t{
+            {"type", "access_token"},
+            {"access_token", "ya29.impersonate_base_secret"}}}};
+    std::string key;
+    tensorstore::internal::EncodeCacheKey(&key, spec);
+    EXPECT_THAT(key, ::testing::Not(
+                         ::testing::HasSubstr("ya29.impersonate_base_secret")));
+  }
 }
 
 }  // namespace

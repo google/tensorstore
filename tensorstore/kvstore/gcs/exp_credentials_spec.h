@@ -24,6 +24,7 @@
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
@@ -103,7 +104,7 @@ class ExperimentalGcsGrpcCredentialsSpec final {
     std::vector<std::string> delegates;
     ::nlohmann::json::object_t base;
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-      return f(x.scopes, x.delegates, x.base);
+      return f(x.target_service_account, x.scopes, x.delegates, x.base);
     };
     friend bool operator==(const ImpersonateServiceAccount& a,
                            const ImpersonateServiceAccount& b) {
@@ -175,6 +176,53 @@ MakeGrpcAuthenticationStrategy(const ExperimentalGcsGrpcCredentialsSpec& spec,
                                internal_grpc::CaInfo ca_info);
 
 }  // namespace internal_storage_gcs
+
+namespace internal {
+
+template <>
+struct CacheKeyEncoder<
+    internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec::AccessToken> {
+  static void Encode(std::string* out,
+                     const internal_storage_gcs::
+                         ExperimentalGcsGrpcCredentialsSpec::AccessToken& v);
+};
+
+template <>
+struct CacheKeyEncoder<
+    internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec::ServiceAccount> {
+  static void Encode(std::string* out,
+                     const internal_storage_gcs::
+                         ExperimentalGcsGrpcCredentialsSpec::ServiceAccount& v);
+};
+
+template <>
+struct CacheKeyEncoder<
+    internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec::ExternalAccount> {
+  static void Encode(
+      std::string* out,
+      const internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec::
+          ExternalAccount& v);
+};
+
+template <>
+struct CacheKeyEncoder<
+    internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec::
+        ImpersonateServiceAccount> {
+  static void Encode(
+      std::string* out,
+      const internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec::
+          ImpersonateServiceAccount& v);
+};
+
+template <>
+struct CacheKeyEncoder<
+    internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec> {
+  static void Encode(
+      std::string* out,
+      const internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec& v);
+};
+
+}  // namespace internal
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_GCS_EXP_CREDENTIALS_SPEC_H_

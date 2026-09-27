@@ -34,9 +34,9 @@ struct AccessToken {
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const AccessToken& rhs) {
-    // Tokens are truncated because they contain security secrets.
+    // Tokens are redacted because they contain security secrets.
     absl::Format(&sink, "token=<%s>, expiration=%s",
-                 std::string_view(rhs.token).substr(0, 32),
+                 rhs.token.empty() ? "" : "redacted",
                  absl::FormatTime(rhs.expiration));
   }
 

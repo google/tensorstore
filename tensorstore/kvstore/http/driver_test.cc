@@ -25,6 +25,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -658,6 +659,35 @@ TEST(SpecTest, NormalizeSpecInvalidAbsolutePath) {
                    "Cannot specify absolute path \"/abc\" in conjunction with "
                    "base URL \".*\" which already includes the path component "
                    "\"/my/path\"")));
+}
+
+TEST(SpecTest, CacheKeyDoesNotEmbedRawHeaders) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec_empty,
+      kvstore::Spec::FromJson(
+          {{"driver", "http"}, {"base_url", "https://example.com"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec1,
+      kvstore::Spec::FromJson(
+          {{"driver", "http"},
+           {"base_url", "https://example.com"},
+           {"headers", {"Authorization: Bearer secret_token_value_1"}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec2,
+      kvstore::Spec::FromJson(
+          {{"driver", "http"},
+           {"base_url", "https://example.com"},
+           {"headers", {"Authorization: Bearer secret_token_value_2"}}}));
+  std::string key_empty;
+  std::string key1;
+  std::string key2;
+  tensorstore::internal::EncodeCacheKey(&key_empty, spec_empty.driver);
+  tensorstore::internal::EncodeCacheKey(&key1, spec1.driver);
+  tensorstore::internal::EncodeCacheKey(&key2, spec2.driver);
+  EXPECT_THAT(key1,
+              ::testing::Not(::testing::HasSubstr("secret_token_value_1")));
+  EXPECT_NE(key_empty, key1);
+  EXPECT_NE(key1, key2);
 }
 
 }  // namespace

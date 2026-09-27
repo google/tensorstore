@@ -24,6 +24,11 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
+#include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/cache_key/json.h"  // IWYU pragma: keep
+#include "tensorstore/internal/cache_key/std_variant.h"  // IWYU pragma: keep
+#include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/clientauth/call_authentication.h"
 #include "tensorstore/internal/grpc/clientauth/channel_authentication.h"
@@ -376,5 +381,57 @@ MakeGrpcAuthenticationStrategy(const Spec& spec, CaInfo ca_info) {
   return std::visit(Visitor{ca_info}, config(spec));
 }
 
+namespace {
+
+void EncodeSha256(std::string* out, std::string_view secret) {
+  internal::SHA256Digester digester;
+  digester.Write(secret);
+  auto digest = digester.Digest();
+  internal::EncodeCacheKey(
+      out, std::string_view(reinterpret_cast<const char*>(digest.data()),
+                            digest.size()));
+}
+
+void EncodeJsonSha256(std::string* out, const ::nlohmann::json::object_t& j) {
+  std::string json_encoded;
+  internal::EncodeCacheKey(&json_encoded, j);
+  EncodeSha256(out, json_encoded);
+}
+
+}  // namespace
+
 }  // namespace internal_storage_gcs
+
+namespace internal {
+
+void CacheKeyEncoder<Spec::AccessToken>::Encode(std::string* out,
+                                                const Spec::AccessToken& v) {
+  internal_storage_gcs::EncodeSha256(out, v.access_token);
+}
+
+void CacheKeyEncoder<Spec::ServiceAccount>::Encode(
+    std::string* out, const Spec::ServiceAccount& v) {
+  internal::EncodeCacheKey(out, v.path);
+  internal_storage_gcs::EncodeJsonSha256(out, v.json);
+}
+
+void CacheKeyEncoder<Spec::ExternalAccount>::Encode(
+    std::string* out, const Spec::ExternalAccount& v) {
+  internal::EncodeCacheKey(out, v.path, v.scopes);
+  internal_storage_gcs::EncodeJsonSha256(out, v.json);
+}
+
+void CacheKeyEncoder<Spec::ImpersonateServiceAccount>::Encode(
+    std::string* out, const Spec::ImpersonateServiceAccount& v) {
+  internal::EncodeCacheKey(out, v.target_service_account, v.scopes,
+                           v.delegates);
+  internal_storage_gcs::EncodeJsonSha256(out, v.base);
+}
+
+void CacheKeyEncoder<Spec>::Encode(std::string* out, const Spec& v) {
+  Spec::Access access;
+  internal::EncodeCacheKey(out, access(v));
+}
+
+}  // namespace internal
 }  // namespace tensorstore

@@ -33,8 +33,10 @@
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
+#include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -187,6 +189,28 @@ struct HttpKeyValueStoreSpecData {
         parsed.query.empty() ? "" : "?", parsed.query);
   }
 };
+
+}  // namespace
+
+namespace internal {
+template <>
+struct CacheKeyEncoder<HttpKeyValueStoreSpecData> {
+  static void Encode(std::string* out, const HttpKeyValueStoreSpecData& data) {
+    internal::EncodeCacheKey(out, data.base_url, data.request_concurrency,
+                             data.retries, data.headers.empty());
+    if (!data.headers.empty()) {
+      internal::SHA256Digester digester;
+      std::string encoded_headers;
+      internal::EncodeCacheKey(&encoded_headers, data.headers);
+      digester.Write(encoded_headers);
+      auto digest = digester.Digest();
+      out->append(reinterpret_cast<const char*>(digest.data()), digest.size());
+    }
+  }
+};
+}  // namespace internal
+
+namespace {
 
 class HttpKeyValueStoreSpec
     : public internal_kvstore::RegisteredDriverSpec<HttpKeyValueStoreSpec,

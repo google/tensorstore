@@ -26,6 +26,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:retries_context_resource",
         "//tensorstore/internal:retry",
         "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:default_transport",
         "//tensorstore/internal/http:http_header",
@@ -66,6 +67,7 @@ tensorstore_cc_test(
     deps = [
         ":http",
         "//tensorstore:batch",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:default_transport",
         "//tensorstore/internal/http:http_header",
