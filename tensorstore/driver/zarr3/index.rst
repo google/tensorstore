@@ -15,6 +15,30 @@ creating new arrays, and resizing arrays.
 
 .. json:schema:: driver/zarr3/Metadata
 
+Raw Byte Access
+---------------
+
+The zarr3 driver supports :ref:`raw byte access<open-as-void>` via the
+:json:schema:`~driver/zarr3.open_as_void` option. This option works on any
+data type, including structured types (``struct`` and legacy read-only
+``structured``), and non-structured types, and exposes the array data
+as raw bytes instead of interpreting it according to the data type.
+
+When enabled, the codec pipeline is resolved by replacing the array's data
+type with a raw ``byte`` type and adding an innermost dimension corresponding
+to the original element size in bytes.
+
+Only certain codecs are supported in this mode:
+
+- **``array -> bytes``**: Only the ``bytes`` and ``sharding_indexed``
+  (possibly nested) codecs are allowed.
+- **``array -> array``**: Only codecs that shuffle elements without
+  transforming them (e.g., ``transpose``) are allowed. Codecs that
+  transform element data are disallowed.
+- **``bytes -> bytes``**: All codecs are allowed.
+
+See :ref:`open-as-void` for full details.
+
 
 Codecs
 ------
