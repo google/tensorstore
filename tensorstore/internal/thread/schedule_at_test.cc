@@ -34,9 +34,11 @@ TEST(ScheduleAtTest, Basic) {
   absl::Notification a, b;
 
   auto now = absl::Now();
-  ScheduleAt(now + absl::Milliseconds(1), [&] { a.Notify(); });
+  ScheduleAt(now + absl::Milliseconds(1), [&] {
+    EXPECT_FALSE(b.HasBeenNotified());
+    a.Notify();
+  });
   ScheduleAt(now + absl::Milliseconds(5), [&] { b.Notify(); });
-  EXPECT_FALSE(b.HasBeenNotified());
   b.WaitForNotification();
   EXPECT_TRUE(a.HasBeenNotified());
 }
