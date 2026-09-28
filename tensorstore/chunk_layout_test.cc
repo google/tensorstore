@@ -1950,4 +1950,42 @@ TEST(ChunkLayoutTest, ExtremeAndInfiniteAspectRatioDoesNotHang) {
   }
 }
 
+TEST(ChunkLayoutTest, ChooseReadWriteChunkShapesLargeDivisorOverflow) {
+  {
+    tensorstore::ChunkLayout constraints;
+    TENSORSTORE_EXPECT_OK(
+        constraints.Set(tensorstore::ChunkLayout::ReadChunkShape(
+            {tensorstore::kMaxFiniteIndex})));
+    EXPECT_THAT(constraints.Set(tensorstore::ChunkLayout::ReadChunkShape(
+                    {tensorstore::kInfIndex})),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(constraints.Set(tensorstore::ChunkLayout::WriteChunkShape(
+                    {0x6000000000000001LL}, /*hard_constraint=*/false)),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    TENSORSTORE_EXPECT_OK(
+        constraints.Set(tensorstore::ChunkLayout::ReadChunkElements(
+            tensorstore::kMaxFiniteIndex)));
+    EXPECT_THAT(constraints.Set(tensorstore::ChunkLayout::ReadChunkElements(
+                    tensorstore::kInfIndex)),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+  }
+  {
+    tensorstore::ChunkLayout constraints;
+    constexpr tensorstore::Index kReadSize = 1LL << 61;
+    constexpr tensorstore::Index kWriteTarget = (3LL << 60) + 1;
+    TENSORSTORE_ASSERT_OK(
+        constraints.Set(tensorstore::ChunkLayout::ReadChunkShape({kReadSize})));
+    TENSORSTORE_ASSERT_OK(
+        constraints.Set(tensorstore::ChunkLayout::WriteChunkShape(
+            {kWriteTarget}, /*hard_constraint=*/false)));
+    tensorstore::Index read_shape[1] = {0}, write_shape[1] = {0};
+    TENSORSTORE_ASSERT_OK(tensorstore::internal::ChooseReadWriteChunkShapes(
+        constraints.read_chunk(), constraints.write_chunk(),
+        tensorstore::Box<1>({0}, {100}), read_shape, write_shape));
+    EXPECT_EQ(read_shape[0], kReadSize);
+    EXPECT_EQ(write_shape[0], kReadSize);
+    EXPECT_LE(write_shape[0], tensorstore::kMaxFiniteIndex);
+  }
+}
+
 }  // namespace

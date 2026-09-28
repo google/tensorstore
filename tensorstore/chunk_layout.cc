@@ -130,13 +130,16 @@ struct ShapeValueTraits {
   constexpr static bool IsSoftConstraintValue(Index value) {
     return value == -1;
   }
-  constexpr static bool IsValid(Index x) { return x == -1 || x >= 0; }
+  constexpr static bool IsValid(Index x) {
+    return x >= -1 && x <= kMaxFiniteIndex;
+  }
 
   static Result<Index> TransformInputValue(Index value, Index offset,
                                            Index stride) {
     Index new_value;
     if (stride == std::numeric_limits<Index>::min() ||
-        internal::MulOverflow(std::abs(stride), value, &new_value)) {
+        internal::MulOverflow(std::abs(stride), value, &new_value) ||
+        new_value > kMaxFiniteIndex) {
       return absl::OutOfRangeError(absl::StrFormat(
           "Integer overflow computing abs(%d) * %d", stride, value));
     }
@@ -612,7 +615,7 @@ absl::Status SetChunkElementsInternal(Index& elements,
                                       HardConstraintRef is_hard_constraint,
                                       ChunkLayout::ChunkElementsBase value) {
   if (value.valid()) {
-    if (value < 0) {
+    if (value < 0 || value > kMaxFiniteIndex) {
       return absl::InvalidArgumentError(
           absl::StrFormat("Invalid value: %d", value.value));
     }
@@ -1837,7 +1840,11 @@ Index FindNearestMultiple(Index divisor, Index target) {
     return divisor;
   }
   const Index lower = target / divisor * divisor;
-  const Index upper = lower + divisor;
+  Index upper;
+  if (internal::AddOverflow(lower, divisor, &upper) ||
+      upper > kMaxFiniteIndex) {
+    return lower;
+  }
   if (target - lower <= upper - target) {
     return lower;
   } else {

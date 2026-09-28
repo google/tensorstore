@@ -339,15 +339,15 @@ TEST(GetNewMetadataTest, NoCompressor) {
 TEST(GetNewMetadataTest, IntegerOverflow) {
   EXPECT_THAT(
       GetNewMetadataFromOptions(
-          {{"shape", {4611686018427387903, 4611686018427387903}},
-           {"chunks", {4611686018427387903, 4611686018427387903}},
+          {{"shape", {4611686018427387902, 4611686018427387902}},
+           {"chunks", {4611686018427387902, 4611686018427387902}},
            {"dtype", "<i4"},
            {"compressor", nullptr}},
           /*selected_field=*/{}),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr(
                    "Product of chunk dimensions "
-                   "{4611686018427387903, 4611686018427387903} is too large")));
+                   "{4611686018427387902, 4611686018427387902} is too large")));
 }
 
 TEST(GetNewMetadataTest, SchemaDomainDtype) {
