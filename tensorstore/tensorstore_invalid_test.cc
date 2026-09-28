@@ -17,8 +17,10 @@
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/driver/array/array.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/testing/hardening.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -29,6 +31,23 @@ TEST(TensorStoreTest, ReadInvalid) {
   tensorstore::TensorStore<int, 2> store;
   EXPECT_THAT(
       tensorstore::Read(store).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, "TensorStore is not valid"));
+}
+
+TEST(TensorStoreTest, ResizeInvalid) {
+  tensorstore::TensorStore<int, 2> store;
+  const tensorstore::Index bounds[2] = {tensorstore::kImplicit,
+                                        tensorstore::kImplicit};
+  EXPECT_THAT(
+      tensorstore::Resize(store, bounds, bounds).result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, "TensorStore is not valid"));
+
+  tensorstore::TensorStore<> dynamic_store;
+  EXPECT_THAT(
+      tensorstore::Resize(dynamic_store,
+                          tensorstore::span<const tensorstore::Index>{},
+                          tensorstore::span<const tensorstore::Index>{})
+          .result(),
       StatusIs(absl::StatusCode::kInvalidArgument, "TensorStore is not valid"));
 }
 

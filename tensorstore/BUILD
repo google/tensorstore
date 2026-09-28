@@ -1203,9 +1203,11 @@ tensorstore_cc_test(
     srcs = ["tensorstore_invalid_test.cc"],
     deps = [
         ":array",
+        ":index",
         ":tensorstore",
         "//tensorstore/driver/array",
         "//tensorstore/internal/testing:hardening",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",

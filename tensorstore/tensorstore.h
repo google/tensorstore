@@ -596,7 +596,10 @@ Resize(
       // generation bug in MSVC 14.35.32215 that leads to `inclusive_min` and
       // `exclusive_max` not being passed properly.
       [&, inclusive_min, exclusive_max](auto&& store) -> Future<Store> {
-        using internal::TensorStoreAccess;
+        auto& handle = internal::TensorStoreAccess::handle(store);
+        if (!handle.driver) {
+          return absl::InvalidArgumentError("TensorStore is not valid");
+        }
         if (inclusive_min.size() != store.rank() ||
             exclusive_max.size() != store.rank()) {
           return internal_tensorstore::ResizeRankError(store.rank());
@@ -604,7 +607,6 @@ Resize(
         // FIXME: do compile-time checking of Mode
         TENSORSTORE_RETURN_IF_ERROR(
             internal::ValidateSupportsWrite(store.read_write_mode()));
-        auto& handle = internal::TensorStoreAccess::handle(store);
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto open_transaction,
             internal::AcquireOpenTransactionPtrOrError(handle.transaction));
