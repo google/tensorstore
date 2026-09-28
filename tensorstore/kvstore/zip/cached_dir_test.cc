@@ -35,6 +35,7 @@
 namespace {
 
 using ::tensorstore::Result;
+using ::tensorstore::StatusIs;
 using ::tensorstore::internal_zip::EasyZipWriter;
 using ::tensorstore::internal_zip::TryReadFullEOCD;
 using ::tensorstore::internal_zip::ZipCompression;
@@ -116,6 +117,24 @@ TEST(CachedDirTest, DecodeInvalidZip) {
   absl::Cord bad_data("Definitely not a ZIP file.");
   auto result = DecodeDirectory(bad_data);
   EXPECT_FALSE(result.ok());
+}
+
+TEST(CachedDirTest, RejectsLocalHeaderOffsetBeyondCentralDirectory) {
+  absl::Cord cd_data;
+  {
+    riegeli::CordWriter writer(&cd_data);
+    ZipEntry entry;
+    entry.filename = "bad_offset";
+    entry.compression_method = ZipCompression::kStore;
+    entry.local_header_offset = 200;
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::internal_zip::WriteCentralDirectoryEntry(writer, entry));
+    ASSERT_TRUE(writer.Close());
+  }
+  riegeli::CordReader reader(&cd_data);
+  EXPECT_THAT(
+      DecodeDirectoryEntries(reader, /*num_entries=*/1, /*cd_offset=*/100),
+      StatusIs(absl::StatusCode::kDataLoss));
 }
 
 }  // namespace

@@ -64,11 +64,16 @@ Result<CachedDir> DecodeDirectoryEntries(riegeli::Reader& reader,
               return std::tie(a.local_header_offset, a.filename) <
                      std::tie(b.local_header_offset, b.filename);
             });
-  auto last_header_offset = cd_offset;
+  int64_t last_header_offset = cd_offset;
   for (auto it = dir.entries.rbegin(); it != dir.entries.rend(); ++it) {
+    if (last_header_offset < 0 ||
+        it->local_header_offset >= static_cast<uint64_t>(last_header_offset)) {
+      return absl::DataLossError(
+          "ZIP central directory entry has invalid local_header_offset");
+    }
     it->local_header_and_data_size =
-        last_header_offset - it->local_header_offset;
-    last_header_offset = it->local_header_offset;
+        static_cast<uint64_t>(last_header_offset) - it->local_header_offset;
+    last_header_offset = static_cast<int64_t>(it->local_header_offset);
   }
 
   // Sort directory by filename.
