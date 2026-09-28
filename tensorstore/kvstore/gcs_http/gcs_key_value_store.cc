@@ -367,18 +367,22 @@ class GcsKeyValueStore
 
   // Returns the Auth header for a GCS request.
   Result<std::optional<std::string>> GetAuthHeader() {
-    absl::MutexLock lock(auth_provider_mutex_);
-    if (!auth_provider_) {
-      auto result = GetSharedGoogleAuthProvider(transport_);
-      if (!result.ok() && absl::IsNotFound(result.status())) {
-        auth_provider_ = nullptr;
-      } else {
-        TENSORSTORE_RETURN_IF_ERROR(result);
-        auth_provider_ = *std::move(result);
+    std::shared_ptr<internal_oauth2::AuthProvider> auth_provider;
+    {
+      absl::MutexLock lock(auth_provider_mutex_);
+      if (!auth_provider_) {
+        auto result = GetSharedGoogleAuthProvider(transport_);
+        if (!result.ok() && absl::IsNotFound(result.status())) {
+          auth_provider_ = nullptr;
+        } else {
+          TENSORSTORE_RETURN_IF_ERROR(result);
+          auth_provider_ = *std::move(result);
+        }
       }
+      auth_provider = *auth_provider_;
     }
-    if (!*auth_provider_) return std::nullopt;
-    auto auth_header_result = (*auth_provider_)->GetAuthHeader();
+    if (!auth_provider) return std::nullopt;
+    auto auth_header_result = auth_provider->GetAuthHeader();
     if (!auth_header_result.ok() &&
         absl::IsNotFound(auth_header_result.status())) {
       return std::nullopt;
@@ -455,7 +459,8 @@ class GcsKeyValueStore
   absl::Mutex auth_provider_mutex_;
   // Optional state indicates whether the provider has been obtained.  A
   // nullptr provider is valid and indicates to use anonymous access.
-  std::optional<std::shared_ptr<internal_oauth2::AuthProvider>> auth_provider_;
+  std::optional<std::shared_ptr<internal_oauth2::AuthProvider>> auth_provider_
+      ABSL_GUARDED_BY(auth_provider_mutex_);
 };
 
 Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {

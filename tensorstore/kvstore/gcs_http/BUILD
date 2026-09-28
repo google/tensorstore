@@ -93,6 +93,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/http:default_transport",
         "//tensorstore/internal/http:http_header",
         "//tensorstore/internal/http:mock_http_transport",
+        "//tensorstore/internal/oauth2",
         "//tensorstore/internal/oauth2:google_auth_provider",
         "//tensorstore/internal/oauth2:google_auth_test_utils",
         "//tensorstore/internal/testing:json_gtest",

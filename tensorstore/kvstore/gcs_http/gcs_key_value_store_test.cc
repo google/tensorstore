@@ -42,6 +42,8 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/mock_http_transport.h"
+#include "tensorstore/internal/oauth2/auth_provider.h"
+#include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
 #include "tensorstore/internal/testing/json_gtest.h"
@@ -835,4 +837,94 @@ TEST(GcsKeyValueStoreTest, BatchRead) {
   tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
 }
 
+class RefreshStallingAuthProvider
+    : public tensorstore::internal_oauth2::AuthProvider {
+ public:
+  struct SharedState {
+    std::atomic<int> call_count{0};
+    absl::Notification refresh_started;
+    absl::Notification concurrent_call_entered;
+  };
+
+  explicit RefreshStallingAuthProvider(SharedState* state) : state_(state) {}
+
+  Result<tensorstore::internal_oauth2::BearerTokenWithExpiration> GetToken()
+      override {
+    int call = ++state_->call_count;
+    if (call == 2) {
+      state_->refresh_started.Notify();
+      state_->concurrent_call_entered.WaitForNotificationWithTimeout(
+          absl::Seconds(2));
+    } else if (call >= 3) {
+      state_->concurrent_call_entered.Notify();
+    }
+    return tensorstore::internal_oauth2::BearerTokenWithExpiration{
+        "cached_token", absl::InfiniteFuture()};
+  }
+
+ private:
+  SharedState* state_;
+};
+
+TEST(GcsKeyValueStoreTest,
+     GetAuthHeaderDoesNotHoldStoreMutexAcrossTokenRefresh) {
+  static RefreshStallingAuthProvider::SharedState* active_state = []() {
+    static RefreshStallingAuthProvider::SharedState* ptr = nullptr;
+    tensorstore::internal_oauth2::RegisterGoogleAuthProvider(
+        []() -> Result<
+                 std::unique_ptr<tensorstore::internal_oauth2::AuthProvider>> {
+          if (ptr) return std::make_unique<RefreshStallingAuthProvider>(ptr);
+          return absl::NotFoundError("Inactive test auth provider");
+        },
+        -1000);
+    return nullptr;
+  }();
+  RefreshStallingAuthProvider::SharedState state;
+  // Set active_state via static pointer in lambda
+  struct StateRegistration {
+    static RefreshStallingAuthProvider::SharedState*& slot() {
+      static RefreshStallingAuthProvider::SharedState* s = []() {
+        tensorstore::internal_oauth2::RegisterGoogleAuthProvider(
+            []() -> Result<std::unique_ptr<
+                     tensorstore::internal_oauth2::AuthProvider>> {
+              if (slot()) {
+                return std::make_unique<RefreshStallingAuthProvider>(slot());
+              }
+              return absl::NotFoundError("Inactive test auth provider");
+            },
+            -1000);
+        return nullptr;
+      }();
+      return s;
+    }
+    explicit StateRegistration(RefreshStallingAuthProvider::SharedState* p) {
+      slot() = p;
+    }
+    ~StateRegistration() { slot() = nullptr; }
+  } reg(&state);
+  (void)active_state;
+
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  GCSMockStorageBucket bucket("my-bucket");
+  mock_transport->buckets_.push_back(&bucket);
+
+  auto context = DefaultTestContext();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
+          .result());
+
+  TENSORSTORE_ASSERT_OK(kvstore::Read(store, "init").result());
+  ASSERT_EQ(state.call_count.load(), 1);
+
+  auto refresh_read_future = kvstore::Read(store, "stalled_refresh");
+  refresh_read_future.Force();
+  ASSERT_TRUE(
+      state.refresh_started.WaitForNotificationWithTimeout(absl::Seconds(5)));
+
+  TENSORSTORE_EXPECT_OK(kvstore::Read(store, "concurrent_cached").result());
+  EXPECT_TRUE(state.concurrent_call_entered.HasBeenNotified());
+  TENSORSTORE_EXPECT_OK(refresh_read_future.result());
+}
 }  // namespace
