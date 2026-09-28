@@ -370,6 +370,8 @@ struct IndirectValueReadModifyWriteSource final
 
     // Value stored indirectly.
     kvstore::ReadOptions read_options;
+    // Indirect data is immutable once written, so any cached data may be used.
+    read_options.staleness_bound = absl::InfinitePast();
     read_options.byte_range = options.byte_range;
     execution::submit(writer.io_handle_->ReadIndirectData(
                           std::get<IndirectDataReference>(value_ref_),
