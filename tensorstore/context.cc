@@ -737,7 +737,13 @@ ResourceSpecImplPtr ResourceImplBase::UnbindContext(
 namespace {
 internal_context::ResourceSpecImplPtr AddResource(
     const internal::ContextSpecBuilder& builder,
-    internal_context::ResourceImplBase* resource) {
+    internal_context::ResourceImplBase* resource, bool force_shared = false) {
+  if (!force_shared && resource->spec_->provider_->config_only_) {
+    auto spec = resource->UnbindContext(builder);
+    spec->key_.clear();
+    spec->is_default_ = false;
+    return spec;
+  }
   internal_context::ResourceImplWeakPtr resource_ptr(resource);
   auto* impl = internal_context::Access::impl(builder).get().get();
   auto& entry = impl->resources_[resource_ptr];
@@ -910,8 +916,8 @@ void AllContextResources::UnbindContext(
         // only if it is actually bound and then requested later.
         continue;
       }
-      auto unbound_resource_spec =
-          internal_context::AddResource(context_spec_builder, result->get());
+      auto unbound_resource_spec = internal_context::AddResource(
+          context_spec_builder, result->get(), /*force_shared=*/true);
 
       // Note: `unbound_resource_spec` is itself a
       // `BuilderResourceSpec` but is shared and therefore `key_` must

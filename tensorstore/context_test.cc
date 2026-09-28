@@ -414,6 +414,22 @@ TEST(IntConfigResourceTest, ContextSpec) {
   tensorstore::internal::EncodeCacheKey(&cache_key4, resource4);
   EXPECT_EQ(cache_key1, cache_key4);
   EXPECT_EQ(cache_key2, cache_key3);
+
+  Context::Spec new_spec;
+  Context::Resource<IntConfigResource> new_resource_spec1;
+  Context::Resource<IntConfigResource> new_resource_spec2;
+  {
+    auto builder = ContextSpecBuilder::Make();
+    new_spec = builder.spec();
+    new_resource_spec1 = builder.AddResource(resource1);
+    new_resource_spec2 = builder.AddResource(resource1);
+  }
+  EXPECT_THAT(new_spec.ToJson(),
+              ::testing::Optional(MatchesJson(::nlohmann::json::object_t())));
+  EXPECT_THAT(new_resource_spec1.ToJson(),
+              ::testing::Optional(MatchesJson(111)));
+  EXPECT_THAT(new_resource_spec2.ToJson(),
+              ::testing::Optional(MatchesJson(111)));
 }
 
 TEST(StrongRefResourceTest, DirectSpec) {

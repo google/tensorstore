@@ -478,12 +478,12 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
       {"driver", "file"},
       {"path", root},
       {"file_io_sync", false},
+      {"file_io_mode", ::nlohmann::json::object_t()},
+      {"file_io_retries", ::nlohmann::json::object_t()},
+      {"file_io_locking", {{"mode", "lockfile"}}},
       {"context",
        {
            {"file_io_concurrency", ::nlohmann::json::object_t()},
-           {"file_io_mode", ::nlohmann::json::object_t()},
-           {"file_io_retries", ::nlohmann::json::object_t()},
-           {"file_io_locking", {{"mode", "lockfile"}}},
        }},
   };
   options.url = AsFileUri(root);
@@ -499,15 +499,13 @@ TEST(FileKeyValueStoreTest, SpecRoundtripRetries) {
       {"driver", "file"},
       {"path", root},
       {"file_io_sync", true},
+      {"file_io_mode", ::nlohmann::json::object_t()},
+      {"file_io_retries",
+       {{"max_retries", 5}, {"initial_delay", "500ms"}, {"max_delay", "10s"}}},
+      {"file_io_locking", {{"mode", "lockfile"}}},
       {"context",
        {
            {"file_io_concurrency", ::nlohmann::json::object_t()},
-           {"file_io_mode", ::nlohmann::json::object_t()},
-           {"file_io_retries",
-            {{"max_retries", 5},
-             {"initial_delay", "500ms"},
-             {"max_delay", "10s"}}},
-           {"file_io_locking", {{"mode", "lockfile"}}},
        }},
   };
   options.url = AsFileUri(root);
