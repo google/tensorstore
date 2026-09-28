@@ -163,11 +163,11 @@ OptionallyImplicitIndexInterval Intersect(OptionallyImplicitIndexInterval a,
                             : (interval.inclusive_min() == a.inclusive_min()
                                    ? a.implicit_lower()
                                    : b.implicit_lower());
-  bool implicit_upper = (a.inclusive_max() == b.inclusive_max())
-                            ? (a.implicit_upper() && b.implicit_upper())
-                            : (a.inclusive_max() == interval.inclusive_max()
-                                   ? a.implicit_upper()
-                                   : b.implicit_upper());
+  bool implicit_upper =
+      (a.inclusive_max() == b.inclusive_max())
+          ? (a.implicit_upper() && b.implicit_upper())
+          : (a.inclusive_max() < b.inclusive_max() ? a.implicit_upper()
+                                                   : b.implicit_upper());
 
   return OptionallyImplicitIndexInterval{interval, implicit_lower,
                                          implicit_upper};

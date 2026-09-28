@@ -301,6 +301,18 @@ TEST(IndexIntervalTest, IntersectOptionallyImplicit) {
                false, false},
           OIII{IndexInterval::UncheckedClosed(0, 10), true, true}),
       ::testing::Eq(OIII{IndexInterval::UncheckedClosed(0, 10), true, true}));
+
+  // Disjoint intervals: implicit_upper should come from the smaller
+  // inclusive_max, and Intersect should be commutative.
+  {
+    const OIII a{IndexInterval::UncheckedClosed(0, 1), false, false};
+    const OIII b{IndexInterval::UncheckedClosed(5, 9), false, true};
+    EXPECT_EQ(Intersect(a, b), Intersect(b, a));
+    EXPECT_FALSE(Intersect(a, b).implicit_upper());
+    EXPECT_THAT(
+        Intersect(a, b),
+        ::testing::Eq(OIII{IndexInterval::UncheckedSized(5, 0), false, false}));
+  }
 }
 
 TEST(IndexIntervalTest, IntersectPreferringExplicit) {
