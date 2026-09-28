@@ -936,6 +936,36 @@ TEST(TransactionTest, ConcurrentSetErrorDuringCommit) {
   }
 }
 
+TEST(TransactionTest, ToOpenTransactionPtr) {
+  EXPECT_FALSE(tensorstore::internal::ToOpenTransactionPtr(
+      OpenTransactionNodePtr<TestNode>()));
+
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+  OpenTransactionNodePtr<TestNode> open_node;
+  {
+    WeakTransactionNodePtr<TestNode> node(new TestNode(&log, 1));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    node->SetTransaction(*open_ptr);
+    open_node.reset(node.get());
+  }
+  // `open_node` now holds the sole reference to the `TestNode` and an open
+  // reference to `txn`.
+  auto converted_open_ptr =
+      tensorstore::internal::ToOpenTransactionPtr(std::move(open_node));
+  ASSERT_TRUE(converted_open_ptr);
+  EXPECT_EQ(TransactionState::get(txn), converted_open_ptr.get());
+
+  // `converted_open_ptr` should keep the transaction open and defer commit.
+  txn.CommitAsync().IgnoreFuture();
+  EXPECT_FALSE(future.ready());
+  converted_open_ptr.reset();
+  ASSERT_TRUE(future.ready());
+  TENSORSTORE_EXPECT_OK(future);
+}
+
 TEST(TransactionTest, AbslStringify) {
   EXPECT_EQ("no_transaction_mode", absl::StrCat(no_transaction));
   EXPECT_EQ("isolated", absl::StrCat(TransactionMode::isolated));

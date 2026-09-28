@@ -945,10 +945,10 @@ template <typename Node>
 OpenTransactionPtr ToOpenTransactionPtr(OpenTransactionNodePtr<Node> node) {
   // `OpenTransactionNodePtr` is equivalent to `OpenTransactionPtr` +
   // `WeakTransactionNodePtr`.
-  if (node) {
-    WeakTransactionNodePtr<Node>::traits_type::decrement(node.get());
-  }
-  return OpenTransactionPtr(node.release(), internal::adopt_object_ref);
+  if (!node) return {};
+  TransactionState* transaction = node->transaction();
+  WeakTransactionNodePtr<Node>::traits_type::decrement(node.release());
+  return OpenTransactionPtr(transaction, internal::adopt_object_ref);
 }
 
 /// Returns either the existing transaction or a new implicit transaction.
