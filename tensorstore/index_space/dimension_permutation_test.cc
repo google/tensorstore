@@ -18,9 +18,11 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -37,6 +39,10 @@ TEST(TransformOutputDimensionOrderTest, Rank0) {
   std::vector<DimensionIndex> dest;
   tensorstore::TransformOutputDimensionOrder(tensorstore::IdentityTransform(0),
                                              source, dest);
+  EXPECT_THAT(dest, ::testing::IsEmpty());
+  tensorstore::TransformInputDimensionOrder(tensorstore::IdentityTransform(0),
+                                            dest, source);
+  EXPECT_THAT(source, ::testing::IsEmpty());
 }
 
 TEST(TransformOutputDimensionOrderTest, Rank1Identity) {
@@ -93,6 +99,54 @@ TEST(TransformOutputDimensionOrderTest, Rank2FortranOrderTranspose) {
   EXPECT_THAT(dest, ::testing::ElementsAre(0, 1));
   tensorstore::TransformInputDimensionOrder(transform, dest, source2);
   EXPECT_EQ(source, source2);
+}
+
+TEST(TransformOutputDimensionOrderTest, NonBijective) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transform,
+                                   tensorstore::IndexTransformBuilder<>(2, 3)
+                                       .output_single_input_dimension(0, 1)
+                                       .output_constant(1, 0)
+                                       .output_single_input_dimension(2, 1)
+                                       .Finalize());
+  std::vector<DimensionIndex> output_perm{2, 1, 0};
+  std::vector<DimensionIndex> input_perm(2, 42);
+  tensorstore::TransformOutputDimensionOrder(transform, output_perm,
+                                             input_perm);
+  EXPECT_THAT(input_perm, ::testing::ElementsAre(1, 0));
+
+  std::vector<DimensionIndex> round_trip_output_perm(3, 42);
+  tensorstore::TransformInputDimensionOrder(transform, input_perm,
+                                            round_trip_output_perm);
+  EXPECT_THAT(round_trip_output_perm, ::testing::ElementsAre(0, 2, 1));
+}
+
+TEST(TransformOutputDimensionOrderTest, NonBijectiveArrayAndTieBreaking) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      tensorstore::IndexTransformBuilder<>(4, 4)
+          .input_shape({2, 2, 2, 2})
+          .output_single_input_dimension(0, 3)
+          .output_constant(1, 0)
+          .output_single_input_dimension(2, 1)
+          .output_index_array(
+              3, 0, 1, tensorstore::MakeArray<tensorstore::Index>({{{{0}}}}))
+          .Finalize());
+  std::vector<DimensionIndex> output_perm{2, 1, 3, 0};
+  std::vector<DimensionIndex> input_perm(4, 42);
+  tensorstore::TransformOutputDimensionOrder(transform, output_perm,
+                                             input_perm);
+  // Input dim 1 maps from output_perm[0]=2; input dim 3 maps from
+  // output_perm[3]=0; input dims 0 and 2 are unmapped and ordered ascending.
+  EXPECT_THAT(input_perm, ::testing::ElementsAre(1, 3, 0, 2));
+
+  std::vector<DimensionIndex> input_perm_in{1, 3, 2, 0};
+  std::vector<DimensionIndex> output_perm_out(4, 42);
+  tensorstore::TransformInputDimensionOrder(transform, input_perm_in,
+                                            output_perm_out);
+  // Output dim 2 maps to input dim 1 (ordinal 0); output dim 0 maps to input
+  // dim 3 (ordinal 1); output dims 1 (constant) and 3 (array) are ordered last
+  // and ascending by dimension index.
+  EXPECT_THAT(output_perm_out, ::testing::ElementsAre(2, 0, 1, 3));
 }
 
 }  // namespace

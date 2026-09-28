@@ -257,6 +257,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":index_transform",
+        "//tensorstore:array",
         "//tensorstore:index",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
