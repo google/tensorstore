@@ -258,7 +258,7 @@ def main():
                       '`%sInterval(start, %s, strides).TranslateTo(0)`.\n' %
                       (orig_prefix, stop_name))
         out.write('  template <%s>\n' % ', '.join(template_params))
-        out.write('  IntervalSliceOpExpr<%s>' % (', '.join(stored_types)))
+        out.write('  IntervalSliceOpExprImpl<%s>' % ', '.join(stored_types))
         out.write('  %sInterval(%s) const {\n' %
                   (prefix, ', '.join(function_params)))
         out.write(
