@@ -494,35 +494,54 @@ TYPED_TEST(AllocateAndConstructTest, ValueInitialization) {
 // Thread sanitizer considers `operator new` allocation failure an error, and
 // prevents this death test from working.
 #if !defined(THREAD_SANITIZER)
+#if ABSL_HAVE_EXCEPTIONS
+#define TENSORSTORE_EXPECT_THROW_OR_DEATH(expr, exception_type) \
+  EXPECT_THROW(expr, exception_type)
+#else
+#define TENSORSTORE_EXPECT_THROW_OR_DEATH(expr, exception_type) \
+  EXPECT_DEATH(expr, "")
+#endif
+
 TEST(AllocateAndConsructSharedDeathTest, OutOfMemory) {
   const auto allocate = [] {
     return tensorstore::AllocateAndConstructShared<int>(
         0xFFFFFFFFFFFFFFF, tensorstore::default_init);
   };
-#if ABSL_HAVE_EXCEPTIONS
-  EXPECT_THROW(allocate(), std::bad_alloc);
-#else
-  EXPECT_DEATH(allocate(), "");
-#endif
+  TENSORSTORE_EXPECT_THROW_OR_DEATH(allocate(), std::bad_alloc);
 }
 
 TEST(AllocateAndConstructOverflowTest, IntegerOverflow) {
   ptrdiff_t n = 576460752303423489;
-#if ABSL_HAVE_EXCEPTIONS
-  EXPECT_THROW(
+  TENSORSTORE_EXPECT_THROW_OR_DEATH(
       {
         [[maybe_unused]] void* ptr = tensorstore::AllocateAndConstruct(
             n, tensorstore::default_init, tensorstore::dtype_v<std::string>);
       },
       std::bad_alloc);
-#else
-  EXPECT_DEATH(
+}
+
+TEST(AllocateAndConstructOverflowTest, RoundUpOverflow) {
+  TENSORSTORE_EXPECT_THROW_OR_DEATH(
       {
         [[maybe_unused]] void* ptr = tensorstore::AllocateAndConstruct(
-            n, tensorstore::default_init, tensorstore::dtype_v<std::string>);
+            tensorstore::kMaxFiniteSize, tensorstore::default_init,
+            tensorstore::dtype_v<uint8_t>);
       },
-      "");
-#endif
+      std::bad_alloc);
+  TENSORSTORE_EXPECT_THROW_OR_DEATH(
+      {
+        [[maybe_unused]] void* ptr = tensorstore::AllocateAndConstruct(
+            tensorstore::kMaxFiniteSize, tensorstore::default_init,
+            tensorstore::dtype_v<uint16_t>);
+      },
+      std::bad_alloc);
+  TENSORSTORE_EXPECT_THROW_OR_DEATH(
+      {
+        [[maybe_unused]] void* ptr = tensorstore::AllocateAndConstruct(
+            tensorstore::kInfIndex, tensorstore::default_init,
+            tensorstore::dtype_v<uint32_t>);
+      },
+      std::bad_alloc);
 }
 #endif  // defined(THREAD_SANITIZER)
 

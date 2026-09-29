@@ -81,20 +81,21 @@ std::ostream& operator<<(std::ostream& os, DataType r) {
 TENSORSTORE_NODISCARD void* AllocateAndConstruct(
     ptrdiff_t n, ElementInitialization initialization, DataType r) {
   assert(n >= 0);
-  assert(n < kInfSize);
-  size_t bytes;
-  if (internal::MulOverflow(static_cast<size_t>(r->size),
-                            static_cast<size_t>(n), &bytes)) {
+  assert(n <= kMaxFiniteSize);
+  // AlignedDeleter is only used when the constructor throws an exception.
+  size_t alignment =
+      RoundUpTo(static_cast<size_t>(r->alignment), sizeof(void*));
+  ptrdiff_t signed_bytes;
+  size_t total_size;
+  if (internal::MulOverflow(r->size, n, &signed_bytes) ||
+      (total_size = RoundUpTo(static_cast<size_t>(signed_bytes), alignment)) >
+          static_cast<size_t>(kMaxFiniteSize)) {
 #if ABSL_HAVE_EXCEPTIONS
     throw std::bad_alloc();
 #else
     std::abort();
 #endif
   }
-  // AlignedDeleter is only used when the constructor throws an exception.
-  size_t alignment =
-      RoundUpTo(static_cast<size_t>(r->alignment), sizeof(void*));
-  size_t total_size = RoundUpTo(bytes, alignment);
   std::unique_ptr<void, AlignedDeleter> ptr(
       (alignment > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
           ? ::operator new(total_size, std::align_val_t(alignment))
