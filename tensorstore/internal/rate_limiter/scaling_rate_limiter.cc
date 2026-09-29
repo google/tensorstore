@@ -70,6 +70,9 @@ DoublingRateLimiter::DoublingRateLimiter(double initial_rate,
 
 double DoublingRateLimiter::TokensToAdd(absl::Time current,
                                         absl::Time previous) const {
+  if (current <= previous) {
+    return 0;
+  }
   // Using an exponential growth model, so take the integral is:
   // integral[t0..t1] of e^ax dx.
   // which evaluates to 1/a * [e^(a*t1) - e^(a*t0)].
@@ -77,7 +80,11 @@ double DoublingRateLimiter::TokensToAdd(absl::Time current,
       std::exp(a_ * absl::ToDoubleSeconds(current - start_time_));
   double int_prev =
       std::exp(a_ * absl::ToDoubleSeconds(previous - start_time_));
-  return initial_rate_ * (int_current - int_prev) / a_;
+  double tokens = initial_rate_ * (int_current - int_prev) / a_;
+  if (!std::isfinite(tokens)) {
+    return max_tokens_;
+  }
+  return tokens;
 }
 
 absl::Duration DoublingRateLimiter::GetSchedulerDelay() const {
@@ -101,7 +108,14 @@ ConstantRateLimiter::ConstantRateLimiter(double initial_rate,
 
 double ConstantRateLimiter::TokensToAdd(absl::Time current,
                                         absl::Time previous) const {
-  return initial_rate_ * absl::ToDoubleSeconds(current - previous);
+  if (current <= previous) {
+    return 0;
+  }
+  double tokens = initial_rate_ * absl::ToDoubleSeconds(current - previous);
+  if (!std::isfinite(tokens)) {
+    return max_tokens_;
+  }
+  return tokens;
 }
 
 absl::Duration ConstantRateLimiter::GetSchedulerDelay() const {

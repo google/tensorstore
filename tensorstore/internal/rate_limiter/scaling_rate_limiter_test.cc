@@ -17,6 +17,7 @@
 #include <stddef.h>
 
 #include <atomic>
+#include <cmath>
 #include <utility>
 
 #include <gmock/gmock.h>
@@ -139,6 +140,38 @@ TEST(DoublingRateLimiter, Basic) {
   now += absl::Seconds(20);
   queue.PeriodicCallForTesting();
   EXPECT_EQ(100, done);
+}
+
+TEST(DoublingRateLimiter, NoOverflowOrNaNAfterManyDoublings) {
+  absl::Time now = absl::Now();
+  DoublingRateLimiter queue(2.0, absl::Seconds(1), [&now]() { return now; });
+
+  now += absl::Seconds(2000);
+  double first_tokens = queue.TokensToAdd(now, queue.start_time());
+  EXPECT_TRUE(std::isfinite(first_tokens));
+  EXPECT_GT(first_tokens, 0.0);
+
+  queue.PeriodicCallForTesting();
+  EXPECT_TRUE(std::isfinite(queue.available()));
+  EXPECT_GT(queue.available(), 0.0);
+
+  absl::Time prev = now;
+  now += absl::Seconds(1);
+  double next_tokens = queue.TokensToAdd(now, prev);
+  EXPECT_FALSE(std::isnan(next_tokens));
+  EXPECT_TRUE(std::isfinite(next_tokens));
+  EXPECT_GT(next_tokens, 0.0);
+
+  std::atomic<size_t> done{0};
+  for (int i = 0; i < 2500; ++i) {
+    auto node = MakeIntrusivePtr<Node>(&queue, [&done] { done++; });
+    intrusive_ptr_increment(node.get());
+    queue.Admit(node.get(), &Node::Start);
+  }
+
+  now += absl::Seconds(1);
+  queue.PeriodicCallForTesting();
+  EXPECT_EQ(2500, done);
 }
 
 }  // namespace
