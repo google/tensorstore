@@ -15,24 +15,42 @@
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 
 #include <string>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/log_entry.h"
+#include "absl/log/log_sink.h"
+#include "absl/log/log_sink_registry.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 
 using ::tensorstore::internal_aws::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::testing::Contains;
+using ::testing::HasSubstr;
 using ::testing::Not;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
 namespace {
+
+class ScopedLogSink : public absl::LogSink {
+ public:
+  ScopedLogSink() { absl::AddLogSink(this); }
+  ~ScopedLogSink() override { absl::RemoveLogSink(this); }
+
+  void Send(const absl::LogEntry& entry) override {
+    messages.emplace_back(entry.text_message());
+  }
+
+  std::vector<std::string> messages;
+};
 
 static const absl::TimeZone utc = absl::UTCTimeZone();
 static constexpr char aws_region[] = "us-east-1";
@@ -371,6 +389,39 @@ TEST(S3RequestBuilderTest, AwsRequesterPaysHeaderAdded) {
 
   EXPECT_THAT(request.headers,
               Contains(Pair("x-amz-requester-payer", "requester")));
+}
+
+TEST(S3RequestBuilderTest, DoesNotLogSigningKeyOrSessionToken) {
+  tensorstore::internal_log::UpdateVerboseLogging("s3=1", true);
+  ScopedLogSink sink;
+
+  constexpr char kToken[] = "MY_SECRET_STS_SESSION_TOKEN_123456";
+  // Derived signing key hex for wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY on
+  // 20130524 in us-east-1 for service s3.
+  constexpr char kExpectedSigningKeyHex[] =
+      "dbb893acc010964918f1fd433add87c70e8b0db6be30c1fbeafefa5ec6ba8378";
+  const auto sts_credentials =
+      AwsCredentials::Make("AKIAIOSFODNN7EXAMPLE",
+                           "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", kToken);
+
+  auto builder =
+      S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket));
+  auto request = builder.BuildRequest(
+      absl::StrFormat("%s.s3.amazonaws.com", bucket), sts_credentials,
+      aws_region,
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
+
+  tensorstore::internal_log::UpdateVerboseLogging("", true);
+
+  ASSERT_FALSE(sink.messages.empty());
+  for (const auto& msg : sink.messages) {
+    EXPECT_THAT(msg, Not(HasSubstr("Signing Key")));
+    EXPECT_THAT(msg, Not(HasSubstr(kExpectedSigningKeyHex)));
+    EXPECT_THAT(msg, Not(HasSubstr(kToken)));
+  }
+  EXPECT_THAT(sink.messages,
+              Contains(HasSubstr("x-amz-security-token:[REDACTED]")));
 }
 
 }  // namespace

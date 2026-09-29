@@ -36,6 +36,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
 #include "absl/time/time.h"
 #include <openssl/evp.h>  // IWYU pragma: keep
 #include <openssl/hmac.h>
@@ -229,12 +230,13 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
 
   ABSL_LOG_IF(INFO, s3_logging.Level(1))  //
       << "Canonical Request\n"
-      << canonical_request_  //
+      << (credentials.GetSessionToken().empty()
+              ? canonical_request_
+              : absl::StrReplaceAll(
+                    canonical_request_,
+                    {{credentials.GetSessionToken(), "[REDACTED]"}}))  //
       << "\n\nSigning String\n"
-      << signing_string_      //
-      << "\n\nSigning Key\n"  //
-      << absl::BytesToHexString(std::string_view(
-             reinterpret_cast<char*>(signing_key), kHmacSize))  //
+      << signing_string_  //
       << "\n\nAuthorization Header\n"
       << auth_header;
 
