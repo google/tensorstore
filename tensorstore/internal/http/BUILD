@@ -93,6 +93,7 @@ tensorstore_cc_test(
         ":http_header",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest_main",
     ],
 )

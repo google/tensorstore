@@ -85,15 +85,14 @@ class HeaderMap {
       sink.Append(sep);
       sink.Append(kv.first);
       sink.Append(": ");
-#ifndef NDEBUG
-      // Redact auth_token in response logging.
-      if (absl::StrContainsIgnoreCase(kv.first, "auth_token")) {
+      // Redact sensitive headers in logging across all build modes.
+      if (absl::StrContainsIgnoreCase(kv.first, "auth_token") ||
+          absl::StrContainsIgnoreCase(kv.first, "authorization") ||
+          absl::StrContainsIgnoreCase(kv.first, "x-amz-security-token") ||
+          absl::StrContainsIgnoreCase(kv.first, "cookie") ||
+          absl::StrContainsIgnoreCase(kv.first, "encryption-key")) {
         sink.Append("#####");
-      } else if (absl::StrContainsIgnoreCase(kv.first, "authorization")) {
-        sink.Append("#####");
-      } else
-#endif
-      {
+      } else {
         sink.Append(kv.second);
       }
       sep = "  ";

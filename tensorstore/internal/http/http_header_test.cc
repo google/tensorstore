@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -161,6 +162,43 @@ TEST(TryParse, BoolHeader) {
   EXPECT_THAT(headers.TryParseBoolHeader("true-header"), Optional(Eq(true)));
   EXPECT_THAT(headers.TryParseBoolHeader("false-header"), Optional(Eq(false)));
   EXPECT_THAT(headers.TryParseBoolHeader("missing-header"), Eq(std::nullopt));
+}
+
+TEST(HttpHeaderTest, RedactsAuthorizationHeadersInAllBuildModes) {
+  HeaderMap headers{
+      {"authorization", "Bearer secret-oauth-token"},
+      {"x-custom-auth_token", "secret-auth-token"},
+      {"x-amz-security-token", "secret-sts-token"},
+      {"cookie", "session=secret-cookie"},
+      {"set-cookie", "session=secret-set-cookie"},
+      {"proxy-authorization", "Basic secret-proxy-auth"},
+      {"x-goog-encryption-key", "secret-csek-key"},
+      {"content-type", "application/json"},
+  };
+
+  std::string formatted = absl::StrCat(headers);
+  EXPECT_THAT(formatted,
+              ::testing::HasSubstr("content-type: application/json"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("authorization: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("x-custom-auth_token: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("x-amz-security-token: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("cookie: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("set-cookie: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("proxy-authorization: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("x-goog-encryption-key: #####"));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-oauth-token")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-auth-token")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-sts-token")));
+  EXPECT_THAT(formatted, ::testing::Not(::testing::HasSubstr("secret-cookie")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-set-cookie")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-proxy-auth")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-csek-key")));
 }
 
 }  // namespace
