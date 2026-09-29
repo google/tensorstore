@@ -33,6 +33,7 @@
 #include "absl/strings/str_cat.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -1986,6 +1987,18 @@ TEST(ChunkLayoutTest, ChooseReadWriteChunkShapesLargeDivisorOverflow) {
     EXPECT_EQ(write_shape[0], kReadSize);
     EXPECT_LE(write_shape[0], tensorstore::kMaxFiniteIndex);
   }
+}
+
+TEST(ChunkLayoutTest, SetContiguousLayoutPermutation) {
+  static_assert(tensorstore::ChunkLayout::IsOption<
+                tensorstore::ContiguousLayoutPermutation<2>>);
+  static_assert(tensorstore::ChunkLayout::IsOption<
+                tensorstore::ContiguousLayoutPermutation<>>);
+  tensorstore::ChunkLayout layout;
+  TENSORSTORE_EXPECT_OK(
+      layout.Set(tensorstore::ContiguousLayoutPermutation<2>({1, 0})));
+  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(1, 0));
+  EXPECT_TRUE(layout.inner_order().hard_constraint);
 }
 
 }  // namespace

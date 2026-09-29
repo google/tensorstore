@@ -306,6 +306,7 @@ tensorstore_cc_test(
     deps = [
         ":box",
         ":chunk_layout",
+        ":contiguous_layout",
         ":index",
         ":json_serialization_options_base",
         ":rank",

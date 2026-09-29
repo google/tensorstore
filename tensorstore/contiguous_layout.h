@@ -88,6 +88,10 @@ struct ContiguousLayoutPermutation
   explicit ContiguousLayoutPermutation(
       tensorstore::span<const DimensionIndex, Rank> permutation)
       : tensorstore::span<const DimensionIndex, Rank>(permutation) {}
+  template <size_t N,
+            typename = std::enable_if_t<RankConstraint::Implies(N, Rank)>>
+  explicit ContiguousLayoutPermutation(const DimensionIndex (&permutation)[N])
+      : tensorstore::span<const DimensionIndex, Rank>(permutation) {}
 };
 
 template <DimensionIndex Rank>

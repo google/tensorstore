@@ -759,6 +759,10 @@ class ChunkLayout {
   ///
   /// \id InnerOrder
   absl::Status Set(InnerOrder value);
+  template <DimensionIndex Rank>
+  absl::Status Set(ContiguousLayoutPermutation<Rank> value) {
+    return Set(InnerOrder(value));
+  }
 
   /// Returns the grid origin constraint.
   ///
