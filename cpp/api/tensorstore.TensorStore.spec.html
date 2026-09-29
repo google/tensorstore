@@ -1987,12 +1987,14 @@ equivalent to ORing them together.</p></li>
 <li><p>RecheckCached, RecheckCachedData, RecheckCachedMetadata: specifies cache
 staleness bounds, overriding the current bounds (if applicable).</p></li>
 <li><p>ContextBindingMode: Indicates whether context resources should be
-unbound, meaning that they refer to an unresolved context resource spec
-(e.g. a desired number of concurrent requests, memory limits on cache
-pool), rather than a specific context resource (specific concurrency
-pool, specific cache pool).  Defaults to <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.retain_context.html#c:cpp_api_preprocessed.cc&#64;N&#64;tensorstore&#64;unbind_context" title="tensorstore::unbind_context (C++ member)"><span class="n">unbind_context</span></a></code>.  If
-<code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.retain_context.html#c:cpp_api_preprocessed.cc&#64;N&#64;tensorstore&#64;retain_context" title="tensorstore::retain_context (C++ member)"><span class="n">retain_context</span></a></code> is specified, the returned <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> may be used to
-re-open the TensorStore using the identical context resources.</p></li>
+stripped or unbound.  Defaults to <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.retain_context.html#c:cpp_api_preprocessed.cc&#64;N&#64;tensorstore&#64;strip_context" title="tensorstore::strip_context (C++ member)"><span class="n">strip_context</span></a></code>, such that the
+returned <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> does not specify any context resources.  If
+<code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.retain_context.html#c:cpp_api_preprocessed.cc&#64;N&#64;tensorstore&#64;unbind_context" title="tensorstore::unbind_context (C++ member)"><span class="n">unbind_context</span></a></code> is specified, context resources are unbound, meaning
+that they refer to an unresolved context resource spec (e.g. a desired
+number of concurrent requests, memory limits on cache pool), rather than
+a specific context resource (specific concurrency pool, specific cache
+pool).  If <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.retain_context.html#c:cpp_api_preprocessed.cc&#64;N&#64;tensorstore&#64;retain_context" title="tensorstore::retain_context (C++ member)"><span class="n">retain_context</span></a></code> is specified, the returned <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> may be
+used to re-open the TensorStore using the identical context resources.</p></li>
 </ul>
 <dl class="field-list simple">
 <dt class="field-odd" id="parameters">Parameters<span class="colon">:</span><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></dt>
