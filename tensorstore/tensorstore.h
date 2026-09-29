@@ -221,12 +221,14 @@ class TensorStore {
   ///   staleness bounds, overriding the current bounds (if applicable).
   ///
   /// - ContextBindingMode: Indicates whether context resources should be
-  ///   unbound, meaning that they refer to an unresolved context resource spec
-  ///   (e.g. a desired number of concurrent requests, memory limits on cache
-  ///   pool), rather than a specific context resource (specific concurrency
-  ///   pool, specific cache pool).  Defaults to `unbind_context`.  If
-  ///   `retain_context` is specified, the returned `Spec` may be used to
-  ///   re-open the TensorStore using the identical context resources.
+  ///   stripped or unbound.  Defaults to `strip_context`, such that the
+  ///   returned `Spec` does not specify any context resources.  If
+  ///   `unbind_context` is specified, context resources are unbound, meaning
+  ///   that they refer to an unresolved context resource spec (e.g. a desired
+  ///   number of concurrent requests, memory limits on cache pool), rather than
+  ///   a specific context resource (specific concurrency pool, specific cache
+  ///   pool).  If `retain_context` is specified, the returned `Spec` may be
+  ///   used to re-open the TensorStore using the identical context resources.
   ///
   /// \param option Any option compatible with `SpecRequestOptions`.
   /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.

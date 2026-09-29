@@ -148,4 +148,23 @@ TEST(TensorStoreSerializationTest, MetadataNotReadAssumeMetadata) {
   EXPECT_THAT(decoded.spec(), ::testing::Optional(t_spec));
 }
 
+TEST(TensorStoreSerializationTest, SpecDefaultContextBindingMode) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context,
+      Context::FromJson({{"data_copy_concurrency", {{"limit", 1}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}},
+          context)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto default_spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto strip_spec,
+                                   store.spec(tensorstore::strip_context));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto unbind_spec,
+                                   store.spec(tensorstore::unbind_context));
+  EXPECT_EQ(default_spec, strip_spec);
+  EXPECT_NE(default_spec, unbind_spec);
+}
+
 }  // namespace
