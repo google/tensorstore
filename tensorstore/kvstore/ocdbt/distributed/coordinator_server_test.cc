@@ -76,7 +76,7 @@ class CoordinatorServerTest : public ::testing::Test {
     }
 
     LeaseCacheForCooperator::Options lease_cache_options;
-    lease_cache_options.clock = {};
+    lease_cache_options.clock = [this] { return cur_time; };
     lease_cache_options.cooperator_port = 42;
     lease_cache_options.auth_strategy = std::move(auth_strategy);
     lease_cache_options.coordinator_stub =
@@ -96,4 +96,13 @@ TEST_F(CoordinatorServerTest, Basic) {
   EXPECT_THAT(lease_info->peer_address, ::testing::MatchesRegex(".*:42"));
 }
 
+TEST_F(CoordinatorServerTest, MonotonicLeaseIdUnderCoarseClock) {
+  cur_time = absl::UnixEpoch() + absl::Seconds(100);
+  const BtreeNodeIdentifier node_id{1, KeyRange{"abc", "def"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto lease1, lease_cache.GetLease("key", node_id).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto lease2, lease_cache.GetLease("key", node_id, lease1.get()).result());
+  EXPECT_GT(lease2->lease_id, lease1->lease_id);
+}
 }  // namespace

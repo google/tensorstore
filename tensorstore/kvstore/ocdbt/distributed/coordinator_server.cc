@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -113,6 +114,7 @@ class CoordinatorServer::Impl
       internal::HeterogeneousHashSet<std::unique_ptr<LeaseNode>,
                                      std::string_view, &LeaseNode::key>;
   LeaseSet leases_by_key_ ABSL_GUARDED_BY(mutex_);
+  uint64_t last_lease_id_ ABSL_GUARDED_BY(mutex_) = 0;
 };
 
 span<const int> CoordinatorServer::ports() const {
@@ -189,8 +191,11 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
       auto cur_time = clock_();
       node->expiration_time = cur_time + lease_duration;
       if (assign_new_lease) {
-        node->lease_id = static_cast<uint64_t>(
-            absl::ToInt64Nanoseconds(cur_time - absl::UnixEpoch()));
+        uint64_t next_lease_id = static_cast<uint64_t>(std::max<int64_t>(
+            last_lease_id_ + 1,
+            absl::ToInt64Nanoseconds(cur_time - absl::UnixEpoch())));
+        node->lease_id = next_lease_id;
+        last_lease_id_ = next_lease_id;
         node->owner =
             absl::StrCat(peer_address->first, ":", request->cooperator_port());
       }
