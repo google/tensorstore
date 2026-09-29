@@ -837,6 +837,43 @@ TEST(TransactionTest, ReleaseFutureReferencesAfterRequestCommit) {
   weak_node->AbortDone();
 }
 
+TEST(TransactionTest, ReleaseFutureReferencesAfterForceCommit) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  TransactionState::WeakPtr weak_txn(TransactionState::get(txn));
+  WeakTransactionNodePtr<TestNode> weak_node(new TestNode(&log, 1));
+  weak_txn->AcquireCommitBlock();
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    weak_node->SetTransaction(*open_ptr);
+    TENSORSTORE_EXPECT_OK(weak_node->Register());
+  }
+  // Request commit by forcing the future, then drop the transaction handle
+  // followed by the future handle while the commit block is still held.
+  auto future = txn.future();
+  future.Force();
+  txn = no_transaction;
+  EXPECT_FALSE(weak_txn->aborted());
+  future = {};
+  EXPECT_TRUE(weak_txn->aborted());
+  weak_txn->ReleaseCommitBlock();
+
+  EXPECT_THAT(log, ::testing::ElementsAre("abort:1"));
+  EXPECT_TRUE(weak_txn->aborted());
+  weak_node->AbortDone();
+
+  // Also verify when the temporary future returned by `txn.future()` is
+  // immediately destroyed after `Force()` before `txn` is reset.
+  auto txn2 = Transaction(tensorstore::isolated);
+  TransactionState::WeakPtr weak_txn2(TransactionState::get(txn2));
+  weak_txn2->AcquireCommitBlock();
+  txn2.future().Force();
+  txn2 = no_transaction;
+  EXPECT_TRUE(weak_txn2->aborted());
+  weak_txn2->ReleaseCommitBlock();
+}
+
 // Tests concurrent multi-phase commit where multiple nodes transition phases
 // and call CommitDone.
 struct MultiPhaseConcurrentTestNode : public TransactionState::Node {
@@ -991,4 +1028,18 @@ TEST(TransactionTest, AcquireOpenPtrOrErrorIncludesCommitState) {
   }
 }
 
+TEST(TransactionTest, ForcedFutureWithCommitBlockAbortsWhenHandlesDropped) {
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+  TransactionState::WeakPtr weak_txn(TransactionState::get(txn));
+  weak_txn->AcquireCommitBlock();
+  future.Force();
+  EXPECT_FALSE(future.ready());
+  txn = no_transaction;
+  future = {};
+  EXPECT_TRUE(weak_txn->aborted());
+  weak_txn->ReleaseCommitBlock();
+  EXPECT_TRUE(weak_txn->aborted());
+  EXPECT_FALSE(weak_txn->commit_started());
+}
 }  // namespace

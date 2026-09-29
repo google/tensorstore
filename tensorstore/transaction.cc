@@ -66,6 +66,7 @@ TransactionState::Node::~Node() {
 }
 
 void TransactionState::NoMoreCommitReferences() {
+  Future<const void> future;
   std::unique_lock lock(mutex_);
   const size_t count = commit_reference_count_.load(std::memory_order_relaxed);
   if (count >= kCommitReferenceIncrement) {
@@ -73,24 +74,14 @@ void TransactionState::NoMoreCommitReferences() {
     return;
   }
 
-  if (count == kFutureReferenceIncrement) {
-    // The only remaining commit handle is the future handle.  Release the
-    // future reference owned by the `TransactionState` itself to break the
-    // reference cycle.
-    //
-    // Release the future reference without `mutex_` held, since it results in
-    // promise callbacks being run (and may in turn result in a call to
-    // `NoMoreCommitReferences`).
-    auto future = std::move(future_);
-    lock.unlock();
-    return;
+  // Release the future reference owned by `TransactionState` to break the
+  // reference cycle. Because `future` is declared before `lock`, its destructor
+  // runs after `mutex_` is released.
+  future = std::move(future_);
+
+  if (count == 0 && commit_state_ == kOpen) {
+    this->RequestAbort(GetCancelledError(), std::move(lock));
   }
-
-  assert(count == 0);
-
-  // Abort if still pending.
-  if (commit_state_ != kOpen) return;
-  this->RequestAbort(GetCancelledError(), std::move(lock));
 }
 
 TransactionState::OpenPtr TransactionState::AcquireImplicitOpenPtr() {
