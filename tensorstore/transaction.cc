@@ -150,8 +150,16 @@ TransactionState::TransactionState(TransactionMode mode,
 }
 
 Result<TransactionState::OpenPtr> TransactionState::AcquireOpenPtrOrError() {
-  if (auto handle = AcquireOpenPtr()) return handle;
-  return absl::InvalidArgumentError("Transaction not open");
+  absl::MutexLock lock(mutex_);
+  assert(commit_reference_count_.load() != 0);
+  if (commit_state_ == kCommitStarted) {
+    return absl::InvalidArgumentError(
+        "Transaction not open (commit already started)");
+  }
+  if (commit_state_ == kAborted) {
+    return absl::InvalidArgumentError("Transaction not open (aborted)");
+  }
+  return TransactionState::OpenPtr(this);
 }
 
 TransactionState::OpenPtr TransactionState::AcquireOpenPtr() {
@@ -438,9 +446,10 @@ absl::Status TransactionState::Node::MarkAsTerminal() {
 
 absl::Status TransactionState::Node::GetAtomicError(
     std::string_view a_description, std::string_view b_description) {
-  return absl::InvalidArgumentError(
-      absl::StrFormat("Cannot %s and %s as single atomic transaction",
-                      a_description, b_description));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Cannot %s and %s as single atomic transaction",
+      a_description.empty() ? "<unknown operation>" : a_description,
+      b_description.empty() ? "<unknown operation>" : b_description));
 }
 
 absl::Status TransactionState::Node::Register() {

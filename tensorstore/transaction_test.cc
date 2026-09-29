@@ -972,4 +972,23 @@ TEST(TransactionTest, AbslStringify) {
   EXPECT_EQ("atomic_isolated", absl::StrCat(TransactionMode::atomic_isolated));
 }
 
+TEST(TransactionTest, AcquireOpenPtrOrErrorIncludesCommitState) {
+  {
+    auto txn = Transaction(tensorstore::isolated);
+    txn.CommitAsync().IgnoreFuture();
+    EXPECT_THAT(AcquireOpenTransactionPtrOrError(txn),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         AllOf(HasSubstr("Transaction not open"),
+                               HasSubstr("commit"))));
+  }
+  {
+    auto txn = Transaction(tensorstore::isolated);
+    txn.Abort();
+    EXPECT_THAT(AcquireOpenTransactionPtrOrError(txn),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         AllOf(HasSubstr("Transaction not open"),
+                               HasSubstr("aborted"))));
+  }
+}
+
 }  // namespace

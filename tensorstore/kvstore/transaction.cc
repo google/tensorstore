@@ -2181,7 +2181,6 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
             if (source_.fail_transaction_on_mismatch_) {
               lock.unlock();
               auto error = absl::AbortedError("Generation mismatch");
-              source_.SetError(error);
               execution::set_error(receiver_, std::move(error));
               return;
             }

@@ -603,4 +603,20 @@ TEST(KvStoreTest, ListInvalid) {
   EXPECT_TRUE(mock_driver->list_requests.empty());
 }
 
+TEST(KvStoreTest, ConditionalWriteGenerationMismatchErrorIncludesKey) {
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  Transaction txn(tensorstore::isolated);
+  KvStore store(memory_store, "", txn);
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(
+      store, "a", absl::Cord("v2"),
+      {.generation_conditions = {
+           .if_equal = StorageGeneration::FromString("mismatch")}}));
+
+  EXPECT_THAT(txn.CommitAsync().result(),
+              StatusIs(absl::StatusCode::kAborted,
+                       HasSubstr("Error writing \"a\": Generation mismatch")));
+}
+
 }  // namespace
