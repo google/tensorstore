@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/util/endian.h"
 
 namespace tensorstore {
@@ -262,6 +263,10 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
     }
   };
 
+  if (encoded_bits > 32 || (encoded_bits & (encoded_bits - 1)) != 0) {
+    return false;
+  }
+
   if (encoded_bits == 0) {
     // There are no encoded indices to read.
     if (table_size == 0) return false;
@@ -273,10 +278,15 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
         });
   }
 
-  const uint32_t encoded_value_mask = (1U << encoded_bits) - 1;
+  const uint32_t encoded_value_mask =
+      static_cast<uint32_t>((static_cast<uint64_t>(1) << encoded_bits) - 1);
   return for_each_position([&](Label& output_label, ptrdiff_t z, ptrdiff_t y,
                                ptrdiff_t x) {
-    size_t encoded_offset = x + block_shape[2] * (y + block_shape[1] * z);
+    size_t encoded_offset =
+        static_cast<size_t>(x) +
+        static_cast<size_t>(block_shape[2]) *
+            (static_cast<size_t>(y) +
+             static_cast<size_t>(block_shape[1]) * static_cast<size_t>(z));
     auto index = little_endian::Load32(
                      encoded_input + encoded_offset * encoded_bits / 32 * 4) >>
                      (encoded_offset * encoded_bits % 32) &
@@ -295,9 +305,20 @@ bool DecodeChannel(std::string_view input, const ptrdiff_t block_shape[3],
   if ((input.size() % 4) != 0) return false;
   ptrdiff_t grid_shape[3];
   size_t block_index_size = kBlockHeaderSize;
+  size_t block_volume = 1;
   for (size_t i = 0; i < 3; ++i) {
-    grid_shape[i] = (output_shape[i] + block_shape[i] - 1) / block_shape[i];
-    block_index_size *= grid_shape[i];
+    if (block_shape[i] <= 0 || output_shape[i] < 0) return false;
+    if (internal::MulOverflow(block_volume, static_cast<size_t>(block_shape[i]),
+                              &block_volume)) {
+      return false;
+    }
+    grid_shape[i] =
+        output_shape[i] == 0 ? 0 : (output_shape[i] - 1) / block_shape[i] + 1;
+    if (internal::MulOverflow(block_index_size,
+                              static_cast<size_t>(grid_shape[i]),
+                              &block_index_size)) {
+      return false;
+    }
   }
   if (input.size() / 4 < block_index_size) {
     // `input` is too short to contain block headers
@@ -330,12 +351,16 @@ bool DecodeChannel(std::string_view input, const ptrdiff_t block_shape[3],
             table_offset > input.size() / 4) {
           return false;
         }
-        const size_t encoded_size_32bits =
-            (encoded_bits * block_shape[0] * block_shape[1] * block_shape[2] +
-             31) /
-            32;
-        if ((encoded_value_base_offset + encoded_size_32bits) * 4 >
-            input.size()) {
+        size_t encoded_bits_total;
+        if (internal::MulOverflow(encoded_bits, block_volume,
+                                  &encoded_bits_total) ||
+            internal::AddOverflow(encoded_bits_total, size_t(31),
+                                  &encoded_bits_total)) {
+          return false;
+        }
+        const size_t encoded_size_32bits = encoded_bits_total / 32;
+        if (encoded_size_32bits >
+            input.size() / 4 - encoded_value_base_offset) {
           return false;
         }
         auto* block_output = reinterpret_cast<Label*>(

@@ -397,6 +397,30 @@ TEST(DecodeChannelTest, MissingEncodedValues) {
       /*input_shape=*/{2, 2, 2});
 }
 
+TEST(DecodeChannelTest, EncodedBits32) {
+  auto input = FromVec({4 | (32u << 24), 2, 0, 1, 10, 20});
+  const ptrdiff_t block_shape[3] = {1, 1, 2};
+  const ptrdiff_t input_shape[3] = {1, 1, 2};
+  const ptrdiff_t byte_strides[3] = {8, 8, 4};
+  std::vector<uint32_t> decoded_output(2, 0);
+  ASSERT_TRUE(DecodeChannel<uint32_t>(input, block_shape, input_shape,
+                                      byte_strides, decoded_output.data()));
+  EXPECT_THAT(decoded_output, ::testing::ElementsAre(10, 20));
+}
+
+TEST(DecodeChannelTest, BlockShapeOverflow) {
+  auto input_str = FromVec({2 | (16u << 24), 2, 0, 0});
+  std::vector<char> input(input_str.begin(), input_str.end());
+  TestDecodeChannelError<uint64_t>(
+      /*input=*/std::string_view(input.data(), input.size()),
+      /*block_shape=*/{1 << 20, 1 << 20, 1 << 20},
+      /*input_shape=*/{2, 2, 2});
+  TestDecodeChannelError<uint64_t>(
+      /*input=*/std::string_view(input.data(), input.size()),
+      /*block_shape=*/{1 << 22, 1 << 22, 1 << 22},
+      /*input_shape=*/{2, 2, 2});
+}
+
 template <typename T>
 void RandomRoundTrip(size_t max_block_size, size_t max_input_size,
                      size_t max_channels, size_t max_distinct_ids,
