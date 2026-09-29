@@ -17,6 +17,7 @@
 #include <memory>
 #include <string_view>
 
+#include "absl/base/no_destructor.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/match.h"
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
@@ -27,17 +28,27 @@ namespace internal_gcs_grpc {
 
 std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>
 CreateDefaultGrpcAuthenticationStrategy(std::string_view endpoint) {
+  std::string_view host = endpoint;
+  if (auto pos = host.find("://"); pos != std::string_view::npos) {
+    host = absl::StartsWith(host.substr(pos), ":///") ? host.substr(pos + 4)
+                                                      : std::string_view{};
+  }
+  host = host.substr(0, host.find_first_of(":/"));
 
-  if (absl::EndsWith(endpoint, ".googleapis.com")) {
+  if (absl::EndsWith(host, ".googleapis.com")) {
     // Only send `GoogleDefautCredentials` to a Google backend.
     // These are the credentials acquired from the environment variable
     // "GOOGLE_APPLICATION_CREDENTIALS"  or by using the gcloud tool:
     // `gcloud application-default login`.
-    return internal_grpc::CreateGoogleDefaultAuthenticationStrategy();
+    static const absl::NoDestructor kStrategy(
+        internal_grpc::CreateGoogleDefaultAuthenticationStrategy());
+    return *kStrategy;
   }
 
   // Otherwise default to insecure credentials.
-  return internal_grpc::CreateInsecureAuthenticationStrategy();
+  static const absl::NoDestructor kStrategy(
+      internal_grpc::CreateInsecureAuthenticationStrategy());
+  return *kStrategy;
 }
 
 }  // namespace internal_gcs_grpc

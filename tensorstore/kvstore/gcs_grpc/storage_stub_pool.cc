@@ -51,35 +51,41 @@ ABSL_CONST_INIT absl::Mutex global_mu(absl::kConstInit);
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 
+struct SharedPoolEntry {
+  std::weak_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy;
+  std::shared_ptr<StorageStubPool> pool;
+};
+
 }  // namespace
 
 std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
     std::string address, uint32_t size,
     std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy,
     absl::Duration wait_for_connected) {
-  static absl::NoDestructor<
-      absl::flat_hash_map<std::string, std::shared_ptr<StorageStubPool>>>
+  static absl::NoDestructor<absl::flat_hash_map<std::string, SharedPoolEntry>>
       shared_pool;
 
   auto opt = GetFlagOrEnvValue(FLAGS_tensorstore_gcs_grpc_channels,
                                "TENSORSTORE_GCS_GRPC_CHANNELS");
   size = internal_grpc::ResolveChannelCount(address, size, opt);
-  std::string key = absl::StrFormat("%d/%s", size, address);
+  std::string key = absl::StrFormat(
+      "%d/%p/%s", size, static_cast<const void*>(auth_strategy.get()), address);
 
   absl::MutexLock lock(global_mu);
-  auto& pool = (*shared_pool)[key];
-  if (pool == nullptr) {
+  auto& entry = (*shared_pool)[key];
+  if (entry.pool == nullptr || entry.auth_strategy.lock() != auth_strategy) {
     ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "Connecting to " << address << " with " << size << " channels";
-    pool = internal_grpc::CreateStubPool<Storage, Storage::StubInterface>(
+    entry.auth_strategy = auth_strategy;
+    entry.pool = internal_grpc::CreateStubPool<Storage, Storage::StubInterface>(
         address, size, *auth_strategy, wait_for_connected);
-    if (!pool->channels().empty()) {
+    if (!entry.pool->channels().empty()) {
       ABSL_LOG_IF(INFO, gcs_grpc_logging)
           << "Connection established to " << address << " in state "
-          << pool->channels()[0]->GetState(false);
+          << entry.pool->channels()[0]->GetState(false);
     }
   }
-  return pool;
+  return entry.pool;
 }
 
 }  // namespace internal_gcs_grpc

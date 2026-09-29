@@ -96,6 +96,7 @@ tensorstore_cc_test(
     srcs = ["gcs_grpc_test.cc"],
     tags = ["cpu:2"],
     deps = [
+        ":default_strategy",
         ":gcs_grpc",
         ":mock_storage_service",
         "//tensorstore:batch",
@@ -227,6 +228,7 @@ tensorstore_cc_library(
     deps = DEFAULT_STRATEGY_DEPS + [
         "//tensorstore/internal/grpc/clientauth:authentication_strategy",
         "//tensorstore/internal/grpc/clientauth:channel_authentication",
+        "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/strings",
     ],

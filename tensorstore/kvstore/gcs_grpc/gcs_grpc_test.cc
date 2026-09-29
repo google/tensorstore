@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/kvstore/gcs_grpc/gcs_grpc.h"
+
 #include <stddef.h>
 
 #include <cstring>
@@ -39,6 +41,7 @@
 #include "tensorstore/internal/grpc/grpc_mock.h"
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/gcs_grpc/default_strategy.h"
 #include "tensorstore/kvstore/gcs_grpc/mock_storage_service.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -933,6 +936,59 @@ TEST(GcsGrpcUrlTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc://bucket/a%0Ab"),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Invalid GCS path")));
+}
+
+TEST(GcsGrpcSecurityTest, CrossTenantStubPoolIsolation) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store1,
+      kvstore::Open(
+          {{"driver", "gcs_grpc"},
+           {"endpoint", "localhost:12345"},
+           {"bucket", "bucket"},
+           {"num_channels", 1},
+           {"context",
+            {{"experimental_gcs_grpc_credentials", {{"type", "insecure"}}}}}})
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store2,
+      kvstore::Open(
+          {{"driver", "gcs_grpc"},
+           {"endpoint", "localhost:12345"},
+           {"bucket", "bucket"},
+           {"num_channels", 1},
+           {"context",
+            {{"experimental_gcs_grpc_credentials",
+              {{"type", "access_token"}, {"access_token", "secret-token"}}}}}})
+          .result());
+
+  auto* driver1 =
+      static_cast<tensorstore::internal_gcs_grpc::GcsGrpcKeyValueStore*>(
+          store1.driver.get());
+  auto* driver2 =
+      static_cast<tensorstore::internal_gcs_grpc::GcsGrpcKeyValueStore*>(
+          store2.driver.get());
+  EXPECT_NE(driver1->auth_strategy_, driver2->auth_strategy_);
+  EXPECT_NE(driver1->storage_stub_pool_, driver2->storage_stub_pool_);
+}
+
+TEST(GcsGrpcSecurityTest, DefaultAuthenticationStrategyPortAndAuthority) {
+  using ::tensorstore::internal_gcs_grpc::
+      CreateDefaultGrpcAuthenticationStrategy;
+  auto google_strategy =
+      CreateDefaultGrpcAuthenticationStrategy("storage.googleapis.com");
+  auto localhost_strategy =
+      CreateDefaultGrpcAuthenticationStrategy("localhost:12345");
+
+  EXPECT_NE(google_strategy, localhost_strategy);
+  EXPECT_EQ(
+      CreateDefaultGrpcAuthenticationStrategy("storage.googleapis.com:443"),
+      google_strategy);
+  EXPECT_EQ(CreateDefaultGrpcAuthenticationStrategy(
+                "dns:///storage.googleapis.com:443"),
+            google_strategy);
+  EXPECT_EQ(CreateDefaultGrpcAuthenticationStrategy(
+                "dns://attacker-dns:53/storage.googleapis.com"),
+            localhost_strategy);
 }
 
 }  // namespace
