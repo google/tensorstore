@@ -152,11 +152,11 @@ internal::ChunkGridSpecification CreateFieldGridSpecification(
 
 std::string FieldKeyParserWrapper::FormatKey(
     span<const Index> grid_indices) const {
-  std::vector<Index> padded(grid_indices.begin(), grid_indices.end());
-  while (static_cast<DimensionIndex>(padded.size()) < full_rank_) {
-    padded.push_back(0);
-  }
-  return inner_.FormatKey(padded);
+  Index padded[kMaxRank] = {};
+  const ptrdiff_t n =
+      std::min(grid_indices.size(), static_cast<ptrdiff_t>(full_rank_));
+  std::copy_n(grid_indices.begin(), n, padded);
+  return inner_.FormatKey(span<const Index>(padded, full_rank_));
 }
 
 Index FieldKeyParserWrapper::MinGridIndexForLexicographicalOrder(
@@ -166,11 +166,13 @@ Index FieldKeyParserWrapper::MinGridIndexForLexicographicalOrder(
 
 bool FieldKeyParserWrapper::ParseKey(std::string_view key,
                                      span<Index> grid_indices) const {
-  std::vector<Index> full_indices(full_rank_);
-  if (!inner_.ParseKey(key, full_indices)) return false;
-  const ptrdiff_t n = std::min(grid_indices.size(),
-                               static_cast<ptrdiff_t>(full_indices.size()));
-  std::copy_n(full_indices.begin(), n, grid_indices.begin());
+  Index full_indices[kMaxRank];
+  if (!inner_.ParseKey(key, span<Index>(full_indices, full_rank_))) {
+    return false;
+  }
+  const ptrdiff_t n =
+      std::min(grid_indices.size(), static_cast<ptrdiff_t>(full_rank_));
+  std::copy_n(full_indices, n, grid_indices.begin());
   std::fill(grid_indices.begin() + n, grid_indices.end(), 0);
   return true;
 }
