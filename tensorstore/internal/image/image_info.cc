@@ -15,6 +15,7 @@
 #include "tensorstore/internal/image/image_info.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <cmath>
 #include <ostream>
@@ -35,8 +36,11 @@ std::ostream& operator<<(std::ostream& os, const ImageInfo& info) {
 }
 
 size_t ImageRequiredBytes(const ImageInfo& a) {
-  return std::abs(a.width) * std::abs(a.height) * std::abs(a.num_components) *
-         a.dtype.size();
+  auto abs_dim = [](int32_t x) {
+    return static_cast<size_t>(std::abs(int64_t{x}));
+  };
+  return abs_dim(a.width) * abs_dim(a.height) * abs_dim(a.num_components) *
+         static_cast<size_t>(a.dtype.size());
 }
 
 }  // namespace internal_image

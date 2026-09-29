@@ -28,9 +28,8 @@ ImageView::ImageView(const ImageInfo& info,
                      tensorstore::span<unsigned char> data)
     : data_(data),
       dtype_(info.dtype),
-      row_stride_(info.num_components * info.width) {
-  ABSL_HARDENING_ASSERT(data.size() >= info.width * info.height *
-                                           info.num_components * dtype_.size());
+      row_stride_(static_cast<index_type>(info.num_components) * info.width) {
+  ABSL_HARDENING_ASSERT(data.size() >= ImageRequiredBytes(info));
 }
 
 }  // namespace internal_image

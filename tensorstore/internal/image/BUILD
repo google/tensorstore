@@ -253,6 +253,17 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_test(
+    name = "image_info_test",
+    srcs = ["image_info_test.cc"],
+    deps = [
+        ":image",
+        "//tensorstore:data_type",
+        "//tensorstore/util:span",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
     name = "image_reader_test",
     srcs = ["image_reader_test.cc"],
     args = [
