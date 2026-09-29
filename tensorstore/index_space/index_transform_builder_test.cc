@@ -435,6 +435,18 @@ TEST(IndexTransformBuilderTest, OutputStrideZero) {
   EXPECT_EQ(OutputIndexMethod::constant, map.method());
 }
 
+TEST(IndexTransformBuilderTest, OutputIndexArrayZeroStride) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto t, IndexTransformBuilder<>(1, 1)
+                  .input_shape({3})
+                  .output_index_array(0, 5, 0, MakeArray<Index>({1, 2, 3}))
+                  .Finalize());
+  auto map = t.output_index_map(0);
+  EXPECT_EQ(5, map.offset());
+  EXPECT_EQ(0, map.stride());
+  EXPECT_EQ(OutputIndexMethod::constant, map.method());
+}
+
 // Tests that the input domain upper bound can be set using the
 // `input_inclusive_max` method.
 TEST(IndexTransformBuilderTest, InclusiveMax) {

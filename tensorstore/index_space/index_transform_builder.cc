@@ -190,6 +190,8 @@ absl::Status SetOutputIndexMapsAndValidateTransformRep(
         map.SetConstant();
         map.offset() = 0;
         map.stride() = 0;
+      } else if (map.stride() == 0) {
+        map.SetConstant();
       } else {
         index_array_data.index_range = *initializer.index_array_bounds;
         index_array_data.element_pointer = AddByteOffset(
