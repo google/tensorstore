@@ -157,6 +157,20 @@ bool IsRetryableAwsMessageCode(std::string_view code) {
   return kRetryableMessages->contains(code);
 }
 
+// Extracts the disambiguated error type from an AWS error header/code value.
+// Follows the smithy.io syntax rules, allowing for either ':' or '#' as a
+// separator.
+// https://smithy.io/2.0/aws/protocols/aws-json-1_1-protocol.html#operation-error-serialization
+std::string_view ExtractAwsErrorType(std::string_view error_type) {
+  if (auto pos = error_type.find(':'); pos != std::string_view::npos) {
+    error_type = error_type.substr(0, pos);
+  }
+  if (auto pos = error_type.find('#'); pos != std::string_view::npos) {
+    error_type = error_type.substr(pos + 1);
+  }
+  return error_type;
+}
+
 }  // namespace
 
 std::optional<int64_t> GetNodeInt(tinyxml2::XMLNode* node) {
@@ -226,7 +240,7 @@ absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
   std::string error_type;
   if (auto error_header = response.headers.find("x-amzn-errortype");
       error_header != response.headers.end()) {
-    error_type = error_header->second;
+    error_type = ExtractAwsErrorType(error_header->second);
   }
 
   absl::Cord request_id;
@@ -254,7 +268,8 @@ absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
     if (root_node == nullptr) return;
 
     if (error_type.empty()) {
-      error_type = GetNodeText(root_node->FirstChildElement("Code"));
+      error_type = ExtractAwsErrorType(
+          GetNodeText(root_node->FirstChildElement("Code")));
     }
     if (request_id.empty()) {
       request_id = GetNodeText(root_node->FirstChildElement("RequestId"));
@@ -262,9 +277,8 @@ absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
     message = GetNodeText(root_node->FirstChildElement("Message"));
   }();
 
-  retryable = error_type.empty()
-                  ? IsRetryableAwsStatusCode(response.status_code)
-                  : IsRetryableAwsMessageCode(error_type);
+  retryable = IsRetryableAwsStatusCode(response.status_code) ||
+              (!error_type.empty() && IsRetryableAwsMessageCode(error_type));
 
   if (error_type.empty()) {
     error_type = "Unknown";
