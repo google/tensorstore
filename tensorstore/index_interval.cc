@@ -402,8 +402,13 @@ absl::Status ComputeStridedSliceMap(OptionallyImplicitIndexInterval orig,
         new_interval.interval(),
         ShiftIntervalTo(new_interval.interval(), translate_origin_to));
   }
+  Index scaled_min;
+  if (internal::MulOverflow(new_interval.inclusive_min(), stride,
+                            &scaled_min) ||
+      internal::SubOverflow(adjusted_start, scaled_min, output_offset)) {
+    return absl::OutOfRangeError("Integer overflow computing slice offset");
+  }
   *new_domain = new_interval;
-  *output_offset = adjusted_start - new_interval.inclusive_min() * stride;
   return absl::OkStatus();
 }
 

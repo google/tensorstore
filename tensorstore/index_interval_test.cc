@@ -1133,6 +1133,43 @@ TEST(ComputeStridedSliceMapTest, SliceError) {
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
+TEST(ComputeStridedSliceMapTest, TranslationOffsetOverflow) {
+  OptionallyImplicitIndexInterval new_domain;
+  Index output_offset;
+  EXPECT_THAT(ComputeStridedSliceMap(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedSized(0, 10), false, false},
+                  IntervalForm::sized,
+                  /*translate_origin_to=*/1000000000000LL,
+                  /*start=*/0,
+                  /*stop_or_size=*/1,
+                  /*stride=*/1000000000000LL, &new_domain, &output_offset),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Integer overflow computing slice offset")));
+  EXPECT_THAT(ComputeStridedSliceMap(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(0, 10), false, false},
+                  IntervalForm::sized,
+                  /*translate_origin_to=*/kMaxFiniteIndex,
+                  /*start=*/0,
+                  /*stop_or_size=*/1,
+                  /*stride=*/4, &new_domain, &output_offset),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Integer overflow computing slice offset")));
+  EXPECT_THAT(
+      ComputeStridedSliceMap(
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(-kMaxFiniteIndex, kMaxFiniteIndex),
+              false, false},
+          IntervalForm::sized,
+          /*translate_origin_to=*/-kMaxFiniteIndex,
+          /*start=*/kMaxFiniteIndex,
+          /*stop_or_size=*/1,
+          /*stride=*/2, &new_domain, &output_offset),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Integer overflow computing slice offset")));
+}
+
 TEST(GetAffineTransformDomainTest, Divisor1) {
   EXPECT_EQ(IndexInterval::UncheckedClosed(-9, -1),
             GetAffineTransformDomain(IndexInterval::UncheckedClosed(1, 9),
