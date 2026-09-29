@@ -790,13 +790,15 @@ void NodeCommitOperation::CreateNewManifest(
       [commit_op = std::move(commit_op)](
           ReadyFuture<std::pair<std::shared_ptr<Manifest>, Future<const void>>>
               future) mutable {
-        auto [manifest, manifest_flush_future] = future.value();
+        TENSORSTORE_ASSIGN_OR_RETURN(auto manifest_with_flush, future.result(),
+                                     commit_op->SetError(_));
+        auto& [manifest, manifest_flush_future] = manifest_with_flush;
         ABSL_LOG_IF(INFO, ocdbt_logging)
             << "[Port=" << commit_op->server->listening_port_
             << "] WriteNewManifest: New manifest generated.  root="
             << manifest->latest_version().root << ", root_height="
             << static_cast<int>(manifest->latest_version().root_height);
-        commit_op->new_manifest = manifest;
+        commit_op->new_manifest = std::move(manifest);
         commit_op->flush_promise.Link(std::move(manifest_flush_future));
 
         auto flush_future = std::move(commit_op->flush_promise).future();
@@ -808,6 +810,10 @@ void NodeCommitOperation::CreateNewManifest(
         flush_future.ExecuteWhenReady(
             [commit_op =
                  std::move(commit_op)](ReadyFuture<const void> future) mutable {
+              if (!future.status().ok()) {
+                commit_op->SetError(future.status());
+                return;
+              }
               ABSL_LOG_IF(INFO, ocdbt_logging)
                   << "WriteNewManifest: Flushed indirect writes";
               WriteNewManifest(std::move(commit_op));

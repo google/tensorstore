@@ -325,6 +325,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:random_seed",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",

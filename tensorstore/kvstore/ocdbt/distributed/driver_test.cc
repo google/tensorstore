@@ -30,6 +30,7 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
@@ -39,6 +40,7 @@
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator_server.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
@@ -54,6 +56,7 @@ namespace {
 
 namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
+using ::tensorstore::KeyRange;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
@@ -239,4 +242,63 @@ TEST_F(DistributedTest, ManifestDeleted) {
               StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
+TEST_F(DistributedTest, IndirectWriteErrorDoesNotCommitManifest) {
+  auto context = Context(context_spec);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto* mock_kvstore = mock_key_value_store_resource->get();
+  mock_kvstore->supported_features =
+      base_store.driver->GetSupportedFeatures({});
+  mock_kvstore->read_handler = [base = base_store.driver](auto req) {
+    req(base);
+  };
+  mock_kvstore->write_handler = [base = base_store.driver](auto req) {
+    if (absl::StartsWith(req.key, "b/")) {
+      req.promise.SetResult(absl::DataLossError("Failed to write btree node"));
+      return;
+    }
+    req(base);
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "ocdbt"},
+                                 {"base", {{"driver", "mock_key_value_store"}}},
+                                 {"btree_node_data_prefix", "b/"}},
+                                context)
+                      .result());
+  EXPECT_THAT(kvstore::Write(store, "a", absl::Cord("value")).result(),
+              StatusIs(absl::StatusCode::kDataLoss));
+
+  auto& driver = static_cast<OcdbtDriver&>(*store.driver);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto manifest, ReadManifest(driver));
+  ASSERT_TRUE(manifest);
+  // Manifest must remain at initial generation 1 with empty root rather than
+  // advancing to generation 2 referencing the unwritten B+tree node.
+  EXPECT_EQ(1, manifest->latest_generation());
+  EXPECT_TRUE(manifest->latest_version().root.location.IsMissing());
+}
+
+TEST_F(DistributedTest, CreateNewManifestErrorDoesNotCrash) {
+  auto context = Context(context_spec);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "ocdbt"},
+                                 {"base", "memory://"},
+                                 {"version_tree_node_data_prefix", "v/"},
+                                 {"config", {{"version_tree_arity_log2", 1}}},
+                                 {"cache_pool", {{"total_bytes_limit", 0}}}},
+                                context)
+                      .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("v1")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("v2")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("v3")));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::DeleteRange(base_store, KeyRange::Prefix("v/")));
+  EXPECT_THAT(kvstore::Write(store, "a", absl::Cord("v4")).result(),
+              StatusIs(absl::StatusCode::kNotFound));
+}
 }  // namespace
