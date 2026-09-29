@@ -141,11 +141,20 @@ Result<std::shared_ptr<const ChunkCache::ReadData>> DecodeRaw(
     for (size_t component_i = 0; component_i < component_specs.size();
          ++component_i) {
       const auto& spec = component_specs[component_i];
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          read_data.get()[component_i],
-          tensorstore::internal::DecodeArrayEndian(
-              reader, spec.dtype(), spec.shape(), tensorstore::endian::native,
-              tensorstore::c_order));
+      if (component_specs.size() == 1) {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            read_data.get()[component_i],
+            tensorstore::internal::DecodeArrayEndian(
+                reader, spec.dtype(), spec.shape(), tensorstore::endian::native,
+                tensorstore::c_order));
+      } else {
+        auto array =
+            tensorstore::AllocateArray(spec.shape(), tensorstore::c_order,
+                                       tensorstore::default_init, spec.dtype());
+        TENSORSTORE_RETURN_IF_ERROR(tensorstore::internal::DecodeArrayEndian(
+            reader, tensorstore::endian::native, tensorstore::c_order, array));
+        read_data.get()[component_i] = std::move(array);
+      }
     }
     if (!reader.VerifyEndAndClose()) return reader.status();
   }
@@ -2006,6 +2015,34 @@ TEST_F(ChunkCacheTest, CanReferenceSourceDataIndefinitely) {
       }
     }
   }
+}
+
+TEST_F(ChunkCacheTest, WriteMultipleComponentsSingleComponentFullOverwrite) {
+  grid = ChunkGridSpecification({
+      ChunkGridSpecification::Component{
+          AsyncWriteArray::Spec{MakeSequentialArray<int>(BoxView<>{{0}, {10}}),
+                                Box<>(1)},
+          /*chunk_shape=*/{2}},
+      ChunkGridSpecification::Component{
+          AsyncWriteArray::Spec{MakeSequentialArray<int>(BoxView<>{{0}, {10}}),
+                                Box<>(1)},
+          /*chunk_shape=*/{2}},
+  });
+  SetChunk({0}, {MakeArray<int>({10, 11}), MakeArray<int>({20, 21})});
+  mock_store->forward_to = memory_store;
+
+  auto cache = MakeChunkCache();
+  // Fully overwrite component 0 of chunk 0 while leaving component 1
+  // unmodified.
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      MakeArray<int>({30, 31}),
+      GetTensorStore(cache, /*data_staleness=*/{}, /*component_index=*/0) |
+          tensorstore::Dims(0).TranslateSizedInterval(0, 2)));
+
+  // Component 1 must retain its existing values {20, 21} rather than being
+  // clobbered with the fill value {0, 1}.
+  EXPECT_THAT(GetChunk({0}),
+              ElementsAre(MakeArray<int>({30, 31}), MakeArray<int>({20, 21})));
 }
 
 }  // namespace

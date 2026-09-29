@@ -408,7 +408,9 @@ struct WriteChunkImpl {
       return true;
     }
     node->is_modified = true;
-    node->SetUnconditional();
+    if (IsFullyOverwritten(*node)) {
+      node->SetUnconditional();
+    }
     end_write_result = {node->OnModified(), node->transaction()->future()};
     return true;
   }
