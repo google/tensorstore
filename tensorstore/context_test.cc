@@ -25,6 +25,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
@@ -1028,6 +1029,52 @@ TEST(ContextTest, AllContextResources) {
                    {"nested_resource", ::nlohmann::json::object_t()},
                    {"optional_resource", ::nlohmann::json::object_t()},
                    {"strongref", {{"value", 42}}}})));
+}
+
+template <int I>
+struct DepResource : public NestedResource {
+  static constexpr char id[] = {'d', 'e', 'p', '_', 'r', 'e',     's', 'o',
+                                'u', 'r', 'c', 'e', '_', '0' + I, 0};
+  static Spec GetSpec(const Resource& resource,
+                      const ContextSpecBuilder& builder) {
+    if (resource.parent.valid()) builder.AddResource(resource.parent);
+    return NestedResource::GetSpec(resource, builder);
+  }
+};
+const ContextResourceRegistration<DepResource<0>> dep_resource_0_reg;
+const ContextResourceRegistration<DepResource<1>> dep_resource_1_reg;
+const ContextResourceRegistration<DepResource<2>> dep_resource_2_reg;
+const ContextResourceRegistration<DepResource<3>> dep_resource_3_reg;
+const ContextResourceRegistration<DepResource<4>> dep_resource_4_reg;
+const ContextResourceRegistration<DepResource<5>> dep_resource_5_reg;
+const ContextResourceRegistration<DepResource<6>> dep_resource_6_reg;
+const ContextResourceRegistration<DepResource<7>> dep_resource_7_reg;
+
+TEST(ContextTest, AllContextResourcesDeterministicOrder) {
+  auto all_binder = jb::Object(jb::DefaultBinder<>);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto all_resources, jb::FromJson<AllContextResources>(
+                              ::nlohmann::json::object_t(), all_binder));
+  ::nlohmann::json context_json = ::nlohmann::json::object_t();
+  for (int i = 0; i < 8; ++i) {
+    context_json[absl::StrFormat("dep_resource_%d", i)] = {
+        {"parent", {{"value", 100 + i}}}};
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context,
+                                   Context::FromJson(context_json));
+  TENSORSTORE_ASSERT_OK(all_resources.BindContext(context));
+  Context::Spec new_spec;
+  {
+    auto builder = ContextSpecBuilder::Make();
+    new_spec = builder.spec();
+    all_resources.UnbindContext(builder);
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_spec_json, new_spec.ToJson());
+  for (int i = 0; i < 8; ++i) {
+    EXPECT_EQ(new_spec_json.at(absl::StrFormat("nested_resource#%d", i)),
+              ::nlohmann::json({{"value", 100 + i}}))
+        << "Mismatch at index " << i;
+  }
 }
 
 }  // namespace

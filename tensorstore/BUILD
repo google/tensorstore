@@ -418,6 +418,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
     ],

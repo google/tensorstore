@@ -878,13 +878,25 @@ void AllContextResources::UnbindContext(
   // e.g. by leaving the kvstore unspecified, binding with a context,
   // and then specifying a kvstore spec where the context is not
   // bound.
+  std::vector<const internal_context::ResourceProviderImplBase*> providers;
   {
     auto& registry = internal_context::GetRegistry();
     absl::ReaderMutexLock lock(registry.mutex_);
+    providers.reserve(registry.providers_.size());
     for (const auto& provider : registry.providers_) {
+      providers.push_back(provider.get());
+    }
+  }
+  std::sort(providers.begin(), providers.end(),
+            [](const internal_context::ResourceProviderImplBase* a,
+               const internal_context::ResourceProviderImplBase* b) {
+              return a->id_ < b->id_;
+            });
+  {
+    for (const auto* provider : providers) {
       internal_context::ResourceSpecImplPtr resource_spec_impl(
           new internal_context::ResourceReference(std::string(provider->id_)));
-      resource_spec_impl->provider_ = provider.get();
+      resource_spec_impl->provider_ = provider;
       // Logically, we need to include in `spec` the unbound
       // representation of each resource.
       //
@@ -926,7 +938,7 @@ void AllContextResources::UnbindContext(
       // insert it into `spec_impl->resources_`.
       internal::IntrusivePtr<internal_context::BuilderResourceSpec>
           builder_spec(new internal_context::BuilderResourceSpec);
-      builder_spec->provider_ = provider.get();
+      builder_spec->provider_ = provider;
       builder_spec->underlying_spec_ = std::move(unbound_resource_spec);
       builder_spec->key_ = provider->id_;
 
