@@ -17,12 +17,12 @@
 #include <string>
 #include <vector>
 
+#include <lzma.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/cord_test_helpers.h"
-#include <lzma.h>
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
