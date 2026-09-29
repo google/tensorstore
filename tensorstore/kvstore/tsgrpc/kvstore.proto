@@ -142,7 +142,7 @@ message WriteResponse {
 ///   kvstore::WriteOptions
 message DeleteRequest {
   // The key to delete.
-  bytes key = 1;
+  optional bytes key = 1;
   KeyRange range = 2;
 
   /// The delete is aborted if the existing generation associated with the

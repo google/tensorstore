@@ -38,7 +38,7 @@ message ByteRange {
 
   /// Specifies the exclusive ending byte offset.  If `-1`, the full byte range
   /// starting at `inclusive_min` is retrieved.
-  int64 exclusive_max = 2;
+  optional int64 exclusive_max = 2;
 }
 
 message StatusMessage {

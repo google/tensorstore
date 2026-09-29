@@ -24,6 +24,10 @@
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
+#include "grpcpp/client_context.h"  // third_party
+#include "grpcpp/create_channel.h"  // third_party
+#include "grpcpp/security/credentials.h"  // third_party
+#include "grpcpp/support/sync_stream.h"  // third_party
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
@@ -34,6 +38,8 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.grpc.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.pb.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -256,6 +262,44 @@ TEST_F(KvStoreTest, MultiPartReadWrite) {
   EXPECT_EQ(value, result.value);
   EXPECT_THAT(result.stamp, MatchesTimestampedStorageGeneration(
                                 generation.generation, testing::Ge(now)));
+}
+
+TEST_F(KvStoreTest, DeleteEmptyKeyAndUnsetByteRangeExclusiveMax) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::kvstore::Open(
+          {{"driver", "tsgrpc_kvstore"}, {"address", address()}}, context)
+          .result());
+
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "", absl::Cord("empty_key_val")));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_empty,
+                                   kvstore::Read(store, "").result());
+  EXPECT_EQ("empty_key_val", read_empty.value);
+
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, ""));
+  EXPECT_THAT(kvstore::Read(store, "").result(),
+              MatchesKvsReadResultNotFound());
+
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(store, "suffix_test", absl::Cord("0123456789")));
+
+  auto channel =
+      grpc::CreateChannel(address(), grpc::InsecureChannelCredentials());
+  auto stub =
+      tensorstore_grpc::kvstore::grpc_gen::KvStoreService::NewStub(channel);
+  grpc::ClientContext client_context;
+  tensorstore_grpc::kvstore::ReadRequest req;
+  req.set_key("suffix_test");
+  req.mutable_byte_range()->set_inclusive_min(4);
+  auto reader = stub->Read(&client_context, req);
+  tensorstore_grpc::kvstore::ReadResponse resp;
+  std::string value;
+  while (reader->Read(&resp)) {
+    value.append(std::string(resp.value_part()));
+  }
+  EXPECT_TRUE(reader->Finish().ok());
+  EXPECT_EQ("456789", value);
 }
 
 }  // namespace

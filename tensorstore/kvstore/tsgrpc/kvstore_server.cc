@@ -138,7 +138,9 @@ class ReadHandler final
       options.byte_range.inclusive_min =
           request()->byte_range().inclusive_min();
       options.byte_range.exclusive_max =
-          request()->byte_range().exclusive_max();
+          request()->byte_range().has_exclusive_max()
+              ? request()->byte_range().exclusive_max()
+              : -1;
       if (!options.byte_range.SatisfiesInvariants()) {
         Finish(absl::InvalidArgumentError("Invalid byte range"));
         return;
@@ -311,7 +313,7 @@ class DeleteHandler final : public Handler<DeleteRequest, DeleteResponse> {
                         kvstore_, KeyRange(request()->range().inclusive_min(),
                                            request()->range().exclusive_max())))
                     .future;
-    } else if (!request()->key().empty()) {
+    } else if (request()->has_key()) {
       kvstore::WriteOptions options{};
       options.generation_conditions.if_equal.value =
           request()->generation_if_equal();
