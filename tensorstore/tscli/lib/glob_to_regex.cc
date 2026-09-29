@@ -23,6 +23,17 @@
 
 namespace tensorstore {
 namespace cli {
+namespace {
+
+void AppendBracketChar(std::string* out, char c) {
+  if (c == '\\') {
+    absl::StrAppend(out, "\\\\");
+  } else {
+    out->push_back(c);
+  }
+}
+
+}  // namespace
 
 std::string GlobToRegex(std::string_view glob) {
   std::string re;
@@ -56,23 +67,25 @@ std::string GlobToRegex(std::string_view glob) {
           absl::StrAppend(&re, "\\[");
           break;
         }
-        re.push_back('[');
         bool is_exclude = false;
         if (glob[0] == '!' || glob[0] == '^') {
           is_exclude = true;
-          re.push_back('^');
-          re.push_back('/');
+          glob.remove_prefix(1);
+        }
+        std::string bracket_body;
+        if (glob[0] == ']' && glob.find(']', 1) != std::string_view::npos) {
+          absl::StrAppend(&bracket_body, "\\]");
           glob.remove_prefix(1);
         }
         // Copy the characters.
         while (glob[0] != ']') {
           if (glob[0] == '[' && glob[1] == ':') {
             // Escape '[' to avoid character classes.
-            absl::StrAppend(&re, "\\[");
+            absl::StrAppend(&bracket_body, "\\[");
             glob.remove_prefix(1);
           } else if (glob[1] != '-' || glob[2] == ']') {
             // Not a range, so copy the character unless it is '/'.
-            if (glob[0] != '/') re.push_back(glob[0]);
+            if (glob[0] != '/') AppendBracketChar(&bracket_body, glob[0]);
             glob.remove_prefix(1);
           } else if (!is_exclude && glob[0] <= '/' && '/' <= glob[2]) {
             // Make sure that the included range does not contain '/'.
@@ -80,26 +93,34 @@ std::string GlobToRegex(std::string_view glob) {
             // NOTE: "/-/" is dropped entirely, which it should,
             // because by definition there is no matching pathname.
             if (glob[0] < '/') {
-              re.push_back(glob[0]);
-              re.push_back('-');
-              re.push_back('/' - 1);
+              AppendBracketChar(&bracket_body, glob[0]);
+              bracket_body.push_back('-');
+              AppendBracketChar(&bracket_body, '/' - 1);
             }
             if ('/' < glob[2]) {
-              re.push_back('/' + 1);
-              re.push_back('-');
-              re.push_back(glob[2]);
+              AppendBracketChar(&bracket_body, '/' + 1);
+              bracket_body.push_back('-');
+              AppendBracketChar(&bracket_body, glob[2]);
             }
             glob.remove_prefix(3);
           } else {
             // Range will not match '/', so copy it blindly
-            re.push_back(glob[0]);
-            re.push_back('-');
-            re.push_back(glob[2]);
+            AppendBracketChar(&bracket_body, glob[0]);
+            bracket_body.push_back('-');
+            AppendBracketChar(&bracket_body, glob[2]);
             glob.remove_prefix(3);
           }
         }
-        re.push_back(']');
         glob.remove_prefix(1);
+        if (is_exclude) {
+          absl::StrAppend(&re, "[^/", bracket_body, "]");
+        } else if (bracket_body.empty()) {
+          absl::StrAppend(&re, "[^\\x00-\\xff]");
+        } else if (bracket_body[0] == '^') {
+          absl::StrAppend(&re, "[\\", bracket_body, "]");
+        } else {
+          absl::StrAppend(&re, "[", bracket_body, "]");
+        }
         break;
       }
       case '{':
@@ -125,7 +146,8 @@ std::string GlobToRegex(std::string_view glob) {
         if (glob.empty()) {
           re.push_back('\\');
           re.push_back('\\');
-        } else if (!absl::ascii_isalnum(glob[0])) {
+        } else if (absl::ascii_isascii(static_cast<unsigned char>(glob[0])) &&
+                   !absl::ascii_isalnum(static_cast<unsigned char>(glob[0]))) {
           re.push_back('\\');
           re.push_back(glob[0]);
           glob.remove_prefix(1);

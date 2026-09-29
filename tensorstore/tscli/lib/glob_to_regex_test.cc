@@ -48,4 +48,13 @@ TEST(GlobToRegex, Basic) {
             "^.*/\\{[^/]*\\.html,[^/]*\\.txt\\}$");
 }
 
+TEST(GlobToRegex, SlashBeforeCaretOrOnlySlashInBracket) {
+  EXPECT_EQ(GlobToRegex("[/^a]"), "^[\\^a]$");
+  EXPECT_EQ(GlobToRegex("[/]"), "^[^\\x00-\\xff]$");
+  EXPECT_EQ(GlobToRegex("[/-/]"), "^[^\\x00-\\xff]$");
+  EXPECT_EQ(GlobToRegex("[a\\b]"), "^[a\\\\b]$");
+  EXPECT_EQ(GlobToRegex("[a\\]"), "^[a\\\\]$");
+  EXPECT_EQ(GlobToRegex("\\é"), "^é$");
+}
+
 }  // namespace
