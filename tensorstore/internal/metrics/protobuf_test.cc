@@ -339,6 +339,24 @@ TEST(ProtobufTest, FromRegistry) {
               )pb")));
 }
 
+TEST(ProtobufTest, SortProtoCollectionDeterministicTieBreak) {
+  tensorstore::metrics_proto::MetricCollection c1;
+  {
+    auto* m = c1.add_metric();
+    m->set_metric_name("/test/dup");
+    auto* i1 = m->add_instance();
+    i1->add_field("same");
+    i1->mutable_int_value()->set_value(20);
+    auto* i2 = m->add_instance();
+    i2->add_field("same");
+    i2->mutable_int_value()->set_value(10);
+  }
+  tensorstore::internal_metrics::SortProtoCollection(c1);
+  ASSERT_EQ(2, c1.metric(0).instance_size());
+  EXPECT_EQ(10, c1.metric(0).instance(0).int_value().value());
+  EXPECT_EQ(20, c1.metric(0).instance(1).int_value().value());
+}
+
 }  // namespace
 
 #endif  // !defined(TENSORSTORE_METRICS_DISABLED)

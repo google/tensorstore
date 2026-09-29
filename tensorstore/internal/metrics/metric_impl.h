@@ -20,6 +20,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <string>
@@ -27,6 +28,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "absl/base/dynamic_annotations.h"
 #include "absl/base/optimization.h"
@@ -368,8 +370,17 @@ class AbstractMetric {
     State* state = state_.load(std::memory_order_acquire);
     if (!state) return;
     absl::MutexLock l(&state->mu);
-    for (auto& kv : state->map) {
-      on_cell(kv.second, kv.first.data());
+    std::vector<const typename absl::node_hash_map<Key, Cell>::value_type*>
+        entries;
+    entries.reserve(state->map.size());
+    for (const auto& kv : state->map) {
+      entries.push_back(&kv);
+    }
+    std::sort(entries.begin(), entries.end(), [](const auto* a, const auto* b) {
+      return a->first.data() < b->first.data();
+    });
+    for (const auto* kv : entries) {
+      on_cell(kv->second, kv->first.data());
     }
   }
 

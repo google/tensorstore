@@ -14,10 +14,12 @@
 
 #include "tensorstore/internal/metrics/registry.h"
 
+#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -76,6 +78,19 @@ std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
   for (auto& hook : hooks) {
     hook(prefix, all);
   }
+  for (auto& metric : all) {
+    std::stable_sort(
+        metric.values.begin(), metric.values.end(),
+        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+    std::stable_sort(
+        metric.histograms.begin(), metric.histograms.end(),
+        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+  }
+  std::stable_sort(all.begin(), all.end(),
+                   [](const CollectedMetric& a, const CollectedMetric& b) {
+                     return std::tie(a.metric_name, a.tag, a.field_names) <
+                            std::tie(b.metric_name, b.tag, b.field_names);
+                   });
 
   return all;
 }
@@ -92,6 +107,12 @@ std::optional<CollectedMetric> MetricRegistry::Collect(std::string_view name) {
     result.field_names.push_back(field_name);
   }
   if (it->poly(CollectMetricTag{}, result)) {
+    std::stable_sort(
+        result.values.begin(), result.values.end(),
+        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+    std::stable_sort(
+        result.histograms.begin(), result.histograms.end(),
+        [](const auto& a, const auto& b) { return a.fields < b.fields; });
     return result;
   }
   return std::nullopt;

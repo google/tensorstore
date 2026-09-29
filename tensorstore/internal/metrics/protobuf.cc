@@ -16,7 +16,9 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <string>
+#include <tuple>
 #include <variant>
 
 #include "absl/log/absl_log.h"
@@ -125,16 +127,17 @@ void CollectedMetricToProtoCollection(span<const CollectedMetric> metrics,
 
 /// Sorts the underlying MetricCollection.
 void SortProtoCollection(metrics_proto::MetricCollection& proto) {
-  std::sort(
+  std::stable_sort(
       proto.mutable_metric()->pointer_begin(),
       proto.mutable_metric()->pointer_end(),
       [](const metrics_proto::Metric* p1, const metrics_proto::Metric* p2) {
-        return p1->metric_name() < p2->metric_name();
+        return std::forward_as_tuple(p1->metric_name(), p1->tag()) <
+               std::forward_as_tuple(p2->metric_name(), p2->tag());
       });
 
   for (int i = 0; i < proto.metric_size(); i++) {
     auto& metric = *proto.mutable_metric(i);
-    std::sort(
+    std::stable_sort(
         metric.mutable_instance()->pointer_begin(),
         metric.mutable_instance()->pointer_end(),
         [](const metrics_proto::MetricInstance* p1,
@@ -145,14 +148,22 @@ void SortProtoCollection(metrics_proto::MetricCollection& proto) {
               return p1->field(i) < p2->field(i);
             }
           }
-          return std::make_tuple(p1->field_size(), p1->has_int_value(),
-                                 p1->has_double_value(), p1->has_string_value(),
-                                 p1->has_histogram(),
-                                 reinterpret_cast<uintptr_t>(p1)) <
-                 std::make_tuple(p2->field_size(), p2->has_int_value(),
-                                 p2->has_double_value(), p2->has_string_value(),
-                                 p2->has_histogram(),
-                                 reinterpret_cast<uintptr_t>(p2));
+          return std::forward_as_tuple(
+                     p1->field_size(), p1->has_int_value(),
+                     p1->int_value().value(), p1->int_value().max_value(),
+                     p1->has_double_value(), p1->double_value().value(),
+                     p1->double_value().max_value(), p1->has_string_value(),
+                     p1->string_value().value(), p1->has_histogram(),
+                     p1->histogram().count(), p1->histogram().mean(),
+                     p1->histogram().sum_of_squared_deviation()) <
+                 std::forward_as_tuple(
+                     p2->field_size(), p2->has_int_value(),
+                     p2->int_value().value(), p2->int_value().max_value(),
+                     p2->has_double_value(), p2->double_value().value(),
+                     p2->double_value().max_value(), p2->has_string_value(),
+                     p2->string_value().value(), p2->has_histogram(),
+                     p2->histogram().count(), p2->histogram().mean(),
+                     p2->histogram().sum_of_squared_deviation());
         });
   }
 }

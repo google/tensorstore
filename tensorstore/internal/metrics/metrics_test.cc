@@ -755,6 +755,80 @@ TEST(MetricTest, PerfectHashMetricImplEndToEnd) {
   }
 }
 
+TEST(MetricTest, DeterministicCollectionAndJsonOrder) {
+  static Counter<int64_t, std::string> counter_z;
+  static Counter<int64_t, std::string> counter_a;
+  static Counter<int64_t, std::string> counter_m;
+  static Counter<int64_t, std::string> counter_b;
+  static Counter<int64_t, std::string> counter_y;
+  static Counter<int64_t, std::string> counter_c;
+  static const bool registered [[maybe_unused]] = [&] {
+    GetMetricRegistry().Register(
+        &counter_z,
+        MetricMetadata("/tensorstore/det_order/z", "A metric", {"key"}));
+    GetMetricRegistry().Register(
+        &counter_a,
+        MetricMetadata("/tensorstore/det_order/a", "A metric", {"key"}));
+    GetMetricRegistry().Register(
+        &counter_m,
+        MetricMetadata("/tensorstore/det_order/m", "A metric", {"key"}));
+    GetMetricRegistry().Register(
+        &counter_b,
+        MetricMetadata("/tensorstore/det_order/b", "A metric", {"key"}));
+    GetMetricRegistry().Register(
+        &counter_y,
+        MetricMetadata("/tensorstore/det_order/y", "A metric", {"key"}));
+    GetMetricRegistry().Register(
+        &counter_c,
+        MetricMetadata("/tensorstore/det_order/c", "A metric", {"key"}));
+    return true;
+  }();
+
+  for (const char* k : {"z", "a", "m", "b", "y", "c", "x", "d"}) {
+    counter_a.Increment(k);
+  }
+
+  auto all = GetMetricRegistry().CollectWithPrefix("/tensorstore/det_order/");
+  ASSERT_EQ(6, all.size());
+  EXPECT_THAT(
+      all, ::testing::ElementsAre(
+               ::testing::Field(
+                   &tensorstore::internal_metrics::CollectedMetric::metric_name,
+                   "/tensorstore/det_order/a"),
+               ::testing::Field(
+                   &tensorstore::internal_metrics::CollectedMetric::metric_name,
+                   "/tensorstore/det_order/b"),
+               ::testing::Field(
+                   &tensorstore::internal_metrics::CollectedMetric::metric_name,
+                   "/tensorstore/det_order/c"),
+               ::testing::Field(
+                   &tensorstore::internal_metrics::CollectedMetric::metric_name,
+                   "/tensorstore/det_order/m"),
+               ::testing::Field(
+                   &tensorstore::internal_metrics::CollectedMetric::metric_name,
+                   "/tensorstore/det_order/y"),
+               ::testing::Field(
+                   &tensorstore::internal_metrics::CollectedMetric::metric_name,
+                   "/tensorstore/det_order/z")));
+
+  ASSERT_EQ(8, all[0].values.size());
+  std::vector<std::string> collected_keys;
+  for (const auto& v : all[0].values) {
+    ASSERT_EQ(1, v.fields.size());
+    collected_keys.push_back(v.fields[0]);
+  }
+  EXPECT_THAT(collected_keys,
+              ::testing::ElementsAre("a", "b", "c", "d", "m", "x", "y", "z"));
+
+  auto json = tensorstore::internal_metrics::CollectedMetricToJson(all[0]);
+  std::vector<std::string> json_keys;
+  for (const auto& item : json["values"]) {
+    json_keys.push_back(item["key"].get<std::string>());
+  }
+  EXPECT_THAT(json_keys,
+              ::testing::ElementsAre("a", "b", "c", "d", "m", "x", "y", "z"));
+}
+
 }  // namespace
 
 #endif  // !defined(TENSORSTORE_METRICS_DISABLED)
