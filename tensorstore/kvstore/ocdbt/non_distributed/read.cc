@@ -294,6 +294,8 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     auto& indirect_ref =
         std::get<IndirectDataReference>(entry->value_reference);
     kvstore::ReadOptions read_options;
+    // Indirect data is immutable once written, so any cached data may be used.
+    read_options.staleness_bound = absl::InfinitePast();
     read_options.byte_range = op->byte_range;
     op->generation = std::move(generation);
     auto read_future =
