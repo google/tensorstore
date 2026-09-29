@@ -205,20 +205,16 @@ ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials) {
   auto creds_token = jb::FromJson<GoogleServiceAccountCredentials>(
       credentials, GoogleServiceAccountCredentialsBinder);
   if (!creds_token.ok()) {
-    return absl::InvalidArgumentError(absl::StrFormat(
-        "Invalid GoogleServiceAccountCredentials: %v", creds_token.status()));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid GoogleServiceAccountCredentials: %s",
+                        creds_token.status().message()));
   }
   return creds_token;
 }
 
 Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
     std::string_view source) {
-  auto credentials = internal::ParseJson(source);
-  if (credentials.is_discarded()) {
-    return absl::InvalidArgumentError(
-        absl::StrFormat("Invalid GoogleServiceAccountCredentials: %s", source));
-  }
-  return ParseGoogleServiceAccountCredentialsImpl(credentials);
+  return ParseGoogleServiceAccountCredentialsImpl(internal::ParseJson(source));
 }
 
 constexpr static auto RefreshTokenBinder = jb::Object(
@@ -238,19 +234,14 @@ Result<RefreshToken> ParseRefreshTokenImpl(
   auto refresh_token =
       jb::FromJson<RefreshToken>(credentials, RefreshTokenBinder);
   if (!refresh_token.ok()) {
-    return absl::UnauthenticatedError(
-        absl::StrFormat("Invalid RefreshToken: %s", credentials.dump()));
+    return absl::UnauthenticatedError(absl::StrFormat(
+        "Invalid RefreshToken: %s", refresh_token.status().message()));
   }
   return refresh_token;
 }
 
 Result<RefreshToken> ParseRefreshToken(std::string_view source) {
-  auto credentials = internal::ParseJson(source);
-  if (credentials.is_discarded()) {
-    return absl::UnauthenticatedError(
-        absl::StrFormat("Invalid RefreshToken: %s", source));
-  }
-  return ParseRefreshTokenImpl(credentials);
+  return ParseRefreshTokenImpl(internal::ParseJson(source));
 }
 
 constexpr static auto OAuthResponseBinder = jb::Object(
@@ -270,18 +261,14 @@ Result<OAuthResponse> ParseOAuthResponseImpl(
   auto response_token =
       jb::FromJson<OAuthResponse>(credentials, OAuthResponseBinder);
   if (!response_token.ok()) {
-    return absl::UnauthenticatedError(
-        absl::StrFormat("Invalid OAuthResponse: %s", credentials.dump()));
+    return absl::UnauthenticatedError(absl::StrFormat(
+        "Invalid OAuthResponse: %s", response_token.status().message()));
   }
   return response_token;
 }
 
 Result<OAuthResponse> ParseOAuthResponse(std::string_view source) {
   auto credentials = internal::ParseJson(source);
-  if (credentials.is_discarded()) {
-    return absl::UnauthenticatedError(
-        absl::StrFormat("Invalid OAuthResponse: %s", source));
-  }
   return ParseOAuthResponseImpl(credentials);
 }
 

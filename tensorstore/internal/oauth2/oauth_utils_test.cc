@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 #include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/oauth2/fake_private_key.h"
@@ -366,6 +367,36 @@ TEST(OAuthUtilTest, BuildJWTRequestBody) {
       "0Pnt4XMqwslx2vBbFQB7_K8Dnz10F1TA5njOvwFRWNjKM1I0cRZ5N3O1CnGv1wyAz-"
       "FIcKdk5_7Q",
       *result);
+}
+
+TEST(OAuthUtilTest, ErrorStatusDoesNotContainSecretMaterial) {
+  using ::testing::HasSubstr;
+  using ::testing::Not;
+  EXPECT_THAT(
+      ParseGoogleServiceAccountCredentials(R"({"private_key": "SECRET_KEY", )")
+          .status()
+          .message(),
+      Not(HasSubstr("SECRET_KEY")));
+  EXPECT_THAT(
+      ParseRefreshToken(
+          R"({"client_secret": "SECRET_CS", "refresh_token": "SECRET_RT"})")
+          .status()
+          .message(),
+      Not(HasSubstr("SECRET")));
+  EXPECT_THAT(ParseRefreshToken(R"({"refresh_token": "SECRET_RT", )")
+                  .status()
+                  .message(),
+              Not(HasSubstr("SECRET_RT")));
+  EXPECT_THAT(
+      ParseOAuthResponse(
+          R"({"token_type": "Bearer", "access_token": "SECRET_AT", "expires_in": "bad"})")
+          .status()
+          .message(),
+      Not(HasSubstr("SECRET_AT")));
+  EXPECT_THAT(ParseOAuthResponse(R"({"access_token": "SECRET_AT", )")
+                  .status()
+                  .message(),
+              Not(HasSubstr("SECRET_AT")));
 }
 
 }  // namespace
