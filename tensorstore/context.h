@@ -262,9 +262,12 @@ class Context {
   ///
   /// The actual resources are created lazily as needed.
   ///
+  /// If `spec` is default-constructed and `parent` is non-null, returns
+  /// `parent` directly without creating a new child context.
+  ///
   /// \param spec The context spec.
   /// \param parent The parent context to extend.  Specifying a null context is
-  ///     equivalent to specifying `Default()`.
+  ///     equivalent to specifying `Default()`, except that `parent()` is null.
   /// \id spec, parent
   explicit Context(const Spec& spec, Context parent = {});
 
@@ -272,7 +275,7 @@ class Context {
   ///
   /// \param json_spec The JSON spec.
   /// \param parent The parent context to extend.  Specifying a null context is
-  ///     equivalent to specifying `Default()`.
+  ///     equivalent to specifying `Default()`, except that `parent()` is null.
   /// \param options Options for parsing `json_spec`.
   static Result<Context> FromJson(::nlohmann::json json_spec,
                                   Context parent = {},

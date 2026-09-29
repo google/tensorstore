@@ -991,6 +991,12 @@ TEST(ContextTest, ConcurrentCreateInParent) {
       });
 }
 
+TEST(ContextTest, DefaultSpecWithParent) {
+  Context parent = Context::Default();
+  Context child(Context::Spec{}, parent);
+  EXPECT_EQ(parent, child);
+}
+
 TEST(ContextTest, AllContextResources) {
   auto all_binder = jb::Object(jb::DefaultBinder<>);
   EXPECT_THAT(jb::FromJson<AllContextResources>(
