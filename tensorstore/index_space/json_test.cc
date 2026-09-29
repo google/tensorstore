@@ -753,6 +753,18 @@ TEST(ParseIndexTransformTest, DuplicateLabels) {
                          "Dimension label")));
 }
 
+TEST(IndexTransformJsonTest, OutputRankExceedsMaxRank) {
+  ::nlohmann::json j = {
+      {"input_rank", 0},
+      {"output", ::nlohmann::json::array_t(33, ::nlohmann::json::object())},
+  };
+  EXPECT_THAT(
+      tensorstore::ParseIndexTransform(j),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Error parsing object member \"output\": Rank 33 is "
+                         "outside valid range [0, 32]")));
+}
+
 TEST(IndexDomainJsonBinderTest, Simple) {
   tensorstore::TestJsonBinderRoundTrip<tensorstore::IndexDomain<>>({
       {tensorstore::IndexDomainBuilder<4>()

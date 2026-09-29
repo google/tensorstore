@@ -343,9 +343,10 @@ constexpr auto IndexTransformOutputParser(
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json::object_t* j) -> absl::Status {
     return jb::Sequence(
-        jb::Member("output", jb::Projection(&TransformParserData::output,
-                                            jb::Optional(jb::Array(
-                                                TransformParserOutputBinder)))),
+        jb::Member("output",
+                   jb::Projection(&TransformParserData::output,
+                                  jb::Optional(jb::DimensionIndexedVector(
+                                      nullptr, TransformParserOutputBinder)))),
         jb::Initialize([=](auto* obj) {
           // output rank was constrained,
           if (obj->output) {
