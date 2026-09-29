@@ -5818,26 +5818,22 @@ class KvStore:
             >>> store = await ts.KvStore.open({'driver': 'file', 'path': 'tmp/data'})
             >>> store + '/abc'
             KvStore({
-              'context': {
-                'file_io_concurrency': {},
-                'file_io_locking': {},
-                'file_io_mode': {},
-                'file_io_retries': {},
-                'file_io_sync': True,
-              },
+              'context': {'file_io_concurrency': {}},
               'driver': 'file',
+              'file_io_locking': {},
+              'file_io_mode': {},
+              'file_io_retries': {},
+              'file_io_sync': True,
               'path': 'tmp/data/abc',
             })
             >>> store + 'abc'
             KvStore({
-              'context': {
-                'file_io_concurrency': {},
-                'file_io_locking': {},
-                'file_io_mode': {},
-                'file_io_retries': {},
-                'file_io_sync': True,
-              },
+              'context': {'file_io_concurrency': {}},
               'driver': 'file',
+              'file_io_locking': {},
+              'file_io_mode': {},
+              'file_io_retries': {},
+              'file_io_sync': True,
               'path': 'tmp/dataabc',
             })
 
@@ -5991,14 +5987,12 @@ class KvStore:
             ... })
             >>> kvstore
             KvStore({
-              'context': {
-                'file_io_concurrency': {},
-                'file_io_locking': {},
-                'file_io_mode': {},
-                'file_io_retries': {},
-                'file_io_sync': True,
-              },
+              'context': {'file_io_concurrency': {}},
               'driver': 'file',
+              'file_io_locking': {},
+              'file_io_mode': {},
+              'file_io_retries': {},
+              'file_io_sync': True,
               'path': 'tmp/data/',
             })
         """
@@ -6067,26 +6061,22 @@ class KvStore:
             >>> store = await ts.KvStore.open({'driver': 'file', 'path': 'tmp/data'})
             >>> store / 'abc'
             KvStore({
-              'context': {
-                'file_io_concurrency': {},
-                'file_io_locking': {},
-                'file_io_mode': {},
-                'file_io_retries': {},
-                'file_io_sync': True,
-              },
+              'context': {'file_io_concurrency': {}},
               'driver': 'file',
+              'file_io_locking': {},
+              'file_io_mode': {},
+              'file_io_retries': {},
+              'file_io_sync': True,
               'path': 'tmp/data/abc',
             })
             >>> store / '/abc'
             KvStore({
-              'context': {
-                'file_io_concurrency': {},
-                'file_io_locking': {},
-                'file_io_mode': {},
-                'file_io_retries': {},
-                'file_io_sync': True,
-              },
+              'context': {'file_io_concurrency': {}},
               'driver': 'file',
+              'file_io_locking': {},
+              'file_io_mode': {},
+              'file_io_retries': {},
+              'file_io_sync': True,
               'path': 'tmp/data/abc',
             })
 
@@ -6105,26 +6095,22 @@ class KvStore:
           >>> a.path = 'tmp/data/abc/'
           >>> a
           KvStore({
-            'context': {
-              'file_io_concurrency': {},
-              'file_io_locking': {},
-              'file_io_mode': {},
-              'file_io_retries': {},
-              'file_io_sync': True,
-            },
+            'context': {'file_io_concurrency': {}},
             'driver': 'file',
+            'file_io_locking': {},
+            'file_io_mode': {},
+            'file_io_retries': {},
+            'file_io_sync': True,
             'path': 'tmp/data/abc/',
           })
           >>> b
           KvStore({
-            'context': {
-              'file_io_concurrency': {},
-              'file_io_locking': {},
-              'file_io_mode': {},
-              'file_io_retries': {},
-              'file_io_sync': True,
-            },
+            'context': {'file_io_concurrency': {}},
             'driver': 'file',
+            'file_io_locking': {},
+            'file_io_mode': {},
+            'file_io_retries': {},
+            'file_io_sync': True,
             'path': 'tmp/data/',
           })
 
@@ -13052,14 +13038,14 @@ def open(
             'cache_pool': {},
             'data_copy_concurrency': {},
             'gcs_request_concurrency': {},
-            'gcs_request_retries': {},
-            'gcs_user_project': {},
           },
           'driver': 'neuroglancer_precomputed',
           'dtype': 'uint64',
           'kvstore': {
             'bucket': 'neuroglancer-janelia-flyem-hemibrain',
             'driver': 'gcs',
+            'gcs_request_retries': {},
+            'gcs_user_project': {},
             'path': 'v1.2/segmentation/',
           },
           'multiscale_metadata': {'num_channels': 1, 'type': 'segmentation'},

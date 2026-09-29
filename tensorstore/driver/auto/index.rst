@@ -66,15 +66,15 @@ A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
       'cache_pool': {},
       'data_copy_concurrency': {},
       'file_io_concurrency': {},
-      'file_io_locking': {},
-      'file_io_mode': {},
-      'file_io_retries': {},
-      'file_io_sync': True,
     },
     'driver': 'zarr3',
     'dtype': 'int32',
     'kvstore': {
       'driver': 'file',
+      'file_io_locking': {},
+      'file_io_mode': {},
+      'file_io_retries': {},
+      'file_io_sync': True,
       'path': '/tmp/dataset.zarr/',
     },
     'metadata': {
@@ -96,15 +96,15 @@ A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
       'cache_pool': {},
       'data_copy_concurrency': {},
       'file_io_concurrency': {},
-      'file_io_locking': {},
-      'file_io_mode': {},
-      'file_io_retries': {},
-      'file_io_sync': True,
     },
     'driver': 'zarr3',
     'dtype': 'int32',
     'kvstore': {
       'driver': 'file',
+      'file_io_locking': {},
+      'file_io_mode': {},
+      'file_io_retries': {},
+      'file_io_sync': True,
       'path': '/tmp/dataset.zarr/',
     },
     'metadata': {
@@ -177,6 +177,10 @@ used in conjunction with format auto-detection:
       'dtype': 'int32',
       'kvstore': {
         'driver': 'file',
+        'file_io_locking': {},
+        'file_io_mode': {},
+        'file_io_retries': {},
+        'file_io_sync': True,
         'path': '/tmp/dataset.zarr/',
       },
       'metadata': {
@@ -197,10 +201,6 @@ used in conjunction with format auto-detection:
       'cache_pool': {},
       'data_copy_concurrency': {},
       'file_io_concurrency': {},
-      'file_io_locking': {},
-      'file_io_mode': {},
-      'file_io_retries': {},
-      'file_io_sync': True,
     },
     'driver': 'cast',
     'dtype': 'int64',
@@ -225,10 +225,6 @@ from the path to the OCDBT database.
       'cache_pool': {},
       'data_copy_concurrency': {},
       'file_io_concurrency': {},
-      'file_io_locking': {},
-      'file_io_mode': {},
-      'file_io_retries': {},
-      'file_io_sync': True,
       'ocdbt_coordinator': {},
     },
     'driver': 'zarr3',
@@ -236,6 +232,10 @@ from the path to the OCDBT database.
     'kvstore': {
       'base': {
         'driver': 'file',
+        'file_io_locking': {},
+        'file_io_mode': {},
+        'file_io_retries': {},
+        'file_io_sync': True,
         'path': '/tmp/dataset.ocdbt/',
       },
       'config': {
@@ -266,10 +266,6 @@ from the path to the OCDBT database.
       'cache_pool': {},
       'data_copy_concurrency': {},
       'file_io_concurrency': {},
-      'file_io_locking': {},
-      'file_io_mode': {},
-      'file_io_retries': {},
-      'file_io_sync': True,
       'ocdbt_coordinator': {},
     },
     'driver': 'zarr3',
@@ -277,6 +273,10 @@ from the path to the OCDBT database.
     'kvstore': {
       'base': {
         'driver': 'file',
+        'file_io_locking': {},
+        'file_io_mode': {},
+        'file_io_retries': {},
+        'file_io_sync': True,
         'path': '/tmp/dataset.ocdbt/',
       },
       'config': {
@@ -315,10 +315,6 @@ of the OCDBT database:
       'cache_pool': {},
       'data_copy_concurrency': {},
       'file_io_concurrency': {},
-      'file_io_locking': {},
-      'file_io_mode': {},
-      'file_io_retries': {},
-      'file_io_sync': True,
       'ocdbt_coordinator': {},
     },
     'driver': 'zarr3',
@@ -326,6 +322,10 @@ of the OCDBT database:
     'kvstore': {
       'base': {
         'driver': 'file',
+        'file_io_locking': {},
+        'file_io_mode': {},
+        'file_io_retries': {},
+        'file_io_sync': True,
         'path': '/tmp/dataset2.ocdbt/',
       },
       'config': {

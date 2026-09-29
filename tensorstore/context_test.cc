@@ -1033,8 +1033,16 @@ TEST(ContextTest, AllContextResources) {
 
 template <int I>
 struct DepResource : public NestedResource {
+  using Provider = DepResource;
   static constexpr char id[] = {'d', 'e', 'p', '_', 'r', 'e',     's', 'o',
                                 'u', 'r', 'c', 'e', '_', '0' + I, 0};
+  static Result<Resource> Create(const Spec& spec,
+                                 ContextResourceCreationContext context) {
+    if (!spec.parent.valid()) {
+      return absl::InvalidArgumentError("not specified");
+    }
+    return NestedResource::Create(spec, context);
+  }
   static Spec GetSpec(const Resource& resource,
                       const ContextSpecBuilder& builder) {
     if (resource.parent.valid()) builder.AddResource(resource.parent);
