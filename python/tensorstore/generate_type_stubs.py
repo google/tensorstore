@@ -300,7 +300,7 @@ def transform_init_ast(
   if module_doc_comment_node is not None:
     new_body.insert(0, module_doc_comment_node)
 
-  init_pyi_tree.body = new_body
+  init_pyi_tree.body = new_body  # pyrefly: ignore[bad-assignment]
 
   # Some annotations include `tensorstore.` prefix, which is incorrect.
   init_pyi_tree = _strip_module_prefix(init_pyi_tree, "tensorstore")  # pyrefly: ignore[bad-assignment]
