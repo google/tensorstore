@@ -204,6 +204,8 @@ tensorstore_cc_test(
     srcs = ["kvstore_server_test.cc"],
     tags = ["cpu:2"],
     deps = [
+        ":kvstore_cc_grpc",
+        ":kvstore_cc_proto",
         ":kvstore_server",
         ":tsgrpc",
         "//tensorstore:context",

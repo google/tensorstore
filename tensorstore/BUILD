@@ -22,6 +22,7 @@ tensorstore_cc_library(
         ":contiguous_layout",
         ":data_type",
         ":index",
+        ":index_interval",
         ":rank",
         ":static_cast",
         ":strided_layout",

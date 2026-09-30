@@ -868,19 +868,7 @@ class RefreshStallingAuthProvider
 
 TEST(GcsKeyValueStoreTest,
      GetAuthHeaderDoesNotHoldStoreMutexAcrossTokenRefresh) {
-  static RefreshStallingAuthProvider::SharedState* active_state = []() {
-    static RefreshStallingAuthProvider::SharedState* ptr = nullptr;
-    tensorstore::internal_oauth2::RegisterGoogleAuthProvider(
-        []() -> Result<
-                 std::unique_ptr<tensorstore::internal_oauth2::AuthProvider>> {
-          if (ptr) return std::make_unique<RefreshStallingAuthProvider>(ptr);
-          return absl::NotFoundError("Inactive test auth provider");
-        },
-        -1000);
-    return nullptr;
-  }();
   RefreshStallingAuthProvider::SharedState state;
-  // Set active_state via static pointer in lambda
   struct StateRegistration {
     static RefreshStallingAuthProvider::SharedState*& slot() {
       static RefreshStallingAuthProvider::SharedState* s = []() {
@@ -902,11 +890,11 @@ TEST(GcsKeyValueStoreTest,
     }
     ~StateRegistration() { slot() = nullptr; }
   } reg(&state);
-  (void)active_state;
 
   auto mock_transport = std::make_shared<MyMockTransport>();
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
   GCSMockStorageBucket bucket("my-bucket");
+  bucket.SetErrorRate(0.0);
   mock_transport->buckets_.push_back(&bucket);
 
   auto context = DefaultTestContext();

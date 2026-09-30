@@ -148,6 +148,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
         "@tinyxml2",

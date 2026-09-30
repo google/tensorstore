@@ -2069,4 +2069,48 @@ TEST(ArraySerializationTest, CorruptedShapeConstraint) {
                        HasSubstr("Invalid negative size -5 for dimension 0")));
 }
 
+TEST(ArraySerializationTest, RejectsInvalidShapeAndOrigin) {
+  int8_t data = 42;
+  std::shared_ptr<int8_t> ptr(std::shared_ptr<void>(), &data);
+
+  // Case B: zero_origin with shape[0] = kInfSize and zero_byte_strides = 1.
+  {
+    SharedArray<int8_t> invalid_zero_origin(ptr,
+                                            StridedLayout<>({kInfSize}, {0}));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
+                                     EncodeBatch(invalid_zero_origin));
+    SharedArray<int8_t> decoded;
+    EXPECT_THAT(DecodeBatch(encoded, decoded),
+                StatusIs(absl::StatusCode::kDataLoss));
+  }
+
+  // Case C: offset_origin with origin[0] = kMaxFiniteIndex and shape[0] = 10.
+  {
+    tensorstore::SharedOffsetArray<int8_t> invalid_offset_origin(
+        ptr, StridedLayout<dynamic_rank, offset_origin>(
+                 {tensorstore::kMaxFiniteIndex}, {10}, {0}));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
+                                     EncodeBatch(invalid_offset_origin));
+    tensorstore::SharedOffsetArray<int8_t> decoded;
+    EXPECT_THAT(DecodeBatch(encoded, decoded),
+                StatusIs(absl::StatusCode::kDataLoss));
+  }
+
+  // Case A: zero_origin with shape[0] = kInfSize and zero_byte_strides = 0.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_buffer,
+                                     EncodeBatch(MakeArray<int8_t>({42})));
+    auto pos = base_buffer.find("int8");
+    ASSERT_NE(pos, std::string::npos);
+    const Index inf_size = kInfSize;
+    std::string corrupt_buffer = base_buffer;
+    corrupt_buffer.replace(pos + 5, sizeof(inf_size),
+                           reinterpret_cast<const char*>(&inf_size),
+                           sizeof(inf_size));
+    SharedArray<int8_t> decoded;
+    EXPECT_THAT(DecodeBatch(corrupt_buffer, decoded),
+                StatusIs(absl::StatusCode::kDataLoss));
+  }
+}
+
 }  // namespace
