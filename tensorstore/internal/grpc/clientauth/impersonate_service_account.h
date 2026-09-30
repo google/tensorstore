@@ -20,6 +20,7 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
@@ -82,8 +83,8 @@ class GrpcImpersonateServiceAccount
 
   std::shared_ptr<AccessTokenCache> cache_;
   mutable absl::Mutex mu_;
-  std::string access_token_;
-  std::shared_ptr<grpc::CallCredentials> credentials_;
+  std::string access_token_ ABSL_GUARDED_BY(mu_);
+  std::shared_ptr<grpc::CallCredentials> credentials_ ABSL_GUARDED_BY(mu_);
   grpc::SslCredentialsOptions ssl_options_;
 };
 

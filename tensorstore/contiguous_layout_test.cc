@@ -71,14 +71,14 @@ TEST(ComputeStridesTest, FOrder) {
 TEST(ComputeStridesFromLayoutPermutationTest, Basic) {
   {
     std::array<Index, 3> strides;
-    ComputeStrides(ContiguousLayoutPermutation<>({{2, 0, 1}}),
+    ComputeStrides(ContiguousLayoutPermutation<>({2, 0, 1}),
                    /*element_stride=*/1,
                    tensorstore::span<const Index>({3l, 4l, 5l}), strides);
     EXPECT_THAT(strides, ::testing::ElementsAre(4, 1, 3 * 4));
   }
   {
     std::array<Index, 3> strides;
-    ComputeStrides(ContiguousLayoutPermutation<>({{1, 2, 0}}),
+    ComputeStrides(ContiguousLayoutPermutation<>({1, 2, 0}),
                    /*element_stride=*/2,
                    tensorstore::span<const Index>({3l, 4l, 5l}), strides);
     EXPECT_THAT(strides, ::testing::ElementsAre(2, 2 * 3 * 5, 2 * 3));

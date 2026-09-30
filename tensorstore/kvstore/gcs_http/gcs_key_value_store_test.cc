@@ -26,6 +26,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -654,9 +655,11 @@ class MyConcurrentMockTransport : public MyMockTransport {
                });
   }
 
-  size_t cur_concurrent_requests_ = 0;
-  size_t max_concurrent_requests_ = 0;
   absl::Mutex concurrent_request_mutex_;
+  size_t cur_concurrent_requests_ ABSL_GUARDED_BY(concurrent_request_mutex_) =
+      0;
+  size_t max_concurrent_requests_ ABSL_GUARDED_BY(concurrent_request_mutex_) =
+      0;
 };
 
 TEST(GcsKeyValueStoreTest, Concurrency) {

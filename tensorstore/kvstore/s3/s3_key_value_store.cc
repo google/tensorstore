@@ -25,6 +25,7 @@
 #include <variant>
 
 #include "absl/base/attributes.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -392,7 +393,7 @@ class S3KeyValueStore
   AwsCredentialsProvider provider_;
 
   absl::Mutex mutex_;  // Guards resolve_ehr_ creation.
-  Future<const S3EndpointRegion> resolve_ehr_;
+  Future<const S3EndpointRegion> resolve_ehr_ ABSL_GUARDED_BY(mutex_);
 };
 
 // A ReadTask is a function object used to satisfy a
@@ -1406,6 +1407,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   if (auto* ehr = std::get_if<S3EndpointRegion>(&result); ehr != nullptr) {
     ABSL_LOG_IF(INFO, s3_logging)
         << "S3 driver using endpoint [" << *ehr << "]";
+    absl::MutexLock l(driver->mutex_);
     driver->resolve_ehr_ = MakeReadyFuture<S3EndpointRegion>(std::move(*ehr));
   }
 

@@ -130,6 +130,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/synchronization",

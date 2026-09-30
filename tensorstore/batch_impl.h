@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <typeinfo>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/internal/container/hash_set_of_any.h"
@@ -94,11 +95,11 @@ class Batch::Impl : public Batch::ImplBase {
   ~Impl();
 
  private:
-  void InsertIntoDepthTree(Entry& entry);
+  void InsertIntoDepthTree(Entry& entry) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   absl::Mutex mutex_;
-  internal::HashSetOfAny entries_;
-  DepthTree nesting_depths_;
+  internal::HashSetOfAny entries_ ABSL_GUARDED_BY(mutex_);
+  DepthTree nesting_depths_ ABSL_GUARDED_BY(mutex_);
 };
 
 }  // namespace tensorstore

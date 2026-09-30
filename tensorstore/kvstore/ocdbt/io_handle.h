@@ -20,6 +20,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -145,10 +146,10 @@ class FlushPromise {
   }
 
  private:
-  Future<const void> prev_linked_future_;
-  Promise<void> promise_;
-  Future<const void> future_;
   absl::Mutex mutex_;
+  Future<const void> prev_linked_future_ ABSL_GUARDED_BY(mutex_);
+  Promise<void> promise_ ABSL_GUARDED_BY(mutex_);
+  Future<const void> future_ ABSL_GUARDED_BY(mutex_);
 };
 
 }  // namespace internal_ocdbt

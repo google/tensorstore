@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cassert>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/types/compare.h"
 #include "tensorstore/batch_impl.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -54,7 +55,7 @@ Batch::Impl::~Impl() {
   assert(nesting_depths_.empty());
 }
 
-void Batch::SubmitBatch(ImplBase* impl_base) {
+void Batch::SubmitBatch(ImplBase* impl_base) ABSL_NO_THREAD_SAFETY_ANALYSIS {
   Impl* impl = static_cast<Impl*>(impl_base);
 
   assert(impl->reference_count_.load(std::memory_order_relaxed) <= 1);

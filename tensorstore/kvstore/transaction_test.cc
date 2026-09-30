@@ -609,10 +609,11 @@ TEST(KvStoreTest, ConditionalWriteGenerationMismatchErrorIncludesKey) {
   Transaction txn(tensorstore::isolated);
   KvStore store(memory_store, "", txn);
 
-  TENSORSTORE_ASSERT_OK(kvstore::Write(
-      store, "a", absl::Cord("v2"),
-      {.generation_conditions = {
-           .if_equal = StorageGeneration::FromString("mismatch")}}));
+  kvstore::WriteOptions options;
+  options.generation_conditions.if_equal =
+      StorageGeneration::FromString("mismatch");
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(store, "a", absl::Cord("v2"), std::move(options)));
 
   EXPECT_THAT(txn.CommitAsync().result(),
               StatusIs(absl::StatusCode::kAborted,

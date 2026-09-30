@@ -17,6 +17,7 @@
 #include <cassert>
 #include <utility>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/util/future.h"
@@ -27,11 +28,13 @@ namespace internal_ocdbt {
 ReadonlyIoHandle::~ReadonlyIoHandle() = default;
 
 FlushPromise::FlushPromise(FlushPromise&& other) noexcept
+    ABSL_NO_THREAD_SAFETY_ANALYSIS
     : prev_linked_future_(std::move(other.prev_linked_future_)),
       promise_(std::move(other.promise_)),
       future_(std::move(other.future_)) {}
 
-FlushPromise& FlushPromise::operator=(FlushPromise&& other) noexcept {
+FlushPromise& FlushPromise::operator=(FlushPromise&& other) noexcept
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
   prev_linked_future_ = std::move(other.prev_linked_future_);
   promise_ = std::move(other.promise_);
   future_ = std::move(other.future_);
@@ -75,8 +78,9 @@ void FlushPromise::Link(Future<const void> future) {
   LinkError(std::move(existing_promise), std::move(future));
 }
 
-void FlushPromise::Link(FlushPromise&& other) {
-  if (other.prev_linked_future_.null()) {
+void FlushPromise::Link(FlushPromise&& other) ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  FlushPromise local(std::move(other));
+  if (local.prev_linked_future_.null()) {
     // No futures have been linked to `other`; therefore, this operation is a
     // no-op.
     return;
@@ -87,45 +91,45 @@ void FlushPromise::Link(FlushPromise&& other) {
     absl::MutexLock lock(mutex_);
     if (prev_linked_future_.null()) {
       // No futures have been linked to `*this`.
-      prev_linked_future_ = std::move(other.prev_linked_future_);
-      promise_ = std::move(other.promise_);
-      future_ = std::move(other.future_);
+      prev_linked_future_ = std::move(local.prev_linked_future_);
+      promise_ = std::move(local.promise_);
+      future_ = std::move(local.future_);
       return;
     }
     if (promise_.null()) {
       // `*this` has no promise, so it has been assigned exactly once.
-      if (!other.promise_.null()) {
+      if (!local.promise_.null()) {
         // `other` has a promise but `*this` does not.  Just move over
-        // `other.promise_`.
-        promise_ = std::move(other.promise_);
-        future_ = std::move(other.future_);
+        // `local.promise_`.
+        promise_ = std::move(local.promise_);
+        future_ = std::move(local.future_);
         if (!HaveSameSharedState(prev_linked_future_,
-                                 other.prev_linked_future_)) {
+                                 local.prev_linked_future_)) {
           future_to_link = prev_linked_future_;
-          prev_linked_future_ = std::move(other.prev_linked_future_);
+          prev_linked_future_ = std::move(local.prev_linked_future_);
         }
       } else {
         // Neither `*this` nor `other` have a non-null promise.
         if (!HaveSameSharedState(prev_linked_future_,
-                                 other.prev_linked_future_)) {
+                                 local.prev_linked_future_)) {
           // Need to create promise.
           auto p = PromiseFuturePair<void>::LinkError(
               absl::OkStatus(), std::move(prev_linked_future_),
-              other.prev_linked_future_);
+              local.prev_linked_future_);
           future_ = std::move(p.future);
           promise_ = std::move(p.promise);
-          prev_linked_future_ = std::move(other.prev_linked_future_);
+          prev_linked_future_ = std::move(local.prev_linked_future_);
         }
       }
     } else {
       // `*this` has an existing promise.
-      if (!other.promise_.null()) {
-        future_to_link = other.future_;
-      } else if (!HaveSameSharedState(other.prev_linked_future_,
+      if (!local.promise_.null()) {
+        future_to_link = local.future_;
+      } else if (!HaveSameSharedState(local.prev_linked_future_,
                                       prev_linked_future_)) {
-        future_to_link = other.prev_linked_future_;
+        future_to_link = local.prev_linked_future_;
       }
-      prev_linked_future_ = std::move(other.prev_linked_future_);
+      prev_linked_future_ = std::move(local.prev_linked_future_);
     }
     existing_promise = promise_;  // May be null.
   }

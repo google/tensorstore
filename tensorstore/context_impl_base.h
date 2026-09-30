@@ -31,6 +31,7 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
@@ -343,7 +344,7 @@ class ResourceImplBase : public ResourceOrSpecBase {
   // used by tensorstore.distributed when serializing context objects to ensure
   // resource identity is consistent when a Context object is "shared" between
   // the controller and a worker.
-  ContextImpl* weak_creator_ = nullptr;
+  ContextImpl* weak_creator_ ABSL_GUARDED_BY(mutex_) = nullptr;
 };
 
 /// For each resource provider type, `ResourceImpl<Provider>` is the
