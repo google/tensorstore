@@ -877,8 +877,11 @@ TEST(TransactionTest, ReleaseFutureReferencesAfterForceCommit) {
 // Tests concurrent multi-phase commit where multiple nodes transition phases
 // and call CommitDone.
 struct MultiPhaseConcurrentTestNode : public TransactionState::Node {
-  MultiPhaseConcurrentTestNode(void* associated_data, size_t num_phases)
-      : TransactionState::Node(associated_data), num_phases_(num_phases) {}
+  MultiPhaseConcurrentTestNode(void* associated_data, size_t num_phases,
+                               int* commit_count = nullptr)
+      : TransactionState::Node(associated_data),
+        num_phases_(num_phases),
+        commit_count_(commit_count) {}
 
   void PrepareForCommit() override {
     PrepareDone();
@@ -886,6 +889,7 @@ struct MultiPhaseConcurrentTestNode : public TransactionState::Node {
   }
 
   void Commit() override {
+    if (commit_count_) ++(*commit_count_);
     const size_t cur_phase = this->phase();
     if (cur_phase + 1 < num_phases_) {
       CommitDone(cur_phase + 1);
@@ -895,6 +899,7 @@ struct MultiPhaseConcurrentTestNode : public TransactionState::Node {
   }
 
   size_t num_phases_;
+  int* commit_count_;
 };
 
 TEST(TransactionTest, ConcurrentMultiPhaseCommit) {
@@ -1041,5 +1046,23 @@ TEST(TransactionTest, ForcedFutureWithCommitBlockAbortsWhenHandlesDropped) {
   weak_txn->ReleaseCommitBlock();
   EXPECT_TRUE(weak_txn->aborted());
   EXPECT_FALSE(weak_txn->commit_started());
+}
+
+TEST(TransactionTest, MultiPhaseCommitDuplicateAssociatedData) {
+  auto txn = Transaction(tensorstore::isolated);
+  int dummy = 42;
+  int commits = 0;
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    for (int i = 0; i < 2; ++i) {
+      WeakTransactionNodePtr<MultiPhaseConcurrentTestNode> node(
+          new MultiPhaseConcurrentTestNode(&dummy, /*num_phases=*/2, &commits));
+      node->SetTransaction(*open_ptr);
+      TENSORSTORE_ASSERT_OK(node->Register());
+    }
+  }
+  TENSORSTORE_EXPECT_OK(txn.CommitAsync());
+  EXPECT_EQ(4, commits);
 }
 }  // namespace

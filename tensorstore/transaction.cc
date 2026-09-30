@@ -598,8 +598,11 @@ void TransactionState::Node::CommitDone(size_t next_phase) {
       absl::MutexLock lock(transaction.mutex_);
       transaction.nodes_.FindOrInsert(
           [next_phase, associated_data = associated_data_](Node& node) {
+            // Never return 0, because we allow duplicates.
             return NodeTreeCompare(next_phase, associated_data, node.phase_,
-                                   node.associated_data_);
+                                   node.associated_data_) < 0
+                       ? absl::weak_ordering::less
+                       : absl::weak_ordering::greater;
           },
           [&] { return this; });
     }
