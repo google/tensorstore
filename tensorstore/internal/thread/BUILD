@@ -189,11 +189,14 @@ tensorstore_cc_test(
     deps = [
         ":pool_impl",
         ":task",
+        ":task_group_impl",
         ":task_provider",
+        ":thread",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/tracing",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
     ],
 )

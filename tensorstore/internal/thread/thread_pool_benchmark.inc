@@ -219,6 +219,155 @@ BENCHMARK(BM_ThreadPool_MatrixMultiply_Naive)  //
     ->Args({2048, 32})
     ->UseRealTime();
 
+void ScheduleForkJoin(const Executor& executor, size_t depth,
+                      absl::BlockingCounter* done) {
+  if (depth == 0) {
+    done->DecrementCount();
+    return;
+  }
+  executor([&executor, depth, done] {
+    ScheduleForkJoin(executor, depth - 1, done);
+  });
+  executor([&executor, depth, done] {
+    ScheduleForkJoin(executor, depth - 1, done);
+  });
+}
+
+// Benchmarks recursive worker-to-worker task spawning (binary fork-join tree),
+// directly stressing thread-local SingleProducerQueue pushes/pops,
+// work-stealing across threads, and blocked-worker wakeups on irregular bursts.
+static void BM_ThreadPool_ForkJoin(benchmark::State& state) {
+  SetupThreadPoolTestEnv();
+  GetMetricRegistry().Reset();
+
+  const size_t depth = state.range(0);
+  const size_t num_threads = state.range(1);
+  const size_t num_leaves = size_t{1} << depth;
+  const size_t total_tasks = (size_t{1} << (depth + 1)) - 2;
+
+  auto executor = GetExecutor(num_threads);
+  {
+    absl::BlockingCounter warmup(num_leaves);
+    ScheduleForkJoin(executor, depth, &warmup);
+    warmup.Wait();
+  }
+  GetMetricRegistry().Reset();
+
+  for (auto s : state) {
+    absl::BlockingCounter done(num_leaves);
+    ScheduleForkJoin(executor, depth, &done);
+    done.Wait();
+  }
+
+  state.SetItemsProcessed(state.iterations() * total_tasks);
+  SetLabels(state, num_threads);
+}
+
+BENCHMARK(BM_ThreadPool_ForkJoin)  //
+    ->Args({14, 0})                // InlineExecutor (32k tasks)
+    ->Args({14, 4})                // 4 threads
+    ->Args({14, 32})               // 32 threads
+    ->Args({14, 1024})             // 1024 threads
+    ->UseRealTime();
+
+// Benchmarks multiple independent DetachedThreadPool (TaskGroup) instances
+// submitting work concurrently to the shared underlying SharedThreadPool,
+// exercising TaskProvider round-robin scheduling and NotifyWorkAvailable.
+static void BM_ThreadPool_MultiGroup(benchmark::State& state) {
+  SetupThreadPoolTestEnv();
+  GetMetricRegistry().Reset();
+
+  const size_t num_groups = state.range(0);
+  const size_t tasks_per_group = state.range(1);
+  const size_t threads_per_group = state.range(2);
+  const size_t total_tasks = num_groups * tasks_per_group;
+
+  std::vector<Executor> executors(num_groups);
+  for (size_t g = 0; g < num_groups; ++g) {
+    executors[g] = GetExecutor(threads_per_group);
+  }
+  {
+    absl::BlockingCounter warmup(num_groups);
+    for (size_t g = 0; g < num_groups; ++g) {
+      executors[g]([&warmup] { warmup.DecrementCount(); });
+    }
+    warmup.Wait();
+  }
+  GetMetricRegistry().Reset();
+
+  for (auto s : state) {
+    absl::BlockingCounter done(total_tasks);
+    for (size_t t = 0; t < tasks_per_group; ++t) {
+      for (size_t g = 0; g < num_groups; ++g) {
+        executors[g]([&done] { done.DecrementCount(); });
+      }
+    }
+    done.Wait();
+  }
+
+  state.SetItemsProcessed(state.iterations() * total_tasks);
+  SetLabels(state, threads_per_group);
+}
+
+BENCHMARK(BM_ThreadPool_MultiGroup)  //
+    ->Args({16, 1024, 1})            // 16 single-thread groups
+    ->Args({16, 1024, 4})            // 16 4-thread groups
+    ->Args({64, 256, 2})             // 64 2-thread groups
+    ->UseRealTime();
+
+// Benchmarks serial continuation chains (comparable to Future::ExecuteWhenReady
+// hops) where a single active task enqueues its successor and finishes while
+// other worker threads in the TaskGroup may be idle/blocked.
+static void BM_ThreadPool_Chain(benchmark::State& state) {
+  SetupThreadPoolTestEnv();
+  GetMetricRegistry().Reset();
+
+  const size_t chain_length = state.range(0);
+  const size_t num_chains = state.range(1);
+  const size_t num_threads = state.range(2);
+
+  struct Step {
+    const Executor* exec;
+    absl::BlockingCounter* done;
+    size_t remaining;
+    void operator()() const {
+      if (remaining <= 1) {
+        done->DecrementCount();
+        return;
+      }
+      (*exec)(Step{exec, done, remaining - 1});
+    }
+  };
+
+  auto executor = GetExecutor(num_threads);
+  {
+    absl::BlockingCounter warmup(num_chains);
+    for (size_t c = 0; c < num_chains; ++c) {
+      executor(Step{&executor, &warmup, 16});
+    }
+    warmup.Wait();
+  }
+  GetMetricRegistry().Reset();
+
+  for (auto s : state) {
+    absl::BlockingCounter done(num_chains);
+    for (size_t c = 0; c < num_chains; ++c) {
+      executor(Step{&executor, &done, chain_length});
+    }
+    done.Wait();
+  }
+
+  state.SetItemsProcessed(state.iterations() * chain_length * num_chains);
+  SetLabels(state, num_threads);
+}
+
+BENCHMARK(BM_ThreadPool_Chain)  //
+    ->Args({1024, 1, 1})        // 1 chain, 1 thread
+    ->Args({1024, 1, 4})        // 1 chain, 4 threads (3 idle/blocked workers)
+    ->Args({1024, 8, 4})        // 8 chains, 4 threads
+    ->Args({1024, 8, 32})       // 8 chains, 32 threads
+    ->UseRealTime();
+
 }  // namespace
 
 #endif  // THIRD_PARTY_TENSORSTORE_INTERNAL_THREAD_THREAD_POOL_BENCHMARK_INC_

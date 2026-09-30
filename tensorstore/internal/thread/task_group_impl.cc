@@ -208,6 +208,7 @@ void TaskGroup::DoWorkOnThread() {
   // Update stats.
   metrics.Update();
 
+  bool notify = false;
   {
     absl::MutexLock lock(mutex_);
     threads_in_use_.fetch_sub(1, std::memory_order_relaxed);
@@ -216,9 +217,15 @@ void TaskGroup::DoWorkOnThread() {
       thread_queues_[data->slot]->slot = data->slot;
     }
     thread_queues_.pop_back();
+    notify = !queue_.empty() ||
+             std::any_of(thread_queues_.begin(), thread_queues_.end(),
+                         [](const auto* p) { return !p->queue.empty(); });
   }
 
   per_thread_data = nullptr;
+  if (notify) {
+    pool_->NotifyWorkAvailable(internal::IntrusivePtr<TaskProvider>(this));
+  }
 }
 
 /// Acquire a task.
@@ -227,7 +234,7 @@ std::unique_ptr<InFlightTask> TaskGroup::AcquireTask(PerThreadData* thread_data,
   struct ScopedIncDec {
     std::atomic<int64_t>& x_;
     ScopedIncDec(std::atomic<int64_t>& x) : x_(x) {
-      x_.fetch_add(1, std::memory_order_relaxed);
+      x_.fetch_add(1, std::memory_order_seq_cst);
     }
     ~ScopedIncDec() { x_.fetch_sub(1, std::memory_order_relaxed); }
   };
@@ -238,6 +245,7 @@ std::unique_ptr<InFlightTask> TaskGroup::AcquireTask(PerThreadData* thread_data,
   }
 
   absl::MutexLock lock(mutex_);
+  bool timed_out = false;
   while (true) {
     // Second, attempt to acquire a task from the global queue.
     if (!queue_.empty()) {
@@ -259,6 +267,7 @@ std::unique_ptr<InFlightTask> TaskGroup::AcquireTask(PerThreadData* thread_data,
     }
 
     thread_data->default_assign = 1;
+    ScopedIncDec blocked(threads_blocked_);
 
     // Third, migrate tasks from per-thread queues.
     for (size_t i = 0; i < thread_queues_.size(); ++i, ++steal_index_) {
@@ -279,13 +288,16 @@ std::unique_ptr<InFlightTask> TaskGroup::AcquireTask(PerThreadData* thread_data,
       return task;
     }
 
+    if (timed_out) {
+      return nullptr;
+    }
+
     // No tasks acquired; wait until more work appears on the global queue.
-    ScopedIncDec blocked(threads_blocked_);
     if (!mutex_.AwaitWithTimeout(
             absl::Condition(
                 +[](decltype(queue_)* q) { return !q->empty(); }, &queue_),
             timeout)) {
-      return nullptr;
+      timed_out = true;
     }
   }
   ABSL_UNREACHABLE();
@@ -297,9 +309,24 @@ void TaskGroup::AddTask(std::unique_ptr<InFlightTask> task) {
   int state = 2;
   if (per_thread_data != nullptr &&
       per_thread_data->owner.load(std::memory_order_relaxed) == this) {
-    // Add on the current-thread's queue.
+    // Add on the current-thread's queue. Reserve 1 task locally for this
+    // worker to execute when its current task finishes (preserving thread-local
+    // execution for 1-to-1 continuation chains), and migrate a surplus task to
+    // wake a blocked worker when pushing additional tasks (prev_size >= 1).
+    size_t prev_size = per_thread_data->queue.size();
     if (per_thread_data->queue.push(task.get())) {
       task.release();
+      if (ABSL_PREDICT_FALSE(prev_size >= 1)) {
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+        if (ABSL_PREDICT_FALSE(
+                threads_blocked_.load(std::memory_order_relaxed) != 0)) {
+          absl::MutexLock lock(mutex_);
+          if (InFlightTask* t = per_thread_data->queue.try_pop();
+              t != nullptr) {
+            queue_.push_back(std::unique_ptr<InFlightTask>(t));
+          }
+        }
+      }
       state = 0;
     } else {
       state = 1;
