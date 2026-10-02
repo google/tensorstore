@@ -254,8 +254,10 @@ absl::Status ComposeTransformsImpl(TransformRep* b_to_c,
                 std::move(transformed_element_pointer));
         result_array_data.element_pointer = AddByteOffset(
             new_index_array_origin_pointer,
-            -IndexInnerProduct(a_rank, result_array_data.byte_strides,
-                               a_to_c_domain.origin().data()));
+            internal::wrap_on_overflow::Subtract(
+                Index(0),
+                IndexInnerProduct(a_rank, result_array_data.byte_strides,
+                                  a_to_c_domain.origin().data())));
         Index output_offset = b_to_c_map.offset();
         Index output_stride = b_to_c_map.stride();
         if (IsSingletonIndexArrayMap(

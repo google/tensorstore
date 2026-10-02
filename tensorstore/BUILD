@@ -434,6 +434,7 @@ tensorstore_cc_library(
     deps = [
         ":index",
         ":rank",
+        "//tensorstore/internal:integer_overflow",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:span",
         "@abseil-cpp//absl/log:absl_check",

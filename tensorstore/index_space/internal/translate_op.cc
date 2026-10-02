@@ -73,8 +73,10 @@ absl::Status TranslateOutputOffsetsUsingInputOffsets(
         auto& index_array_data = map.index_array_data();
         index_array_data.element_pointer = AddByteOffset(
             std::move(index_array_data.element_pointer),
-            -IndexInnerProduct(input_rank, index_array_data.byte_strides,
-                               input_offsets));
+            internal::wrap_on_overflow::Subtract(
+                Index(0),
+                IndexInnerProduct(input_rank, index_array_data.byte_strides,
+                                  input_offsets)));
         break;
       }
       case OutputIndexMethod::constant:

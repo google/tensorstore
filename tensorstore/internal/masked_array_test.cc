@@ -830,4 +830,24 @@ TEST(ResetTest, MaskArray) {
   EXPECT_EQ(0, tester.num_masked_elements());
 }
 
+TEST(WriteToMaskedArrayTest, MinOriginByteOffset) {
+  constexpr Index kOrigin = -(Index(1) << 60);
+  MaskedArrayWriteTester<int> tester{BoxView({kOrigin, 0}, {2, 8})};
+  TENSORSTORE_EXPECT_OK(
+      tester.Write((tester.transform() |
+                    Dims(0, 1).TranslateSizedInterval({kOrigin, 0}, {1, 1}))
+                       .value(),
+                   MakeArray({{7}})));
+  TENSORSTORE_EXPECT_OK(
+      tester.Write((tester.transform() |
+                    Dims(0, 1).TranslateSizedInterval({kOrigin + 1, 7}, {1, 1}))
+                       .value(),
+                   MakeArray({{9}})));
+  ASSERT_TRUE(tester.mask_array().valid());
+  EXPECT_EQ(2, tester.num_masked_elements());
+  EXPECT_TRUE(tester.mask_array()(0, 0));
+  EXPECT_TRUE(tester.mask_array()(1, 7));
+  EXPECT_FALSE(tester.mask_array()(0, 1));
+}
+
 }  // namespace

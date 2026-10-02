@@ -24,6 +24,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/span.h"
@@ -87,12 +88,14 @@ void ComputeStrides(ContiguousLayoutOrder order, ptrdiff_t element_stride,
   if (order == ContiguousLayoutOrder::right) {
     for (DimensionIndex i = rank - 1; i >= 0; --i) {
       strides[i] = element_stride;
-      element_stride *= shape[i];
+      element_stride =
+          internal::wrap_on_overflow::Multiply<Index>(element_stride, shape[i]);
     }
   } else {
     for (DimensionIndex i = 0; i < rank; ++i) {
       strides[i] = element_stride;
-      element_stride *= shape[i];
+      element_stride =
+          internal::wrap_on_overflow::Multiply<Index>(element_stride, shape[i]);
     }
   }
 }
@@ -109,7 +112,8 @@ void ComputeStrides(ContiguousLayoutPermutation<> permutation,
     DimensionIndex i = permutation[j];
     assert(i >= 0 && i < rank);
     strides[i] = element_stride;
-    element_stride *= shape[i];
+    element_stride =
+        internal::wrap_on_overflow::Multiply<Index>(element_stride, shape[i]);
   }
 }
 

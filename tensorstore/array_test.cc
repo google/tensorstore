@@ -1558,6 +1558,46 @@ TEST(SharedArrayTest, AllocateArrayFromDomain) {
             ToString(array));
 }
 
+TEST(SharedArrayTest, AllocateArrayFromDomainMinOriginByteOffset) {
+  constexpr Index kOrigin = -(Index(1) << 60);
+  auto array = tensorstore::AllocateArray<int64_t>(BoxView({kOrigin}, {2}),
+                                                   ContiguousLayoutOrder::c,
+                                                   tensorstore::value_init);
+  ASSERT_EQ(std::numeric_limits<Index>::min(),
+            array.layout().origin_byte_offset());
+  EXPECT_EQ(0, array(kOrigin));
+  EXPECT_EQ(0, array(kOrigin + 1));
+  array(kOrigin) = 42;
+  array(kOrigin + 1) = 43;
+  EXPECT_EQ(42, array(kOrigin));
+  EXPECT_EQ(43, array(kOrigin + 1));
+
+  auto like_array = tensorstore::AllocateArrayLike<int64_t>(
+      array.layout(), ContiguousLayoutOrder::c, tensorstore::value_init);
+  ASSERT_EQ(std::numeric_limits<Index>::min(),
+            like_array.layout().origin_byte_offset());
+  EXPECT_EQ(0, like_array(kOrigin));
+  EXPECT_EQ(0, like_array(kOrigin + 1));
+  like_array(kOrigin) = 99;
+  like_array(kOrigin + 1) = 100;
+  EXPECT_EQ(99, like_array(kOrigin));
+  EXPECT_EQ(100, like_array(kOrigin + 1));
+
+  auto offset_array = tensorstore::MakeOffsetArray<int64_t>({kOrigin}, {7, 8});
+  ASSERT_EQ(std::numeric_limits<Index>::min(),
+            offset_array.layout().origin_byte_offset());
+  EXPECT_EQ(7, offset_array(kOrigin));
+  EXPECT_EQ(8, offset_array(kOrigin + 1));
+
+  int64_t raw_data[2] = {11, 22};
+  tensorstore::Array<int64_t, 1, offset_origin> view_from_box(
+      &raw_data[0], BoxView({kOrigin}, {2}));
+  ASSERT_EQ(std::numeric_limits<Index>::min(),
+            view_from_box.layout().origin_byte_offset());
+  EXPECT_EQ(11, view_from_box(kOrigin));
+  EXPECT_EQ(22, view_from_box(kOrigin + 1));
+}
+
 TEST(SharedArrayTest, AllocateArrayWithLayoutPermutation) {
   Index shape[] = {2, 3, 4};
   DimensionIndex permutation[] = {2, 0, 1};

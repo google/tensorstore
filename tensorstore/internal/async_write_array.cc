@@ -87,7 +87,8 @@ Result<NDIterable::Ptr> AsyncWriteArray::Spec::GetReadNDIterable(
       ComposeLayoutAndTransform(data_layout, std::move(chunk_transform)));
   return GetTransformedArrayNDIterable(
       {AddByteOffset(std::move(array.element_pointer()),
-                     -data_layout.origin_byte_offset()),
+                     internal::wrap_on_overflow::Subtract(
+                         Index(0), data_layout.origin_byte_offset())),
        std::move(chunk_transform)},
       arena);
 }
@@ -262,7 +263,8 @@ AsyncWriteArray::MaskedArray::GetWritableTransformedArray(
   return {std::in_place,
           UnownedToShared(
               AddByteOffset(ElementPointer<void>(this->array.element_pointer()),
-                            -data_layout.origin_byte_offset())),
+                            internal::wrap_on_overflow::Subtract(
+                                Index(0), data_layout.origin_byte_offset()))),
           std::move(chunk_transform)};
 }
 

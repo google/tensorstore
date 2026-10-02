@@ -281,8 +281,10 @@ void WriteToMask(MaskData* mask, BoxView<> output_box,
             ArrayView<Shared<bool>, dynamic_rank, offset_origin>(
                 AddByteOffset(SharedElementPointer<bool>(
                                   UnownedToShared(mask->mask_array.data())),
-                              -IndexInnerProduct(output_box.origin(),
-                                                 mask_layout.byte_strides())),
+                              internal::wrap_on_overflow::Subtract(
+                                  Index(0), IndexInnerProduct(
+                                                output_box.origin(),
+                                                mask_layout.byte_strides()))),
                 mask_layout),
             input_to_output, arena)
             .value();

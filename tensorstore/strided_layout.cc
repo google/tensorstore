@@ -18,9 +18,10 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstdlib>
+#include <limits>
 #include <ostream>
 #include <string>
+#include <type_traits>
 
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -107,14 +108,25 @@ bool IsBroadcastScalar(DimensionIndex rank, const Index* shape,
 }
 
 Index GetByteExtent(StridedLayoutView<> layout, Index element_size) {
+  using UnsignedIndex = std::make_unsigned_t<Index>;
   Index byte_extent = element_size;
   for (DimensionIndex i = 0, rank = layout.rank(); i < rank; ++i) {
     const Index size = layout.shape()[i];
-    if (size == 0) return 0;
+    if (size <= 0) return 0;
     if (size == 1) continue;
-    byte_extent =
-        std::max(byte_extent, internal::wrap_on_overflow::Multiply(
-                                  std::abs(layout.byte_strides()[i]), size));
+    const Index stride = layout.byte_strides()[i];
+    const UnsignedIndex abs_stride =
+        stride < 0 ? UnsignedIndex(0) - static_cast<UnsignedIndex>(stride)
+                   : static_cast<UnsignedIndex>(stride);
+    UnsignedIndex dim_extent;
+    if (internal::MulOverflow(abs_stride, static_cast<UnsignedIndex>(size),
+                              &dim_extent) ||
+        dim_extent >
+            static_cast<UnsignedIndex>(std::numeric_limits<Index>::max())) {
+      dim_extent =
+          static_cast<UnsignedIndex>(std::numeric_limits<Index>::max());
+    }
+    byte_extent = std::max(byte_extent, static_cast<Index>(dim_extent));
   }
   return byte_extent;
 }

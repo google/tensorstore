@@ -149,7 +149,8 @@ ArrayView<Element, 3, offset_origin> MakeOffsetArrayView(
       N1 * N2 * sizeof(Element), N2 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<3, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<Element>(&array[0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 template <typename Element, Index N0, Index N1, Index N2>
@@ -161,7 +162,8 @@ ArrayView<const Element, 3, offset_origin> MakeOffsetArrayView(
       N1 * N2 * sizeof(Element), N2 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<3, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<const Element>(&array[0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 
@@ -175,7 +177,8 @@ ArrayView<Element, 4, offset_origin> MakeOffsetArrayView(
       N3 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<4, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<Element>(&array[0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, Index N3>
@@ -189,7 +192,8 @@ ArrayView<const Element, 4, offset_origin> MakeOffsetArrayView(
       N3 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<4, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<const Element>(&array[0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 
@@ -203,7 +207,8 @@ ArrayView<Element, 5, offset_origin> MakeOffsetArrayView(
       N3 * N4 * sizeof(Element), N4 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<5, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<Element>(&array[0][0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4>
@@ -217,7 +222,8 @@ ArrayView<const Element, 5, offset_origin> MakeOffsetArrayView(
       N3 * N4 * sizeof(Element), N4 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<5, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<const Element>(&array[0][0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 
@@ -237,7 +243,8 @@ ArrayView<Element, 6, offset_origin> MakeOffsetArrayView(
       sizeof(Element)};
   StridedLayoutView<6, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<Element>(&array[0][0][0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
@@ -256,7 +263,8 @@ ArrayView<const Element, 6, offset_origin> MakeOffsetArrayView(
       sizeof(Element)};
   StridedLayoutView<6, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<const Element>(&array[0][0][0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 
@@ -323,7 +331,8 @@ ArrayView<Element, 3, offset_origin> MakeOffsetArrayView(
       N1 * N2 * sizeof(Element), N2 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<3, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<Element>(&array[0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, ptrdiff_t OriginRank>
@@ -336,7 +345,8 @@ ArrayView<const Element, 3, offset_origin> MakeOffsetArrayView(
       N1 * N2 * sizeof(Element), N2 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<3, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<const Element>(&array[0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 
@@ -352,7 +362,8 @@ ArrayView<Element, 4, offset_origin> MakeOffsetArrayView(
       N3 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<4, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<Element>(&array[0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, Index N3,
@@ -368,7 +379,8 @@ ArrayView<const Element, 4, offset_origin> MakeOffsetArrayView(
       N3 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<4, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<const Element>(&array[0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 
@@ -384,7 +396,8 @@ ArrayView<Element, 5, offset_origin> MakeOffsetArrayView(
       N3 * N4 * sizeof(Element), N4 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<5, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<Element>(&array[0][0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
@@ -400,7 +413,8 @@ ArrayView<const Element, 5, offset_origin> MakeOffsetArrayView(
       N3 * N4 * sizeof(Element), N4 * sizeof(Element), sizeof(Element)};
   StridedLayoutView<5, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<const Element>(&array[0][0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 
@@ -421,7 +435,8 @@ ArrayView<Element, 6, offset_origin> MakeOffsetArrayView(
       sizeof(Element)};
   StridedLayoutView<6, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<Element>(&array[0][0][0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
@@ -441,7 +456,8 @@ ArrayView<const Element, 6, offset_origin> MakeOffsetArrayView(
       sizeof(Element)};
   StridedLayoutView<6, offset_origin> layout(origin, shape, byte_strides);
   return {AddByteOffset(ElementPointer<const Element>(&array[0][0][0][0][0][0]),
-                        -layout.origin_byte_offset()),
+                        internal::wrap_on_overflow::Subtract(
+                            Index(0), layout.origin_byte_offset())),
           layout};
 }
 

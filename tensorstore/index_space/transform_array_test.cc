@@ -14,6 +14,8 @@
 
 #include "tensorstore/index_space/internal/transform_array.h"
 
+#include <stdint.h>
+
 #include <limits>
 
 #include <gmock/gmock.h>
@@ -26,8 +28,8 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/transform_array_constraints.h"
 #include "tensorstore/util/iterate.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -478,6 +480,38 @@ TEST(TransformArrayTest, EmptyDomain) {
            .Finalize()));
   EXPECT_THAT(tensorstore::TransformArray(original_array, transform),
               ::testing::Optional(tensorstore::AllocateArray<int>({0, 3})));
+}
+
+TEST(TransformArrayTest, MinOriginByteOffset) {
+  constexpr Index kOrigin = -(Index(1) << 60);
+  auto original_array = tensorstore::MakeArray<int64_t>({10, 20});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      (IndexTransformBuilder<1, 1>()
+           .input_origin({kOrigin})
+           .input_shape({2})
+           .output_index_array(0, 0, 1,
+                               MakeOffsetArray<Index>({kOrigin}, {1, 0}))
+           .Finalize()));
+  for (auto constraints :
+       {tensorstore::TransformArrayConstraints(tensorstore::c_order,
+                                               tensorstore::must_allocate),
+        tensorstore::TransformArrayConstraints(tensorstore::unspecified_order,
+                                               tensorstore::must_allocate)}) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto new_array,
+        tensorstore::TransformArray(original_array, transform, constraints));
+    ASSERT_EQ(std::numeric_limits<Index>::min(),
+              new_array.layout().origin_byte_offset());
+    EXPECT_EQ(20, new_array(kOrigin));
+    EXPECT_EQ(10, new_array(kOrigin + 1));
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto composed,
+      tensorstore::ComposeTransforms(
+          transform, tensorstore::IdentityTransform(transform.domain())));
+  EXPECT_EQ(transform, composed);
 }
 
 }  // namespace

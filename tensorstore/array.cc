@@ -187,7 +187,8 @@ SharedElementPointer<void> AllocateArrayLike(
   for (auto order_i = dimension_order.size(); order_i--;) {
     const DimensionIndex source_dim = dimension_order[order_i];
     byte_strides[source_dim] = stride;
-    stride *= source_layout.shape()[source_dim];
+    stride = internal::wrap_on_overflow::Multiply(
+        stride, source_layout.shape()[source_dim]);
     if (internal::MulOverflow(num_elements, source_layout.shape()[source_dim],
                               &num_elements)) {
       num_elements = kInfSize;

@@ -14,10 +14,33 @@
 
 #include "tensorstore/index_space/internal/transform_array.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <memory>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/internal/iterate_impl.h"
 #include "tensorstore/index_space/internal/propagate_bounds.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/index_space/transform_array_constraints.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/extents.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -113,7 +136,8 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
         internal_index_space::InitializeSingleArrayIterationState(
             ArrayView<void, dynamic_rank, offset_origin>(
                 AddByteOffset(ElementPointer<void>(new_element_pointer),
-                              -new_origin_offset),
+                              internal::wrap_on_overflow::Subtract(
+                                  Index(0), new_origin_offset)),
                 StridedLayoutView<dynamic_rank, offset_origin>(
                     input_rank, result_origin, &new_shape[0],
                     result_byte_strides)),
@@ -159,7 +183,8 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
         internal_index_space::InitializeSingleArrayIterationState(
             ArrayView<void, dynamic_rank, offset_origin>(
                 AddByteOffset(ElementPointer<void>(new_element_pointer),
-                              -new_origin_offset),
+                              internal::wrap_on_overflow::Subtract(
+                                  Index(0), new_origin_offset)),
                 StridedLayoutView<dynamic_rank, offset_origin>(
                     input_rank, result_origin, &new_shape[0],
                     result_byte_strides)),
@@ -199,9 +224,11 @@ Result<SharedElementPointer<const void>> TransformArrayPreservingOrigin(
       auto element_pointer,
       TransformArraySubRegion(array, transform, result_origin, result_shape,
                               result_byte_strides, constraints));
-  return AddByteOffset(std::move(element_pointer),
-                       -IndexInnerProduct(transform->input_rank,
-                                          result_byte_strides, result_origin));
+  return AddByteOffset(
+      std::move(element_pointer),
+      internal::wrap_on_overflow::Subtract(
+          Index(0), IndexInnerProduct(transform->input_rank,
+                                      result_byte_strides, result_origin)));
 }
 
 Result<SharedElementPointer<const void>> TransformArrayDiscardingOrigin(

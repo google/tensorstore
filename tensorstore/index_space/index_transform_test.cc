@@ -1184,4 +1184,29 @@ TEST(TranslateOutputDimensionsByTest, Basic) {
               ::testing::Optional(expected_transform));
 }
 
+TEST(ComposeTransformsTest, IndexArrayMinOriginByteOffset) {
+  constexpr Index kOrigin = -(Index(1) << 60);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b_to_c, IndexTransformBuilder(1, 1)
+                       .input_origin({0})
+                       .input_shape({2})
+                       .output_index_array(0, 0, 1, MakeArray<Index>({10, 20}))
+                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto a_to_b, IndexTransformBuilder(1, 1)
+                       .input_origin({kOrigin})
+                       .input_shape({2})
+                       .output_single_input_dimension(0, -kOrigin, 1, 0)
+                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      IndexTransformBuilder(1, 1)
+          .input_origin({kOrigin})
+          .input_shape({2})
+          .output_index_array(
+              0, 0, 1, tensorstore::MakeOffsetArray<Index>({kOrigin}, {10, 20}))
+          .Finalize());
+  EXPECT_THAT(ComposeTransforms(b_to_c, a_to_b), ::testing::Optional(expected));
+}
+
 }  // namespace

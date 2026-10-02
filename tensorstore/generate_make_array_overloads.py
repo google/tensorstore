@@ -123,7 +123,8 @@ def output_make_array(
     if is_offset:
       start_ptr = (
           'AddByteOffset(ElementPointer<{element}>(&array{deref_expr}), '
-          '-layout.origin_byte_offset())'.format(
+          'internal::wrap_on_overflow::Subtract(Index(0), '
+          'layout.origin_byte_offset()))'.format(
               element=maybe_const_element, deref_expr=deref_expr
           )
       )

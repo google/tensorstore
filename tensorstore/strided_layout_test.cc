@@ -15,6 +15,7 @@
 #include "tensorstore/strided_layout.h"
 
 #include <array>
+#include <limits>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -1165,6 +1166,42 @@ TEST(StridedLayoutTest, GetByteExtent) {
               30);
   EXPECT_THAT(GetByteExtent(StridedLayout<>({{1, 1, 1}}, {{1000, -6, 4}}), 2),
               2);
+}
+
+TEST(StridedLayoutTest, GetByteExtentAndComputeStridesOverflow) {
+  StridedLayout<1> min_stride_layout(
+      /*shape=*/{4},
+      /*byte_strides=*/{std::numeric_limits<Index>::min()});
+  EXPECT_EQ(std::numeric_limits<Index>::max(),
+            GetByteExtent(min_stride_layout, 1));
+
+  StridedLayout<1> overflow_layout(/*shape=*/{4},
+                                   /*byte_strides=*/{Index(1) << 61});
+  EXPECT_EQ(std::numeric_limits<Index>::max(),
+            GetByteExtent(overflow_layout, 1));
+
+  Index strides[2] = {0, 0};
+  tensorstore::ComputeStrides(
+      ContiguousLayoutOrder::c, /*element_stride=*/8,
+      tensorstore::span<const Index>({Index(1) << 32, Index(1) << 32}),
+      strides);
+  EXPECT_EQ(Index(8) << 32, strides[0]);
+  EXPECT_EQ(8, strides[1]);
+
+  tensorstore::ComputeStrides(
+      ContiguousLayoutOrder::fortran, /*element_stride=*/8,
+      tensorstore::span<const Index>({Index(1) << 32, Index(1) << 32}),
+      strides);
+  EXPECT_EQ(8, strides[0]);
+  EXPECT_EQ(Index(8) << 32, strides[1]);
+
+  const DimensionIndex perm[] = {1, 0};
+  tensorstore::ComputeStrides(
+      tensorstore::ContiguousLayoutPermutation<>(perm), /*element_stride=*/8,
+      tensorstore::span<const Index>({Index(1) << 32, Index(1) << 32}),
+      strides);
+  EXPECT_EQ(8, strides[0]);
+  EXPECT_EQ(Index(8) << 32, strides[1]);
 }
 
 }  // namespace

@@ -825,4 +825,42 @@ TEST(WriteArrayErrorTest, ChunkTransformIndexArrayMap) {
               StatusIs(absl::StatusCode::kCancelled));
 }
 
+TEST(MaskedArrayTest, MinOriginByteOffset) {
+  constexpr Index kOrigin = -(Index(1) << 60);
+  Box<> domain({kOrigin, 0}, {2, 8});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto overall_fill_value,
+      tensorstore::BroadcastArray(MakeScalarArray<int8_t>(0), domain));
+  Spec spec{overall_fill_value, domain};
+
+  Arena arena;
+  auto read_array = tensorstore::AllocateArray<int8_t>(
+      {2, 8}, tensorstore::c_order, tensorstore::value_init);
+  read_array(0, 0) = 11;
+  read_array(1, 7) = 22;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_iterable,
+      spec.GetReadNDIterable(read_array, domain,
+                             tensorstore::IdentityTransform(domain), &arena));
+  EXPECT_EQ(read_array,
+            CopyNDIterable(std::move(read_iterable), domain.shape(), &arena));
+
+  MaskedArray write_state(2);
+  TestWrite(&write_state, spec, domain,
+            MakeOffsetArray<int8_t>({kOrigin, 0}, {{5}}));
+  // Second non-adjacent write forces mask_array allocation in WriteToMask with
+  // origin_byte_offset == INT64_MIN.
+  TestWrite(&write_state, spec, domain,
+            MakeOffsetArray<int8_t>({kOrigin + 1, 7}, {{9}}));
+  ASSERT_TRUE(write_state.mask.mask_array.valid());
+  EXPECT_EQ(2, write_state.mask.num_masked_elements);
+  auto writeback = write_state.GetArrayForWriteback(
+      spec, domain, read_array, /*read_state_already_integrated=*/false);
+  EXPECT_TRUE(writeback.must_store);
+  auto expected = MakeCopy(read_array);
+  expected(0, 0) = 5;
+  expected(1, 7) = 9;
+  EXPECT_EQ(expected, writeback.array);
+}
+
 }  // namespace

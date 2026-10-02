@@ -19,6 +19,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -541,6 +542,28 @@ TEST(TranslateToTest, IndexDomainOverflow) {
   // ignored.
   EXPECT_THAT(domain | AllDims().TranslateTo({-5}),
               ::testing::Optional(translated_domain));
+}
+
+TEST(TranslateToTest, IndexArrayMinByteOffset) {
+  constexpr Index kOrigin = -(Index(1) << 60);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      (IndexTransformBuilder<1, 1>()
+           .input_origin({0})
+           .input_shape({2})
+           .output_index_array(0, 0, 1, MakeArray<Index>({7, 8}))
+           .Finalize()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto translated, transform | AllDims().TranslateTo({kOrigin}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      (IndexTransformBuilder<1, 1>()
+           .input_origin({kOrigin})
+           .input_shape({2})
+           .output_index_array(
+               0, 0, 1, tensorstore::MakeOffsetArray<Index>({kOrigin}, {7, 8}))
+           .Finalize()));
+  EXPECT_EQ(expected, translated);
 }
 
 }  // namespace
