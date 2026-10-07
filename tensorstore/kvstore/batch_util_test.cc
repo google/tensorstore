@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -25,8 +26,14 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
+#include "tensorstore/batch.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
@@ -379,6 +386,40 @@ TEST(ResolveCoalescedRequestsTest, NonValue) {
     EXPECT_THAT(futures[i].result().value().state,
                 ::testing::Eq(tensorstore::kvstore::ReadResult::kMissing));
   }
+}
+
+struct TestCoalescingDriver
+    : public tensorstore::internal::AtomicReferenceCount<TestCoalescingDriver> {
+  size_t BatchNestingDepth() const { return 0; }
+  tensorstore::Executor executor() const {
+    return tensorstore::InlineExecutor{};
+  }
+  tensorstore::internal_kvstore_batch::CoalescingOptions
+  GetBatchReadCoalescingOptions() const {
+    return kDefaultRemoteStorageCoalescingOptions;
+  }
+  Future<tensorstore::kvstore::ReadResult> ReadImpl(
+      tensorstore::kvstore::Key key,
+      tensorstore::kvstore::ReadOptions options) {
+    return tensorstore::kvstore::ReadResult::Missing(absl::Now());
+  }
+};
+
+TEST(GenericCoalescingBatchReadEntryTest, EmptySubmitDoesNotLeak) {
+  using Entry =
+      tensorstore::internal_kvstore_batch::GenericCoalescingBatchReadEntry<
+          TestCoalescingDriver>;
+  tensorstore::internal::IntrusivePtr<TestCoalescingDriver> driver(
+      new TestCoalescingDriver);
+  EXPECT_EQ(1, driver->use_count());
+  auto entry = std::make_unique<Entry>(typename Entry::BatchEntryKey(
+      driver, "key", tensorstore::kvstore::ReadGenerationConditions{}));
+  EXPECT_EQ(2, driver->use_count());
+  auto* entry_ptr = entry.release();
+  entry_ptr->Submit(tensorstore::Batch::Impl::Entry::Ptr(
+                        entry_ptr, tensorstore::internal::adopt_object_ref),
+                    tensorstore::no_batch);
+  EXPECT_EQ(1, driver->use_count());
 }
 
 }  // namespace

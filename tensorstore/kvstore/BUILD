@@ -410,7 +410,11 @@ tensorstore_cc_test(
     deps = [
         ":batch_util",
         ":byte_range",
+        ":generation",
         ":kvstore",
+        "//tensorstore:batch",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",

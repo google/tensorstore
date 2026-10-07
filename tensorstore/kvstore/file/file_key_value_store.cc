@@ -402,9 +402,7 @@ using BatchReadTaskBase = internal_kvstore_batch::BatchReadEntry<
     // BatchEntryKey members:
     std::string /* file_path*/>;
 
-class BatchReadTask final
-    : public BatchReadTaskBase,
-      public internal::AtomicReferenceCount<BatchReadTask> {
+class BatchReadTask final : public BatchReadTaskBase {
  private:
   // Working state.
   TimestampedStorageGeneration stamp_;
@@ -413,18 +411,13 @@ class BatchReadTask final
   int64_t block_alignment_ = 0;
 
  public:
-  BatchReadTask(BatchEntryKey&& batch_entry_key_)
-      : BatchReadTaskBase(std::move(batch_entry_key_)),
-        // Create initial reference count that will be transferred to `Submit`.
-        internal::AtomicReferenceCount<BatchReadTask>(/*initial_ref_count=*/1) {
-  }
+  using BatchReadTaskBase::BatchReadTaskBase;
 
-  void Submit(Batch::View batch) final {
+  void Submit(Ptr self, Batch::View batch) final {
     if (request_batch.requests.empty()) return;
     driver().executor()(
-        [self = internal::IntrusivePtr<BatchReadTask>(
-             // Acquire initial reference count.
-             this, internal::adopt_object_ref)] { self->ProcessBatch(); });
+        [self = internal::static_pointer_cast<BatchReadTask>(
+             std::move(self))]() mutable { ProcessBatch(std::move(self)); });
   }
 
   Result<kvstore::ReadResult> DoByteRangeRead(ByteRange byte_range) {
@@ -467,18 +460,19 @@ class BatchReadTask final
     }
   }
 
-  void ProcessBatch() {
+  static void ProcessBatch(internal::IntrusivePtr<BatchReadTask> self) {
     ABSL_LOG_IF(INFO, verbose_logging)
-        << "BatchReadTask " << std::get<std::string>(batch_entry_key);
+        << "BatchReadTask " << std::get<std::string>(self->batch_entry_key);
 
-    const auto& retries = driver().file_io_retries();
+    const auto& retries = self->driver().file_io_retries();
     int attempt = 0;
-    auto& requests = request_batch.requests;
+    auto& requests = self->request_batch.requests;
     while (true) {
-      stamp_.time = absl::Now();
+      self->stamp_.time = absl::Now();
       file_metrics.open_read.Increment();
-      auto fd_result = OpenValueFile(std::get<std::string>(batch_entry_key),
-                                     &stamp_.generation, &size_);
+      auto fd_result =
+          OpenValueFile(std::get<std::string>(self->batch_entry_key),
+                        &self->stamp_.generation, &self->size_);
       if (!fd_result.ok()) {
         auto status = std::move(fd_result).status();
         if (IsRetriable(status)) {
@@ -503,27 +497,27 @@ class BatchReadTask final
         internal_kvstore_batch::SetCommonResult(requests, std::move(status));
         return;
       }
-      fd_ = *std::move(fd_result);
+      self->fd_ = *std::move(fd_result);
       break;
     }
-    if (!fd_.valid()) {
+    if (!self->fd_.valid()) {
       internal_kvstore_batch::SetCommonResult(
-          requests, kvstore::ReadResult::Missing(stamp_.time));
+          requests, kvstore::ReadResult::Missing(self->stamp_.time));
       return;
     }
 
     // Resolves all unbounded requests to the file bounds.
-    internal_kvstore_batch::ValidateGenerationsAndByteRanges(requests, stamp_,
-                                                             size_);
+    internal_kvstore_batch::ValidateGenerationsAndByteRanges(
+        requests, self->stamp_, self->size_);
 
     if (requests.empty()) return;
 
-    switch (driver().file_io_mode()) {
+    switch (self->driver().file_io_mode()) {
       case FileIoModeResource::IoMode::kMemmap:
-        if (HandleMMapRead(requests)) return;
+        if (self->HandleMMapRead(requests)) return;
         break;
       case FileIoModeResource::IoMode::kDirect:
-        PrepareDirectIoRead(requests);
+        self->PrepareDirectIoRead(requests);
         break;
       case FileIoModeResource::IoMode::kDefault:
         break;
@@ -532,11 +526,11 @@ class BatchReadTask final
     if (requests.size() == 1) {
       // Perform single read immediately.
       requests[0].promise.SetResult(
-          DoByteRangeRead(requests[0].byte_range.AsByteRange()));
+          self->DoByteRangeRead(requests[0].byte_range.AsByteRange()));
       return;
     }
 
-    const auto& executor = driver().executor();
+    const auto& executor = self->driver().executor();
 
     internal_kvstore_batch::CoalescingOptions coalescing_options;
     coalescing_options.max_extra_read_bytes = 255;
@@ -544,9 +538,7 @@ class BatchReadTask final
         requests, coalescing_options,
         [&](OptionalByteRangeRequest coalesced_byte_range,
             tensorstore::span<Request> coalesced_requests) {
-          auto self = internal::IntrusivePtr<BatchReadTask>(this);
-          executor([self = std::move(self), coalesced_byte_range,
-                    coalesced_requests] {
+          executor([self, coalesced_byte_range, coalesced_requests] {
             self->ProcessCoalescedRead(coalesced_byte_range.AsByteRange(),
                                        coalesced_requests);
           });

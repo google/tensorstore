@@ -16,6 +16,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <memory>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/types/compare.h"
@@ -56,7 +57,7 @@ Batch::Impl::~Impl() {
 }
 
 void Batch::SubmitBatch(ImplBase* impl_base) ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  Impl* impl = static_cast<Impl*>(impl_base);
+  std::unique_ptr<Impl> impl(static_cast<Impl*>(impl_base));
 
   assert(impl->reference_count_.load(std::memory_order_relaxed) <= 1);
   impl->reference_count_.store(3, std::memory_order_relaxed);
@@ -76,12 +77,15 @@ void Batch::SubmitBatch(ImplBase* impl_base) ABSL_NO_THREAD_SAFETY_ANALYSIS {
     }
 
     // Traverse the linked list of nodes again, in order to submit them
-    // asynchronously.
+    // asynchronously.  Each `Entry` node has one refcount which is owned
+    // by the batch, and that reference count is transferred to the `Submit`
+    // method (which may destroy `node` before returning).
     {
       auto* node = start_node;
       do {
         auto* next = node->next_at_same_depth_;
-        node->Submit(Batch::Impl::ToBatch(impl));
+        node->Submit(Impl::Entry::Ptr(node, internal::adopt_object_ref),
+                     Batch::Impl::ToBatch(impl.get()));
         node = next;
       } while (node);
     }
@@ -90,6 +94,7 @@ void Batch::SubmitBatch(ImplBase* impl_base) ABSL_NO_THREAD_SAFETY_ANALYSIS {
       // An asynchronous submit operation is still in progress.  The last
       // operation that completes will continue submitting the rest of the
       // batch.
+      impl.release();
       return;
     }
 
@@ -97,8 +102,6 @@ void Batch::SubmitBatch(ImplBase* impl_base) ABSL_NO_THREAD_SAFETY_ANALYSIS {
     // concurrently.
     impl->reference_count_.store(3, std::memory_order_relaxed);
   }
-
-  delete impl;
 }
 
 }  // namespace tensorstore

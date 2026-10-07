@@ -136,12 +136,13 @@ using KeyParamType =
 // This simply aggregates batch requests, grouped by the members that are
 // included in the batch entry key, until the batch is submitted.
 //
-// Note: Neither the base `Batch::Impl::Entry` class nor this derived class use
-// reference counting. However, derived classes, which are responsible for
-// implementing `Submit`, may want to use reference counting if the `Submit`
-// implementation makes multiple concurrent requests (for separately-coalesced
-// groups), in order to extend the lifetime of the entry until all requests
-// complete.
+// Note: The base `Batch::Impl::Entry` class inherits from
+// `AtomicReferenceCount<Batch::Impl::Entry>` with an initial reference count of
+// 1, which is transferred via `Batch::Impl::Entry::Ptr` to `Submit`. Derived
+// classes can use
+// `internal::static_pointer_cast<DerivedEntry>(std::move(self))` or
+// `internal::IntrusivePtr<DerivedEntry>(this)` to extend the lifetime of the
+// entry across multiple concurrent asynchronous operations.
 //
 // \tparam DerivedDriver Derived kvstore driver type.
 // \tparam RequestType Must be `ReadRequest<Member...>`.
@@ -210,10 +211,9 @@ class BatchReadEntry : public Batch::Impl::Entry {
     } else {
       auto entry = make_entry();
       entry->request_batch.AddRequest(staleness_bound, std::move(request));
-      static_cast<
-          BatchReadEntry<DerivedDriver, RequestType, BatchEntryKeyMember...>*>(
-          entry.release())
-          ->Submit({});
+      auto* entry_ptr = static_cast<Self*>(entry.release());
+      entry_ptr->Submit(
+          Batch::Impl::Entry::Ptr(entry_ptr, internal::adopt_object_ref), {});
     }
   }
 

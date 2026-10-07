@@ -1067,48 +1067,43 @@ struct ZarrShardedBatchReadRequest
 class ReadOperationState;
 using ReadOperationStateBase = internal_kvstore_batch::BatchReadEntry<
     ShardedKeyValueStore, /*ReadRequest=*/ZarrShardedBatchReadRequest>;
-class ReadOperationState
-    : public ReadOperationStateBase,
-      public internal::AtomicReferenceCount<ReadOperationState> {
+class ReadOperationState : public ReadOperationStateBase {
  public:
-  explicit ReadOperationState(BatchEntryKey&& batch_entry_key_)
-      : ReadOperationStateBase(std::move(batch_entry_key_)),
-        // Initial reference to be transferred to `Submit`.
-        internal::AtomicReferenceCount<ReadOperationState>(
-            /*initial_ref_count=*/1) {}
+  using ReadOperationStateBase::ReadOperationStateBase;
 
  private:
   internal::PinnedCacheEntry<ShardIndexCache> shard_index_cache_entry_;
   Batch successor_batch_{no_batch};
 
-  void Submit(Batch::View batch) override {
+  void Submit(Ptr self, Batch::View batch) override {
     const auto& executor = driver().executor();
-    executor(
-        [this, batch = Batch(batch)] { this->ProcessBatch(std::move(batch)); });
+    executor([self = internal::static_pointer_cast<ReadOperationState>(
+                  std::move(self)),
+              batch = Batch(batch)]() mutable {
+      ProcessBatch(std::move(self), std::move(batch));
+    });
   }
 
-  void ProcessBatch(Batch batch) {
-    // Take ownership of initial reference.
-    internal::IntrusivePtr<ReadOperationState> self(this,
-                                                    internal::adopt_object_ref);
-    if (ShouldReadEntireShard()) {
+  static void ProcessBatch(internal::IntrusivePtr<ReadOperationState> self,
+                           Batch batch) {
+    if (self->ShouldReadEntireShard()) {
       ReadEntireShard(std::move(self), std::move(batch));
       return;
     }
 
-    shard_index_cache_entry_ =
-        GetCacheEntry(driver().shard_index_cache(), std::string_view{});
+    self->shard_index_cache_entry_ =
+        GetCacheEntry(self->driver().shard_index_cache(), std::string_view{});
 
-    auto shard_index_read_future = shard_index_cache_entry_->Read(
-        {this->request_batch.staleness_bound, batch});
+    auto shard_index_read_future = self->shard_index_cache_entry_->Read(
+        {self->request_batch.staleness_bound, batch});
 
     if (batch) {
       if (!shard_index_read_future.ready()) {
         // Shard index will be read using this batch.  The actual entries will
         // be read using the successor batch.
-        successor_batch_ = Batch::New();
+        self->successor_batch_ = Batch::New();
       } else {
-        successor_batch_ = std::move(batch);
+        self->successor_batch_ = std::move(batch);
       }
     }
 
@@ -1116,7 +1111,8 @@ class ReadOperationState
         .ExecuteWhenReady(
             [self = std::move(self)](ReadyFuture<const void> future) mutable {
               const auto& executor = self->driver().executor();
-              executor([self = std::move(self), status = future.status()] {
+              executor([self = std::move(self),
+                        status = future.status()]() mutable {
                 if (!status.ok()) {
                   internal_kvstore_batch::SetCommonResult<Request>(
                       self->request_batch.requests, {status});

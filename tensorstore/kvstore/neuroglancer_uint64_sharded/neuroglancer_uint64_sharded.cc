@@ -186,38 +186,33 @@ using MinishardIndexReadOperationStateBase =
         ShardIndex, kvstore::ReadGenerationConditions>;
 ;
 class MinishardIndexReadOperationState
-    : public MinishardIndexReadOperationStateBase,
-      public internal::AtomicReferenceCount<MinishardIndexReadOperationState> {
+    : public MinishardIndexReadOperationStateBase {
  public:
-  explicit MinishardIndexReadOperationState(BatchEntryKey&& batch_entry_key_)
-      : MinishardIndexReadOperationStateBase(std::move(batch_entry_key_)),
-        // Initial reference count that will be implicitly transferred to
-        // `Submit`.
-        internal::AtomicReferenceCount<MinishardIndexReadOperationState>(
-            /*initial_ref_count=*/1) {}
+  using MinishardIndexReadOperationStateBase::
+      MinishardIndexReadOperationStateBase;
 
  private:
   Batch retry_batch_{no_batch};
 
-  void Submit(Batch::View batch) override {
-    // Note: Submit is responsible for arranging to delete `this` eventually,
-    // which it does via reference counting. Prior to `Submit` being called the
-    // reference count isn't used.
+  void Submit(Ptr self, Batch::View batch) override {
     const auto& executor = driver().executor();
     executor(
-        [this, batch = Batch(batch)] { this->ProcessBatch(std::move(batch)); });
+        [self = internal::static_pointer_cast<MinishardIndexReadOperationState>(
+             std::move(self)),
+         batch = Batch(batch)]() mutable {
+          ProcessBatch(std::move(self), std::move(batch));
+        });
   }
 
-  void ProcessBatch(Batch batch) {
-    // Take explicit ownership of the initial reference count.
-    internal::IntrusivePtr<MinishardIndexReadOperationState> self(
-        this, internal::adopt_object_ref);
-    retry_batch_ = Batch::New();
+  static void ProcessBatch(
+      internal::IntrusivePtr<MinishardIndexReadOperationState> self,
+      Batch batch) {
+    self->retry_batch_ = Batch::New();
 
     auto minishard_fetch_batch = Batch::New();
 
-    for (auto& request : request_batch.requests) {
-      ProcessMinishard(batch, request, minishard_fetch_batch);
+    for (auto& request : self->request_batch.requests) {
+      self->ProcessMinishard(batch, request, minishard_fetch_batch);
     }
   }
 
@@ -1251,32 +1246,21 @@ using ReadOperationStateBase = internal_kvstore_batch::BatchReadEntry<  //
     ShardedKeyValueStore, ReadOperationBatchReadRequest,
     // BatchEntryKey members:
     ShardIndex>;
-class ReadOperationState
-    : public ReadOperationStateBase,
-      public internal::AtomicReferenceCount<ReadOperationState> {
+class ReadOperationState : public ReadOperationStateBase {
  public:
-  explicit ReadOperationState(BatchEntryKey&& batch_entry_key_)
-      : ReadOperationStateBase(std::move(batch_entry_key_)),
-        // Initial reference that will be transferred to `Submit`.
-        internal::AtomicReferenceCount<ReadOperationState>(
-            /*initial_ref_count=*/1) {}
+  using ReadOperationStateBase::ReadOperationStateBase;
 
  private:
   Batch retry_batch_{no_batch};
 
-  void Submit(Batch::View batch) override {
-    // Note: Submit is responsible for arranging to delete `this` eventually,
-    // which it does via reference counting. Prior to `Submit` being called the
-    // reference count isn't used.
+  void Submit(Ptr self, Batch::View batch) override {
     const auto& executor = driver().executor();
-    executor(
-        [this, batch = Batch(batch)] { this->ProcessBatch(std::move(batch)); });
+    executor([self = internal::static_pointer_cast<ReadOperationState>(
+                  std::move(self)),
+              batch = Batch(batch)] { self->ProcessBatch(std::move(batch)); });
   }
 
   void ProcessBatch(Batch batch) {
-    // Take ownership of initial reference.
-    internal::IntrusivePtr<ReadOperationState> self(this,
-                                                    internal::adopt_object_ref);
     tensorstore::span<Request> requests = request_batch.requests;
     std::sort(request_batch.requests.begin(), request_batch.requests.end(),
               [](const Request& a, const Request& b) {
@@ -1284,7 +1268,8 @@ class ReadOperationState
               });
 
     if (ShouldReadEntireShard()) {
-      ReadEntireShard(std::move(self), std::move(batch));
+      ReadEntireShard(internal::IntrusivePtr<ReadOperationState>(this),
+                      std::move(batch));
       return;
     }
 

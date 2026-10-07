@@ -26,6 +26,7 @@
 #include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/testing/concurrent.h"
@@ -135,6 +136,7 @@ class TestCache : public tensorstore::internal::AsyncCache {
 
     absl::Status do_initialize_transaction_error;
     bool share_implicit_transaction_nodes = true;
+    bool set_reads_committed = true;
   };
 
   class TransactionNode : public Base::TransactionNode {
@@ -147,7 +149,9 @@ class TestCache : public tensorstore::internal::AsyncCache {
           this->Base::TransactionNode::DoInitialize(transaction));
       auto& entry = GetOwningEntry(*this);
       ++value;
-      SetReadsCommitted();
+      if (entry.set_reads_committed) {
+        SetReadsCommitted();
+      }
       return entry.do_initialize_transaction_error;
     }
     void DoRead(AsyncCacheReadRequest request) override {
@@ -1160,6 +1164,64 @@ TEST(AsyncCacheTest, RevokedTransactionNodeFifo) {
 
 TEST(AsyncCacheTest, RevokedTransactionNodeLifo) {
   TestRevokedTransactionNode(true);
+}
+
+TEST(AsyncCacheTest, BatchReadAlreadyIssuedDoesNotLeakOrDeadlockTransaction) {
+  auto pool = CachePool::Make(CachePool::Limits{});
+  RequestLog log;
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
+  auto entry = GetCacheEntry(cache, "a");
+  entry->set_reads_committed = false;
+
+  // Non-transactional batch read superseded by unbatched read before batch
+  // submission.
+  {
+    auto batch = tensorstore::Batch::New();
+    auto read_future1 = entry->Read({absl::InfiniteFuture(), batch});
+    ASSERT_FALSE(read_future1.ready());
+    ASSERT_EQ(0u, log.reads.size());
+
+    auto read_future2 = entry->Read({absl::InfiniteFuture()});
+    EXPECT_TRUE(HaveSameSharedState(read_future1, read_future2));
+    ASSERT_EQ(1u, log.reads.size());
+    log.reads.pop().Success();
+    ASSERT_TRUE(read_future1.ready());
+    batch.Release();
+  }
+
+  // Transactional batch read superseded by unbatched read before batch
+  // submission.
+  auto transaction = Transaction(tensorstore::atomic_isolated);
+  Future<const void> read_future1;
+  Future<const void> read_future2;
+  auto batch = tensorstore::Batch::New();
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+    auto node = entry->CreateWriteTransaction(open_transaction);
+    read_future1 = node->Read({absl::InfiniteFuture(), batch});
+    ASSERT_FALSE(read_future1.ready());
+    ASSERT_EQ(0u, log.transaction_reads.size());
+
+    read_future2 = node->Read({absl::InfiniteFuture()});
+    ASSERT_FALSE(read_future2.ready());
+    EXPECT_TRUE(HaveSameSharedState(read_future1, read_future2));
+    ASSERT_EQ(1u, log.transaction_reads.size());
+    log.transaction_reads.pop().Success();
+    ASSERT_TRUE(read_future1.ready());
+  }
+
+  auto commit_future = transaction.CommitAsync();
+  EXPECT_FALSE(transaction.commit_started());
+  batch.Release();
+  EXPECT_TRUE(transaction.commit_started());
+
+  ASSERT_EQ(1u, log.writebacks.size());
+  log.writebacks.pop().Success();
+  ASSERT_TRUE(commit_future.ready());
+  TENSORSTORE_EXPECT_OK(commit_future);
 }
 
 }  // namespace

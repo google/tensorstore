@@ -43,13 +43,12 @@ struct Entry : public Batch::Impl::Entry {
 
   T key_;
   T key() const { return key_; }
-  virtual void Submit(Batch::View batch) {
+  void Submit(Ptr self, Batch::View batch) final {
     log.push_back(absl::StrCat("begin_submit ", key()));
     for (auto& submit_func : submit_funcs) {
       submit_func(batch);
     }
     log.push_back(absl::StrCat("end_submit ", key()));
-    delete this;
   }
   std::vector<std::function<void(Batch::View batch)>> submit_funcs;
 

@@ -281,7 +281,7 @@ class AsyncCacheBatchEntry : public Batch::Impl::Entry {
   KeyParam key() const { return &internal_future::FutureAccess::rep(promise_); }
 
  private:
-  void Submit(Batch::View batch) override {
+  void Submit(Ptr self, Batch::View batch) final {
     ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
         << *entry_or_node_ << "Submitting batch read";
     auto& entry = GetOwningEntry(*entry_or_node_);
@@ -293,7 +293,6 @@ class AsyncCacheBatchEntry : public Batch::Impl::Entry {
     }
     read_request_state.queued_request_is_deferred = false;
     MaybeIssueRead(*entry_or_node_, std::move(lock), batch);
-    delete this;
   }
 
   EntryOrNodePtr entry_or_node_;

@@ -60,55 +60,45 @@ using GenericCoalescingBatchReadEntryBase =
 //       batch read operations.
 template <typename DerivedDriver>
 struct GenericCoalescingBatchReadEntry
-    : public GenericCoalescingBatchReadEntryBase<DerivedDriver>,
-      public internal::AtomicReferenceCount<
-          GenericCoalescingBatchReadEntry<DerivedDriver>> {
+    : public GenericCoalescingBatchReadEntryBase<DerivedDriver> {
   using Base = GenericCoalescingBatchReadEntryBase<DerivedDriver>;
   using BatchEntryKey = typename Base::BatchEntryKey;
   using Request = typename Base::Request;
   using Base::batch_entry_key;
   using Base::request_batch;
 
-  GenericCoalescingBatchReadEntry(BatchEntryKey&& batch_entry_key_)
-      : GenericCoalescingBatchReadEntryBase<DerivedDriver>(
-            std::move(batch_entry_key_)),
-        // Create an initial reference count that is implicitly transferred to
-        // `Submit`.
-        internal::AtomicReferenceCount<
-            GenericCoalescingBatchReadEntry<DerivedDriver>>(
-            /*initial_ref_count=*/1) {}
+  using Base::Base;
 
-  // Submit is responsible for destroying the entry when done.
-  void Submit(Batch::View batch) final {
+  void Submit(Batch::Impl::Entry::Ptr self, Batch::View batch) final {
     if (request_batch.requests.empty()) return;
-    this->driver().executor()([this] { this->ProcessBatch(); });
+    this->driver().executor()(
+        [self = internal::static_pointer_cast<GenericCoalescingBatchReadEntry>(
+             std::move(self))]() mutable { ProcessBatch(std::move(self)); });
   }
 
-  void ProcessBatch() {
-    // Take ownership of the initial reference. A separate reference will be
-    // held for each coalesced read such that the entry will be destroyed once
-    // all individual coalesced reads complete.
-    internal::IntrusivePtr<GenericCoalescingBatchReadEntry> self(
-        this, internal::adopt_object_ref);
+  static void ProcessBatch(
+      internal::IntrusivePtr<GenericCoalescingBatchReadEntry> self) {
     // PRECONDITION: Each request's byte_range satisfies the IsRange()
     // constraint. See `HandleBatchRequestByGenericByteRangeCoalescing`.
     ForEachCoalescedRequest<Request>(
-        request_batch.requests, this->driver().GetBatchReadCoalescingOptions(),
+        self->request_batch.requests,
+        self->driver().GetBatchReadCoalescingOptions(),
         [&](OptionalByteRangeRequest coalesced_byte_range,
             tensorstore::span<Request> coalesced_requests) {
           auto current_range = coalesced_byte_range.AsByteRange();
           kvstore::ReadOptions options;
           options.generation_conditions =
-              std::get<kvstore::ReadGenerationConditions>(batch_entry_key);
-          options.staleness_bound = request_batch.staleness_bound;
+              std::get<kvstore::ReadGenerationConditions>(
+                  self->batch_entry_key);
+          options.staleness_bound = self->request_batch.staleness_bound;
           options.byte_range = current_range;
-          auto read_future = this->driver().ReadImpl(
-              kvstore::Key(std::get<kvstore::Key>(batch_entry_key)),
+          auto read_future = self->driver().ReadImpl(
+              kvstore::Key(std::get<kvstore::Key>(self->batch_entry_key)),
               std::move(options));
           read_future.Force();
           std::move(read_future)
               .ExecuteWhenReady(WithExecutor(
-                  this->driver().executor(),
+                  self->driver().executor(),
                   [self, current_range, coalesced_requests](
                       ReadyFuture<kvstore::ReadResult> future) {
                     TENSORSTORE_ASSIGN_OR_RETURN(

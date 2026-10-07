@@ -17,7 +17,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -107,8 +106,7 @@ Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
      public:
       using BatchEntryBase::BatchEntryBase;
 
-      void Submit(Batch::View batch) override {
-        std::unique_ptr<BatchEntry> self{this};
+      void Submit(Ptr self, Batch::View batch) final {
         auto& driver = this->driver();
         if (driver.log_requests) {
           ::nlohmann::json::object_t log_entry;
