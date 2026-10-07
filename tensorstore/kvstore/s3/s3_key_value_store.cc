@@ -1200,7 +1200,7 @@ struct ListTask : public RateLimiterNode,
     auto cord = response->payload;
     auto payload = cord.Flatten();
 
-    tinyxml2::XMLDocument xmlDocument;
+    tinyxml2::XMLDocument xmlDocument(true, tinyxml2::PEDANTIC_WHITESPACE);
     if (int xmlcode = xmlDocument.Parse(payload.data(), payload.size());
         xmlcode != tinyxml2::XML_SUCCESS) {
       return absl::InvalidArgumentError(

@@ -514,6 +514,48 @@ TEST(S3KeyValueStoreTest, SimpleMock_List) {
                                MatchesListEntry("c")));
 }
 
+TEST(S3KeyValueStoreTest, ListPreservesWhitespaceAndEntities) {
+  const auto kListResult =
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+      "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">"
+      "<Name>bucket</Name>"
+      "<Prefix></Prefix>"
+      "<KeyCount>2</KeyCount>"
+      "<MaxKeys>1000</MaxKeys>"
+      "<IsTruncated>false</IsTruncated>"
+      "<Contents><Key>   </Key>"
+      "<LastModified>2023-09-06T17:53:27.000Z</LastModified>"
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"
+      "<Contents><Key>a&apos;b &amp;apos;c</Key>"
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"
+      "</ListBucketResult>";
+
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"HEAD https://my-bucket.s3.amazonaws.com",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
+          {"GET https://my-bucket.s3.us-east-1.amazonaws.com/?list-type=2",
+           HttpResponse{200, absl::Cord(kListResult), {}}},
+      });
+
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  auto context = DefaultTestContext();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "s3"}, {"bucket", "my-bucket"}}, context)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto list_result,
+                                   kvstore::ListFuture(store, {}).result());
+  EXPECT_THAT(list_result,
+              ::testing::ElementsAre(MatchesListEntry("   "),
+                                     MatchesListEntry("a'b &apos;c")));
+}
+
 TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
   const auto kListResult =
       "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"                            //

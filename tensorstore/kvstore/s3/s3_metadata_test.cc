@@ -96,6 +96,21 @@ TEST(XmlSearchTest, GetNodeValues) {
       ::testing::Optional(::testing::Eq(absl::FromUnixSeconds(1688830015))));
 }
 
+TEST(XmlSearchTest, GetNodeTextPreservesEntitiesCdataAndWhitespace) {
+  tinyxml2::XMLDocument doc(true, tinyxml2::PEDANTIC_WHITESPACE);
+  ASSERT_EQ(doc.Parse("<Root>"
+                      "<Key1>  a&apos;b &amp;apos;c  </Key1>"
+                      "<Key2>   </Key2>"
+                      "<Key3><![CDATA[raw &apos; <text>]]></Key3>"
+                      "</Root>"),
+            tinyxml2::XML_SUCCESS);
+  auto* root = doc.FirstChildElement("Root");
+  ASSERT_NE(root, nullptr);
+  EXPECT_EQ("  a'b &apos;c  ", GetNodeText(root->FirstChildElement("Key1")));
+  EXPECT_EQ("   ", GetNodeText(root->FirstChildElement("Key2")));
+  EXPECT_EQ("raw &apos; <text>", GetNodeText(root->FirstChildElement("Key3")));
+}
+
 TEST(S3MetadataTest, AwsHttpResponseToStatus) {
   HttpResponse response;
   // No header, no payload.

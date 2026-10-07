@@ -128,7 +128,6 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
-        "@re2",
         "@tinyxml2",
     ],
 )
