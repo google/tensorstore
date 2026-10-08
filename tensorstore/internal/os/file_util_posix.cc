@@ -534,22 +534,26 @@ absl::Status FsyncFile(FileDescriptor fd) {
 absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline) {
   if (deadline == absl::InfiniteFuture()) return absl::OkStatus();
 
-  int64_t timeout_ms =
-      (deadline > absl::Now() && deadline != absl::InfiniteFuture())
-          ? absl::ToInt64Milliseconds(deadline - absl::Now())
-          : 0;
+  while (true) {
+    const absl::Time now = absl::Now();
+    const int64_t timeout_ms =
+        deadline > now ? absl::ToInt64Milliseconds(deadline - now) : 0;
 
-  ::pollfd pfd;
-  pfd.fd = fd;
-  pfd.events = POLLIN;
-  pfd.revents = 0;
-  int n = ::poll(&pfd, 1, timeout_ms);
-  if (n == 0) {
-    return absl::DeadlineExceededError("Timeout reading from file");
-  } else if (n < 0) {
-    return StatusFromOsError(errno).Format("Failed to poll file");
+    ::pollfd pfd;
+    pfd.fd = fd;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    int n = ::poll(&pfd, 1, timeout_ms);
+    if (n == 0) {
+      return absl::DeadlineExceededError("Timeout reading from file");
+    } else if (n < 0) {
+      // Signals (e.g. from sanitizer runtimes) interrupt poll(); retry with
+      // the remaining time.
+      if (errno == EINTR) continue;
+      return StatusFromOsError(errno).Format("Failed to poll file");
+    }
+    return absl::OkStatus();
   }
-  return absl::OkStatus();
 }
 
 Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {
