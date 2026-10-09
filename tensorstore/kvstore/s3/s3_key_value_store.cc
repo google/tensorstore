@@ -403,7 +403,6 @@ struct ReadTask : public RateLimiterNode,
   IntrusivePtr<S3KeyValueStore> owner;
   std::string object_name;
   kvstore::ReadOptions options;
-  std::string read_url_;
   AwsCredentials credentials_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
   Promise<kvstore::ReadResult> promise;
@@ -412,14 +411,12 @@ struct ReadTask : public RateLimiterNode,
   absl::Time start_time_;
 
   ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
-           kvstore::ReadOptions options, std::string read_url,
-           AwsCredentials credentials,
+           kvstore::ReadOptions options, AwsCredentials credentials,
            ReadyFuture<const S3EndpointRegion> endpoint_region,
            Promise<kvstore::ReadResult> promise)
       : owner(std::move(owner)),
         object_name(std::move(object_name)),
         options(std::move(options)),
-        read_url_(std::move(read_url)),
         credentials_(std::move(credentials)),
         endpoint_region_(std::move(endpoint_region)),
         promise(std::move(promise)) {}
@@ -444,8 +441,10 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    auto request_builder = S3RequestBuilder(
-        options.byte_range.size() == 0 ? "HEAD" : "GET", read_url_);
+    const auto& ehr = endpoint_region_.value();
+    auto request_builder =
+        S3RequestBuilder(options.byte_range.size() == 0 ? "HEAD" : "GET",
+                         ehr.endpoint, object_name);
 
     AddGenerationHeader(&request_builder, "if-none-match",
                         options.generation_conditions.if_not_equal);
@@ -461,7 +460,6 @@ struct ReadTask : public RateLimiterNode,
       }
     }
 
-    const auto& ehr = endpoint_region_.value();
     start_time_ = absl::Now();
     auto request = request_builder.EnableAcceptEncoding()
                        .MaybeAddRequesterPayer(owner->spec_.requester_pays)
@@ -598,12 +596,10 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
        options = std::move(options)](auto promise,
                                      ReadyFuture<const S3EndpointRegion> ready,
                                      ReadyFuture<AwsCredentials> credentials) {
-        auto read_url = absl::StrCat(ready.value().endpoint, "/", key);
-
         auto state = internal::MakeIntrusivePtr<ReadTask>(
             std::move(self), std::move(key), std::move(options),
-            std::move(read_url), std::move(credentials.value()),
-            std::move(ready), std::move(promise));
+            std::move(credentials.value()), std::move(ready),
+            std::move(promise));
         intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
         state->owner->read_rate_limiter().Admit(state.get(), &ReadTask::Start);
       },
@@ -621,24 +617,24 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
 struct WriteTask : public RateLimiterNode,
                    public internal::AtomicReferenceCount<WriteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
+  std::string object_name_;
   kvstore::WriteOptions options_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
-  std::string object_url_;
   absl::Cord value_;
   AwsCredentials credentials_;
   Promise<TimestampedStorageGeneration> promise;
   int attempt_ = 0;
   absl::Time start_time_;
 
-  WriteTask(IntrusivePtr<S3KeyValueStore> o, kvstore::WriteOptions options,
+  WriteTask(IntrusivePtr<S3KeyValueStore> o, std::string object_name,
+            kvstore::WriteOptions options,
             ReadyFuture<const S3EndpointRegion> endpoint_region,
-            std::string object_url, absl::Cord value,
-            AwsCredentials credentials,
+            absl::Cord value, AwsCredentials credentials,
             Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(o)),
+        object_name_(std::move(object_name)),
         options_(std::move(options)),
         endpoint_region_(std::move(endpoint_region)),
-        object_url_(std::move(object_url)),
         value_(std::move(value)),
         credentials_(std::move(credentials)),
         promise(std::move(promise)) {}
@@ -683,7 +679,7 @@ struct WriteTask : public RateLimiterNode,
     }
 
     start_time_ = absl::Now();
-    auto builder = S3RequestBuilder("HEAD", object_url_);
+    auto builder = S3RequestBuilder("HEAD", ehr.endpoint, object_name_);
     AddGenerationHeader(&builder, "if-match",
                         options_.generation_conditions.if_equal);
     auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
@@ -743,7 +739,7 @@ struct WriteTask : public RateLimiterNode,
     auto content_sha256_hex = PayloadSha256Hex(value_);
 
     const auto& ehr = endpoint_region_.value();
-    auto builder = S3RequestBuilder("PUT", object_url_);
+    auto builder = S3RequestBuilder("PUT", ehr.endpoint, object_name_);
     builder.AddHeader("content-type", "application/octet-stream")
         .AddHeader("content-length", absl::StrCat(value_.size()))
         .MaybeAddRequesterPayer(owner->spec_.requester_pays);
@@ -840,23 +836,24 @@ struct WriteTask : public RateLimiterNode,
 struct DeleteTask : public RateLimiterNode,
                     public internal::AtomicReferenceCount<DeleteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
+  std::string object_name_;
   kvstore::WriteOptions options_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
-  std::string object_url_;
   AwsCredentials credentials_;
   Promise<TimestampedStorageGeneration> promise;
 
   int attempt_ = 0;
   absl::Time start_time_;
 
-  DeleteTask(IntrusivePtr<S3KeyValueStore> o, kvstore::WriteOptions options,
+  DeleteTask(IntrusivePtr<S3KeyValueStore> o, std::string object_name,
+             kvstore::WriteOptions options,
              ReadyFuture<const S3EndpointRegion> endpoint_region,
-             std::string object_url, AwsCredentials credentials,
+             AwsCredentials credentials,
              Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(o)),
+        object_name_(std::move(object_name)),
         options_(std::move(options)),
         endpoint_region_(std::move(endpoint_region)),
-        object_url_(std::move(object_url)),
         credentials_(std::move(credentials)),
         promise(std::move(promise)) {}
 
@@ -900,7 +897,7 @@ struct DeleteTask : public RateLimiterNode,
     start_time_ = absl::Now();
     const auto& ehr = endpoint_region_.value();
 
-    auto builder = S3RequestBuilder("HEAD", object_url_);
+    auto builder = S3RequestBuilder("HEAD", ehr.endpoint, object_name_);
     AddGenerationHeader(&builder, "if-match",
                         options_.generation_conditions.if_equal);
     auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
@@ -957,7 +954,7 @@ struct DeleteTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     const auto& ehr = endpoint_region_.value();
-    S3RequestBuilder builder("DELETE", object_url_);
+    S3RequestBuilder builder("DELETE", ehr.endpoint, object_name_);
 #if 0
     // NOPTE: AWS only allows conditional deletes in directory buckets, so add
     // this in when bucket detection is implemented.
@@ -1046,13 +1043,11 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
        value = std::move(value), options = std::move(options)](
           auto promise, ReadyFuture<const S3EndpointRegion> ready,
           ReadyFuture<AwsCredentials> credentials) {
-        std::string object_url = absl::StrCat(ready.value().endpoint, "/", key);
-
         if (!value) {
           // Write with a std::nullopt value is a delete.
           auto state = internal::MakeIntrusivePtr<DeleteTask>(
-              std::move(self), std::move(options), std::move(ready),
-              std::move(object_url), std::move(credentials.value()),
+              std::move(self), std::move(key), std::move(options),
+              std::move(ready), std::move(credentials.value()),
               std::move(promise));
 
           intrusive_ptr_increment(
@@ -1063,9 +1058,9 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
         }
 
         auto state = internal::MakeIntrusivePtr<WriteTask>(
-            std::move(self), std::move(options), std::move(ready),
-            std::move(object_url), *std::move(value),
-            std::move(credentials.value()), std::move(promise));
+            std::move(self), std::move(key), std::move(options),
+            std::move(ready), *std::move(value), std::move(credentials.value()),
+            std::move(promise));
 
         intrusive_ptr_increment(state.get());  // adopted by WriteTask::Admit.
         state->owner->write_rate_limiter().Admit(state.get(),

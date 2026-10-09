@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -58,9 +59,18 @@ namespace internal_kvstore_s3 {
 class S3RequestBuilder {
  public:
   /// Constructs an S3RequestBuilder with the HTTP Method (e.g. GET, PUT,
-  /// DELETE, HEAD) and the S3 endpoint
+  /// DELETE, HEAD) and the already-encoded S3 endpoint URL.
   S3RequestBuilder(std::string_view method, std::string endpoint_url)
       : builder_(method, std::move(endpoint_url), S3UriEncode) {}
+
+  /// Constructs an S3RequestBuilder with the HTTP Method, S3 bucket endpoint
+  /// URL, and unencoded S3 object key.
+  S3RequestBuilder(std::string_view method, std::string_view endpoint_url,
+                   std::string_view object_key)
+      : builder_(
+            method,
+            absl::StrCat(endpoint_url, "/", S3UriObjectKeyEncode(object_key)),
+            S3UriEncode) {}
 
   /// Adds a request header.
   /// `field_name` must be a lowercase HTTP header name.

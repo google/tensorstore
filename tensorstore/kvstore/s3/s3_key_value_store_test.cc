@@ -154,14 +154,14 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
        HttpResponse{200, absl::Cord(),
                     HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read1",
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp%3A1/key_read1",
        HttpResponse{
            200, absl::Cord("abcd"),
            HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""},
                      {"x-amz-checksum-sha256",
                       "iNQmb9TmM40TuEX88olXnSCciXgjuSF9o+Fhk28DFYk="}}}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read2",
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp%3A1/key_read2",
        HttpResponse{200, absl::Cord("abcd"),
                     HeaderMap{
                         {"etag", "\"900150983cd24fb0d6963f7d28e17f72\""},
@@ -170,7 +170,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
                         {"x-amz-checksum-type", "FULL_OBJECT"},
                     }}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read3",
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp%3A1/key_read3",
        HttpResponse{
            200, absl::Cord("abcd"),
            HeaderMap{
@@ -180,7 +180,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
                {"x-amz-checksum-type", "COMPOSITE"},  // not FULL_OBJECT
            }}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/empty_read",
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp%3A1/empty_read",
        HttpResponse{200, absl::Cord(),
                     HeaderMap{
                         {"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
@@ -188,14 +188,14 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
                          "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="},
                     }}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/sha_mismatch",
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp%3A1/sha_mismatch",
        HttpResponse{200, absl::Cord("xyz"),
                     HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
                               {"x-amz-checksum-sha256",
                                "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="},
                               {"x-amz-checksum-type", "FULL_OBJECT"}}}},
 
-      {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_write",
+      {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp%3A1/key_write",
        HttpResponse{
            200, absl::Cord(),
            HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
@@ -387,12 +387,12 @@ TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
            HttpResponse{200, absl::Cord(),
                         HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
-          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+          {"GET https://localhost:1234/base/my-bucket/tmp%3A1/key_read",
            HttpResponse{
                200, absl::Cord("abcd"),
                HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
-          {"PUT https://localhost:1234/base/my-bucket/tmp:1/key_write",
+          {"PUT https://localhost:1234/base/my-bucket/tmp%3A1/key_write",
            HttpResponse{
                200, absl::Cord(),
                HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
@@ -637,11 +637,11 @@ TEST(S3KeyValueStoreTest, SimpleMock_RetryTimesOut) {
                         HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
           // 400 => retry
-          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+          {"GET https://localhost:1234/base/my-bucket/tmp%3A1/key_read",
            HttpResponse{400, retry, {}}},
-          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+          {"GET https://localhost:1234/base/my-bucket/tmp%3A1/key_read",
            HttpResponse{400, retry, {}}},
-          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+          {"GET https://localhost:1234/base/my-bucket/tmp%3A1/key_read",
            HttpResponse{400, retry, {}}},
       });
 
@@ -674,7 +674,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_RetryResolveEhr) {
            HttpResponse{200, absl::Cord(),
                         HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
-          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+          {"GET https://localhost:1234/base/my-bucket/tmp%3A1/key_read",
            HttpResponse{
                200, absl::Cord("abcd"),
                HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
@@ -706,5 +706,56 @@ TEST(S3KeyValueStoreTest, SimpleMock_RetryResolveEhr) {
 // TODO: Add mocking to satisfy kvstore testing methods, such as:
 // tensorstore::internal::TestKeyValueStoreReadOps
 // tensorstore::internal::TestKeyValueReadWriteOps
+
+TEST(S3KeyValueStoreTest, EncodesReservedCharactersInObjectKey) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"HEAD https://s3.amazonaws.com/my.bucket",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
+          {"GET "
+           "https://s3.us-east-1.amazonaws.com/my.bucket/"
+           "dir%3A1/file%2520%3Facl%23frag",
+           HttpResponse{
+               200, absl::Cord("abcd"),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+          {"PUT "
+           "https://s3.us-east-1.amazonaws.com/my.bucket/"
+           "dir%3A1/file%2520%3Facl%23frag",
+           HttpResponse{
+               200, absl::Cord(),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+          {"DELETE "
+           "https://s3.us-east-1.amazonaws.com/my.bucket/"
+           "dir%3A1/file%2520%3Facl%23frag",
+           HttpResponse{204, absl::Cord(), {}}},
+      });
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  auto context = DefaultTestContext();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open({{"driver", "s3"},
+                                                  {"bucket", "my.bucket"},
+                                                  {"aws_region", "us-east-1"}},
+                                                 context)
+                                       .result());
+
+  EXPECT_THAT(
+      kvstore::Read(store, "dir:1/file%20?acl#frag").result(),
+      MatchesKvsReadResult(absl::Cord("abcd"),
+                           StorageGeneration::FromString(
+                               "\"900150983cd24fb0d6963f7d28e17f72\"")));
+  EXPECT_THAT(kvstore::Write(store, "dir:1/file%20?acl#frag", absl::Cord("xyz"))
+                  .result(),
+              MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
+                  "\"900150983cd24fb0d6963f7d28e17f72\"")));
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "dir:1/file%20?acl#frag"));
+
+  ASSERT_EQ(mock_transport->requests().size(), 3);
+  for (const auto& request : mock_transport->requests()) {
+    EXPECT_EQ(request.url,
+              "https://s3.us-east-1.amazonaws.com/my.bucket/"
+              "dir%3A1/file%2520%3Facl%23frag");
+  }
+}
 
 }  // namespace

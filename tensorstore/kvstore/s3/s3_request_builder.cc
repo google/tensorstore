@@ -45,7 +45,6 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/uri/parse.h"
-#include "tensorstore/kvstore/s3/s3_uri_utils.h"
 
 using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal_aws::AwsCredentials;
@@ -87,8 +86,7 @@ std::string CanonicalRequest(
     std::string_view method, std::string_view path, std::string_view query,
     std::string_view payload_hash,
     const std::vector<std::pair<std::string, std::string_view>>& headers) {
-  std::string canonical =
-      absl::StrCat(method, "\n", S3UriObjectKeyEncode(path), "\n", query, "\n");
+  std::string canonical = absl::StrCat(method, "\n", path, "\n", query, "\n");
 
   // Canonical Headers
   std::vector<std::string_view> signed_headers;

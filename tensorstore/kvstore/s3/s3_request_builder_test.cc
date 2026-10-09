@@ -85,11 +85,10 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   const auto now =
       absl::FromCivil(absl::CivilSecond(2024, 2, 21, 03, 02, 05), utc);
 
-  auto builder =
-      S3RequestBuilder(
-          "PUT", "https://host/bucket/tensorstore/a-_.~$&,:=@z/b/file.txt")
-          .AddHeader("content-md5", "1B2M2Y8AsgTpgAmY7PhCfg==")
-          .AddHeader("content-type", "text/plain");
+  auto builder = S3RequestBuilder("PUT", "https://host/bucket",
+                                  "tensorstore/a-_.~$&,:=@z/b/file.txt")
+                     .AddHeader("content-md5", "1B2M2Y8AsgTpgAmY7PhCfg==")
+                     .AddHeader("content-type", "text/plain");
 
   // NOTE: In a proper vhost request, `bucket/` would be omitted from the path.
   auto request = builder.BuildRequest(
@@ -119,9 +118,35 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   auto expected_signature =
       "c3bf762eae82b8a87dc5f7af8c2ad8973d4a0132c49bd8c46d025d4a1aa175fb";
 
+  EXPECT_EQ(
+      request.url,
+      "https://host/bucket/tensorstore/a-_.~%24%26%2C%3A%3D%40z/b/file.txt");
   EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
   EXPECT_EQ(builder.GetSigningString(), expected_signing_string);
   EXPECT_EQ(builder.GetSignature(), expected_signature);
+}
+
+TEST(S3RequestBuilderTest, PreservesLiteralPercentInObjectKey) {
+  const auto credentials = AwsCredentials::Make(
+      "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
+  const auto now =
+      absl::FromCivil(absl::CivilSecond(2024, 2, 21, 03, 02, 05), utc);
+
+  // An object key containing a literal "%20" or "%3A" must have its '%'
+  // encoded as "%25" in both the request URL and the CanonicalRequest URI
+  // (i.e. "/bucket/dir%253A1/file%2520name.txt"), rather than being
+  // percent-decoded into "%3A" / "%20" or double-encoded into "%2525".
+  auto builder = S3RequestBuilder("GET", "https://host/bucket",
+                                  "dir%3A1/file%20name?acl#frag");
+  auto request = builder.BuildRequest(
+      "bucket.s3.us-west-2.amazonaws.com", credentials, "us-west-2",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", now);
+
+  EXPECT_EQ(request.url,
+            "https://host/bucket/dir%253A1/file%2520name%3Facl%23frag");
+  EXPECT_THAT(
+      builder.GetCanonicalRequest(),
+      HasSubstr("GET\n/bucket/dir%253A1/file%2520name%3Facl%23frag\n\n"));
 }
 
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
@@ -188,8 +213,8 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
   const auto credentials = AwsCredentials::Make(
       "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
 
-  auto url = absl::StrFormat("s3://%s/test$file.text", bucket);
-  auto builder = S3RequestBuilder("PUT", url)
+  auto endpoint = absl::StrFormat("s3://%s", bucket);
+  auto builder = S3RequestBuilder("PUT", endpoint, "test$file.text")
                      .AddHeader("date", "Fri, 24 May 2013 00:00:00 GMT")
                      .AddHeader("x-amz-storage-class", "REDUCED_REDUNDANCY");
   auto request = builder.BuildRequest(
@@ -231,7 +256,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
   EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
   EXPECT_EQ(builder.GetSigningString(), expected_signing_string);
   EXPECT_EQ(builder.GetSignature(), expected_signature);
-  EXPECT_EQ(request.url, url);
+  EXPECT_EQ(request.url, absl::StrCat(endpoint, "/test%24file.text"));
   EXPECT_EQ(request.headers.size(), 6);
   EXPECT_THAT(
       request.headers,
