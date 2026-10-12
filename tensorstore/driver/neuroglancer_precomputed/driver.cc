@@ -414,7 +414,13 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     scale_constraints.resolution = scale.resolution;
     scale_constraints.box = scale.box;
     scale_constraints.encoding = scale.encoding;
-    if (scale.encoding == ScaleMetadata::Encoding::compressed_segmentation) {
+    if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
+      scale_constraints.jpeg_quality = scale.jpeg_quality;
+    } else if (scale.encoding == ScaleMetadata::Encoding::png &&
+               scale.png_level != -1) {
+      scale_constraints.png_level = scale.png_level;
+    } else if (scale.encoding ==
+               ScaleMetadata::Encoding::compressed_segmentation) {
       scale_constraints.compressed_segmentation_block_size =
           scale.compressed_segmentation_block_size;
     }

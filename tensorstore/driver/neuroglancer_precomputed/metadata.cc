@@ -263,7 +263,8 @@ constexpr static auto EncodingJsonBinder = [](auto maybe_optional) {
                              "Only valid for \"png\" encoding");
                        }
                      } else {
-                       if (obj->encoding != ScaleMetadata::Encoding::png) {
+                       if (obj->encoding != ScaleMetadata::Encoding::png ||
+                           obj->png_level == -1) {
                          *j = ::nlohmann::json(
                              ::nlohmann::json::value_t::discarded);
                          return absl::OkStatus();
@@ -1133,7 +1134,8 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
     } else {
       if (!codec_spec->shard_data_encoding) {
         codec_spec->shard_data_encoding =
-            constraints.scale.encoding != ScaleMetadata::Encoding::jpeg
+            (constraints.scale.encoding != ScaleMetadata::Encoding::jpeg &&
+             constraints.scale.encoding != ScaleMetadata::Encoding::png)
                 ? ShardingSpec::DataEncoding::gzip
                 : ShardingSpec::DataEncoding::raw;
       }
@@ -1245,7 +1247,7 @@ CodecSpec GetCodecFromMetadata(const MultiscaleMetadata& metadata,
   if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
     codec->jpeg_quality = scale.jpeg_quality;
   }
-  if (scale.encoding == ScaleMetadata::Encoding::png) {
+  if (scale.encoding == ScaleMetadata::Encoding::png && scale.png_level != -1) {
     codec->png_level = scale.png_level;
   }
   if (auto* sharding = std::get_if<ShardingSpec>(&scale.sharding)) {

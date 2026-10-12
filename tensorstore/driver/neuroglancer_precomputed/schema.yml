@@ -219,7 +219,7 @@ definitions:
               `kvstore/neuroglancer_uint64_sharded/ShardingSpec.data_encoding`. If
               not specified, defaults to ``"gzip"`` if the `.encoding` is
               equal to ``"raw"`` or ``"compressed_segmentation"``, and
-              to ``"raw"`` if `.encoding` is equal to ``"jpeg"``.
+              to ``"raw"`` if `.encoding` is equal to ``"jpeg"`` or ``"png"``.
             enum:
             - raw
             - gzip

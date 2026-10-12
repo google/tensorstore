@@ -1409,6 +1409,109 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       std::move(options));
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "png";
+  options.full_spec = {
+      {"dtype", "uint8"},
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"multiscale_metadata",
+       {
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"key", "1_1_1"},
+           {"resolution", {1.0, 1.0, 1.0}},
+           {"encoding", "png"},
+           {"chunk_size", {3, 2, 2}},
+           {"size", {10, 99, 98}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding", nullptr},
+       }},
+      {"scale_index", 0},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+  };
+  options.minimal_spec = {
+      {"dtype", "uint8"},
+      {"driver", "neuroglancer_precomputed"},
+      {"scale_index", 0},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+  };
+  options.url = "memory://prefix/|neuroglancer-precomputed:";
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "png/level";
+  options.full_spec = {
+      {"dtype", "uint8"},
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"multiscale_metadata",
+       {
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"key", "1_1_1"},
+           {"resolution", {1.0, 1.0, 1.0}},
+           {"encoding", "png"},
+           {"png_level", 6},
+           {"chunk_size", {3, 2, 2}},
+           {"size", {10, 99, 98}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding", nullptr},
+       }},
+      {"scale_index", 0},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+  };
+  options.minimal_spec = {
+      {"dtype", "uint8"},
+      {"driver", "neuroglancer_precomputed"},
+      {"scale_index", 0},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+  };
+  options.url = "memory://prefix/|neuroglancer-precomputed:";
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
 // Tests basic read/write functionality, including concurrent writes, for both
 // the unsharded and sharded formats.
 TENSORSTORE_GLOBAL_INITIALIZER {
@@ -2163,6 +2266,37 @@ TEST(CodecSpecTest, Jpeg) {
                               })));
 }
 
+TEST(CodecSpecTest, Png) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint8"},
+           {"num_channels", 1},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "png"},
+           {"png_level", 8},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
+  EXPECT_THAT(codec.ToJson(), ::testing::Optional(MatchesJson({
+                                  {"driver", "neuroglancer_precomputed"},
+                                  {"encoding", "png"},
+                                  {"png_level", 8},
+                              })));
+}
+
 TEST(CodecSpecTest, Raw) {
   ::nlohmann::json json_spec{
       {"driver", "neuroglancer_precomputed"},
@@ -2366,6 +2500,158 @@ TEST(DriverCreateWithSchemaTest, CompressedSegmentation) {
             {"encoding", "compressed_segmentation"}}},
           {"dimension_units", {"nm", "nm", "nm", nullptr}},
       });
+}
+
+TEST(DriverCreateWithSchemaTest, PngSharded) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"schema",
+           {
+               {"dtype", "uint8"},
+               {"domain", {{"shape", {1000, 1000, 1000, 1}}}},
+               {"chunk_layout",
+                {
+                    {"read_chunk", {{"shape", {30, 40, 50, 0}}}},
+                    {"write_chunk", {{"elements", 30 * 40 * 50 * 8}}},
+                }},
+               {"codec",
+                {
+                    {"driver", "neuroglancer_precomputed"},
+                    {"encoding", "png"},
+                }},
+           }},
+      },
+      {
+          {"dtype", "uint8"},
+          {"domain",
+           {{"shape", {1000, 1000, 1000, 1}},
+            {"labels", {"x", "y", "z", "channel"}}}},
+          {"chunk_layout",
+           {{"grid_origin", {0, 0, 0, 0}},
+            {"inner_order", {3, 2, 1, 0}},
+            {"read_chunk", {{"shape", {30, 40, 50, 1}}}},
+            {"write_chunk", {{"shape", {30 * 2, 40 * 2, 50 * 2, 1}}}}}},
+          {"codec",
+           {{"driver", "neuroglancer_precomputed"},
+            {"encoding", "png"},
+            {"shard_data_encoding", "raw"}}},
+          {"dimension_units", {"nm", "nm", "nm", nullptr}},
+      });
+}
+
+TEST(DriverCreateWithSchemaTest, JpegSharded) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"schema",
+           {
+               {"dtype", "uint8"},
+               {"domain", {{"shape", {1000, 1000, 1000, 1}}}},
+               {"chunk_layout",
+                {
+                    {"read_chunk", {{"shape", {30, 40, 50, 0}}}},
+                    {"write_chunk", {{"elements", 30 * 40 * 50 * 8}}},
+                }},
+               {"codec",
+                {
+                    {"driver", "neuroglancer_precomputed"},
+                    {"encoding", "jpeg"},
+                    {"jpeg_quality", 85},
+                }},
+           }},
+      },
+      {
+          {"dtype", "uint8"},
+          {"domain",
+           {{"shape", {1000, 1000, 1000, 1}},
+            {"labels", {"x", "y", "z", "channel"}}}},
+          {"chunk_layout",
+           {{"grid_origin", {0, 0, 0, 0}},
+            {"inner_order", {3, 2, 1, 0}},
+            {"read_chunk", {{"shape", {30, 40, 50, 1}}}},
+            {"write_chunk", {{"shape", {30 * 2, 40 * 2, 50 * 2, 1}}}}}},
+          {"codec",
+           {{"driver", "neuroglancer_precomputed"},
+            {"encoding", "jpeg"},
+            {"jpeg_quality", 85},
+            {"shard_data_encoding", "raw"}}},
+          {"dimension_units", {"nm", "nm", "nm", nullptr}},
+      });
+}
+
+TEST(DriverCreateWithSchemaTest, PngAndJpegSpecAndMetadata) {
+  // Default png_level should be omitted from both `info` metadata and bound
+  // `Spec`.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Open(
+                        {
+                            {"driver", "neuroglancer_precomputed"},
+                            {"kvstore", {{"driver", "memory"}}},
+                            {"schema",
+                             {
+                                 {"dtype", "uint8"},
+                                 {"domain", {{"shape", {100, 100, 100, 1}}}},
+                                 {"codec",
+                                  {
+                                      {"driver", "neuroglancer_precomputed"},
+                                      {"encoding", "png"},
+                                  }},
+                             }},
+                        },
+                        tensorstore::OpenMode::create)
+                        .result());
+    EXPECT_THAT(
+        GetMap(store.kvstore()),
+        ::testing::Optional(::testing::ElementsAre(
+            Pair("info", ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
+                             {"@type", "neuroglancer_multiscale_volume"},
+                             {"data_type", "uint8"},
+                             {"num_channels", 1},
+                             {"type", "image"},
+                             {"scales",
+                              {{
+                                  {"chunk_sizes", {{100, 100, 100}}},
+                                  {"encoding", "png"},
+                                  {"key", "1_1_1"},
+                                  {"resolution", {1.0, 1.0, 1.0}},
+                                  {"size", {100, 100, 100}},
+                                  {"voxel_offset", {0, 0, 0}},
+                              }}},
+                         }))))));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_json, spec.ToJson());
+    EXPECT_FALSE(spec_json["scale_metadata"].contains("png_level"));
+  }
+
+  // Non-default `jpeg_quality` should be preserved in bound `Spec`.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Open(
+                        {
+                            {"driver", "neuroglancer_precomputed"},
+                            {"kvstore", {{"driver", "memory"}}},
+                            {"schema",
+                             {
+                                 {"dtype", "uint8"},
+                                 {"domain", {{"shape", {100, 100, 100, 1}}}},
+                                 {"codec",
+                                  {
+                                      {"driver", "neuroglancer_precomputed"},
+                                      {"encoding", "jpeg"},
+                                      {"jpeg_quality", 85},
+                                  }},
+                             }},
+                        },
+                        tensorstore::OpenMode::create)
+                        .result());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_json, spec.ToJson());
+    EXPECT_EQ(85, spec_json["scale_metadata"]["jpeg_quality"]);
+  }
 }
 
 TEST(DriverTest, InvalidCodec) {

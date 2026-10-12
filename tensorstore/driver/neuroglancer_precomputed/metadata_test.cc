@@ -435,14 +435,18 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   // Test valid data types and number of channels for `png` encoding.
   for (int num_channels : {1, 2, 3, 4}) {
     const auto dtype = ::tensorstore::dtype_v<uint8_t>;
+    auto metadata_json =
+        GetMetadata(dtype.name(), ScaleMetadata::Encoding::png, num_channels);
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto m, MultiscaleMetadata::FromJson(GetMetadata(
-                    dtype.name(), ScaleMetadata::Encoding::png, num_channels)));
+        auto m, MultiscaleMetadata::FromJson(metadata_json));
     ASSERT_EQ(1, m.scales.size());
     EXPECT_EQ(dtype, m.dtype);
     EXPECT_EQ(num_channels, m.num_channels);
     EXPECT_EQ(-1, m.scales[0].png_level);
     EXPECT_EQ(ScaleMetadata::Encoding::png, m.scales[0].encoding);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto roundtrip_json, m.ToJson());
+    EXPECT_FALSE(roundtrip_json["scales"][0].contains("png_level"));
+    TENSORSTORE_EXPECT_OK(MultiscaleMetadata::FromJson(roundtrip_json));
   }
 
   for (int num_channels : {1, 2, 3, 4}) {
@@ -475,6 +479,9 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
                     ::nlohmann::json::value_t::discarded, png_level)));
     ASSERT_EQ(1, m.scales.size());
     EXPECT_EQ(png_level, m.scales[0].png_level);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto roundtrip_json, m.ToJson());
+    EXPECT_EQ(png_level, roundtrip_json["scales"][0]["png_level"]);
+    TENSORSTORE_EXPECT_OK(MultiscaleMetadata::FromJson(roundtrip_json));
   }
 
   // Test invalid number of channels for `png` encoding.
@@ -1267,6 +1274,45 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
   EXPECT_EQ(ScaleMetadata::Encoding::compressed_segmentation, s.encoding);
   EXPECT_THAT(s.compressed_segmentation_block_size, ElementsAre(8, 9, 10));
   EXPECT_THAT(s.ToJson(), ::testing::Optional(MatchesJson(scale_attributes)));
+}
+
+TEST(CreateScaleTest, NoExistingMetadataPng) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto schema, tensorstore::Schema::FromJson({
+                       {"dtype", "uint8"},
+                       {"domain", {{"shape", {100, 100, 100, 1}}}},
+                       {"chunk_layout",
+                        {
+                            {"read_chunk", {{"shape", {10, 10, 10, 1}}}},
+                            {"write_chunk", {{"shape", {20, 20, 20, 1}}}},
+                        }},
+                       {"codec",
+                        {
+                            {"driver", "neuroglancer_precomputed"},
+                            {"encoding", "png"},
+                        }},
+                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result,
+      CreateScale(/*existing_metadata=*/nullptr, OpenConstraints{}, schema));
+  const auto& [metadata, scale_index] = result;
+  ASSERT_TRUE(metadata);
+  EXPECT_EQ(0, scale_index);
+  ASSERT_EQ(1, metadata->scales.size());
+  const auto& s = metadata->scales[0];
+  EXPECT_EQ(ScaleMetadata::Encoding::png, s.encoding);
+  EXPECT_EQ(-1, s.png_level);
+  ASSERT_TRUE(std::holds_alternative<ShardingSpec>(s.sharding));
+  EXPECT_EQ(ShardingSpec::DataEncoding::raw,
+            std::get<ShardingSpec>(s.sharding).data_encoding);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto s_json, s.ToJson());
+  EXPECT_FALSE(s_json.contains("png_level"));
+  EXPECT_THAT(GetCodecFromMetadata(*metadata, 0).ToJson(),
+              ::testing::Optional(MatchesJson({
+                  {"driver", "neuroglancer_precomputed"},
+                  {"encoding", "png"},
+                  {"shard_data_encoding", "raw"},
+              })));
 }
 
 TEST(CreateScaleTest, InvalidScaleConstraints) {
