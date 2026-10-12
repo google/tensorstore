@@ -6,6 +6,17 @@ allOf:
   properties:
     driver:
       const: "zarr3"
+    open_as_void:
+      type: boolean
+      title: Raw byte access mode.
+      description: |
+        When true, the codec pipeline is resolved with a ``byte`` data type
+        and an additional innermost dimension of size equal to the number of
+        bytes per element of the original data type.  This exposes the
+        decoded array data as raw bytes.  Only certain codecs are
+        supported when this option is enabled; see
+        :ref:`open-as-void` for details.
+      default: false
     metadata:
       title: Zarr v3 array metadata.
       description: |
