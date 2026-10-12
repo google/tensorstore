@@ -333,4 +333,63 @@ TEST(FileUtilTest, StatusFromOsErrorMapping) {
 #endif
 }
 
+#if !defined(_WIN32) && !defined(ADDRESS_SANITIZER) && \
+    !defined(MEMORY_SANITIZER) && !defined(THREAD_SANITIZER)
+TEST(FileUtilTest, LargeIo) {
+  if constexpr (sizeof(size_t) < 8) {
+    GTEST_SKIP() << "Requires 64-bit address space.";
+  } else {
+    const size_t page_size = GetDefaultPageSize();
+    const size_t max_posix_io_size =
+        (static_cast<size_t>(INT32_MAX) / page_size) * page_size;
+    const size_t large_size = (size_t{1} << 31) + page_size;
+
+    ScopedTemporaryDirectory tempdir;
+    std::string foo_txt = absl::StrCat(tempdir.path(), "/foo.txt");
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto f, OpenFileWrapper(foo_txt, OpenFlags::DefaultWrite));
+      EXPECT_THAT(WriteToFile(f.get(), "foobar", 6), IsOkAndHolds(6));
+    }
+
+    auto allocation = AllocateAlignedRegion(page_size, large_size);
+    tensorstore::span<char> large_span(allocation.data(), allocation.size());
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto f, OpenFileWrapper(foo_txt, OpenFlags::DefaultRead));
+      EXPECT_THAT(ReadFromFile(f.get(), large_span), IsOkAndHolds(6));
+      EXPECT_EQ(std::string_view(large_span.data(), 6), "foobar");
+      large_span[0] = '\0';
+      EXPECT_THAT(PReadFromFile(f.get(), large_span, 0), IsOkAndHolds(6));
+      EXPECT_EQ(std::string_view(large_span.data(), 6), "foobar");
+    }
+
+    // Verify >= 2 GiB writes via /dev/null clamp to max_posix_io_size and do
+    // not fail with EINVAL on POSIX.
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto dev_null,
+          OpenFileWrapper("/dev/null", OpenFlags::OpenWriteOnly));
+      EXPECT_THAT(
+          WriteToFile(dev_null.get(), allocation.data(), allocation.size()),
+          IsOkAndHolds(max_posix_io_size));
+
+      constexpr size_t kOneGiB = size_t{1} << 30;
+      absl::Cord chunk = absl::MakeCordFromExternal(
+          allocation.as_string_view().substr(0, kOneGiB), [] {});
+      absl::Cord multi_chunk_cord;
+      multi_chunk_cord.Append(chunk);
+      multi_chunk_cord.Append(chunk);
+      multi_chunk_cord.Append(chunk);
+      EXPECT_THAT(WriteCordToFile(dev_null.get(), multi_chunk_cord),
+                  IsOkAndHolds(max_posix_io_size));
+
+      EXPECT_THAT(
+          WriteCordToFile(dev_null.get(), std::move(allocation).as_cord()),
+          IsOkAndHolds(max_posix_io_size));
+    }
+  }
+}
+#endif
+
 }  // namespace

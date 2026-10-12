@@ -30,10 +30,12 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -122,6 +124,21 @@ TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
 namespace tensorstore {
 namespace internal_os {
 namespace {
+
+// Maximum byte count for a single POSIX read/pread/write/writev system call.
+// On macOS and FreeBSD, read/pread/write/writev fail with EINVAL when the
+// requested byte count exceeds INT_MAX (2^31 - 1). On Linux, the kernel clamps
+// single transfers to MAX_RW_COUNT (INT_MAX & PAGE_MASK). Rounding INT_MAX down
+// to a multiple of the system page size keeps transfers below INT_MAX while
+// preserving page alignment across partial transfers.
+size_t GetMaxPosixIoSize() {
+  static const size_t kMaxPosixIoSize = [] {
+    const size_t page_size = GetDefaultPageSize();
+    return (static_cast<size_t>(std::numeric_limits<int>::max()) / page_size) *
+           page_size;
+  }();
+  return kMaxPosixIoSize;
+}
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
 
@@ -305,14 +322,16 @@ Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
   TENSORSTORE_INVOKE_TEST_HOOK(ReadOpTag, fd);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"fd", fd}, {"count", buffer.size()}});
+  const size_t count = std::min<size_t>(buffer.size(), GetMaxPosixIoSize());
   ssize_t n;
   do {
     PotentiallyBlockingRegion region;
-    n = ::read(fd, buffer.data(), buffer.size());
+    n = ::read(fd, buffer.data(), count);
   } while ((n < 0) && (errno == EINTR));
   if (n >= 0) {
     return n;
-  } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+  }
+  if (errno == EAGAIN || errno == EWOULDBLOCK) {
     return 0;
   }
   auto status = StatusFromOsError(errno).Format("Failed to read from file");
@@ -326,10 +345,11 @@ Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
   LoggedTraceSpan tspan(
       __func__, detail_logging.Level(1),
       {{"fd", fd}, {"count", buffer.size()}, {"offset", offset}});
+  const size_t count = std::min<size_t>(buffer.size(), GetMaxPosixIoSize());
   ssize_t n;
   do {
     PotentiallyBlockingRegion region;
-    n = ::pread(fd, buffer.data(), buffer.size(), static_cast<off_t>(offset));
+    n = ::pread(fd, buffer.data(), count, static_cast<off_t>(offset));
   } while ((n < 0) &&
            (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK));
   if (n >= 0) {
@@ -345,11 +365,11 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
   TENSORSTORE_INVOKE_TEST_HOOK(WriteOpTag, fd);
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"fd", fd}, {"count", count}});
-
+  const size_t to_write = std::min(count, GetMaxPosixIoSize());
   ssize_t n;
   do {
     PotentiallyBlockingRegion region;
-    n = ::write(fd, buf, count);
+    n = ::write(fd, buf, to_write);
   } while ((n < 0) && (errno == EINTR || errno == EAGAIN));
   if (count != 0 && n == 0) {
     errno = ENOSPC;
@@ -367,12 +387,14 @@ Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
                         {{"fd", fd}, {"count", value.size()}});
 
   absl::InlinedVector<iovec, 16> iovs;
+  size_t remaining = GetMaxPosixIoSize();
   for (std::string_view chunk : value.Chunks()) {
     struct iovec iov;
     iov.iov_base = const_cast<char*>(chunk.data());
-    iov.iov_len = chunk.size();
+    iov.iov_len = std::min(chunk.size(), remaining);
     iovs.emplace_back(iov);
-    if (iovs.size() >= TENSORSTORE_MAXIOV) break;
+    remaining -= iov.iov_len;
+    if (remaining == 0 || iovs.size() >= TENSORSTORE_MAXIOV) break;
   }
   ssize_t n;
   do {

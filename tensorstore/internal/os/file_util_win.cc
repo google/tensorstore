@@ -137,6 +137,16 @@ namespace {
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
 
+size_t GetMaxWinIoSize() {
+  static const size_t kMaxWinIoSize = [] {
+    const size_t page_size = GetDefaultPageSize();
+    return (static_cast<size_t>(std::numeric_limits<DWORD>::max()) /
+            page_size) *
+           page_size;
+  }();
+  return kMaxWinIoSize;
+}
+
 // Maximum length of Windows path, including terminating NUL.
 constexpr size_t kMaxWindowsPathSize = 32768;
 
@@ -326,9 +336,8 @@ Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"handle", fd}, {"size", buffer.size()}});
 
-  DWORD count = (buffer.size() > std::numeric_limits<DWORD>::max())
-                    ? std::numeric_limits<DWORD>::max()
-                    : static_cast<DWORD>(buffer.size());
+  const DWORD count =
+      static_cast<DWORD>(std::min<size_t>(buffer.size(), GetMaxWinIoSize()));
   DWORD bytes_read;
   if (::ReadFile(fd, buffer.data(), count, &bytes_read, nullptr)) {
     return static_cast<ptrdiff_t>(bytes_read);
@@ -349,9 +358,8 @@ Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
       __func__, detail_logging.Level(1),
       {{"handle", fd}, {"size", buffer.size()}, {"offset", offset}});
 
-  DWORD count = (buffer.size() > std::numeric_limits<DWORD>::max())
-                    ? std::numeric_limits<DWORD>::max()
-                    : static_cast<DWORD>(buffer.size());
+  const DWORD count =
+      static_cast<DWORD>(std::min<size_t>(buffer.size(), GetMaxWinIoSize()));
   DWORD bytes_read;
   auto overlapped = GetOverlappedWithOffset(static_cast<uint64_t>(offset));
   if (::ReadFile(fd, buffer.data(), count, &bytes_read, &overlapped)) {
@@ -371,12 +379,9 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"handle", fd}, {"size", count}});
 
-  if (count > std::numeric_limits<DWORD>::max()) {
-    count = std::numeric_limits<DWORD>::max();
-  }
+  const DWORD to_write = static_cast<DWORD>(std::min(count, GetMaxWinIoSize()));
   DWORD num_written;
-  if (::WriteFile(fd, buf, static_cast<DWORD>(count), &num_written,
-                  /*lpOverlapped=*/nullptr)) {
+  if (::WriteFile(fd, buf, to_write, &num_written, /*lpOverlapped=*/nullptr)) {
     return static_cast<size_t>(num_written);
   }
   auto status = StatusFromOsError(::GetLastError())

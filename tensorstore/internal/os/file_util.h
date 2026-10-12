@@ -96,13 +96,19 @@ absl::Status SetFileFlags(FileDescriptor fd, OpenFlags flags);
 
 /// Reads from an open file.
 ///
+/// Performs at most a single underlying OS read call and may read fewer bytes
+/// than `buffer.size()`.
+///
 /// \param fd Open file descriptor.
 /// \param buffer[out] Pointer to memory where data will be stored.
 /// \returns Number of bytes read or a failure absl::Status code.
 Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
                                tensorstore::span<char> buffer);
 
-/// Reads from an open file.
+/// Reads from an open file at a given offset.
+///
+/// Performs at most a single underlying OS read call and may read fewer bytes
+/// than `buffer.size()`.
 ///
 /// \param fd Open file descriptor.
 /// \param buffer[out] Pointer to memory where data will be stored.
@@ -118,6 +124,9 @@ Result<std::string> ReadAllToString(const std::string& path);
 
 /// Writes to an open file.
 ///
+/// Performs at most a single underlying OS write call and may write fewer bytes
+/// than `count`.
+///
 /// \param fd Open file descriptor.
 /// \param buf[in] Pointer to data to write.
 /// \param count Maximum number of bytes to write.
@@ -126,9 +135,11 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf, size_t count);
 
 /// Writes an absl::Cord to an open file.
 ///
+/// Performs at most a single underlying OS write call on POSIX and may write
+/// fewer bytes than `value.size()`.
+///
 /// \param fd Open file descriptor.
-/// \param cord[in] data to write.
-/// \param count Maximum number of bytes to write.
+/// \param value[in] data to write.
 /// \returns Number of bytes written or a failure absl::Status code.
 Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value);
 
