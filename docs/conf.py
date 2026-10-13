@@ -641,3 +641,13 @@ def setup(app):
     return None
 
   app.connect('autodoc-skip-member', _autodoc_skip_member)
+
+  # Override `sphinx_immaterial.local_mathjax`, which rewrites the default
+  # `mathjax_path` to a local `mathjax/tex-mml-chtml.js` path that is not copied
+  # during parallel builds in Sphinx >= 8.2.
+  def _configure_mathjax(app, config):
+    del app
+    config.mathjax_path = mathjax_path
+    config.mathjax_options.pop('async', None)
+
+  app.connect('config-inited', _configure_mathjax, priority=600)
