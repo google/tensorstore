@@ -208,12 +208,12 @@ alias(
 # avx2 intrinsics unusable.
 #
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
-selects.config_setting_group(
+alias(
     name = "have_avx2_intrinsics",
-    match_all = [
-        ":avx2_compiler_allowlist",
-        "@platforms//cpu:x86_64",
-    ],
+    actual = select({
+        "@rules_cc//cc/compiler:mingw-gcc": "@platforms//:incompatible",
+        "//conditions:default": "@platforms//cpu:x86_64",
+    }),
 )
 
 selects.config_setting_group(
@@ -221,16 +221,6 @@ selects.config_setting_group(
     match_all = [
         "@rules_cc//cc/compiler:mingw-gcc",
         "@platforms//cpu:x86_64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "avx2_compiler_allowlist",
-    match_any = [
-        "@rules_cc//cc/compiler:clang",
-        "@rules_cc//cc/compiler:clang-cl",
-        "@rules_cc//cc/compiler:gcc",
-        ":compiler_msvc",
     ],
 )
 
