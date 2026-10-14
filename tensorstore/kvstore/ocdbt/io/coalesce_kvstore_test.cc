@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/ocdbt/io/coalesce_kvstore.h"
 
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
@@ -263,6 +265,63 @@ TEST(CoalesceKvstoreTest, ReadWithInterval) {
   }
   TENSORSTORE_EXPECT_OK(read_future4.result());
   EXPECT_EQ(read_future4.result().value().value, absl::Cord("7"));
+}
+
+TEST(CoalesceKvstoreTest, FragmentedCordSingleAndMergedSubreads) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open("memory://").result());
+  auto mock_key_value_store = MockKeyValueStore::Make();
+  auto coalesce_driver = MakeCoalesceKvStoreDriver(
+      mock_key_value_store, /*threshold=*/64, /*merged_threshold=*/0,
+      /*interval=*/absl::ZeroDuration(),
+      tensorstore::internal::DetachedThreadPool(1));
+
+  std::string part1(4096, 'x');
+  std::string part2(4096, 'y');
+  absl::Cord payload;
+  payload.Append(absl::MakeCordFromExternal(part1, [] {}));
+  payload.Append(absl::MakeCordFromExternal(part2, [] {}));
+  ASSERT_FALSE(payload.TryFlat().has_value());
+
+  auto write_future = kvstore::Write(coalesce_driver, "k", payload);
+  write_future.Force();
+  mock_key_value_store->write_requests.pop()(base_store.driver);
+  TENSORSTORE_ASSERT_OK(write_future.result());
+
+  // Enqueue 1 initial read + 2 coalesced subreads spanning the chunk boundary
+  // + 1 separate unmerged single subread (`merge_values.subreads.size() == 1`).
+  ReadOptions ro1, ro2, ro3, ro4;
+  ro1.byte_range = OptionalByteRangeRequest(0, 10);
+  ro2.byte_range = OptionalByteRangeRequest(4090, 4100);
+  ro3.byte_range = OptionalByteRangeRequest(4110, 4120);
+  ro4.byte_range = OptionalByteRangeRequest(5000, 5010);
+
+  auto rf1 = kvstore::Read(coalesce_driver, "k", ro1);
+  auto rf2 = kvstore::Read(coalesce_driver, "k", ro2);
+  auto rf3 = kvstore::Read(coalesce_driver, "k", ro3);
+  auto rf4 = kvstore::Read(coalesce_driver, "k", ro4);
+
+  mock_key_value_store->read_requests.pop()(base_store.driver);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto res1, rf1.result());
+  EXPECT_EQ(res1.value, payload.Subcord(0, 10));
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ(req.options.byte_range, OptionalByteRangeRequest(4090, 4120));
+    req(base_store.driver);
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto res2, rf2.result());
+  EXPECT_EQ(res2.value, payload.Subcord(4090, 10));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto res3, rf3.result());
+  EXPECT_EQ(res3.value, payload.Subcord(4110, 10));
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ(req.options.byte_range, OptionalByteRangeRequest(5000, 5010));
+    req(base_store.driver);
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto res4, rf4.result());
+  EXPECT_EQ(res4.value, payload.Subcord(5000, 10));
 }
 
 }  // namespace

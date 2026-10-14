@@ -34,6 +34,10 @@ absl::Status ValidateResponseByteRange(
     const OptionalByteRangeRequest& byte_range_request, absl::Cord& value,
     ByteRange& byte_range, int64_t& total_size);
 
+absl::Status ValidateResponseByteRange(
+    HttpResponse&& response, const OptionalByteRangeRequest& byte_range_request,
+    absl::Cord& value, ByteRange& byte_range, int64_t& total_size);
+
 }  // namespace internal_http
 }  // namespace tensorstore
 

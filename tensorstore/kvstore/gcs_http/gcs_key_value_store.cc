@@ -594,11 +594,11 @@ struct ReadTask : public RateLimiterNode,
         request, IssueRequestOptions().SetHttpVersion(GetHttpVersion()));
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
-      self->OnResponse(response.result());
+      self->OnResponse(std::move(response.result()));
     });
   }
 
-  void OnResponse(const Result<HttpResponse>& response) {
+  void OnResponse(Result<HttpResponse> response) {
     if (!promise.result_needed()) {
       return;
     }
@@ -628,11 +628,11 @@ struct ReadTask : public RateLimiterNode,
     if (!status.ok()) {
       promise.SetResult(status);
     } else {
-      promise.SetResult(FinishResponse(response.value()));
+      promise.SetResult(FinishResponse(std::move(response.value())));
     }
   }
 
-  Result<kvstore::ReadResult> FinishResponse(const HttpResponse& httpresponse) {
+  Result<kvstore::ReadResult> FinishResponse(HttpResponse httpresponse) {
     gcs_metrics.bytes_read.IncrementBy(httpresponse.payload.size());
     auto latency = absl::Now() - start_time_;
     gcs_metrics.read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
@@ -665,16 +665,16 @@ struct ReadTask : public RateLimiterNode,
       int64_t total_size;
 
       TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
-          httpresponse, options.byte_range, value, byte_range, total_size));
+          std::move(httpresponse), options.byte_range, value, byte_range,
+          total_size));
       // TODO: Avoid parsing the entire metadata & only extract the
       // generation field.
       SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
     } else {
       // 0-range reads issue metadata requests; parse the metadata for
       // the storage generation.
-      absl::Cord cord = httpresponse.payload;
       TENSORSTORE_ASSIGN_OR_RETURN(metadata,
-                                   ParseObjectMetadata(cord.Flatten()));
+                                   ParseObjectMetadata(httpresponse.payload));
     }
 
     auto generation = StorageGeneration::FromUint64(metadata.generation);
@@ -872,8 +872,7 @@ struct WriteTask : public RateLimiterNode,
 
     // TODO: Avoid parsing the entire metadata & only extract the
     // generation field.
-    auto payload = httpresponse.payload;
-    auto parsed_object_metadata = ParseObjectMetadata(payload.Flatten());
+    auto parsed_object_metadata = ParseObjectMetadata(httpresponse.payload);
     TENSORSTORE_RETURN_IF_ERROR(parsed_object_metadata);
 
     r.generation =
@@ -1208,11 +1207,11 @@ struct ListTask : public RateLimiterNode,
       return owner_->BackoffForAttemptAsync(std::move(status), attempt_++,
                                             this);
     }
-    auto payload = response->payload;
-    auto j = internal::ParseJson(payload.Flatten());
+    const auto& payload = response->payload;
+    auto j = internal::ParseJson(payload);
     if (j.is_discarded()) {
-      return absl::InternalError(absl::StrFormat(
-          "Failed to parse response metadata: %s", payload.Flatten()));
+      return absl::InternalError(
+          absl::StrFormat("Failed to parse response metadata: %v", payload));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto parsed_payload,

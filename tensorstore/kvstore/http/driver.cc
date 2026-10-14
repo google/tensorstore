@@ -412,7 +412,8 @@ struct ReadTask {
       int64_t total_size;
 
       TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
-          httpresponse, options.byte_range, value, byte_range, total_size));
+          std::move(httpresponse), options.byte_range, value, byte_range,
+          total_size));
     }
 
     // Parse `ETag` header from response.

@@ -26,6 +26,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/endian/endian_reading.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/cord_util.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -41,30 +43,39 @@ namespace neuroglancer_uint64_sharded {
 
 Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
     const absl::Cord& input, ShardingSpec::DataEncoding encoding) {
-  absl::Cord decoded_input;
+  absl::Cord decoded_storage;
+  const absl::Cord* decoded_input = &input;
   if (encoding != ShardingSpec::DataEncoding::raw) {
-    TENSORSTORE_ASSIGN_OR_RETURN(decoded_input, DecodeData(input, encoding));
-  } else {
-    decoded_input = input;
+    TENSORSTORE_ASSIGN_OR_RETURN(decoded_storage, DecodeData(input, encoding));
+    decoded_input = &decoded_storage;
   }
-  if ((decoded_input.size() % 24) != 0) {
+  if ((decoded_input->size() % 24) != 0) {
     return absl::InvalidArgumentError(absl::StrFormat(
-        "Invalid minishard index length: %d", decoded_input.size()));
+        "Invalid minishard index length: %d", decoded_input->size()));
   }
-  std::vector<MinishardIndexEntry> result(decoded_input.size() / 24);
+  std::vector<MinishardIndexEntry> result(decoded_input->size() / 24);
   static_assert(sizeof(MinishardIndexEntry) == 24);
-  auto decoded_flat = decoded_input.Flatten();
+  riegeli::CordReader<const absl::Cord*> reader(decoded_input);
   ChunkId chunk_id{0};
+  for (size_t i = 0; i < result.size(); ++i) {
+    uint64_t delta = 0;
+    riegeli::ReadLittleEndian<uint64_t>(reader, delta);
+    chunk_id.value += delta;
+    result[i].chunk_id = chunk_id;
+  }
+  for (size_t i = 0; i < result.size(); ++i) {
+    uint64_t offset_delta = 0;
+    riegeli::ReadLittleEndian<uint64_t>(reader, offset_delta);
+    result[i].byte_range.inclusive_min = static_cast<int64_t>(offset_delta);
+  }
   uint64_t byte_offset = 0;
   for (size_t i = 0; i < result.size(); ++i) {
     auto& entry = result[i];
-    chunk_id.value += little_endian::Load64(decoded_flat.data() + i * 8);
-    entry.chunk_id = chunk_id;
-    byte_offset +=
-        little_endian::Load64(decoded_flat.data() + i * 8 + 8 * result.size());
+    uint64_t size_delta = 0;
+    riegeli::ReadLittleEndian<uint64_t>(reader, size_delta);
+    byte_offset += static_cast<uint64_t>(entry.byte_range.inclusive_min);
     entry.byte_range.inclusive_min = byte_offset;
-    byte_offset +=
-        little_endian::Load64(decoded_flat.data() + i * 8 + 16 * result.size());
+    byte_offset += size_delta;
     entry.byte_range.exclusive_max = byte_offset;
     if (!entry.byte_range.SatisfiesInvariants()) {
       return absl::InvalidArgumentError(absl::StrFormat(
@@ -117,6 +128,19 @@ Result<ByteRange> DecodeShardIndexEntry(std::string_view input) {
                         absl::FormatStreamed(r)));
   }
   return r;
+}
+
+Result<ByteRange> DecodeShardIndexEntry(const absl::Cord& input) {
+  if (auto flat = input.TryFlat()) {
+    return DecodeShardIndexEntry(*flat);
+  }
+  if (input.size() != 16) {
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Expected 16 bytes, but received: %d bytes", input.size()));
+  }
+  char buf[16];
+  internal::CopyCordToSpan(input, buf);
+  return DecodeShardIndexEntry(std::string_view(buf, 16));
 }
 
 Result<std::vector<MinishardIndexEntry>>
@@ -180,14 +204,14 @@ Result<std::vector<EncodedChunk>> SplitShard(const ShardingSpec& sharding_spec,
         absl::StrFormat("Existing shard has size %d, but expected at least: %d",
                         shard_data.size(), num_minishards * 16));
   }
-  std::vector<char> shard_index(16 * num_minishards);
-  internal::CopyCordToSpan(shard_data, shard_index);
+  riegeli::CordReader<const absl::Cord*> shard_index_reader(&shard_data);
   for (uint64_t minishard = 0; minishard < num_minishards; ++minishard) {
+    char shard_index_entry[16];
+    shard_index_reader.Read(16, shard_index_entry);
     const auto GetMinishardIndexByteRange = [&]() -> Result<ByteRange> {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto minishard_index_byte_range,
-          DecodeShardIndexEntry(
-              std::string_view(shard_index.data() + 16 * minishard, 16)));
+          DecodeShardIndexEntry(std::string_view(shard_index_entry, 16)));
       TENSORSTORE_ASSIGN_OR_RETURN(
           minishard_index_byte_range,
           GetAbsoluteShardByteRange(minishard_index_byte_range, sharding_spec));

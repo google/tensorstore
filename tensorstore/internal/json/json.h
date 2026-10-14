@@ -21,6 +21,7 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/value_as.h"
 
@@ -30,6 +31,7 @@ namespace internal_json {
 // ParseJson wraps the ::nlohmann::json::parse calls to avoid throwing
 // exceptions.
 ::nlohmann::json ParseJson(std::string_view str);
+::nlohmann::json ParseJson(const absl::Cord& cord);
 
 /// Parses a JSON array.
 ///

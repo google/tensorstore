@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/riegeli/array_endian_codec.h"
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
@@ -306,23 +308,29 @@ TEST(DecodeArrayEndianTest, Misaligned) {
 }
 
 TEST(DecodeArrayEndianTest, Fragmented) {
-  auto c_array = MakeTestArray<uint16_t>();
-  size_t total_bytes = c_array.num_elements() * c_array.dtype().size();
-  std::vector<absl::Cord> parts{
-      absl::MakeCordFromExternal(
-          std::string_view(reinterpret_cast<const char*>(c_array.data()),
-                           total_bytes / 2),
-          [] {}),
-      absl::MakeCordFromExternal(
-          std::string_view(
-              reinterpret_cast<const char*>(c_array.data()) + total_bytes / 2,
-              total_bytes / 2),
-          [] {})};
-  absl::Cord cord = absl::MakeFragmentedCord(parts);
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto decoded, DecodeArrayFromCord(dtype_v<uint16_t>, {{1000, 2000}}, cord,
-                                        endian::native, c_order));
-  EXPECT_THAT(decoded, MakeTestArray<uint16_t>(c_order));
+  for (endian endianness : {endian::little, endian::big}) {
+    auto c_array = MakeTestArray<uint16_t>();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        absl::Cord flat_encoded,
+        EncodeArrayAsCord(c_array, endianness, c_order));
+    std::string flat_bytes = std::string(flat_encoded.Flatten());
+    // Split at an odd byte offset so a uint16_t element straddles two chunks.
+    const size_t split_offset = flat_bytes.size() / 2 + 1;
+    std::vector<absl::Cord> parts{
+        absl::MakeCordFromExternal(
+            std::string_view(flat_bytes.data(), split_offset), [] {}),
+        absl::MakeCordFromExternal(
+            std::string_view(flat_bytes.data() + split_offset,
+                             flat_bytes.size() - split_offset),
+            [] {})};
+    absl::Cord cord = absl::MakeFragmentedCord(parts);
+    ASSERT_FALSE(cord.TryFlat().has_value());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto decoded, DecodeArrayFromCord(dtype_v<uint16_t>, {{1000, 2000}},
+                                          cord, endianness, c_order));
+    EXPECT_THAT(decoded, c_array);
+    EXPECT_FALSE(cord.TryFlat().has_value());
+  }
 }
 
 }  // namespace

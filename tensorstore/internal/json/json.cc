@@ -24,6 +24,7 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
@@ -35,6 +36,38 @@
 
 namespace tensorstore {
 namespace internal_json {
+
+namespace {
+
+struct CordJsonInputAdapter {
+  using char_type = char;
+
+  explicit CordJsonInputAdapter(const absl::Cord& cord)
+      : chunks(cord.Chunks()), it(chunks.begin()), end(chunks.end()) {
+    if (it != end) {
+      cur = *it;
+    }
+  }
+
+  std::char_traits<char>::int_type get_character() {
+    while (cur.empty()) {
+      if (it == end || ++it == end) {
+        return std::char_traits<char>::eof();
+      }
+      cur = *it;
+    }
+    char c = cur.front();
+    cur.remove_prefix(1);
+    return std::char_traits<char>::to_int_type(c);
+  }
+
+  absl::Cord::ChunkRange chunks;
+  absl::Cord::ChunkIterator it;
+  absl::Cord::ChunkIterator end;
+  std::string_view cur;
+};
+
+}  // namespace
 
 ::nlohmann::json JsonExtractMember(::nlohmann::json::object_t* j_obj,
                                    std::string_view name) {
@@ -54,6 +87,18 @@ absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
 
 ::nlohmann::json ParseJson(std::string_view str) {
   return ::nlohmann::json::parse(str, nullptr, false);
+}
+
+::nlohmann::json ParseJson(const absl::Cord& cord) {
+  if (auto flat = cord.TryFlat()) {
+    return ::nlohmann::json::parse(*flat, nullptr, false);
+  }
+  ::nlohmann::json value;
+  ::nlohmann::detail::parser<::nlohmann::json, CordJsonInputAdapter>(
+      CordJsonInputAdapter(cord), nullptr, /*allow_exceptions=*/false,
+      /*ignore_comments=*/false)
+      .parse(/*strict=*/true, value);
+  return value;
 }
 
 absl::Status JsonParseArray(

@@ -138,6 +138,7 @@ tensorstore_cc_test(
         ":gcs_http",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:result",
+        "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
     ],

@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/json/json.h"
 
-#include <map>
+#include <stddef.h>
+
 #include <string>
 #include <utility>
 #include <vector>
@@ -22,6 +23,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/strings/cord_test_helpers.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
@@ -47,6 +50,23 @@ TEST(JsonTest, SimpleParse) {
 
   auto one = ParseJson("1");  // std::string_view
   EXPECT_FALSE(one.is_discarded());
+
+  // Test parsing multi-chunk absl::Cord without flattening.
+  absl::Cord fragmented =
+      absl::MakeFragmentedCord({"{ \"fo", "o\": \"b", "ar\" }"});
+  ASSERT_FALSE(fragmented.TryFlat().has_value());
+  auto z = ParseJson(fragmented);
+  EXPECT_EQ(y, z);
+  EXPECT_FALSE(fragmented.TryFlat().has_value());
+
+  // Empty and invalid fragmented cords return discarded json without
+  // flattening.
+  EXPECT_TRUE(ParseJson(absl::Cord()).is_discarded());
+  absl::Cord invalid_fragmented =
+      absl::MakeFragmentedCord({"{ \"foo\": ", "[1, 2, "});
+  ASSERT_FALSE(invalid_fragmented.TryFlat().has_value());
+  EXPECT_TRUE(ParseJson(invalid_fragmented).is_discarded());
+  EXPECT_FALSE(invalid_fragmented.TryFlat().has_value());
 }
 
 TEST(JsonParseArrayTest, Basic) {

@@ -44,6 +44,7 @@
 #include "tensorstore/internal/image/png_reader.h"
 #include "tensorstore/internal/image/png_writer.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/riegeli/array_endian_codec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
@@ -68,27 +69,35 @@ Result<SharedArray<const void>> DecodeRawChunk(
         absl::StrCat("Expected chunk length to be ", expected_bytes,
                      ", but received ", buffer.size(), " bytes"));
   }
-  auto flat_buffer = buffer.Flatten();
-  if (absl::c_equal(shape, chunk_layout.shape())) {
+  const bool is_full_chunk = absl::c_equal(shape, chunk_layout.shape());
+  if (is_full_chunk) {
     // Chunk is full size.  Attempt to decode in place.  Transfer ownership of
     // the existing `buffer` string into `decoded_array`.
     auto decoded_array = internal::TryViewCordAsArray(
         buffer, /*offset=*/0, dtype, endian::little, chunk_layout);
     if (decoded_array.valid()) return {std::in_place, decoded_array};
   }
-  // Partial chunk, must copy.  It is safe to default initialize because the
-  // out-of-bounds positions will never be read, but we use value initialization
-  // for simplicity in case resize is supported later.
-  Array<const void, 4> source(
-      {static_cast<const void*>(flat_buffer.data()), dtype}, shape);
+  // Partial chunk, multi-chunk cord, or unaligned buffer: must copy.  It is
+  // safe to default initialize because the out-of-bounds positions will never
+  // be read, but we use value initialization for partial chunks for simplicity
+  // in case resize is supported later.
   SharedArray<void> full_decoded_array(
-      internal::AllocateAndConstructSharedElements(chunk_layout.num_elements(),
-                                                   value_init, dtype),
+      internal::AllocateAndConstructSharedElements(
+          chunk_layout.num_elements(),
+          is_full_chunk ? default_init : value_init, dtype),
       chunk_layout);
   ArrayView<void> partial_decoded_array(
       full_decoded_array.element_pointer(),
       StridedLayoutView<>{shape, chunk_layout.byte_strides()});
-  internal::DecodeArray(source, endian::little, partial_decoded_array);
+  if (auto flat_buffer = buffer.TryFlat()) {
+    Array<const void, 4> source(
+        {static_cast<const void*>(flat_buffer->data()), dtype}, shape);
+    internal::DecodeArray(source, endian::little, partial_decoded_array);
+  } else {
+    riegeli::CordReader<> cord_reader(&buffer);
+    TENSORSTORE_RETURN_IF_ERROR(internal::DecodeArrayEndian(
+        cord_reader, endian::little, c_order, partial_decoded_array));
+  }
   return full_decoded_array;
 }
 
@@ -136,7 +145,8 @@ Result<SharedArray<const void>> DecodeImageChunk(
   }
 
   if (partial_shape[0] == 1 &&
-      absl::c_equal(partial_shape, chunk_layout.shape())) {
+      absl::c_equal(partial_shape, chunk_layout.shape()) &&
+      IsContiguousLayout(chunk_layout, c_order, dtype.size())) {
     // `array` already has correct layout.
     return SharedArray<const void>(array.element_pointer(), chunk_layout);
   }

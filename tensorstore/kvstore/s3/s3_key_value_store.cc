@@ -470,11 +470,11 @@ struct ReadTask : public RateLimiterNode,
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
-      self->OnResponse(response.result());
+      self->OnResponse(std::move(response.result()));
     });
   }
 
-  void OnResponse(const Result<HttpResponse>& response) {
+  void OnResponse(Result<HttpResponse> response) {
     if (!promise.result_needed()) {
       return;
     }
@@ -507,11 +507,11 @@ struct ReadTask : public RateLimiterNode,
     if (!status.ok()) {
       promise.SetResult(status);
     } else {
-      promise.SetResult(FinishResponse(response.value()));
+      promise.SetResult(FinishResponse(std::move(response.value())));
     }
   }
 
-  Result<kvstore::ReadResult> FinishResponse(const HttpResponse& httpresponse) {
+  Result<kvstore::ReadResult> FinishResponse(HttpResponse httpresponse) {
     s3_metrics.bytes_read.IncrementBy(httpresponse.payload.size());
     auto latency = absl::Now() - start_time_;
     s3_metrics.read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
@@ -560,7 +560,8 @@ struct ReadTask : public RateLimiterNode,
       int64_t total_size;
 
       TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
-          httpresponse, options.byte_range, value, byte_range, total_size));
+          std::move(httpresponse), options.byte_range, value, byte_range,
+          total_size));
     }
 
     TENSORSTORE_ASSIGN_OR_RETURN(

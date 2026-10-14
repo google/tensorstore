@@ -64,6 +64,7 @@ Result<absl::Cord> DecodeData(const absl::Cord& input,
 /// \param `absl::StatusCode::kFailedPrecondition` if `input` is corrupt.
 /// \returns The byte range of the minishard index.
 Result<ByteRange> DecodeShardIndexEntry(std::string_view input);
+Result<ByteRange> DecodeShardIndexEntry(const absl::Cord& input);
 
 /// Decodes a minishard and adjusts the byte ranges to account for the implicit
 /// offset of the end of the shard index.

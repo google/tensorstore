@@ -14,9 +14,12 @@
 
 #include "tensorstore/kvstore/gcs_http/object_metadata.h"
 
+#include <stddef.h>
+
 #include <string>
 
 #include <gtest/gtest.h>
+#include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/util/result.h"
 
@@ -157,6 +160,23 @@ TEST(ParseObjectMetadata, Example2) {
   EXPECT_EQ(AsTime("2018-10-24T17:15:31.84-07:00"), result->updated);
 
   EXPECT_EQ(0, result->metageneration);
+}
+
+TEST(ParseObjectMetadata, FragmentedCord) {
+  std::string_view full(kObjectMetadata);
+  const size_t split = full.size() / 2;
+  absl::Cord fragmented;
+  fragmented.Append(absl::MakeCordFromExternal(full.substr(0, split), [] {}));
+  fragmented.Append(absl::MakeCordFromExternal(full.substr(split), [] {}));
+  ASSERT_FALSE(fragmented.TryFlat().has_value());
+
+  auto result = ParseObjectMetadata(fragmented);
+  ASSERT_TRUE(result.ok()) << result.status();
+  EXPECT_FALSE(fragmented.TryFlat().has_value());
+  EXPECT_EQ("baz", result->name);
+  EXPECT_EQ(102400u, result->size);
+  EXPECT_EQ(12345, result->generation);
+  EXPECT_EQ(4, result->metageneration);
 }
 
 }  // namespace

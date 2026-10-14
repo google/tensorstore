@@ -16,6 +16,8 @@
 
 #include <stdint.h>
 
+#include <utility>
+
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
@@ -26,18 +28,18 @@
 namespace tensorstore {
 namespace internal_http {
 
-absl::Status ValidateResponseByteRange(
+namespace {
+
+absl::Status ValidateResponseByteRangeImpl(
     const HttpResponse& response,
     const OptionalByteRangeRequest& byte_range_request, absl::Cord& value,
     ByteRange& byte_range, int64_t& total_size) {
-  value = response.payload;
   if (response.status_code != 206) {
     // This may or may not have been a range request; attempt to validate.
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto resolved_byte_range,
-        byte_range_request.Validate(response.payload.size()));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto resolved_byte_range,
+                                 byte_range_request.Validate(value.size()));
 
-    if (resolved_byte_range.size() != response.payload.size()) {
+    if (resolved_byte_range.size() != value.size()) {
       // Byte range was requested and the server sent the entire object
       // which was larger than the requested range. This likely indicates
       // that a `Content-Encoding` header was set on the object. Fail the
@@ -46,7 +48,7 @@ absl::Status ValidateResponseByteRange(
           absl::StrFormat("Requested byte range %v was ignored by server",
                           absl::FormatStreamed(byte_range_request)));
     }
-    total_size = response.payload.size();
+    total_size = value.size();
     byte_range = {0, total_size};
   } else {
     // Server should return a parseable content-range header.
@@ -72,6 +74,25 @@ absl::Status ValidateResponseByteRange(
     }
   }
   return absl::OkStatus();
+}
+
+}  // namespace
+
+absl::Status ValidateResponseByteRange(
+    const HttpResponse& response,
+    const OptionalByteRangeRequest& byte_range_request, absl::Cord& value,
+    ByteRange& byte_range, int64_t& total_size) {
+  value = response.payload;
+  return ValidateResponseByteRangeImpl(response, byte_range_request, value,
+                                       byte_range, total_size);
+}
+
+absl::Status ValidateResponseByteRange(
+    HttpResponse&& response, const OptionalByteRangeRequest& byte_range_request,
+    absl::Cord& value, ByteRange& byte_range, int64_t& total_size) {
+  value = std::move(response.payload);
+  return ValidateResponseByteRangeImpl(response, byte_range_request, value,
+                                       byte_range, total_size);
 }
 
 }  // namespace internal_http

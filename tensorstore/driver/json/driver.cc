@@ -50,6 +50,7 @@
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
@@ -90,9 +91,7 @@ Result<::nlohmann::json> DecodeJson(const std::optional<absl::Cord>& data) {
   if (!data) {
     return ::nlohmann::json(::nlohmann::json::value_t::discarded);
   }
-  nlohmann::json raw_data =
-      nlohmann::json::parse(absl::Cord(*data).Flatten(), nullptr,
-                            /*allow_exceptions=*/false);
+  nlohmann::json raw_data = internal::ParseJson(*data);
   if (raw_data.is_discarded()) {
     return absl::FailedPreconditionError("Invalid JSON");
   }

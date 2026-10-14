@@ -393,24 +393,13 @@ struct ReadSwapEndianLoopTemplate {
     for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
       Element* output = ArrayAccessor::template GetPointerAtPosition<Element>(
           dest, outer_i, 0);
-      Index element_i = 0;
-      while (element_i < shape[1]) {
-        const size_t remaining_bytes = (shape[1] - element_i) * sizeof(Element);
-        if (!reader.Pull(/*min_length=*/sizeof(Element),
-                         /*recommended_length=*/remaining_bytes)) {
-          return false;
-        }
-        const Index end_element_i = std::min(
-            shape[1], static_cast<Index>(
-                          element_i + (reader.available() / sizeof(Element))));
-        const char* cursor = reader.cursor();
-        for (; element_i < end_element_i; ++element_i) {
-          SwapEndianUnaligned<SubElementSize, NumSubElements>(cursor, output);
-          cursor += sizeof(Element);
-          output++;
-        }
-        element_i = end_element_i;
-        reader.set_cursor(cursor);
+      const size_t length = shape[1] * sizeof(Element);
+      if (!reader.Read(length, reinterpret_cast<char*>(output))) {
+        return false;
+      }
+      for (Index element_i = 0; element_i < shape[1]; ++element_i) {
+        SwapEndianUnalignedInplace<SubElementSize, NumSubElements>(output +
+                                                                   element_i);
       }
     }
     return true;

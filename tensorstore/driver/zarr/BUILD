@@ -435,6 +435,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/json",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/uri:parse",

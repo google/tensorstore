@@ -82,6 +82,8 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/endian:endian_reading",
     ],
 )
 
@@ -94,6 +96,7 @@ tensorstore_cc_test(
         ":uint64_sharded_decoder",
         ":uint64_sharded_encoder",
         "//tensorstore/internal/compression:zlib",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",

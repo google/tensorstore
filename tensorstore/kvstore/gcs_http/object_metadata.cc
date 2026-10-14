@@ -117,5 +117,15 @@ Result<ObjectMetadata> ParseObjectMetadata(std::string_view source) {
   return jb::FromJson<ObjectMetadata>(std::move(json));
 }
 
+Result<ObjectMetadata> ParseObjectMetadata(const absl::Cord& source) {
+  auto json = internal::ParseJson(source);
+  if (json.is_discarded()) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Failed to parse object metadata: %v", source));
+  }
+
+  return jb::FromJson<ObjectMetadata>(std::move(json));
+}
+
 }  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore

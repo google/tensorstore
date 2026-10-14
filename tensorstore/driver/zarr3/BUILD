@@ -66,6 +66,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:storage_statistics",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/json",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/uri:parse",
         "//tensorstore/internal/uri:percent_coder",

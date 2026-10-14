@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/cord_test_helpers.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
@@ -158,6 +159,21 @@ TEST(JsonDriverTest, Basic) {
     EXPECT_THAT(tensorstore::Read(store_new).result(),
                 Optional(MakeScalarArray<::nlohmann::json>({{"x", 42}})));
   }
+}
+
+TEST(JsonDriverTest, ReadFragmentedCord) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kvs, kvstore::Open(GetKvstoreSpec(), context).result());
+  absl::Cord fragmented =
+      absl::MakeFragmentedCord({"{\"a\": ", "10, ", "\"b\": true}"});
+  ASSERT_FALSE(fragmented.TryFlat().has_value());
+  TENSORSTORE_EXPECT_OK(kvstore::Write(kvs, GetPath(), fragmented));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(GetSpec(""), context).result());
+  EXPECT_THAT(
+      tensorstore::Read(store).result(),
+      Optional(MakeScalarArray<::nlohmann::json>({{"a", 10}, {"b", true}})));
 }
 
 TEST(JsonDriverTest, WriteIncompatibleWithExisting) {

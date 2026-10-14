@@ -270,9 +270,9 @@ class MinishardIndexReadOperationState
       return;
     }
     // Read was successful (case 1c above).
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto byte_range, DecodeShardIndexEntry(read_result.value.Flatten()),
-        set_error(std::move(_)));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
+                                 DecodeShardIndexEntry(read_result.value),
+                                 set_error(std::move(_)));
     TENSORSTORE_ASSIGN_OR_RETURN(
         byte_range,
         GetAbsoluteShardByteRange(byte_range, self->driver().sharding_spec()),

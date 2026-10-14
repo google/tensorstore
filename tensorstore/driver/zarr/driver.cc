@@ -57,6 +57,7 @@
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/uri/parse.h"
@@ -103,9 +104,8 @@ DimensionSeparator GetDimensionSeparator(
   return DimensionSeparator::kDotSeparated;
 }
 
-Result<ZarrMetadataPtr> ParseEncodedMetadata(std::string_view encoded_value) {
-  nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
-                                                  /*allow_exceptions=*/false);
+Result<ZarrMetadataPtr> ParseEncodedMetadata(const absl::Cord& encoded_value) {
+  nlohmann::json raw_data = internal::ParseJson(encoded_value);
   if (raw_data.is_discarded()) {
     return absl::FailedPreconditionError("Invalid JSON");
   }
@@ -123,7 +123,7 @@ std::string MetadataCache::GetMetadataStorageKey(std::string_view entry_key) {
 
 Result<MetadataCache::MetadataPtr> MetadataCache::DecodeMetadata(
     std::string_view entry_key, absl::Cord encoded_metadata) {
-  return ParseEncodedMetadata(encoded_metadata.Flatten());
+  return ParseEncodedMetadata(encoded_metadata);
 }
 
 Result<absl::Cord> MetadataCache::EncodeMetadata(std::string_view entry_key,

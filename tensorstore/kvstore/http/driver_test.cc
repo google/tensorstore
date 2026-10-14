@@ -16,6 +16,7 @@
 
 #include <functional>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -233,6 +234,45 @@ TEST_F(HttpKeyValueStoreTest, ReadBatch) {
                           Pair("range", "bytes=10-24")));
   request.set_result(
       HttpResponse{206, absl::Cord("valueabcde01234"),
+                   HeaderMap{{"content-range", "bytes 10-24/50"}}});
+  EXPECT_THAT(futures[0].result(),
+              MatchesKvsReadResult(absl::Cord("valueabcde"),
+                                   StorageGeneration::Invalid()));
+  EXPECT_THAT(
+      futures[1].result(),
+      MatchesKvsReadResult(absl::Cord("01234"), StorageGeneration::Invalid()));
+}
+
+TEST_F(HttpKeyValueStoreTest, ReadBatchFragmentedCord) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open("https://example.com/my/path/").result());
+  std::vector<Future<kvstore::ReadResult>> futures;
+  {
+    auto batch = Batch::New();
+    {
+      kvstore::ReadOptions options;
+      options.byte_range.inclusive_min = 10;
+      options.byte_range.exclusive_max = 20;
+      options.batch = batch;
+      futures.push_back(kvstore::Read(store, "abc", options));
+    }
+    {
+      kvstore::ReadOptions options;
+      options.byte_range.inclusive_min = 20;
+      options.byte_range.exclusive_max = 25;
+      options.batch = batch;
+      futures.push_back(kvstore::Read(store, "abc", options));
+    }
+  }
+  auto request = mock_transport->requests_.pop();
+  std::string part1 = "valueab";
+  std::string part2 = "cde01234";
+  absl::Cord fragmented_payload;
+  fragmented_payload.Append(absl::MakeCordFromExternal(part1, [] {}));
+  fragmented_payload.Append(absl::MakeCordFromExternal(part2, [] {}));
+  ASSERT_FALSE(fragmented_payload.TryFlat().has_value());
+  request.set_result(
+      HttpResponse{206, std::move(fragmented_payload),
                    HeaderMap{{"content-range", "bytes 10-24/50"}}});
   EXPECT_THAT(futures[0].result(),
               MatchesKvsReadResult(absl::Cord("valueabcde"),

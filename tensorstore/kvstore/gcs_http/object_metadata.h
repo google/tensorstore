@@ -24,6 +24,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/http/http_header.h"
@@ -68,6 +69,7 @@ struct ObjectMetadata {
 };
 
 Result<ObjectMetadata> ParseObjectMetadata(std::string_view source);
+Result<ObjectMetadata> ParseObjectMetadata(const absl::Cord& source);
 
 void SetObjectMetadataFromHeaders(const internal_http::HeaderMap& headers,
                                   ObjectMetadata* result);

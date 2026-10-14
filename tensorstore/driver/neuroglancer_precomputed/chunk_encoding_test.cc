@@ -32,6 +32,7 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/cord_test_helpers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
@@ -121,6 +122,15 @@ double GetRootMeanSquaredError(tensorstore::ArrayView<const void> array_a,
   return GetRootMeanSquaredErrorImpl<uint8_t>(array_a, array_b);
 }
 
+absl::Cord MakeMultiChunkCord(const absl::Cord& cord) {
+  std::string s(cord);
+  if (s.size() < 2) return cord;
+  // Split at an odd byte offset so multi-byte elements straddle chunk bounds.
+  const size_t split = (s.size() / 2) | 1;
+  return absl::MakeFragmentedCord({std::string_view(s).substr(0, split),
+                                   std::string_view(s).substr(split)});
+}
+
 TEST_P(ChunkEncodingTest, Roundtrip) {
   auto metadata_json = GetParam().metadata_json;
   auto dtype = GetParam().dtype;
@@ -137,6 +147,23 @@ TEST_P(ChunkEncodingTest, Roundtrip) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto decode_result,
       DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout, out));
+
+  absl::Cord fragmented_out = MakeMultiChunkCord(out);
+  ASSERT_FALSE(fragmented_out.TryFlat().has_value());
+  for (auto order : {tensorstore::c_order, tensorstore::fortran_order}) {
+    tensorstore::StridedLayout layout(order, dtype.size(),
+                                      {metadata.num_channels, 5, 4, 3});
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto fragmented_decode_result,
+        DecodeChunk(chunk_indices, metadata, scale_index, layout,
+                    fragmented_out));
+    if (double max_rms_error = GetParam().max_root_mean_squared_error) {
+      EXPECT_LT(GetRootMeanSquaredError(fragmented_decode_result, array),
+                max_rms_error);
+    } else {
+      EXPECT_THAT(fragmented_decode_result, array);
+    }
+  }
 
   if (!out.empty() && GetParam().truncate) {
     // Test that truncating the chunk leads to a decoding error.
@@ -164,6 +191,44 @@ TEST_P(ChunkEncodingTest, Roundtrip) {
     EXPECT_EQ(image_info.height, 5 * 4);
     EXPECT_EQ(image_info.num_components, metadata.num_channels);
     EXPECT_EQ(image_info.dtype, dtype);
+  }
+}
+
+TEST(ChunkEncodingRawPartialTest, FragmentedPartialChunk) {
+  ::nlohmann::json metadata_json{{"@type", "neuroglancer_multiscale_volume"},
+                                 {"data_type", "uint16"},
+                                 {"num_channels", 2},
+                                 {"scales",
+                                  {{{"chunk_sizes", {{3, 4, 5}}},
+                                    {"encoding", "raw"},
+                                    {"key", "k"},
+                                    {"resolution", {5, 6, 7}},
+                                    {"size", {10, 11, 12}}}}},
+                                 {"type", "image"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   MultiscaleMetadata::FromJson(metadata_json));
+  auto array = tensorstore::AllocateArray<uint16_t>(
+      {2, 5, 4, 3}, tensorstore::c_order, tensorstore::value_init);
+  // Boundary chunk at {3, 2, 2} has partial shape {c=2, z=2, y=3, x=1}.
+  for (Index c = 0; c < 2; ++c) {
+    for (Index z = 0; z < 2; ++z) {
+      for (Index y = 0; y < 3; ++y) {
+        array(c, z, y, 0) = static_cast<uint16_t>(100 + c * 10 + z * 3 + y);
+      }
+    }
+  }
+  const std::vector<Index> chunk_indices{3, 2, 2};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      absl::Cord out,
+      EncodeChunk(chunk_indices, metadata, /*scale_index=*/0, array));
+  absl::Cord fragmented_out = MakeMultiChunkCord(out);
+  ASSERT_FALSE(fragmented_out.TryFlat().has_value());
+  for (auto order : {tensorstore::c_order, tensorstore::fortran_order}) {
+    tensorstore::StridedLayout layout(order, sizeof(uint16_t), {2, 5, 4, 3});
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto decoded, DecodeChunk(chunk_indices, metadata, /*scale_index=*/0,
+                                  layout, fragmented_out));
+    EXPECT_EQ(decoded, array);
   }
 }
 

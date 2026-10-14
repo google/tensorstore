@@ -68,6 +68,7 @@
 #include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
@@ -211,9 +212,8 @@ class NeuroglancerPrecomputedDriverSpec
 };
 
 Result<std::shared_ptr<const MultiscaleMetadata>> ParseEncodedMetadata(
-    std::string_view encoded_value) {
-  nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
-                                                  /*allow_exceptions=*/false);
+    const absl::Cord& encoded_value) {
+  nlohmann::json raw_data = internal::ParseJson(encoded_value);
   if (raw_data.is_discarded()) {
     return absl::FailedPreconditionError("Invalid JSON");
   }
@@ -234,7 +234,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
                                      absl::Cord encoded_metadata) override {
-    return ParseEncodedMetadata(encoded_metadata.Flatten());
+    return ParseEncodedMetadata(encoded_metadata);
   }
 
   Result<absl::Cord> EncodeMetadata(std::string_view entry_key,
