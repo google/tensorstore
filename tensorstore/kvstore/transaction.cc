@@ -2219,7 +2219,8 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
     // No need to lock `mutex_` because no concurrent access can occur while
     // this method is called.
     if (!modified_) {
-      new_stamp = TimestampedStorageGeneration{};
+      // Preserve `new_stamp.time` on mismatch to bound retry read staleness.
+      new_stamp.generation = StorageGeneration::Unknown();
     } else if (!orig_generation.LastMutatedBy(mutation_id_)) {
       new_stamp.generation = StorageGeneration::Invalid();
     }

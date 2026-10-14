@@ -79,10 +79,14 @@ namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
 
-
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 using ReadState = internal::AsyncCache::ReadState;
+
+// Compare by value: container generation updates re-decode unchanged manifests.
+bool ManifestsEqual(const Manifest* a, const Manifest* b) {
+  return (a == b) || (a != nullptr && b != nullptr && *a == *b);
+}
 
 // Wraps a read receiver to handle an aborted (unchanged) response.
 //
@@ -98,6 +102,12 @@ struct UseExistingIfUnchangedReadReceiver {
   BaseReadReceiver receiver_;
 
   void set_value(ReadState value) {
+    // Preserve shared_ptr identity when only the container generation changed.
+    if (existing_read_data_ && value.data &&
+        ManifestsEqual(static_cast<const Manifest*>(existing_read_data_.get()),
+                       static_cast<const Manifest*>(value.data.get()))) {
+      value.data = std::move(existing_read_data_);
+    }
     execution::set_value(receiver_, std::move(value));
   }
 
@@ -242,12 +252,16 @@ void ManifestCache::TransactionNode::Commit() {
     existing_manifest = lock.shared_data();
   }
 
+  // Compare by value in case a container generation update re-decoded manifest.
+  const bool old_matches_existing =
+      ManifestsEqual(existing_manifest.get(), this->old_manifest.get());
+  const bool old_matches_new =
+      ManifestsEqual(this->old_manifest.get(), this->new_manifest.get());
+
   // Check if the update can be aborted just based on the cached data.  In this
   // case the caller will retry with an updated `old_manifest`.
-  if ((existing_manifest != this->old_manifest &&
-       existing_stamp.time >= this->staleness_bound) ||
-      (existing_manifest == this->old_manifest &&
-       this->old_manifest == this->new_manifest &&
+  if ((!old_matches_existing && existing_stamp.time >= this->staleness_bound) ||
+      (old_matches_existing && old_matches_new &&
        existing_stamp.time >= this->staleness_bound)) {
     this->promise.SetResult(TryUpdateManifestResult{
         /*.time=*/existing_stamp.time, /*.success=*/false});
@@ -256,8 +270,7 @@ void ManifestCache::TransactionNode::Commit() {
     return;
   }
 
-  if (existing_manifest != this->old_manifest ||
-      this->old_manifest == this->new_manifest) {
+  if (!old_matches_existing || old_matches_new) {
     // No new manifest will be written, but the `staleness_bound` requires a
     // newer manifest.
     kvstore::ReadOptions read_options;
@@ -271,6 +284,13 @@ void ManifestCache::TransactionNode::Commit() {
       std::shared_ptr<const Manifest> existing_manifest;
 
       void set_value(ReadState read_state) {
+        // Treat an identical re-decoded manifest as an unchanged read.
+        if (ManifestsEqual(
+                existing_manifest.get(),
+                static_cast<const Manifest*>(read_state.data.get()))) {
+          set_value(std::move(read_state.stamp));
+          return;
+        }
         // Changed.
         //
         // Note: In the (unusual) case that `node->old_manifest == nullptr`, it
@@ -289,8 +309,9 @@ void ManifestCache::TransactionNode::Commit() {
         // Unchanged
         SetDeferredResult(node->promise, TryUpdateManifestResult{
                                              /*.time=*/stamp.time,
-                                             /*.success=*/existing_manifest ==
-                                                 node->new_manifest});
+                                             /*.success=*/ManifestsEqual(
+                                                 existing_manifest.get(),
+                                                 node->new_manifest.get())});
         node->WritebackSuccess(
             ReadState{std::move(existing_manifest), std::move(stamp)});
       }
@@ -311,33 +332,79 @@ void ManifestCache::TransactionNode::Commit() {
                                  SetWritebackError(this, "encoding", _));
   }
 
-  kvstore::WriteOptions write_options;
-  write_options.generation_conditions.if_equal =
-      std::move(existing_stamp.generation);
-  auto& entry = GetOwningEntry(*this);
-  auto& cache = GetOwningCache(entry);
-  auto future = cache.kvstore_driver_->Write(GetManifestPath(entry.key()),
-                                             std::move(encoded),
-                                             std::move(write_options));
-  future.Force();
-  future.ExecuteWhenReady(
-      [node = this](ReadyFuture<TimestampedStorageGeneration> future) {
-        auto& r = future.result();
-        if (!r.ok()) {
-          SetWritebackError(node, "writing", r.status());
+  // Retries conditional writes when data file writes advance container gen.
+  struct WriteContinuation {
+    static void Start(ManifestCache::TransactionNode* node,
+                      std::optional<absl::Cord> encoded,
+                      StorageGeneration if_equal) {
+      kvstore::WriteOptions write_options;
+      write_options.generation_conditions.if_equal = if_equal;
+      auto& entry = GetOwningEntry(*node);
+      auto& cache = GetOwningCache(entry);
+      auto future = cache.kvstore_driver_->Write(
+          GetManifestPath(entry.key()), encoded, std::move(write_options));
+      future.Force();
+      future.ExecuteWhenReady(
+          [node, encoded = std::move(encoded), if_equal = std::move(if_equal)](
+              ReadyFuture<TimestampedStorageGeneration> future) mutable {
+            auto& r = future.result();
+            if (!r.ok()) {
+              SetWritebackError(node, "writing", r.status());
+              return;
+            }
+            if (!StorageGeneration::IsUnknown(r->generation)) {
+              node->WritebackSuccess(
+                  ReadState{std::move(node->new_manifest), std::move(*r)});
+              return;
+            }
+            // Re-read to check if only container generation changed (e.g. d/*).
+            kvstore::ReadOptions read_options;
+            read_options.generation_conditions.if_not_equal = if_equal;
+            read_options.staleness_bound = r->time;
+            IssueRead(node, std::move(read_options),
+                      VerifyReadReceiver{node, std::move(encoded),
+                                         std::move(if_equal)});
+          });
+    }
+
+    struct VerifyReadReceiver {
+      ManifestCache::TransactionNode* node;
+      std::optional<absl::Cord> encoded;
+      StorageGeneration prev_if_equal;
+
+      void set_value(ReadState read_state) {
+        const auto* current_manifest =
+            static_cast<const Manifest*>(read_state.data.get());
+        if (ManifestsEqual(current_manifest, node->old_manifest.get()) &&
+            !StorageGeneration::IsUnknown(read_state.stamp.generation) &&
+            read_state.stamp.generation != prev_if_equal) {
+          // Manifest content is unchanged; retry write with new generation.
+          Start(node, std::move(encoded),
+                std::move(read_state.stamp.generation));
           return;
         }
-        if (StorageGeneration::IsUnknown(r->generation)) {
-          // Generation mismatch
-          node->promise.SetResult(
-              TryUpdateManifestResult{/*.time=*/r->time, /*.success=*/false});
-          node->SetError(absl::AbortedError(""));
-          node->WritebackError();
-          return;
-        }
-        node->WritebackSuccess(
-            ReadState{std::move(node->new_manifest), std::move(*r)});
-      });
+        node->promise.SetResult(
+            TryUpdateManifestResult{/*.time=*/read_state.stamp.time,
+                                    /*.success=*/false});
+        node->WritebackSuccess(std::move(read_state));
+      }
+
+      void set_value(TimestampedStorageGeneration stamp) {
+        node->promise.SetResult(
+            TryUpdateManifestResult{/*.time=*/stamp.time, /*.success=*/false});
+        node->SetError(absl::AbortedError(""));
+        node->WritebackError();
+      }
+
+      void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
+      void set_error(absl::Status error) {
+        SetWritebackError(node, "reading", error);
+      }
+    };
+  };
+
+  WriteContinuation::Start(this, std::move(encoded),
+                           std::move(existing_stamp.generation));
 }
 
 ManifestCache::Entry* ManifestCache::DoAllocateEntry() { return new Entry; }
@@ -410,8 +477,9 @@ void ListNumberedManifests(NumberedManifestCache::Entry* entry,
   options.range = KeyRange(absl::StrCat(key, "manifest.0"),
                            absl::StrCat(key, "manifest.:"));
   options.strip_prefix_length = key.size() + 9;  // Length of "manifest."
-  // TODO(jbms): Support `staleness_bound`.  For now, we ignore it because
-  // `List` doesn't currently return a timestamp for the results.
+  // Note: Most kvstore implementations do not support `List` with a
+  // `staleness_bound`, so this is more of a hint than a guarantee.
+  options.staleness_bound = staleness_bound;
   auto time = absl::Now();
   auto future = kvstore::ListFuture(cache.kvstore_driver_, std::move(options));
   future.Force();
