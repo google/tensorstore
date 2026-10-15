@@ -14,12 +14,15 @@
 
 /// End-to-end tests of the zarr3 driver.
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -27,14 +30,11 @@
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/batch.h"
@@ -1217,6 +1217,174 @@ TEST(ChunkKeyEncodingTest, V2Rank2Slash) {
           {{"name", "v2"}, {"configuration", {{"separator", "/"}}}},
           Schema::Shape{{5, 6}}, ChunkLayout::ChunkShape({3, 3})),
       ::testing::Optional(::testing::ElementsAre("0/0", "0/1", "1/0", "1/1")));
+}
+
+TEST(ChunkKeyEncodingTest, OffsetRank1) {
+  EXPECT_THAT(GetKeysForChunkKeyEncoding(
+                  {{"name", "offset"}, {"configuration", {{"offset", {-1}}}}},
+                  Schema::Shape{{5}}, ChunkLayout::ChunkShape({3})),
+              ::testing::Optional(::testing::ElementsAre("c/-1", "c/0")));
+}
+
+TEST(ChunkKeyEncodingTest, OffsetRank2Dot) {
+  EXPECT_THAT(
+      GetKeysForChunkKeyEncoding(
+          {{"name", "offset"},
+           {"configuration", {{"separator", "."}, {"offset", {1, -1}}}}},
+          Schema::Shape{{5, 6}}, ChunkLayout::ChunkShape({3, 3})),
+      ::testing::Optional(
+          ::testing::ElementsAre("c.1.-1", "c.1.0", "c.2.-1", "c.2.0")));
+}
+
+TEST(ChunkKeyEncodingTest, OffsetZeroMatchesDefault) {
+  EXPECT_THAT(GetKeysForChunkKeyEncoding(
+                  {{"name", "offset"}, {"configuration", {{"offset", {0, 0}}}}},
+                  Schema::Shape{{5, 6}}, ChunkLayout::ChunkShape({3, 3})),
+              ::testing::Optional(
+                  ::testing::ElementsAre("c/0/0", "c/0/1", "c/1/0", "c/1/1")));
+}
+
+TEST(ChunkKeyEncodingTest, OffsetRankMismatch) {
+  EXPECT_THAT(GetKeysForChunkKeyEncoding(
+                  {{"name", "offset"}, {"configuration", {{"offset", {0}}}}},
+                  Schema::Shape{{5, 6}}, ChunkLayout::ChunkShape({3, 3})),
+              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
+                                         ".*\"offset\".*"));
+}
+
+TEST(ChunkKeyEncodingTest, OffsetReadsBackWhatWasWritten) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {
+              {"driver", "zarr3"},
+              {"kvstore", "memory://"},
+              {"metadata",
+               {{"chunk_key_encoding",
+                 {{"name", "offset"}, {"configuration", {{"offset", {-2}}}}}}}},
+          },
+          dtype_v<uint8_t>, Schema::Shape({7}), ChunkLayout::ChunkShape({3}),
+          tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<uint8_t>({1, 2, 3, 4, 5, 6, 7}), store));
+  EXPECT_THAT(tensorstore::Read(store).result(),
+              ::testing::Optional(
+                  tensorstore::MakeArray<uint8_t>({1, 2, 3, 4, 5, 6, 7})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto entries, tensorstore::kvstore::ListFuture(store.kvstore()).result());
+  std::vector<std::string> keys;
+  for (const auto& e : entries) keys.push_back(e.key);
+  EXPECT_THAT(keys, ::testing::UnorderedElementsAre("zarr.json", "c/-2", "c/-1",
+                                                    "c/0"));
+}
+
+// The point of the encoding: an array grows in the negative direction by
+// editing `zarr.json` alone.  Chunks written under the `default` encoding
+// are read back at their new indices without having moved.
+TEST(ChunkKeyEncodingTest,
+     OffsetGrowsInTheNegativeDirectionWithoutMovingChunks) {
+  auto context = Context::Default();
+  ::nlohmann::json spec{
+      {"driver", "zarr3"},
+      {"kvstore", "memory://"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(spec, context, dtype_v<uint8_t>, Schema::Shape({6}),
+                        ChunkLayout::ChunkShape({3}),
+                        tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<uint8_t>({10, 11, 12, 13, 14, 15}), store));
+  auto kvs = store.kvstore();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result, tensorstore::kvstore::Read(kvs, "zarr.json").result());
+  auto metadata = ::nlohmann::json::parse(std::string(read_result.value));
+  const auto keys_before = [&] {
+    std::vector<std::string> keys;
+    auto entries = tensorstore::kvstore::ListFuture(kvs).value();
+    for (const auto& e : entries) {
+      if (e.key != "zarr.json") keys.push_back(e.key);
+    }
+    std::sort(keys.begin(), keys.end());
+    return keys;
+  }();
+  EXPECT_THAT(keys_before, ::testing::ElementsAre("c/0", "c/1"));
+
+  // Two chunks in front: the whole operation.
+  metadata["shape"] = {12};
+  metadata["chunk_key_encoding"] = {{"name", "offset"},
+                                    {"configuration", {{"offset", {-2}}}}};
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::kvstore::Write(kvs, "zarr.json", absl::Cord(metadata.dump()))
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto grown,
+      tensorstore::Open(spec, context, tensorstore::OpenMode::open).result());
+  EXPECT_THAT(grown.domain().shape(), ::testing::ElementsAre(12));
+  EXPECT_THAT(tensorstore::Read(grown).result(),
+              ::testing::Optional(tensorstore::MakeArray<uint8_t>(
+                  {0, 0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15})));
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeArray<uint8_t>({1, 2, 3}),
+                         grown | tensorstore::Dims(0).SizedInterval(0, 3)));
+  EXPECT_THAT(tensorstore::Read(grown).result(),
+              ::testing::Optional(tensorstore::MakeArray<uint8_t>(
+                  {1, 2, 3, 0, 0, 0, 10, 11, 12, 13, 14, 15})));
+  std::vector<std::string> keys_after;
+  auto entries_after = tensorstore::kvstore::ListFuture(kvs).value();
+  for (const auto& e : entries_after) {
+    if (e.key != "zarr.json") keys_after.push_back(e.key);
+  }
+  EXPECT_THAT(keys_after,
+              ::testing::UnorderedElementsAre("c/-2", "c/0", "c/1"));
+}
+
+// Shrinking deletes chunks through key ranges, which must cope with the
+// negative key components not sorting numerically.
+TEST(ChunkKeyEncodingTest, OffsetResizeDeletesOnlyTheChunksOutsideTheNewShape) {
+  auto context = Context::Default();
+  ::nlohmann::json spec{
+      {"driver", "zarr3"},
+      {"kvstore", "memory://"},
+      {"metadata",
+       {{"chunk_key_encoding",
+         {{"name", "offset"}, {"configuration", {{"offset", {-2, 0}}}}}}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(spec, context, dtype_v<uint8_t>, Schema::Shape({12, 2}),
+                        ChunkLayout::ChunkShape({3, 1}),
+                        tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(7), store));
+  const auto keys = [&] {
+    std::vector<std::string> keys;
+    auto entries = tensorstore::kvstore::ListFuture(store.kvstore()).value();
+    for (const auto& e : entries) {
+      if (e.key != "zarr.json") keys.push_back(e.key);
+    }
+    std::sort(keys.begin(), keys.end());
+    return keys;
+  };
+  EXPECT_THAT(keys(),
+              ::testing::ElementsAre("c/-1/0", "c/-1/1", "c/-2/0", "c/-2/1",
+                                     "c/0/0", "c/0/1", "c/1/0", "c/1/1"));
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Resize(store,
+                          {{tensorstore::kImplicit, tensorstore::kImplicit}},
+                          {{6, tensorstore::kImplicit}})
+          .result());
+  EXPECT_THAT(keys(),
+              ::testing::ElementsAre("c/-1/0", "c/-1/1", "c/-2/0", "c/-2/1"));
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Resize(
+          store, {{tensorstore::kImplicit, tensorstore::kImplicit}}, {{3, 1}})
+          .result());
+  EXPECT_THAT(keys(), ::testing::ElementsAre("c/-2/0"));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
