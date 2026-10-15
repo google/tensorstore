@@ -480,9 +480,12 @@ class DataCacheBase
     if (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2) {
       std::string key = absl::StrCat(key_prefix_, "c");
       for (DimensionIndex i = 0; i < cell_indices.size(); ++i) {
+        const Index offset =
+            i < metadata.rank ? metadata.chunk_key_encoding.GridIndexOffset(i)
+                              : 0;
         absl::StrAppend(
             &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
-            cell_indices[i] + metadata.chunk_key_encoding.GridIndexOffset(i));
+            cell_indices[i] + offset);
       }
       return key;
     }
