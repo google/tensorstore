@@ -112,6 +112,7 @@ using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
 using ::tensorstore::internal_kvstore_s3::ConditionalWriteMode;
+using ::tensorstore::internal_kvstore_s3::DefaultIsRetryableCode;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
@@ -197,12 +198,6 @@ std::string PayloadSha256Base64(const absl::Cord& cord = absl::Cord()) {
   auto digest_sv = std::string_view(reinterpret_cast<const char*>(&digest[0]),
                                     digest.size());
   return absl::Base64Escape(digest_sv);
-}
-
-bool DefaultIsRetryableCode(absl::StatusCode code) {
-  return code == absl::StatusCode::kDeadlineExceeded ||
-         code == absl::StatusCode::kUnavailable ||
-         code == absl::StatusCode::kAborted;
 }
 
 struct S3KeyValueStoreSpecData {
@@ -700,14 +695,16 @@ struct WriteTask : public RateLimiterNode,
     if (IsCancelled()) {
       return;
     }
-    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
-      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
-              .ok()) {
-        return;
-      }
-    }
     if (!response.ok()) {
-      Fail(response.status());
+      absl::Status status = response.status();
+      if (DefaultIsRetryableCode(status.code())) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
@@ -720,12 +717,27 @@ struct WriteTask : public RateLimiterNode,
       // because the object does not exist.
       Success(StorageGeneration::Unknown());
       return;
-    } else if (response.value().status_code == 404 &&
-               !options_.generation_conditions.MatchesNoValue()) {
-      // If the object does not exist and the if-match condition is not NoValue,
-      // then the write fails.
-      Success(StorageGeneration::Unknown());
-      return;
+    } else if (response.value().status_code == 404) {
+      if (!options_.generation_conditions.MatchesNoValue()) {
+        // If the object does not exist and the if-match condition is not
+        // NoValue, then the write fails.
+        Success(StorageGeneration::Unknown());
+        return;
+      }
+    } else {
+      bool is_retryable = false;
+      auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
+      if (!status.ok()) {
+        if (is_retryable || response.value().status_code == 409) {
+          status = owner->BackoffForAttemptAsync(std::move(status), attempt_++,
+                                                 this);
+          if (status.ok()) {
+            return;
+          }
+        }
+        Fail(std::move(status));
+        return;
+      }
     }
 
     AfterHeadRequest();
@@ -778,28 +790,24 @@ struct WriteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "WriteTask " << *response;
 
-    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
-      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
-              .ok()) {
-        return;
-      }
-    }
     if (!response.ok()) {
-      Fail(response.status());
+      absl::Status status = response.status();
+      if (DefaultIsRetryableCode(status.code())) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
     auto latency = absl::Now() - start_time_;
     bool is_retryable = false;
     auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
-    if (response.value().status_code == 409) {
-      // Conflict implies that there was a conflict in the concurrent operation.
-      if (owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
-        return;
-      }
-      Fail(std::move(status));
-    } else if (response.value().status_code == 304 ||
-               response.value().status_code == 412) {
+    if (response.value().status_code == 304 ||
+        response.value().status_code == 412) {
       // Not modified implies that the generation did not match.
       // Failed precondition implies the generation did not match.
       Success(StorageGeneration::Unknown());
@@ -808,9 +816,12 @@ struct WriteTask : public RateLimiterNode,
                    options_.generation_conditions.if_equal)) {
       Success(StorageGeneration::Unknown());
     } else if (!status.ok()) {
-      if (is_retryable &&
-          owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
-        return;
+      if (is_retryable || response.value().status_code == 409) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
       }
       Fail(std::move(status));
     } else {
@@ -922,14 +933,16 @@ struct DeleteTask : public RateLimiterNode,
         << "Peek (Response): " << response.value() << "\n"
         << response.value().payload;
 
-    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
-      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
-              .ok()) {
-        return;
-      }
-    }
     if (!response.ok()) {
-      Fail(response.status());
+      absl::Status status = response.status();
+      if (DefaultIsRetryableCode(status.code())) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
@@ -945,6 +958,20 @@ struct DeleteTask : public RateLimiterNode,
       } else {
         Success(StorageGeneration::Unknown());
       }
+      return;
+    }
+
+    bool is_retryable = false;
+    auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
+    if (!status.ok()) {
+      if (is_retryable || response.value().status_code == 409) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
@@ -983,14 +1010,16 @@ struct DeleteTask : public RateLimiterNode,
         << "DeleteTask " << response.value() << "\n"
         << response.value().payload;
 
-    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
-      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
-              .ok()) {
-        return;
-      }
-    }
     if (!response.ok()) {
-      Fail(response.status());
+      absl::Status status = response.status();
+      if (DefaultIsRetryableCode(status.code())) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
@@ -1009,9 +1038,12 @@ struct DeleteTask : public RateLimiterNode,
         Success(StorageGeneration::Unknown());
       }
     } else if (!status.ok()) {
-      if (is_retryable &&
-          owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
-        return;
+      if (is_retryable || response.value().status_code == 409) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
       }
       Fail(std::move(status));
     } else {
@@ -1105,9 +1137,7 @@ struct ListTask : public RateLimiterNode,
     owner_->admission_queue().Finish(this);
   }
 
-  inline bool is_cancelled() {
-    return cancelled_.load(std::memory_order_relaxed);
-  }
+  bool is_cancelled() { return cancelled_.load(std::memory_order_relaxed); }
 
   static void Start(RateLimiterNode* task) {
     auto* self = static_cast<ListTask*>(task);
@@ -1192,6 +1222,7 @@ struct ListTask : public RateLimiterNode,
       return owner_->BackoffForAttemptAsync(std::move(status), attempt_++,
                                             this);
     }
+    TENSORSTORE_RETURN_IF_ERROR(status);
 
     auto cord = response->payload;
     auto payload = cord.Flatten();
@@ -1364,7 +1395,7 @@ Future<const S3EndpointRegion> S3KeyValueStore::MaybeResolveRegion() {
       !spec_.endpoint.has_value() || spec_.endpoint.value().empty()
           ? std::string_view{}
           : std::string_view(spec_.endpoint.value()),
-      spec_.host_header.value_or(std::string{}), transport_);
+      spec_.host_header.value_or(std::string{}), transport_, *spec_.retries);
   resolve_ehr_.ExecuteWhenReady([](ReadyFuture<const S3EndpointRegion> ready) {
     if (!ready.status().ok()) {
       ABSL_LOG_IF(INFO, s3_logging)

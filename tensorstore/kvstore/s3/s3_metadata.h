@@ -64,6 +64,13 @@ absl::Status AwsHttpResponseToStatus(
     const internal_http::HttpResponse& response, bool& retryable,
     SourceLocation loc = SourceLocation::current());
 
+/// Returns whether the absl::StatusCode is retryable.
+inline bool DefaultIsRetryableCode(absl::StatusCode code) {
+  return code == absl::StatusCode::kDeadlineExceeded ||
+         code == absl::StatusCode::kUnavailable ||
+         code == absl::StatusCode::kAborted;
+}
+
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 

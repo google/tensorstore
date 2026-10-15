@@ -23,20 +23,29 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/strip.h"
+#include "absl/time/clock.h"
 #include "re2/re2.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/kvstore/s3/s3_metadata.h"
+#include "tensorstore/kvstore/s3/s3_resource.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status_builder.h"
 
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::ScheduleAt;
+using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
@@ -112,17 +121,75 @@ ConditionalWriteMode ConditionalWriteHeuristic(
 }
 
 template <typename Formatter>
-struct ResolveHost {
+struct ResolveHostTask
+    : public internal::AtomicReferenceCount<ResolveHostTask<Formatter>> {
   std::string bucket;
   std::string default_aws_region;
   Formatter formatter;
+  HttpRequest request;
+  std::shared_ptr<HttpTransport> transport;
+  S3RequestRetries::Spec retries;
+  Promise<S3EndpointRegion> promise;
+  int attempt = 0;
 
-  void operator()(Promise<S3EndpointRegion> promise,
-                  ReadyFuture<HttpResponse> ready) {
+  ResolveHostTask(std::string bucket, std::string default_aws_region,
+                  Formatter formatter, HttpRequest request,
+                  std::shared_ptr<HttpTransport> transport,
+                  S3RequestRetries::Spec retries,
+                  Promise<S3EndpointRegion> promise)
+      : bucket(std::move(bucket)),
+        default_aws_region(std::move(default_aws_region)),
+        formatter(std::move(formatter)),
+        request(std::move(request)),
+        transport(std::move(transport)),
+        retries(std::move(retries)),
+        promise(std::move(promise)) {}
+
+  void Start() {
     if (!promise.result_needed()) return;
-    // TODO: Handle retries.
+    auto future = transport->IssueRequest(request, {});
+    future.ExecuteWhenReady([self = IntrusivePtr<ResolveHostTask<Formatter>>(
+                                 this)](ReadyFuture<HttpResponse> ready) {
+      self->OnResponse(ready.result());
+    });
+  }
 
-    auto& headers = ready.value().headers;
+  void OnResponse(const Result<HttpResponse>& response) {
+    if (!promise.result_needed()) return;
+
+    bool is_retryable = false;
+    absl::Status status = [&]() -> absl::Status {
+      if (!response.ok()) {
+        is_retryable = DefaultIsRetryableCode(response.status().code());
+        return response.status();
+      }
+      return AwsHttpResponseToStatus(response.value(), is_retryable);
+    }();
+
+    if (!status.ok() &&
+        (is_retryable ||
+         (response.ok() && response.value().status_code == 409))) {
+      auto delay = retries.BackoffForAttempt(attempt++);
+      if (!delay) {
+        promise.SetResult(
+            StatusBuilder(std::move(status))
+                .SetCode(absl::StatusCode::kAborted)
+                .Format("All %d retry attempts failed", retries.max_retries));
+        return;
+      }
+      ScheduleAt(absl::Now() + *delay,
+                 [self = IntrusivePtr<ResolveHostTask<Formatter>>(this)] {
+                   self->Start();
+                 });
+      return;
+    }
+
+    if (!response.ok()) {
+      promise.SetResult(response.status());
+      return;
+    }
+
+    auto& headers = response.value().headers;
     auto bucket_region_it = headers.find(kAmzBucketRegionHeader);
     if (bucket_region_it == headers.end() && default_aws_region.empty()) {
       // TODO: Get the message from the response body, if any.
@@ -151,6 +218,20 @@ struct ResolveHost {
     });
   }
 };
+
+template <typename Formatter>
+Future<S3EndpointRegion> IssueResolveRequest(
+    std::string bucket, std::string default_aws_region, Formatter formatter,
+    HttpRequest request, std::shared_ptr<HttpTransport> transport,
+    S3RequestRetries::Spec retries) {
+  auto op = PromiseFuturePair<S3EndpointRegion>::Make();
+  auto task = internal::MakeIntrusivePtr<ResolveHostTask<Formatter>>(
+      std::move(bucket), std::move(default_aws_region), std::move(formatter),
+      std::move(request), std::move(transport), std::move(retries),
+      std::move(op.promise));
+  task->Start();
+  return std::move(op.future);
+}
 
 }  // namespace
 
@@ -259,7 +340,8 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
 
 Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string bucket, std::string_view endpoint, std::string host_header,
-    std::shared_ptr<internal_http::HttpTransport> transport) {
+    std::shared_ptr<internal_http::HttpTransport> transport,
+    S3RequestRetries::Spec retries) {
   assert(transport);
 
   // When bucket is empty, the endpoint is the full virtual-hosted URL.
@@ -270,16 +352,14 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
     auto request = HttpRequestBuilder("HEAD", std::move(head_url))
                        .AddHostHeader(host_header)
                        .BuildRequest();
-    return PromiseFuturePair<S3EndpointRegion>::LinkValue(
-               ResolveHost<S3CustomFormatter>{std::move(bucket), "us-east-1",
-                                              std::move(formatter)},
-               transport->IssueRequest(std::move(request), {}))
-        .future;
+    return IssueResolveRequest(std::move(bucket), "us-east-1",
+                               std::move(formatter), std::move(request),
+                               std::move(transport), std::move(retries));
   }
 
   assert(IsValidBucketName(bucket));
 
-  // TODO: Handle retries, and sign the request.
+  // TODO: Sign the request.
   if (endpoint.empty()) {
     // Use a HEAD request on bucket.s3.amazonaws.com to acquire the aws_region
     // does not work when there is a . in the bucket name; for now require the
@@ -290,11 +370,9 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
               "HEAD", absl::StrFormat("https://%s.s3.amazonaws.com", bucket))
               .AddHostHeader(host_header)
               .BuildRequest();
-      return PromiseFuturePair<S3EndpointRegion>::LinkValue(
-                 ResolveHost<S3VirtualHostFormatter>{
-                     std::move(bucket), {}, S3VirtualHostFormatter{}},
-                 transport->IssueRequest(std::move(request), {}))
-          .future;
+      return IssueResolveRequest(std::move(bucket), {},
+                                 S3VirtualHostFormatter{}, std::move(request),
+                                 std::move(transport), std::move(retries));
     }
 
     // The aws cli issues a request against the aws-global endpoint,
@@ -308,11 +386,9 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
             absl::StrFormat("https://s3.us-east-1.amazonaws.com/%s", bucket))
             .AddHostHeader(host_header)
             .BuildRequest();
-    return PromiseFuturePair<S3EndpointRegion>::LinkValue(
-               ResolveHost<S3PathFormatter>{
-                   std::move(bucket), {}, S3PathFormatter{}},
-               transport->IssueRequest(std::move(request), {}))
-        .future;
+    return IssueResolveRequest(std::move(bucket), {}, S3PathFormatter{},
+                               std::move(request), std::move(transport),
+                               std::move(retries));
   }
 
   // Issue a HEAD request against the custom endpoint.
@@ -323,11 +399,9 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
   auto request = HttpRequestBuilder("HEAD", std::move(head_url))
                      .AddHostHeader(host_header)
                      .BuildRequest();
-  return PromiseFuturePair<S3EndpointRegion>::LinkValue(
-             ResolveHost<S3CustomFormatter>{std::move(bucket), "us-east-1",
-                                            std::move(formatter)},
-             transport->IssueRequest(std::move(request), {}))
-      .future;
+  return IssueResolveRequest(std::move(bucket), "us-east-1",
+                             std::move(formatter), std::move(request),
+                             std::move(transport), std::move(retries));
 }
 
 }  // namespace internal_kvstore_s3

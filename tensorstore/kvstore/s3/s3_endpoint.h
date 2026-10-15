@@ -24,6 +24,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/kvstore/s3/s3_resource.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -103,7 +104,8 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
 ///   If bucket is empty, endpoint must be non-empty.
 Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string bucket, std::string_view endpoint, std::string host_header,
-    std::shared_ptr<internal_http::HttpTransport> transport);
+    std::shared_ptr<internal_http::HttpTransport> transport,
+    S3RequestRetries::Spec retries = S3RequestRetries::Default());
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

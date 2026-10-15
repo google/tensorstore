@@ -22,9 +22,11 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/mock_http_transport.h"
+#include "tensorstore/kvstore/s3/s3_resource.h"
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::StatusIs;
@@ -281,6 +283,56 @@ TEST(ResolveEndpointRegion, Error) {
   EXPECT_THAT(
       ResolveEndpointRegion("testbucket", {}, {}, mock_transport).result(),
       StatusIs(absl::StatusCode::kInternal, "Mock error"));
+}
+
+TEST(ResolveEndpointRegion, RetryOn429) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"HEAD https://testbucket.s3.amazonaws.com",
+           HttpResponse{429,
+                        absl::Cord("<Error><Code>SlowDown</Code><Message>"
+                                   "Please reduce your request rate."
+                                   "</Message></Error>"),
+                        {}}},
+          {"HEAD https://testbucket.s3.amazonaws.com",
+           HttpResponse{503, absl::Cord(), {}}},
+          {"HEAD https://testbucket.s3.amazonaws.com",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
+      });
+
+  tensorstore::internal_kvstore_s3::S3RequestRetries::Spec retries{
+      /*max_retries=*/3, /*initial_delay=*/absl::Milliseconds(1),
+      /*max_delay=*/absl::Milliseconds(2)};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      S3EndpointRegion ehr,
+      ResolveEndpointRegion("testbucket", {}, {}, mock_transport, retries)
+          .result());
+  EXPECT_EQ(ehr.endpoint, "https://testbucket.s3.us-east-1.amazonaws.com");
+  EXPECT_EQ(ehr.aws_region, "us-east-1");
+  EXPECT_EQ(ehr.write_mode, ConditionalWriteMode::kEnabled);
+  EXPECT_EQ(mock_transport->requests().size(), 3);
+}
+
+TEST(ResolveEndpointRegion, RetryExhaustedOn429) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"HEAD https://testbucket.s3.amazonaws.com",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://testbucket.s3.amazonaws.com",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://testbucket.s3.amazonaws.com",
+           HttpResponse{429, absl::Cord(), {}}},
+      });
+
+  tensorstore::internal_kvstore_s3::S3RequestRetries::Spec retries{
+      /*max_retries=*/2, /*initial_delay=*/absl::Milliseconds(1),
+      /*max_delay=*/absl::Milliseconds(2)};
+  EXPECT_THAT(
+      ResolveEndpointRegion("testbucket", {}, {}, mock_transport, retries)
+          .result(),
+      StatusIs(absl::StatusCode::kAborted));
+  EXPECT_EQ(mock_transport->requests().size(), 3);
 }
 
 }  // namespace

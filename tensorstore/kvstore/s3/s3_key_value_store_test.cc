@@ -758,4 +758,99 @@ TEST(S3KeyValueStoreTest, EncodesReservedCharactersInObjectKey) {
   }
 }
 
+TEST(S3KeyValueStoreTest, RetryHeadOn429) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // Endpoint resolution HEAD request gets 429 first, then succeeds.
+          {"HEAD https://localhost:1234/base/my-bucket",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://localhost:1234/base/my-bucket",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
+
+          // Conditional Write HEAD ("Peek") gets 429 first, then 200, then PUT.
+          {"HEAD https://localhost:1234/base/my-bucket/key_write",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://localhost:1234/base/my-bucket/key_write",
+           HttpResponse{
+               200, absl::Cord(),
+               HeaderMap{{"etag", "\"11111111111111111111111111111111\""}}}},
+          {"PUT https://localhost:1234/base/my-bucket/key_write",
+           HttpResponse{
+               200, absl::Cord(),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+
+          // Conditional Write HEAD ("Peek") exhausting retries does not PUT.
+          {"HEAD https://localhost:1234/base/my-bucket/key_write_fail",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://localhost:1234/base/my-bucket/key_write_fail",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://localhost:1234/base/my-bucket/key_write_fail",
+           HttpResponse{429, absl::Cord(), {}}},
+
+          // Conditional Delete HEAD ("Peek") gets 429 first, then 200, then
+          // DELETE.
+          {"HEAD https://localhost:1234/base/my-bucket/key_delete",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://localhost:1234/base/my-bucket/key_delete",
+           HttpResponse{
+               200, absl::Cord(),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+          {"DELETE https://localhost:1234/base/my-bucket/key_delete",
+           HttpResponse{204, absl::Cord(), {}}},
+
+          // Conditional Delete HEAD ("Peek") exhausting retries does not
+          // DELETE.
+          {"HEAD https://localhost:1234/base/my-bucket/key_delete_fail",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://localhost:1234/base/my-bucket/key_delete_fail",
+           HttpResponse{429, absl::Cord(), {}}},
+          {"HEAD https://localhost:1234/base/my-bucket/key_delete_fail",
+           HttpResponse{429, absl::Cord(), {}}},
+      });
+
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  auto context = DefaultTestContext();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "s3"},
+                                 {"bucket", "my-bucket"},
+                                 {"endpoint", "https://localhost:1234/base"},
+                                 {"use_conditional_write", false}},
+                                context)
+                      .result());
+
+  EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz"),
+                             {StorageGeneration::FromString(
+                                 "\"11111111111111111111111111111111\"")})
+                  .result(),
+              MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
+                  "\"900150983cd24fb0d6963f7d28e17f72\"")));
+
+  EXPECT_THAT(kvstore::Write(store, "key_write_fail", absl::Cord("xyz"),
+                             {StorageGeneration::FromString(
+                                 "\"11111111111111111111111111111111\"")})
+                  .result(),
+              StatusIs(absl::StatusCode::kAborted));
+
+  EXPECT_THAT(
+      kvstore::Delete(store, "key_delete",
+                      {StorageGeneration::FromString(
+                          "\"900150983cd24fb0d6963f7d28e17f72\"")})
+          .result(),
+      MatchesTimestampedStorageGeneration(StorageGeneration::NoValue()));
+
+  EXPECT_THAT(kvstore::Delete(store, "key_delete_fail",
+                              {StorageGeneration::FromString(
+                                  "\"900150983cd24fb0d6963f7d28e17f72\"")})
+                  .result(),
+              StatusIs(absl::StatusCode::kAborted));
+
+  for (const auto& request : mock_transport->requests()) {
+    EXPECT_FALSE(request.method == "PUT" &&
+                 absl::StrContains(request.url, "key_write_fail"));
+    EXPECT_FALSE(request.method == "DELETE" &&
+                 absl::StrContains(request.url, "key_delete_fail"));
+  }
+}
+
 }  // namespace
