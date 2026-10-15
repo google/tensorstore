@@ -23,6 +23,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <numeric>
 #include <optional>
 #include <string>
@@ -42,7 +43,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
@@ -479,9 +479,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ChunkKeyEncoding, [](auto is_loading,
                              {'.', "."},
                              {'/', "/"},
                          })))),
-          // Required for `offset`, and only valid there.  The length is
-          // checked against the rank in `ValidateMetadata`, where the rank
-          // is known.
+          // Length is checked against the rank in `ValidateMetadata`.
           jb::Member("offset",
                      jb::Projection<&Self::offset>(
                          [outer = obj](auto is_loading, const auto& options,
