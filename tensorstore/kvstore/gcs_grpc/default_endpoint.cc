@@ -66,6 +66,7 @@ bool UseDirectPathGcsEndpointByDefaultImpl() {
 }  // namespace
 
 std::string GetDefaultGcsGrpcEndpoint() {
+
   static bool cached_use_direct_path = UseDirectPathGcsEndpointByDefaultImpl();
   if (cached_use_direct_path) {
     // When running on a GCE VM, use the directpath endpoint by default.
