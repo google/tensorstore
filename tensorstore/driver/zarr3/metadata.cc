@@ -456,26 +456,59 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ChunkKeyEncoding, [](auto is_loading,
       jb::Projection<&Self::kind>(jb::Enum<Self::Kind, std::string_view>({
           {Self::kDefault, "default"},
           {Self::kV2, "v2"},
+          {Self::kOffset, "offset"},
       })),
-      jb::Object(jb::Member("separator",
-                            jb::Projection<&Self::separator>(jb::DefaultValue(
-                                [outer = obj](auto* obj) -> absl::Status {
-                                  switch (outer->kind) {
-                                    case Self::kDefault:
-                                      *obj = '/';
-                                      break;
-                                    case Self::kV2:
-                                      *obj = '.';
-                                      break;
-                                    default:
-                                      ABSL_UNREACHABLE();
-                                  }
-                                  return absl::OkStatus();
-                                },
-                                jb::Enum<char, std::string_view>({
-                                    {'.', "."},
-                                    {'/', "/"},
-                                }))))))  //
+      jb::Object(
+          jb::Member("separator",
+                     jb::Projection<&Self::separator>(jb::DefaultValue(
+                         [outer = obj](auto* obj) -> absl::Status {
+                           switch (outer->kind) {
+                             case Self::kDefault:
+                             case Self::kOffset:
+                               *obj = '/';
+                               break;
+                             case Self::kV2:
+                               *obj = '.';
+                               break;
+                             default:
+                               ABSL_UNREACHABLE();
+                           }
+                           return absl::OkStatus();
+                         },
+                         jb::Enum<char, std::string_view>({
+                             {'.', "."},
+                             {'/', "/"},
+                         })))),
+          // Required for `offset`, and only valid there.  The length is
+          // checked against the rank in `ValidateMetadata`, where the rank
+          // is known.
+          jb::Member("offset",
+                     jb::Projection<&Self::offset>(
+                         [outer = obj](auto is_loading, const auto& options,
+                                       auto* obj, auto* j) -> absl::Status {
+                           if (outer->kind != Self::kOffset) {
+                             if constexpr (is_loading) {
+                               if (!j->is_discarded()) {
+                                 return absl::InvalidArgumentError(
+                                     "\"offset\" is only valid for the "
+                                     "\"offset\" chunk key encoding");
+                               }
+                               obj->clear();
+                             } else {
+                               *j = ::nlohmann::json::value_t::discarded;
+                             }
+                             return absl::OkStatus();
+                           }
+                           if constexpr (is_loading) {
+                             if (j->is_discarded()) {
+                               return absl::InvalidArgumentError(
+                                   "\"offset\" must be specified for the "
+                                   "\"offset\" chunk key encoding");
+                             }
+                           }
+                           return jb::Array(jb::Integer<Index>())(
+                               is_loading, options, obj, j);
+                         }))))  //
                     )(is_loading, options, obj, j);
 })
 
@@ -837,6 +870,15 @@ absl::Status ValidateStructEndianness(const ZarrDType& dtype,
 
 absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   DeriveFieldShape(metadata);
+
+  if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kOffset &&
+      static_cast<DimensionIndex>(metadata.chunk_key_encoding.offset.size()) !=
+          metadata.rank) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Expected \"offset\" of the chunk key encoding to have length ",
+        metadata.rank, ", but received: ",
+        ::nlohmann::json(metadata.chunk_key_encoding.offset).dump()));
+  }
 
   // Skip when codecs are already resolved: the create path runs the
   // pre-Resolve check itself in `GetNewMetadata`, and post-Resolve the
