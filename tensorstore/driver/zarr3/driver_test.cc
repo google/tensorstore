@@ -1279,9 +1279,6 @@ TEST(ChunkKeyEncodingTest, OffsetReadsBackWhatWasWritten) {
                                                     "c/0"));
 }
 
-// The point of the encoding: an array grows in the negative direction by
-// editing `zarr.json` alone.  Chunks written under the `default` encoding
-// are read back at their new indices without having moved.
 TEST(ChunkKeyEncodingTest,
      OffsetGrowsInTheNegativeDirectionWithoutMovingChunks) {
   auto context = Context::Default();
@@ -1312,7 +1309,6 @@ TEST(ChunkKeyEncodingTest,
   }();
   EXPECT_THAT(keys_before, ::testing::ElementsAre("c/0", "c/1"));
 
-  // Two chunks in front: the whole operation.
   metadata["shape"] = {12};
   metadata["chunk_key_encoding"] = {{"name", "offset"},
                                     {"configuration", {{"offset", {-2}}}}};
@@ -1342,8 +1338,6 @@ TEST(ChunkKeyEncodingTest,
               ::testing::UnorderedElementsAre("c/-2", "c/0", "c/1"));
 }
 
-// Shrinking deletes chunks through key ranges, which must cope with the
-// negative key components not sorting numerically.
 TEST(ChunkKeyEncodingTest, OffsetResizeDeletesOnlyTheChunksOutsideTheNewShape) {
   auto context = Context::Default();
   ::nlohmann::json spec{
