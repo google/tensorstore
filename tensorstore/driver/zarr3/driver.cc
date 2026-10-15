@@ -430,9 +430,10 @@ class DataCacheBase
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
     assert(key.size() > key_prefix_.size());
     assert(!grid_indices.empty());
-    key.remove_prefix(
-        key_prefix_.size() +
-        (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2 ? 2 : 0));
+    key.remove_prefix(key_prefix_.size() +
+                      (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2
+                           ? (metadata.rank != 0 ? 2 : 1)
+                           : 0));
     if (!internal::ParseGridIndexKeyWithDimensionSeparator(
             metadata.chunk_key_encoding.separator,
             [&](std::string_view part, DimensionIndex dim, Index& grid_index) {
