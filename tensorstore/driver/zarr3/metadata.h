@@ -61,17 +61,14 @@ struct ChunkKeyEncoding {
   enum Kind {
     kDefault,
     kV2,
-    // `default` keys of `grid_index + offset`:
     // https://github.com/zarr-developers/zarr-extensions/tree/main/chunk-key-encodings/offset
     kOffset,
   };
   Kind kind;
   char separator;
-  // For `kOffset`, one value per dimension, added to the grid index before
-  // it is formatted.  Empty for the other kinds.
+  // One value per dimension for `kOffset`, empty otherwise.
   std::vector<Index> offset;
 
-  // Offset applied to the grid index along `dim` when formatting a key.
   Index GridIndexOffset(DimensionIndex dim) const {
     return kind == kOffset ? offset[dim] : 0;
   }
