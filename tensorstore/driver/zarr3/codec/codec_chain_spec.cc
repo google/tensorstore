@@ -204,20 +204,17 @@ absl::Status ZarrCodecChainSpec::GetDecodedChunkLayout(
     decoded_array_info = &encoded_array_info;
   }
   std::optional<ArrayCodecChunkLayoutInfo> temp_info[2];
-  const ArrayCodecChunkLayoutInfo* encoded_info;
+  auto& initial_decoded_info =
+      array_infos.empty() ? decoded : temp_info[0].emplace();
   if (array_to_bytes) {
-    auto& decoded_info = array_infos.empty() ? decoded : temp_info[0].emplace();
-    TENSORSTORE_RETURN_IF_ERROR(
-        array_to_bytes->GetDecodedChunkLayout(
-            array_infos.empty() ? array_info : array_infos.back(),
-            decoded_info))
+    TENSORSTORE_RETURN_IF_ERROR(array_to_bytes->GetDecodedChunkLayout(
+                                    *decoded_array_info, initial_decoded_info))
         .With(CodecResolveErrorBuilder{*array_to_bytes,
                                        "propagating chunk layout"});
-
-    encoded_info = &decoded_info;
-  } else if (!array_to_array.empty()) {
-    encoded_info = &temp_info[0].emplace();
+  } else {
+    initial_decoded_info.read_chunk_shape = decoded_array_info->shape;
   }
+  const ArrayCodecChunkLayoutInfo* encoded_info = &initial_decoded_info;
   for (size_t i = array_to_array.size(); i--;) {
     auto& decoded_info =
         i == 0 ? decoded : temp_info[(array_to_array.size() - i) % 2].emplace();
@@ -314,8 +311,8 @@ ZarrCodecChainSpec::Resolve(ArrayCodecResolveParameters&& decoded,
       array_to_bytes_codec_ptr->Resolve(
           std::move(*decoded_params), *bytes_decoded_params,
           resolved_spec ? &resolved_spec->array_to_bytes : nullptr),
-      _.With(
-          CodecResolveErrorBuilder{*array_to_bytes, "resolving codec spec"}));
+      _.With(CodecResolveErrorBuilder{*array_to_bytes_codec_ptr,
+                                      "resolving codec spec"}));
 
   if (chain->array_to_bytes->is_sharding_codec() && !bytes_to_bytes.empty()) {
     return absl::InvalidArgumentError(absl::StrFormat(

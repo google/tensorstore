@@ -297,4 +297,25 @@ TEST(ShardingIndexedTest, GetDecodedChunkLayoutForwardsInnerShape) {
   EXPECT_EQ((*decoded.read_chunk_shape)[1], 3);
 }
 
+TEST(ShardingIndexedTest, GetDecodedChunkLayoutIncompleteSpec) {
+  ZarrCodecChainSpec::FromJsonOptions options;
+  options.constraints = true;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   ZarrCodecChainSpec::FromJson(
+                                       {
+                                           {{"name", "sharding_indexed"},
+                                            {"configuration",
+                                             {
+                                                 {"chunk_shape", {2, 3}},
+                                             }}},
+                                       },
+                                       options));
+  tensorstore::internal_zarr3::ArrayDataTypeAndShapeInfo array_info;
+  array_info.dtype = tensorstore::dtype_v<uint8_t>;
+  array_info.rank = 2;
+  tensorstore::internal_zarr3::ArrayCodecChunkLayoutInfo decoded;
+  TENSORSTORE_ASSERT_OK(spec.GetDecodedChunkLayout(array_info, decoded));
+  EXPECT_FALSE(decoded.read_chunk_shape.has_value());
+}
+
 }  // namespace

@@ -34,7 +34,9 @@ namespace {
 using ::tensorstore::CodecSpec;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal_zarr3::ArrayCodecChunkLayoutInfo;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
+using ::tensorstore::internal_zarr3::ArrayDataTypeAndShapeInfo;
 using ::tensorstore::internal_zarr3::BytesCodecResolveParameters;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
 using ::tensorstore::internal_zarr3::TestCodecMerge;
@@ -171,6 +173,39 @@ TEST(CodecChainSpecTest, Crc32cItemBitsPropagation) {
                                            &resolved_chain_spec));
   EXPECT_EQ(BytesCodecResolveParameters::kUnknownItemBits,
             encoded_bytes_params.item_bits);
+}
+
+TEST(CodecChainSpecTest, ResolveDefaultArrayToBytesError) {
+  ZarrCodecChainSpec chain_spec;
+  ArrayCodecResolveParameters decoded_array_params;
+  decoded_array_params.dtype = ::tensorstore::dtype_v<uint16_t>;
+  decoded_array_params.rank = 1;
+  decoded_array_params.codec_chunk_shape.emplace()[0] = 5;
+
+  BytesCodecResolveParameters encoded_bytes_params;
+  ZarrCodecChainSpec resolved_chain_spec;
+  EXPECT_THAT(
+      chain_spec.Resolve(std::move(decoded_array_params), encoded_bytes_params,
+                         &resolved_chain_spec),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("\"bytes\" codec does not support codec_chunk_shape")));
+}
+
+TEST(CodecChainSpecTest, GetDecodedChunkLayoutWithoutArrayToBytes) {
+  ZarrCodecChainSpec chain_spec;
+  ArrayDataTypeAndShapeInfo array_info;
+  array_info.dtype = ::tensorstore::dtype_v<uint16_t>;
+  array_info.rank = 2;
+  auto& shape = array_info.shape.emplace();
+  shape[0] = 10;
+  shape[1] = 20;
+
+  ArrayCodecChunkLayoutInfo decoded;
+  TENSORSTORE_ASSERT_OK(chain_spec.GetDecodedChunkLayout(array_info, decoded));
+  ASSERT_TRUE(decoded.read_chunk_shape.has_value());
+  EXPECT_EQ((*decoded.read_chunk_shape)[0], 10);
+  EXPECT_EQ((*decoded.read_chunk_shape)[1], 20);
 }
 
 }  // namespace

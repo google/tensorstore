@@ -1136,6 +1136,65 @@ TEST(DriverCreateWithSchemaTest, DimensionUnits) {
       Schema::DimensionUnits({"m", "m", "s", "s"}));
 }
 
+TEST(DriverCreateWithSchemaTest, LargeChunkMetadataCodecsWithoutBytes) {
+  ::nlohmann::json expected_schema{
+      {"dtype", "uint16"},
+      {"fill_value", 0},
+      {"domain", {{"shape", {{1}, {550}, {200}, {10}}}}},
+      {"chunk_layout",
+       {{"grid_origin", {0, 0, 0, 0}},
+        {"inner_order", {0, 1, 2, 3}},
+        {"read_chunk", {{"shape", {1, 550, 200, 10}}}},
+        {"write_chunk", {{"shape", {1, 550, 200, 10}}}}}},
+      {"codec",
+       {
+           {"driver", "zarr3"},
+           {"codecs",
+            {
+                GetDefaultBytesCodecJson(),
+                {{"name", "zstd"},
+                 {"configuration", {{"level", 1}, {"checksum", false}}}},
+            }},
+       }},
+  };
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "zarr3"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata",
+           {
+               {"data_type", "uint16"},
+               {"shape", {1, 550, 200, 10}},
+               {"chunk_grid",
+                {{"name", "regular"},
+                 {"configuration", {{"chunk_shape", {1, 550, 200, 10}}}}}},
+               {"codecs",
+                {{{"name", "zstd"}, {"configuration", {{"level", 1}}}}}},
+           }},
+      },
+      expected_schema);
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "zarr3"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"schema",
+           {
+               {"dtype", "uint16"},
+               {"domain", {{"shape", {1, 550, 200, 10}}}},
+               {"chunk_layout",
+                {
+                    {"write_chunk", {{"shape", {1, 550, 200, 10}}}},
+                }},
+           }},
+          {"metadata",
+           {
+               {"codecs",
+                {{{"name", "zstd"}, {"configuration", {{"level", 1}}}}}},
+           }},
+      },
+      expected_schema);
+}
+
 template <typename... Option>
 Result<std::vector<std::string>> GetKeysForChunkKeyEncoding(
     ::nlohmann::json encoding, Option&&... option) {

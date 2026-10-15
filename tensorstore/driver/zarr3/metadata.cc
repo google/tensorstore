@@ -1682,10 +1682,23 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   span<Index> read_chunk_shape(decoded.read_chunk_shape.emplace().data(),
                                metadata->rank);
 
-  TENSORSTORE_RETURN_IF_ERROR(internal::ChooseReadWriteChunkShapes(
-      chunk_layout.read_chunk(), chunk_layout.write_chunk(),
-      SubBoxView(domain.box(), 0, metadata->rank), read_chunk_shape,
-      metadata->chunk_shape));
+  if (metadata_constraints.codec_specs &&
+      metadata_constraints.codec_specs->sharding_height() == 0) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::Chunk(chunk_layout.read_chunk())));
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::Chunk(chunk_layout.write_chunk())));
+    TENSORSTORE_RETURN_IF_ERROR(internal::ChooseChunkShape(
+        chunk_layout.write_chunk(), SubBoxView(domain.box(), 0, metadata->rank),
+        metadata->chunk_shape));
+    std::copy_n(metadata->chunk_shape.begin(), metadata->rank,
+                read_chunk_shape.begin());
+  } else {
+    TENSORSTORE_RETURN_IF_ERROR(internal::ChooseReadWriteChunkShapes(
+        chunk_layout.read_chunk(), chunk_layout.write_chunk(),
+        SubBoxView(domain.box(), 0, metadata->rank), read_chunk_shape,
+        metadata->chunk_shape));
+  }
 
   if (!internal::RangesEqual(span<const Index>(metadata->chunk_shape),
                              read_chunk_shape)) {
