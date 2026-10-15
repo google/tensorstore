@@ -436,8 +436,6 @@ class DataCacheBase
     if (!internal::ParseGridIndexKeyWithDimensionSeparator(
             metadata.chunk_key_encoding.separator,
             [&](std::string_view part, DimensionIndex dim, Index& grid_index) {
-              // Under the `offset` encoding a key component may be negative;
-              // `-0` is never produced and is rejected.
               const bool negative = metadata.chunk_key_encoding.kind ==
                                         ChunkKeyEncoding::kOffset &&
                                     part.size() > 1 && part.front() == '-';
@@ -463,11 +461,7 @@ class DataCacheBase
       DimensionIndex dim, IndexInterval grid_interval) const final {
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
-    // Keys hold `grid_index + offset`.  A negative value sorts before every
-    // non-negative one but negative values do not sort numerically among
-    // themselves, so every grid index with a negative key is split off on
-    // its own; the non-negative keys follow the base-10 digit-count rule,
-    // shifted back into grid coordinates.
+    // Negative key components do not sort numerically: split them off singly.
     const Index offset = metadata.chunk_key_encoding.GridIndexOffset(dim);
     return std::max(-offset, internal::MinValueWithMaxBase10Digits(
                                  grid_interval.exclusive_max() + offset) -

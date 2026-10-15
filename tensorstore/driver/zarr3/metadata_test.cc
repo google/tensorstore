@@ -174,7 +174,6 @@ TEST(MetadataTest, OffsetChunkKeyEncodingSeparatorDefaultsToSlash) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
   EXPECT_EQ(metadata.chunk_key_encoding.separator, '/');
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto out, metadata.ToJson());
-  // The default separator is omitted on output, as for `default`.
   EXPECT_THAT(out["chunk_key_encoding"],
               MatchesJson({{"name", "offset"},
                            {"configuration", {{"offset", {0, 0, 0}}}}}));
