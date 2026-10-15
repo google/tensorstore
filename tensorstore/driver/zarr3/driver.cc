@@ -463,9 +463,13 @@ class DataCacheBase
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
     // Negative key components do not sort numerically: split them off singly.
     const Index offset = metadata.chunk_key_encoding.GridIndexOffset(dim);
-    return std::max(-offset, internal::MinValueWithMaxBase10Digits(
-                                 grid_interval.exclusive_max() + offset) -
-                                 offset);
+    const Index exclusive_max = grid_interval.exclusive_max();
+    if (exclusive_max + offset <= 0) {
+      return -offset;
+    }
+    return std::max(
+        -offset,
+        internal::MinValueWithMaxBase10Digits(exclusive_max + offset) - offset);
   }
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
