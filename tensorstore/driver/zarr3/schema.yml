@@ -295,6 +295,50 @@ definitions:
               - const: "."
               default: "."
               title: "Separator character between dimensions"
+  chunk_key_encoding_offset:
+    $id: driver/zarr3/ChunkKeyEncoding.offset
+    title: Offset chunk key encoding.
+    description: |
+      The `~driver/zarr3/ChunkKeyEncoding.default` encoding applied to the
+      chunk grid position plus a fixed per-dimension integer offset, so that
+      an array can grow in the negative direction of a dimension by whole
+      chunks without any existing chunk changing its key.  Refer to `the
+      extension registry
+      <https://github.com/zarr-developers/zarr-extensions/tree/main/chunk-key-encodings/offset>`__
+      for details.
+    allOf:
+    - $ref: driver/zarr3/ChunkKeyEncoding
+    - type: object
+      properties:
+        name:
+          const: "offset"
+        configuration:
+          type: object
+          properties:
+            separator:
+              type: string
+              oneOf:
+              - const: "/"
+              - const: "."
+              default: "/"
+              title: "Separator character between dimensions"
+            offset:
+              type: array
+              items:
+                type: integer
+              title: |
+                Offset added to the chunk grid position along each dimension
+                before it is formatted as a key.
+              description: |
+                Must have one element per dimension.  An element may be
+                negative, in which case the corresponding key component carries
+                a leading ``-``.  With every element ``0`` the keys are
+                identical to those of the
+                `~driver/zarr3/ChunkKeyEncoding.default` encoding.
+              examples:
+              - [-2, 0, 0]
+          required:
+          - offset
   codec_chain:
     $id: driver/zarr3/CodecChain
     title: Specifies a chain of codecs.

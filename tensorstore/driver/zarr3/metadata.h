@@ -23,6 +23,7 @@
 
 #include <array>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -30,7 +31,6 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
@@ -61,16 +61,28 @@ struct ChunkKeyEncoding {
   enum Kind {
     kDefault,
     kV2,
+    // `default` keys of `grid_index + offset`:
+    // https://github.com/zarr-developers/zarr-extensions/tree/main/chunk-key-encodings/offset
+    kOffset,
   };
   Kind kind;
   char separator;
+  // For `kOffset`, one value per dimension, added to the grid index before
+  // it is formatted.  Empty for the other kinds.
+  std::vector<Index> offset;
+
+  // Offset applied to the grid index along `dim` when formatting a key.
+  Index GridIndexOffset(DimensionIndex dim) const {
+    return kind == kOffset ? offset[dim] : 0;
+  }
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ChunkKeyEncoding,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 
   friend bool operator==(const ChunkKeyEncoding& a, const ChunkKeyEncoding& b) {
-    return a.kind == b.kind && a.separator == b.separator;
+    return a.kind == b.kind && a.separator == b.separator &&
+           a.offset == b.offset;
   }
   friend bool operator!=(const ChunkKeyEncoding& a, const ChunkKeyEncoding& b) {
     return !(a == b);
