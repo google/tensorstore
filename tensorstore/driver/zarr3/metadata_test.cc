@@ -14,22 +14,22 @@
 
 #include "tensorstore/driver/zarr3/metadata.h"
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <cmath>
 #include <memory>
+#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "absl/base/casts.h"
 #include "absl/status/status.h"
-#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/chunk_layout.h"
@@ -72,6 +72,7 @@ using ::tensorstore::dtypes::float16_t;
 using ::tensorstore::dtypes::float32_t;
 using ::tensorstore::dtypes::float64_t;
 using ::tensorstore::internal::uint_t;
+using ::tensorstore::internal_zarr3::ChunkKeyEncoding;
 using ::tensorstore::internal_zarr3::FillValueJsonBinder;
 using ::tensorstore::internal_zarr3::GetSpecRankAndFieldInfo;
 using ::tensorstore::internal_zarr3::GetVoidMetadata;
@@ -149,6 +150,75 @@ TEST(MetadataTest, ParseValidNoDimensionNames) {
   EXPECT_THAT(metadata.dimension_names,
               ::testing::ElementsAre(std::nullopt, std::nullopt, std::nullopt));
   EXPECT_THAT(metadata.user_attributes, MatchesJson({{"a", "b"}, {"c", "d"}}));
+}
+
+TEST(MetadataTest, OffsetChunkKeyEncoding) {
+  auto json = GetBasicMetadata();
+  json["chunk_key_encoding"] = {
+      {"name", "offset"},
+      {"configuration", {{"separator", "."}, {"offset", {-2, 0, 5}}}}};
+  tensorstore::TestJsonBinderRoundTripJsonOnly<ZarrMetadata>({json});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
+  EXPECT_EQ(metadata.chunk_key_encoding.kind, ChunkKeyEncoding::kOffset);
+  EXPECT_EQ(metadata.chunk_key_encoding.separator, '.');
+  EXPECT_THAT(metadata.chunk_key_encoding.offset,
+              ::testing::ElementsAre(-2, 0, 5));
+  EXPECT_EQ(metadata.chunk_key_encoding.GridIndexOffset(0), -2);
+  EXPECT_EQ(metadata.chunk_key_encoding.GridIndexOffset(2), 5);
+}
+
+TEST(MetadataTest, OffsetChunkKeyEncodingSeparatorDefaultsToSlash) {
+  auto json = GetBasicMetadata();
+  json["chunk_key_encoding"] = {{"name", "offset"},
+                                {"configuration", {{"offset", {0, 0, 0}}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
+  EXPECT_EQ(metadata.chunk_key_encoding.separator, '/');
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto out, metadata.ToJson());
+  // The default separator is omitted on output, as for `default`.
+  EXPECT_THAT(out["chunk_key_encoding"],
+              MatchesJson({{"name", "offset"},
+                           {"configuration", {{"offset", {0, 0, 0}}}}}));
+}
+
+TEST(MetadataTest, OffsetChunkKeyEncodingRankMismatch) {
+  auto json = GetBasicMetadata();
+  json["chunk_key_encoding"] = {{"name", "offset"},
+                                {"configuration", {{"offset", {0, 0}}}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*\"offset\".*length 3.*")));
+}
+
+TEST(MetadataTest, OffsetChunkKeyEncodingRequiresOffset) {
+  auto json = GetBasicMetadata();
+  json["chunk_key_encoding"] = {{"name", "offset"}};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*\"offset\" must be specified.*")));
+  json["chunk_key_encoding"] = {{"name", "offset"},
+                                {"configuration", {{"separator", "."}}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*\"offset\" must be specified.*")));
+}
+
+TEST(MetadataTest, OffsetIsOnlyValidForTheOffsetChunkKeyEncoding) {
+  auto json = GetBasicMetadata();
+  json["chunk_key_encoding"] = {{"name", "default"},
+                                {"configuration", {{"offset", {0, 0, 0}}}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*\"offset\" is only valid.*")));
+}
+
+TEST(MetadataTest, OffsetChunkKeyEncodingEquality) {
+  ChunkKeyEncoding a{ChunkKeyEncoding::kOffset, '/', {-1, 0}};
+  ChunkKeyEncoding b{ChunkKeyEncoding::kOffset, '/', {-1, 0}};
+  ChunkKeyEncoding c{ChunkKeyEncoding::kOffset, '/', {-2, 0}};
+  ChunkKeyEncoding d{ChunkKeyEncoding::kDefault, '/', {}};
+  EXPECT_EQ(a, b);
+  EXPECT_NE(a, c);
+  EXPECT_NE(a, d);
 }
 
 TEST(MetadataTest, UnknownExtensionAttribute) {
@@ -1169,9 +1239,10 @@ TEST(StructEndianTest, ModernStructRequiresExplicitEndianForMultiByteField) {
                                   {{"name", "y"}, {"data_type", "int16"}}})}}}};
   metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
   metadata_json["codecs"] = ::nlohmann::json::array_t{{{"name", "bytes"}}};
-  EXPECT_THAT(ZarrMetadata::FromJson(metadata_json),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                         ".*specify an explicit `endian`.*"));
+  EXPECT_THAT(
+      ZarrMetadata::FromJson(metadata_json),
+      tensorstore::StatusIs(absl::StatusCode::kInvalidArgument,
+                            MatchesRegex(".*specify an explicit `endian`.*")));
 }
 
 // All single-byte fields: no byte order to disambiguate.
@@ -1267,9 +1338,10 @@ TEST(StructEndianTest, ShardedModernStructWithoutLeafEndianRejected) {
                                   {{"name", "y"}, {"data_type", "int16"}}})}}}};
   metadata_json["fill_value"] = {{"x", 0}, {"y", 0}};
   metadata_json["codecs"] = ShardingWrappedBytes(std::nullopt);
-  EXPECT_THAT(ZarrMetadata::FromJson(metadata_json),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                         ".*specify an explicit `endian`.*"));
+  EXPECT_THAT(
+      ZarrMetadata::FromJson(metadata_json),
+      tensorstore::StatusIs(absl::StatusCode::kInvalidArgument,
+                            MatchesRegex(".*specify an explicit `endian`.*")));
 }
 
 // Legacy default must be injected at the leaf bytes codec, not the
@@ -1305,8 +1377,8 @@ TEST(StructFillValueFormTest, ModernStructRejectsBase64Fill) {
   metadata_json["codecs"] = ::nlohmann::json::array_t{
       {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}};
   EXPECT_THAT(ZarrMetadata::FromJson(metadata_json),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                         ".*Expected object.*"));
+              tensorstore::StatusIs(absl::StatusCode::kInvalidArgument,
+                                    MatchesRegex(".*Expected object.*")));
 }
 
 TEST(StructFillValueFormTest, ModernStructRejectsArrayFill) {
@@ -1321,8 +1393,8 @@ TEST(StructFillValueFormTest, ModernStructRejectsArrayFill) {
   metadata_json["codecs"] = ::nlohmann::json::array_t{
       {{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}};
   EXPECT_THAT(ZarrMetadata::FromJson(metadata_json),
-              tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                         ".*Expected object.*"));
+              tensorstore::StatusIs(absl::StatusCode::kInvalidArgument,
+                                    MatchesRegex(".*Expected object.*")));
 }
 
 // Verifies the deferred-parse path resolves endian before decoding

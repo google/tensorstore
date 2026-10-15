@@ -74,6 +74,8 @@ metadata.
 
 .. json:schema:: driver/zarr3/ChunkKeyEncoding.v2
 
+.. json:schema:: driver/zarr3/ChunkKeyEncoding.offset
+
 Mapping to TensorStore Schema
 -----------------------------
 

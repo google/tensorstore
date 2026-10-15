@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cstring>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -34,7 +35,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
@@ -402,7 +402,7 @@ class DataCacheBase
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
     const DimensionIndex rank = metadata.rank;
     char separator = metadata.chunk_key_encoding.separator;
-    if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
+    if (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2) {
       key = absl::StrCat(
           key_prefix_, "c",
           rank != 0 ? std::string_view(&separator, 1) : std::string_view());
@@ -414,8 +414,10 @@ class DataCacheBase
     }
     internal::FormatGridIndexKeyWithDimensionSeparator(
         key, separator,
-        [](std::string& out, DimensionIndex dim, Index grid_index) {
-          absl::StrAppend(&out, grid_index);
+        [&](std::string& out, DimensionIndex dim, Index grid_index) {
+          absl::StrAppend(
+              &out,
+              grid_index + metadata.chunk_key_encoding.GridIndexOffset(dim));
         },
         rank,
         grid_indices.subspan(0,
@@ -430,16 +432,24 @@ class DataCacheBase
     assert(!grid_indices.empty());
     key.remove_prefix(
         key_prefix_.size() +
-        (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault ? 2
-                                                                        : 0));
+        (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2 ? 2 : 0));
     if (!internal::ParseGridIndexKeyWithDimensionSeparator(
             metadata.chunk_key_encoding.separator,
-            [](std::string_view part, DimensionIndex dim, Index& grid_index) {
-              if (part.empty() || !absl::ascii_isdigit(part.front()) ||
-                  !absl::ascii_isdigit(part.back()) ||
-                  !absl::SimpleAtoi(part, &grid_index)) {
+            [&](std::string_view part, DimensionIndex dim, Index& grid_index) {
+              // Under the `offset` encoding a key component may be negative;
+              // `-0` is never produced and is rejected.
+              const bool negative = metadata.chunk_key_encoding.kind ==
+                                        ChunkKeyEncoding::kOffset &&
+                                    part.size() > 1 && part.front() == '-';
+              const std::string_view digits = negative ? part.substr(1) : part;
+              if (digits.empty() || !absl::ascii_isdigit(digits.front()) ||
+                  !absl::ascii_isdigit(digits.back()) ||
+                  !absl::SimpleAtoi(digits, &grid_index) ||
+                  (negative && grid_index == 0)) {
                 return false;
               }
+              if (negative) grid_index = -grid_index;
+              grid_index -= metadata.chunk_key_encoding.GridIndexOffset(dim);
               return true;
             },
             key, grid_indices.subspan(0, metadata.rank))) {
@@ -451,18 +461,28 @@ class DataCacheBase
 
   Index MinGridIndexForLexicographicalOrder(
       DimensionIndex dim, IndexInterval grid_interval) const final {
-    return internal::MinValueWithMaxBase10Digits(grid_interval.exclusive_max());
+    const auto& metadata =
+        *static_cast<const ZarrMetadata*>(initial_metadata().get());
+    // Keys hold `grid_index + offset`.  A negative value sorts before every
+    // non-negative one but negative values do not sort numerically among
+    // themselves, so every grid index with a negative key is split off on
+    // its own; the non-negative keys follow the base-10 digit-count rule,
+    // shifted back into grid coordinates.
+    const Index offset = metadata.chunk_key_encoding.GridIndexOffset(dim);
+    return std::max(-offset, internal::MinValueWithMaxBase10Digits(
+                                 grid_interval.exclusive_max() + offset) -
+                                 offset);
   }
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
-    if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
+    if (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2) {
       std::string key = absl::StrCat(key_prefix_, "c");
       for (DimensionIndex i = 0; i < cell_indices.size(); ++i) {
         absl::StrAppend(
             &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
-            cell_indices[i]);
+            cell_indices[i] + metadata.chunk_key_encoding.GridIndexOffset(i));
       }
       return key;
     }
