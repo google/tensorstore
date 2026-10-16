@@ -182,11 +182,17 @@ class ZarrDriverSpec
     const DimensionIndex total_rank = chunked_rank + field_shape.size();
     IndexDomainBuilder builder(total_rank);
     std::fill_n(builder.origin().begin(), total_rank, Index{0});
+    if (metadata_constraints.lower_bound) {
+      std::copy_n(metadata_constraints.lower_bound->begin(), chunked_rank,
+                  builder.origin().begin());
+    }
     std::copy_n(metadata_constraints.shape->begin(), chunked_rank,
                 builder.shape().begin());
     std::copy_n(field_shape.begin(), field_shape.size(),
                 builder.shape().begin() + chunked_rank);
-    builder.implicit_lower_bounds(DimensionSet(false));
+    builder.implicit_lower_bounds(metadata_constraints.lower_bound
+                                      ? DimensionSet::UpTo(chunked_rank)
+                                      : DimensionSet(false));
     builder.implicit_upper_bounds(DimensionSet::UpTo(chunked_rank));
     if (metadata_constraints.dimension_names) {
       for (DimensionIndex j = 0; j < chunked_rank; ++j) {
@@ -353,6 +359,8 @@ class DataCacheBase
     implicit_upper_bounds = false;
     for (DimensionIndex i = 0;
          i < static_cast<DimensionIndex>(metadata.shape.size()); ++i) {
+      bounds.origin()[i] = metadata.LowerBound(i) - metadata.GridOrigin(i);
+      implicit_lower_bounds[i] = metadata.chunk_grid_bounded;
       implicit_upper_bounds[i] = true;
     }
     if (bounds.rank() > static_cast<DimensionIndex>(metadata.shape.size()) &&
@@ -380,10 +388,17 @@ class DataCacheBase
     assert(rank == new_inclusive_min.size());
     assert(rank == new_exclusive_max.size());
     for (DimensionIndex i = 0; i < rank; ++i) {
-      assert(ExplicitIndexOr(new_inclusive_min[i], 0) == 0);
-      const Index new_size = new_exclusive_max[i];
-      if (new_size == kImplicit) continue;
-      new_metadata->shape[i] = new_size;
+      const Index origin = new_metadata->GridOrigin(i);
+      const Index old_min = new_metadata->LowerBound(i) - origin;
+      const Index new_min = ExplicitIndexOr(new_inclusive_min[i], old_min);
+      const Index new_max = ExplicitIndexOr(new_exclusive_max[i],
+                                            old_min + new_metadata->shape[i]);
+      if (new_metadata->chunk_grid_bounded) {
+        new_metadata->lower_bound[i] = new_min + origin;
+      } else {
+        assert(new_min == 0);
+      }
+      new_metadata->shape[i] = new_max - new_min;
     }
     return new_metadata;
   }
@@ -402,7 +417,7 @@ class DataCacheBase
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
     const DimensionIndex rank = metadata.rank;
     char separator = metadata.chunk_key_encoding.separator;
-    if (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2) {
+    if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
       key = absl::StrCat(
           key_prefix_, "c",
           rank != 0 ? std::string_view(&separator, 1) : std::string_view());
@@ -414,10 +429,8 @@ class DataCacheBase
     }
     internal::FormatGridIndexKeyWithDimensionSeparator(
         key, separator,
-        [&](std::string& out, DimensionIndex dim, Index grid_index) {
-          absl::StrAppend(
-              &out,
-              grid_index + metadata.chunk_key_encoding.GridIndexOffset(dim));
+        [](std::string& out, DimensionIndex dim, Index grid_index) {
+          absl::StrAppend(&out, grid_index);
         },
         rank,
         grid_indices.subspan(0,
@@ -430,25 +443,22 @@ class DataCacheBase
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
     assert(key.size() > key_prefix_.size());
     assert(!grid_indices.empty());
-    key.remove_prefix(key_prefix_.size() +
-                      (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2
-                           ? (metadata.rank != 0 ? 2 : 1)
-                           : 0));
+    key.remove_prefix(key_prefix_.size() + (metadata.chunk_key_encoding.kind ==
+                                                    ChunkKeyEncoding::kDefault
+                                                ? (metadata.rank != 0 ? 2 : 1)
+                                                : 0));
     if (!internal::ParseGridIndexKeyWithDimensionSeparator(
             metadata.chunk_key_encoding.separator,
-            [&](std::string_view part, DimensionIndex dim, Index& grid_index) {
-              const bool negative = metadata.chunk_key_encoding.kind ==
-                                        ChunkKeyEncoding::kOffset &&
-                                    part.size() > 1 && part.front() == '-';
+            [](std::string_view part, DimensionIndex dim, Index& grid_index) {
+              const bool negative = part.size() > 1 && part.front() == '-';
               const std::string_view digits = negative ? part.substr(1) : part;
               if (digits.empty() || !absl::ascii_isdigit(digits.front()) ||
                   !absl::ascii_isdigit(digits.back()) ||
                   !absl::SimpleAtoi(digits, &grid_index) ||
-                  (negative && grid_index == 0)) {
+                  (negative && digits.front() == '0')) {
                 return false;
               }
               if (negative) grid_index = -grid_index;
-              grid_index -= metadata.chunk_key_encoding.GridIndexOffset(dim);
               return true;
             },
             key, grid_indices.subspan(0, metadata.rank))) {
@@ -460,31 +470,18 @@ class DataCacheBase
 
   Index MinGridIndexForLexicographicalOrder(
       DimensionIndex dim, IndexInterval grid_interval) const final {
-    const auto& metadata =
-        *static_cast<const ZarrMetadata*>(initial_metadata().get());
-    // Negative key components do not sort numerically: split them off singly.
-    const Index offset = metadata.chunk_key_encoding.GridIndexOffset(dim);
-    const Index exclusive_max = grid_interval.exclusive_max();
-    if (exclusive_max + offset <= 0) {
-      return -offset;
-    }
-    return std::max(
-        -offset,
-        internal::MinValueWithMaxBase10Digits(exclusive_max + offset) - offset);
+    return internal::MinValueWithMaxBase10Digits(grid_interval.exclusive_max());
   }
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
-    if (metadata.chunk_key_encoding.kind != ChunkKeyEncoding::kV2) {
+    if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
       std::string key = absl::StrCat(key_prefix_, "c");
       for (DimensionIndex i = 0; i < cell_indices.size(); ++i) {
-        const Index offset =
-            i < metadata.rank ? metadata.chunk_key_encoding.GridIndexOffset(i)
-                              : 0;
         absl::StrAppend(
             &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
-            cell_indices[i] + offset);
+            cell_indices[i]);
       }
       return key;
     }
@@ -517,17 +514,26 @@ class DataCacheBase
     std::vector<Index> full_shape = metadata.shape;
     full_shape.insert(full_shape.end(), field.field_shape.begin(),
                       field.field_shape.end());
+    std::vector<Index> full_origin(total_rank, 0);
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      full_origin[i] = metadata.LowerBound(i);
+    }
+    builder.input_origin(full_origin);
     builder.input_shape(full_shape);
     builder.input_labels(span(&normalized_dimension_names[0], total_rank));
 
+    DimensionSet implicit_lower_bounds(false);
     DimensionSet implicit_upper_bounds(false);
     for (DimensionIndex i = 0; i < rank; ++i) {
+      implicit_lower_bounds[i] = metadata.chunk_grid_bounded;
       implicit_upper_bounds[i] = true;
     }
+    builder.implicit_lower_bounds(implicit_lower_bounds);
     builder.implicit_upper_bounds(implicit_upper_bounds);
 
     for (DimensionIndex i = 0; i < total_rank; ++i) {
-      builder.output_single_input_dimension(i, i);
+      builder.output_single_input_dimension(
+          i, i < rank ? -metadata.GridOrigin(i) : 0, 1, i);
     }
     return builder.Finalize();
   }

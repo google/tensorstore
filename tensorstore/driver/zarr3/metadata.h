@@ -61,25 +61,16 @@ struct ChunkKeyEncoding {
   enum Kind {
     kDefault,
     kV2,
-    // https://github.com/zarr-developers/zarr-extensions/tree/main/chunk-key-encodings/offset
-    kOffset,
   };
   Kind kind;
   char separator;
-  // One value per dimension for `kOffset`, empty otherwise.
-  std::vector<Index> offset;
-
-  Index GridIndexOffset(DimensionIndex dim) const {
-    return kind == kOffset ? offset[dim] : 0;
-  }
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ChunkKeyEncoding,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 
   friend bool operator==(const ChunkKeyEncoding& a, const ChunkKeyEncoding& b) {
-    return a.kind == b.kind && a.separator == b.separator &&
-           a.offset == b.offset;
+    return a.kind == b.kind && a.separator == b.separator;
   }
   friend bool operator!=(const ChunkKeyEncoding& a, const ChunkKeyEncoding& b) {
     return !(a == b);
@@ -133,9 +124,22 @@ struct ZarrMetadata {
   std::vector<std::optional<std::string>> dimension_names;
   ChunkKeyEncoding chunk_key_encoding;
   std::vector<Index> chunk_shape;
+  // `regular_bounded` chunk grid: `chunk_grid_origin` is the array coordinate
+  // where chunk 0 starts and `lower_bound` the coordinate of the first
+  // element.  Both are empty for the `regular` chunk grid.
+  bool chunk_grid_bounded = false;
+  std::vector<Index> chunk_grid_origin;
+  std::vector<Index> lower_bound;
   ZarrCodecChainSpec codec_specs;
   std::vector<SharedArray<const void>> fill_value;
   ::nlohmann::json::object_t unknown_extension_attributes;
+
+  Index GridOrigin(DimensionIndex dim) const {
+    return chunk_grid_bounded ? chunk_grid_origin[dim] : 0;
+  }
+  Index LowerBound(DimensionIndex dim) const {
+    return chunk_grid_bounded ? lower_bound[dim] : 0;
+  }
 
   std::string GetCompatibilityKey() const;
 
@@ -186,6 +190,9 @@ struct ZarrMetadataConstraints {
   std::optional<std::vector<std::optional<std::string>>> dimension_names;
   std::optional<ChunkKeyEncoding> chunk_key_encoding;
   std::optional<std::vector<Index>> chunk_shape;
+  std::optional<bool> chunk_grid_bounded;
+  std::optional<std::vector<Index>> chunk_grid_origin;
+  std::optional<std::vector<Index>> lower_bound;
   std::optional<ZarrCodecChainSpec> codec_specs;
   std::optional<std::vector<SharedArray<const void>>> fill_value;
   ::nlohmann::json::object_t unknown_extension_attributes;
@@ -219,7 +226,8 @@ Result<IndexDomain<>> GetEffectiveDomain(
 absl::Status SetChunkLayoutFromMetadata(
     const SpecRankAndFieldInfo& info,
     std::optional<span<const Index>> chunk_shape,
-    const ZarrCodecChainSpec* codecs, ChunkLayout& chunk_layout);
+    const ZarrCodecChainSpec* codecs, ChunkLayout& chunk_layout,
+    std::optional<span<const Index>> grid_origin = std::nullopt);
 absl::Status SetChunkLayoutFromMetadata(
     DataType dtype, DimensionIndex rank,
     std::optional<span<const Index>> chunk_shape,
