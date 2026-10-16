@@ -23,7 +23,6 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <numeric>
 #include <optional>
 #include <string>
@@ -43,6 +42,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
@@ -456,57 +456,26 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ChunkKeyEncoding, [](auto is_loading,
       jb::Projection<&Self::kind>(jb::Enum<Self::Kind, std::string_view>({
           {Self::kDefault, "default"},
           {Self::kV2, "v2"},
-          {Self::kOffset, "offset"},
       })),
-      jb::Object(
-          jb::Member("separator",
-                     jb::Projection<&Self::separator>(jb::DefaultValue(
-                         [outer = obj](auto* obj) -> absl::Status {
-                           switch (outer->kind) {
-                             case Self::kDefault:
-                             case Self::kOffset:
-                               *obj = '/';
-                               break;
-                             case Self::kV2:
-                               *obj = '.';
-                               break;
-                             default:
-                               ABSL_UNREACHABLE();
-                           }
-                           return absl::OkStatus();
-                         },
-                         jb::Enum<char, std::string_view>({
-                             {'.', "."},
-                             {'/', "/"},
-                         })))),
-          // Length is checked against the rank in `ValidateMetadata`.
-          jb::Member("offset",
-                     jb::Projection<&Self::offset>(
-                         [outer = obj](auto is_loading, const auto& options,
-                                       auto* obj, auto* j) -> absl::Status {
-                           if (outer->kind != Self::kOffset) {
-                             if constexpr (is_loading) {
-                               if (!j->is_discarded()) {
-                                 return absl::InvalidArgumentError(
-                                     "\"offset\" is only valid for the "
-                                     "\"offset\" chunk key encoding");
-                               }
-                               obj->clear();
-                             } else {
-                               *j = ::nlohmann::json::value_t::discarded;
-                             }
-                             return absl::OkStatus();
-                           }
-                           if constexpr (is_loading) {
-                             if (j->is_discarded()) {
-                               return absl::InvalidArgumentError(
-                                   "\"offset\" must be specified for the "
-                                   "\"offset\" chunk key encoding");
-                             }
-                           }
-                           return jb::Array(jb::Integer<Index>())(
-                               is_loading, options, obj, j);
-                         }))))  //
+      jb::Object(jb::Member("separator",
+                            jb::Projection<&Self::separator>(jb::DefaultValue(
+                                [outer = obj](auto* obj) -> absl::Status {
+                                  switch (outer->kind) {
+                                    case Self::kDefault:
+                                      *obj = '/';
+                                      break;
+                                    case Self::kV2:
+                                      *obj = '.';
+                                      break;
+                                    default:
+                                      ABSL_UNREACHABLE();
+                                  }
+                                  return absl::OkStatus();
+                                },
+                                jb::Enum<char, std::string_view>({
+                                    {'.', "."},
+                                    {'/', "/"},
+                                }))))))  //
                     )(is_loading, options, obj, j);
 })
 
@@ -557,12 +526,59 @@ constexpr auto MetadataJsonBinder = [] {
     }
   };
 
+  // In constraints, `chunk_grid` as a whole may be absent.
+  constexpr auto maybe_optional_chunk_grid = [](auto binder) {
+    return [=](auto is_loading, const auto& options, auto* obj,
+               auto* j) -> absl::Status {
+      if constexpr (Constraints) {
+        if constexpr (is_loading) {
+          if (j->is_discarded()) return absl::OkStatus();
+        } else {
+          if (!obj->chunk_shape && !obj->chunk_grid_bounded) {
+            *j = ::nlohmann::json::value_t::discarded;
+            return absl::OkStatus();
+          }
+        }
+      }
+      return binder(is_loading, options, obj, j);
+    };
+  };
+
   return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
     using Self = absl::remove_cvref_t<decltype(*obj)>;
     DimensionIndex* rank = nullptr;
     if constexpr (is_loading) {
       rank = &obj->rank;
     }
+
+    // A `regular_bounded` configuration member, rejected under `regular`.
+    auto bounded_grid_member = [&](auto name, auto member) {
+      return jb::Member(
+          name,
+          [=](auto is_loading, const auto& options, auto* obj,
+              auto* j) -> absl::Status {
+            bool bounded;
+            if constexpr (Constraints) {
+              bounded = obj->chunk_grid_bounded.value_or(false);
+            } else {
+              bounded = obj->chunk_grid_bounded;
+            }
+            if (!bounded) {
+              if constexpr (is_loading) {
+                if (!j->is_discarded()) {
+                  return absl::InvalidArgumentError(
+                      "Only valid for the \"regular_bounded\" chunk grid");
+                }
+              } else {
+                *j = ::nlohmann::json::value_t::discarded;
+              }
+              return absl::OkStatus();
+            }
+            return maybe_optional(
+                jb::DimensionIndexedVector(rank, jb::Integer<Index>()))(
+                is_loading, options, &(obj->*member), j);
+          });
+    };
 
     auto ensure_zarr_dtype = [&]() -> Result<ZarrDType> {
       if constexpr (std::is_same_v<Self, ZarrMetadata>) {
@@ -651,13 +667,23 @@ constexpr auto MetadataJsonBinder = [] {
                        maybe_optional(jb::DefaultBinder<>))),
         jb::Member(
             "chunk_grid",
-            jb::Projection<&Self::chunk_shape>(maybe_optional(jb::Object(
-                jb::Member("name", jb::Constant([] { return "regular"; })),
+            maybe_optional_chunk_grid(jb::Object(
+                jb::Member("name",
+                           jb::Projection<&Self::chunk_grid_bounded>(
+                               maybe_optional(jb::Enum<bool, std::string_view>({
+                                   {false, "regular"},
+                                   {true, "regular_bounded"},
+                               })))),
                 jb::Member(
                     "configuration",
-                    jb::Object(jb::Member("chunk_shape",
-                                          jb::ChunkShapeVector(rank))))  //
-                )))),                                                    //
+                    jb::Object(
+                        jb::Member(
+                            "chunk_shape",
+                            jb::Projection<&Self::chunk_shape>(
+                                maybe_optional(jb::ChunkShapeVector(rank)))),
+                        bounded_grid_member("origin", &Self::chunk_grid_origin),
+                        non_compatibility_field(bounded_grid_member(
+                            "lower_bound", &Self::lower_bound))))))),
         jb::Member("codecs", jb::Projection<&Self::codec_specs>(maybe_optional(
                                  ZarrCodecChainJsonBinder<Constraints>))),
         // Allow empty storage_transformers list.
@@ -869,15 +895,6 @@ absl::Status ValidateStructEndianness(const ZarrDType& dtype,
 absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   DeriveFieldShape(metadata);
 
-  if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kOffset &&
-      static_cast<DimensionIndex>(metadata.chunk_key_encoding.offset.size()) !=
-          metadata.rank) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Expected \"offset\" of the chunk key encoding to have length ",
-        metadata.rank, ", but received: ",
-        ::nlohmann::json(metadata.chunk_key_encoding.offset).dump()));
-  }
-
   // Skip when codecs are already resolved: the create path runs the
   // pre-Resolve check itself in `GetNewMetadata`, and post-Resolve the
   // leaf bytes spec has its `endian` stripped.
@@ -1013,6 +1030,23 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
       *constraints.chunk_shape != metadata.chunk_shape) {
     return MetadataMismatchError("chunk_shape", *constraints.chunk_shape,
                                  metadata.chunk_shape);
+  }
+  if (constraints.chunk_grid_bounded &&
+      *constraints.chunk_grid_bounded != metadata.chunk_grid_bounded) {
+    return MetadataMismatchError(
+        "chunk_grid",
+        *constraints.chunk_grid_bounded ? "regular_bounded" : "regular",
+        metadata.chunk_grid_bounded ? "regular_bounded" : "regular");
+  }
+  if (constraints.chunk_grid_origin &&
+      *constraints.chunk_grid_origin != metadata.chunk_grid_origin) {
+    return MetadataMismatchError("origin", *constraints.chunk_grid_origin,
+                                 metadata.chunk_grid_origin);
+  }
+  if (constraints.lower_bound &&
+      *constraints.lower_bound != metadata.lower_bound) {
+    return MetadataMismatchError("lower_bound", *constraints.lower_bound,
+                                 metadata.lower_bound);
   }
   if (constraints.chunk_key_encoding &&
       *constraints.chunk_key_encoding != metadata.chunk_key_encoding) {
@@ -1208,7 +1242,8 @@ Result<IndexDomain<>> GetEffectiveDomain(
     const SpecRankAndFieldInfo& info,
     std::optional<tensorstore::span<const Index>> metadata_shape,
     std::optional<span<const std::optional<std::string>>> dimension_names,
-    const Schema& schema, bool* dimension_names_used) {
+    const Schema& schema, bool* dimension_names_used,
+    std::optional<span<const Index>> lower_bound = std::nullopt) {
   const DimensionIndex rank = info.chunked_rank;
   if (dimension_names_used) *dimension_names_used = false;
   auto domain = schema.domain();
@@ -1238,6 +1273,11 @@ Result<IndexDomain<>> GetEffectiveDomain(
       builder.shape(*metadata_shape);
       builder.implicit_upper_bounds(true);
     }
+    if (lower_bound) {
+      std::fill(builder.origin().begin(), builder.origin().end(), Index{0});
+      std::copy(lower_bound->begin(), lower_bound->end(),
+                builder.origin().begin());
+    }
   } else {
     builder.origin(GetConstantVector<Index, 0>(builder.rank()));
   }
@@ -1262,7 +1302,11 @@ Result<IndexDomain<>> GetEffectiveDomain(
       domain, MergeIndexDomains(domain, domain_from_metadata),
       _.Format("Mismatch between metadata and schema")
           .With(internal::ConvertInvalidArgumentToFailedPrecondition));
-  return WithImplicitDimensions(domain, false, true);
+  return WithImplicitDimensions(domain,
+                                lower_bound
+                                    ? DimensionSet::UpTo(lower_bound->size())
+                                    : DimensionSet(false),
+                                true);
 }
 
 Result<IndexDomain<>> GetEffectiveDomain(
@@ -1285,21 +1329,27 @@ Result<IndexDomain<>> GetEffectiveDomain(
                        metadata_constraints.dimension_names->size());
   }
 
+  std::optional<span<const Index>> lower_bound_span;
+  if (metadata_constraints.lower_bound) {
+    lower_bound_span.emplace(metadata_constraints.lower_bound->data(),
+                             metadata_constraints.lower_bound->size());
+  }
   return GetEffectiveDomain(info, shape_span, names_span, schema,
-                            dimension_names_used);
+                            dimension_names_used, lower_bound_span);
 }
 
 absl::Status SetChunkLayoutFromMetadata(
     const SpecRankAndFieldInfo& info,
     std::optional<span<const Index>> chunk_shape,
-    const ZarrCodecChainSpec* codecs, ChunkLayout& chunk_layout) {
+    const ZarrCodecChainSpec* codecs, ChunkLayout& chunk_layout,
+    std::optional<span<const Index>> grid_origin) {
   const DimensionIndex rank = info.chunked_rank;
   if (rank == dynamic_rank) {
     return absl::OkStatus();
   }
   TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(RankConstraint(rank)));
-  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
-      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(ChunkLayout::GridOrigin(
+      grid_origin ? *grid_origin : GetConstantVector<Index, 0>(rank))));
 
   if (chunk_shape) {
     assert(chunk_shape->size() == rank);
@@ -1365,11 +1415,16 @@ Result<ChunkLayout> GetEffectiveChunkLayout(
     chunk_shape_span.emplace(metadata_constraints.chunk_shape->data(),
                              metadata_constraints.chunk_shape->size());
   }
+  std::optional<span<const Index>> grid_origin_span;
+  if (metadata_constraints.chunk_grid_origin) {
+    grid_origin_span.emplace(metadata_constraints.chunk_grid_origin->data(),
+                             metadata_constraints.chunk_grid_origin->size());
+  }
   TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
       info, chunk_shape_span,
       metadata_constraints.codec_specs ? &*metadata_constraints.codec_specs
                                        : nullptr,
-      chunk_layout));
+      chunk_layout, grid_origin_span));
   return chunk_layout;
 }
 
@@ -1433,9 +1488,14 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
     std::optional<span<const std::optional<std::string>>> dimension_names_span;
     dimension_names_span.emplace(metadata.dimension_names.data(),
                                  metadata.dimension_names.size());
+    std::optional<span<const Index>> lower_bound_span;
+    if (metadata.chunk_grid_bounded) {
+      lower_bound_span.emplace(metadata.lower_bound.data(),
+                               metadata.lower_bound.size());
+    }
     TENSORSTORE_RETURN_IF_ERROR(GetEffectiveDomain(
         info, metadata_shape_span, dimension_names_span, schema,
-        /*dimension_names_used=*/nullptr));
+        /*dimension_names_used=*/nullptr, lower_bound_span));
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
@@ -1443,8 +1503,14 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
     std::optional<span<const Index>> chunk_shape_span;
     chunk_shape_span.emplace(metadata.chunk_shape.data(),
                              metadata.chunk_shape.size());
+    std::optional<span<const Index>> grid_origin_span;
+    if (metadata.chunk_grid_bounded) {
+      grid_origin_span.emplace(metadata.chunk_grid_origin.data(),
+                               metadata.chunk_grid_origin.size());
+    }
     TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
-        info, chunk_shape_span, &metadata.codec_specs, chunk_layout));
+        info, chunk_shape_span, &metadata.codec_specs, chunk_layout,
+        grid_origin_span));
     if (chunk_layout.codec_chunk_shape().hard_constraint) {
       return absl::InvalidArgumentError("codec_chunk_shape not supported");
     }
@@ -1613,6 +1679,15 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
                          domain.shape().begin() + logical_rank);
   metadata->dimension_names.assign(domain.labels().begin(),
                                    domain.labels().begin() + logical_rank);
+  metadata->chunk_grid_bounded =
+      metadata_constraints.chunk_grid_bounded.value_or(false);
+  if (metadata->chunk_grid_bounded) {
+    metadata->chunk_grid_origin =
+        metadata_constraints.chunk_grid_origin.value_or(
+            std::vector<Index>(logical_rank, 0));
+    metadata->lower_bound = metadata_constraints.lower_bound.value_or(
+        std::vector<Index>(logical_rank, 0));
+  }
 
   for (DimensionIndex i = 0; i < logical_rank; ++i) {
     auto& name = metadata->dimension_names[i];
@@ -1808,6 +1883,9 @@ ZarrMetadataConstraints::ZarrMetadataConstraints(const ZarrMetadata& metadata)
       dimension_names(metadata.dimension_names),
       chunk_key_encoding(metadata.chunk_key_encoding),
       chunk_shape(metadata.chunk_shape),
+      chunk_grid_bounded(metadata.chunk_grid_bounded),
+      chunk_grid_origin(metadata.chunk_grid_origin),
+      lower_bound(metadata.lower_bound),
       codec_specs(metadata.codec_specs),
       fill_value(metadata.fill_value),
       unknown_extension_attributes(metadata.unknown_extension_attributes) {}
