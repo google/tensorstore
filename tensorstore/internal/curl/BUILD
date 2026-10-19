@@ -36,9 +36,9 @@ tensorstore_cc_library(
     deps = [
         ":curl_factory",
         ":curl_wrappers",
-        "//tensorstore/internal:source_location",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/types:source_location",
         "@curl",
     ],
 )
@@ -103,7 +103,6 @@ tensorstore_cc_library(
     srcs = ["curl_wrappers.cc"],
     hdrs = ["curl_wrappers.h"],
     deps = [
-        "//tensorstore/internal:source_location",
         "//tensorstore/internal/version:version_h",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/base",
@@ -112,6 +111,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/types:source_location",
         "@curl",
     ],
 )

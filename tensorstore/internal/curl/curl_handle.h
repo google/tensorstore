@@ -21,9 +21,9 @@
 #include <cstddef>  // std::nullptr_t
 
 #include "absl/log/absl_check.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/curl/curl_factory.h"
 #include "tensorstore/internal/curl/curl_wrappers.h"
-#include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -49,7 +49,7 @@ class CurlHandle {
   /// Sets a curl option.
   template <typename T>
   void SetOption(CURLoption option, T&& param,
-                 SourceLocation loc = SourceLocation::current()) {
+                 absl::SourceLocation loc = absl::SourceLocation::current()) {
     // All curl_easy_setopt non-ok codes are fatal:
     //   CURLE_BAD_FUNCTION_ARGUMENT
     //   CURLE_OUT_OF_MEMORY
@@ -61,7 +61,7 @@ class CurlHandle {
   }
 
   void SetOption(CURLoption option, std::nullptr_t,
-                 SourceLocation loc = SourceLocation::current()) {
+                 absl::SourceLocation loc = absl::SourceLocation::current()) {
     auto code = curl_easy_setopt(handle_.get(), option, nullptr);
     ABSL_CHECK_EQ(CURLE_OK, code) << loc.file_name() << ":" << loc.line() << " "
                                   << curl_easy_strerror(code);
@@ -70,7 +70,7 @@ class CurlHandle {
   /// Gets CURLINFO values.
   template <typename T>
   void GetInfo(CURLINFO info, T* out,
-               SourceLocation loc = SourceLocation::current()) {
+               absl::SourceLocation loc = absl::SourceLocation::current()) {
     // Possible return codes
     //   CURLE_UNKNOWN_OPTION
     //   CURLE_BAD_FUNCTION_ARGUMENT

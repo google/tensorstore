@@ -24,7 +24,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/util/status_builder.h"
 
 // Include system headers last to reduce impact of macros.
@@ -80,10 +80,10 @@ std::string GetOsErrorMessage(OsErrorCode error);
 struct StatusFromOsError {
   absl::StatusCode status_code;
   OsErrorCode error_code;
-  SourceLocation loc;
+  absl::SourceLocation loc;
 
   StatusFromOsError(OsErrorCode error_code,
-                    SourceLocation loc = SourceLocation::current())
+                    absl::SourceLocation loc = absl::SourceLocation::current())
       : status_code(GetOsErrorStatusCode(error_code)),
         error_code(error_code),
         loc(loc) {
@@ -91,7 +91,7 @@ struct StatusFromOsError {
   }
 
   StatusFromOsError(absl::StatusCode status_code, OsErrorCode error_code,
-                    SourceLocation loc = SourceLocation::current())
+                    absl::SourceLocation loc = absl::SourceLocation::current())
       : status_code(status_code), error_code(error_code), loc(loc) {
     assert(status_code != absl::StatusCode::kOk);
   }

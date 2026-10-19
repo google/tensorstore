@@ -29,9 +29,9 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_builder.h"
@@ -157,7 +157,8 @@ Result<StorageGeneration> StorageGenerationFromHeaders(
 }
 
 absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
-                                     bool& retryable, SourceLocation loc) {
+                                     bool& retryable,
+                                     absl::SourceLocation loc) {
   auto absl_status_code = internal_http::HttpResponseCodeToStatusCode(response);
   if (absl_status_code == absl::StatusCode::kOk) {
     return absl::OkStatus();

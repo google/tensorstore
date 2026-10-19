@@ -20,7 +20,7 @@
 
 #include <string_view>
 
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 
 namespace tensorstore {
 namespace internal_tracing {
@@ -29,8 +29,9 @@ namespace internal_tracing {
 /// asynchronous operations which may be long running.
 class OperationTraceSpan {
  public:
-  OperationTraceSpan(std::string_view method,
-                     const SourceLocation& location = SourceLocation::current())
+  OperationTraceSpan(
+      std::string_view method,
+      const absl::SourceLocation& location = absl::SourceLocation::current())
   {}
 
   ~OperationTraceSpan() = default;

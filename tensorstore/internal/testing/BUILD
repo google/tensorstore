@@ -75,7 +75,7 @@ tensorstore_cc_library(
     srcs = ["dynamic.cc"],
     hdrs = ["dynamic.h"],
     deps = [
-        "//tensorstore/internal:source_location",
+        "@abseil-cpp//absl/types:source_location",
         "@googletest//:gtest",
     ],
 )

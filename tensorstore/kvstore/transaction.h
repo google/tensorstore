@@ -99,8 +99,8 @@
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -858,14 +858,14 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
 ///
 ///     MutationEntry &entry = ...;
 ///     TENSORSTORE_KVSTORE_DEBUG_LOG(entry, "Information", to, "include");
-#define TENSORSTORE_KVSTORE_DEBUG_LOG(...)                                    \
-  do {                                                                        \
-    tensorstore::internal_kvstore::KvstoreDebugLog(SourceLocation::current(), \
-                                                   __VA_ARGS__);              \
+#define TENSORSTORE_KVSTORE_DEBUG_LOG(...)             \
+  do {                                                 \
+    tensorstore::internal_kvstore::KvstoreDebugLog(    \
+        absl::SourceLocation::current(), __VA_ARGS__); \
   } while (false)
 
 template <typename... T>
-void KvstoreDebugLog(SourceLocation loc, MutationEntry& entry,
+void KvstoreDebugLog(absl::SourceLocation loc, MutationEntry& entry,
                      const T&... arg) {
   std::string message;
   absl::StrAppend(&message, "[", typeid(entry.multi_phase()).name(),

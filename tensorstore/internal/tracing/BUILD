@@ -27,12 +27,12 @@ tensorstore_cc_library(
     defines = TRACING_DEFINES,
     deps = [
         ":span_attribute",
-        "//tensorstore/internal:source_location",
         "//tensorstore/util:span",
         "@abseil-cpp//absl/log:log_streamer",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:source_location",
     ],
 )
 

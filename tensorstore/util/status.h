@@ -24,7 +24,7 @@
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
@@ -32,7 +32,7 @@ namespace internal {
 
 /// Logs a fatal error with the `status` and `message`, then terminates.
 [[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
-                              SourceLocation loc);
+                              absl::SourceLocation loc);
 
 /// Returns `f(args...)`, converting a `void` return to `absl::Status`.
 template <typename F, typename... Args>
@@ -95,7 +95,7 @@ class ReturnIfErrorAdaptor {
   explicit operator bool() const { return ABSL_PREDICT_TRUE(status_.ok()); }
 
   StatusBuilder Consume(
-      SourceLocation loc = ::tensorstore::SourceLocation::current()) {
+      absl::SourceLocation loc = absl::SourceLocation::current()) {
     return StatusBuilder(std::move(status_), loc);
   }
 
@@ -256,7 +256,7 @@ MacroBuilderAdaptor(T&& s) {
       if (ABSL_PREDICT_FALSE(!tensorstore_check_ok_condition.ok())) {       \
         ::tensorstore::internal::FatalStatus(                               \
             "Status not ok: " #__VA_ARGS__, tensorstore_check_ok_condition, \
-            ::tensorstore::SourceLocation::current());                      \
+            ::absl::SourceLocation::current());                             \
       }                                                                     \
     }(::tensorstore::GetStatus((__VA_ARGS__)));                             \
   } while (false)

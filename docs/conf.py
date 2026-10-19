@@ -464,6 +464,20 @@ external_cpp_references = {
         'object_type': 'class',
         'desc': 'C++ class',
     },
+    'absl::SourceLocation': {
+        'url': (
+            'https://github.com/abseil/abseil-cpp/blob/master/absl/types/source_location.h'
+        ),
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'absl::SourceLocation::current': {
+        'url': (
+            'https://github.com/abseil/abseil-cpp/blob/master/absl/types/source_location.h'
+        ),
+        'object_type': 'function',
+        'desc': 'C++ function',
+    },
     'std::move': {
         'url': 'https://en.cppreference.com/w/cpp/utility/move.html',
         'object_type': 'function',

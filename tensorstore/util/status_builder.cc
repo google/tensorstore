@@ -14,8 +14,11 @@
 
 #include "tensorstore/util/status_builder.h"
 
+#include <stddef.h>
+
 #include <array>
 #include <cassert>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -26,10 +29,33 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "tensorstore/internal/source_location.h"
-#include "tensorstore/util/status_impl.h"
+#include "absl/types/source_location.h"
 
 namespace tensorstore {
+namespace {
+
+size_t FileLineDistance(absl::SourceLocation a, absl::SourceLocation b) {
+  if (std::string_view(a.file_name()) != std::string_view(b.file_name())) {
+    return std::numeric_limits<size_t>::max();
+  }
+  return a.line() > b.line() ? a.line() - b.line() : b.line() - a.line();
+}
+
+}  // namespace
+
+void StatusBuilder::MaybeAddSourceLocation(absl::Status& status,
+                                           absl::SourceLocation loc) {
+  if (status.ok()) return;
+  if (loc.line() <= 1) return;
+
+  auto status_loc = status.GetSourceLocations();
+  if (!status_loc.empty()) {
+    if (FileLineDistance(status_loc.front(), loc) < 4) return;
+    if (FileLineDistance(status_loc.back(), loc) < 4) return;
+  }
+
+  status.AddSourceLocation(loc);
+}
 
 StatusBuilder& StatusBuilder::AddStatusPayload(std::string_view type_url,
                                                absl::Cord payload) {
@@ -75,9 +101,20 @@ absl::Status StatusBuilder::BuildStatusImpl() const {
   }(status_);
 
   // Create a new status with the correct message, etc.
-  absl::Status dest = internal_status::StatusWithSourceLocation(
-      rep_.code, composed_message, loc_);
-  internal_status::CopyPayloadsImpl(dest, status_, loc_);
+  auto status_loc = status_.GetSourceLocations();
+  absl::Status dest(rep_.code, composed_message,
+                    status_loc.empty() ? loc_ : status_loc[0]);
+
+  // Preserve the payloads.
+  status_.ForEachPayload([&](auto name, const absl::Cord& value) {
+    dest.SetPayload(name, value);
+  });
+
+  // Preserve the remaining source locations.
+  for (size_t i = 1; i < status_loc.size(); ++i) {
+    dest.AddSourceLocation(status_loc[i]);
+  }
+  MaybeAddSourceLocation(dest, loc_);
   return dest;
 }
 

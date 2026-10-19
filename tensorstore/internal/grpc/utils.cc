@@ -22,8 +22,8 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/types/source_location.h"
 #include "grpcpp/support/status.h"  // third_party
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
 
@@ -86,7 +86,7 @@ absl::Status ToAbslStatusImpl(const T& s) {
 
 }  // namespace
 
-absl::Status GrpcStatusToAbslStatus(grpc::Status s, SourceLocation loc) {
+absl::Status GrpcStatusToAbslStatus(grpc::Status s, absl::SourceLocation loc) {
   if (s.ok()) return absl::OkStatus();
   return StatusBuilder(ToAbslStatusImpl(s), loc);
 }

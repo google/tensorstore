@@ -20,8 +20,8 @@
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/types/source_location.h"
 #include <curl/curl.h>  // IWYU pragma: export
-#include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -50,12 +50,14 @@ using CurlHeaders = std::unique_ptr<curl_slist, CurlSlistCleanup>;
 std::string GetCurlUserAgentSuffix();
 
 /// Returns a absl::Status object for a corresponding CURLcode.
-absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
-                              SourceLocation loc = SourceLocation::current());
+absl::Status CurlCodeToStatus(
+    CURLcode code, std::string_view detail,
+    absl::SourceLocation loc = absl::SourceLocation::current());
 
 /// Returns a absl::Status object for a corresponding CURLcode.
-absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view,
-                               SourceLocation loc = SourceLocation::current());
+absl::Status CurlMCodeToStatus(
+    CURLMcode code, std::string_view,
+    absl::SourceLocation loc = absl::SourceLocation::current());
 
 /// Logs curl data to absl::Log.
 void SetLogToAbseil(CURL* handle);

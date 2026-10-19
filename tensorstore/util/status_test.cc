@@ -22,14 +22,13 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/util/status_builder.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using ::tensorstore::IsOk;
-using ::tensorstore::SourceLocation;
 using ::tensorstore::StatusBuilder;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::InvokeForStatus;
@@ -48,7 +47,7 @@ TEST(StatusTest, StatusBuilderAnnotate) {
                   .BuildStatus(),
               IsOk());
 
-  EXPECT_THAT(StatusBuilder(absl::OkStatus(), SourceLocation::current())
+  EXPECT_THAT(StatusBuilder(absl::OkStatus(), absl::SourceLocation::current())
                   .SetPrepend()
                   .Format("Annotated")
                   .BuildStatus(),

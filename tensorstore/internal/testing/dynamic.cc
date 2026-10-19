@@ -19,7 +19,7 @@
 #include <utility>
 
 #include <gtest/gtest.h>
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 
 namespace tensorstore {
 namespace internal_testing {
@@ -41,7 +41,7 @@ class Test : public Fixture {
 void RegisterGoogleTestCaseDynamically(std::string test_suite_name,
                                        std::string test_name,
                                        std::function<void()> test_func,
-                                       SourceLocation loc) {
+                                       absl::SourceLocation loc) {
   ::testing::RegisterTest(test_suite_name.c_str(), test_name.c_str(),
                           /*type_param=*/nullptr,
                           /*value_param=*/nullptr, loc.file_name(), loc.line(),

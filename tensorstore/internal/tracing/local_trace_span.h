@@ -21,7 +21,7 @@
 #include <initializer_list>
 #include <string_view>
 
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/tracing/span_attribute.h"
 #include "tensorstore/util/span.h"
 
@@ -35,18 +35,19 @@ namespace internal_tracing {
 /// and not on the heap. Use `OperationTraceSpan` for asynchronous operations.
 class LocalTraceSpan {
  public:
-  LocalTraceSpan(std::string_view method,
-                 const SourceLocation& location = SourceLocation::current())
+  LocalTraceSpan(std::string_view method, const absl::SourceLocation& location =
+                                              absl::SourceLocation::current())
   {}
 
-  LocalTraceSpan(std::string_view method,
-                 tensorstore::span<const SpanAttribute> attributes,
-                 const SourceLocation& location = SourceLocation::current())
+  LocalTraceSpan(
+      std::string_view method,
+      tensorstore::span<const SpanAttribute> attributes,
+      const absl::SourceLocation& location = absl::SourceLocation::current())
   {}
 
-  LocalTraceSpan(std::string_view method,
-                 std::initializer_list<SpanAttribute> attributes,
-                 const SourceLocation& location = SourceLocation::current())
+  LocalTraceSpan(
+      std::string_view method, std::initializer_list<SpanAttribute> attributes,
+      const absl::SourceLocation& location = absl::SourceLocation::current())
       : LocalTraceSpan(method,
                        tensorstore::span<const SpanAttribute>(
                            attributes.begin(), attributes.end()),

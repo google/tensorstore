@@ -24,8 +24,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/source_location.h"
 #include "re2/re2.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -198,7 +198,7 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response) {
 }
 
 absl::Status HttpResponseCodeToStatus(const HttpResponse& response,
-                                      SourceLocation loc) {
+                                      absl::SourceLocation loc) {
   auto code = HttpResponseCodeToStatusCode(response);
   if (code == absl::StatusCode::kOk) {
     return absl::OkStatus();

@@ -28,6 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/support/client_callback.h"  // third_party
 #include <nlohmann/json.hpp>
@@ -36,7 +37,6 @@
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/json_serialization_options_base.h"
@@ -184,7 +184,7 @@ class GcsGrpcKeyValueStore
   // after a suitable backoff period.
   absl::Status BackoffForAttemptAsync(
       absl::Status status, int attempt, absl::AnyInvocable<void() &&> task,
-      SourceLocation loc = SourceLocation::current());
+      absl::SourceLocation loc = absl::SourceLocation::current());
 
   GcsGrpcKeyValueStoreSpecData spec_;
   std::string bucket_;

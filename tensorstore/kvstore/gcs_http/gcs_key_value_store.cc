@@ -36,6 +36,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/concurrency_resource.h"
@@ -59,7 +60,6 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/retries_context_resource.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/percent_coder.h"
@@ -431,7 +431,7 @@ class GcsKeyValueStore
   template <typename Task>
   absl::Status BackoffForAttemptAsync(
       absl::Status status, int attempt, Task* task,
-      SourceLocation loc = SourceLocation::current()) {
+      absl::SourceLocation loc = absl::SourceLocation::current()) {
     assert(task != nullptr);
     auto delay = spec_.retries->BackoffForAttempt(attempt);
     if (!delay) {

@@ -84,10 +84,10 @@ tensorstore_cc_library(
     srcs = ["utils.cc"],
     hdrs = ["utils.h"],
     deps = [
-        "//tensorstore/internal:source_location",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/types:source_location",
         "@grpc//:grpc++",
     ],
 )

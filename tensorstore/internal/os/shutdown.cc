@@ -15,7 +15,7 @@
 #include "tensorstore/internal/os/shutdown.h"
 
 #include "absl/log/absl_log.h"  // iwyu pragma: keep
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 
 // Include system headers last to reduce impact of macros.
 #include "tensorstore/internal/os/include_windows.h"
@@ -23,7 +23,7 @@
 namespace tensorstore {
 namespace internal {
 
-void LogIfShutdownInProgress(SourceLocation loc) {
+void LogIfShutdownInProgress(absl::SourceLocation loc) {
 #if defined(_WIN32)
   typedef BOOLEAN(NTAPI * RtlDllShutdownInProgressFn)();
   RtlDllShutdownInProgressFn fn = []() -> RtlDllShutdownInProgressFn {
@@ -36,7 +36,8 @@ void LogIfShutdownInProgress(SourceLocation loc) {
     return nullptr;
   }();
   if (fn && fn() != FALSE) {
-    ABSL_LOG_FIRST_N(ERROR, 1) << "Process is shutting down " << loc;
+    ABSL_LOG_FIRST_N(ERROR, 1)
+        << "Process is shutting down " << loc.file_name() << ":" << loc.line();
   }
 #endif
 }

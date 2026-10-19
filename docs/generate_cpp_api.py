@@ -146,9 +146,6 @@ def main():
           "absl::weak_ordering": "std::weak_ordering",
           "tensorstore::internal::type_identity_t": "std::type_identity_t",
           "internal::type_identity_t": "std::type_identity_t",
-          "::tensorstore::SourceLocation": "std::source_location",
-          "tensorstore::SourceLocation": "std::source_location",
-          "SourceLocation": "std::source_location",
       },
       verbose=args.verbose,
   )

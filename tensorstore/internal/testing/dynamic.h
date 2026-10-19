@@ -18,7 +18,7 @@
 #include <functional>
 #include <string>
 
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 
 namespace tensorstore {
 namespace internal_testing {
@@ -27,7 +27,7 @@ namespace internal_testing {
 void RegisterGoogleTestCaseDynamically(
     std::string test_suite_name, std::string test_name,
     std::function<void()> test_func,
-    SourceLocation loc = SourceLocation::current());
+    absl::SourceLocation loc = absl::SourceLocation::current());
 
 }  // namespace internal_testing
 }  // namespace tensorstore

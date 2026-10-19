@@ -21,8 +21,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/http/http_header.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -58,7 +58,7 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response);
 /// HttpResponse.status_code.
 absl::Status HttpResponseCodeToStatus(
     const HttpResponse& response,
-    SourceLocation loc = SourceLocation::current());
+    absl::SourceLocation loc = absl::SourceLocation::current());
 
 struct ParsedContentRange {
   // Inclusive min byte, always >= `0`.

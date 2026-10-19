@@ -38,12 +38,12 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "absl/types/compare.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/compare.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/registration.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -70,9 +70,9 @@ namespace internal_kvstore {
 namespace {
 
 template <typename Controller>
-void ReportWritebackError(Controller controller, std::string_view action,
-                          const absl::Status& error,
-                          SourceLocation loc = SourceLocation::current()) {
+void ReportWritebackError(
+    Controller controller, std::string_view action, const absl::Status& error,
+    absl::SourceLocation loc = absl::SourceLocation::current()) {
   controller.Error(kvstore::Driver::AnnotateErrorWithKeyDescription(
       controller.DescribeKey(controller.GetKey()), action, error, loc));
 }
@@ -1471,8 +1471,9 @@ class ReadViaExistingTransactionNode : public internal::TransactionState::Node,
         "Generation mismatch in repeatable_read transaction");
   }
 
-  absl::Status AnnotateError(const absl::Status& error,
-                             SourceLocation loc = SourceLocation::current()) {
+  absl::Status AnnotateError(
+      const absl::Status& error,
+      absl::SourceLocation loc = absl::SourceLocation::current()) {
     auto* rmw_entry = static_cast<ReadModifyWriteEntry*>(target_);
     return kvstore::Driver::AnnotateErrorWithKeyDescription(
         rmw_entry->multi_phase().DescribeKey(rmw_entry->key_), "reading", error,

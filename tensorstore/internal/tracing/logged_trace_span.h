@@ -26,7 +26,7 @@
 #include "absl/log/log_streamer.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/tracing/local_trace_span.h"
 #include "tensorstore/internal/tracing/span_attribute.h"
 #include "tensorstore/util/span.h"
@@ -40,8 +40,9 @@ class LoggedTraceSpan : public LocalTraceSpan {
   static uint64_t random_id();
 
  public:
-  LoggedTraceSpan(std::string_view method, bool log,
-                  const SourceLocation& location = SourceLocation::current())
+  LoggedTraceSpan(
+      std::string_view method, bool log,
+      const absl::SourceLocation& location = absl::SourceLocation::current())
       : LocalTraceSpan(method, location),
         method_(method),
         location_(location),
@@ -51,9 +52,10 @@ class LoggedTraceSpan : public LocalTraceSpan {
                    .stream());
   }
 
-  LoggedTraceSpan(std::string_view method, bool log,
-                  tensorstore::span<const SpanAttribute> attributes,
-                  const SourceLocation& location = SourceLocation::current())
+  LoggedTraceSpan(
+      std::string_view method, bool log,
+      tensorstore::span<const SpanAttribute> attributes,
+      const absl::SourceLocation& location = absl::SourceLocation::current())
       : LocalTraceSpan(method, attributes, location),
         method_(method),
         location_(location),
@@ -64,9 +66,10 @@ class LoggedTraceSpan : public LocalTraceSpan {
                attributes);
   }
 
-  LoggedTraceSpan(std::string_view method, bool log,
-                  std::initializer_list<SpanAttribute> attributes,
-                  const SourceLocation& location = SourceLocation::current())
+  LoggedTraceSpan(
+      std::string_view method, bool log,
+      std::initializer_list<SpanAttribute> attributes,
+      const absl::SourceLocation& location = absl::SourceLocation::current())
       : LoggedTraceSpan(method, log,
                         tensorstore::span<const SpanAttribute>(
                             attributes.begin(), attributes.end()),
@@ -80,8 +83,9 @@ class LoggedTraceSpan : public LocalTraceSpan {
 
   /// Log an key=value pair with the current LoggedTraceSpan Id to the INFO log.
   template <typename T>
-  void Log(std::string_view name, T val,
-           const SourceLocation& location = SourceLocation::current()) {
+  void Log(
+      std::string_view name, T val,
+      const absl::SourceLocation& location = absl::SourceLocation::current()) {
     if (id_)
       LogImpl(name, val,
               absl::LogInfoStreamer(location.file_name(), location.line())
@@ -89,9 +93,9 @@ class LoggedTraceSpan : public LocalTraceSpan {
   }
 
   /// Finish the span with a logged status.
-  absl::Status EndWithStatus(
-      absl::Status&& status,
-      const SourceLocation& location = SourceLocation::current()) && {
+  absl::Status EndWithStatus(absl::Status&& status,
+                             const absl::SourceLocation& location =
+                                 absl::SourceLocation::current()) && {
     if (id_) {
       EndLog(
           absl::LogInfoStreamer(location.file_name(), location.line()).stream())
@@ -127,7 +131,7 @@ class LoggedTraceSpan : public LocalTraceSpan {
   }
 
   std::string_view method_;
-  SourceLocation location_;
+  absl::SourceLocation location_;
   uint64_t id_ = 0;
 };
 

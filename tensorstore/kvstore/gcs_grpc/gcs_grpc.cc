@@ -37,6 +37,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/support/client_callback.h"  // third_party
 #include "tensorstore/context.h"
@@ -48,7 +49,6 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registry.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/percent_coder.h"
@@ -223,7 +223,7 @@ GcsGrpcKeyValueStore::AllocateContext() {
 // after a suitable backoff period.
 absl::Status GcsGrpcKeyValueStore::BackoffForAttemptAsync(
     absl::Status status, int attempt, absl::AnyInvocable<void() &&> task,
-    SourceLocation loc) {
+    absl::SourceLocation loc) {
   auto delay = spec_.retries->BackoffForAttempt(attempt);
   if (!delay) {
     return StatusBuilder(std::move(status))

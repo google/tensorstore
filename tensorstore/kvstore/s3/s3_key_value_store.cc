@@ -37,6 +37,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/aws/aws_api.h"
 #include "tensorstore/internal/aws/aws_credentials.h"
@@ -55,7 +56,6 @@
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/percent_coder.h"
@@ -364,7 +364,7 @@ class S3KeyValueStore
   template <typename Task>
   absl::Status BackoffForAttemptAsync(
       absl::Status status, int attempt, Task* task,
-      SourceLocation loc = SourceLocation::current()) {
+      absl::SourceLocation loc = absl::SourceLocation::current()) {
     assert(task != nullptr);
     auto delay = spec_.retries->BackoffForAttempt(attempt);
     if (!delay) {

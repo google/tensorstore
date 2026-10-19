@@ -25,10 +25,10 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
+#include "absl/types/source_location.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json/json.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/status_builder.h"
@@ -104,7 +104,7 @@ bool IsValidStorageGeneration(const StorageGeneration& gen) {
 /// Constructs an absl::Status from an Aws HttpResponse.
 absl::Status GcsHttpResponseToStatus(
     const internal_http::HttpResponse& response, bool& retryable,
-    SourceLocation loc) {
+    absl::SourceLocation loc) {
   auto absl_status_code = HttpResponseCodeToStatusCode(response);
   if (absl_status_code == absl::StatusCode::kOk) {
     return absl::OkStatus();

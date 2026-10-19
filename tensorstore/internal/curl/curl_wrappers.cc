@@ -25,8 +25,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/source_location.h"
 #include <curl/curl.h>
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/version/version.h"
 #include "tensorstore/util/status_builder.h"
 
@@ -77,7 +77,7 @@ std::string GetCurlUserAgentSuffix() {
 
 /// Returns a absl::Status object for a corresponding CURLcode.
 absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
-                              SourceLocation loc) {
+                              absl::SourceLocation loc) {
   // Constant errors:
   auto error_code = absl::StatusCode::kUnknown;
   switch (code) {
@@ -155,7 +155,7 @@ absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
 
 /// Returns a absl::Status object for a corresponding CURLcode.
 absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view detail,
-                               SourceLocation loc) {
+                               absl::SourceLocation loc) {
   if (code == CURLM_OK) {
     return absl::OkStatus();
   }

@@ -21,7 +21,7 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/strings/str_join.h"
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/proto/proto_util.h"
 
 namespace tensorstore {
@@ -34,8 +34,9 @@ namespace tensorstore {
 ///
 class ParseTextProtoOrDie {
  public:
-  ParseTextProtoOrDie(std::string text_proto,
-                      SourceLocation loc = SourceLocation::current())
+  ParseTextProtoOrDie(
+      std::string text_proto,
+      absl::SourceLocation loc = absl::SourceLocation::current())
       : text_proto_(std::move(text_proto)), loc_(std::move(loc)) {}
 
   template <class T>
@@ -58,7 +59,7 @@ class ParseTextProtoOrDie {
 
  private:
   std::string text_proto_;
-  SourceLocation loc_;
+  absl::SourceLocation loc_;
 };
 
 }  // namespace tensorstore

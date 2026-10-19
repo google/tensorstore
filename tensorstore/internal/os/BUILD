@@ -42,12 +42,12 @@ tensorstore_cc_library(
     tags = ["msvc"],
     deps = [
         ":include_windows",
-        "//tensorstore/internal:source_location",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/types:source_location",
     ],
 )
 
@@ -451,7 +451,7 @@ tensorstore_cc_library(
     hdrs = ["shutdown.h"],
     deps = [
         ":include_windows",
-        "//tensorstore/internal:source_location",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/types:source_location",
     ],
 )

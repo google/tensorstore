@@ -28,7 +28,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:source_location",
         "//tensorstore/internal/aws:aws_api",
         "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/cache_key",
@@ -69,6 +68,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:source_location",
         "@tinyxml2",
     ],
     alwayslink = 1,
@@ -116,7 +116,6 @@ tensorstore_cc_library(
         "s3_metadata.h",
     ],
     deps = [
-        "//tensorstore/internal:source_location",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:http_header",
         "//tensorstore/kvstore:generation",
@@ -128,6 +127,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:source_location",
         "@tinyxml2",
     ],
 )

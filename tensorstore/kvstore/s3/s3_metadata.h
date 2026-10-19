@@ -27,9 +27,9 @@
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/result.h"
 
@@ -62,7 +62,7 @@ Result<StorageGeneration> StorageGenerationFromHeaders(
 /// Constructs an absl::Status from an Aws HttpResponse.
 absl::Status AwsHttpResponseToStatus(
     const internal_http::HttpResponse& response, bool& retryable,
-    SourceLocation loc = SourceLocation::current());
+    absl::SourceLocation loc = absl::SourceLocation::current());
 
 /// Returns whether the absl::StatusCode is retryable.
 inline bool DefaultIsRetryableCode(absl::StatusCode code) {

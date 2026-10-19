@@ -44,7 +44,6 @@ tensorstore_cc_library(
     ],
     deps = [
         ":http_header",
-        "//tensorstore/internal:source_location",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/uri:parse",
         "//tensorstore/internal/uri:percent_coder",
@@ -62,6 +61,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:source_location",
         "@re2",
         "@riegeli//riegeli/bytes:cord_writer",
     ],
@@ -193,11 +193,11 @@ tensorstore_cc_library(
     srcs = ["self_signed_cert.cc"],
     hdrs = ["self_signed_cert.h"],
     deps = [
-        "//tensorstore/internal:source_location",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/types:source_location",
         "@boringssl//:crypto",
     ],
 )

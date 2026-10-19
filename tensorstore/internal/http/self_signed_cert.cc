@@ -23,6 +23,7 @@
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/types/source_location.h"
 #include <openssl/asn1.h>
 #include <openssl/bio.h>
 #include <openssl/bn.h>
@@ -31,7 +32,6 @@
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_builder.h"
 
@@ -74,8 +74,9 @@ std::unique_ptr<X509_NAME, X509NameFree> CreateName(
 }
 
 // Append the OpenSSL error strings to the status message.
-absl::Status OpenSslError(std::string message,
-                          SourceLocation loc = SourceLocation::current()) {
+absl::Status OpenSslError(
+    std::string message,
+    absl::SourceLocation loc = absl::SourceLocation::current()) {
   StatusBuilder builder(absl::StatusCode::kInternal, loc);
   for (int line = 0; line < 4; ++line) {
     if (line > 0) {

@@ -34,12 +34,12 @@
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"  // IWYU pragma: keep
+#include "absl/types/source_location.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -415,13 +415,13 @@ std::string Driver::DescribeKey(std::string_view key) {
 absl::Status Driver::AnnotateError(std::string_view key,
                                    std::string_view action,
                                    const absl::Status& error,
-                                   SourceLocation loc) {
+                                   absl::SourceLocation loc) {
   return AnnotateErrorWithKeyDescription(DescribeKey(key), action, error, loc);
 }
 
 absl::Status Driver::AnnotateErrorWithKeyDescription(
     std::string_view key_description, std::string_view action,
-    const absl::Status& error, SourceLocation loc) {
+    const absl::Status& error, absl::SourceLocation loc) {
   if (absl::StrContains(error.message(), key_description)) {
     return error;
   }

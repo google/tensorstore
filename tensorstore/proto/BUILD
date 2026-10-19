@@ -282,8 +282,8 @@ tensorstore_cc_library(
     hdrs = ["parse_text_proto_or_die.h"],
     deps = [
         ":proto_util",
-        "//tensorstore/internal:source_location",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/types:source_location",
     ],
 )

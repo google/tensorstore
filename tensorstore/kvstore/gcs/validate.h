@@ -18,8 +18,8 @@
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
 
 namespace tensorstore {
@@ -38,7 +38,7 @@ bool IsValidStorageGeneration(const StorageGeneration& gen);
 /// Constructs an absl::Status from an Aws HttpResponse.
 absl::Status GcsHttpResponseToStatus(
     const internal_http::HttpResponse& response, bool& retryable,
-    SourceLocation loc = SourceLocation::current());
+    absl::SourceLocation loc = absl::SourceLocation::current());
 
 }  // namespace internal_storage_gcs
 }  // namespace tensorstore

@@ -1441,25 +1441,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "source_location",
-    hdrs = ["source_location.h"],
-    deps = [
-        "@abseil-cpp//absl/base:config",
-        "@abseil-cpp//absl/strings:str_format",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "source_location_test",
-    size = "small",
-    srcs = ["source_location_test.cc"],
-    deps = [
-        ":source_location",
-        "@googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "string_like",
     hdrs = ["string_like.h"],
     deps = [

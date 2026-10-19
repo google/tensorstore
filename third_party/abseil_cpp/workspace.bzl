@@ -130,6 +130,7 @@ ABSL_CMAKE_MAPPING = {
     "//absl/types:bad_variant_access": "absl::bad_variant_access",
     "//absl/types:compare": "absl::compare",
     "//absl/types:optional": "absl::optional",
+    "//absl/types:source_location": "absl::source_location",
     "//absl/types:span": "absl::span",
     "//absl/types:variant": "absl::variant",
     "//absl/utility:utility": "absl::utility",

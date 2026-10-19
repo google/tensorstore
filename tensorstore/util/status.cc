@@ -19,13 +19,13 @@
 #include <string>
 
 #include "absl/status/status.h"
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 
 namespace tensorstore {
 namespace internal {
 
 [[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
-                              SourceLocation loc) {
+                              absl::SourceLocation loc) {
   std::fprintf(
       stderr, "%s:%d: %s: %s\n", loc.file_name(), loc.line(), message,
       status.ToString(absl::StatusToStringMode::kWithEverything).c_str());

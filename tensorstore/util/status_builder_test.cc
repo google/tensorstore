@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -26,6 +27,8 @@ using ::tensorstore::IsOk;
 using ::tensorstore::StatusBuilder;
 using ::tensorstore::StatusIs;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::SizeIs;
 
 TEST(StatusBuilder, OkStatus) {
   absl::Status status = StatusBuilder(absl::OkStatus()).Format("hello");
@@ -99,6 +102,41 @@ TEST(StatusBuilder, AddStatusPayload) {
 
 TEST(StatusBuilder, IsOk) {
   EXPECT_THAT(StatusBuilder(absl::OkStatus()), IsOk());
+}
+
+TEST(StatusBuilder, SourceLocations) {
+  absl::Status ok_status = StatusBuilder(absl::OkStatus());
+  EXPECT_THAT(ok_status.GetSourceLocations(), IsEmpty());
+
+  absl::Status code_status =
+      StatusBuilder(absl::StatusCode::kInvalidArgument).Format("formatted");
+  EXPECT_THAT(code_status.GetSourceLocations(), SizeIs(1));
+  EXPECT_THAT(absl::StrCat(code_status), HasSubstr("status_builder_test"));
+
+  // Same-line status and StatusBuilder deduplicates within 4 lines.
+  absl::Status same_line =
+      StatusBuilder(absl::InvalidArgumentError("initial")).Format("annotated");
+  EXPECT_THAT(same_line.GetSourceLocations(), SizeIs(1));
+
+  // Status created >= 4 lines earlier preserves both source locations in order.
+  absl::Status initial = absl::InvalidArgumentError("initial");
+  // Line 1
+  // Line 2
+  // Line 3
+  // Line 4
+  absl::Status propagated = StatusBuilder(initial);
+  ASSERT_THAT(propagated.GetSourceLocations(), SizeIs(2));
+  EXPECT_LT(propagated.GetSourceLocations()[0].line(),
+            propagated.GetSourceLocations()[1].line());
+
+  // Formatting a status created >= 4 lines earlier also preserves both source
+  // locations in order.
+  absl::Status annotated = StatusBuilder(initial).Format("annotated");
+  ASSERT_THAT(annotated.GetSourceLocations(), SizeIs(2));
+  EXPECT_EQ(annotated.GetSourceLocations()[0].line(),
+            initial.GetSourceLocations()[0].line());
+  EXPECT_LT(annotated.GetSourceLocations()[0].line(),
+            annotated.GetSourceLocations()[1].line());
 }
 
 }  // namespace

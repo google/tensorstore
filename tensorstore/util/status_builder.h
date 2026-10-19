@@ -28,8 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
-#include "tensorstore/internal/source_location.h"
-#include "tensorstore/util/status_impl.h"
+#include "absl/types/source_location.h"
 
 namespace tensorstore {
 
@@ -61,11 +60,12 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   /// `absl::StatusCode::kOk`, the source location may be added to it.
   ///
   /// \id status
-  explicit StatusBuilder(absl::Status status,
-                         SourceLocation loc = SourceLocation::current())
+  explicit StatusBuilder(
+      absl::Status status,
+      absl::SourceLocation loc = absl::SourceLocation::current())
       : status_(std::move(status)), loc_(loc) {
     if (!status_.ok()) {
-      internal_status::MaybeAddSourceLocationImpl(status_, loc_);
+      MaybeAddSourceLocation(status_, loc_);
     }
   }
 
@@ -73,10 +73,10 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   /// message.
   ///
   /// \id statuscode
-  explicit StatusBuilder(absl::StatusCode code,
-                         SourceLocation loc = SourceLocation::current())
-      : status_(internal_status::StatusWithSourceLocation(code, "", loc)),
-        loc_(loc) {}
+  explicit StatusBuilder(
+      absl::StatusCode code,
+      absl::SourceLocation loc = absl::SourceLocation::current())
+      : status_(code, "", loc), loc_(loc) {}
 
   StatusBuilder(StatusBuilder&& other) = default;
   StatusBuilder& operator=(StatusBuilder&& other) = default;
@@ -229,6 +229,9 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
 
   absl::Status BuildStatusImpl() const;
 
+  static void MaybeAddSourceLocation(absl::Status& status,
+                                     absl::SourceLocation loc);
+
   // Additional state needed on some error cases.
   struct Rep {
     std::string message;
@@ -238,14 +241,14 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
 
   // The status that the result will be based on.
   absl::Status status_;
-  tensorstore::SourceLocation loc_;
+  absl::SourceLocation loc_;
   Rep rep_{};
 };
 
 inline StatusBuilder& StatusBuilder::SetCode(absl::StatusCode code) & {
   assert(code != absl::StatusCode::kOk);
   if (status_.ok()) {
-    status_ = internal_status::StatusWithSourceLocation(code, "", loc_);
+    status_ = absl::Status(code, "", loc_);
   } else {
     rep_.code = code;
   }
@@ -255,7 +258,7 @@ inline StatusBuilder& StatusBuilder::SetCode(absl::StatusCode code) & {
 inline StatusBuilder&& StatusBuilder::SetCode(absl::StatusCode code) && {
   assert(code != absl::StatusCode::kOk);
   if (status_.ok()) {
-    status_ = internal_status::StatusWithSourceLocation(code, "", loc_);
+    status_ = absl::Status(code, "", loc_);
   } else {
     rep_.code = code;
   }

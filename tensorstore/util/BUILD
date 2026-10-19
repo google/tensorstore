@@ -639,21 +639,19 @@ tensorstore_cc_library(
     srcs = [
         "status.cc",
         "status_builder.cc",
-        "status_impl.cc",
     ],
     hdrs = [
         "status.h",
         "status_builder.h",
-        "status_impl.h",
     ],
     deps = [
-        "//tensorstore/internal:source_location",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/types:source_location",
     ],
 )
 
@@ -666,6 +664,7 @@ tensorstore_cc_test(
         ":status",
         ":status_testutil",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
     ],
@@ -680,10 +679,10 @@ tensorstore_cc_test(
     deps = [
         ":status",
         ":status_testutil",
-        "//tensorstore/internal:source_location",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/types:source_location",
         "@googletest//:gtest_main",
     ],
 )

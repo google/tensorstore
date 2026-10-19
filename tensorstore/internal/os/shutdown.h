@@ -15,13 +15,14 @@
 #ifndef TENSORSTORE_INTERNAL_OS_SHUTDOWN_H_
 #define TENSORSTORE_INTERNAL_OS_SHUTDOWN_H_
 
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 
 namespace tensorstore {
 namespace internal {
 
 // Returns true if the process is exiting.
-void LogIfShutdownInProgress(SourceLocation loc = SourceLocation::current());
+void LogIfShutdownInProgress(
+    absl::SourceLocation loc = absl::SourceLocation::current());
 
 }  // namespace internal
 }  // namespace tensorstore

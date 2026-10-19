@@ -27,7 +27,6 @@ tensorstore_cc_library(
     ],
     hdrs = ["validate.h"],
     deps = [
-        "//tensorstore/internal:source_location",
         "//tensorstore/internal:utf8",
         "//tensorstore/internal/http",
         "//tensorstore/internal/json",
@@ -37,6 +36,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/types:source_location",
         "@nlohmann_json//:json",
     ],
 )

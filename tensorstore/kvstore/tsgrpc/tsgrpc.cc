@@ -34,6 +34,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/impl/call_op_set.h"  // third_party
 #include "grpcpp/support/client_callback.h"  // third_party
@@ -56,7 +57,6 @@
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/retries_context_resource.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
@@ -218,7 +218,7 @@ class TsGrpcKeyValueStore
 
   absl::Status BackoffForAttemptAsync(
       absl::Status status, int attempt, absl::AnyInvocable<void() &&> task,
-      SourceLocation loc = SourceLocation::current());
+      absl::SourceLocation loc = absl::SourceLocation::current());
 
   TsGrpcKeyValueStoreSpecData spec_;
   std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy_;
@@ -234,7 +234,7 @@ void MaybeSetDeadline(grpc::ClientContext& context, absl::Duration timeout) {
 
 absl::Status TsGrpcKeyValueStore::BackoffForAttemptAsync(
     absl::Status status, int attempt, absl::AnyInvocable<void() &&> task,
-    SourceLocation loc) {
+    absl::SourceLocation loc) {
   auto delay = spec_.retries->BackoffForAttempt(attempt);
   if (!delay) {
     return StatusBuilder(std::move(status), loc)
