@@ -85,6 +85,7 @@ void DefaultMockHttpTransport::Reset(std::vector<MockResponse> url_to_response,
   absl::MutexLock l(mutex_);
   requests_.clear();
   mock_responses_ = std::move(url_to_response);
+  queued_requests_.pop_all();
 }
 
 void DefaultMockHttpTransport::IssueRequestWithHandler(
@@ -92,19 +93,27 @@ void DefaultMockHttpTransport::IssueRequestWithHandler(
     HttpResponseHandler* response_handler) {
   std::string key = absl::StrCat(request.method, " ", request.url);
   ABSL_LOG(INFO) << key;
-  absl::MutexLock l(mutex_);
-  requests_.push_back(request);
+  {
+    absl::MutexLock l(mutex_);
+    requests_.push_back(request);
 
-  for (auto& mock : mock_responses_) {
-    if (mock.count == 0 || mock.url != key) continue;
-    if (std::holds_alternative<absl::Status>(mock.response)) {
-      ApplyResponseToHandler(std::get<absl::Status>(mock.response),
-                             response_handler);
-    } else {
-      ApplyResponseToHandler(std::get<HttpResponse>(mock.response),
-                             response_handler);
+    for (auto& mock : mock_responses_) {
+      if (mock.count == 0 || mock.url != key) continue;
+      if (std::holds_alternative<absl::Status>(mock.response)) {
+        ApplyResponseToHandler(std::get<absl::Status>(mock.response),
+                               response_handler);
+      } else {
+        ApplyResponseToHandler(std::get<HttpResponse>(mock.response),
+                               response_handler);
+      }
+      mock.count--;
+      return;
     }
-    mock.count--;
+  }
+
+  if (queue_requests_) {
+    queued_requests_.push(
+        QueuedRequest{request, std::move(options), response_handler});
     return;
   }
 

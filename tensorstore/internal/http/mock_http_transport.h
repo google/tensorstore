@@ -27,6 +27,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/testing/queue_testutil.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -45,8 +46,8 @@ void ApplyResponseToHandler(const Result<HttpResponse>& response,
 
 /// Mocks an HttpTransport by overriding the IssueRequest method to
 /// respond with a predefined set of request-response pairs supplied
-/// to the constructor.
-/// The first matching pair will be returned for each call, then expired.
+/// to the constructor, or by queuing unmatched requests when `queue_requests`
+/// is enabled.
 class DefaultMockHttpTransport : public internal_http::HttpTransport {
  public:
   struct MockResponse {
@@ -56,31 +57,56 @@ class DefaultMockHttpTransport : public internal_http::HttpTransport {
   };
   using Responses = std::vector<MockResponse>;
 
-  /// Construct a DefaultMockHttpTransport that returns 404 for all requests.
-  DefaultMockHttpTransport() = default;
+  struct QueuedRequest {
+    HttpRequest request;
+    IssueRequestOptions options;
+    HttpResponseHandler* response_handler = nullptr;
 
-  explicit DefaultMockHttpTransport(Responses url_to_response) {
-    Reset(std::move(url_to_response), true);
-  }
-  DefaultMockHttpTransport(Responses url_to_response, bool add_headers) {
+    void set_result(const Result<HttpResponse>& response) const {
+      ApplyResponseToHandler(response, response_handler);
+    }
+    void set_result(const HttpResponse& response) const {
+      ApplyResponseToHandler(response, response_handler);
+    }
+    void set_result(const absl::Status& status) const {
+      ApplyResponseToHandler(status, response_handler);
+    }
+  };
+
+  /// Construct a DefaultMockHttpTransport. When `queue_requests` is true,
+  /// unmatched requests are pushed to `queued_requests()`; otherwise unmatched
+  /// requests return 404.
+  explicit DefaultMockHttpTransport(bool queue_requests = false)
+      : queue_requests_(queue_requests) {}
+
+  explicit DefaultMockHttpTransport(Responses url_to_response,
+                                    bool add_headers = true,
+                                    bool queue_requests = false)
+      : queue_requests_(queue_requests) {
     Reset(std::move(url_to_response), add_headers);
   }
   virtual ~DefaultMockHttpTransport() = default;
 
   /// Initializes the list of request-response pairs.
   /// The first matching pair will be returned for each call, then expired.
-  void Reset(Responses url_to_response, bool add_headers = true);
+  void Reset(Responses url_to_response = {}, bool add_headers = true);
 
   const std::vector<HttpRequest>& requests() const { return requests_; }
+
+  internal::ConcurrentQueue<QueuedRequest>& queued_requests() {
+    return queued_requests_;
+  }
 
   void IssueRequestWithHandler(const HttpRequest& request,
                                IssueRequestOptions options,
                                HttpResponseHandler* response_handler) override;
 
  private:
+  bool queue_requests_ = false;
   absl::Mutex mutex_;
   std::vector<HttpRequest> requests_;
   std::vector<MockResponse> mock_responses_;
+  internal::ConcurrentQueue<QueuedRequest> queued_requests_;
 };
 
 }  // namespace internal_http

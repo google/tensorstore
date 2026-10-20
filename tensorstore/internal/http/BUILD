@@ -133,6 +133,7 @@ tensorstore_cc_library(
     hdrs = ["mock_http_transport.h"],
     deps = [
         ":http",
+        "//tensorstore/internal/testing:queue_testutil",
         "//tensorstore/util:result",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",

@@ -51,6 +51,7 @@ using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::testing::Contains;
 using ::testing::Pair;
+using ::testing::StrEq;
 
 namespace {
 
@@ -701,6 +702,69 @@ TEST(S3KeyValueStoreTest, SimpleMock_RetryResolveEhr) {
                                absl::Cord("abcd"),
                                StorageGeneration::FromString(
                                    "\"900150983cd24fb0d6963f7d28e17f72\"")));
+}
+
+TEST(S3KeyValueStoreTest, RetryOccupiesAdmissionQueueSlot) {
+  // The retry path intentionally holds its admission queue slot across retry
+  // backoff (matching the HTTP and GCS drivers). Otherwise, queued requests
+  // would immediately take the slot while the failing request is backing off,
+  // leading to a request storm against an overloaded server.
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(/*queue_requests=*/true);
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "s3"},
+                                 {"bucket", "my-bucket"},
+                                 {"endpoint", "https://localhost:1234/base"},
+                                 {"aws_region", "us-east-1"},
+                                 {"context",
+                                  {{"aws_credentials", {{"type", "anonymous"}}},
+                                   {"s3_request_concurrency", {{"limit", 1}}},
+                                   {"s3_request_retries",
+                                    {{"max_retries", 2},
+                                     {"initial_delay", "10ms"},
+                                     {"max_delay", "50ms"}}}}}})
+                      .result());
+
+  auto read_future1 = kvstore::Read(store, "abc");
+  auto req1 = mock_transport->queued_requests().pop();
+  ASSERT_THAT(req1.request.url,
+              StrEq("https://localhost:1234/base/my-bucket/abc"));
+
+  // Issue a second read while req1 is still in-flight; because limit == 1,
+  // read_future2 is queued in the admission queue until read_future1 finishes.
+  auto read_future2 = kvstore::Read(store, "def");
+  EXPECT_TRUE(mock_transport->queued_requests().empty());
+
+  // Respond with 503 to req1; read_future1 enters ScheduleAt retry backoff
+  // while continuing to occupy the single admission queue slot, so
+  // read_future1's retry is issued before read_future2 is admitted.
+  req1.set_result(HttpResponse{503, absl::Cord()});
+
+  auto req1_retry = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req1_retry.request.url,
+              StrEq("https://localhost:1234/base/my-bucket/abc"));
+  req1_retry.set_result(HttpResponse{
+      200, absl::Cord("value_abc"),
+      HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}});
+  EXPECT_THAT(
+      read_future1.result(),
+      MatchesKvsReadResult(absl::Cord("value_abc"),
+                           StorageGeneration::FromString(
+                               "\"900150983cd24fb0d6963f7d28e17f72\"")));
+
+  auto req2 = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req2.request.url,
+              StrEq("https://localhost:1234/base/my-bucket/def"));
+  req2.set_result(HttpResponse{
+      200, absl::Cord("value_def"),
+      HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""}}});
+  EXPECT_THAT(
+      read_future2.result(),
+      MatchesKvsReadResult(absl::Cord("value_def"),
+                           StorageGeneration::FromString(
+                               "\"900150983cd24fb0d6963f7d28e17f73\"")));
 }
 
 // TODO: Add mocking to satisfy kvstore testing methods, such as:

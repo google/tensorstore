@@ -15,7 +15,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <algorithm>
+#include <cassert>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -32,10 +32,8 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
-#include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
-#include "tensorstore/internal/concurrency_resource.h"
-#include "tensorstore/internal/concurrency_resource_provider.h"
+#include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_header.h"
@@ -49,8 +47,8 @@
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/retries_context_resource.h"
-#include "tensorstore/internal/retry.h"
+#include "tensorstore/internal/rate_limiter/rate_limiter.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri/ascii_set.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/percent_coder.h"
@@ -59,6 +57,7 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/http/byte_range_util.h"
+#include "tensorstore/kvstore/http/http_resource.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
@@ -79,6 +78,8 @@
 
 using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::HttpRequestConcurrencyResource;
+using ::tensorstore::internal_http::HttpRequestRetries;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 
@@ -104,28 +105,6 @@ namespace jb = tensorstore::internal_json_binding;
 
 ABSL_CONST_INIT internal_log::VerboseFlag http_logging("http_kvstore");
 
-struct HttpRequestConcurrencyResource : public internal::ConcurrencyResource {
-  static constexpr char id[] = "http_request_concurrency";
-};
-
-/// Specifies a limit on the number of retries.
-struct HttpRequestRetries
-    : public internal::RetriesResource<HttpRequestRetries> {
-  static constexpr char id[] = "http_request_retries";
-};
-
-struct HttpRequestConcurrencyResourceTraits
-    : public internal::ConcurrencyResourceTraits,
-      public internal::ContextResourceTraits<HttpRequestConcurrencyResource> {
-  HttpRequestConcurrencyResourceTraits() : ConcurrencyResourceTraits(32) {}
-};
-const internal::ContextResourceRegistration<
-    HttpRequestConcurrencyResourceTraits>
-    http_request_concurrency_registration;
-
-const internal::ContextResourceRegistration<HttpRequestRetries>
-    http_request_retries_registration;
-
 /// Returns whether the absl::Status is a retriable request.
 bool IsRetriable(const absl::Status& status) {
   return (status.code() == absl::StatusCode::kDeadlineExceeded ||
@@ -149,10 +128,13 @@ struct HttpKeyValueStoreSpecData {
   std::string base_url;
   Context::Resource<HttpRequestConcurrencyResource> request_concurrency;
   Context::Resource<HttpRequestRetries> retries;
+  Context::Resource<internal::DataCopyConcurrencyResource>
+      data_copy_concurrency;
   std::vector<std::string> headers;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.base_url, x.request_concurrency, x.retries, x.headers);
+    return f(x.base_url, x.request_concurrency, x.retries,
+             x.data_copy_concurrency, x.headers);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -175,7 +157,10 @@ struct HttpKeyValueStoreSpecData {
           HttpRequestConcurrencyResource::id,
           jb::Projection<&HttpKeyValueStoreSpecData::request_concurrency>()),
       jb::Member(HttpRequestRetries::id,
-                 jb::Projection<&HttpKeyValueStoreSpecData::retries>())
+                 jb::Projection<&HttpKeyValueStoreSpecData::retries>()),
+      jb::Member(
+          internal::DataCopyConcurrencyResource::id,
+          jb::Projection<&HttpKeyValueStoreSpecData::data_copy_concurrency>())
       /**/
   );
 
@@ -197,7 +182,8 @@ template <>
 struct CacheKeyEncoder<HttpKeyValueStoreSpecData> {
   static void Encode(std::string* out, const HttpKeyValueStoreSpecData& data) {
     internal::EncodeCacheKey(out, data.base_url, data.request_concurrency,
-                             data.retries, data.headers.empty());
+                             data.retries, data.data_copy_concurrency,
+                             data.headers.empty());
     if (!data.headers.empty()) {
       internal::SHA256Digester digester;
       std::string encoded_headers;
@@ -277,7 +263,11 @@ class HttpKeyValueStore
   Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   const Executor& executor() const {
-    return spec_.request_concurrency->executor;
+    return spec_.data_copy_concurrency->executor;
+  }
+
+  internal::RateLimiter& admission_queue() {
+    return *spec_.request_concurrency->queue;
   }
 
   absl::Status GetBoundSpecData(SpecData& spec) const {
@@ -303,14 +293,39 @@ Future<kvstore::DriverPtr> HttpKeyValueStoreSpec::DoOpen() const {
 
 /// A ReadTask is a function object used to satisfy a
 /// HttpKeyValueStore::Read request.
-struct ReadTask {
+struct ReadTask : public internal::RateLimiterNode,
+                  public internal::AtomicReferenceCount<ReadTask> {
   IntrusivePtr<HttpKeyValueStore> owner;
   std::string url;
   kvstore::ReadOptions options;
+  Promise<kvstore::ReadResult> promise;
 
-  HttpResponse httpresponse;
+  int attempt_ = 0;
+  absl::Time start_time_;
 
-  absl::Status DoRead() {
+  ReadTask(IntrusivePtr<HttpKeyValueStore> owner, std::string url,
+           kvstore::ReadOptions options, Promise<kvstore::ReadResult> promise)
+      : owner(std::move(owner)),
+        url(std::move(url)),
+        options(std::move(options)),
+        promise(std::move(promise)) {}
+
+  ~ReadTask() { owner->admission_queue().Finish(this); }
+
+  static void Admit(internal::RateLimiterNode* node) {
+    auto* self = static_cast<ReadTask*>(node);
+    self->owner->executor()(
+        [state = IntrusivePtr<ReadTask>(self, internal::adopt_object_ref)] {
+          state->Retry();
+        });
+  }
+
+  void Retry() {
+    if (!promise.result_needed()) {
+      return;
+    }
+
+    start_time_ = absl::Now();
     HttpRequestBuilder request_builder(
         options.byte_range.size() == 0 ? "HEAD" : "GET", url);
     for (const auto& header : owner->spec_.headers) {
@@ -344,24 +359,73 @@ struct ReadTask {
 
     ABSL_LOG_IF(INFO, http_logging) << "[http] Read: " << request;
 
-    auto response = owner->transport_->IssueRequest(request, {}).result();
-    if (!response.ok()) return response.status();
-    httpresponse = *std::move(response);
-    http_bytes_read.IncrementBy(httpresponse.payload.size());
-    ABSL_LOG_IF(INFO, http_logging.Level(1))
-        << "[http] Read response: " << httpresponse;
-
-    switch (httpresponse.status_code) {
-      // Special status codes handled outside the retry loop.
-      case 412:
-      case 404:
-      case 304:
-        return absl::OkStatus();
-    }
-    return HttpResponseCodeToStatus(httpresponse);
+    auto future = owner->transport_->IssueRequest(request, {});
+    future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
+                                ReadyFuture<HttpResponse> response) {
+      self->OnResponse(std::move(response.result()));
+    });
   }
 
-  Result<kvstore::ReadResult> HandleResult(absl::Time start_time) {
+  void OnResponse(Result<HttpResponse> response) {
+    if (!promise.result_needed()) {
+      return;
+    }
+
+    absl::Status status = [&]() -> absl::Status {
+      if (!response.ok()) return response.status();
+      http_bytes_read.IncrementBy(response->payload.size());
+      ABSL_LOG_IF(INFO, http_logging.Level(1))
+          << "[http] Read response: " << *response;
+
+      switch (response->status_code) {
+        // Special status codes handled outside the retry loop.
+        case 412:
+        case 404:
+        case 304:
+          return absl::OkStatus();
+      }
+      return HttpResponseCodeToStatus(*response);
+    }();
+
+    if (!status.ok() && IsRetriable(status)) {
+      const auto& retries = *owner->spec_.retries;
+      auto delay = retries.BackoffForAttempt(attempt_);
+      if (!delay) {
+        if (attempt_ > 0) {
+          promise.SetResult(
+              StatusBuilder(std::move(status))
+                  .SetCode(absl::StatusCode::kAborted)
+                  .Format("All %d retry attempts failed", attempt_));
+        } else {
+          promise.SetResult(std::move(status));
+        }
+        return;
+      }
+
+      ABSL_LOG_IF(INFO, http_logging)
+          << "The operation failed and will be automatically retried in "
+          << *delay << " (attempt " << attempt_ + 1 << " out of "
+          << retries.max_retries << "), caused by: " << status;
+
+      attempt_++;
+      internal::ScheduleAt(absl::Now() + *delay,
+                           WithExecutor(owner->executor(),
+                                        [self = IntrusivePtr<ReadTask>(this)] {
+                                          self->Retry();
+                                        }));
+      return;
+    }
+
+    if (!status.ok()) {
+      promise.SetResult(std::move(status));
+      return;
+    }
+
+    promise.SetResult(HandleResult(std::move(*response), start_time_));
+  }
+
+  Result<kvstore::ReadResult> HandleResult(HttpResponse httpresponse,
+                                           absl::Time start_time) {
     // Parse `Date` header from response to correctly handle cached responses.
     absl::Time response_date;
     if (auto date_it = httpresponse.headers.find("date");
@@ -434,43 +498,6 @@ struct ReadTask {
         std::move(value),
         TimestampedStorageGeneration{std::move(generation), start_time});
   }
-
-  Result<kvstore::ReadResult> operator()() {
-    absl::Time start_time;
-    absl::Status status;
-    const auto& retries = *owner->spec_.retries;
-    int attempt = 0;
-    while (true) {
-      start_time = absl::Now();
-      status = DoRead();
-      if (status.ok() || !IsRetriable(status)) break;
-
-      auto delay = retries.BackoffForAttempt(attempt);
-      if (!delay) {
-        if (attempt > 0) {
-          return StatusBuilder(std::move(status))
-              .SetCode(absl::StatusCode::kAborted)
-              .Format("All %d retry attempts failed", attempt);
-        }
-        return status;
-      }
-
-      ABSL_LOG_IF(INFO, http_logging)
-          << "The operation failed and will be automatically retried in "
-          << *delay << " (attempt " << attempt + 1 << " out of "
-          << retries.max_retries << "), caused by: " << status;
-
-      // NOTE: At some point migrate from a sleep-based retry to an operation
-      // queue.
-      absl::SleepFor(*delay);
-      attempt++;
-    }
-    if (!status.ok()) {
-      return status;
-    }
-
-    return HandleResult(start_time);
-  }
 };
 
 Future<kvstore::ReadResult> HttpKeyValueStore::Read(Key key,
@@ -484,8 +511,13 @@ Future<kvstore::ReadResult> HttpKeyValueStore::ReadImpl(Key&& key,
                                                         ReadOptions&& options) {
   http_batch_read.Increment();
   std::string url = spec_.GetUrl(key);
-  return MapFuture(executor(), ReadTask{IntrusivePtr<HttpKeyValueStore>(this),
-                                        std::move(url), std::move(options)});
+  auto op = PromiseFuturePair<kvstore::ReadResult>::Make();
+  auto task = internal::MakeIntrusivePtr<ReadTask>(
+      IntrusivePtr<HttpKeyValueStore>(this), std::move(url), std::move(options),
+      std::move(op.promise));
+  intrusive_ptr_increment(task.get());  // Adopted by ReadTask::Admit.
+  admission_queue().Admit(task.get(), &ReadTask::Admit);
+  return std::move(op.future);
 }
 
 Result<kvstore::Spec> ParseHttpUrl(std::string_view url) {
@@ -497,6 +529,8 @@ Result<kvstore::Spec> ParseHttpUrl(std::string_view url) {
       Context::Resource<HttpRequestConcurrencyResource>::DefaultSpec();
   driver_spec->data_.retries =
       Context::Resource<HttpRequestRetries>::DefaultSpec();
+  driver_spec->data_.data_copy_concurrency =
+      Context::Resource<internal::DataCopyConcurrencyResource>::DefaultSpec();
 
   std::string path;
   return {std::in_place, std::move(driver_spec), std::move(path)};

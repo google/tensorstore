@@ -39,6 +39,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/http/default_transport.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -81,9 +82,11 @@ using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
+using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_http::ApplyResponseToHandler;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpResponseHandler;
@@ -139,24 +142,36 @@ class MetadataMockHelper {
   GoogleAuthTestScope google_auth_test_scope;
 };
 
-class MyMockTransport : public HttpTransport {
+class MyMockTransport
+    : public ::tensorstore::internal_http::DefaultMockHttpTransport {
  public:
+  explicit MyMockTransport(bool queue_requests = false)
+      : DefaultMockHttpTransport(queue_requests) {}
+
   void IssueRequestWithHandler(const HttpRequest& request,
                                IssueRequestOptions options,
                                HttpResponseHandler* response_handler) override {
-    ApplyResponseToHandler(
-        [&]() -> Result<HttpResponse> {
-          auto result = metadata_mock_.GetResponse(request);
-          if (result.ok()) return result;
+    auto result = metadata_mock_.GetResponse(request);
+    if (result.ok()) {
+      ApplyResponseToHandler(std::move(result), response_handler);
+      return;
+    }
 
-          // Next, try each bucket until there is a success.
-          for (auto* bucket : buckets_) {
-            result = bucket->IssueRequest(request, options.payload);
-            if (result.ok()) break;
-          }
-          return result;
-        }(),
-        response_handler);
+    // Next, try each bucket until there is a success.
+    for (auto* bucket : buckets_) {
+      result = bucket->IssueRequest(request, options.payload);
+      if (result.ok()) {
+        ApplyResponseToHandler(std::move(result), response_handler);
+        return;
+      }
+    }
+    if (!buckets_.empty()) {
+      ApplyResponseToHandler(std::move(result), response_handler);
+      return;
+    }
+
+    DefaultMockHttpTransport::IssueRequestWithHandler(
+        request, std::move(options), response_handler);
   }
 
   MetadataMockHelper metadata_mock_;
@@ -917,5 +932,56 @@ TEST(GcsKeyValueStoreTest,
   TENSORSTORE_EXPECT_OK(kvstore::Read(store, "concurrent_cached").result());
   EXPECT_TRUE(state.concurrent_call_entered.HasBeenNotified());
   TENSORSTORE_EXPECT_OK(refresh_read_future.result());
+}
+
+TEST(GcsKeyValueStoreTest, RetryOccupiesAdmissionQueueSlot) {
+  // The retry path intentionally holds its admission queue slot across retry
+  // backoff (matching the HTTP and S3 drivers). Otherwise, queued requests
+  // would immediately take the slot while the failing request is backing off,
+  // leading to a request storm against an overloaded server.
+  auto mock_transport =
+      std::make_shared<MyMockTransport>(/*queue_requests=*/true);
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", kDriver},
+                                 {"bucket", "my-bucket"},
+                                 {"context",
+                                  {{"gcs_request_concurrency", {{"limit", 1}}},
+                                   {"gcs_request_retries",
+                                    {{"max_retries", 2},
+                                     {"initial_delay", "10ms"},
+                                     {"max_delay", "50ms"}}}}}})
+                      .result());
+
+  auto read_future1 = kvstore::Read(store, "abc");
+  auto req1 = mock_transport->queued_requests().pop();
+  ASSERT_THAT(req1.request.url, HasSubstr("/b/my-bucket/o/abc?"));
+
+  // Issue a second read while req1 is still in-flight; because limit == 1,
+  // read_future2 is queued in the admission queue until read_future1 finishes.
+  auto read_future2 = kvstore::Read(store, "def");
+  EXPECT_TRUE(mock_transport->queued_requests().empty());
+
+  // Respond with 503 to req1; read_future1 enters ScheduleAt retry backoff
+  // while continuing to occupy the single admission queue slot, so
+  // read_future1's retry is issued before read_future2 is admitted.
+  req1.set_result(HttpResponse{503, absl::Cord()});
+
+  auto req1_retry = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req1_retry.request.url, HasSubstr("/b/my-bucket/o/abc?"));
+  req1_retry.set_result(HttpResponse{200, absl::Cord("value_abc"),
+                                     HeaderMap{{"x-goog-generation", "1"}}});
+  EXPECT_THAT(read_future1.result(),
+              MatchesKvsReadResult(absl::Cord("value_abc"),
+                                   StorageGeneration::FromUint64(1)));
+
+  auto req2 = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req2.request.url, HasSubstr("/b/my-bucket/o/def?"));
+  req2.set_result(HttpResponse{200, absl::Cord("value_def"),
+                               HeaderMap{{"x-goog-generation", "2"}}});
+  EXPECT_THAT(read_future2.result(),
+              MatchesKvsReadResult(absl::Cord("value_def"),
+                                   StorageGeneration::FromUint64(2)));
 }
 }  // namespace

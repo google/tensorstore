@@ -14,8 +14,8 @@
 
 #include "tensorstore/kvstore/driver.h"
 
-#include <functional>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -33,7 +33,6 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/mock_http_transport.h"
-#include "tensorstore/internal/testing/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -42,7 +41,6 @@
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -50,18 +48,14 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Batch;
 using ::tensorstore::Future;
-using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
-using ::tensorstore::internal_http::ApplyResponseToHandler;
+using ::tensorstore::internal_http::DefaultMockHttpTransport;
 using ::tensorstore::internal_http::HeaderMap;
-using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
-using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
-using ::tensorstore::internal_http::IssueRequestOptions;
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
@@ -69,36 +63,17 @@ using ::testing::Pair;
 using ::testing::StrEq;
 using ::testing::UnorderedElementsAre;
 
-class MyMockTransport : public HttpTransport {
- public:
-  void IssueRequestWithHandler(const HttpRequest& request,
-                               IssueRequestOptions options,
-                               HttpResponseHandler* response_handler) override {
-    requests_.push({request, [response_handler](Result<HttpResponse> response) {
-                      ApplyResponseToHandler(response, response_handler);
-                    }});
-  }
-
-  struct Request {
-    HttpRequest request;
-    std::function<void(tensorstore::Result<HttpResponse>)> set_result;
-  };
-
-  void Reset() { requests_.pop_all(); }
-
-  tensorstore::internal::ConcurrentQueue<Request> requests_;
-};
-
 class HttpKeyValueStoreTest : public ::testing::Test {
  public:
   HttpKeyValueStoreTest()
-      : mock_transport(std::make_shared<MyMockTransport>()) {
+      : mock_transport(std::make_shared<DefaultMockHttpTransport>(
+            /*queue_requests=*/true)) {
     old_transport_ = SetDefaultHttpTransport(mock_transport);
   }
 
   ~HttpKeyValueStoreTest() { SetDefaultHttpTransport(old_transport_); }
 
-  std::shared_ptr<MyMockTransport> mock_transport;
+  std::shared_ptr<DefaultMockHttpTransport> mock_transport;
   std::shared_ptr<HttpTransport> old_transport_;
 };
 
@@ -146,7 +121,7 @@ TEST_F(HttpKeyValueStoreTest, UnconditionalReadUncachedWithEtag) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   auto read_future = kvstore::Read(store, "abc");
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache")));
@@ -161,7 +136,7 @@ TEST_F(HttpKeyValueStoreTest, ReadNotFound) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   auto read_future = kvstore::Read(store, "abc");
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache")));
@@ -173,7 +148,7 @@ TEST_F(HttpKeyValueStoreTest, UnconditionalReadWeakEtag) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   auto read_future = kvstore::Read(store, "abc");
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache")));
@@ -191,7 +166,7 @@ TEST_F(HttpKeyValueStoreTest, ReadByteRange) {
   options.byte_range.inclusive_min = 10;
   options.byte_range.exclusive_max = 20;
   auto read_future = kvstore::Read(store, "abc", options);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.method, "GET");
   EXPECT_THAT(request.request.headers,
@@ -226,7 +201,7 @@ TEST_F(HttpKeyValueStoreTest, ReadBatch) {
       futures.push_back(kvstore::Read(store, "abc", options));
     }
   }
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.method, "GET");
   EXPECT_THAT(request.request.headers,
@@ -264,7 +239,7 @@ TEST_F(HttpKeyValueStoreTest, ReadBatchFragmentedCord) {
       futures.push_back(kvstore::Read(store, "abc", options));
     }
   }
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   std::string part1 = "valueab";
   std::string part2 = "cde01234";
   absl::Cord fragmented_payload;
@@ -289,7 +264,7 @@ TEST_F(HttpKeyValueStoreTest, ReadZeroByteRange) {
   options.byte_range.inclusive_min = 10;
   options.byte_range.exclusive_max = 10;
   auto read_future = kvstore::Read(store, "abc", options);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache")));
@@ -305,7 +280,7 @@ TEST_F(HttpKeyValueStoreTest, ReadWithStalenessBound) {
   kvstore::ReadOptions options;
   options.staleness_bound = absl::Now() - absl::Milliseconds(4900);
   auto read_future = kvstore::Read(store, "abc", options);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair(
@@ -323,7 +298,7 @@ TEST_F(HttpKeyValueStoreTest, IfEqualSatisfied) {
   kvstore::ReadOptions options;
   options.generation_conditions.if_equal = StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache"),
@@ -338,7 +313,7 @@ TEST_F(HttpKeyValueStoreTest, IfEqualNotSatisfied) {
   kvstore::ReadOptions options;
   options.generation_conditions.if_equal = StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache"),
@@ -356,7 +331,7 @@ TEST_F(HttpKeyValueStoreTest, IfNotEqualSatisfied) {
   options.generation_conditions.if_not_equal =
       StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache"),
@@ -374,7 +349,7 @@ TEST_F(HttpKeyValueStoreTest, IfNotEqualNotSatisfied) {
   options.generation_conditions.if_not_equal =
       StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache"),
@@ -391,14 +366,14 @@ TEST_F(HttpKeyValueStoreTest, Retry) {
 
   auto read_future = kvstore::Read(store, "abc");
   {
-    auto request = mock_transport->requests_.pop();
+    auto request = mock_transport->queued_requests().pop();
     EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
     EXPECT_THAT(request.request.headers,
                 ElementsAre(Pair("cache-control", "no-cache")));
     request.set_result(HttpResponse{503, absl::Cord()});
   }
   {
-    auto request = mock_transport->requests_.pop();
+    auto request = mock_transport->queued_requests().pop();
     EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
     EXPECT_THAT(request.request.headers,
                 ElementsAre(Pair("cache-control", "no-cache")));
@@ -423,14 +398,14 @@ TEST_F(HttpKeyValueStoreTest, RetryMax) {
 
   auto read_future = kvstore::Read(store, "abc");
   {
-    auto request = mock_transport->requests_.pop();
+    auto request = mock_transport->queued_requests().pop();
     EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
     EXPECT_THAT(request.request.headers,
                 ElementsAre(Pair("cache-control", "no-cache")));
     request.set_result(HttpResponse{503, absl::Cord()});
   }
   {
-    auto request = mock_transport->requests_.pop();
+    auto request = mock_transport->queued_requests().pop();
     EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
     EXPECT_THAT(request.request.headers,
                 ElementsAre(Pair("cache-control", "no-cache")));
@@ -452,7 +427,7 @@ TEST_F(HttpKeyValueStoreTest, RetryZero) {
 
   auto read_future = kvstore::Read(store, "abc");
   {
-    auto request = mock_transport->requests_.pop();
+    auto request = mock_transport->queued_requests().pop();
     EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
     EXPECT_THAT(request.request.headers,
                 ElementsAre(Pair("cache-control", "no-cache")));
@@ -474,12 +449,12 @@ TEST_F(HttpKeyValueStoreTest, RetrySuccess) {
 
   auto read_future = kvstore::Read(store, "abc");
   {
-    auto request = mock_transport->requests_.pop();
+    auto request = mock_transport->queued_requests().pop();
     EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
     request.set_result(HttpResponse{503, absl::Cord()});
   }
   {
-    auto request = mock_transport->requests_.pop();
+    auto request = mock_transport->queued_requests().pop();
     EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
     request.set_result(
         HttpResponse{200, absl::Cord("value"), HeaderMap{{"etag", "\"xyz\""}}});
@@ -487,6 +462,151 @@ TEST_F(HttpKeyValueStoreTest, RetrySuccess) {
   EXPECT_THAT(read_future.result(),
               MatchesKvsReadResult(absl::Cord("value"),
                                    StorageGeneration::FromString("xyz")));
+}
+
+TEST_F(HttpKeyValueStoreTest, RetryOccupiesAdmissionQueueSlot) {
+  // The retry path intentionally holds its admission queue slot across retry
+  // backoff (matching the GCS and S3 drivers). Otherwise, queued requests
+  // would immediately take the slot while the failing request is backing off,
+  // leading to a request storm against an overloaded server.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "http"},
+                                 {"base_url", "https://example.com/my/path/"},
+                                 {"context",
+                                  {{"http_request_concurrency", {{"limit", 1}}},
+                                   {"http_request_retries",
+                                    {{"max_retries", 2},
+                                     {"initial_delay", "10ms"},
+                                     {"max_delay", "50ms"}}}}}})
+                      .result());
+
+  auto read_future1 = kvstore::Read(store, "abc");
+  auto req1 = mock_transport->queued_requests().pop();
+  ASSERT_THAT(req1.request.url, StrEq("https://example.com/my/path/abc"));
+
+  // Issue a second read while req1 is still in-flight; because limit == 1,
+  // read_future2 is queued in the admission queue until read_future1 finishes.
+  auto read_future2 = kvstore::Read(store, "def");
+  EXPECT_TRUE(mock_transport->queued_requests().empty());
+
+  // Respond with 503 to req1; read_future1 enters ScheduleAt retry backoff
+  // while continuing to occupy the single admission queue slot, so
+  // read_future1's retry is issued before read_future2 is admitted.
+  req1.set_result(HttpResponse{503, absl::Cord()});
+
+  auto req1_retry = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req1_retry.request.url, StrEq("https://example.com/my/path/abc"));
+  req1_retry.set_result(HttpResponse{200, absl::Cord("value_abc")});
+  EXPECT_THAT(read_future1.result(),
+              MatchesKvsReadResult(absl::Cord("value_abc")));
+
+  auto req2 = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req2.request.url, StrEq("https://example.com/my/path/def"));
+  req2.set_result(HttpResponse{200, absl::Cord("value_def")});
+  EXPECT_THAT(read_future2.result(),
+              MatchesKvsReadResult(absl::Cord("value_def")));
+}
+
+TEST_F(HttpKeyValueStoreTest, RetryDoesNotBlockDataCopyConcurrencyExecutor) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "http"},
+                                 {"base_url", "https://example.com/my/path/"},
+                                 {"context",
+                                  {{"data_copy_concurrency", {{"limit", 1}}},
+                                   {"http_request_concurrency", {{"limit", 2}}},
+                                   {"http_request_retries",
+                                    {{"max_retries", 2},
+                                     {"initial_delay", "50ms"},
+                                     {"max_delay", "1s"}}}}}})
+                      .result());
+
+  auto read_future1 = kvstore::Read(store, "abc");
+  auto req1 = mock_transport->queued_requests().pop();
+  ASSERT_THAT(req1.request.url, StrEq("https://example.com/my/path/abc"));
+
+  // Respond with 503 to req1; read_future1 enters non-blocking ScheduleAt
+  // retry backoff without blocking the single data_copy_concurrency thread.
+  req1.set_result(HttpResponse{503, absl::Cord()});
+
+  auto read_future2 = kvstore::Read(store, "def");
+  auto req2 = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req2.request.url, StrEq("https://example.com/my/path/def"));
+  req2.set_result(HttpResponse{200, absl::Cord("value_def")});
+  EXPECT_THAT(read_future2.result(),
+              MatchesKvsReadResult(absl::Cord("value_def")));
+
+  auto req3 = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req3.request.url, StrEq("https://example.com/my/path/abc"));
+  req3.set_result(HttpResponse{200, absl::Cord("value_abc")});
+  EXPECT_THAT(read_future1.result(),
+              MatchesKvsReadResult(absl::Cord("value_abc")));
+}
+
+TEST_F(HttpKeyValueStoreTest, ReadNonRetriableError) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open("https://example.com/my/path/").result());
+  auto read_future = kvstore::Read(store, "abc");
+  auto request = mock_transport->queued_requests().pop();
+  EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
+  request.set_result(HttpResponse{403, absl::Cord("forbidden")});
+  EXPECT_THAT(read_future.result(),
+              StatusIs(absl::StatusCode::kPermissionDenied));
+}
+
+TEST_F(HttpKeyValueStoreTest, CancelledReadReleasesAdmissionSlot) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open(
+          {{"driver", "http"},
+           {"base_url", "https://example.com/my/path/"},
+           {"context", {{"http_request_concurrency", {{"limit", 1}}}}}})
+          .result());
+
+  // Start req1 and queue read_future2 + read_future3 behind it.
+  auto read_future1 = kvstore::Read(store, "k1");
+  auto req1 = mock_transport->queued_requests().pop();
+  ASSERT_THAT(req1.request.url, StrEq("https://example.com/my/path/k1"));
+
+  auto read_future2 = kvstore::Read(store, "k2");
+  auto read_future3 = kvstore::Read(store, "k3");
+
+  // Drop both read_future1 (in-flight) and read_future2 (queued in admission
+  // queue) before req1 completes.
+  read_future1 = {};
+  read_future2 = {};
+  req1.set_result(HttpResponse{200, absl::Cord("v1")});
+
+  // read_future2 should notice !promise.result_needed() upon admission,
+  // immediately release its slot, and admit read_future3 without issuing k2.
+  auto req3 = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req3.request.url, StrEq("https://example.com/my/path/k3"));
+  req3.set_result(HttpResponse{200, absl::Cord("v3")});
+  EXPECT_THAT(read_future3.result(), MatchesKvsReadResult(absl::Cord("v3")));
+}
+
+TEST_F(HttpKeyValueStoreTest, CancelledReadDuringRetryBackoffIsNotReadmitted) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "http"},
+                                 {"base_url", "https://example.com/my/path/"},
+                                 {"context",
+                                  {{"http_request_concurrency", {{"limit", 1}}},
+                                   {"http_request_retries",
+                                    {{"max_retries", 2},
+                                     {"initial_delay", "5ms"},
+                                     {"max_delay", "10ms"}}}}}})
+                      .result());
+
+  auto read_future1 = kvstore::Read(store, "k1");
+  auto req1 = mock_transport->queued_requests().pop();
+  ASSERT_THAT(req1.request.url, StrEq("https://example.com/my/path/k1"));
+
+  // Fail req1 with 503 so it enters ScheduleAt retry backoff, then cancel
+  // read_future1 before the backoff timer fires.
+  req1.set_result(HttpResponse{503, absl::Cord()});
+  read_future1 = {};
+
+  absl::SleepFor(absl::Milliseconds(25));
+  EXPECT_TRUE(mock_transport->queued_requests().empty());
 }
 
 TEST_F(HttpKeyValueStoreTest, Date) {
@@ -497,7 +617,7 @@ TEST_F(HttpKeyValueStoreTest, Date) {
   options.staleness_bound = absl::InfinitePast();
   auto read_future = kvstore::Read(store, "abc", options);
   auto response_date = absl::UnixEpoch() + absl::Seconds(100);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers, ElementsAre());
   request.set_result(HttpResponse{
@@ -519,7 +639,7 @@ TEST_F(HttpKeyValueStoreTest, DateSkew) {
   options.staleness_bound = absl::Now() - absl::Milliseconds(5900);
   auto read_future = kvstore::Read(store, "abc", options);
   auto response_date = absl::UnixEpoch() + absl::Seconds(100);
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control",
@@ -540,7 +660,7 @@ TEST_F(HttpKeyValueStoreTest, Query) {
       auto store,
       kvstore::Open("https://example.com/my/path/?query=value").result());
   auto read_future = kvstore::Read(store, "abc");
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url,
               StrEq("https://example.com/my/path/abc?query=value"));
   EXPECT_THAT(request.request.headers,
@@ -555,7 +675,7 @@ TEST_F(HttpKeyValueStoreTest, InvalidDate) {
       auto store, kvstore::Open("https://example.com/my/path/").result());
 
   auto read_future = kvstore::Read(store, "abc");
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url, StrEq("https://example.com/my/path/abc"));
   EXPECT_THAT(request.request.headers,
               ElementsAre(Pair("cache-control", "no-cache")));
@@ -575,7 +695,7 @@ TEST_F(HttpKeyValueStoreTest, ExtraHeaders) {
                      {"headers", {"a!#$%&'*+-.^_`|~3x: b\xfe"}}})
           .result());
   auto read_future = kvstore::Read(store, "abc");
-  auto request = mock_transport->requests_.pop();
+  auto request = mock_transport->queued_requests().pop();
   EXPECT_THAT(request.request.url,
               StrEq("https://example.com/my/path/abc?query=value"));
   EXPECT_THAT(request.request.headers,
