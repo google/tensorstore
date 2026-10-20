@@ -16,17 +16,21 @@
 
 #include <memory>
 #include <thread>  // NOLINT
+#include <utility>
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/functional/any_invocable.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/thread/thread_pool.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/stop_token.h"
 
 namespace {
 
 using ::tensorstore::StopSource;
+using ::tensorstore::WithExecutor;
 using ::tensorstore::internal::ScheduleAt;
 
 // Tests that the thread pool runs a task.
@@ -41,6 +45,15 @@ TEST(ScheduleAtTest, Basic) {
   ScheduleAt(now + absl::Milliseconds(5), [&] { b.Notify(); });
   b.WaitForNotification();
   EXPECT_TRUE(a.HasBeenNotified());
+}
+
+TEST(ScheduleAtTest, WithExecutorAnyInvocable) {
+  auto notification = std::make_shared<absl::Notification>();
+
+  auto executor = tensorstore::internal::DetachedThreadPool(1);
+  absl::AnyInvocable<void() &&> task = [=] { notification->Notify(); };
+  ScheduleAt(absl::InfinitePast(), WithExecutor(executor, std::move(task)));
+  notification->WaitForNotification();
 }
 
 TEST(ScheduleAtTest, RunImmediately) {

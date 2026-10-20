@@ -740,7 +740,7 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
         execution::set_value(receiver, std::move(read_state));
       });
   if (this->IsUnconditional() || !this->is_modified) {
-    continuation(MakeReadyFuture());
+    std::move(continuation)(MakeReadyFuture());
     return;
   }
   this->Read({options.staleness_bound})

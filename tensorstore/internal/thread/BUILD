@@ -38,7 +38,10 @@ tensorstore_cc_test(
     srcs = ["schedule_at_test.cc"],
     deps = [
         ":schedule_at",
+        ":thread_pool",
+        "//tensorstore/util:executor",
         "//tensorstore/util:stop_token",
+        "@abseil-cpp//absl/functional:any_invocable",
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",

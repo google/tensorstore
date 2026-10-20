@@ -76,22 +76,42 @@ class ExecutorBoundFunction {
   /// Function type.
   using Function = FunctionType;
 
+  // Invokes the bound function on `executor` from a mutable lvalue by copying
+  // `function` into the scheduled task and invoking it as an lvalue.
   template <typename... T>
-  std::enable_if_t<std::is_invocable_v<Function&, T...>>  //
-  operator()(T&&... arg) {
+  std::enable_if_t<std::is_copy_constructible_v<Function> &&
+                   std::is_invocable_v<Function&, std::decay_t<T>...>>
+  operator()(T&&... arg) & {
     internal_tracing::SwapCurrentTraceContext(&tc_);
-    executor([f = std::move(function),
-              args = std::make_tuple(std::forward<T>(arg)...)]() mutable {
-      std::apply(std::move(f), std::move(args));
+    executor([f = function, args = std::tuple<std::decay_t<T>...>(
+                                std::forward<T>(arg)...)]() mutable {
+      std::apply(f, std::move(args));
     });
     internal_tracing::SwapCurrentTraceContext(&tc_);
   }
+
+  // Invokes the bound function on `executor` from a const lvalue by copying
+  // `function` into the scheduled task and invoking it as `const`.
   template <typename... T>
-  std::enable_if_t<std::is_invocable_v<const Function&, T...>> operator()(
-      T&&... arg) const {
+  std::enable_if_t<std::is_copy_constructible_v<Function> &&
+                   std::is_invocable_v<const Function&, std::decay_t<T>...>>
+  operator()(T&&... arg) const& {
     internal_tracing::SwapCurrentTraceContext(&tc_);
-    executor([f = function,
-              args = std::make_tuple(std::forward<T>(arg)...)]() mutable {
+    executor([f = function, args = std::tuple<std::decay_t<T>...>(
+                                std::forward<T>(arg)...)]() mutable {
+      std::apply(std::as_const(f), std::move(args));
+    });
+    internal_tracing::SwapCurrentTraceContext(&tc_);
+  }
+
+  // Invokes the bound function on `executor` from an rvalue by moving
+  // `function` into the scheduled task and invoking it as an rvalue.
+  template <typename... T>
+  std::enable_if_t<std::is_invocable_v<Function, std::decay_t<T>...>>
+  operator()(T&&... arg) && {
+    internal_tracing::SwapCurrentTraceContext(&tc_);
+    executor([f = std::move(function), args = std::tuple<std::decay_t<T>...>(
+                                           std::forward<T>(arg)...)]() mutable {
       std::apply(std::move(f), std::move(args));
     });
     internal_tracing::SwapCurrentTraceContext(&tc_);

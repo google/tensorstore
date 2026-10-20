@@ -1311,7 +1311,7 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
   /// destructor being called.
   void InvokeCallback() noexcept {
     typename CallbackHolder<Callback>::Getter callback_getter(*this);
-    callback_getter.get()(
+    std::move(callback_getter.get())(
         FutureAccess::Construct<Promise<PromiseValue>>(PromiseStatePointer(
             ForceCallback()->shared_state(), internal::adopt_object_ref)),
         (FutureAccess::Construct<ReadyFutureType<Futures>>(
