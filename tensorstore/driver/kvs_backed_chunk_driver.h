@@ -295,6 +295,8 @@ class MetadataCache
     MetadataPtr updated_metadata_base_state_;
     /// Cached result of applying updates to `updated_metadata_base_state_`.
     Result<MetadataPtr> updated_metadata_ = nullptr;
+    /// Minimum staleness bound for reading metadata in `DoApply`.
+    absl::Time min_read_time_ = absl::InfinitePast();
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }

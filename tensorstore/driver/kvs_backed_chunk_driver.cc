@@ -16,6 +16,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <cassert>
 #include <functional>
 #include <memory>
@@ -1047,11 +1048,17 @@ struct HandleKeyValueStoreReady {
       auto* kvstore =
           GetOwningCache(*base.metadata_cache_entry_).base_store_.get();
       if (!base.transaction_) {
-        LinkValue(std::bind(WithExecutor(state_ptr->executor(),
-                                         GetMetadataForOpen{std::move(state)}),
-                            std::placeholders::_1),
-                  std::move(promise),
-                  kvstore->DeleteRange(std::move(range_to_delete)));
+        LinkValue(
+            WithExecutor(
+                state_ptr->executor(),
+                [state = std::move(state)](
+                    Promise<internal::Driver::Handle> promise,
+                    ReadyFuture<const void> future) mutable {
+                  ((PrivateOpenState*)state.get())->request_time_ = absl::Now();
+                  GetMetadataForOpen{std::move(state)}(std::move(promise));
+                }),
+            std::move(promise),
+            kvstore->DeleteRange(std::move(range_to_delete)));
         return;
       }
       if (auto status = kvstore->TransactionalDeleteRange(
@@ -1078,6 +1085,9 @@ Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
   node->updated_metadata_base_state_ =
       internal::UnownedToShared(&invalid_metadata);
   node->updated_metadata_ = nullptr;
+  if (read_time) {
+    node->min_read_time_ = std::max(node->min_read_time_, *read_time);
+  }
   if (node->transaction()->implicit_transaction()) {
     auto [promise, future] = PromiseFuturePair<void>::Make();
     node->AddPendingWrite(
@@ -1233,7 +1243,7 @@ void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
     }
     execution::set_value(receiver, std::move(read_state));
   };
-  this->Read({options.staleness_bound})
+  this->Read({std::max(options.staleness_bound, this->min_read_time_)})
       .ExecuteWhenReady(WithExecutor(GetOwningCache(*this).executor(),
                                      std::move(continuation)));
 }

@@ -4445,4 +4445,59 @@ TEST(Zarr3StructuredTest, ShardedStructFillValue) {
   EXPECT_EQ(tensorstore::MakeArray<int32_t>({{0, 0}, {0, 0}}), b_zero);
 }
 
+TEST(Zarr3DriverTest, CreateWithDeleteExistingRefreshesMetadataAfterDelete) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_key_value_store = *mock_key_value_store_resource;
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+
+  ::nlohmann::json json_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "mock_key_value_store"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type", "int32"},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  // Initial create using memory_store forwarded through mock_key_value_store.
+  mock_key_value_store->forward_to = memory_store;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store1,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Intercept DeleteRange to simulate a metadata cache read completing while
+  // DeleteRange is in flight (after Open captured its initial request_time_).
+  mock_key_value_store->forward_to = {};
+  auto open_future = tensorstore::Open(
+      json_spec, context,
+      tensorstore::OpenMode::create | tensorstore::OpenMode::delete_existing,
+      tensorstore::ReadWriteMode::read_write);
+
+  auto delete_req = mock_key_value_store->delete_range_requests.pop();
+  // While DeleteRange is still pending, open the existing store in read mode
+  // so MetadataCache populates a read_state with stamp.time > Open's start
+  // time.
+  mock_key_value_store->forward_to = memory_store;
+  TENSORSTORE_ASSERT_OK(tensorstore::Open({{"driver", "zarr3"},
+                                           {"kvstore",
+                                            {{"driver", "mock_key_value_store"},
+                                             {"path", "prefix/"}}}},
+                                          context, tensorstore::OpenMode::open,
+                                          tensorstore::ReadWriteMode::read)
+                            .result());
+
+  // Now complete DeleteRange against memory_store.
+  delete_req(memory_store);
+  TENSORSTORE_EXPECT_OK(open_future.result());
+}
+
 }  // namespace
