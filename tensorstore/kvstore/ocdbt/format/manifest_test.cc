@@ -20,15 +20,20 @@
 #include <limits>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/config_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/util/result.h"
@@ -39,7 +44,10 @@ namespace {
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::CommitTime;
+using ::tensorstore::internal_ocdbt::ConfigCodec;
 using ::tensorstore::internal_ocdbt::DecodeManifest;
+using ::tensorstore::internal_ocdbt::EncodeManifestUnchecked;
+using ::tensorstore::internal_ocdbt::GenerationNumber;
 using ::tensorstore::internal_ocdbt::Manifest;
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
@@ -213,6 +221,156 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   TestManifestRoundTrip(manifest);
 }
 
+// Generation numbers exceeding the maximum representable version tree height
+// for the configured `version_tree_arity_log2` must be rejected by
+// DecodeManifest.
+TEST(ManifestTest, GenerationNumberExceedsMaxHeight) {
+  Manifest manifest = GetSimpleManifest();
+  // With version_tree_arity_log2 = 5, GetMaxVersionTreeHeight(5) == 11, which
+  // can represent generations up to (1ULL << 60) + (1ULL << 5).
+  manifest.config.version_tree_arity_log2 = 5;
+  manifest.versions[0].generation_number = (GenerationNumber(1) << 60) + 32;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto valid_encoded,
+                                   EncodeManifestUnchecked(manifest));
+  EXPECT_THAT(DecodeManifest(valid_encoded), ::tensorstore::IsOk());
+
+  manifest.versions[0].generation_number = (GenerationNumber(1) << 60) + 33;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto invalid_encoded,
+                                   EncodeManifestUnchecked(manifest));
+  EXPECT_THAT(
+      DecodeManifest(invalid_encoded),
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("generation_number")));
+}
+
+// A version tree node reference whose generation_number is within
+// [min_generation_number, max_generation_number] at its height, but is not a
+// multiple of the node's stride `1 << (arity_log2 * height)`, must be
+// rejected.
+TEST(ManifestTest, VersionTreeNodeGenerationNotMultipleOfStride) {
+  Manifest manifest = GetSimpleManifest();
+  manifest.config.version_tree_arity_log2 = 2;
+  manifest.versions[0].generation_number = 9;
+  manifest.versions[0].commit_time = CommitTime{10};
+  auto& ref = manifest.version_tree_nodes.emplace_back();
+  ref.location = manifest.versions[0].root.location;
+  // For arity_log2=2 and height=1, stride is 4; 7 is in [1, 8] but not a
+  // multiple of 4.
+  ref.generation_number = 7;
+  ref.height = 1;
+  ref.num_generations = 4;
+  ref.commit_time = CommitTime{1};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
+                                   EncodeManifestUnchecked(manifest));
+  EXPECT_THAT(
+      DecodeManifest(encoded),
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("generation_number")));
+}
+
+// A version tree node reference whose `num_generations` exceeds the maximum
+// capacity of a node at its height must be rejected.
+TEST(ManifestTest, VersionTreeNodeTooManyGenerations) {
+  Manifest manifest = GetSimpleManifest();
+  manifest.config.version_tree_arity_log2 = 2;
+  manifest.versions[0].generation_number = 9;
+  manifest.versions[0].commit_time = CommitTime{10};
+  auto& ref = manifest.version_tree_nodes.emplace_back();
+  ref.location = manifest.versions[0].root.location;
+  ref.generation_number = 8;
+  ref.height = 1;
+  // Exceeds both child_generation_number_stride (4) and gen - min_gen + 1 (8).
+  ref.num_generations = 9;
+  ref.commit_time = CommitTime{1};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
+                                   EncodeManifestUnchecked(manifest));
+  EXPECT_THAT(DecodeManifest(encoded), StatusIs(absl::StatusCode::kDataLoss,
+                                                HasSubstr("num_generations")));
+}
+
+// Inline `versions` in a manifest must have strictly increasing `commit_time`
+// so that `CompareVersionSpecToVersion` binary search predicates remain
+// monotonic.
+TEST(ManifestTest, VersionCommitTimesMustStrictlyIncrease) {
+  const auto decode = [](CommitTime second_commit_time) -> Result<Manifest> {
+    Manifest manifest = GetSimpleManifest();
+    manifest.versions[0].commit_time = CommitTime{10};
+    auto& v2 = manifest.versions.emplace_back(manifest.versions[0]);
+    v2.generation_number = 2;
+    v2.commit_time = second_commit_time;
+    TENSORSTORE_ASSIGN_OR_RETURN(auto encoded,
+                                 EncodeManifestUnchecked(manifest));
+    return DecodeManifest(encoded);
+  };
+  EXPECT_THAT(decode(CommitTime{11}), ::tensorstore::IsOk());
+  EXPECT_THAT(decode(CommitTime{10}),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("commit_time")));
+  EXPECT_THAT(decode(CommitTime{5}),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("commit_time")));
+}
+
+// `version_tree_nodes` in a manifest must have strictly increasing
+// `commit_time` that is also < `versions.front().commit_time`.
+TEST(ManifestTest, VersionTreeNodeCommitTimeMustPrecedeVersions) {
+  const auto decode = [](CommitTime node_commit_time) -> Result<Manifest> {
+    Manifest manifest = GetSimpleManifest();
+    manifest.config.version_tree_arity_log2 = 2;
+    manifest.versions[0].generation_number = 9;
+    manifest.versions[0].commit_time = CommitTime{10};
+    auto& ref = manifest.version_tree_nodes.emplace_back();
+    ref.location = manifest.versions[0].root.location;
+    ref.generation_number = 8;
+    ref.height = 1;
+    ref.num_generations = 4;
+    ref.commit_time = node_commit_time;
+    TENSORSTORE_ASSIGN_OR_RETURN(auto encoded,
+                                 EncodeManifestUnchecked(manifest));
+    return DecodeManifest(encoded);
+  };
+  EXPECT_THAT(decode(CommitTime{9}), ::tensorstore::IsOk());
+  EXPECT_THAT(decode(CommitTime{10}),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("commit_time")));
+  EXPECT_THAT(decode(CommitTime{20}),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("commit_time")));
+}
+
+// ZstdCompressionOptionsCodec previously called reader.Fail(...) on an
+// out-of-range level [-131072, 22], but returned `true` instead of `false`,
+// allowing callers of ConfigCodec to continue reading subsequent fields.
+TEST(ManifestTest, InvalidZstdCompressionLevel) {
+  using ::tensorstore::internal_ocdbt::Config;
+  const auto decode_level = [](int32_t level) {
+    Config config;
+    config.compression = Config::ZstdCompression{level};
+    absl::Cord encoded;
+    {
+      riegeli::CordWriter writer{&encoded};
+      ABSL_CHECK(ConfigCodec{}(writer, config));
+      ABSL_CHECK(writer.Close());
+    }
+    Config decoded_config;
+    riegeli::CordReader reader{&encoded};
+    bool ok = ConfigCodec{}(reader, decoded_config);
+    return std::pair{ok, reader.status()};
+  };
+
+  EXPECT_THAT(decode_level(-131072),
+              ::testing::Pair(true, ::tensorstore::IsOk()));
+  EXPECT_THAT(decode_level(0), ::testing::Pair(true, ::tensorstore::IsOk()));
+  EXPECT_THAT(decode_level(22), ::testing::Pair(true, ::tensorstore::IsOk()));
+
+  EXPECT_THAT(
+      decode_level(-131073),
+      ::testing::Pair(false, StatusIs(absl::StatusCode::kInvalidArgument,
+                                      HasSubstr("Zstd compression level"))));
+  EXPECT_THAT(
+      decode_level(23),
+      ::testing::Pair(false, StatusIs(absl::StatusCode::kInvalidArgument,
+                                      HasSubstr("Zstd compression level"))));
+  EXPECT_THAT(
+      decode_level(999999),
+      ::testing::Pair(false, StatusIs(absl::StatusCode::kInvalidArgument,
+                                      HasSubstr("Zstd compression level"))));
+}
+
 namespace for_each_manifest_version_tree_node_ref {
 using ::tensorstore::internal_ocdbt::ForEachManifestVersionTreeNodeRef;
 using ::tensorstore::internal_ocdbt::GenerationNumber;
@@ -242,6 +400,21 @@ TEST(ForEachManifestVersionTreeNodeRefTest, SimpleCases) {
               ::testing::ElementsAre(R{33, 40, 1}, R{1, 32, 2}));
   EXPECT_THAT(GetRanges(17, 1),
               ::testing::ElementsAre(R{13, 16, 1}, R{9, 12, 2}, R{1, 8, 3}));
+}
+
+// Generation numbers >= 2**63 previously resulted in shifts by >= 64 bits,
+// which is undefined behavior.
+TEST(ForEachManifestVersionTreeNodeRefTest, MaxGenerationNumber) {
+  constexpr GenerationNumber kMax =
+      std::numeric_limits<GenerationNumber>::max();
+  EXPECT_THAT(
+      GetRanges(kMax, 16),
+      ::testing::ElementsAre(R{0xffffffff00000001, 0xffffffffffff0000, 1},
+                             R{0xffff000000000001, 0xffffffff00000000, 2},
+                             R{1, 0xffff000000000000, 3}));
+  auto ranges = GetRanges(kMax, 1);
+  EXPECT_THAT(ranges, ::testing::SizeIs(63));
+  EXPECT_THAT(ranges.back(), R(1, GenerationNumber(1) << 63, 63));
 }
 
 class ForEachManifestVersionTreeNodeRefPropertyTest

@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -41,6 +42,7 @@
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
@@ -67,6 +69,7 @@ namespace tensorstore {
 namespace cli {
 namespace {
 
+using ::tensorstore::KeyRange;
 using ::tensorstore::QuoteString;
 using ::tensorstore::internal_ocdbt::BtreeNode;
 using ::tensorstore::internal_ocdbt::BtreeNodeHeight;
@@ -78,8 +81,10 @@ using ::tensorstore::internal_ocdbt::ConfigState;
 using ::tensorstore::internal_ocdbt::FormatVersionSpec;
 using ::tensorstore::internal_ocdbt::GenerationNumber;
 using ::tensorstore::internal_ocdbt::GetBtreeNodeLocalStatistics;
+using ::tensorstore::internal_ocdbt::GetChildExclusiveMaxKey;
 using ::tensorstore::internal_ocdbt::IndirectDataReference;
 using ::tensorstore::internal_ocdbt::IoHandle;
+using ::tensorstore::internal_ocdbt::kMaxKeyLength;
 using ::tensorstore::internal_ocdbt::kMaxNodeArity;
 using ::tensorstore::internal_ocdbt::Manifest;
 using ::tensorstore::internal_ocdbt::ParseVersionSpecFromUrl;
@@ -96,6 +101,8 @@ struct VisitedBtreeNodeInfo {
   BtreeNodeStatistics statistics;
   BtreeNodeHeight height;
   std::string first_key;
+  std::string last_key;
+  size_t max_suffix_length = 0;
 };
 
 struct VisitedVersionNodeInfo {
@@ -109,6 +116,8 @@ struct BtreeTask {
   BtreeNodeReference ref;
   BtreeNodeHeight height;
   std::string inclusive_min_key;
+  size_t prefix_length = 0;
+  std::string exclusive_max_key;
 };
 
 class OcdbtCheckRunner {
@@ -432,7 +441,8 @@ class OcdbtCheckRunner {
 
   absl::Status HandleBtreeNode(BtreeTask task, const BtreeNode& node) {
     auto validation_status =
-        ValidateBtreeNodeReference(node, task.height, task.inclusive_min_key);
+        ValidateBtreeNodeReference(node, task.height, task.inclusive_min_key,
+                                   task.prefix_length, task.exclusive_max_key);
     if (!validation_status.ok()) {
       reporter_.ReportError(tensorstore::StatusBuilder(validation_status)
                                 .Format("Validation error for B-tree node %v",
@@ -521,10 +531,17 @@ class OcdbtCheckRunner {
     }
 
     std::string first_key;
+    std::string last_key;
+    size_t max_suffix_length = 0;
     std::visit(
         [&](const auto& entries) {
           if (!entries.empty()) {
             first_key = absl::StrCat(node.key_prefix, entries.front().key);
+            last_key = absl::StrCat(node.key_prefix, entries.back().key);
+          }
+          for (const auto& entry : entries) {
+            max_suffix_length = std::max(
+                max_suffix_length, node.key_prefix.size() + entry.key.size());
           }
         },
         node.entries);
@@ -533,11 +550,18 @@ class OcdbtCheckRunner {
       absl::MutexLock lock(mutex_);
       if (node.height > 0) {
         auto& entries = std::get<BtreeNode::InteriorNodeEntries>(node.entries);
+        size_t prefix_length = task.prefix_length + node.key_prefix.size();
+        std::string_view stripped_exclusive_max =
+            KeyRange::RemovePrefixFromExclusiveMax(node.key_prefix,
+                                                   task.exclusive_max_key);
         for (auto it = entries.rbegin(); it != entries.rend(); ++it) {
           const auto& child_entry = *it;
           EnqueueBtreeTaskLocked(BtreeTask{
               child_entry.node, static_cast<BtreeNodeHeight>(task.height - 1),
-              std::string(child_entry.key_suffix())});
+              std::string(child_entry.key_suffix()),
+              prefix_length + child_entry.subtree_common_prefix_length,
+              std::string(GetChildExclusiveMaxKey(entries, child_entry,
+                                                  stripped_exclusive_max))});
         }
       } else {
         auto& entries = std::get<BtreeNode::LeafNodeEntries>(node.entries);
@@ -556,7 +580,8 @@ class OcdbtCheckRunner {
       }
 
       visited_btree_nodes_[task.ref.location] = VisitedBtreeNodeInfo{
-          calculated_stats, node.height, std::move(first_key)};
+          calculated_stats, node.height, std::move(first_key),
+          std::move(last_key), max_suffix_length};
     }
     return absl::OkStatus();
   }
@@ -719,6 +744,23 @@ class OcdbtCheckRunner {
                       "inclusive_min %v specified by parent node",
                       QuoteString(info.first_key), task.ref.location,
                       QuoteString(task.inclusive_min_key)));
+    }
+    if (task.prefix_length + info.max_suffix_length > kMaxKeyLength) {
+      reporter_.ReportError(
+          tensorstore::StatusBuilder(absl::StatusCode::kDataLoss)
+              .Format("Key length %d of cached B-tree node %v exceeds max "
+                      "key length %d",
+                      task.prefix_length + info.max_suffix_length,
+                      task.ref.location, kMaxKeyLength));
+    }
+    if (!task.exclusive_max_key.empty() &&
+        info.last_key >= task.exclusive_max_key) {
+      reporter_.ReportError(
+          tensorstore::StatusBuilder(absl::StatusCode::kDataLoss)
+              .Format("Last key %v of cached B-tree node %v is not less than "
+                      "exclusive_max %v specified by parent node",
+                      QuoteString(info.last_key), task.ref.location,
+                      QuoteString(task.exclusive_max_key)));
     }
   }
 

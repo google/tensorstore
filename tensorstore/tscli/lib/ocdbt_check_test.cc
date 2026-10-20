@@ -27,6 +27,10 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
+#include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
@@ -36,7 +40,18 @@
 namespace {
 
 namespace kvstore = ::tensorstore::kvstore;
+
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal_ocdbt::BtreeInteriorNodeEncoder;
+using ::tensorstore::internal_ocdbt::BtreeLeafNodeEncoder;
+using ::tensorstore::internal_ocdbt::BtreeNodeReference;
+using ::tensorstore::internal_ocdbt::Config;
+using ::tensorstore::internal_ocdbt::DataFileId;
+using ::tensorstore::internal_ocdbt::DecodeManifest;
+using ::tensorstore::internal_ocdbt::EncodeManifest;
+using ::tensorstore::internal_ocdbt::InteriorNodeEntry;
+using ::tensorstore::internal_ocdbt::LeafNodeEntry;
+using ::tensorstore::internal_ocdbt::LeafNodeValueReference;
 using ::testing::HasSubstr;
 
 class OcdbtCheckTest : public ::testing::Test {
@@ -443,6 +458,7 @@ TEST_F(OcdbtCheckTest, SharedBtreeNodeStatsMismatch) {
 
   auto v2 = v1;
   v2.generation_number = v1.generation_number + 1;  // valid gen 2
+  ++v2.commit_time.value;  // commit times must strictly increase
 
   v1.root.statistics.num_keys += 10;  // Corrupt older gen 1 stats
 
@@ -498,6 +514,7 @@ TEST_F(OcdbtCheckTest, SharedBtreeNodeHeightMismatch) {
 
   auto v2 = v1;
   v2.generation_number = v1.generation_number + 1;  // valid gen 2
+  ++v2.commit_time.value;  // commit times must strictly increase
 
   v1.root_height += 1;  // Corrupt older gen 1 height
 
@@ -520,6 +537,96 @@ TEST_F(OcdbtCheckTest, SharedBtreeNodeHeightMismatch) {
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kDataLoss));
   EXPECT_THAT(output.str(),
               HasSubstr("Height mismatch for cached B-tree node"));
+}
+
+TEST_F(OcdbtCheckTest, ChildKeyExceedsSiblingExclusiveMax) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://excl_max_check/"}},
+                    context_)
+          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(ocdbt_store, "a", absl::Cord("v")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      kvstore::Open({{"driver", "memory"}, {"path", "excl_max_check/"}},
+                    context_)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto manifest_read, kvstore::Read(base_store, "manifest.ocdbt").result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto manifest,
+                                   DecodeManifest(manifest_read.value));
+  const Config& config = manifest.config;
+
+  // Child 0 has keys "a" and "z" (which violates child 1's inclusive_min "m").
+  BtreeLeafNodeEncoder leaf0_enc(config, /*height=*/0, /*existing_prefix=*/{});
+  leaf0_enc.AddEntry(
+      /*existing=*/true,
+      LeafNodeEntry{"a", LeafNodeValueReference(absl::Cord("va"))});
+  leaf0_enc.AddEntry(
+      /*existing=*/true,
+      LeafNodeEntry{"z", LeafNodeValueReference(absl::Cord("vz"))});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto leaf0_encoded,
+                                   leaf0_enc.Finalize(/*may_be_root=*/false));
+
+  BtreeLeafNodeEncoder leaf1_enc(config, /*height=*/0, /*existing_prefix=*/{});
+  leaf1_enc.AddEntry(
+      /*existing=*/true,
+      LeafNodeEntry{"m", LeafNodeValueReference(absl::Cord("vm"))});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto leaf1_encoded,
+                                   leaf1_enc.Finalize(/*may_be_root=*/false));
+
+  absl::Cord data_file;
+  DataFileId file_id{tensorstore::internal::RefCountedString(),
+                     tensorstore::internal::RefCountedString("d/custom")};
+
+  BtreeNodeReference child0_ref;
+  child0_ref.location.file_id = file_id;
+  child0_ref.location.offset = 0;
+  child0_ref.location.length = leaf0_encoded[0].encoded_node.size();
+  child0_ref.statistics = leaf0_encoded[0].info.statistics;
+  data_file.Append(leaf0_encoded[0].encoded_node);
+
+  BtreeNodeReference child1_ref;
+  child1_ref.location.file_id = file_id;
+  child1_ref.location.offset = data_file.size();
+  child1_ref.location.length = leaf1_encoded[0].encoded_node.size();
+  child1_ref.statistics = leaf1_encoded[0].info.statistics;
+  data_file.Append(leaf1_encoded[0].encoded_node);
+
+  BtreeInteriorNodeEncoder root_enc(config, /*height=*/1,
+                                    /*existing_prefix=*/{});
+  root_enc.AddEntry(
+      /*existing=*/true,
+      InteriorNodeEntry{"a", /*subtree_common_prefix_length=*/0, child0_ref});
+  root_enc.AddEntry(
+      /*existing=*/true,
+      InteriorNodeEntry{"m", /*subtree_common_prefix_length=*/0, child1_ref});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto root_encoded,
+                                   root_enc.Finalize(/*may_be_root=*/true));
+
+  BtreeNodeReference root_ref;
+  root_ref.location.file_id = file_id;
+  root_ref.location.offset = data_file.size();
+  root_ref.location.length = root_encoded[0].encoded_node.size();
+  root_ref.statistics = root_encoded[0].info.statistics;
+  data_file.Append(root_encoded[0].encoded_node);
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/custom", data_file));
+
+  manifest.versions.back().root = root_ref;
+  manifest.versions.back().root_height = 1;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_manifest, EncodeManifest(manifest));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "manifest.ocdbt", new_manifest));
+
+  std::stringstream output;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, kvstore::Spec::FromJson(
+                     {{"driver", "memory"}, {"path", "excl_max_check/"}}));
+  auto status = tensorstore::cli::OcdbtCheck(context_, spec, output);
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kDataLoss));
+  EXPECT_THAT(output.str(), HasSubstr("exclusive_max"));
 }
 
 }  // namespace

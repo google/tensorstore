@@ -106,7 +106,8 @@ struct ListOperation
     }
     VisitSubtree(std::move(op), generation_ref.root, generation_ref.root_height,
                  /*inclusive_min_key=*/{},
-                 /*subtree_common_prefix_length=*/0);
+                 /*subtree_common_prefix_length=*/0,
+                 /*exclusive_max_key=*/{});
   }
 
   // Emit all matches within a subtree.
@@ -118,11 +119,14 @@ struct ListOperation
   //   prefix_length: Length of the prefix of `inclusive_min_key` that specifies
   //     the implicit prefix that is excluded from the encoded representation of
   //     the node.
+  //   exclusive_max_key: Exclusive upper bound on the keys of the node,
+  //     relative to the implicit prefix, or empty if there is no upper bound.
   static void VisitSubtree(ListOperation::Ptr op,
                            const BtreeNodeReference& node_ref,
                            BtreeNodeHeight node_height,
                            std::string inclusive_min_key,
-                           KeyLength subtree_common_prefix_length) {
+                           KeyLength subtree_common_prefix_length,
+                           std::string exclusive_max_key) {
     ABSL_LOG_IF(INFO, ocdbt_logging)
         << "List: node=" << node_ref
         << ", node_height=" << static_cast<int>(node_height)
@@ -133,7 +137,8 @@ struct ListOperation
     Link(WithExecutor(op_ptr->io_handle->executor,
                       NodeReadyCallback{std::move(op), node_height,
                                         std::move(inclusive_min_key),
-                                        subtree_common_prefix_length}),
+                                        subtree_common_prefix_length,
+                                        std::move(exclusive_max_key)}),
          op_ptr->promise, op_ptr->io_handle->GetBtreeNode(node_ref.location));
   }
 
@@ -152,6 +157,10 @@ struct ListOperation
     // `inclusive_min_key.substr(subtree_common_prefix_length)`.
     KeyLength subtree_common_prefix_length;
 
+    // Exclusive upper bound key suffix relative to the implicit prefix of
+    // length `subtree_common_prefix_length`.
+    std::string exclusive_max_key;
+
     void operator()(
         Promise<void> promise,
         ReadyFuture<const std::shared_ptr<const BtreeNode>> read_future) {
@@ -161,7 +170,9 @@ struct ListOperation
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateBtreeNodeReference(*node, node_height,
                                      std::string_view(inclusive_min_key)
-                                         .substr(subtree_common_prefix_length)))
+                                         .substr(subtree_common_prefix_length),
+                                     subtree_common_prefix_length,
+                                     exclusive_max_key))
           .With([&](absl::Status error) { op->SetError(std::move(error)); });
       auto& subtree_key_prefix = inclusive_min_key;
       subtree_key_prefix.resize(subtree_common_prefix_length);
@@ -169,7 +180,9 @@ struct ListOperation
       auto key_range = KeyRange::RemovePrefix(subtree_key_prefix, op->range);
 
       if (node->height > 0) {
-        VisitInteriorNode(std::move(op), *node, subtree_key_prefix, key_range);
+        VisitInteriorNode(std::move(op), *node, subtree_key_prefix, key_range,
+                          KeyRange::RemovePrefixFromExclusiveMax(
+                              node->key_prefix, exclusive_max_key));
       } else {
         VisitLeafNode(std::move(op), *node, subtree_key_prefix, key_range);
       }
@@ -177,9 +190,13 @@ struct ListOperation
   };
 
   // Recursively visits matching children.
+  //
+  // `node_exclusive_max` is the exclusive upper bound on the keys of `node`,
+  // relative to `subtree_key_prefix`, or empty if there is no upper bound.
   static void VisitInteriorNode(ListOperation::Ptr op, const BtreeNode& node,
                                 std::string_view subtree_key_prefix,
-                                const KeyRange& key_range) {
+                                const KeyRange& key_range,
+                                std::string_view node_exclusive_max) {
     auto& all_entries = std::get<BtreeNode::InteriorNodeEntries>(node.entries);
     auto entries = FindBtreeEntryRange(all_entries, key_range.inclusive_min,
                                        key_range.exclusive_max);
@@ -198,7 +215,10 @@ struct ListOperation
                    /*inclusive_min_key=*/
                    absl::StrCat(subtree_key_prefix, entry.key),
                    /*subtree_common_prefix_length=*/subtree_key_prefix.size() +
-                       entry.subtree_common_prefix_length);
+                       entry.subtree_common_prefix_length,
+                   /*exclusive_max_key=*/
+                   std::string(GetChildExclusiveMaxKey(all_entries, entry,
+                                                       node_exclusive_max)));
     }
   }
 
@@ -237,18 +257,12 @@ struct KeyReceiverAdapter {
   void set_value(std::string_view key_prefix,
                  tensorstore::span<const LeafNodeEntry> entries) {
     for (const auto& entry : entries) {
-      auto key = absl::StrCat(
-          std::string_view(key_prefix)
-              .substr(std::min(key_prefix.size(), strip_prefix_length)),
-          std::string_view(entry.key).substr(
-              std::min(entry.key.size(),
-                       strip_prefix_length -
-                           std::min(strip_prefix_length, key_prefix.size()))));
-      execution::set_value(receiver,
-                           ListEntry{
-                               std::move(key),
-                               ListEntry::checked_size(entry.value_size()),
-                           });
+      execution::set_value(
+          receiver, ListEntry{
+                        GetListedKey(/*add_prefix=*/{}, strip_prefix_length,
+                                     key_prefix, entry.key),
+                        ListEntry::checked_size(entry.value_size()),
+                    });
     }
   }
 
@@ -298,6 +312,31 @@ void NonDistributedList(ReadonlyIoHandle::Ptr io_handle,
                                   options.staleness_bound));
 }
 
+std::string GetListedKey(std::string_view add_prefix,
+                         size_t strip_prefix_length,
+                         std::string_view key_prefix,
+                         std::string_view key_suffix) {
+  const size_t strip_from_prefix =
+      std::min(key_prefix.size(), strip_prefix_length);
+  const size_t strip_from_suffix =
+      std::min(key_suffix.size(), strip_prefix_length - strip_from_prefix);
+  return absl::StrCat(add_prefix, key_prefix.substr(strip_from_prefix),
+                      key_suffix.substr(strip_from_suffix));
+}
+
+Result<std::vector<std::string>> GetCopySubtreeTargetKeys(
+    std::string_view add_prefix, size_t strip_prefix_length,
+    std::string_view key_prefix, span<const LeafNodeEntry> entries) {
+  std::vector<std::string> keys;
+  keys.reserve(entries.size());
+  for (const auto& entry : entries) {
+    auto& key = keys.emplace_back(
+        GetListedKey(add_prefix, strip_prefix_length, key_prefix, entry.key));
+    TENSORSTORE_RETURN_IF_ERROR(ValidateKeyLength(key));
+  }
+  return keys;
+}
+
 void NonDistributedListSubtree(
     ReadonlyIoHandle::Ptr io_handle, const BtreeNodeReference& node_ref,
     BtreeNodeHeight node_height, std::string subtree_key_prefix,
@@ -309,7 +348,8 @@ void NonDistributedListSubtree(
   const size_t subtree_common_prefix_length = subtree_key_prefix.size();
   ListOperation::VisitSubtree(std::move(op), node_ref, node_height,
                               std::move(subtree_key_prefix),
-                              subtree_common_prefix_length);
+                              subtree_common_prefix_length,
+                              /*exclusive_max_key=*/{});
 }
 
 }  // namespace internal_ocdbt

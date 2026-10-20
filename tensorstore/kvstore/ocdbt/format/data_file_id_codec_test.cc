@@ -14,11 +14,15 @@
 
 #include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 
+#include <stdint.h>
+
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
@@ -238,6 +242,110 @@ TEST(DataFileBuilderTest, PrefixLengthLongerThanPrevBasePath) {
   ASSERT_TRUE(writer.Close());
   EXPECT_THAT(Decode(encoded), StatusIs(absl::StatusCode::kDataLoss,
                                         HasSubstr("path_prefix_length")));
+}
+
+// Encodes a data file table directly from its column representation,
+// bypassing `DataFileTableBuilder` so that encoder invariants (sort order,
+// prefix lengths) may be violated.
+absl::Cord EncodeRawDataFileTable(std::vector<uint64_t> prefix_lengths,
+                                  std::vector<uint64_t> suffix_lengths,
+                                  std::vector<uint64_t> base_path_lengths,
+                                  std::string_view suffix_data) {
+  absl::Cord encoded;
+  riegeli::CordWriter writer{&encoded};
+  ABSL_CHECK(riegeli::WriteVarint64(suffix_lengths.size(), writer));
+  for (uint64_t x : prefix_lengths) {
+    ABSL_CHECK(riegeli::WriteVarint64(x, writer));
+  }
+  for (uint64_t x : suffix_lengths) {
+    ABSL_CHECK(riegeli::WriteVarint64(x, writer));
+  }
+  for (uint64_t x : base_path_lengths) {
+    ABSL_CHECK(riegeli::WriteVarint64(x, writer));
+  }
+  ABSL_CHECK(writer.Write(suffix_data));
+  ABSL_CHECK(writer.Close());
+  return encoded;
+}
+
+MATCHER_P2(FileIdIs, base_path, relative_path, "") {
+  return std::string_view(arg.base_path) == base_path &&
+         std::string_view(arg.relative_path) == relative_path;
+}
+
+// The common prefix covers the entire (shorter) base path of entry 1, but the
+// base paths differ.  The base path of entry 1 must not alias the longer base
+// path of entry 0.
+TEST(DataFileBuilderTest, PrefixEqualToShorterBasePath) {
+  EXPECT_THAT(
+      Decode(EncodeRawDataFileTable(/*prefix_lengths=*/{2},
+                                    /*suffix_lengths=*/{5, 1},
+                                    /*base_path_lengths=*/{4, 2}, "abcdxy")),
+      ::tensorstore::IsOkAndHolds(::testing::Field(
+          &DataFileTable::files,
+          ::testing::ElementsAre(FileIdIs("abcd", "x"), FileIdIs("ab", "y")))));
+  EXPECT_THAT(
+      Decode(EncodeRawDataFileTable(/*prefix_lengths=*/{2},
+                                    /*suffix_lengths=*/{5, 1},
+                                    /*base_path_lengths=*/{4, 2}, "abcdxy"),
+             "t/"),
+      ::tensorstore::IsOkAndHolds(
+          ::testing::Field(&DataFileTable::files,
+                           ::testing::ElementsAre(FileIdIs("t/abcd", "x"),
+                                                  FileIdIs("t/ab", "y")))));
+}
+
+// Mirror of PrefixEqualToShorterBasePath: entry 0 has the shorter base path
+// and entry 1 extends it.
+TEST(DataFileBuilderTest, PrefixEqualToPrevShorterBasePath) {
+  EXPECT_THAT(
+      Decode(EncodeRawDataFileTable(/*prefix_lengths=*/{2},
+                                    /*suffix_lengths=*/{3, 3},
+                                    /*base_path_lengths=*/{2, 4}, "abxcdy")),
+      ::tensorstore::IsOkAndHolds(::testing::Field(
+          &DataFileTable::files,
+          ::testing::ElementsAre(FileIdIs("ab", "x"), FileIdIs("abcd", "y")))));
+}
+
+// Positive boundary: prefix_length equals the full previous path length.
+TEST(DataFileBuilderTest, PrefixEqualToPrevPathLength) {
+  EXPECT_THAT(
+      Decode(EncodeRawDataFileTable(/*prefix_lengths=*/{4},
+                                    /*suffix_lengths=*/{4, 1},
+                                    /*base_path_lengths=*/{2, 2}, "abcde")),
+      ::tensorstore::IsOkAndHolds(
+          ::testing::Field(&DataFileTable::files,
+                           ::testing::ElementsAre(FileIdIs("ab", "cd"),
+                                                  FileIdIs("ab", "cde")))));
+}
+
+// prefix_length[1] exceeds the length of the previous (empty base path)
+// relative path.  Previously this read out of bounds of the previous entry's
+// relative path buffer.
+TEST(DataFileBuilderTest, PrefixLengthLongerThanPrevRelativePath) {
+  EXPECT_THAT(
+      Decode(EncodeRawDataFileTable(/*prefix_lengths=*/{60000},
+                                    /*suffix_lengths=*/{8, 0},
+                                    /*base_path_lengths=*/{0, 0}, "AAAAAAAA")),
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("path_prefix_length")));
+}
+
+// Same as above, but with a shared non-empty base path.
+TEST(DataFileBuilderTest, PrefixLengthLongerThanPrevPathSharedBasePath) {
+  EXPECT_THAT(
+      Decode(EncodeRawDataFileTable(/*prefix_lengths=*/{1000},
+                                    /*suffix_lengths=*/{3, 0},
+                                    /*base_path_lengths=*/{2, 2}, "abc")),
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("path_prefix_length")));
+}
+
+// Same as above, but the previous relative path is empty.
+TEST(DataFileBuilderTest, PrefixLengthWithEmptyPrevRelativePath) {
+  EXPECT_THAT(
+      Decode(EncodeRawDataFileTable(/*prefix_lengths=*/{3},
+                                    /*suffix_lengths=*/{2, 2},
+                                    /*base_path_lengths=*/{2, 2}, "abcd")),
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("path_prefix_length")));
 }
 
 }  // namespace

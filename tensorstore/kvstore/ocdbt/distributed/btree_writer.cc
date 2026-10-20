@@ -546,7 +546,10 @@ void WriterCommitOperation::VisitNode(VisitNodeParameters&& state,
       ValidateBtreeNodeReference(
           *node, state.node_identifier.height,
           std::string_view(state.inclusive_min_key)
-              .substr(state.subtree_common_prefix_length)))
+              .substr(state.subtree_common_prefix_length),
+          state.subtree_common_prefix_length,
+          KeyRange::RemovePrefixFromExclusiveMax(
+              state.key_prefix(), state.node_identifier.range.exclusive_max)))
       .With([&](absl::Status status) { state.SetError(std::move(status)); });
 
   span<const PendingDistributedRequests::WriteRequest> write_requests =

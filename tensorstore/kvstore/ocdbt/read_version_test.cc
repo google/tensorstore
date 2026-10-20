@@ -262,7 +262,8 @@ void TestVersioning(::nlohmann::json config_json, size_t num_writes) {
 
   // Test that `ListVersionsFuture` correctly handles all possible boundary
   // points.
-  for (ptrdiff_t version_i = -1; version_i <= generations.size(); ++version_i) {
+  for (ptrdiff_t version_i = -1;
+       version_i <= static_cast<ptrdiff_t>(generations.size()); ++version_i) {
     SCOPED_TRACE(absl::StrFormat("version_i=%d", version_i));
     GenerationNumber generation_number =
         static_cast<GenerationNumber>(version_i + 1);
@@ -272,8 +273,8 @@ void TestVersioning(::nlohmann::json config_json, size_t num_writes) {
       exact_commit_time = generations[0].commit_time;
       --exact_commit_time.value;
       intermediate_commit_time = exact_commit_time;
-    } else if (version_i < generations.size()) {
-      exact_commit_time = generations[0].commit_time;
+    } else if (version_i < static_cast<ptrdiff_t>(generations.size())) {
+      exact_commit_time = generations[version_i].commit_time;
       intermediate_commit_time = exact_commit_time;
       intermediate_commit_time.value--;
     } else {

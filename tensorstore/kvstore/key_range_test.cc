@@ -232,6 +232,13 @@ TEST(KeyRangeTest, RemovePrefix) {
               ::testing::Eq(KeyRange("\xff", "")));
 }
 
+TEST(KeyRangeTest, RemovePrefixFromExclusiveMax) {
+  EXPECT_EQ("d", KeyRange::RemovePrefixFromExclusiveMax("a/", "a/d"));
+  EXPECT_EQ("b", KeyRange::RemovePrefixFromExclusiveMax("", "b"));
+  EXPECT_EQ("", KeyRange::RemovePrefixFromExclusiveMax("a/", "b"));
+  EXPECT_EQ("", KeyRange::RemovePrefixFromExclusiveMax("a/", ""));
+}
+
 TEST(KeyRangeTest, RemovePrefixLength) {
   EXPECT_THAT(KeyRange::RemovePrefixLength(0, KeyRange("a", "b")),
               ::testing::Eq(KeyRange("a", "b")));

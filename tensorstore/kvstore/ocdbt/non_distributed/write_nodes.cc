@@ -72,7 +72,7 @@ Result<BtreeGenerationReference> WriteRootNode(
 
     // Create additional level.
     if (height == std::numeric_limits<BtreeNodeHeight>::max()) {
-      return absl::DataLossError("Maximum B+tree height exceeded");
+      return absl::FailedPreconditionError("Maximum B+tree height exceeded");
     }
     ++height;
     auto* config = io_handle.config_state->GetExistingConfig();

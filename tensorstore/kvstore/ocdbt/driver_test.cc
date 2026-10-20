@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/ocdbt/driver.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <initializer_list>
@@ -25,6 +26,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -47,6 +49,7 @@
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
@@ -62,6 +65,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -78,10 +82,20 @@ using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal::UniqueNow;
+using ::tensorstore::internal_ocdbt::BtreeNodeEncoder;
+using ::tensorstore::internal_ocdbt::BtreeNodeHeight;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::Config;
 using ::tensorstore::internal_ocdbt::ConfigConstraints;
+using ::tensorstore::internal_ocdbt::DataFileId;
+using ::tensorstore::internal_ocdbt::EncodeManifest;
 using ::tensorstore::internal_ocdbt::FormatCommitTimeForUrl;
+using ::tensorstore::internal_ocdbt::IndirectDataReference;
+using ::tensorstore::internal_ocdbt::InteriorNodeEntry;
+using ::tensorstore::internal_ocdbt::kMaxKeyLength;
+using ::tensorstore::internal_ocdbt::kMaxPathLength;
+using ::tensorstore::internal_ocdbt::LeafNodeEntry;
+using ::tensorstore::internal_ocdbt::Manifest;
 using ::tensorstore::internal_ocdbt::ManifestKind;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
 using ::tensorstore::internal_ocdbt::ReadManifest;
@@ -1144,6 +1158,602 @@ TEST(OcdbtTest, UrlErrors) {
   EXPECT_THAT(kvstore::Spec::FromJson("memory://abc.ocdbt/|ocdbt:@x"),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Invalid OCDBT commit time \"x\": ")));
+}
+
+// Writing a key longer than `kMaxKeyLength` (65,535 bytes) must return an
+// error rather than crashing on `ABSL_DCHECK` in `BtreeNodeEncoder::AddEntry`
+// or silently truncating the 16-bit key length.
+TEST(OcdbtTest, WriteKeyTooLong) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}).result());
+  std::string too_long_key(kMaxKeyLength + 1, 'a');
+  EXPECT_THAT(kvstore::Write(store, too_long_key, absl::Cord("v")).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("exceeds maximum length")));
+}
+
+// Across multiple B-tree levels, each individual node's local keys and
+// `subtree_common_prefix_length` can be <= `kMaxKeyLength` (65,535), while
+// their cumulative full key length exceeds `kMaxKeyLength`. Reading, listing,
+// or writing into such a subtree must fail with `kDataLoss`.
+TEST(OcdbtTest, MultiLevelKeyLengthOverflow) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+
+  Config config;
+  config.compression = Config::NoCompression{};
+
+  // Encode a leaf node whose local key length is 30,000 (<= 65,535), but when
+  // combined with a 40,000-byte ancestor prefix exceeds kMaxKeyLength (65,535).
+  std::string leaf_key(30000, 'b');
+  absl::Cord encoded_leaf;
+  {
+    BtreeNodeEncoder<LeafNodeEntry> leaf_encoder(config, /*height=*/0,
+                                                 /*existing_prefix=*/"");
+    leaf_encoder.AddEntry(/*existing=*/true,
+                          LeafNodeEntry{leaf_key, absl::Cord("value")});
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto leaf_nodes, leaf_encoder.Finalize(/*may_be_root=*/true));
+    ASSERT_THAT(leaf_nodes, ::testing::SizeIs(1));
+    encoded_leaf = leaf_nodes[0].encoded_node;
+  }
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/leaf", encoded_leaf));
+
+  // Encode a root interior node at height 1 with a 40,000-byte
+  // subtree_common_prefix pointing to d/leaf.
+  std::string parent_prefix(40000, 'a');
+  absl::Cord encoded_root;
+  {
+    BtreeNodeEncoder<InteriorNodeEntry> root_encoder(config, /*height=*/1,
+                                                     /*existing_prefix=*/"");
+    InteriorNodeEntry entry;
+    entry.key = parent_prefix;
+    entry.subtree_common_prefix_length = parent_prefix.size();
+    entry.node.location =
+        IndirectDataReference{DataFileId{"", "d/leaf"}, 0, encoded_leaf.size()};
+    entry.node.statistics = {0, encoded_leaf.size(), 1};
+    root_encoder.AddEntry(/*existing=*/true, std::move(entry));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto root_nodes, root_encoder.Finalize(/*may_be_root=*/true));
+    ASSERT_THAT(root_nodes, ::testing::SizeIs(1));
+    encoded_root = root_nodes[0].encoded_node;
+  }
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/root", encoded_root));
+
+  Manifest manifest;
+  manifest.config = config;
+  auto& v = manifest.versions.emplace_back();
+  v.generation_number = 1;
+  v.root_height = 1;
+  v.commit_time = CommitTime{1};
+  v.root.location =
+      IndirectDataReference{DataFileId{"", "d/root"}, 0, encoded_root.size()};
+  v.root.statistics = {0, encoded_root.size() + encoded_leaf.size(), 1};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_manifest,
+                                   EncodeManifest(manifest));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "manifest.ocdbt", encoded_manifest));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+          .result());
+
+  EXPECT_THAT(kvstore::Read(ocdbt_store, absl::StrCat(parent_prefix, leaf_key))
+                  .result(),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("key")));
+  EXPECT_THAT(kvstore::ListFuture(ocdbt_store).result(),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("key")));
+  EXPECT_THAT(kvstore::Write(ocdbt_store, absl::StrCat(parent_prefix, "c"),
+                             absl::Cord("v2"))
+                  .result(),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("key")));
+}
+
+// `ParseNumberedManifestGenerationNumber` previously accepted uppercase hex
+// digits via `std::from_chars`, but `GetNumberedManifestPath` formats `%016x`
+// in lowercase, causing `ReadManifest` to get `NotFound` and re-list forever.
+// Non-canonical uppercase numbered manifest filenames must be ignored.
+TEST(OcdbtTest, NumberedManifestUppercaseIgnored) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  MockKeyValueStore* mock_key_value_store =
+      mock_key_value_store_resource->get();
+  mock_key_value_store->forward_to = base_store.driver;
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store, kvstore::Open(
+                            {
+                                {"driver", "ocdbt"},
+                                {"config", {{"manifest_kind", "numbered"}}},
+                                {"base", {{"driver", "mock_key_value_store"}}},
+                                {"cache_pool", {{"total_bytes_limit", 0}}},
+                            },
+                            context)
+                            .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(ocdbt_store, "a", absl::Cord("v1")));
+  mock_key_value_store->forward_to = {};
+
+  // Inject a non-canonical uppercase numbered manifest filename.
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "manifest.000000000000000A", absl::Cord("x")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store2, kvstore::Open(
+                             {
+                                 {"driver", "ocdbt"},
+                                 {"base", {{"driver", "mock_key_value_store"}}},
+                                 {"cache_pool", {{"total_bytes_limit", 0}}},
+                             },
+                             context)
+                             .result());
+
+  auto read_future = kvstore::Read(ocdbt_store2, "a");
+  read_future.Force();
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ(req.key, "manifest.ocdbt");
+    req(base_store.driver);
+  }
+  {
+    auto req = mock_key_value_store->list_requests.pop();
+    req(base_store.driver);
+  }
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    // Must read the canonical generation 2 manifest, ignoring uppercase 00..0A.
+    ASSERT_EQ(req.key, "manifest.0000000000000002");
+    req(base_store.driver);
+  }
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_THAT(req.key, ::testing::StartsWith("d/"));
+    req(base_store.driver);
+  }
+  EXPECT_THAT(read_future.result(), MatchesKvsReadResult(absl::Cord("v1")));
+}
+
+// Committing a write that requires growing the tree beyond the maximum height
+// representable by `BtreeNodeHeight` (255) must return `kFailedPrecondition`
+// rather than wrapping the height to 0 and writing an undecodable manifest.
+TEST(OcdbtTest, WriteExceedingMaxRootHeight) {
+  const auto delete_range_at_root_height =
+      [](BtreeNodeHeight initial_height) -> absl::Status {
+    auto context = Context::Default();
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_store,
+                                 kvstore::Open("memory://", context).result());
+
+    Config config;
+    config.compression = Config::NoCompression{};
+    config.max_decoded_node_bytes = 1;
+
+    // Encode a single root interior node with 5 entries by temporarily setting
+    // max_decoded_node_bytes = 0 so Finalize produces 1 node, while the
+    // manifest config has max_decoded_node_bytes = 1 so deleting "m" splits
+    // the remaining 4 entries into 2 nodes and attempts to grow the root
+    // height by 1.
+    Config root_encode_config = config;
+    root_encode_config.max_decoded_node_bytes = 0;
+    absl::Cord encoded_root;
+    {
+      BtreeNodeEncoder<InteriorNodeEntry> enc(root_encode_config,
+                                              initial_height, "");
+      for (const char* key : {"a", "d", "g", "j", "m"}) {
+        InteriorNodeEntry entry;
+        entry.key = key;
+        entry.subtree_common_prefix_length = 1;
+        entry.node.location =
+            IndirectDataReference{DataFileId{"", "d/child"}, 0, 10};
+        entry.node.statistics = {0, 10, 1};
+        enc.AddEntry(true, std::move(entry));
+      }
+      TENSORSTORE_ASSIGN_OR_RETURN(auto nodes, enc.Finalize(true));
+      ABSL_CHECK_EQ(nodes.size(), 1);
+      encoded_root = nodes[0].encoded_node;
+    }
+    TENSORSTORE_RETURN_IF_ERROR(
+        kvstore::Write(base_store, "d/root", encoded_root).result());
+
+    Manifest manifest;
+    manifest.config = config;
+    auto& v = manifest.versions.emplace_back();
+    v.generation_number = 1;
+    v.root_height = initial_height;
+    v.commit_time = CommitTime{1};
+    v.root.location =
+        IndirectDataReference{DataFileId{"", "d/root"}, 0, encoded_root.size()};
+    v.root.statistics = {0, encoded_root.size(), 5};
+    TENSORSTORE_ASSIGN_OR_RETURN(auto encoded_manifest,
+                                 EncodeManifest(manifest));
+    TENSORSTORE_RETURN_IF_ERROR(
+        kvstore::Write(base_store, "manifest.ocdbt", encoded_manifest)
+            .result());
+
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto ocdbt_store,
+        kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+            .result());
+    // Deleting ["m", "") deletes entry "m" at the root level without reading
+    // any child nodes, and splits the remaining 4 entries into 2 nodes,
+    // growing the tree height.
+    return kvstore::DeleteRange(ocdbt_store, KeyRange{"m", ""})
+        .result()
+        .status();
+  };
+
+  // Root split at initial_height == 254 grows the height to 255, which is
+  // still representable.
+  TENSORSTORE_EXPECT_OK(delete_range_at_root_height(254));
+  // Root split at initial_height == 255 would require height 256.
+  EXPECT_THAT(
+      delete_range_at_root_height(255),
+      StatusIs(absl::StatusCode::kFailedPrecondition, HasSubstr("height")));
+}
+
+// `ExperimentalCopyRange` prepends `data_path_prefix` to the source root
+// node's `base_path`; if the combined length exceeds `kMaxPathLength`
+// (65,535), the copy must fail cleanly with an error rather than tripping
+// `ABSL_CHECK(base_path.size() <= kMaxPathLength)` in `ReadDataFileTable`.
+TEST(OcdbtTest, CopyRangeBasePathTooLong) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+
+  Config config;
+  config.compression = Config::NoCompression{};
+
+  BtreeNodeEncoder<LeafNodeEntry> leaf_encoder(config, /*height=*/0,
+                                               /*existing_prefix=*/"");
+  leaf_encoder.AddEntry(/*existing=*/true,
+                        LeafNodeEntry{"x/a", absl::Cord("value_a")});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto leaf_nodes,
+                                   leaf_encoder.Finalize(/*may_be_root=*/true));
+  ASSERT_THAT(leaf_nodes, ::testing::SizeIs(1));
+  absl::Cord encoded_leaf = leaf_nodes[0].encoded_node;
+
+  std::string long_base_path(kMaxPathLength - 1, 'p');
+  TENSORSTORE_ASSERT_OK(kvstore::Write(
+      base_store, absl::StrCat("sub/", long_base_path, "f"), encoded_leaf));
+
+  Manifest manifest;
+  manifest.config = config;
+  auto& v = manifest.versions.emplace_back();
+  v.generation_number = 1;
+  v.root_height = 0;
+  v.commit_time = CommitTime{1};
+  v.root.location =
+      IndirectDataReference{DataFileId{std::string_view(long_base_path), "f"},
+                            0, encoded_leaf.size()};
+  v.root.statistics = {0, encoded_leaf.size(), 1};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_manifest,
+                                   EncodeManifest(manifest));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "sub/manifest.ocdbt", encoded_manifest));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto source_store,
+      kvstore::Open({{"driver", "ocdbt"},
+                     {"base", {{"driver", "memory"}, {"path", "sub/"}}}},
+                    context)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto target_store,
+      kvstore::Open(
+          {{"driver", "ocdbt"}, {"base", {{"driver", "memory"}, {"path", ""}}}},
+          context)
+          .result());
+
+  EXPECT_THAT(
+      kvstore::ExperimentalCopyRange(source_store.WithPathSuffix("x/"),
+                                     target_store.WithPathSuffix("y/"))
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("base path")));
+}
+
+// `ValidateBtreeNodeReference` previously checked only `first_key >=
+// inclusive_min`, never `last_key < exclusive_max` (the next sibling's key). A
+// child node containing keys >= its right sibling's inclusive_min must be
+// rejected on read, list, and write (where a split could otherwise overwrite
+// and orphan the right sibling's entire subtree).
+TEST(OcdbtTest, ChildKeyExceedsSiblingInclusiveMin) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+
+  Config config;
+  config.compression = Config::NoCompression{};
+
+  // Left leaf claims range ["a", "m"), but actually contains key "z" >= "m".
+  absl::Cord encoded_leaf0;
+  {
+    BtreeNodeEncoder<LeafNodeEntry> enc(config, /*height=*/0, "");
+    enc.AddEntry(true, LeafNodeEntry{"a", absl::Cord("v_a")});
+    enc.AddEntry(true, LeafNodeEntry{"z", absl::Cord("v_z")});
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto nodes, enc.Finalize(true));
+    ASSERT_THAT(nodes, ::testing::SizeIs(1));
+    encoded_leaf0 = nodes[0].encoded_node;
+  }
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/leaf0", encoded_leaf0));
+
+  absl::Cord encoded_leaf1;
+  {
+    BtreeNodeEncoder<LeafNodeEntry> enc(config, /*height=*/0, "");
+    enc.AddEntry(true, LeafNodeEntry{"m", absl::Cord("v_m")});
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto nodes, enc.Finalize(true));
+    ASSERT_THAT(nodes, ::testing::SizeIs(1));
+    encoded_leaf1 = nodes[0].encoded_node;
+  }
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/leaf1", encoded_leaf1));
+
+  absl::Cord encoded_root;
+  {
+    BtreeNodeEncoder<InteriorNodeEntry> enc(config, /*height=*/1, "");
+    InteriorNodeEntry e0;
+    e0.key = "a";
+    e0.subtree_common_prefix_length = 0;
+    e0.node.location = IndirectDataReference{DataFileId{"", "d/leaf0"}, 0,
+                                             encoded_leaf0.size()};
+    e0.node.statistics = {0, encoded_leaf0.size(), 2};
+    enc.AddEntry(true, std::move(e0));
+
+    InteriorNodeEntry e1;
+    e1.key = "m";
+    e1.subtree_common_prefix_length = 0;
+    e1.node.location = IndirectDataReference{DataFileId{"", "d/leaf1"}, 0,
+                                             encoded_leaf1.size()};
+    e1.node.statistics = {0, encoded_leaf1.size(), 1};
+    enc.AddEntry(true, std::move(e1));
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto nodes, enc.Finalize(true));
+    ASSERT_THAT(nodes, ::testing::SizeIs(1));
+    encoded_root = nodes[0].encoded_node;
+  }
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/root", encoded_root));
+
+  Manifest manifest;
+  manifest.config = config;
+  auto& v = manifest.versions.emplace_back();
+  v.generation_number = 1;
+  v.root_height = 1;
+  v.commit_time = CommitTime{1};
+  v.root.location =
+      IndirectDataReference{DataFileId{"", "d/root"}, 0, encoded_root.size()};
+  v.root.statistics = {0, encoded_root.size(), 3};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_manifest,
+                                   EncodeManifest(manifest));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "manifest.ocdbt", encoded_manifest));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+          .result());
+
+  EXPECT_THAT(kvstore::Read(ocdbt_store, "a").result(),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       ::testing::AnyOf(HasSubstr("exclusive_max"),
+                                        HasSubstr("parent node"))));
+  EXPECT_THAT(kvstore::ListFuture(ocdbt_store).result(),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       ::testing::AnyOf(HasSubstr("exclusive_max"),
+                                        HasSubstr("parent node"))));
+  EXPECT_THAT(kvstore::Write(ocdbt_store, "b", absl::Cord("v_b")).result(),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       ::testing::AnyOf(HasSubstr("exclusive_max"),
+                                        HasSubstr("parent node"))));
+}
+
+// A self-recursive B-tree interior node whose child `IndirectDataReference`
+// points back to the parent node itself is rejected by the height check in
+// `ValidateBtreeNodeReference` (`height == node.height - 1`).
+TEST(OcdbtTest, SelfRecursiveChildNodeRejectedByHeightCheck) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+
+  Config config;
+  config.compression = Config::NoCompression{};
+
+  const auto encode_root = [&](uint64_t self_length) {
+    BtreeNodeEncoder<InteriorNodeEntry> enc(config, /*height=*/1, "");
+    InteriorNodeEntry e0;
+    e0.key = "a";
+    e0.subtree_common_prefix_length = 0;
+    e0.node.location =
+        IndirectDataReference{DataFileId{"", "d/root"}, 0, self_length};
+    e0.node.statistics = {0, self_length, 1};
+    enc.AddEntry(true, std::move(e0));
+    return enc.Finalize(true);
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto trial_nodes, encode_root(32));
+  ASSERT_THAT(trial_nodes, ::testing::SizeIs(1));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto root_nodes, encode_root(trial_nodes[0].encoded_node.size()));
+  ASSERT_THAT(root_nodes, ::testing::SizeIs(1));
+  absl::Cord encoded_root = root_nodes[0].encoded_node;
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/root", encoded_root));
+
+  Manifest manifest;
+  manifest.config = config;
+  auto& v = manifest.versions.emplace_back();
+  v.generation_number = 1;
+  v.root_height = 1;
+  v.commit_time = CommitTime{1};
+  v.root.location =
+      IndirectDataReference{DataFileId{"", "d/root"}, 0, encoded_root.size()};
+  v.root.statistics = {0, encoded_root.size(), 1};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_manifest,
+                                   EncodeManifest(manifest));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "manifest.ocdbt", encoded_manifest));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+          .result());
+
+  EXPECT_THAT(
+      kvstore::Read(ocdbt_store, "a").result(),
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("Expected height")));
+  EXPECT_THAT(
+      kvstore::ListFuture(ocdbt_store).result(),
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("Expected height")));
+  EXPECT_THAT(
+      kvstore::Write(ocdbt_store, "b", absl::Cord("v_b")).result(),
+      StatusIs(absl::StatusCode::kDataLoss, HasSubstr("Expected height")));
+}
+
+// When an interior node entry has a non-empty `subtree_common_prefix` (e.g.
+// `"prefix_a/"`) that is NOT a prefix of the next sibling entry's key (e.g.
+// `"prefix_b/item1"`), the child's relative `exclusive_max` is unbounded (`""`)
+// because every key starting with `"prefix_a/"` is already strictly less than
+// `"prefix_b/item1"`. Keys in the left child whose suffix exceeds
+// `"prefix_b/item1"` (e.g. suffix `"zzz"`) must not trigger false-positive
+// `exclusive_max` errors on read, list, or write.
+TEST(OcdbtTest, MultiLevelSharedPrefixDisjointSiblingExclusiveMax) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+
+  Config config;
+  config.compression = Config::NoCompression{};
+
+  absl::Cord encoded_leaf0;
+  {
+    BtreeNodeEncoder<LeafNodeEntry> enc(config, /*height=*/0, "");
+    enc.AddEntry(true, LeafNodeEntry{"item1", absl::Cord("v_a1")});
+    // Note: suffix "zzz" > "prefix_b/item1" lexicographically, but full key
+    // "prefix_a/zzz" < "prefix_b/item1".
+    enc.AddEntry(true, LeafNodeEntry{"zzz", absl::Cord("v_az")});
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto nodes, enc.Finalize(true));
+    ASSERT_THAT(nodes, ::testing::SizeIs(1));
+    encoded_leaf0 = nodes[0].encoded_node;
+  }
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/leaf0", encoded_leaf0));
+
+  absl::Cord encoded_leaf1;
+  {
+    BtreeNodeEncoder<LeafNodeEntry> enc(config, /*height=*/0, "");
+    enc.AddEntry(true, LeafNodeEntry{"item1", absl::Cord("v_b1")});
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto nodes, enc.Finalize(true));
+    ASSERT_THAT(nodes, ::testing::SizeIs(1));
+    encoded_leaf1 = nodes[0].encoded_node;
+  }
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/leaf1", encoded_leaf1));
+
+  absl::Cord encoded_root;
+  {
+    BtreeNodeEncoder<InteriorNodeEntry> enc(config, /*height=*/1, "");
+    InteriorNodeEntry e0;
+    e0.key = "prefix_a/item1";
+    e0.subtree_common_prefix_length = 9;  // "prefix_a/"
+    e0.node.location = IndirectDataReference{DataFileId{"", "d/leaf0"}, 0,
+                                             encoded_leaf0.size()};
+    e0.node.statistics = {0, encoded_leaf0.size(), 2};
+    enc.AddEntry(true, std::move(e0));
+
+    InteriorNodeEntry e1;
+    e1.key = "prefix_b/item1";
+    e1.subtree_common_prefix_length = 9;  // "prefix_b/"
+    e1.node.location = IndirectDataReference{DataFileId{"", "d/leaf1"}, 0,
+                                             encoded_leaf1.size()};
+    e1.node.statistics = {0, encoded_leaf1.size(), 1};
+    enc.AddEntry(true, std::move(e1));
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto nodes, enc.Finalize(true));
+    ASSERT_THAT(nodes, ::testing::SizeIs(1));
+    encoded_root = nodes[0].encoded_node;
+  }
+  TENSORSTORE_ASSERT_OK(kvstore::Write(base_store, "d/root", encoded_root));
+
+  Manifest manifest;
+  manifest.config = config;
+  auto& v = manifest.versions.emplace_back();
+  v.generation_number = 1;
+  v.root_height = 1;
+  v.commit_time = CommitTime{1};
+  v.root.location =
+      IndirectDataReference{DataFileId{"", "d/root"}, 0, encoded_root.size()};
+  v.root.statistics = {0, encoded_root.size(), 3};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_manifest,
+                                   EncodeManifest(manifest));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "manifest.ocdbt", encoded_manifest));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+          .result());
+
+  EXPECT_THAT(kvstore::Read(ocdbt_store, "prefix_a/zzz").result(),
+              MatchesKvsReadResult(absl::Cord("v_az")));
+  EXPECT_THAT(kvstore::ListFuture(ocdbt_store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  kvstore::ListEntry{"prefix_a/item1", 4},
+                  kvstore::ListEntry{"prefix_a/zzz", 4},
+                  kvstore::ListEntry{"prefix_b/item1", 4})));
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(ocdbt_store, "prefix_a/mmm", absl::Cord("v_am")));
+  EXPECT_THAT(kvstore::Read(ocdbt_store, "prefix_a/mmm").result(),
+              MatchesKvsReadResult(absl::Cord("v_am")));
+}
+
+// `ExperimentalCopyRange` where `target_prefix` pushes copied keys past
+// `kMaxKeyLength` (65,535) must fail cleanly with `kInvalidArgument` without
+// breaking subsequent writes to the target store.
+TEST(OcdbtTest, CopyRangeTargetPrefixExceedsMaxKeyLength) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto source_store,
+      kvstore::Open({{"driver", "ocdbt"},
+                     {"base", {{"driver", "memory"}, {"path", "sub/"}}}},
+                    context)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto target_store,
+      kvstore::Open(
+          {{"driver", "ocdbt"}, {"base", {{"driver", "memory"}, {"path", ""}}}},
+          context)
+          .result());
+
+  std::string near_max_key =
+      absl::StrCat("x/", std::string(kMaxKeyLength - 4, 'k'));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(source_store, near_max_key, absl::Cord("val")));
+
+  std::string long_target_prefix = "long_target_prefix/";
+  EXPECT_THAT(kvstore::ExperimentalCopyRange(
+                  source_store.WithPathSuffix("x/"),
+                  target_store.WithPathSuffix(long_target_prefix))
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("exceeds maximum length")));
+
+  // Transactional CopyRange must also reject keys exceeding kMaxKeyLength.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::atomic_isolated);
+    EXPECT_THAT(
+        kvstore::ExperimentalCopyRange(
+            source_store.WithPathSuffix("x/"),
+            (target_store.WithPathSuffix(long_target_prefix) | txn).value())
+            .result(),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("exceeds maximum length")));
+  }
+
+  // Subsequent valid writes to `target_store` must still succeed.
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(target_store, "valid_key", absl::Cord("ok")));
+  EXPECT_THAT(kvstore::Read(target_store, "valid_key").result(),
+              MatchesKvsReadResult(absl::Cord("ok")));
 }
 
 }  // namespace

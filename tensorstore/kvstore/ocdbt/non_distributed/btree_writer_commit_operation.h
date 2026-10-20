@@ -64,6 +64,8 @@
 // in its memory usage.  That needs to be addressed, e.g. by limiting the number
 // of in-flight nodes.
 
+#include <stdint.h>
+
 #include <cassert>
 #include <memory>
 #include <optional>
@@ -458,7 +460,10 @@ class BtreeWriterCommitOperationBase {
     // Full implicit key prefix of existing subtree.
     std::string existing_subtree_key_prefix_;
     // 1 + the height of the child nodes.
-    BtreeNodeHeight height_;
+    //
+    // This is wider than `BtreeNodeHeight` because for the parent of the root
+    // node it may be `std::numeric_limits<BtreeNodeHeight>::max() + 1`.
+    uint32_t height_;
   };
 
   // Special `NodeTraversalState` type for the *parent* of the root node.
@@ -677,19 +682,26 @@ class BtreeWriterCommitOperation : public BtreeWriterCommitOperationBase {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto node, read_future.result(),
           static_cast<void>(SetDeferredResult(promise, _)));
+      std::string_view inclusive_min_key_suffix =
+          params.inclusive_min_key_suffix;
+      // Full implicit key prefix of `node`, excluding `node->key_prefix`.
+      auto full_prefix =
+          absl::StrCat(params.parent_state->existing_subtree_key_prefix_,
+                       inclusive_min_key_suffix.substr(
+                           0, params.subtree_common_prefix_length));
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateBtreeNodeReference(
-              *node, params.parent_state->height_ - 1,
-              std::string_view(params.inclusive_min_key_suffix)
-                  .substr(params.subtree_common_prefix_length)))
+              *node,
+              static_cast<BtreeNodeHeight>(params.parent_state->height_ - 1),
+              inclusive_min_key_suffix.substr(
+                  params.subtree_common_prefix_length),
+              full_prefix.size(),
+              KeyRange::RemovePrefixFromExclusiveMax(
+                  full_prefix, params.key_range.exclusive_max)))
           .With([&](const absl::Status& status) {
             SetDeferredResult(promise, std::move(status));
           });
-      auto full_prefix =
-          absl::StrCat(params.parent_state->existing_subtree_key_prefix_,
-                       std::string_view(params.inclusive_min_key_suffix)
-                           .substr(0, params.subtree_common_prefix_length),
-                       node->key_prefix);
+      full_prefix += node->key_prefix;
       VisitNode(VisitNodeParameters{
           std::move(params.parent_state), std::move(node),
           std::move(params.inclusive_min_key_suffix), std::move(full_prefix),

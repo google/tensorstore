@@ -47,9 +47,6 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
-constexpr uint32_t kManifestMagic = 0x0cdb3a2a;
-constexpr uint8_t kManifestFormatVersion = 0;
-
 void ForEachManifestVersionTreeNodeRef(
     GenerationNumber generation_number, uint8_t version_tree_arity_log2,
     absl::FunctionRef<void(GenerationNumber min_generation_number,
@@ -65,10 +62,9 @@ void ForEachManifestVersionTreeNodeRef(
   while (generation_number) {
     // Round `generation_number - 1` down to the nearest multiple of
     // `2**(((height + 1) * version_tree_arity_log2))`.
+    int shift = (height + 1) * version_tree_arity_log2;
     GenerationNumber next_generation_number =
-        (generation_number - 1)                    //
-        >> (height + 1) * version_tree_arity_log2  //
-               << (height + 1) * version_tree_arity_log2;
+        shift >= 64 ? 0 : ((generation_number - 1) >> shift) << shift;
     GenerationNumber min_generation_number = next_generation_number + 1;
     callback(min_generation_number, generation_number, height);
     ++height;
@@ -79,6 +75,7 @@ void ForEachManifestVersionTreeNodeRef(
 absl::Status ValidateManifestVersionTreeNodes(
     VersionTreeArityLog2 version_tree_arity_log2,
     GenerationNumber last_generation_number,
+    CommitTime first_inline_commit_time,
     const std::vector<VersionNodeReference>& entries) {
   const auto max_height = GetMaxVersionTreeHeight(version_tree_arity_log2);
   for (size_t i = 0; i < entries.size(); ++i) {
@@ -90,6 +87,14 @@ absl::Status ValidateManifestVersionTreeNodes(
     if (entry.generation_number == 0) {
       return absl::DataLossError(
           absl::StrFormat("generation_number[%d] must be non-zero", i));
+    }
+    const GenerationNumber child_generation_number_stride =
+        static_cast<GenerationNumber>(1)
+        << (version_tree_arity_log2 * entry.height);
+    if ((entry.generation_number % child_generation_number_stride) != 0) {
+      return absl::DataLossError(absl::StrFormat(
+          "generation_number[%d]=%d is not a multiple of %d", i,
+          entry.generation_number, child_generation_number_stride));
     }
     if (i > 0) {
       if (entry.generation_number <= entries[i - 1].generation_number) {
@@ -103,6 +108,14 @@ absl::Status ValidateManifestVersionTreeNodes(
                             entry.height, i - 1, entries[i - 1].height));
       }
     }
+  }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateCommitTimesStrictlyIncreasing(entries));
+  if (!entries.empty() &&
+      entries.back().commit_time >= first_inline_commit_time) {
+    return absl::DataLossError(
+        absl::StrFormat("version_tree_nodes.back().commit_time=%v >= "
+                        "versions.front().commit_time=%v",
+                        entries.back().commit_time, first_inline_commit_time));
   }
   size_t i = entries.size();
   absl::Status status;
@@ -131,6 +144,17 @@ absl::Status ValidateManifestVersionTreeNodes(
                               "range [%d, %d] for height %d",
                               i, entry.generation_number, min_generation_number,
                               max_generation_number, entry.height));
+          return;
+        }
+        const GenerationNumber max_num_generations =
+            entry.generation_number - min_generation_number + 1;
+        if (entry.num_generations == 0 ||
+            entry.num_generations > max_num_generations) {
+          status = absl::DataLossError(absl::StrFormat(
+              "num_generations[%d]=%d for generation_number[%d]=%d "
+              "is outside valid range [1, %d]",
+              i, entry.num_generations, i, entry.generation_number,
+              max_num_generations));
         }
       });
   if (!status.ok()) return status;
@@ -148,6 +172,7 @@ bool ReadManifestVersionTreeNodes(
     riegeli::Reader& reader, VersionTreeArityLog2 version_tree_arity_log2,
     const DataFileTable& data_file_table,
     std::vector<VersionNodeReference>& version_tree_nodes,
+    CommitTime first_inline_commit_time,
     GenerationNumber last_generation_number) {
   const size_t max_num_entries =
       GetMaxVersionTreeHeight(version_tree_arity_log2);
@@ -156,9 +181,10 @@ bool ReadManifestVersionTreeNodes(
           reader, version_tree_nodes)) {
     return false;
   }
-  TENSORSTORE_RETURN_IF_ERROR(
-      ValidateManifestVersionTreeNodes(
-          version_tree_arity_log2, last_generation_number, version_tree_nodes))
+  TENSORSTORE_RETURN_IF_ERROR(ValidateManifestVersionTreeNodes(
+                                  version_tree_arity_log2,
+                                  last_generation_number,
+                                  first_inline_commit_time, version_tree_nodes))
       .With([&](absl::Status status) {
         reader.Fail(std::move(status));
         return false;
@@ -171,6 +197,11 @@ Result<absl::Cord> EncodeManifest(const Manifest& manifest,
 #ifndef NDEBUG
   CheckManifestInvariants(manifest, encode_as_single);
 #endif
+  return EncodeManifestUnchecked(manifest, encode_as_single);
+}
+
+Result<absl::Cord> EncodeManifestUnchecked(const Manifest& manifest,
+                                           bool encode_as_single) {
   return EncodeWithOptionalCompression(
       manifest.config, kManifestMagic, kManifestFormatVersion,
       [&](riegeli::Writer& writer) -> bool {
@@ -228,6 +259,7 @@ Result<Manifest> DecodeManifest(const absl::Cord& encoded) {
         if (!ReadManifestVersionTreeNodes(
                 reader, manifest.config.version_tree_arity_log2,
                 data_file_table, manifest.version_tree_nodes,
+                manifest.versions.front().commit_time,
                 manifest.versions.back().generation_number)) {
           return false;
         }
@@ -268,7 +300,7 @@ void CheckManifestInvariants(const Manifest& manifest, bool assume_single) {
     TENSORSTORE_CHECK_OK(ValidateManifestVersionTreeNodes(
         manifest.config.version_tree_arity_log2,
         manifest.versions.back().generation_number,
-        manifest.version_tree_nodes));
+        manifest.versions.front().commit_time, manifest.version_tree_nodes));
   } else {
     assert(manifest.versions.empty());
     assert(manifest.version_tree_nodes.empty());

@@ -35,6 +35,7 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
@@ -157,7 +158,7 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     }
     LookupNodeReference(std::move(op), std::move(promise), generation_ref.root,
                         generation_ref.root_height,
-                        /*inclusive_min_key=*/{});
+                        /*inclusive_min_key=*/{}, /*exclusive_max_key=*/{});
   }
 
   // Completes the read request, indicating that the key is missing.
@@ -174,11 +175,14 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
   //   node_height: Height of the node specified by `node_ref`.
   //   inclusive_min_key: Lower bound of the key range corresponding to
   //     `node_ref`.
+  //   exclusive_max_key: Exclusive upper bound of the key range corresponding
+  //     to `node_ref`, or empty if there is no upper bound.
   static void LookupNodeReference(ReadOperation::Ptr op,
                                   Promise<kvstore::ReadResult> promise,
                                   const BtreeNodeReference& node_ref,
                                   BtreeNodeHeight node_height,
-                                  std::string_view inclusive_min_key) {
+                                  std::string_view inclusive_min_key,
+                                  std::string_view exclusive_max_key) {
     ABSL_LOG_IF(INFO, ocdbt_logging)
         << "Read: key=" << tensorstore::QuoteString(op->key)
         << ", matched_length=" << op->matched_length
@@ -190,7 +194,8 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     auto executor = op->io_handle->executor;
     LinkValue(WithExecutor(std::move(executor),
                            NodeReadyCallback{std::move(op), node_height,
-                                             std::string(inclusive_min_key)}),
+                                             std::string(inclusive_min_key),
+                                             std::string(exclusive_max_key)}),
               std::move(promise), std::move(read_future));
   }
 
@@ -198,12 +203,14 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     ReadOperation::Ptr op;
     BtreeNodeHeight node_height;
     std::string inclusive_min_key;
+    std::string exclusive_max_key;
     void operator()(
         Promise<kvstore::ReadResult> promise,
         ReadyFuture<const std::shared_ptr<const BtreeNode>> read_future) {
       auto node = read_future.value();
       TENSORSTORE_RETURN_IF_ERROR(
-          ValidateBtreeNodeReference(*node, node_height, inclusive_min_key))
+          ValidateBtreeNodeReference(*node, node_height, inclusive_min_key,
+                                     op->matched_length, exclusive_max_key))
           .With(
               [&](absl::Status error) { promise.SetResult(std::move(error)); });
       auto unmatched_key_suffix =
@@ -218,7 +225,9 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
 
       if (node->height > 0) {
         VisitInteriorNode(std::move(op), *node, std::move(promise),
-                          unmatched_key_suffix);
+                          unmatched_key_suffix,
+                          KeyRange::RemovePrefixFromExclusiveMax(
+                              node_key_prefix, exclusive_max_key));
       } else {
         VisitLeafNode(std::move(op), *node, std::move(promise),
                       unmatched_key_suffix);
@@ -228,10 +237,10 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
 
   static void VisitInteriorNode(ReadOperation::Ptr op, const BtreeNode& node,
                                 Promise<kvstore::ReadResult> promise,
-                                std::string_view unmatched_key_suffix) {
-    auto* entry =
-        FindBtreeEntry(std::get<BtreeNode::InteriorNodeEntries>(node.entries),
-                       unmatched_key_suffix);
+                                std::string_view unmatched_key_suffix,
+                                std::string_view node_exclusive_max) {
+    auto& all_entries = std::get<BtreeNode::InteriorNodeEntries>(node.entries);
+    auto* entry = FindBtreeEntry(all_entries, unmatched_key_suffix);
     if (!entry) {
       op->KeyNotPresent(promise);
       return;
@@ -255,8 +264,10 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
         << entry->subtree_common_prefix_length;
 
     op->matched_length += entry->subtree_common_prefix_length;
-    LookupNodeReference(std::move(op), std::move(promise), entry->node,
-                        node.height - 1, entry->key_suffix());
+    LookupNodeReference(
+        std::move(op), std::move(promise), entry->node, node.height - 1,
+        entry->key_suffix(),
+        GetChildExclusiveMaxKey(all_entries, *entry, node_exclusive_max));
   }
 
   static void VisitLeafNode(ReadOperation::Ptr op, const BtreeNode& node,

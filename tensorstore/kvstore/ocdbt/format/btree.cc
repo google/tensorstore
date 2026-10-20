@@ -31,6 +31,7 @@
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
@@ -241,7 +242,9 @@ Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded,
 
 absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
                                         BtreeNodeHeight height,
-                                        std::string_view inclusive_min_key) {
+                                        std::string_view inclusive_min_key,
+                                        size_t prefix_length,
+                                        std::string_view exclusive_max_key) {
   if (node.height != height) {
     return absl::DataLossError(absl::StrFormat(
         "Expected height of %d but received: %d", height, node.height));
@@ -249,6 +252,15 @@ absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
 
   return std::visit(
       [&](auto& entries) {
+        for (const auto& entry : entries) {
+          const size_t full_key_length =
+              prefix_length + node.key_prefix.size() + entry.key.size();
+          if (full_key_length > kMaxKeyLength) {
+            return absl::DataLossError(
+                absl::StrFormat("Full key length %d exceeds limit of %d",
+                                full_key_length, kMaxKeyLength));
+          }
+        }
         if (ComparePrefixedKeyToUnprefixedKey{node.key_prefix}(
                 entries.front().key, inclusive_min_key) < 0) {
           return absl::DataLossError(absl::StrCat(
@@ -257,9 +269,40 @@ absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
               " is less than inclusive_min ", QuoteString(inclusive_min_key),
               " specified by parent node"));
         }
+        if (!exclusive_max_key.empty() &&
+            ComparePrefixedKeyToUnprefixedKey{node.key_prefix}(
+                entries.back().key, exclusive_max_key) >= 0) {
+          return absl::DataLossError(absl::StrCat(
+              "Last key ",
+              QuoteString(absl::StrCat(node.key_prefix, entries.back().key)),
+              " is not less than exclusive_max ",
+              QuoteString(exclusive_max_key), " specified by parent node"));
+        }
         return absl::OkStatus();
       },
       node.entries);
+}
+
+std::string_view GetChildExclusiveMaxKey(
+    span<const InteriorNodeEntry> all_entries, const InteriorNodeEntry& entry,
+    std::string_view node_exclusive_max) {
+  assert(&entry >= all_entries.data() &&
+         &entry < all_entries.data() + all_entries.size());
+  const InteriorNodeEntry* next_entry = &entry + 1;
+  std::string_view next_exclusive_max =
+      next_entry != all_entries.data() + all_entries.size()
+          ? std::string_view(next_entry->key)
+          : node_exclusive_max;
+  return KeyRange::RemovePrefixFromExclusiveMax(
+      std::string_view(entry.key).substr(0, entry.subtree_common_prefix_length),
+      next_exclusive_max);
+}
+
+absl::Status ValidateKeyLength(std::string_view key) {
+  if (key.size() <= kMaxKeyLength) return absl::OkStatus();
+  return absl::InvalidArgumentError(
+      absl::StrFormat("Key %v of length %d exceeds maximum length of %d",
+                      QuoteString(key), key.size(), kMaxKeyLength));
 }
 
 BtreeNodeStatistics GetBtreeNodeLocalStatistics(const BtreeNode& node,

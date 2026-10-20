@@ -415,16 +415,17 @@ struct CopySubtreeListReceiver {
   void set_value(std::string_view key_prefix,
                  span<const LeafNodeEntry> entries) {
     if (entries.empty()) return;
+    // Computed before acquiring the lock, since `promise.SetResult` may invoke
+    // callbacks.
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto keys,
+        GetCopySubtreeTargetKeys(add_prefix, strip_prefix_length, key_prefix,
+                                 entries),
+        static_cast<void>(promise.SetResult(_)));
     absl::MutexLock lock(writer->mutex_);
-    for (auto& entry : entries) {
-      auto key = absl::StrCat(
-          add_prefix,
-          std::string_view(key_prefix)
-              .substr(std::min(key_prefix.size(), strip_prefix_length)),
-          std::string_view(entry.key).substr(
-              std::min(entry.key.size(),
-                       strip_prefix_length -
-                           std::min(strip_prefix_length, key_prefix.size()))));
+    for (size_t i = 0; i < entries.size(); ++i) {
+      auto& entry = entries[i];
+      auto& key = keys[i];
       auto* source = new IndirectValueReadModifyWriteSource;
       source->value_ref_ = entry.value_reference;
       size_t phase;

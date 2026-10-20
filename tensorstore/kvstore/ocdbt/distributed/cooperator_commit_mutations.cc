@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -286,12 +287,25 @@ void NodeCommitOperation::ExistingManifestReady(
       << "[Port=" << commit_op->server->listening_port_
       << "] ExistingManifestReady: root=" << latest_version.root
       << ", root_height=" << static_cast<int>(latest_version.root_height);
-  // FIXME: maybe check height/depth compatibility
   commit_op->height = latest_version.root_height;
   commit_op->key_prefix.clear();
   commit_op->key_range = {};
   commit_op->parent_key_range = {};
   commit_op->child_inclusive_min_key = {};
+  // The leased node must be reachable from the current root: it cannot be
+  // above the root, and a node at the root height must be the root itself
+  // (whose range is always the full range).  This also guarantees that
+  // `UpdateParent` is only called for nodes strictly below the root, so the
+  // parent height `height + 1` fits in `BtreeNodeHeight`.
+  //
+  // Note that an empty tree has `root_height == 0`.
+  const auto& node_identifier = commit_op->mutation_requests->node_identifier;
+  if (node_identifier.height > commit_op->height ||
+      (node_identifier.height == commit_op->height &&
+       !node_identifier.range.full())) {
+    commit_op->LeasedNodeGone();
+    return;
+  }
   if (commit_op->existing_manifest->latest_version()
           .root.location.IsMissing()) {
     commit_op->node_generation.value.clear();
@@ -317,8 +331,13 @@ void NodeCommitOperation::VisitNodeReference(
             TENSORSTORE_ASSIGN_OR_RETURN(auto node, future.result(),
                                          commit_op->SetError(_));
             TENSORSTORE_RETURN_IF_ERROR(
-                ValidateBtreeNodeReference(*node, commit_op->height,
-                                           commit_op->child_inclusive_min_key))
+                ValidateBtreeNodeReference(
+                    *node, commit_op->height,
+                    commit_op->child_inclusive_min_key,
+                    commit_op->key_prefix.size(),
+                    KeyRange::RemovePrefixFromExclusiveMax(
+                        commit_op->key_prefix,
+                        commit_op->key_range.exclusive_max)))
                 .With([&](absl::Status status) {
                   commit_op->SetError(std::move(status));
                 });
@@ -717,6 +736,8 @@ void NodeCommitOperation::UpdateParent(
   auto& mutation_request = batch_request.mutations[0];
   mutation_request.mutation = std::move(mutation);
   mutation_request.flush_future = std::move(commit_op->flush_promise).future();
+  // Guaranteed by the check in `ExistingManifestReady`.
+  assert(commit_op->height < std::numeric_limits<BtreeNodeHeight>::max());
   auto future = SubmitMutationBatch(
       *commit_op->server,
       BtreeNodeIdentifier{static_cast<BtreeNodeHeight>(commit_op->height + 1),

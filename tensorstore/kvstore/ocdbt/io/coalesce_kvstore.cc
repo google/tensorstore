@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/ocdbt/io/coalesce_kvstore.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <cassert>
@@ -294,7 +295,9 @@ void OnReadComplete(MergeValue merge_values,
     for (const auto& e : merge_values.subreads) {
       size_t request_start, request_size;
       if (e.byte_range.inclusive_min < 0) {
-        request_start = value.size() + e.byte_range.inclusive_min;
+        request_start = static_cast<size_t>(std::max<int64_t>(
+            0,
+            static_cast<int64_t>(value.size()) + e.byte_range.inclusive_min));
       } else {
         request_start = e.byte_range.inclusive_min -
                         merge_values.options.byte_range.inclusive_min;
@@ -382,9 +385,11 @@ void CoalesceKvStoreDriver::StartNextRead(
       merged = MergeValue{};
       merged.options = e.options;
     } else if (merged.options.byte_range.exclusive_max != -1 &&
-               ((e.options.byte_range.inclusive_min -
-                     merged.options.byte_range.exclusive_max >
-                 threshold_) ||
+               ((e.options.byte_range.inclusive_min >
+                     merged.options.byte_range.exclusive_max &&
+                 static_cast<size_t>(e.options.byte_range.inclusive_min -
+                                     merged.options.byte_range.exclusive_max) >
+                     threshold_) ||
                 (merged_threshold_ > 0 &&
                  merged.options.byte_range.size() > merged_threshold_))) {
       // The distance from the end of the prior read to the beginning of the

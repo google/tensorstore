@@ -82,6 +82,23 @@ class KeyRange {
   ///     RemovePrefix("a/bc", KeyRange("a/b", "a/bb")) == KeyRange("", "b")
   static KeyRange RemovePrefix(std::string_view prefix, KeyRange range);
 
+  /// Returns the `exclusive_max` bound, relative to `prefix`, on the set of
+  /// keys ``k`` for which ``prefix + k < exclusive_max``.
+  ///
+  /// If `exclusive_max` does not start with `prefix`, returns an empty string
+  /// (no upper bound).  This is only meaningful if `prefix < exclusive_max`
+  /// (or `exclusive_max` is empty), i.e. at least one key starting with
+  /// `prefix` is less than `exclusive_max`; the caller is responsible for
+  /// handling the case where no such key exists.
+  ///
+  /// For example::
+  ///
+  ///     RemovePrefixFromExclusiveMax("a/", "a/d") == "d"
+  ///     RemovePrefixFromExclusiveMax("a/", "b") == ""
+  ///     RemovePrefixFromExclusiveMax("a/", "") == ""
+  static std::string_view RemovePrefixFromExclusiveMax(
+      std::string_view prefix, std::string_view exclusive_max);
+
   /// Removes ``n`` characters from the prefix of range.
   ///
   /// For example::

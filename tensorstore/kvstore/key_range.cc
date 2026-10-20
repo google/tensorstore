@@ -220,6 +220,12 @@ KeyRange KeyRange::RemovePrefix(std::string_view prefix, KeyRange range) {
   return range;
 }
 
+std::string_view KeyRange::RemovePrefixFromExclusiveMax(
+    std::string_view prefix, std::string_view exclusive_max) {
+  if (!absl::StartsWith(exclusive_max, prefix)) return {};
+  return exclusive_max.substr(prefix.size());
+}
+
 KeyRange KeyRange::RemovePrefixLength(size_t n, const KeyRange& range) {
   std::string_view inclusive_min(range.inclusive_min);
   if (n < inclusive_min.size()) {

@@ -25,6 +25,7 @@
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -32,6 +33,7 @@ namespace {
 namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::OptionalByteRangeRequest;
+using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal_ocdbt::MakeCoalesceKvStoreDriver;
 using ::tensorstore::kvstore::ReadOptions;
@@ -322,6 +324,108 @@ TEST(CoalesceKvstoreTest, FragmentedCordSingleAndMergedSubreads) {
   }
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto res4, rf4.result());
   EXPECT_EQ(res4.value, payload.Subcord(5000, 10));
+}
+
+// Concurrent byte-range reads whose intervals overlap or nest (e.g. [2, 8),
+// [4, 6), [5, 9)) must coalesce into their union [2, 9) without signed-to-
+// unsigned wraparound in `inclusive_min - prev_exclusive_max <= threshold_` or
+// shrinking `exclusive_max`.
+TEST(CoalesceKvstoreTest, OverlappingAndNestedByteRanges) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open("memory://").result());
+  auto mock_key_value_store = MockKeyValueStore::Make();
+  auto coalesce_driver = MakeCoalesceKvStoreDriver(
+      mock_key_value_store, /*threshold=*/1, /*merged_threshold=*/100,
+      /*interval=*/absl::ZeroDuration(),
+      tensorstore::internal::DetachedThreadPool(1));
+
+  auto write_future =
+      kvstore::Write(coalesce_driver, "a", absl::Cord("0123456789"));
+  write_future.Force();
+  mock_key_value_store->write_requests.pop()(base_store.driver);
+  TENSORSTORE_ASSERT_OK(write_future.result());
+
+  ReadOptions ro1, ro2, ro3, ro4;
+  ro1.byte_range = OptionalByteRangeRequest(0, 1);
+  ro2.byte_range = OptionalByteRangeRequest(2, 8);
+  // Nested inside ro2:
+  ro3.byte_range = OptionalByteRangeRequest(4, 6);
+  // Overlapping with ro2 and ro3:
+  ro4.byte_range = OptionalByteRangeRequest(5, 9);
+
+  auto rf1 = kvstore::Read(coalesce_driver, "a", ro1);
+  auto rf2 = kvstore::Read(coalesce_driver, "a", ro2);
+  auto rf3 = kvstore::Read(coalesce_driver, "a", ro3);
+  auto rf4 = kvstore::Read(coalesce_driver, "a", ro4);
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ(req.options.byte_range, OptionalByteRangeRequest(0, 1));
+    req(base_store.driver);
+  }
+  EXPECT_THAT(rf1.result(), MatchesKvsReadResult(absl::Cord("0")));
+
+  // Overlapping ranges [2, 8), [4, 6), and [5, 9) must be coalesced into a
+  // single [2, 9) read without signed-to-unsigned wraparound in the gap
+  // comparison against `threshold_`.
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    req(base_store.driver);
+    ASSERT_EQ(req.options.byte_range, OptionalByteRangeRequest(2, 9));
+  }
+  EXPECT_THAT(rf2.result(), MatchesKvsReadResult(absl::Cord("234567")));
+  EXPECT_THAT(rf3.result(), MatchesKvsReadResult(absl::Cord("45")));
+  EXPECT_THAT(rf4.result(), MatchesKvsReadResult(absl::Cord("5678")));
+}
+
+// Merged `SuffixLength` reads on a file shorter than one of the requested
+// suffixes must clamp `request_start` to 0 rather than wrapping around in
+// unsigned `value.size() + inclusive_min` arithmetic.
+TEST(CoalesceKvstoreTest, MergedSuffixLengthOnShortFile) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open("memory://").result());
+  auto mock_key_value_store = MockKeyValueStore::Make();
+  auto coalesce_driver = MakeCoalesceKvStoreDriver(
+      mock_key_value_store, /*threshold=*/1, /*merged_threshold=*/100,
+      /*interval=*/absl::ZeroDuration(),
+      tensorstore::internal::DetachedThreadPool(1));
+
+  // Write a 7-byte value.
+  auto write_future =
+      kvstore::Write(coalesce_driver, "a", absl::Cord("0123456"));
+  write_future.Force();
+  mock_key_value_store->write_requests.pop()(base_store.driver);
+  TENSORSTORE_ASSERT_OK(write_future.result());
+
+  ReadOptions ro1, ro2, ro3;
+  ro1.byte_range = OptionalByteRangeRequest(0, 1);
+  // Suffix of 10 bytes on a 7-byte file (inclusive_min = -10):
+  ro2.byte_range = OptionalByteRangeRequest::SuffixLength(10);
+  // Suffix of 5 bytes on a 7-byte file (inclusive_min = -5):
+  ro3.byte_range = OptionalByteRangeRequest::SuffixLength(5);
+
+  auto rf1 = kvstore::Read(coalesce_driver, "a", ro1);
+  auto rf2 = kvstore::Read(coalesce_driver, "a", ro2);
+  auto rf3 = kvstore::Read(coalesce_driver, "a", ro3);
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ(req.options.byte_range, OptionalByteRangeRequest(0, 1));
+    req(base_store.driver);
+  }
+  EXPECT_THAT(rf1.result(), MatchesKvsReadResult(absl::Cord("0")));
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ(req.options.byte_range,
+              OptionalByteRangeRequest::SuffixLength(10));
+    // HTTP/GCS backends clamp `Range: bytes=-10` on a 7-byte object to all 7
+    // bytes.
+    req.promise.SetResult(
+        kvstore::ReadResult::Value(absl::Cord("0123456"), {}));
+  }
+  EXPECT_THAT(rf2.result(), MatchesKvsReadResult(absl::Cord("0123456")));
+  EXPECT_THAT(rf3.result(), MatchesKvsReadResult(absl::Cord("23456")));
 }
 
 }  // namespace

@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <string>
@@ -288,6 +289,57 @@ TEST(BtreeNodeTest, CorruptInteriorZeroNumEntries) {
       }),
       StatusIs(absl::StatusCode::kDataLoss,
                HasSubstr("Error decoding b-tree node: Empty b-tree node;")));
+}
+
+// Re-encoding an existing node entry whose local key length plus
+// `existing_prefix_.size()` exceeds `kMaxKeyLength` (65,535) must fail rather
+// than truncating `uint16_t` key lengths or crashing on `ABSL_DCHECK`.
+TEST(BtreeNodeTest, EncodeExistingPrefixPlusKeyTooLong) {
+  Config config;
+  config.compression = Config::NoCompression{};
+  std::string existing_prefix(40000, 'a');
+  std::string entry_key(30000, 'b');
+  BtreeNodeEncoder<LeafNodeEntry> encoder(config, /*height=*/0,
+                                          existing_prefix);
+  encoder.AddEntry(/*existing=*/true,
+                   LeafNodeEntry{entry_key, absl::Cord("value")});
+  EXPECT_THAT(encoder.Finalize(/*may_be_root=*/false),
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("key")));
+}
+
+// Decoding a large interior B-tree node (e.g. 200,000 children in the same data
+// file) must complete in linear time without quadratic sibling-location
+// comparisons.
+TEST(BtreeNodeTest, LargeInteriorNodeSameFileChildren) {
+  Config config;
+  config.compression = Config::NoCompression{};
+  config.max_decoded_node_bytes = 1000000000;
+  BtreeNode node;
+  node.height = 1;
+  auto& entries = node.entries.emplace<BtreeNode::InteriorNodeEntries>();
+  constexpr size_t kNumChildren = 200000;
+  std::vector<std::string> keys(kNumChildren);
+  entries.reserve(kNumChildren);
+  DataFileId shared_file_id{"", "d/shared_children"};
+  for (size_t i = 0; i < kNumChildren; ++i) {
+    keys[i] = absl::StrFormat("%06d", i);
+    InteriorNodeEntry entry;
+    entry.key = keys[i];
+    entry.subtree_common_prefix_length = 0;
+    entry.node.location =
+        IndirectDataReference{shared_file_id, i * 16, /*length=*/16};
+    entry.node.statistics = {0, 16, 1};
+    entries.push_back(entry);
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_nodes,
+                                   EncodeExistingNode(config, node));
+  ASSERT_EQ(1, encoded_nodes.size());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decoded_node,
+      DecodeBtreeNode(encoded_nodes[0].encoded_node, /*base_path=*/{}));
+  EXPECT_EQ(
+      kNumChildren,
+      std::get<BtreeNode::InteriorNodeEntries>(decoded_node.entries).size());
 }
 
 TEST(BtreeNodeTest, MaxArity) {

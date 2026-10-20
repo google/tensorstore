@@ -40,6 +40,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/estimate_heap_usage",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/meta:type_traits",
+        "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt:debug_defines",
         "//tensorstore/util:division",
         "//tensorstore/util:endian",
@@ -87,10 +88,13 @@ tensorstore_cc_test(
         ":format",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
     ],
 )
 
@@ -162,6 +166,7 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
@@ -177,6 +182,7 @@ tensorstore_cc_test(
     srcs = ["version_tree_test.cc"],
     deps = [
         ":format",
+        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",

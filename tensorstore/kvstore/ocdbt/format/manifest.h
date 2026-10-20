@@ -41,6 +41,9 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
+constexpr uint32_t kManifestMagic = 0x0cdb3a2a;
+constexpr uint8_t kManifestFormatVersion = 0;
+
 constexpr inline std::string_view kManifestFilename = "manifest.ocdbt";
 
 /// Returns the path to the manifest given a base directory path.
@@ -119,8 +122,17 @@ struct ManifestWithTime {
 Result<Manifest> DecodeManifest(const absl::Cord& encoded);
 
 /// Encodes the manifest.
+///
+/// If `NDEBUG` is not defined, also CHECKs invariants.
 Result<absl::Cord> EncodeManifest(const Manifest& manifest,
                                   bool encode_as_single = false);
+
+/// Same as `EncodeManifest`, but never checks invariants.
+///
+/// This is intended for tests that need to encode invalid manifests in order to
+/// exercise validation in `DecodeManifest`.
+Result<absl::Cord> EncodeManifestUnchecked(const Manifest& manifest,
+                                           bool encode_as_single = false);
 
 /// Iterates over the version tree nodes that may be referenced from the
 /// manifest with the given latest `generation_number`.

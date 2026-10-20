@@ -45,6 +45,7 @@ struct ZstdCompressionOptionsCodec {
             "Zstd compression level %d is outside valid range [%d, %d]",
             value.level, Options::kMinCompressionLevel,
             Options::kMaxCompressionLevel)));
+        return false;
       }
     }
     return true;

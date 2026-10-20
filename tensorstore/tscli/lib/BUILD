@@ -157,6 +157,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
+        "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt:config",
         "//tensorstore/kvstore/ocdbt:io_handle",
         "//tensorstore/kvstore/ocdbt/format",

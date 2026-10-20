@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -157,20 +158,26 @@ void BtreeWriterCommitOperationBase::RootNodeTraversalState::ApplyMutations() {
       assert(new_root_mutation.entry.subtree_common_prefix_length == 0);
       assert(this->height_ > 0);
       BtreeGenerationReference ref;
-      ref.root_height = this->height_ - 1;
+      ref.root_height = static_cast<BtreeNodeHeight>(this->height_ - 1);
       ref.root = new_root_mutation.entry.node;
       this->writer_->CreateNewManifest(std::move(this->promise_), ref);
       return;
     }
 
     // Need to add a level to the tree.
+    if (this->height_ > std::numeric_limits<BtreeNodeHeight>::max()) {
+      SetDeferredResult(this->promise_, absl::FailedPreconditionError(
+                                            "Maximum B+tree height exceeded"));
+      return;
+    }
     auto mutations = std::exchange(this->mutations_, {});
-    UpdateParent(*this, /*existing_relative_child_key=*/{},
-                 EncodeUpdatedInteriorNodes(this->writer_->existing_config(),
-                                            this->height_,
-                                            /*existing_prefix=*/{},
-                                            /*existing_entries=*/{}, mutations,
-                                            /*may_be_root=*/true));
+    UpdateParent(
+        *this, /*existing_relative_child_key=*/{},
+        EncodeUpdatedInteriorNodes(this->writer_->existing_config(),
+                                   static_cast<BtreeNodeHeight>(this->height_),
+                                   /*existing_prefix=*/{},
+                                   /*existing_entries=*/{}, mutations,
+                                   /*may_be_root=*/true));
     ++this->height_;
   }
 }
@@ -192,7 +199,8 @@ void BtreeWriterCommitOperationBase::InteriorNodeTraversalState::
   UpdateParent(
       *parent_state_, existing_relative_child_key_,
       EncodeUpdatedInteriorNodes(
-          this->writer_->existing_config(), this->height_,
+          this->writer_->existing_config(),
+          static_cast<BtreeNodeHeight>(this->height_),
           this->existing_subtree_key_prefix_,
           std::get<BtreeNode::InteriorNodeEntries>(existing_node_->entries),
           this->mutations_,

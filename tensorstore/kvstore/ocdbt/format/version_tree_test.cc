@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -22,19 +23,33 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
+using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::CommitTimeUpperBound;
+using ::tensorstore::internal_ocdbt::Config;
+using ::tensorstore::internal_ocdbt::DataFileId;
+using ::tensorstore::internal_ocdbt::DecodeVersionTreeNode;
+using ::tensorstore::internal_ocdbt::EncodeVersionTreeNodeUnchecked;
 using ::tensorstore::internal_ocdbt::FormatCommitTimeForUrl;
 using ::tensorstore::internal_ocdbt::FormatVersionSpecForUrl;
 using ::tensorstore::internal_ocdbt::GenerationNumber;
+using ::tensorstore::internal_ocdbt::
+    GetVersionTreeLeafNodeRangeContainingGeneration;
+using ::tensorstore::internal_ocdbt::IndirectDataReference;
 using ::tensorstore::internal_ocdbt::ParseCommitTimeFromUrl;
 using ::tensorstore::internal_ocdbt::ParseVersionSpecFromUrl;
+using ::tensorstore::internal_ocdbt::VersionNodeReference;
 using ::tensorstore::internal_ocdbt::VersionSpec;
+using ::tensorstore::internal_ocdbt::VersionTreeNode;
+using ::testing::HasSubstr;
 
 void TestVersionSpecUrlRoundtrip(VersionSpec spec,
                                  std::vector<std::string> url_representations) {
@@ -132,6 +147,85 @@ TEST(VersionTreeFormatTest, AbslStringify) {
       "length=6}, generation_number=7, height=8, num_generations=9, "
       "commit_time=1970-01-01T00:00:00.00000001+00:00}}}",
       absl::StrCat(node));
+}
+
+// Generation numbers near UINT64_MAX must not wrap around to 0 when computing
+// `last_generation = next_generation + (1 << arity_log2)`.
+TEST(VersionTreeFormatTest, LeafRangeNearMaxUint64) {
+  constexpr GenerationNumber kMax =
+      std::numeric_limits<GenerationNumber>::max();
+  EXPECT_THAT(GetVersionTreeLeafNodeRangeContainingGeneration(
+                  /*version_tree_arity_log2=*/4, kMax),
+              ::testing::Pair(kMax - 14, kMax));
+}
+
+// Leaf version tree nodes must have strictly increasing `commit_time` across
+// entries so binary search by `CommitTime` / `CommitTimeUpperBound` remains
+// monotonic.
+TEST(VersionTreeFormatTest, LeafCommitTimesMustStrictlyIncrease) {
+  const auto decode =
+      [](CommitTime second_commit_time) -> Result<VersionTreeNode> {
+    Config config;
+    config.version_tree_arity_log2 = 2;
+    VersionTreeNode node;
+    node.version_tree_arity_log2 = 2;
+    node.height = 0;
+    auto& entries = node.entries.emplace<VersionTreeNode::LeafNodeEntries>();
+    auto& ref1 = entries.emplace_back();
+    ref1.root.location = IndirectDataReference{DataFileId{"", "f1"}, 0, 10};
+    ref1.root.statistics = {0, 10, 1};
+    ref1.generation_number = 1;
+    ref1.root_height = 0;
+    ref1.commit_time = CommitTime{20};
+    auto& ref2 = entries.emplace_back(ref1);
+    ref2.generation_number = 2;
+    ref2.commit_time = second_commit_time;
+    TENSORSTORE_ASSIGN_OR_RETURN(auto encoded,
+                                 EncodeVersionTreeNodeUnchecked(config, node));
+    return DecodeVersionTreeNode(encoded, /*base_path=*/{});
+  };
+  EXPECT_THAT(decode(CommitTime{21}), ::tensorstore::IsOk());
+  EXPECT_THAT(decode(CommitTime{20}),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("commit_time")));
+  EXPECT_THAT(decode(CommitTime{10}),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("commit_time")));
+}
+
+// Interior version tree nodes must also have strictly increasing `commit_time`
+// across child entries.
+TEST(VersionTreeFormatTest, InteriorCommitTimesMustStrictlyIncrease) {
+  const auto decode =
+      [](CommitTime second_commit_time) -> Result<VersionTreeNode> {
+    Config config;
+    config.version_tree_arity_log2 = 2;
+    VersionTreeNode node;
+    node.version_tree_arity_log2 = 2;
+    node.height = 1;
+    auto& entries =
+        node.entries.emplace<VersionTreeNode::InteriorNodeEntries>();
+    entries.push_back(VersionNodeReference{
+        IndirectDataReference{DataFileId{"", "f1"}, 0, 10},
+        /*.generation_number=*/4,
+        /*.height=*/0,
+        /*.num_generations=*/4,
+        /*.commit_time=*/CommitTime{20},
+    });
+    entries.push_back(VersionNodeReference{
+        IndirectDataReference{DataFileId{"", "f1"}, 10, 10},
+        /*.generation_number=*/8,
+        /*.height=*/0,
+        /*.num_generations=*/4,
+        /*.commit_time=*/second_commit_time,
+    });
+    TENSORSTORE_ASSIGN_OR_RETURN(auto encoded,
+                                 EncodeVersionTreeNodeUnchecked(config, node));
+    return DecodeVersionTreeNode(encoded, /*base_path=*/{});
+  };
+  EXPECT_THAT(decode(CommitTime{21}), ::tensorstore::IsOk());
+  EXPECT_THAT(decode(CommitTime{20}),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("commit_time")));
+  EXPECT_THAT(decode(CommitTime{10}),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("commit_time")));
 }
 
 }  // namespace

@@ -235,6 +235,19 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
     VersionTreeArityLog2 version_tree_arity_log2,
     GenerationNumber generation_number);
 
+/// Returns an error if `commit_time` is not strictly increasing across
+/// `entries`.
+///
+/// Since each generation is assigned a commit time strictly greater than that
+/// of the previous generation, and a version tree node reference has the
+/// commit time of the first generation it contains, both inline versions and
+/// version tree node references must have strictly increasing commit times.
+/// Lookups by commit time rely on this invariant.
+absl::Status ValidateCommitTimesStrictlyIncreasing(
+    span<const BtreeGenerationReference> entries);
+absl::Status ValidateCommitTimesStrictlyIncreasing(
+    span<const VersionNodeReference> entries);
+
 /// Validates invariants for interior node entries.
 ///
 /// This is called internally by `DecodeVersionTreeNode`, but may be called
@@ -260,6 +273,13 @@ Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded,
 /// If `NDEBUG` is not defined, also CHECKs invariants.
 Result<absl::Cord> EncodeVersionTreeNode(const Config& config,
                                          const VersionTreeNode& node);
+
+/// Same as `EncodeVersionTreeNode`, but never checks invariants.
+///
+/// This is intended for tests that need to encode invalid version tree nodes in
+/// order to exercise validation in `DecodeVersionTreeNode`.
+Result<absl::Cord> EncodeVersionTreeNodeUnchecked(const Config& config,
+                                                  const VersionTreeNode& node);
 
 /// Validates that a version tree node has the expected generation number,
 /// height and configuration.
@@ -384,6 +404,13 @@ span<const BtreeGenerationReference>::iterator FindVersionUpperBound(
     span<const BtreeGenerationReference> versions,
     GenerationNumber generation_number);
 
+inline span<const BtreeGenerationReference>::iterator FindVersionUpperBound(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const BtreeGenerationReference> versions,
+    GenerationNumber generation_number) {
+  return internal_ocdbt::FindVersionUpperBound(versions, generation_number);
+}
+
 span<const BtreeGenerationReference>::iterator FindVersionUpperBound(
     span<const BtreeGenerationReference> versions, CommitTime commit_time);
 
@@ -425,6 +452,7 @@ span<const VersionNodeReference>::iterator FindVersionLowerBound(
     span<const VersionNodeReference> children, CommitTime commit_time);
 
 span<const VersionNodeReference>::iterator FindVersionUpperBound(
+    VersionTreeArityLog2 version_tree_arity_log2,
     span<const VersionNodeReference> children,
     GenerationNumber generation_number);
 

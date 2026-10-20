@@ -56,6 +56,8 @@
 #include "tensorstore/kvstore/ocdbt/distributed/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security_registry.h"
+#include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
@@ -400,6 +402,7 @@ Future<TimestampedStorageGeneration> OcdbtDriver::Write(
   if (version_spec_) {
     return GetReadOnlyError(*this);
   }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateKeyLength(key));
   ocdbt_metrics.write.Increment();
   return btree_writer_->Write(std::move(key), std::move(value),
                               std::move(options));
@@ -458,6 +461,13 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
             if (!data_path_prefix.empty()) {
               auto& base_path =
                   copy_node_options.node.location.file_id.base_path;
+              if (data_path_prefix.size() + base_path.size() > kMaxPathLength) {
+                promise.SetResult(absl::InvalidArgumentError(absl::StrFormat(
+                    "Data file base path %v exceeds maximum length of %d",
+                    QuoteString(absl::StrCat(data_path_prefix, base_path)),
+                    kMaxPathLength)));
+                return;
+              }
               internal::RefCountedStringWriter base_path_writer(
                   data_path_prefix.size() + base_path.size());
               std::memcpy(base_path_writer.data(), data_path_prefix.data(),
@@ -506,6 +516,7 @@ absl::Status OcdbtDriver::ReadModifyWrite(
   if (version_spec_) {
     return GetReadOnlyError(*this);
   }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateKeyLength(key));
   if (!transaction || !transaction->atomic() || coordinator_->address) {
     return kvstore::Driver::ReadModifyWrite(transaction, phase, std::move(key),
                                             source);

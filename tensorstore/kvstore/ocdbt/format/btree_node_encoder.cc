@@ -29,8 +29,10 @@
 #include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/writer.h"
 #include "riegeli/varint/varint_writing.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -323,6 +325,15 @@ Result<EncodedNode> EncodeEntries(
 template <typename Entry>
 Result<std::vector<EncodedNode>> BtreeNodeEncoder<Entry>::Finalize(
     bool may_be_root) {
+  for (const auto& e : buffered_entries_) {
+    const size_t full_key_length =
+        (e.existing ? existing_prefix_.size() : 0) + e.entry.key.size();
+    if (full_key_length > kMaxKeyLength) {
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Full key length %d exceeds limit of %d",
+                          full_key_length, kMaxKeyLength));
+    }
+  }
 #ifdef TENSORSTORE_INTERNAL_OCDBT_DEBUG
   // Verify that entries are sorted.
   for (size_t i = 1; i < buffered_entries_.size(); ++i) {

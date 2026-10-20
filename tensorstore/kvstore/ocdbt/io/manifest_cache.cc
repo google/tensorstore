@@ -26,11 +26,13 @@
 #include <utility>
 #include <vector>
 
+#include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -457,7 +459,9 @@ using NumberedManifest = NumberedManifestCache::NumberedManifest;
 
 [[nodiscard]] bool ParseNumberedManifestGenerationNumber(
     std::string_view key, GenerationNumber& generation_number) {
-  if (key.size() != 16) return false;
+  if (key.size() != 16 || absl::c_any_of(key, absl::ascii_isupper)) {
+    return false;
+  }
   auto [ptr, ec] = std::from_chars(key.data(), key.data() + key.size(),
                                    generation_number, /*base=*/16);
   if (ec != std::errc{} || ptr != key.data() + key.size()) return false;

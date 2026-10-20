@@ -35,6 +35,7 @@
 #include "absl/time/time.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
@@ -85,9 +86,9 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
     GenerationNumber generation_number) {
   auto min_generation_number = GetMinVersionTreeNodeGenerationNumber(
       version_tree_arity_log2, 0, generation_number);
-  auto max_generation_number =
-      min_generation_number +
-      ((GenerationNumber(1) << version_tree_arity_log2) - 1);
+  auto max_generation_number = internal::AddSaturate(
+      min_generation_number,
+      (GenerationNumber(1) << version_tree_arity_log2) - 1);
   return {min_generation_number, max_generation_number};
 }
 
@@ -208,6 +209,11 @@ Result<absl::Cord> EncodeVersionTreeNode(const Config& config,
   assert(node.version_tree_arity_log2 == config.version_tree_arity_log2);
   CheckVersionTreeNodeInvariants(node);
 #endif
+  return EncodeVersionTreeNodeUnchecked(config, node);
+}
+
+Result<absl::Cord> EncodeVersionTreeNodeUnchecked(const Config& config,
+                                                  const VersionTreeNode& node) {
   return EncodeWithOptionalCompression(
       config, kVersionTreeNodeMagic, kVersionTreeNodeFormatVersion,
       [&](riegeli::Writer& writer) -> bool {
@@ -299,6 +305,31 @@ std::ostream& operator<<(std::ostream& os, CommitTime x) {
   return os << absl::StreamFormat("%v", x);
 }
 
+namespace {
+template <typename Entry>
+absl::Status ValidateCommitTimesStrictlyIncreasingImpl(
+    span<const Entry> entries) {
+  for (size_t i = 1; i < entries.size(); ++i) {
+    if (entries[i].commit_time <= entries[i - 1].commit_time) {
+      return absl::DataLossError(absl::StrFormat(
+          "commit_time[%d]=%v <= commit_time[%d]=%v", i, entries[i].commit_time,
+          i - 1, entries[i - 1].commit_time));
+    }
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
+absl::Status ValidateCommitTimesStrictlyIncreasing(
+    span<const BtreeGenerationReference> entries) {
+  return ValidateCommitTimesStrictlyIncreasingImpl(entries);
+}
+
+absl::Status ValidateCommitTimesStrictlyIncreasing(
+    span<const VersionNodeReference> entries) {
+  return ValidateCommitTimesStrictlyIncreasingImpl(entries);
+}
+
 absl::Status ValidateVersionTreeLeafNodeEntries(
     VersionTreeArityLog2 version_tree_arity_log2,
     const VersionTreeNode::LeafNodeEntries& entries) {
@@ -336,8 +367,22 @@ absl::Status ValidateVersionTreeLeafNodeEntries(
       }
     }
   }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateCommitTimesStrictlyIncreasing(entries));
   const GenerationNumber last_generation_number =
       entries.back().generation_number;
+  const auto max_height = GetMaxVersionTreeHeight(version_tree_arity_log2);
+  const int max_shift = version_tree_arity_log2 * (max_height + 1);
+  assert(max_shift < 64);
+  const GenerationNumber max_generation_number =
+      (GenerationNumber(1) << max_shift) +
+      (GenerationNumber(1) << version_tree_arity_log2);
+  if (last_generation_number > max_generation_number) {
+    return absl::DataLossError(
+        absl::StrFormat("generation_number=%d exceeds maximum %d for "
+                        "version_tree_arity_log2=%d",
+                        last_generation_number, max_generation_number,
+                        version_tree_arity_log2));
+  }
   const GenerationNumber first_generation_number =
       entries.front().generation_number;
   const GenerationNumber min_generation_number =
@@ -391,19 +436,16 @@ absl::Status ValidateVersionTreeInteriorNodeEntries(
           "generation_number[%d]=%d is not a multiple of %d", i,
           entry.generation_number, child_generation_number_stride));
     }
-    GenerationNumber max_num_generations =
-        entry.generation_number % child_generation_number_stride;
-    if (max_num_generations == 0) {
-      max_num_generations = child_generation_number_stride;
-    }
-    if (entry.num_generations > max_num_generations) {
+    if (entry.num_generations == 0 ||
+        entry.num_generations > child_generation_number_stride) {
       return absl::DataLossError(
           absl::StrFormat("num_generations[%d]=%d for generation_number[%d]=%d "
-                          "is greater than %d",
+                          "is outside valid range [1, %d]",
                           i, entry.num_generations, i, entry.generation_number,
-                          max_num_generations));
+                          child_generation_number_stride));
     }
   }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateCommitTimesStrictlyIncreasing(entries));
 
   const GenerationNumber max_arity = static_cast<GenerationNumber>(1)
                                      << version_tree_arity_log2;
@@ -613,12 +655,15 @@ span<const VersionNodeReference>::iterator FindVersionLowerBound(
 }
 
 span<const VersionNodeReference>::iterator FindVersionUpperBound(
+    VersionTreeArityLog2 version_tree_arity_log2,
     span<const VersionNodeReference> children,
     GenerationNumber generation_number) {
   return std::upper_bound(
       children.begin(), children.end(), generation_number,
-      [](GenerationNumber generation_number, const VersionNodeReference& ref) {
-        return generation_number < ref.generation_number;
+      [&](GenerationNumber generation_number, const VersionNodeReference& ref) {
+        return generation_number <
+               GetMinVersionTreeNodeGenerationNumber(
+                   version_tree_arity_log2, ref.height, ref.generation_number);
       });
 }
 

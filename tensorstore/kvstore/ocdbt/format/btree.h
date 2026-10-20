@@ -54,6 +54,9 @@ using KeyLength = uint16_t;
 
 constexpr KeyLength kMaxKeyLength = 65535;
 
+/// Returns `absl::InvalidArgumentError` if `key.size() > kMaxKeyLength`.
+absl::Status ValidateKeyLength(std::string_view key);
+
 /// In-memory representation of statistics over a b+tree subtree.
 ///
 /// These are included with every stored reference to a b+tree node.
@@ -303,12 +306,40 @@ inline size_t EstimateDecodedEntrySizeExcludingKey(
   return kInteriorNodeFixedSize + entry.node.location.file_id.size();
 }
 
-/// Validates that a b+tree node has the expected height and min key.
+/// Validates that a b+tree node has the expected height and key bounds.
+///
+/// \param node The node to validate.
+/// \param height Expected height of `node`.
+/// \param inclusive_min_key Lower bound on the keys of `node`, relative to the
+///     implicit prefix (of length `prefix_length`) excluded from `node`.
+/// \param prefix_length Length of the implicit key prefix excluded from
+///     `node`, used to verify that full keys do not exceed `kMaxKeyLength`.
+/// \param exclusive_max_key Exclusive upper bound on the keys of `node`,
+///     relative to the implicit prefix.  An empty string indicates no upper
+///     bound.
 ///
 /// TODO(jbms): Also validate `BtreeNodeStatistics`
 absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
                                         BtreeNodeHeight height,
-                                        std::string_view inclusive_min_key);
+                                        std::string_view inclusive_min_key,
+                                        size_t prefix_length,
+                                        std::string_view exclusive_max_key);
+
+/// Returns the exclusive upper bound on the keys of the child referenced by
+/// `entry`, relative to the child's implicit prefix
+/// `entry.key.substr(0, entry.subtree_common_prefix_length)`.
+///
+/// The bound is the key of the next sibling entry, or `node_exclusive_max` if
+/// `entry` is the last entry.
+///
+/// \param all_entries All entries of the parent interior node.
+/// \param entry The child entry.  MUST point into `all_entries`.
+/// \param node_exclusive_max Exclusive upper bound on the keys of the parent
+///     node, relative to the parent node's full key prefix (including
+///     `BtreeNode::key_prefix`).  An empty string indicates no upper bound.
+std::string_view GetChildExclusiveMaxKey(
+    span<const InteriorNodeEntry> all_entries, const InteriorNodeEntry& entry,
+    std::string_view node_exclusive_max);
 
 /// Calculates local statistics for a B-tree node.
 BtreeNodeStatistics GetBtreeNodeLocalStatistics(const BtreeNode& node,

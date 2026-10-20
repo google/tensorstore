@@ -199,7 +199,8 @@ struct ListVersionsOperation : public internal::FlowSenderOperationState<
     if (options.max_generation_number !=
         std::numeric_limits<GenerationNumber>::max()) {
       entries = {entries.begin(), internal_ocdbt::FindVersionUpperBound(
-                                      entries, options.min_generation_number)};
+                                      config->version_tree_arity_log2, entries,
+                                      options.max_generation_number)};
     }
     if (options.min_commit_time != CommitTime::min()) {
       entries = {internal_ocdbt::FindVersionLowerBound(entries,

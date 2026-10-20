@@ -161,11 +161,18 @@ void DataFileTableBuilder::Clear() { data_files_.clear(); }
   }
 
   PathLength prev_base_path_length = 0;
+  size_t prev_path_length = 0;
   for (uint64_t i = 0; i < num_files; ++i) {
     PathLength base_path_length;
     if (!PathLengthCodec{}(reader, base_path_length)) return false;
     size_t prefix_length = path_length_buffer[i];
     size_t suffix_length = path_length_buffer[num_files + i];
+    if (prefix_length > prev_path_length) {
+      reader.Fail(absl::DataLossError(
+          absl::StrFormat("path_prefix_length[%d] = %d > path_length[%d] = %d",
+                          i - 1, prefix_length, i - 1, prev_path_length)));
+      return false;
+    }
     size_t path_length = prefix_length + suffix_length;
     if (path_length > max_path_length) {
       reader.Fail(absl::DataLossError(absl::StrFormat(
@@ -198,11 +205,13 @@ void DataFileTableBuilder::Clear() { data_files_.clear(); }
     }
     path_length_buffer.push_back(base_path_length);
     prev_base_path_length = base_path_length;
+    prev_path_length = path_length;
   }
 
   auto& files = value.files;
   files.resize(num_files);
 
+  prev_base_path_length = 0;
   size_t prev_relative_path_length = 0;
   for (uint64_t i = 0; i < num_files; ++i) {
     size_t prefix_length = path_length_buffer[i];
@@ -217,7 +226,8 @@ void DataFileTableBuilder::Clear() { data_files_.clear(); }
 
     if (base_path_length == 0) {
       file.base_path = transitive_path;
-    } else if (prefix_length >= base_path_length) {
+    } else if (prefix_length >= base_path_length &&
+               base_path_length == prev_base_path_length) {
       // Base path is identical to previous base path, just create another
       // reference to the previous `RefCountedString`.
       assert(files[i - 1].base_path.size() ==
@@ -253,6 +263,7 @@ void DataFileTableBuilder::Clear() { data_files_.clear(); }
       }
       file.base_path = std::move(writer);
     }
+    prev_base_path_length = base_path_length;
 
     if (relative_path_length == 0) {
       assert(suffix_length == 0);
