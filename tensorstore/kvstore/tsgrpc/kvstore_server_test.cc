@@ -27,6 +27,7 @@
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/create_channel.h"  // third_party
 #include "grpcpp/security/credentials.h"  // third_party
+#include "grpcpp/support/status.h"  // third_party
 #include "grpcpp/support/sync_stream.h"  // third_party
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
@@ -71,6 +72,7 @@ class KvStoreSingleton {
   }
 
   const std::string& address() const { return address_; }
+  const tensorstore::Context& context() const { return ctx_; }
 
  private:
   tensorstore::Context ctx_;
@@ -88,6 +90,9 @@ const KvStoreSingleton& GetSingleton() {
 class KvStoreTest : public testing::Test {
  public:
   const std::string& address() const { return GetSingleton().address(); }
+  const tensorstore::Context& context() const {
+    return GetSingleton().context();
+  }
 };
 
 TENSORSTORE_GLOBAL_INITIALIZER {
@@ -300,6 +305,91 @@ TEST_F(KvStoreTest, DeleteEmptyKeyAndUnsetByteRangeExclusiveMax) {
   }
   EXPECT_TRUE(reader->Finish().ok());
   EXPECT_EQ("456789", value);
+}
+
+TEST_F(KvStoreTest, ListLargeDatasetChunkedAndBounded) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::kvstore::Open("memory://x/large_list/", context()).result());
+  constexpr int kNumKeys = 600;
+  const std::string suffix(8192, 'x');
+  for (int i = 0; i < kNumKeys; ++i) {
+    std::string key = absl::StrFormat("k_%04d_%s", i, suffix);
+    TENSORSTORE_ASSERT_OK(
+        kvstore::Write(base_store, key, absl::Cord("v")).result());
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::kvstore::Open({{"driver", "tsgrpc_kvstore"},
+                                              {"address", address()},
+                                              {"path", "large_list/"}},
+                                             context())
+                      .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto entries,
+                                   kvstore::ListFuture(store, {}).result());
+  EXPECT_EQ(entries.size(), kNumKeys);
+
+  auto channel =
+      grpc::CreateChannel(address(), grpc::InsecureChannelCredentials());
+  auto stub =
+      tensorstore_grpc::kvstore::grpc_gen::KvStoreService::NewStub(channel);
+  grpc::ClientContext client_context;
+  tensorstore_grpc::kvstore::ListRequest req;
+  const auto range = KeyRange::Prefix("large_list/");
+  req.mutable_range()->set_inclusive_min(range.inclusive_min);
+  req.mutable_range()->set_exclusive_max(range.exclusive_max);
+  req.set_strip_prefix_length(std::string_view("large_list/").size());
+
+  auto reader = stub->List(&client_context, req);
+  tensorstore_grpc::kvstore::ListResponse resp;
+  int num_responses = 0;
+  int total_entries = 0;
+  while (reader->Read(&resp)) {
+    ++num_responses;
+    EXPECT_GT(resp.entry_size(), 0);
+    EXPECT_LE(resp.ByteSizeLong(), 32768u);
+    total_entries += resp.entry_size();
+  }
+  EXPECT_TRUE(reader->Finish().ok());
+  EXPECT_GT(num_responses, 1);
+  EXPECT_EQ(total_entries, kNumKeys);
+}
+
+TEST_F(KvStoreTest, ListClientCancellation) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::kvstore::Open("memory://x/cancel_list/", context())
+          .result());
+  constexpr int kNumKeys = 200;
+  const std::string suffix(8192, 'x');
+  for (int i = 0; i < kNumKeys; ++i) {
+    std::string key = absl::StrFormat("k_%04d_%s", i, suffix);
+    TENSORSTORE_ASSERT_OK(
+        kvstore::Write(base_store, key, absl::Cord("v")).result());
+  }
+
+  auto channel =
+      grpc::CreateChannel(address(), grpc::InsecureChannelCredentials());
+  auto stub =
+      tensorstore_grpc::kvstore::grpc_gen::KvStoreService::NewStub(channel);
+  grpc::ClientContext client_context;
+  tensorstore_grpc::kvstore::ListRequest req;
+  const auto range = KeyRange::Prefix("cancel_list/");
+  req.mutable_range()->set_inclusive_min(range.inclusive_min);
+  req.mutable_range()->set_exclusive_max(range.exclusive_max);
+  req.set_strip_prefix_length(std::string_view("cancel_list/").size());
+
+  auto reader = stub->List(&client_context, req);
+  tensorstore_grpc::kvstore::ListResponse resp;
+  ASSERT_TRUE(reader->Read(&resp));
+  EXPECT_GT(resp.entry_size(), 0);
+  EXPECT_LT(resp.entry_size(), kNumKeys);
+
+  client_context.TryCancel();
+  while (reader->Read(&resp)) {
+  }
+  grpc::Status status = reader->Finish();
+  EXPECT_EQ(status.error_code(), grpc::StatusCode::CANCELLED);
 }
 
 }  // namespace

@@ -18,8 +18,8 @@
 #include <stdint.h>
 
 #include <algorithm>
-#include <atomic>
 #include <cassert>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -361,6 +361,8 @@ class ListHandler final
   using Base = StreamServerResponseHandler<ListRequest, ListResponse>;
 
  public:
+  static constexpr size_t kTargetSize = 16 * 1024;
+
   ListHandler(CallbackServerContext* grpc_context, const Request* request,
               tensorstore::KvStore kvstore)
       : Base(grpc_context, request),
@@ -370,87 +372,114 @@ class ListHandler final
 
   void Run();
 
-  void OnCancel() final { cancel_(); }
-
-  void OnWriteDone(bool ok) final {
-    absl::MutexLock l(mu_);
-    in_flight_msg_ = nullptr;
-    MaybeWrite();
+  void OnCancel() final {
+    AnyCancelReceiver cancel;
+    {
+      absl::MutexLock l(mu_);
+      cancelled_ = true;
+      cancel = std::move(cancel_);
+      cancel_ = [] {};
+      pending_.clear();
+      current_ = nullptr;
+      MaybeWrite();
+    }
+    if (cancel) cancel();
   }
 
-  /// MaybeWrite potentially enqueues the next required write.
-  /// When no write is possible (an existing message is in flight, or
-  /// the pending message is "empty"), then it does nothing.
-  /// Otherwise it starts sending the the pending message and allocates
-  /// a new buffer.
+  void OnWriteDone(bool ok) final {
+    AnyCancelReceiver cancel;
+    {
+      absl::MutexLock l(mu_);
+      in_flight_msg_ = nullptr;
+      if (!ok) {
+        cancelled_ = true;
+        cancel = std::move(cancel_);
+        cancel_ = [] {};
+        pending_.clear();
+        current_ = nullptr;
+      }
+      MaybeWrite();
+    }
+    if (cancel) cancel();
+  }
+
   void MaybeWrite() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    // A message is still in-flight; only 1 allowed at a time.
-    if (in_flight_msg_ != nullptr) return;
+    if (in_flight_msg_ != nullptr || finished_) return;
 
-    // No pending message / final message already sent.
-    if (!current_) return;
+    if (cancelled_) {
+      pending_.clear();
+      current_ = nullptr;
+      finished_ = true;
+      Finish(grpc::Status(grpc::StatusCode::CANCELLED, "Cancelled"));
+      return;
+    }
 
-    // The sender has completed, so apply final processing.
-    if (done_) {
-      if (!status_.ok()) {
-        // List failed, return status.
-        current_ = nullptr;
-        Finish(status_);
-      } else if (current_->entry().empty()) {
-        // List succeeded, however the message is empty.
-        current_ = nullptr;
-        Finish(grpc::Status::OK);
-      } else {
-        // Send last pending proto.
-        // StartWriteAndFinish does call OnWriteDone, only OnDone.
-        in_flight_msg_ = std::move(current_);
+    if (done_ && !status_.ok()) {
+      pending_.clear();
+      current_ = nullptr;
+      finished_ = true;
+      Finish(status_);
+      return;
+    }
+
+    if (!pending_.empty()) {
+      in_flight_msg_ = std::move(pending_.front());
+      pending_.pop_front();
+      if (done_ && pending_.empty()) {
+        finished_ = true;
         StartWriteAndFinish(in_flight_msg_.get(), {}, grpc::Status::OK);
+      } else {
+        StartWrite(in_flight_msg_.get());
       }
       return;
     }
 
-    // NOTE: There's no mechanism for the reactor to send multiple messages
-    // and indicate which message was sent, so we track a single
-    // in_flight_message_.
-    //
-    // There's also very little control flow available on the sender/receiver
-    // mechanism, which could be useful here.
-
-    // Nothing to send. This selection/rejection criteria should be adapted
-    // based on what works well.
-
-    constexpr size_t kTargetSize = 16 * 1024;  // look for a minimum 16kb proto.
-    if (estimated_size_ < kTargetSize) return;
-
-    in_flight_msg_ = std::move(current_);
-    StartWrite(in_flight_msg_.get());
-
-    current_ = std::make_unique<ListResponse>();
-    estimated_size_ = 0;
+    if (done_) {
+      finished_ = true;
+      Finish(grpc::Status::OK);
+    }
   }
 
-  /// AnyFlowReceiver methods.
+  // AnyFlowReceiver methods.
   [[maybe_unused]] friend void set_starting(
       internal::IntrusivePtr<ListHandler>& self, AnyCancelReceiver cancel) {
-    absl::MutexLock l(self->mu_);
-    self->cancel_ = std::move(cancel);
-    self->done_ = false;
-    self->current_ = std::make_unique<ListResponse>();
-    self->estimated_size_ = 0;
+    AnyCancelReceiver my_cancel;
+    {
+      absl::MutexLock l(self->mu_);
+      self->done_ = false;
+      self->estimated_size_ = 0;
+      if (self->cancelled_) {
+        my_cancel = std::move(cancel);
+      } else {
+        self->current_ = std::make_unique<ListResponse>();
+        self->cancel_ = std::move(cancel);
+      }
+    }
+    if (my_cancel) {
+      my_cancel();
+    }
   }
 
   [[maybe_unused]] friend void set_value(
       internal::IntrusivePtr<ListHandler>& self, ListEntry entry) {
     absl::MutexLock l(self->mu_);
+    if (self->cancelled_ || self->done_ || !self->current_) return;
+
     auto* e = self->current_->add_entry();
-    e->set_key(entry.key);
+    e->set_key(std::move(entry.key));
     e->set_size(entry.size);
-    self->estimated_size_ += entry.key.size();
-    self->MaybeWrite();
+    self->estimated_size_ += e->key().size() + sizeof(int64_t);
+    if (self->estimated_size_ >= kTargetSize) {
+      self->pending_.push_back(std::move(self->current_));
+      self->current_ = std::make_unique<ListResponse>();
+      self->estimated_size_ = 0;
+      self->MaybeWrite();
+    }
   }
 
   [[maybe_unused]] friend void set_done(
       internal::IntrusivePtr<ListHandler>& self) {
+    absl::MutexLock l(self->mu_);
     self->cancel_ = [] {};
   }
 
@@ -458,13 +487,18 @@ class ListHandler final
       internal::IntrusivePtr<ListHandler>& self, absl::Status s) {
     absl::MutexLock l(self->mu_);
     self->cancel_ = [] {};
-    self->status_ = s;
+    self->status_ = std::move(s);
   }
 
   [[maybe_unused]] friend void set_stopping(
       internal::IntrusivePtr<ListHandler>& self) {
     absl::MutexLock l(self->mu_);
     self->done_ = true;
+    if (!self->cancelled_ && self->status_.ok() && self->current_ &&
+        !self->current_->entry().empty()) {
+      self->pending_.push_back(std::move(self->current_));
+    }
+    self->current_ = nullptr;
     self->MaybeWrite();
   }
 
@@ -473,11 +507,14 @@ class ListHandler final
 
   absl::Mutex mu_;
   absl::Status status_ ABSL_GUARDED_BY(mu_);
+  std::deque<std::unique_ptr<ListResponse>> pending_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<ListResponse> current_ ABSL_GUARDED_BY(mu_);
   std::unique_ptr<ListResponse> in_flight_msg_ ABSL_GUARDED_BY(mu_);
   size_t estimated_size_ ABSL_GUARDED_BY(mu_);
-  tensorstore::AnyCancelReceiver cancel_;
-  std::atomic<bool> done_{true};
+  tensorstore::AnyCancelReceiver cancel_ ABSL_GUARDED_BY(mu_);
+  bool cancelled_ ABSL_GUARDED_BY(mu_) = false;
+  bool done_ ABSL_GUARDED_BY(mu_) = true;
+  bool finished_ ABSL_GUARDED_BY(mu_) = false;
 };
 
 void ListHandler::Run() {
@@ -489,14 +526,23 @@ void ListHandler::Run() {
                                         request()->range().exclusive_max());
   options.strip_prefix_length = request()->strip_prefix_length();
   if (request()->has_staleness_bound()) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        options.staleness_bound,
-        internal::ProtoToAbslTime(request()->staleness_bound()), Finish(_));
+    auto staleness_bound =
+        internal::ProtoToAbslTime(request()->staleness_bound());
+    if (!staleness_bound.ok()) {
+      absl::MutexLock l(mu_);
+      if (!finished_) {
+        finished_ = true;
+        Finish(staleness_bound.status());
+      }
+      return;
+    }
+    options.staleness_bound = *staleness_bound;
   }
 
   internal::IntrusivePtr<ListHandler> self{this};
   tensorstore::execution::submit(
-      tensorstore::kvstore::List(self->kvstore_, options), self);
+      tensorstore::kvstore::List(kvstore_, std::move(options)),
+      std::move(self));
 }
 
 // ---------------------------------------
