@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -111,6 +112,7 @@ struct Cooperator : public grpc_gen::Cooperator::CallbackService,
   internal_ocdbt::RpcSecurityMethod::Ptr security_;
 
   Clock clock_;
+  absl::Duration lease_duration_;
 
   internal_ocdbt::IoHandle::Ptr io_handle_;
 
@@ -154,6 +156,10 @@ void MaybeCommit(
     Cooperator& server,
     internal::IntrusivePtr<Cooperator::NodeMutationRequests> mutation_requests,
     std::unique_lock<absl::Mutex>&& lock);
+
+inline constexpr int kMaxPeerRetries = 16;
+
+absl::Duration ComputePeerRetryBackoff(int retry_count);
 
 // Returns `true` if `status` returned from a gRPC request to another cooperator
 // indicates that the lease should be revoked.

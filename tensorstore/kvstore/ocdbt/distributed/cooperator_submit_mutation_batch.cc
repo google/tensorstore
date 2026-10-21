@@ -14,6 +14,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <cassert>
 #include <mutex>
 #include <optional>
@@ -26,6 +27,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
@@ -36,7 +38,7 @@
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_write_mutation.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
@@ -89,6 +91,7 @@ struct SubmitMutationBatchOperation
   grpc_gen::WriteRequest request;
   grpc_gen::WriteResponse response;
   absl::Time submit_time;
+  int retry_count = 0;
 
   // Starts the asynchronous operation.
   static Future<MutationBatchResponse> Start(
@@ -213,6 +216,11 @@ struct SubmitMutationBatchOperation
     // Construct a new `grpc::ClientContext` for this RPC request.  It is not
     // permitted to reuse a `ClientContext` for multiple RPC requests.
     state->client_context.emplace();
+    if (state->server->lease_duration_ > absl::ZeroDuration()) {
+      state->client_context->set_deadline(
+          absl::ToChronoTime(std::max(absl::Now(), state->server->clock_()) +
+                             state->server->lease_duration_));
+    }
     state->request.Clear();
     state->request.set_lease_key(state->lease_node->key);
     state->request.set_root_generation(state->batch_request.root_generation);
@@ -239,9 +247,15 @@ struct SubmitMutationBatchOperation
         << "[Port=" << state->server->listening_port_
         << "] SendToPeer: " << state->node_identifier << ", status=" << status;
     if (!status.ok()) {
-      if (absl::IsUnavailable(status) || absl::IsFailedPrecondition(status) ||
-          absl::IsCancelled(status)) {
-        QueryLease(std::move(state));
+      if (ShouldRevokeLeaseAndRetryAfterError(status) &&
+          state->retry_count < kMaxPeerRetries) {
+        absl::Duration backoff = ComputePeerRetryBackoff(state->retry_count++);
+        auto executor = state->server->io_handle_->executor;
+        internal::ScheduleAt(absl::Now() + backoff,
+                             WithExecutor(std::move(executor),
+                                          [state = std::move(state)]() mutable {
+                                            QueryLease(std::move(state));
+                                          }));
       } else {
         state->promise.SetResult(status);
       }

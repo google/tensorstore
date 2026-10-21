@@ -15,18 +15,20 @@
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 // Part of the Cooperator interface
 
+#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <utility>
 
 #include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/support/server_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator_impl.h"
 #include "tensorstore/kvstore/ocdbt/distributed/lease_cache_for_cooperator.h"
@@ -41,23 +43,30 @@ namespace {
 
 void StartGetManifestForWriting(
     Promise<absl::Time> promise, internal::IntrusivePtr<Cooperator> server,
-    LeaseCacheForCooperator::LeaseNode::Ptr uncooperative_lease);
+    LeaseCacheForCooperator::LeaseNode::Ptr uncooperative_lease,
+    int retry_count = 0);
 
 void GetManifestForWritingFromPeer(
     Promise<absl::Time> promise, internal::IntrusivePtr<Cooperator> server,
-    LeaseCacheForCooperator::LeaseNode::Ptr lease) {
+    LeaseCacheForCooperator::LeaseNode::Ptr lease, int retry_count) {
   struct RequestState : public internal::AtomicReferenceCount<RequestState> {
     std::shared_ptr<grpc::ClientContext> client_context;
     internal::IntrusivePtr<Cooperator> server;
     LeaseCacheForCooperator::LeaseNode::Ptr lease;
     grpc_gen::GetOrCreateManifestRequest request;
     grpc_gen::GetOrCreateManifestResponse response;
+    int retry_count = 0;
   };
 
   auto state = internal::MakeIntrusivePtr<RequestState>();
   state->client_context = std::make_shared<grpc::ClientContext>();
+  if (server->lease_duration_ > absl::ZeroDuration()) {
+    state->client_context->set_deadline(absl::ToChronoTime(
+        std::max(absl::Now(), server->clock_()) + server->lease_duration_));
+  }
   state->server = std::move(server);
   state->lease = std::move(lease);
+  state->retry_count = retry_count;
 
   auto state_ptr = state.get();
   LinkValue(
@@ -68,20 +77,34 @@ void GetManifestForWritingFromPeer(
         state_ptr->lease->peer_stub->async()->GetOrCreateManifest(
             state_ptr->client_context.get(), &state_ptr->request,
             &state_ptr->response,
-            WithExecutor(state_ptr->server->io_handle_->executor,
-                         [state = std::move(state),
-                          promise = std::move(promise)](::grpc::Status s) {
-                           auto status = internal::GrpcStatusToAbslStatus(s);
-                           if (ShouldRevokeLeaseAndRetryAfterError(status)) {
-                             StartGetManifestForWriting(
-                                 std::move(promise), std::move(state->server),
-                                 std::move(state->lease));
-                           } else if (!status.ok()) {
-                             promise.SetResult(std::move(status));
-                           } else {
-                             promise.SetResult(state->server->clock_());
-                           }
-                         }));
+            WithExecutor(
+                state_ptr->server->io_handle_->executor,
+                [state = std::move(state),
+                 promise = std::move(promise)](::grpc::Status s) mutable {
+                  auto status = internal::GrpcStatusToAbslStatus(s);
+                  if (ShouldRevokeLeaseAndRetryAfterError(status) &&
+                      state->retry_count < kMaxPeerRetries) {
+                    absl::Duration backoff =
+                        ComputePeerRetryBackoff(state->retry_count);
+                    auto executor = state->server->io_handle_->executor;
+                    internal::ScheduleAt(
+                        absl::Now() + backoff,
+                        WithExecutor(
+                            std::move(executor),
+                            [promise = std::move(promise),
+                             server = std::move(state->server),
+                             lease = std::move(state->lease),
+                             retry_count = state->retry_count + 1]() mutable {
+                              StartGetManifestForWriting(
+                                  std::move(promise), std::move(server),
+                                  std::move(lease), retry_count);
+                            }));
+                  } else if (!status.ok()) {
+                    promise.SetResult(std::move(status));
+                  } else {
+                    promise.SetResult(state->server->clock_());
+                  }
+                }));
       },
       std::move(promise),
       state_ptr->server->security_->GetClientAuthenticationStrategy()
@@ -112,14 +135,15 @@ Future<const absl::Time> GetManifestAvailableFuture(
 
 void StartGetManifestForWriting(
     Promise<absl::Time> promise, internal::IntrusivePtr<Cooperator> server,
-    LeaseCacheForCooperator::LeaseNode::Ptr uncooperative_lease) {
+    LeaseCacheForCooperator::LeaseNode::Ptr uncooperative_lease,
+    int retry_count) {
   // FIXME: Need to take into account lease expiration
   auto root_node_identifier = BtreeNodeIdentifier::Root();
   auto key = root_node_identifier.GetKey(server->storage_identifier_);
   auto lease_future = server->lease_cache()->GetLease(
       key, std::move(root_node_identifier), uncooperative_lease.get());
   LinkValue(
-      [server = std::move(server)](
+      [server = std::move(server), retry_count](
           Promise<absl::Time> promise,
           ReadyFuture<const LeaseCacheForCooperator::LeaseNode::Ptr>
               future) mutable {
@@ -127,7 +151,7 @@ void StartGetManifestForWriting(
         if (lease_node->peer_stub) {
           // Wait for remote cooperator to create initial manifest.
           GetManifestForWritingFromPeer(std::move(promise), std::move(server),
-                                        std::move(lease_node));
+                                        std::move(lease_node), retry_count);
         } else {
           // Create initial manifest locally.
           LinkResult(std::move(promise), internal_ocdbt::EnsureExistingManifest(

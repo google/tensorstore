@@ -33,6 +33,7 @@
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/retry.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
@@ -116,9 +117,16 @@ void NoLeaseError(grpc::ServerUnaryReactor* reactor) {
       grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Lease not held"));
 }
 
+absl::Duration ComputePeerRetryBackoff(int retry_count) {
+  return internal::BackoffForAttempt(std::max(retry_count, 0),
+                                     /*initial_delay=*/absl::Milliseconds(1),
+                                     /*max_delay=*/absl::Milliseconds(200),
+                                     /*jitter=*/absl::Milliseconds(1));
+}
+
 bool ShouldRevokeLeaseAndRetryAfterError(const absl::Status& status) {
   return absl::IsUnavailable(status) || absl::IsFailedPrecondition(status) ||
-         absl::IsCancelled(status);
+         absl::IsCancelled(status) || absl::IsDeadlineExceeded(status);
 }
 
 absl::Status ManifestUnexpectedlyDeletedError(Cooperator& server) {

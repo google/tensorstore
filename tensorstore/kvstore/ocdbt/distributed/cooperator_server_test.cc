@@ -14,6 +14,7 @@
 
 #include <stdint.h>
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,10 +24,20 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "grpcpp/security/server_credentials.h"  // third_party
+#include "grpcpp/server.h"  // third_party
+#include "grpcpp/server_builder.h"  // third_party
+#include "grpcpp/server_context.h"  // third_party
+#include "grpcpp/support/channel_arguments.h"  // third_party
+#include "grpcpp/support/server_callback.h"  // third_party
+#include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/grpc/clientauth/create_channel.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -36,13 +47,17 @@
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_write_mutation.h"
+#include "tensorstore/kvstore/ocdbt/distributed/cooperator.grpc.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
+#include "tensorstore/kvstore/ocdbt/distributed/coordinator.grpc.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator_server.h"
+#include "tensorstore/kvstore/ocdbt/distributed/lease_cache_for_cooperator.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -62,10 +77,66 @@ using ::tensorstore::internal_ocdbt::BtreeNodeWriteMutation;
 using ::tensorstore::internal_ocdbt::ConfigConstraints;
 using ::tensorstore::internal_ocdbt::ConfigState;
 using ::tensorstore::internal_ocdbt::IoHandle;
+using ::tensorstore::internal_ocdbt_cooperator::LeaseCacheForCooperator;
 using ::tensorstore::ocdbt::CoordinatorServer;
 using ::testing::HasSubstr;
 
 namespace internal_ocdbt_cooperator = ::tensorstore::internal_ocdbt_cooperator;
+
+class HungCooperatorService : public tensorstore::internal_ocdbt::grpc_gen::
+                                  Cooperator::CallbackService {
+ public:
+  grpc::ServerUnaryReactor* GetOrCreateManifest(
+      grpc::CallbackServerContext* context,
+      const tensorstore::internal_ocdbt::grpc_gen::GetOrCreateManifestRequest*
+          request,
+      tensorstore::internal_ocdbt::grpc_gen::GetOrCreateManifestResponse*
+          response) override {
+    return HoldReactor(context);
+  }
+
+  grpc::ServerUnaryReactor* Write(
+      grpc::CallbackServerContext* context,
+      const tensorstore::internal_ocdbt::grpc_gen::WriteRequest* request,
+      tensorstore::internal_ocdbt::grpc_gen::WriteResponse* response) override {
+    return HoldReactor(context);
+  }
+
+  void FinishAllPending() {
+    std::vector<grpc::ServerUnaryReactor*> to_finish;
+    {
+      absl::MutexLock lock(mutex_);
+      shutting_down_ = true;
+      to_finish.swap(pending_reactors_);
+    }
+    for (auto* reactor : to_finish) {
+      reactor->Finish(grpc::Status::CANCELLED);
+    }
+  }
+
+  int calls() const {
+    absl::MutexLock lock(mutex_);
+    return calls_;
+  }
+
+ private:
+  grpc::ServerUnaryReactor* HoldReactor(grpc::CallbackServerContext* context) {
+    auto* reactor = context->DefaultReactor();
+    absl::MutexLock lock(mutex_);
+    ++calls_;
+    if (shutting_down_) {
+      reactor->Finish(grpc::Status::CANCELLED);
+    } else {
+      pending_reactors_.push_back(reactor);
+    }
+    return reactor;
+  }
+
+  mutable absl::Mutex mutex_;
+  bool shutting_down_ = false;
+  int calls_ = 0;
+  std::vector<grpc::ServerUnaryReactor*> pending_reactors_;
+};
 
 class CooperatorServerTest : public ::testing::Test {
  protected:
@@ -107,7 +178,7 @@ class CooperatorServerTest : public ::testing::Test {
       options.bind_addresses.push_back("localhost:0");
       options.coordinator_address = coordinator_address;
       options.security = security;
-      options.lease_duration = absl::Seconds(10);
+      options.lease_duration = absl::Milliseconds(200);
       TENSORSTORE_CHECK_OK_AND_ASSIGN(
           cooperator_, internal_ocdbt_cooperator::Start(std::move(options)));
     }
@@ -217,6 +288,90 @@ TEST_F(CooperatorServerLeafRootTest, LeasedNodeAtRootHeightWithPartialRange) {
                      /*root_generation=*/2, root_node_generation_),
       StatusIs(absl::StatusCode::kAborted,
                HasSubstr("Leased node no longer exists")));
+}
+
+TEST_F(CooperatorServerTest, GrayFailurePeerTimeoutTakesOverLease) {
+  // First create the manifest on the healthy cooperator.
+  TENSORSTORE_ASSERT_OK(internal_ocdbt_cooperator::GetManifestForWriting(
+                            *cooperator_, absl::InfinitePast())
+                            .result());
+
+  // Start a hung peer cooperator service that never responds to Write RPCs.
+  HungCooperatorService hung_service;
+  int hung_port = 0;
+  grpc::ServerBuilder builder;
+  builder.RegisterService(&hung_service);
+  builder.AddListeningPort("localhost:0", grpc::InsecureServerCredentials(),
+                           &hung_port);
+  std::unique_ptr<grpc::Server> hung_server = builder.BuildAndStart();
+
+  // Have the hung peer steal the lease for a leaf subtree node with a long
+  // (10-second) lease duration so passive expiration cannot rescue the write.
+  auto security = ::tensorstore::internal_ocdbt::GetInsecureRpcSecurityMethod();
+  auto auth_strategy = security->GetClientAuthenticationStrategy();
+  std::string coordinator_address =
+      absl::StrCat("localhost:", coordinator_server_.port());
+  grpc::ChannelArguments args;
+  auto channel = ::tensorstore::internal_grpc::CreateChannel(
+      *auth_strategy, coordinator_address, args);
+
+  LeaseCacheForCooperator::Options hung_cache_options;
+  hung_cache_options.clock = [] { return absl::Now(); };
+  hung_cache_options.cooperator_port = hung_port;
+  hung_cache_options.auth_strategy = auth_strategy;
+  hung_cache_options.coordinator_stub =
+      tensorstore::internal_ocdbt::grpc_gen::Coordinator::NewStub(channel);
+  hung_cache_options.lease_duration = absl::Seconds(10);
+  LeaseCacheForCooperator hung_lease_cache(std::move(hung_cache_options));
+
+  auto node_id = BtreeNodeIdentifier::Root();
+  auto key = node_id.GetKey("");
+  // Acquire the lease on the coordinator on behalf of the hung peer.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto existing_lease, hung_lease_cache.GetLease(key, node_id).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto hung_lease,
+      hung_lease_cache
+          .GetLease(key, node_id, /*uncooperative_lease=*/existing_lease.get())
+          .result());
+  ASSERT_FALSE(hung_lease->peer_stub);
+
+  // Start a second healthy cooperator with a 200ms lease_duration (and no
+  // cached lease yet) and submit a mutation batch for the root node.
+  internal_ocdbt_cooperator::Options healthy_options;
+  healthy_options.io_handle = io_handle_;
+  healthy_options.bind_addresses.push_back("localhost:0");
+  healthy_options.coordinator_address = coordinator_address;
+  healthy_options.security = security;
+  healthy_options.lease_duration = absl::Milliseconds(200);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto healthy_cooperator,
+      internal_ocdbt_cooperator::Start(std::move(healthy_options)));
+
+  internal_ocdbt_cooperator::MutationBatchRequest batch_request;
+  batch_request.root_generation = 1;
+  auto mutation = MakeIntrusivePtr<BtreeLeafNodeWriteMutation>();
+  mutation->mode = BtreeNodeWriteMutation::kDeleteExisting;
+  mutation->key = "test_key";
+  batch_request.mutations.push_back({std::move(mutation), {}});
+
+  auto write_future = internal_ocdbt_cooperator::SubmitMutationBatch(
+      *healthy_cooperator, BtreeNodeIdentifier::Root(),
+      std::move(batch_request));
+
+  // The healthy cooperator must time out the hung peer's Write RPC after
+  // lease_duration (200ms), revoke the hung peer's lease via
+  // uncooperative_lease_id, and complete the mutation batch locally.
+  bool completed_in_time = write_future.WaitFor(absl::Seconds(2));
+  EXPECT_TRUE(completed_in_time);
+  if (completed_in_time) {
+    TENSORSTORE_EXPECT_OK(write_future.result());
+    EXPECT_GE(hung_service.calls(), 1);
+  }
+
+  hung_service.FinishAllPending();
+  hung_server->Shutdown();
+  hung_server->Wait();
 }
 
 }  // namespace

@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "grpcpp/server_builder.h"  // third_party
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "tensorstore/internal/grpc/clientauth/create_channel.h"
@@ -41,6 +42,9 @@ Result<CooperatorPtr> Start(Options&& options) {
   } else {
     impl->clock_ = [] { return absl::Now(); };
   }
+  impl->lease_duration_ = options.lease_duration > absl::ZeroDuration()
+                              ? options.lease_duration
+                              : absl::Seconds(10);
   impl->io_handle_ = std::move(options.io_handle);
   impl->security_ = options.security;
   impl->storage_identifier_ = std::move(options.storage_identifier);
@@ -77,7 +81,7 @@ Result<CooperatorPtr> Start(Options&& options) {
         tensorstore::internal_ocdbt::grpc_gen::Coordinator::NewStub(channel);
     cache_options.auth_strategy = std::move(auth_strategy);
     cache_options.cooperator_port = impl->listening_port_;
-    cache_options.lease_duration = options.lease_duration;
+    cache_options.lease_duration = impl->lease_duration_;
     impl->lease_cache_ = LeaseCacheForCooperator(std::move(cache_options));
     impl->lease_cache_ptr_ = &impl->lease_cache_;
   }
