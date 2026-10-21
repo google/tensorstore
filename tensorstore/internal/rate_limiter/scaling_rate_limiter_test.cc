@@ -174,4 +174,18 @@ TEST(DoublingRateLimiter, NoOverflowOrNaNAfterManyDoublings) {
   EXPECT_EQ(2500, done);
 }
 
+TEST(ConstantRateLimiter, ReentrantQueryDuringPerformWork) {
+  absl::Time now = absl::Now();
+  ConstantRateLimiter queue(1.0, [&now]() { return now; });
+  double observed_available = -1.0;
+  auto node = MakeIntrusivePtr<Node>(
+      &queue, [&] { observed_available = queue.available(); });
+  intrusive_ptr_increment(node.get());
+  queue.Admit(node.get(), &Node::Start);
+  node.reset();
+  now += absl::Seconds(2);
+  queue.PeriodicCallForTesting();
+  EXPECT_GE(observed_available, 0.0);
+}
+
 }  // namespace

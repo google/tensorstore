@@ -15,6 +15,7 @@
 #include "tensorstore/internal/grpc/clientauth/access_token_cache.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "absl/synchronization/mutex.h"
@@ -49,34 +50,32 @@ Result<AccessToken> AccessTokenCache::GetAccessToken(absl::Time now) {
 }
 
 Future<AccessToken> AccessTokenCache::AsyncGetAccessToken(absl::Time now) {
-  mu_.lock();
-  if (now + kUseSlack > token_.expiration) {
-    return StartRefresh();
+  std::optional<AccessToken> cached;
+  Future<AccessToken> refresh;
+  bool start_refresh = false;
+  {
+    absl::MutexLock lock(mu_);
+    if (now + kUseSlack <= token_.expiration) {
+      cached = token_;
+    }
+    if (now + kRefreshSlack >= token_.expiration) {
+      if (pending_.null()) {
+        pending_ = source_();
+        start_refresh = true;
+      }
+      refresh = pending_;
+    }
   }
-  auto tmp = token_;
-  if (now + kRefreshSlack >= token_.expiration) {
-    StartRefresh().IgnoreFuture();
-  } else {
-    mu_.unlock();
+  if (start_refresh) {
+    auto w = WeakFromThis();
+    refresh.ExecuteWhenReady([w](ReadyFuture<AccessToken> f) {
+      if (auto self = w.lock()) self->OnRefresh(std::move(f).result());
+    });
   }
-  return tmp;
-}
-
-Future<AccessToken> AccessTokenCache::StartRefresh() {
-  mu_.AssertHeld();
-  if (!pending_.null()) {
-    mu_.unlock();
-    return pending_;
+  if (cached.has_value()) {
+    return *std::move(cached);
   }
-  pending_ = source_();
-  auto tmp = pending_;
-  auto w = WeakFromThis();
-  mu_.unlock();
-
-  pending_.ExecuteWhenReady([w](ReadyFuture<AccessToken> f) {
-    if (auto self = w.lock()) self->OnRefresh(std::move(f).result());
-  });
-  return tmp;
+  return refresh;
 }
 
 void AccessTokenCache::OnRefresh(Result<AccessToken> f) {

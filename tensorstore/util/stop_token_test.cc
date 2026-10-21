@@ -221,4 +221,20 @@ TEST(StopTokenTest, Concurrent) {
   );
 }
 
+TEST(StopTokenTest, ReentrantQueryAndUnregisterDuringRequestStop) {
+  tensorstore::StopSource source;
+  std::optional<tensorstore::StopCallback<std::function<void()>>> cb2;
+  bool cb1_called = false;
+  bool cb2_called = false;
+  cb2.emplace(source.get_token(), [&] { cb2_called = true; });
+  tensorstore::StopCallback cb1(source.get_token(), [&] {
+    cb1_called = true;
+    EXPECT_TRUE(source.stop_requested());
+    cb2.reset();
+  });
+  EXPECT_TRUE(source.request_stop());
+  EXPECT_TRUE(cb1_called);
+  EXPECT_FALSE(cb2_called);
+}
+
 }  // namespace

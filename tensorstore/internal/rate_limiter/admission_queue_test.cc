@@ -77,4 +77,20 @@ TEST(AdmissionQueueTest, Basic) {
   EXPECT_EQ(100, done);
 }
 
+TEST(AdmissionQueueTest, ReentrantInFlightDuringStartCallback) {
+  AdmissionQueue queue(1);
+  size_t observed_in_flight = 0;
+  auto task1 = MakeIntrusivePtr<Task>(&queue, [] {});
+  auto task2 = MakeIntrusivePtr<Task>(
+      &queue, [&] { observed_in_flight = queue.in_flight(); });
+  intrusive_ptr_increment(task1.get());
+  queue.Admit(task1.get(), &Task::Start);
+  intrusive_ptr_increment(task2.get());
+  queue.Admit(task2.get(), &Task::Start);
+  task1.reset();
+  task2.reset();
+  EXPECT_EQ(1, observed_in_flight);
+  EXPECT_EQ(0, queue.in_flight());
+}
+
 }  // namespace

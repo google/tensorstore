@@ -60,16 +60,15 @@ class AccessTokenCache : public std::enable_shared_from_this<AccessTokenCache> {
   using WaiterType = Future<AccessToken>;
   explicit AccessTokenCache(AccessTokenSource source);
 
-  Future<AccessToken> StartRefresh() ABSL_UNLOCK_FUNCTION(mu_);
-  void OnRefresh(Result<AccessToken>);
+  void OnRefresh(Result<AccessToken>) ABSL_LOCKS_EXCLUDED(mu_);
 
   std::weak_ptr<AccessTokenCache> WeakFromThis() {
     return std::weak_ptr<AccessTokenCache>(shared_from_this());
   }
 
   absl::Mutex mu_;
-  AccessToken token_;
-  Future<AccessToken> pending_;
+  AccessToken token_ ABSL_GUARDED_BY(mu_);
+  Future<AccessToken> pending_ ABSL_GUARDED_BY(mu_);
   AccessTokenSource source_;
 };
 

@@ -63,6 +63,19 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_test(
+    name = "access_token_cache_test",
+    srcs = ["access_token_cache_test.cc"],
+    deps = [
+        ":access_token",
+        ":access_token_cache",
+        "//tensorstore/util:future",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "channel_authentication",
     srcs = ["channel_authentication.cc"],
