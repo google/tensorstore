@@ -125,7 +125,6 @@ Result<ByteRange> ShardEncoder::WriteUnindexedEntry(uint64_t minishard,
     TENSORSTORE_RETURN_IF_ERROR(FinalizeMinishard());
     cur_minishard_ = minishard;
   }
-  std::string output;
   auto start_offset = data_file_offset_;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto num_bytes, EncodeData(data,

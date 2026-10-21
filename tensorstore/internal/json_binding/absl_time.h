@@ -59,7 +59,6 @@ constexpr inline auto DurationBinder = [](auto is_loading, const auto& options,
                                           ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
     if (j->is_string()) {
-      std::string error;
       if (absl::ParseDuration(j->get_ref<std::string const&>(), obj)) {
         return absl::OkStatus();
       }
