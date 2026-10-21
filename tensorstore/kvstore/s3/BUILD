@@ -421,7 +421,6 @@ tensorstore_cc_test(
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:env",
         "//tensorstore/internal/aws:aws_credentials",
-        "//tensorstore/internal/aws:http_mocking",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/cleanup",

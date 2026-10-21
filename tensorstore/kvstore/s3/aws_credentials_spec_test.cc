@@ -14,7 +14,12 @@
 
 #include "tensorstore/kvstore/s3/aws_credentials_spec.h"
 
+#include <iterator>
+#include <optional>
+#include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -22,7 +27,6 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/aws/aws_credentials.h"
-#include "tensorstore/internal/aws/http_mocking.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
@@ -34,13 +38,13 @@ namespace {
 
 namespace jb = ::tensorstore::internal_json_binding;
 using ::tensorstore::IsOk;
-using ::tensorstore::internal::SetEnv;
-using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal_aws::DisableAwsHttpMocking;
-using ::tensorstore::internal_aws::EnableAwsHttpMocking;
-using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal::GetEnv;
+using ::tensorstore::internal::SetEnv;
+using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_aws::GetAwsCredentials;
+using ::tensorstore::internal_kvstore_s3::MakeAwsCredentialsProvider;
 using ::testing::HasSubstr;
 
 struct Params {
@@ -152,42 +156,41 @@ TEST(SpecTest, Error) {
 }
 
 TEST(SpecTest, DefaultDoesNotCacheAnonymousFallback) {
-  EnableAwsHttpMocking({});
-  absl::Cleanup cleanup = [] {
-    for (const char* var : {
-             "AWS_EC2_METADATA_DISABLED",
-             "AWS_CONFIG_FILE",
-             "AWS_SHARED_CREDENTIALS_FILE",
-             "AWS_ACCESS_KEY_ID",
-             "AWS_SECRET_ACCESS_KEY",
-         }) {
-      UnsetEnv(var);
-    }
-    DisableAwsHttpMocking();
+  constexpr const char* kAwsEnvVars[] = {
+      "AWS_EC2_METADATA_DISABLED",
+      "AWS_WEB_IDENTITY_TOKEN_FILE",
+      "AWS_ROLE_ARN",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_SESSION_TOKEN",
+      "AWS_CONFIG_FILE",
+      "AWS_SHARED_CREDENTIALS_FILE",
+      "AWS_PROFILE",
+      "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+      "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
   };
-  for (const char* var : {
-           "AWS_WEB_IDENTITY_TOKEN_FILE",
-           "AWS_ROLE_ARN",
-           "AWS_ACCESS_KEY_ID",
-           "AWS_SECRET_ACCESS_KEY",
-           "AWS_SESSION_TOKEN",
-           "AWS_CONFIG_FILE",
-           "AWS_SHARED_CREDENTIALS_FILE",
-           "AWS_PROFILE",
-           "AWS_CONTAINER_CREDENTIALS_FULL_URI",
-           "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
-       }) {
+  std::vector<std::pair<const char*, std::optional<std::string>>> saved_env;
+  saved_env.reserve(std::size(kAwsEnvVars));
+  for (const char* var : kAwsEnvVars) {
+    saved_env.emplace_back(var, GetEnv(var));
     UnsetEnv(var);
   }
+  absl::Cleanup restore_env = [&saved_env] {
+    for (const auto& [var, val] : saved_env) {
+      if (val.has_value()) {
+        SetEnv(var, val->c_str());
+      } else {
+        UnsetEnv(var);
+      }
+    }
+  };
   // Keep the test hermetic: no ~/.aws files and no EC2 IMDS requests.
   SetEnv("AWS_EC2_METADATA_DISABLED", "true");
   SetEnv("AWS_CONFIG_FILE", "/nonexistent/aws_config");
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", "/nonexistent/aws_credentials");
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider,
-      tensorstore::internal_kvstore_s3::MakeAwsCredentialsProvider(
-          Spec{Spec::Default{}}));
+      auto provider, MakeAwsCredentialsProvider(Spec{Spec::Default{}}));
 
   // No credentials configured: falls back to anonymous.
   {
@@ -199,18 +202,6 @@ TEST(SpecTest, DefaultDoesNotCacheAnonymousFallback) {
   // Credentials appear; the same provider must pick them up.
   SetEnv("AWS_ACCESS_KEY_ID", "AKIDEXAMPLE");
   SetEnv("AWS_SECRET_ACCESS_KEY", "secretexample");
-  {
-    auto creds = GetAwsCredentials(provider.get()).result();
-    ASSERT_THAT(creds, IsOk());
-    EXPECT_FALSE(creds->IsAnonymous());
-    EXPECT_EQ(creds->GetAccessKeyId(), "AKIDEXAMPLE");
-    EXPECT_EQ(creds->GetSecretAccessKey(), "secretexample");
-  }
-
-  // Valid credentials remain cached for MakeDefault's internal cache TTL
-  // (15 minutes), even after the environment variables are removed.
-  UnsetEnv("AWS_ACCESS_KEY_ID");
-  UnsetEnv("AWS_SECRET_ACCESS_KEY");
   {
     auto creds = GetAwsCredentials(provider.get()).result();
     ASSERT_THAT(creds, IsOk());

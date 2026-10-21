@@ -155,8 +155,9 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
   struct MakeCredentialsVisitor {
     using R = AwsCredentialsProvider;
 
-    // Default and Anonymous must not be wrapped in MakeCache; see
-    // MakeDefaultWithAnonymous.
+    // MakeDefault in MakeDefaultWithAnonymous already caches the default chain
+    // internally, and its anonymous fallback must not be cached; MakeAnonymous
+    // needs no cache.
     R operator()(const Spec::Default& v) {
       return MakeDefaultWithAnonymous(v.profile);
     }

@@ -73,15 +73,9 @@ AwsCredentialsProvider MakeDefaultWithAnonymous(
     std::string_view profile_name_override) {
   aws_allocator* allocator = GetAwsAllocator();
 
-  // MakeDefault (aws_credentials_provider_new_chain_default) already wraps its
-  // internal chain in aws_credentials_provider_new_cached. The outer
-  // [MakeDefault, MakeAnonymous] chain must NOT be wrapped in MakeCache:
-  // MakeAnonymous returns credentials with UINT64_MAX expiration, which would
-  // permanently poison an outer cache after a fallback.
   auto default_provider = MakeDefault(profile_name_override);
   auto anonymous_provider = MakeAnonymous();
-  if (!default_provider) return anonymous_provider;
-  if (!anonymous_provider) return default_provider;
+  if (!default_provider || !anonymous_provider) return nullptr;
 
   aws_credentials_provider* providers[2];
   AWS_ZERO_ARRAY(providers);
