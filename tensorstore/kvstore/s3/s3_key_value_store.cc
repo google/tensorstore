@@ -1413,11 +1413,9 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   (void)internal_aws::GetAwsAllocator();  // Force AWS library initialization.
   // TODO: The transport should support the AWS_CA_BUNDLE environment
   // variable.
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto provider, MakeAwsCredentialsProvider(*data_.aws_credentials));
-
   auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>(
-      internal_http::GetDefaultHttpTransport(), data_, std::move(provider));
+      internal_http::GetDefaultHttpTransport(), data_,
+      data_.aws_credentials->credentials_provider);
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
