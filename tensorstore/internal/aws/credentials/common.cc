@@ -36,6 +36,7 @@ namespace internal_aws {
 namespace {
 
 inline AwsCredentialsProvider AsProvider(aws_credentials_provider* p) {
+  if (!p) return nullptr;
   assert(aws_atomic_load_int(&p->ref_count) == 1);
   return AwsCredentialsProvider(p, internal::adopt_object_ref);
 }
@@ -43,6 +44,7 @@ inline AwsCredentialsProvider AsProvider(aws_credentials_provider* p) {
 }  // namespace
 
 AwsCredentialsProvider MakeCache(AwsCredentialsProvider provider) {
+  if (!provider) return nullptr;
   aws_allocator* allocator = GetAwsAllocator();
 
   aws_credentials_provider_cached_options options;
@@ -71,8 +73,15 @@ AwsCredentialsProvider MakeDefaultWithAnonymous(
     std::string_view profile_name_override) {
   aws_allocator* allocator = GetAwsAllocator();
 
+  // MakeDefault (aws_credentials_provider_new_chain_default) already wraps its
+  // internal chain in aws_credentials_provider_new_cached. The outer
+  // [MakeDefault, MakeAnonymous] chain must NOT be wrapped in MakeCache:
+  // MakeAnonymous returns credentials with UINT64_MAX expiration, which would
+  // permanently poison an outer cache after a fallback.
   auto default_provider = MakeDefault(profile_name_override);
   auto anonymous_provider = MakeAnonymous();
+  if (!default_provider) return anonymous_provider;
+  if (!anonymous_provider) return default_provider;
 
   aws_credentials_provider* providers[2];
   AWS_ZERO_ARRAY(providers);

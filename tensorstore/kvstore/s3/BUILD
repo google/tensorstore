@@ -419,8 +419,12 @@ tensorstore_cc_test(
     deps = [
         ":aws_credentials_spec",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal/aws:aws_credentials",
+        "//tensorstore/internal/aws:http_mocking",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
