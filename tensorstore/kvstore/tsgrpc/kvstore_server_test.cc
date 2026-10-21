@@ -14,14 +14,20 @@
 
 #include "tensorstore/kvstore/tsgrpc/kvstore_server.h"
 
+#include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/thread_annotations.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include "grpcpp/client_context.h"  // third_party
@@ -32,10 +38,15 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
@@ -44,6 +55,7 @@
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -392,4 +404,142 @@ TEST_F(KvStoreTest, ListClientCancellation) {
   EXPECT_EQ(status.error_code(), grpc::StatusCode::CANCELLED);
 }
 
+struct BlockingReadDriverSpecData {
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) { return f(); };
+  constexpr static auto default_json_binder =
+      tensorstore::internal_json_binding::Object();
+};
+
+class BlockingReadDriverSpec
+    : public tensorstore::internal_kvstore::RegisteredDriverSpec<
+          BlockingReadDriverSpec, BlockingReadDriverSpecData> {
+ public:
+  static constexpr char id[] = "blocking_read_test_store";
+  tensorstore::Future<tensorstore::kvstore::DriverPtr> DoOpen() const override;
+};
+
+class BlockingReadDriver
+    : public tensorstore::internal_kvstore::RegisteredDriver<
+          BlockingReadDriver, BlockingReadDriverSpec> {
+ public:
+  absl::Status GetBoundSpecData(BlockingReadDriverSpecData&) const {
+    return absl::OkStatus();
+  }
+
+  tensorstore::Future<ReadResult> Read(Key key, ReadOptions options) override {
+    auto [promise, future] = tensorstore::PromiseFuturePair<ReadResult>::Make();
+    {
+      absl::MutexLock lock(mu_);
+      read_promise_ = std::move(promise);
+      if (read_started_) {
+        read_started_->Notify();
+      }
+    }
+    return std::move(future);
+  }
+
+  void PrepareNextRead(absl::Notification* started) {
+    absl::MutexLock lock(mu_);
+    read_started_ = started;
+  }
+
+  void ResolveRead(tensorstore::Result<ReadResult> result) {
+    tensorstore::Promise<ReadResult> promise;
+    {
+      absl::MutexLock lock(mu_);
+      promise = std::move(read_promise_);
+    }
+    if (!promise.null()) {
+      promise.SetResult(std::move(result));
+    }
+  }
+
+  static inline tensorstore::internal::IntrusivePtr<BlockingReadDriver>
+      instance;
+
+ private:
+  absl::Mutex mu_;
+  absl::Notification* read_started_ ABSL_GUARDED_BY(mu_) = nullptr;
+  tensorstore::Promise<ReadResult> read_promise_ ABSL_GUARDED_BY(mu_);
+};
+
+tensorstore::Future<tensorstore::kvstore::DriverPtr>
+BlockingReadDriverSpec::DoOpen() const {
+  return BlockingReadDriver::instance;
+}
+
+const tensorstore::internal_kvstore::DriverRegistration<BlockingReadDriverSpec>
+    blocking_read_driver_registration;
+
+TEST_F(KvStoreTest, CancelDuringInFlightReadDoesNotCrash) {
+  auto blocking_driver =
+      tensorstore::internal::MakeIntrusivePtr<BlockingReadDriver>();
+  BlockingReadDriver::instance = blocking_driver;
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto server, KvStoreServer::Start(
+                       KvStoreServer::Spec::FromJson(
+                           {{"bind_addresses", {"localhost:0"}},
+                            {"base", {{"driver", "blocking_read_test_store"}}}})
+                           .value(),
+                       tensorstore::Context::Default()));
+
+  auto channel =
+      grpc::CreateChannel(absl::StrFormat("localhost:%d", server.port()),
+                          grpc::InsecureChannelCredentials());
+  auto stub =
+      tensorstore_grpc::kvstore::grpc_gen::KvStoreService::NewStub(channel);
+
+  // Case 1: Client cancels while Read is in flight, then backend Read resolves
+  // with an error status after OnCancel has already finished the reactor.
+  {
+    absl::Notification read_started;
+    blocking_driver->PrepareNextRead(&read_started);
+
+    grpc::ClientContext client_context;
+    tensorstore_grpc::kvstore::ReadRequest req;
+    req.set_key("cancel_error_key");
+    auto reader = stub->Read(&client_context, req);
+
+    read_started.WaitForNotification();
+    client_context.TryCancel();
+
+    tensorstore_grpc::kvstore::ReadResponse resp;
+    while (reader->Read(&resp)) {
+    }
+    EXPECT_EQ(grpc::StatusCode::CANCELLED, reader->Finish().error_code());
+
+    blocking_driver->ResolveRead(absl::InternalError("backend read failed"));
+  }
+
+  // Case 2: Client cancels while Read is in flight, then backend Read resolves
+  // with a value after OnCancel has already finished the reactor.
+  {
+    absl::Notification read_started;
+    blocking_driver->PrepareNextRead(&read_started);
+
+    grpc::ClientContext client_context;
+    tensorstore_grpc::kvstore::ReadRequest req;
+    req.set_key("cancel_value_key");
+    auto reader = stub->Read(&client_context, req);
+
+    read_started.WaitForNotification();
+    client_context.TryCancel();
+
+    tensorstore_grpc::kvstore::ReadResponse resp;
+    while (reader->Read(&resp)) {
+    }
+    EXPECT_EQ(grpc::StatusCode::CANCELLED, reader->Finish().error_code());
+
+    blocking_driver->ResolveRead(kvstore::ReadResult::Value(
+        absl::Cord("value"),
+        tensorstore::TimestampedStorageGeneration{
+            tensorstore::StorageGeneration::FromString("g1"), absl::Now()}));
+  }
+
+  BlockingReadDriver::instance = nullptr;
+}
+
 }  // namespace
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(BlockingReadDriver)

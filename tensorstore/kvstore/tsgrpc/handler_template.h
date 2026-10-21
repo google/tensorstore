@@ -15,7 +15,9 @@
 #ifndef TENSORSTORE_KVSTORE_TSGRPC_HANDLER_TEMPLATE_H_
 #define TENSORSTORE_KVSTORE_TSGRPC_HANDLER_TEMPLATE_H_
 
+#include <atomic>
 #include <cassert>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "grpcpp/grpcpp.h"  // third_party
@@ -45,8 +47,16 @@ class HandlerBase
 
   ::grpc::CallbackServerContext* grpc_context() { return grpc_context_; }
 
+ protected:
+  bool TryClaimFinish() {
+    return !finished_.exchange(true, std::memory_order_acq_rel);
+  }
+
+  bool is_finished() const { return finished_.load(std::memory_order_acquire); }
+
  private:
   ::grpc::CallbackServerContext* grpc_context_;
+  std::atomic<bool> finished_{false};
 };
 
 template <typename RequestProto, typename ResponseProto>
@@ -63,6 +73,15 @@ class Handler : public HandlerBase, public grpc::ServerUnaryReactor {
   using Reactor::Finish;
   void Finish(absl::Status status) {
     Finish(tensorstore::internal::AbslStatusToGrpcStatus(status));
+  }
+
+  bool TryFinish(::grpc::Status status) {
+    if (!TryClaimFinish()) return false;
+    Finish(std::move(status));
+    return true;
+  }
+  bool TryFinish(absl::Status status) {
+    return TryFinish(tensorstore::internal::AbslStatusToGrpcStatus(status));
   }
 
   const Request* request() { return request_; }
@@ -94,6 +113,15 @@ class StreamServerResponseHandler
     Finish(tensorstore::internal::AbslStatusToGrpcStatus(status));
   }
 
+  bool TryFinish(::grpc::Status status) {
+    if (!TryClaimFinish()) return false;
+    Finish(std::move(status));
+    return true;
+  }
+  bool TryFinish(absl::Status status) {
+    return TryFinish(tensorstore::internal::AbslStatusToGrpcStatus(status));
+  }
+
   const Request* request() { return request_; }
 
  protected:
@@ -119,6 +147,15 @@ class StreamClientRequestHandler
   using Reactor::Finish;
   void Finish(absl::Status status) {
     Finish(tensorstore::internal::AbslStatusToGrpcStatus(status));
+  }
+
+  bool TryFinish(::grpc::Status status) {
+    if (!TryClaimFinish()) return false;
+    Finish(std::move(status));
+    return true;
+  }
+  bool TryFinish(absl::Status status) {
+    return TryFinish(tensorstore::internal::AbslStatusToGrpcStatus(status));
   }
 
   Response* response() { return response_; }
