@@ -49,6 +49,7 @@
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "tensorstore/driver/write.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -243,6 +244,27 @@ class TestDriver : public tensorstore::internal::ChunkCacheDriver {
   }
 };
 
+class TestDriverStoreEqualToFillValue
+    : public tensorstore::internal::ChunkGridSpecificationDriver<
+          ChunkCache,
+          tensorstore::internal::ChunkCacheReadWriteDriverMixin<
+              TestDriverStoreEqualToFillValue, tensorstore::internal::Driver>> {
+  using Base = tensorstore::internal::ChunkGridSpecificationDriver<
+      ChunkCache,
+      tensorstore::internal::ChunkCacheReadWriteDriverMixin<
+          TestDriverStoreEqualToFillValue, tensorstore::internal::Driver>>;
+
+ public:
+  using Base::Base;
+
+  bool fill_missing_data_reads() const { return true; }
+  bool store_data_equal_to_fill_value() const { return true; }
+
+  void GarbageCollectionVisit(
+      tensorstore::garbage_collection::GarbageCollectionVisitor& visitor)
+      const override {}
+};
+
 template <typename T>
 ElementCopyFunction GetCopyFunction() {
   [[maybe_unused]] const auto copy_func =
@@ -381,6 +403,21 @@ class ChunkCacheTest : public ::testing::Test {
     return tensorstore::internal::TensorStoreAccess::Construct<TensorStore<>>(
         tensorstore::internal::Driver::Handle{
             MakeDriver(cache, component_index, data_staleness),
+            tensorstore::IdentityTransform(
+                grid->components[component_index].rank()),
+            transaction});
+  }
+
+  TensorStore<> GetTensorStoreStoreEqualToFillValue(
+      CachePtr<ChunkCache> cache = {}, StalenessBound data_staleness = {},
+      size_t component_index = 0, Transaction transaction = no_transaction) {
+    if (!cache) cache = MakeChunkCache();
+    return tensorstore::internal::TensorStoreAccess::Construct<TensorStore<>>(
+        tensorstore::internal::Driver::Handle{
+            MakeReadWritePtr<TestDriverStoreEqualToFillValue>(
+                tensorstore::ReadWriteMode::read_write,
+                TestDriverStoreEqualToFillValue::Initializer{
+                    std::move(cache), component_index, data_staleness}),
             tensorstore::IdentityTransform(
                 grid->components[component_index].rank()),
             transaction});
@@ -2043,6 +2080,133 @@ TEST_F(ChunkCacheTest, WriteMultipleComponentsSingleComponentFullOverwrite) {
   // clobbered with the fill value {0, 1}.
   EXPECT_THAT(GetChunk({0}),
               ElementsAre(MakeArray<int>({30, 31}), MakeArray<int>({20, 21})));
+}
+
+TEST_F(ChunkCacheTest,
+       PartialWriteFailureOnUnmodifiedChunkDoesNotModifyTransactionNode) {
+  thread_pool = tensorstore::InlineExecutor{};
+  grid = GetSimple1DGrid();
+  auto cache = MakeChunkCache();
+  Transaction txn(tensorstore::isolated);
+  auto store = GetTensorStore(cache, /*data_staleness=*/{},
+                              /*component_index=*/0, /*transaction=*/txn);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto slice_store,
+      store | tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+
+  // Write a JSON array where element 0 succeeds (99) and element 1 fails
+  // ("invalid"). This exercises the fallback BeginWrite -> NDIterableCopier ->
+  // EndWrite(success=false) path on an initially unmodified chunk.
+  auto bad_json =
+      MakeArray<tensorstore::dtypes::json_t>({99, "invalid_integer"});
+  auto handle = tensorstore::internal::TensorStoreAccess::handle(slice_store);
+  tensorstore::internal::DriverWriteOptions write_options;
+  write_options.data_type_conversion_flags =
+      tensorstore::DataTypeConversionFlags::kSupported;
+  auto write_result = tensorstore::internal::DriverWrite(
+      /*executor=*/tensorstore::InlineExecutor{},
+      /*source=*/bad_json,
+      /*target=*/std::move(handle),
+      /*options=*/std::move(write_options));
+  EXPECT_THAT(write_result.copy_future.result(),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  // Committing the transaction must complete immediately without issuing any
+  // read or write requests to mock_store because the chunk was not modified.
+  auto commit_future = txn.CommitAsync();
+  EXPECT_TRUE(mock_store->read_requests.empty());
+  EXPECT_TRUE(mock_store->write_requests.empty());
+  ASSERT_TRUE(commit_future.ready());
+  TENSORSTORE_EXPECT_OK(commit_future.result());
+}
+
+TEST_F(ChunkCacheTest, FailedWriteWithStoreDataEqualToFillValueDoesNotSetFlag) {
+  thread_pool = tensorstore::InlineExecutor{};
+  grid = GetSimple1DGrid();
+  auto cache = MakeChunkCache();
+  Transaction txn(tensorstore::isolated);
+  auto store = GetTensorStoreStoreEqualToFillValue(
+      cache, /*data_staleness=*/{}, /*component_index=*/0, /*transaction=*/txn);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto slice_store,
+      store | tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+
+  // 1. Partial write failure via NDIterableCopier -> EndWrite(success=false).
+  auto bad_json =
+      MakeArray<tensorstore::dtypes::json_t>({99, "invalid_integer"});
+  auto handle = tensorstore::internal::TensorStoreAccess::handle(slice_store);
+  tensorstore::internal::DriverWriteOptions write_options;
+  write_options.data_type_conversion_flags =
+      tensorstore::DataTypeConversionFlags::kSupported;
+  auto write_result = tensorstore::internal::DriverWrite(
+      /*executor=*/tensorstore::InlineExecutor{},
+      /*source=*/bad_json,
+      /*target=*/std::move(handle),
+      /*options=*/std::move(write_options));
+  EXPECT_THAT(write_result.copy_future.result(),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  {
+    auto entry = tensorstore::internal::GetEntryForGridCell(
+        *static_cast<TestCache*>(cache.get()), span<const Index>({0}));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(txn));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto node, GetTransactionNode(*entry, open_transaction));
+    auto chunk_node = static_cast<ChunkCache::TransactionNode*>(node.get());
+    EXPECT_FALSE(
+        chunk_node->components()[0].write_state.store_if_equal_to_fill_value);
+    EXPECT_TRUE(chunk_node->components()[0].write_state.IsUnmodified());
+  }
+
+  // Committing the transaction completes immediately without issuing any
+  // write requests because the chunk was not modified and
+  // store_if_equal_to_fill_value was not set.
+  auto commit_future = txn.CommitAsync();
+  EXPECT_TRUE(mock_store->read_requests.empty());
+  EXPECT_TRUE(mock_store->write_requests.empty());
+  ASSERT_TRUE(commit_future.ready());
+  TENSORSTORE_EXPECT_OK(commit_future.result());
+}
+
+TEST_F(ChunkCacheTest, SuccessfulWriteWithStoreDataEqualToFillValueSetsFlag) {
+  thread_pool = tensorstore::InlineExecutor{};
+  grid = GetSimple1DGrid();
+  auto cache = MakeChunkCache();
+  Transaction txn(tensorstore::isolated);
+  auto store = GetTensorStoreStoreEqualToFillValue(
+      cache, /*data_staleness=*/{}, /*component_index=*/0, /*transaction=*/txn);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto slice_store,
+      store | tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(MakeArray<int>({10, 11}), slice_store));
+
+  {
+    auto entry = tensorstore::internal::GetEntryForGridCell(
+        *static_cast<TestCache*>(cache.get()), span<const Index>({0}));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(txn));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto node, GetTransactionNode(*entry, open_transaction));
+    auto chunk_node = static_cast<ChunkCache::TransactionNode*>(node.get());
+    EXPECT_TRUE(
+        chunk_node->components()[0].write_state.store_if_equal_to_fill_value);
+    EXPECT_FALSE(chunk_node->components()[0].write_state.IsUnmodified());
+  }
+
+  auto commit_future = txn.CommitAsync();
+  {
+    auto r = mock_store->write_requests.pop();
+    EXPECT_EQ("0", r.key);
+    ASSERT_TRUE(r.value);
+    EXPECT_EQ(*r.value, EncodeRaw(*grid, {MakeArray<int>({10, 11})}));
+    r(memory_store);
+  }
+  TENSORSTORE_EXPECT_OK(commit_future.result());
 }
 
 }  // namespace
