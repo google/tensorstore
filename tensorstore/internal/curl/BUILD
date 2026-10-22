@@ -1,4 +1,8 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load(
+    "//bazel:tensorstore.bzl",
+    "tensorstore_cc_library",
+    "tensorstore_cc_test",
+)
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -57,9 +61,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/container:circular_queue",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:http_header",
-        "//tensorstore/internal/metrics",
-        "//tensorstore/internal/metrics:metadata",
-        "//tensorstore/internal/metrics:registration",
+        "//tensorstore/internal/http:http_metrics",
         "//tensorstore/internal/thread",
         "//tensorstore/internal/thread:schedule_at",
         "@abseil-cpp//absl/base:no_destructor",
@@ -80,20 +82,10 @@ tensorstore_cc_test(
     srcs = ["curl_transport_test.cc"],
     linkopts = _WS2_32_LINKOPTS,
     deps = [
-        ":curl_transport",
         ":default_factory",
         "//tensorstore/internal:env",
-        "//tensorstore/internal/http",
-        "//tensorstore/internal/http:transport_test_utils",
-        "//tensorstore/internal/thread",
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/flags:reflection",
-        "@abseil-cpp//absl/log:absl_check",
-        "@abseil-cpp//absl/log:absl_log",
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/strings:cord",
-        "@abseil-cpp//absl/synchronization",
         "@googletest//:gtest_main",
     ],
 )
@@ -146,37 +138,64 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_test(
-    name = "http2_test",
-    srcs = ["http2_test.cc"],
+    name = "e2e_http1_test",
+    srcs = ["e2e_http1_test.cc"],
+    linkopts = _WS2_32_LINKOPTS,
+    tags = [
+        "cpu:2",
+        "requires-net:loopback",
+    ],
+    deps = [
+        ":curl_transport",
+        ":default_factory",
+        "//tensorstore/internal/http:e2e_http1_test",
+        "@curl",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "e2e_h2_interop_test",
+    srcs = ["e2e_h2_interop_test.cc"],
     args = [
-        "--test_httpserver_binary=$(location //tensorstore/internal/http/py:h2_server)",
+        "--test_httpserver_binary=" +
+        "$(rootpath //tensorstore/internal/http/py:h2_server)",
     ],
     data = ["//tensorstore/internal/http/py:h2_server"],
-    flaky = 1,
+    linkopts = _WS2_32_LINKOPTS,
     tags = [
         "cpu:2",
         "requires-net:loopback",
         "skip-cmake",
-        # NOTE: This test can fail on darwin/windows with the error:
-        # CURL error Unsupported protocol: Received HTTP/0.9 when not allowed
-        # Which might be a problem with the custom certificate.
         "skip-darwin",
         "skip-windows",
     ],
     deps = [
         ":curl_transport",
         ":default_factory",
-        "//tensorstore/internal:env",
+        "//tensorstore/internal/http:e2e_h2_interop_test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "e2e_http2_test",
+    srcs = ["e2e_http2_test.cc"],
+    # A single http thread makes CURLMOPT_MAX_HOST_CONNECTIONS a global cap.
+    args = ["--tensorstore_http_threads=1"],
+    linkopts = _WS2_32_LINKOPTS,
+    tags = [
+        "cpu:2",
+        "requires-net:loopback",
+    ],
+    deps = [
+        ":curl_transport",
+        ":curl_wrappers",
+        ":default_factory",
         "//tensorstore/internal/http",
-        "//tensorstore/internal/http:test_httpserver",
-        "//tensorstore/util:status_testutil",
-        "@abseil-cpp//absl/base",
-        "@abseil-cpp//absl/base:no_destructor",
-        "@abseil-cpp//absl/log:absl_log",
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/strings:str_format",
-        "@abseil-cpp//absl/time",
+        "//tensorstore/internal/http:e2e_http2_test",
+        "@abseil-cpp//absl/log:absl_check",
+        "@curl",
         "@googletest//:gtest_main",
     ],
 )

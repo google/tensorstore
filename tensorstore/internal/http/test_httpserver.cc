@@ -133,6 +133,9 @@ void TestHttpServer::SpawnProcess() {
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto spawn_proc, SpawnSubprocess(options));
   ABSL_CHECK(spawn_proc.stdout_pipe() != internal_os::InvalidFileDescriptor());
 
+  // Serving proxy on ('127.0.0.1', 40806)
+  static LazyRE2 kServingProxyPattern = {
+      "(?m)^Serving proxy on (?:[(']*)([^:']+)[:',\\s]+(\\d+).*"};
   // Serving on ('127.0.0.1', 40807)
   static LazyRE2 kServingPattern = {
       "(?m)^Serving on (?:[(']*)([^:']+)[:',\\s]+(\\d+).*"};
@@ -144,20 +147,33 @@ void TestHttpServer::SpawnProcess() {
   char buf[1024];
   auto remaining = tensorstore::span(buf, sizeof(buf));
   while (!remaining.empty()) {
-    // Wait until the child process is has more output.
+    // Wait until the child process has more output.
     TENSORSTORE_CHECK_OK(AwaitReadablePipe(spawn_proc.stdout_pipe(), deadline));
     TENSORSTORE_CHECK_OK_AND_ASSIGN(
         auto n, ReadFromFile(spawn_proc.stdout_pipe(), remaining));
     offset += n;
-    remaining.subspan(n);
+    remaining = remaining.subspan(n);
+
+    std::string_view output(buf, offset);
+    std::string_view proxy_host;
+    std::string_view proxy_port;
+    if (proxy_address_.empty() &&
+        RE2::PartialMatch(output, *kServingProxyPattern, &proxy_host,
+                          &proxy_port)) {
+      proxy_address_ = absl::StrFormat("%s:%s", proxy_host, proxy_port);
+      ABSL_LOG(INFO) << "Serving proxy on " << proxy_address_;
+    }
 
     // Look for the serving line in the output.
     std::string_view host;
     std::string_view port;
-    if (RE2::PartialMatch(std::string_view(buf, offset), *kServingPattern,
-                          &host, &port)) {
+    if (http_address_.empty() &&
+        RE2::PartialMatch(output, *kServingPattern, &host, &port)) {
       http_address_ = absl::StrFormat("%s:%s", host, port);
       ABSL_LOG(INFO) << "Serving on " << http_address_;
+    }
+
+    if (!http_address_.empty() && !proxy_address_.empty()) {
       break;
     }
   }
@@ -166,7 +182,8 @@ void TestHttpServer::SpawnProcess() {
 
   // Check to see if the process has terminated; it should be running.
   auto join_result = spawn_proc.Join(/*block=*/false);
-  if (http_address_.empty() || !absl::IsUnavailable(join_result.status())) {
+  if (http_address_.empty() || proxy_address_.empty() ||
+      !absl::IsUnavailable(join_result.status())) {
     ABSL_LOG(FATAL) << "Failed to start process: " << join_result.status()
                     << " " << std::string_view(buf, offset);
   }

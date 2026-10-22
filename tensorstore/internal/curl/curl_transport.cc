@@ -42,6 +42,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
+#include <curl/multi.h>
 #include "tensorstore/internal/container/circular_queue.h"
 #include "tensorstore/internal/cord_util.h"
 #include "tensorstore/internal/curl/curl_factory.h"
@@ -50,13 +51,9 @@
 #include "tensorstore/internal/curl/default_factory.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_header.h"
+#include "tensorstore/internal/http/http_metrics.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/internal/metrics/counter.h"
-#include "tensorstore/internal/metrics/gauge.h"
-#include "tensorstore/internal/metrics/histogram.h"
-#include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/thread/thread.h"
 
@@ -66,79 +63,6 @@ ABSL_FLAG(std::optional<uint32_t>, tensorstore_http_threads, std::nullopt,
 
 using ::tensorstore::internal::GetFlagOrEnvValue;
 using ::tensorstore::internal_container::CircularQueue;
-
-namespace {
-
-struct HttpStatusDomain {
-  static constexpr std::array<int, 34> kValues = {
-      100, 101, 103, 200, 201, 202, 204, 206, 207, 301, 302, 304,
-      307, 308, 400, 401, 403, 404, 405, 406, 408, 409, 410, 412,
-      415, 416, 418, 429, 451, 500, 501, 502, 503, 504,
-  };
-
-  // FIND_SEED --type=int32_t --table_size=42
-  // 100 101 103 200 201 202 204 206 207 301 302 304 307 308 \
-  // 400 401 403 404 405 406 408 409 410 412 415 416 418 429 \
-  // 451 500 501 502 503 504
-  static constexpr uint32_t kSeed = 5799507;
-  static constexpr size_t kTableSize = 42;
-};
-
-}  // namespace
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_request_started, Counter<int64_t>,
-    MetricMetadata("/tensorstore/http/request_started",
-                   "HTTP requests started"));
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_request_completed, Counter<int64_t>,
-    MetricMetadata("/tensorstore/http/request_completed",
-                   "HTTP requests completed"));
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_request_bytes, Histogram<DefaultBucketer>,
-    MetricMetadata("/tensorstore/http/request_bytes",
-                   "HTTP request bytes transmitted", Units::kBytes));
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_request_header_bytes, Histogram<DefaultBucketer>,
-    MetricMetadata("/tensorstore/http/request_header_bytes",
-                   "HTTP request bytes transmitted", Units::kBytes));
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_response_bytes, Histogram<DefaultBucketer>,
-    MetricMetadata("/tensorstore/http/response_bytes",
-                   "HTTP response bytes received", Units::kBytes));
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_active, Gauge<int64_t>,
-    MetricMetadata("/tensorstore/http/active",
-                   "HTTP requests considered active"));
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_total_time_ms, Histogram<DefaultBucketer>,
-    MetricMetadata("/tensorstore/http/total_time_ms", "HTTP total latency (ms)",
-                   Units::kMilliseconds));
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_first_byte_latency_us, Histogram<DefaultBucketer>,
-    MetricMetadata("/tensorstore/http/first_byte_latency_us",
-                   "HTTP first byte received latency (us)",
-                   Units::kMicroseconds));
-
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_poll_time_ns, Histogram<DefaultBucketer>,
-    MetricMetadata("/tensorstore/http/http_poll_time_ns",
-                   "HTTP time spent in curl_multi_poll (ns)",
-                   Units::kNanoseconds));
-
-// TODO: Use a Domain
-TENSORSTORE_DECLARE_AND_REGISTER_METRIC(
-    http_response_codes, (Counter<int64_t, DomainField<HttpStatusDomain>>),
-    MetricMetadata("/tensorstore/http/response_codes",
-                   "HTTP response status code counts"),
-    "code");
 
 namespace tensorstore {
 namespace internal_http {
@@ -290,9 +214,10 @@ struct CurlRequestState {
     }
 
     // Record metrics.
-    http_request_started.Increment();
-    http_request_bytes.Observe(payload_remaining_);
-    http_request_header_bytes.Observe(header_bytes_);
+    auto& metrics = GetHttpMetrics();
+    metrics.request_started.Increment();
+    metrics.request_bytes.Observe(payload_remaining_);
+    metrics.request_header_bytes.Observe(header_bytes_);
   }
 
   void SetForbidReuse() {
@@ -487,21 +412,22 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
 
   // NOTE: Consider recording curl getinfo options:
   // https://curl.se/libcurl/c/easy_getinfo_options.html
-  http_request_completed.Increment();
-  http_response_bytes.Observe(state->response_payload_size_);
+  auto& metrics = GetHttpMetrics();
+  metrics.request_completed.Increment();
+  metrics.response_bytes.Observe(state->response_payload_size_);
 
   // Record the first byte latency.
   {
     curl_off_t first_byte_us = 0;
     state->handle_.GetInfo(CURLINFO_STARTTRANSFER_TIME_T, &first_byte_us);
-    http_first_byte_latency_us.Observe(first_byte_us);
+    metrics.first_byte_latency_us.Observe(first_byte_us);
   }
 
   // Record the total time.
   {
     curl_off_t total_time_us = 0;
     state->handle_.GetInfo(CURLINFO_TOTAL_TIME_T, &total_time_us);
-    http_total_time_ms.Observe(total_time_us / 1000);
+    metrics.total_time_ms.Observe(total_time_us / 1000);
   }
 
   if (code != CURLE_OK) {
@@ -511,12 +437,13 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
     return;
   }
 
-  http_response_codes.Increment(state->handle_.GetResponseCode());
+  metrics.response_codes.Increment(state->handle_.GetResponseCode());
   assert(state->status_set);
   state->response_handler_->OnComplete();
 }
 
 void MultiTransportImpl::Run(ThreadData& thread_data) {
+  auto& metrics = GetHttpMetrics();
   for (;;) {
     // Add any pending transfers.
     MaybeAddPendingTransfers(thread_data);
@@ -545,7 +472,7 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
     if (mcode != CURLM_OK) {
       ABSL_LOG(WARNING) << CurlMCodeToStatus(mcode, "in curl_multi_poll");
     }
-    http_poll_time_ns.Observe(
+    metrics.poll_time_ns.Observe(
         absl::ToInt64Nanoseconds(absl::Now() - start_poll));
 
     // Perform work.
@@ -554,7 +481,7 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
       CURLMcode mcode;
       do {
         mcode = curl_multi_perform(thread_data.multi.get(), &running_handles);
-        http_active.Set(running_handles);
+        metrics.active.Set(running_handles);
       } while (mcode == CURLM_CALL_MULTI_PERFORM);
 
       if (mcode != CURLM_OK) {

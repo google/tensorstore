@@ -67,6 +67,12 @@ struct IssueRequestOptions {
 };
 
 /// Interface used by the HTTP transport to signal data to caller.
+///
+/// Informational `1xx` responses (other than `101 Switching Protocols`) are
+/// skipped by the transport so that `OnStatus`, `OnResponseHeader`, and
+/// `OnHeaderBlockDone` are invoked only for the final response. All callbacks
+/// for a given request are invoked sequentially, and exactly one terminal
+/// callback (`OnComplete` or `OnFailure`) is invoked last.
 class HttpResponseHandler {
  public:
   virtual ~HttpResponseHandler() = default;
@@ -74,16 +80,18 @@ class HttpResponseHandler {
   // further methods will be invoked.
   virtual void OnFailure(absl::Status) = 0;
 
-  // Sets the status code. Will be called before any of
-  // OnResponseHeader/OnResponseBody/OnComplete.
+  // Sets the final HTTP status code. Will be called before any of
+  // OnResponseHeader/OnHeaderBlockDone/OnResponseBody/OnComplete.
   virtual void OnStatus(int32_t status_code) = 0;
   // Raw header content is available. May be called multiple times.
   virtual void OnResponseHeader(std::string_view field_name,
                                 std::string_view field_value) = 0;
-  // Invoked after a header block is fully parsed.
+  // Invoked after the final response header block is fully parsed.
   virtual void OnHeaderBlockDone() = 0;
+
   // Raw body content is available. May be called multiple times.
   virtual void OnResponseBody(std::string_view data) = 0;
+
   // Request has completed with the provided http status code.
   virtual void OnComplete() = 0;
   // TODO: GetStopToken()

@@ -29,10 +29,73 @@
 #include "absl/functional/function_ref.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "tensorstore/internal/uri/ascii_set.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_http {
+
+/// RFC 9110 Section 5.6.2 `tchar` character set:
+///   tchar = "!" / "#" / "$" / "%" / "&" / "'" / "*" / "+" / "-" / "." /
+///           "^" / "_" / "`" / "|" / "~" / DIGIT / ALPHA
+inline constexpr internal_uri::AsciiSet kHttpTokenChars{
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    "!#$%&'*+-.^_`|~"};
+
+/// Returns true if `s` is a non-empty HTTP `token` (`1*tchar`).
+inline constexpr bool IsValidHttpToken(std::string_view s) {
+  return !s.empty() && kHttpTokenChars.ContainsAll(s);
+}
+
+/// Visible ASCII characters (`VCHAR`, `0x21..0x7E`).
+inline constexpr internal_uri::AsciiSet kAsciiVChar{
+    "!\"#$%&'()*+,-./0123456789:;<=>?@"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
+    "abcdefghijklmnopqrstuvwxyz{|}~"};
+
+/// Valid ASCII header field-value characters (`HTAB`, `SP`, and `VCHAR`).
+inline constexpr internal_uri::AsciiSet kValidAsciiHeaderValueChars =
+    kAsciiVChar | internal_uri::AsciiSet{"\t "};
+
+/// Returns true if `s` is a valid HTTP header field value (RFC 9110 §5.5:
+/// `HTAB`, `SP`, `VCHAR` `0x21..0x7E`, or `obs-text` `0x80..0xFF`; no `CR`,
+/// `LF`, `NUL`, or other control characters).
+inline constexpr bool IsValidHttpHeaderValue(std::string_view s) {
+  for (char c : s) {
+    if (!kValidAsciiHeaderValueChars.Test(c) &&
+        static_cast<unsigned char>(c) < 0x80) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// Strips leading and trailing RFC 9110 Section 5.6.3 optional whitespace
+/// (`OWS = *( SP / HTAB )`).
+inline constexpr std::string_view StripHttpOws(std::string_view s) {
+  while (!s.empty() && (s.front() == ' ' || s.front() == '\t')) {
+    s.remove_prefix(1);
+  }
+  while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) {
+    s.remove_suffix(1);
+  }
+  return s;
+}
+
+/// Returns true if `name` is a credential-bearing HTTP header (`Authorization`,
+/// `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Goog-Encryption-Key`,
+/// `X-Amz-Server-Side-Encryption-Customer-Key`, `X-Ms-Encryption-Key`, etc.).
+bool IsSensitiveHttpHeader(std::string_view name);
+
+/// Returns `"[REDACTED]"` if `IsSensitiveHttpHeader(name)`, else `value`.
+std::string_view RedactHeaderValueForLog(std::string_view name,
+                                         std::string_view value);
+
+/// Redacts the value portion of a serialized `"Name: Value"` line if `Name`
+/// is a sensitive HTTP header.
+std::string RedactH1HeaderLineForLog(std::string_view line);
 
 /// A case-insensitive map of HTTP headers.
 class HeaderMap {
@@ -86,11 +149,7 @@ class HeaderMap {
       sink.Append(kv.first);
       sink.Append(": ");
       // Redact sensitive headers in logging across all build modes.
-      if (absl::StrContainsIgnoreCase(kv.first, "auth_token") ||
-          absl::StrContainsIgnoreCase(kv.first, "authorization") ||
-          absl::StrContainsIgnoreCase(kv.first, "x-amz-security-token") ||
-          absl::StrContainsIgnoreCase(kv.first, "cookie") ||
-          absl::StrContainsIgnoreCase(kv.first, "encryption-key")) {
+      if (IsSensitiveHttpHeader(kv.first)) {
         sink.Append("#####");
       } else {
         sink.Append(kv.second);

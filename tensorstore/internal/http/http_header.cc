@@ -28,6 +28,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
@@ -40,30 +41,6 @@ namespace tensorstore {
 namespace internal_http {
 namespace {
 
-// Parse the header field. Per RFC 7230:
-//  header-field   = field-name ":" OWS field-value OWS
-//
-//  field-name     = token
-//  field-value    = *( field-content / obs-fold )
-//  field-content  = field-vchar [ 1*( SP / HTAB ) field-vchar ]
-//  field-vchar    = VCHAR / obs-text
-//
-//  OWS            = *( SP / HTAB )
-//  tchar          = "!" / "#" / "$" / "%" / "&" / "'" / "*"  /
-//                   "+" / "-" / "." / "^" / "_" / "`" / "|" / "~" /
-//                   DIGIT / ALPHA
-//  token          = 1*tchar
-//
-static inline constexpr internal_uri::AsciiSet kTChar{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    R"(!#$%&'*+-.^_`|~)"};
-
-inline bool IsTchar(char ch) { return kTChar.Test(ch); }
-
-inline bool IsOWS(char ch) { return ch == ' ' || ch == '\t'; }
-
 bool IsLowercase(std::string_view s) {
   for (char c : s) {
     if (c >= 'A' && c <= 'Z') return false;
@@ -72,6 +49,33 @@ bool IsLowercase(std::string_view s) {
 }
 
 }  // namespace
+
+bool IsSensitiveHttpHeader(std::string_view name) {
+  std::string_view stripped = absl::StripAsciiWhitespace(name);
+  return absl::StrContainsIgnoreCase(stripped, "authorization") ||
+         absl::StrContainsIgnoreCase(stripped, "auth_token") ||
+         absl::StrContainsIgnoreCase(stripped, "x-amz-security-token") ||
+         absl::StrContainsIgnoreCase(stripped, "cookie") ||
+         absl::StrContainsIgnoreCase(stripped, "encryption-key") ||
+         absl::EqualsIgnoreCase(stripped, "proxy-authenticate") ||
+         absl::EqualsIgnoreCase(stripped, "www-authenticate") ||
+         absl::EqualsIgnoreCase(stripped, "x-api-key");
+}
+
+std::string_view RedactHeaderValueForLog(std::string_view name,
+                                         std::string_view value) {
+  return IsSensitiveHttpHeader(name) ? std::string_view("[REDACTED]") : value;
+}
+
+std::string RedactH1HeaderLineForLog(std::string_view line) {
+  size_t colon = line.find(':');
+  if (colon == std::string_view::npos) return std::string(line);
+  std::string_view name = line.substr(0, colon);
+  if (!IsValidHttpToken(name) || !IsSensitiveHttpHeader(name)) {
+    return std::string(line);
+  }
+  return absl::StrCat(name, ": [REDACTED]");
+}
 
 void HeaderMap::ClearHeader(std::string_view field_name) {
   ABSL_DCHECK(IsLowercase(field_name));
@@ -110,19 +114,18 @@ Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
     return absl::InvalidArgumentError("Empty HTTP header field name");
   }
   for (char c : field_name) {
-    if (!IsTchar(c)) {
+    if (!kHttpTokenChars.Test(c)) {
       return absl::InvalidArgumentError(
           absl::StrFormat("Invalid HTTP char %c in header field name: %v", c,
                           QuoteString(field_name)));
     }
   }
   // Check the header field value.
-  static LazyRE2 kFieldPattern = {"([\t\x20-\x7e\x80-\xff]*)", RE2::Latin1};
-  if (!RE2::FullMatch(field_value, *kFieldPattern)) {
+  if (!IsValidHttpHeaderValue(field_value)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Invalid HTTP header field value: %v", QuoteString(field_value)));
   }
-  return std::make_pair(field_name, absl::StripAsciiWhitespace(field_value));
+  return std::make_pair(field_name, StripHttpOws(field_value));
 }
 
 Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
@@ -146,13 +149,11 @@ size_t ParseAndSetHeaders(std::string_view data,
     // Ensure the header field ends in CRLF by testing the CR part.
     if (field.empty() || *field.rbegin() != '\r') break;
     field.remove_suffix(1);
-    // Also remove OWS.
-    while (!field.empty() && IsOWS(*field.rbegin())) field.remove_suffix(1);
-    if (field.empty()) continue;
+    if (StripHttpOws(field).empty()) continue;
 
     // Parse field-name.
     auto it = field.begin();
-    for (; it != field.end() && IsTchar(*it); ++it) {
+    for (; it != field.end() && kHttpTokenChars.Test(*it); ++it) {
       /**/
     }
     if (it == field.begin() || it == field.end() || *it != ':') {
@@ -161,10 +162,11 @@ size_t ParseAndSetHeaders(std::string_view data,
     }
     std::string_view field_name = field.substr(0, it - field.begin());
 
-    // Transform the value by dropping OWS in the field value prefix.
+    // Transform the value by dropping OWS in the field value prefix/suffix.
     field.remove_prefix(field_name.size() + 1);
-    while (!field.empty() && IsOWS(*field.begin())) field.remove_prefix(1);
-    set_header(absl::AsciiStrToLower(field_name), field);
+    std::string_view value = StripHttpOws(field);
+    if (!IsValidHttpHeaderValue(value)) continue;
+    set_header(absl::AsciiStrToLower(field_name), value);
   }
   return data.size();
 }

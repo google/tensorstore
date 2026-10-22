@@ -202,4 +202,54 @@ TEST(ParseHostPortTest, Basic) {
   EXPECT_THAT(SplitHostPort("[::1]::1"), ::testing::Eq(std::nullopt));
 }
 
+TEST(ParseHostPortTest, StripAndFormatHelpers) {
+  using ::tensorstore::internal_uri::FormatHostPort;
+  using ::tensorstore::internal_uri::StripIpv6Brackets;
+  using ::tensorstore::internal_uri::StripUserinfo;
+
+  EXPECT_THAT(StripUserinfo("user:pass@example.com:8080"),
+              ::testing::Eq("example.com:8080"));
+  EXPECT_THAT(StripUserinfo("example.com:8080"),
+              ::testing::Eq("example.com:8080"));
+  EXPECT_THAT(StripIpv6Brackets("[::1]"), ::testing::Eq("::1"));
+  EXPECT_THAT(StripIpv6Brackets("example.com"), ::testing::Eq("example.com"));
+  EXPECT_THAT(FormatHostPort("example.com", "443"),
+              ::testing::Eq("example.com:443"));
+  EXPECT_THAT(FormatHostPort("::1", "443"), ::testing::Eq("[::1]:443"));
+}
+
+TEST(ParseHostPortTest, ValidationAndRedaction) {
+  using ::tensorstore::internal_uri::IsValidHttpAuthority;
+  using ::tensorstore::internal_uri::IsValidHttpHost;
+  using ::tensorstore::internal_uri::IsValidHttpPort;
+  using ::tensorstore::internal_uri::IsValidIpv6Literal;
+  using ::tensorstore::internal_uri::RedactUrlForError;
+
+  EXPECT_THAT(IsValidIpv6Literal("::"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidIpv6Literal("::1"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidIpv6Literal("2001:db8::"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidIpv6Literal("2001:db8::1"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidIpv6Literal("::ffff:192.0.2.128"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidIpv6Literal("::ffff:999.0.2.128"), ::testing::Eq(false));
+  EXPECT_THAT(IsValidIpv6Literal("2001:db8:"), ::testing::Eq(false));
+  EXPECT_THAT(IsValidIpv6Literal("2001:db8::1::2"), ::testing::Eq(false));
+  EXPECT_THAT(IsValidIpv6Literal("fe80::1%eth0"), ::testing::Eq(false));
+
+  EXPECT_THAT(IsValidHttpHost("example.com"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidHttpHost("::1"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidHttpHost("bad host"), ::testing::Eq(false));
+
+  EXPECT_THAT(IsValidHttpPort("443"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidHttpPort("0"), ::testing::Eq(false));
+  EXPECT_THAT(IsValidHttpPort("65536"), ::testing::Eq(false));
+
+  EXPECT_THAT(IsValidHttpAuthority("example.com:8080"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidHttpAuthority("[::1]:8080"), ::testing::Eq(true));
+  EXPECT_THAT(IsValidHttpAuthority("::1:8080"), ::testing::Eq(false));
+
+  EXPECT_THAT(
+      RedactUrlForError("https://user:secret@example.com/path?token=abc#frag"),
+      ::testing::Eq("https://[REDACTED]@example.com/path?[REDACTED]"));
+}
+
 }  // namespace

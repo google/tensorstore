@@ -20,6 +20,8 @@
 #endif
 #include <winsock.h>
 #include <ws2tcpip.h>
+
+#include "tensorstore/internal/global_initializer.h"
 #else  // !_WIN32
 
 #include <arpa/inet.h>
@@ -28,23 +30,27 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>  // for TCP_NODELAY
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #endif  // _WIN32
 
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <atomic>
 #include <cassert>
 #include <cstring>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_set.h"
@@ -53,7 +59,10 @@
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/internal/global_initializer.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/thread/thread.h"
 
 namespace tensorstore {
 namespace transport_test_utils {
@@ -247,22 +256,54 @@ bool SetSocketNonBlocking(socket_t sock) {
 #endif
 }
 
-// Waits up to 200ms for a read.
-bool WaitForRead(socket_t sock) {
-  fd_set read;
-  struct timeval tv;
-  tv.tv_sec = 0;
-  tv.tv_usec = 200000;
+void SetSocketNoDelay(socket_t sock) {
+  int one = 1;
+  (void)setsockopt(sock, IPPROTO_TCP, TCP_NODELAY,
+                   reinterpret_cast<const char*>(&one), sizeof(one));
+#ifdef SO_NOSIGPIPE
+  (void)setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE,
+                   reinterpret_cast<const char*>(&one), sizeof(one));
+#endif
+}
 
+namespace {
+
+// Polls `sock` for readability for up to `timeout_ms`. Returns 1 if readable
+// (or hung up), 0 on timeout, and -1 on error.
+//
+// poll is used rather than select because processes that link an
+// EventEngine transport routinely hold more than FD_SETSIZE descriptors, and
+// FD_SET on such a descriptor is undefined behavior.
+int PollRead(socket_t sock, int timeout_ms) {
+  struct pollfd pfd;
+  pfd.fd = sock;
+  pfd.events = POLLIN;
+  pfd.revents = 0;
   for (;;) {
-    FD_ZERO(&read);
-    FD_SET(sock, &read);
-
-    int sel = select(sock + 1, &read, nullptr, nullptr, &tv);
-    if (sel < 0) continue;
-    if (FD_ISSET(sock, &read)) return true;
-    return false;
+#ifdef _WIN32
+    int rv = WSAPoll(&pfd, 1, timeout_ms);
+#else
+    int rv = poll(&pfd, 1, timeout_ms);
+    if (rv < 0 && errno == EINTR) continue;
+#endif
+    return rv < 0 ? -1 : (rv > 0 ? 1 : 0);
   }
+}
+
+}  // namespace
+
+// Waits up to 200ms for a read.
+bool WaitForRead(socket_t sock) { return PollRead(sock, 200) > 0; }
+
+bool WaitForRead(socket_t sock, const std::atomic<bool>& stop,
+                 absl::Time deadline) {
+  // Short poll slices bound how long `stop` goes unobserved.
+  constexpr int kSliceMs = 20;
+  while (!stop.load() && absl::Now() < deadline) {
+    int rv = PollRead(sock, kSliceMs);
+    if (rv != 0) return rv > 0;
+  }
+  return false;
 }
 
 std::optional<socket_t> AcceptNonBlocking(socket_t server_fd) {
@@ -286,27 +327,60 @@ std::string ReceiveAvailable(socket_t client_fd) {
   for (; WaitForRead(client_fd);) {
     int r = recv(client_fd, buf, kBufferSize, 0);
     if (r < 0) {
-      // WaitForRead calls select() on the socket, so we
-      // should not see EAGAIN nor EWOULDBLOCK.
+      // WaitForRead polls the socket, so we should not see EAGAIN nor
+      // EWOULDBLOCK.
       ABSL_LOG(INFO) << "recv error: " << get_socket_errno();
       break;
     }
-    // No data here would be unexpected since WaitForRead calls select().
-    ABSL_CHECK_GT(r, 0);
+    // Readable with no data means the peer closed the connection.
+    if (r == 0) break;
     data.append(buf, r);
   }
   ABSL_LOG(INFO) << "recv " << data.size() << ": " << data;
   return data;
 }
 
+bool SendAll(socket_t sock, std::string_view data) {
+#ifdef MSG_NOSIGNAL
+  // Writing to a peer that already closed must fail, not kill the test.
+  constexpr int kSendFlags = MSG_NOSIGNAL;
+#else
+  constexpr int kSendFlags = 0;
+#endif
+  size_t sent = 0;
+  while (sent < data.size()) {
+    auto n = send(sock, data.data() + sent,
+                  static_cast<int>(data.size() - sent), kSendFlags);
+    if (n <= 0) return false;
+    sent += static_cast<size_t>(n);
+  }
+  return true;
+}
+
 int AssertSend(socket_t client_fd, std::string_view data) {
   ABSL_LOG(INFO) << "send " << data.size() << ":" << data;
-  int err = send(client_fd, data.data(), data.size(), 0);
-  if (err < 0) {
+  bool ok = SendAll(client_fd, data);
+  if (!ok) {
     ABSL_LOG(INFO) << "send error:" << get_socket_errno();
   }
-  assert(err == data.size());
-  return err;
+  assert(ok);
+  return ok ? static_cast<int>(data.size()) : -1;
+}
+
+void ShutdownSocket(socket_t sock) {
+#ifdef _WIN32
+  shutdown(sock, SD_BOTH);
+#else
+  shutdown(sock, SHUT_RDWR);
+#endif
+}
+
+void ShutdownSocketSend(socket_t sock) {
+#ifdef _WIN32
+  shutdown(sock, SD_SEND);
+#else
+  shutdown(sock, SHUT_WR);
+#endif
 }
 
 // Close the socket
@@ -340,6 +414,51 @@ std::optional<uint16_t> TryPickUnusedPort() {
 
   ABSL_LOG(INFO) << "No unused port found. " << used_ports->size();
   return std::nullopt;
+}
+
+LoopbackServer::LoopbackServer(ConnectionHandler handler)
+    : handler_(std::move(handler)) {
+  auto bound = CreateBoundSocket();
+  ABSL_CHECK(bound.has_value());
+  listen_fd_ = *bound;
+  hostport_ = FormatSocketAddress(listen_fd_);
+  ABSL_CHECK(!hostport_.empty());
+  accept_thread_ =
+      internal::Thread({"loopback_accept"}, [this]() { AcceptLoop(); });
+}
+
+LoopbackServer::~LoopbackServer() {
+  stop_.store(true);
+  ShutdownSocket(listen_fd_);
+  accept_thread_.Join();
+  CloseSocket(listen_fd_);
+  std::vector<socket_t> fds;
+  {
+    absl::MutexLock lock(mu_);
+    fds = client_fds_;
+  }
+  // Unblock handlers before joining; close only after they have returned so
+  // a descriptor is never reused while a handler still holds it.
+  for (socket_t fd : fds) ShutdownSocket(fd);
+  for (auto& t : worker_threads_) t.Join();
+  for (socket_t fd : fds) CloseSocket(fd);
+}
+
+void LoopbackServer::AcceptLoop() {
+  while (WaitForRead(listen_fd_, stop_)) {
+    socket_t fd = accept(listen_fd_, nullptr, nullptr);
+    if (fd == kInvalidSocket) break;
+    int connection_index = accepted_connections_.fetch_add(1);
+    SetSocketNoDelay(fd);
+    {
+      absl::MutexLock lock(mu_);
+      client_fds_.push_back(fd);
+    }
+    worker_threads_.push_back(
+        internal::Thread({"loopback_worker"}, [this, fd, connection_index]() {
+          handler_(fd, connection_index, stop_);
+        }));
+  }
 }
 
 }  // namespace transport_test_utils
