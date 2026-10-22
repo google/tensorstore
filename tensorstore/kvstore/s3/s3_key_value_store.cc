@@ -118,7 +118,6 @@ using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
 using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
 using ::tensorstore::internal_kvstore_s3::IsValidStorageGeneration;
-using ::tensorstore::internal_kvstore_s3::MakeAwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::S3ConcurrencyResource;
 using ::tensorstore::internal_kvstore_s3::S3EndpointRegion;
 using ::tensorstore::internal_kvstore_s3::S3RateLimiterResource;
