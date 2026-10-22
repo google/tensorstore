@@ -1,7 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: kvstore/zip
-title: Read-only adapter for the ZIP archive format.
-description: JSON specification of the key-value store.
+title: Key-value store adapter for the ZIP archive format.
+description: JSON specification of the ZIP key-value store.
 allOf:
   - $ref: KvStoreAdapter
   - type: object

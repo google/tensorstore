@@ -4,7 +4,7 @@
 ``zip`` Key-Value Store driver
 ======================================================
 
-The ``zip`` driver implements support for reading from
+The ``zip`` driver implements support for reading and writing
 `ZIP <https://en.wikipedia.org/wiki/ZIP_(file_format)>`_ format
 files on top of a base key-value store. (Not all ZIP features are supported.)
 
@@ -33,7 +33,25 @@ signature at the end of the file.
    bytes. ZIP archives with comments up to the maximum length of 65535
    bytes are still supported without auto-detection, however.
 
+Transactions and Write Amplification
+------------------------------------
+
+This driver supports writing and deleting keys inside the ZIP archive. Since
+ZIP archives do not support random modification, each write or delete
+operation may rewrite the entire ZIP archive. Therefore, using transactions
+is strongly recommended to batch multiple write operations and minimize write
+amplification.
+
 Limitations
 -----------
 
-Writing is not supported, nor are all ZIP compression formats.
+Not all ZIP features and compression formats are supported:
+
+Compression formats
+  - **Reading**: Support is limited to ``deflate``, ``bzip2``, ``zstd``,
+    ``xz``, and ``store`` (no compression).
+  - **Writing**: Support is limited to ``deflate``, ``zstd``, ``xz``, and
+    ``store``. Other compression methods (such as ``lzma``) are not supported.
+
+Standard ZIP encryption, strong encryption, and AES encryption are not
+supported.

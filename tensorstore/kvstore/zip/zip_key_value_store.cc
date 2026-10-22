@@ -45,6 +45,7 @@
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/uri/parse.h"
@@ -61,11 +62,15 @@
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
+#include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/kvstore/zip/cached_dir.h"
 #include "tensorstore/kvstore/zip/zip_dir_cache.h"
+#include "tensorstore/kvstore/zip/zip_write_cache.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -93,10 +98,13 @@ namespace jb = tensorstore::internal_json_binding;
 
 ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip");
 
-static internal_kvstore::CommonReadMetrics zip_metrics;
+struct ZipMetrics : public internal_kvstore::CommonReadMetrics,
+                    public internal_kvstore::CommonWriteMetrics {};
+static ZipMetrics zip_metrics;
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   TENSORSTORE_KVSTORE_REGISTER_COMMON_READ_METRICS(&zip_metrics, zip);
+  TENSORSTORE_KVSTORE_REGISTER_COMMON_WRITE_METRICS(&zip_metrics, zip);
 }
 
 // Threshold for using two-phase reads (read local header first, then data).
@@ -104,24 +112,39 @@ constexpr int64_t kTwoPhaseReadThreshold = 2 * 1024 * 1024;
 constexpr int64_t kZipMinLocalHeaderSize = 30;
 
 // -----------------------------------------------------------------------------
+constexpr auto kCompressionBinder = [](auto is_loading, const auto& options,
+                                       auto* obj, auto* j) {
+  return jb::Enum<internal_zip::ZipCompression, std::string_view>({
+      {internal_zip::ZipCompression::kStore, "store"},
+      {internal_zip::ZipCompression::kDeflate, "deflate"},
+      {internal_zip::ZipCompression::kZStd, "zstd"},
+      {internal_zip::ZipCompression::kXZ, "xz"},
+  })(is_loading, options, obj, j);
+};
 
 struct ZipKvStoreSpecData {
   kvstore::Spec base;
   Context::Resource<internal::CachePoolResource> cache_pool;
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency;
+  internal_zip::ZipCompression compression =
+      internal_zip::ZipCompression::kDeflate;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.base, x.cache_pool, x.data_copy_concurrency);
+    return f(x.base, x.cache_pool, x.data_copy_concurrency, x.compression);
   };
 
   constexpr static auto default_json_binder = jb::Object(
       jb::Member("base", jb::Projection<&ZipKvStoreSpecData::base>()),
       jb::Member(internal::CachePoolResource::id,
                  jb::Projection<&ZipKvStoreSpecData::cache_pool>()),
+      jb::Member(internal::DataCopyConcurrencyResource::id,
+                 jb::Projection<&ZipKvStoreSpecData::data_copy_concurrency>()),
       jb::Member(
-          internal::DataCopyConcurrencyResource::id,
-          jb::Projection<&ZipKvStoreSpecData::data_copy_concurrency>()) /**/
+          "compression",
+          jb::Projection<&ZipKvStoreSpecData::compression>(jb::DefaultValue(
+              [](auto* v) { *v = internal_zip::ZipCompression::kDeflate; },
+              kCompressionBinder))) /**/
   );
 };
 
@@ -172,6 +195,27 @@ class ZipKvStore
     return base_.driver->GetSupportedFeatures(KeyRange::Singleton(base_.path));
   }
 
+  Future<TimestampedStorageGeneration> Write(Key key,
+                                             std::optional<Value> value,
+                                             WriteOptions options) override;
+
+  Future<const void> DeleteRange(KeyRange range) override;
+
+  absl::Status TransactionalDeleteRange(
+      const internal::OpenTransactionPtr& transaction, KeyRange range) override;
+
+  absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,
+                               size_t& phase, Key key,
+                               ReadModifyWriteSource& source) override;
+
+  Future<kvstore::ReadResult> TransactionalRead(
+      const internal::OpenTransactionPtr& transaction, Key key,
+      ReadOptions options) override;
+
+  void TransactionalListImpl(const internal::OpenTransactionPtr& transaction,
+                             ListOptions options,
+                             ListReceiver receiver) override;
+
   Result<KvStore> GetBase(std::string_view path,
                           const Transaction& transaction) const override {
     return KvStore(base_.driver, base_.path, transaction);
@@ -190,6 +234,7 @@ class ZipKvStore
   ZipKvStoreSpecData spec_data_;
   kvstore::KvStore base_;
   internal::PinnedCacheEntry<ZipDirectoryCache> cache_entry_;
+  internal::CachePtr<ZipWriteCache> write_cache_;
 };
 
 Future<kvstore::DriverPtr> ZipKvStoreSpec::DoOpen() const {
@@ -206,15 +251,30 @@ Future<kvstore::DriverPtr> ZipKvStoreSpec::DoOpen() const {
         auto directory_cache = internal::GetCache<ZipDirectoryCache>(
             cache_pool.get(), cache_key, [&] {
               return std::make_unique<ZipDirectoryCache>(
-                  base_kvstore.driver,
+                  base_kvstore.driver, base_kvstore.path,
                   spec->data_.data_copy_concurrency->executor);
+            });
+        auto cache_entry = GetCacheEntry(directory_cache, "");
+        auto write_cache =
+            internal::GetCache<ZipWriteCache>(cache_pool.get(), cache_key, [&] {
+              auto cache = std::make_unique<ZipWriteCache>(
+                  base_kvstore.driver, base_kvstore.path,
+                  spec->data_.data_copy_concurrency->executor,
+                  spec->data_.compression);
+              // Wire push-based invalidation from write cache to directory
+              // cache without permanently pinning the directory cache entry.
+              cache->set_invalidate_callback(
+                  [directory_cache](absl::Time time) {
+                    directory_cache->Invalidate(time);
+                  });
+              return cache;
             });
 
         auto driver = internal::MakeIntrusivePtr<ZipKvStore>();
         driver->base_ = std::move(base_kvstore);
         driver->spec_data_ = std::move(spec->data_);
-        driver->cache_entry_ =
-            GetCacheEntry(directory_cache, driver->base_.path);
+        driver->cache_entry_ = std::move(cache_entry);
+        driver->write_cache_ = std::move(write_cache);
         return driver;
       },
       kvstore::Open(data_.base));
@@ -267,6 +327,8 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
       full_read = dir->full_read;
       ABSL_LOG_IF(INFO, zip_logging) << *dir;
 
+      match = options_.generation_conditions.Matches(resolved.stamp.generation);
+
       auto it = std::lower_bound(
           dir->entries.begin(), dir->entries.end(), key_,
           [](const auto& e, const std::string& k) { return e.filename < k; });
@@ -276,24 +338,18 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
         entry_ = *it;
         local_header_offset = it->local_header_offset;
         local_header_and_data_size = it->local_header_and_data_size;
-        // NOTE: A member-specific generation could be derived from
-        // (crc, uncompressed_size, compressed_size, mtime) to reduce re-reads
-        // when only other members change. Currently, we use the base container
-        // generation for simplicity.
-        match =
-            options_.generation_conditions.Matches(resolved.stamp.generation);
       }
-    }
-
-    if (!found) {
-      promise.SetResult(
-          kvstore::ReadResult::Missing(std::move(resolved.stamp)));
-      return std::nullopt;
     }
 
     if (!match) {
       promise.SetResult(
           kvstore::ReadResult::Unspecified(std::move(resolved.stamp)));
+      return std::nullopt;
+    }
+
+    if (!found) {
+      promise.SetResult(
+          kvstore::ReadResult::Missing(std::move(resolved.stamp)));
       return std::nullopt;
     }
 
@@ -674,6 +730,71 @@ internal_kvstore::AutoDetectFileSpec GetAutoDetectSpec() {
   spec.suffix_length = 4096 + 48;
   spec.match = MatchZipFormat;
   return spec;
+}
+
+Future<TimestampedStorageGeneration> ZipKvStore::Write(
+    Key key, std::optional<Value> value, WriteOptions options) {
+  zip_metrics.write.Increment();
+  return internal_kvstore::WriteViaTransaction(
+      this, std::move(key), std::move(value), std::move(options));
+}
+
+Future<const void> ZipKvStore::DeleteRange(KeyRange range) {
+  zip_metrics.delete_range.Increment();
+  internal::OpenTransactionPtr transaction;
+  auto entry = GetCacheEntry(write_cache_, std::string_view{});
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node, GetWriteLockedTransactionNode(*entry, transaction));
+  node->DeleteRange(std::move(range));
+  return node->transaction()->future();
+}
+
+absl::Status ZipKvStore::TransactionalDeleteRange(
+    const internal::OpenTransactionPtr& transaction, KeyRange range) {
+  zip_metrics.delete_range.Increment();
+  auto entry = GetCacheEntry(write_cache_, std::string_view{});
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node, GetWriteLockedTransactionNode(*entry, transaction));
+  node->DeleteRange(std::move(range));
+  return absl::OkStatus();
+}
+
+absl::Status ZipKvStore::ReadModifyWrite(
+    internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
+    ReadModifyWriteSource& source) {
+  auto entry = GetCacheEntry(write_cache_, std::string_view{});
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node, GetWriteLockedTransactionNode(*entry, transaction));
+  node->ReadModifyWrite(phase, std::move(key), source);
+  if (!transaction) {
+    transaction.reset(node.unlock()->transaction());
+  }
+  return absl::OkStatus();
+}
+
+Future<kvstore::ReadResult> ZipKvStore::TransactionalRead(
+    const internal::OpenTransactionPtr& transaction, Key key,
+    ReadOptions options) {
+  auto entry = GetCacheEntry(write_cache_, std::string_view{});
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node, GetWriteLockedTransactionNode(*entry, transaction));
+  internal_kvstore::MultiPhaseMutation* multi_phase_mutation = &*node;
+  return multi_phase_mutation->ReadImpl(
+      internal::OpenTransactionNodePtr<ZipWriteCache::TransactionNode>(&*node),
+      this, std::move(key), std::move(options), [&node] { node.unlock(); });
+}
+
+void ZipKvStore::TransactionalListImpl(
+    const internal::OpenTransactionPtr& transaction, ListOptions options,
+    ListReceiver receiver) {
+  auto entry = GetCacheEntry(write_cache_, std::string_view{});
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node, GetWriteLockedTransactionNode(*entry, transaction),
+      execution::submit(FlowSingleSender{ErrorSender{std::move(_)}},
+                        std::move(receiver)));
+  auto* multi_phase_mutation = &*node;
+  multi_phase_mutation->ListImpl(node.unlock(), std::move(options),
+                                 std::move(receiver));
 }
 
 }  // namespace

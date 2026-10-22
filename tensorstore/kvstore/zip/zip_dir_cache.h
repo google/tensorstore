@@ -18,9 +18,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <string>
 #include <utility>
 
 #include "absl/base/optimization.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/zip/cached_dir.h"
@@ -37,8 +39,9 @@ class ZipDirectoryCache : public internal::AsyncCache {
   using ReadData = CachedDir;
 
   explicit ZipDirectoryCache(kvstore::DriverPtr kvstore_driver,
-                             Executor executor)
+                             std::string base_path, Executor executor)
       : kvstore_driver_(std::move(kvstore_driver)),
+        base_path_(std::move(base_path)),
         executor_(std::move(executor)) {}
 
   class Entry : public Base::Entry {
@@ -57,7 +60,12 @@ class ZipDirectoryCache : public internal::AsyncCache {
     ABSL_UNREACHABLE();
   }
 
+  void Invalidate(absl::Time time);
+
+  const std::string& base_path() const { return base_path_; }
+
   kvstore::DriverPtr kvstore_driver_;
+  std::string base_path_;
   Executor executor_;
 
   const Executor& executor() { return executor_; }

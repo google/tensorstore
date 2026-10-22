@@ -74,6 +74,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/time",
         "@nlohmann_json//:json",
     ],
+    alwayslink = 1,
 )
 
 tensorstore_cc_test(
