@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
+#include "absl/base/const_init.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/crc/crc32c.h"
 #include "absl/functional/any_invocable.h"
@@ -67,9 +68,10 @@ namespace {
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 
+ABSL_CONST_INIT absl::Mutex g_test_hook_mutex(absl::kConstInit);
 absl::AnyInvocable<void(grpc::ClientContext*,
                         google::storage::v2::ReadObjectRequest&)>
-    g_test_hook;
+    g_test_hook ABSL_GUARDED_BY(g_test_hook_mutex);
 
 // Implements GcsGrpcKeyValueStore::Read
 // rpc ReadObject(ReadObjectRequest) returns (stream ReadObjectResponse) {}
@@ -92,10 +94,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
 
   ReadObjectRequest request_;
   ReadObjectResponse response_;
-
-  int attempt_ = 0;
-  absl::Mutex mutex_;
-  std::shared_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
+  GrpcCallContext call_;
 
   ReadTask(internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
            internal_kvstore::CommonMetrics& common_metrics,
@@ -104,23 +103,17 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
         common_metrics_(common_metrics),
         promise_(std::move(promise)),
         options_(std::move(options)) {
-    promise_.ExecuteWhenNotNeeded(
-        [self = internal::IntrusivePtr<ReadTask>(this)] { self->TryCancel(); });
-  }
-
-  void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock lock(mutex_);
-    if (context_) context_->TryCancel();
+    promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<ReadTask>(
+                                       this)] { self->call_.TryCancel(); });
   }
 
   void SetupRequest(std::string_view bucket_name, std::string_view object_name);
   absl::Status HandleResponse(ReadObjectResponse& response);
   Result<kvstore::ReadResult> HandleFinalStatus(absl::Status status);
 
-  void Start() ABSL_LOCKS_EXCLUDED(mutex_);
-  void Retry() ABSL_LOCKS_EXCLUDED(mutex_);
-  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context)
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  void Start();
+  void Retry();
+  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context);
   void OnReadDone(bool ok) override;
   void OnDone(const grpc::Status& s) override;
   void ReadFinished(absl::Status status);
@@ -131,22 +124,13 @@ void ReadTask::SetupRequest(std::string_view bucket_name,
   request_.set_bucket(bucket_name);
   request_.set_object(object_name);
 
-  if (!StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
-    uint64_t gen =
-        StorageGeneration::IsNoValue(options_.generation_conditions.if_equal)
-            ? 0
-            : StorageGeneration::ToUint64(
-                  options_.generation_conditions.if_equal);
-    request_.set_if_generation_match(gen);
+  if (auto gen =
+          EncodeGenerationCondition(options_.generation_conditions.if_equal)) {
+    request_.set_if_generation_match(*gen);
   }
-  if (!StorageGeneration::IsUnknown(
+  if (auto gen = EncodeGenerationCondition(
           options_.generation_conditions.if_not_equal)) {
-    uint64_t gen = StorageGeneration::IsNoValue(
-                       options_.generation_conditions.if_not_equal)
-                       ? 0
-                       : StorageGeneration::ToUint64(
-                             options_.generation_conditions.if_not_equal);
-    request_.set_if_generation_not_match(gen);
+    request_.set_if_generation_not_match(*gen);
   }
   if (options_.byte_range.inclusive_min != 0) {
     request_.set_read_offset(options_.byte_range.inclusive_min);
@@ -192,21 +176,21 @@ absl::Status ReadTask::HandleResponse(ReadObjectResponse& response) {
       !response.checksummed_data().content().empty()) {
     const auto& content = response.checksummed_data().content();
     // Validate the content checksum.
-    if (response.checksummed_data().has_crc32c()) {
-      absl::crc32c_t expected_crc32c =
-          absl::crc32c_t(response.checksummed_data().crc32c());
+    if (response.checksummed_data().has_crc32c() || crc32c_.has_value()) {
       absl::crc32c_t chunk_crc32c = ComputeCrc32c(content);
-      if (chunk_crc32c != expected_crc32c) {
-        return absl::DataLossError(absl::StrFormat(
-            "Object fragment crc32c %08x does not match expected crc32c %08x",
-            static_cast<uint32_t>(chunk_crc32c),
-            static_cast<uint32_t>(expected_crc32c)));
+      if (response.checksummed_data().has_crc32c()) {
+        absl::crc32c_t expected_crc32c =
+            absl::crc32c_t(response.checksummed_data().crc32c());
+        if (chunk_crc32c != expected_crc32c) {
+          return absl::DataLossError(absl::StrFormat(
+              "Object fragment crc32c %08x does not match expected crc32c "
+              "%08x",
+              static_cast<uint32_t>(chunk_crc32c),
+              static_cast<uint32_t>(expected_crc32c)));
+        }
       }
       combined_crc32c_ =
           absl::ConcatCrc32c(combined_crc32c_, chunk_crc32c, content.size());
-    } else {
-      // This chunk missed crc32c data; clear the expected crc32c value.
-      crc32c_ = std::nullopt;
     }
     if (!cord_writer_.Write(content)) {
       return cord_writer_.status();
@@ -261,54 +245,41 @@ Result<kvstore::ReadResult> ReadTask::HandleFinalStatus(absl::Status status) {
 void ReadTask::Start() {
   ABSL_LOG_IF(INFO, gcs_grpc_logging)
       << this << " ReadTask " << request_.object();
-
-  auto context_future = driver_->AllocateContext();
-  context_future.ExecuteWhenReady(
-      [self = internal::IntrusivePtr<ReadTask>(this),
-       context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
-        self->RetryWithContext(std::move(f).value());
-      });
-  context_future.Force();
+  Retry();
 }
 
-void ReadTask::Retry() ABSL_LOCKS_EXCLUDED(mutex_) {
+void ReadTask::Retry() {
   if (!promise_.result_needed()) {
     return;
   }
   // Clear working state.
+  storage_generation_ =
+      TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
   crc32c_ = std::nullopt;
   combined_crc32c_ = absl::crc32c_t(0);
   value_.Clear();
   cord_writer_ = riegeli::CordWriter<>(&value_);
 
-  auto context_future = driver_->AllocateContext();
-  context_future.ExecuteWhenReady(
-      [self = internal::IntrusivePtr<ReadTask>(this),
-       context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
-        self->RetryWithContext(std::move(f).value());
-      });
-  context_future.Force();
+  GrpcCallContext::RunWithContext(internal::IntrusivePtr<ReadTask>(this),
+                                  driver_.get(), /*routing_token=*/{},
+                                  &ReadTask::RetryWithContext,
+                                  &ReadTask::ReadFinished);
 }
 
 void ReadTask::RetryWithContext(std::shared_ptr<grpc::ClientContext> context) {
-  if (!promise_.result_needed()) {
+  if (!promise_.result_needed() || !call_.BeginAttempt(context)) {
     return;
   }
-  if (g_test_hook) {
-    g_test_hook(context.get(), request_);
+  {
+    absl::MutexLock lock(g_test_hook_mutex);
+    if (g_test_hook) {
+      g_test_hook(context.get(), request_);
+    }
   }
-
-  storage_generation_ =
-      TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
 
   ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2))
       << this << " " << ConciseDebugString(request_);
 
-  {
-    absl::MutexLock lock(mutex_);
-    assert(context_ == nullptr);
-    context_ = context;
-  }
   auto stub = driver_->get_stub();
 
   // Start a call.
@@ -323,12 +294,15 @@ void ReadTask::OnReadDone(bool ok) {
   if (!ok) return;  // Reading is complete. Not an error.
 
   if (!promise_.result_needed()) {
-    TryCancel();
+    call_.TryCancel();
     return;
   }
 
   ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2))
-      << this << " " << ConciseDebugString(response_);
+      << this << " metadata={" << ConciseDebugString(response_.metadata())
+      << "} content_range={" << ConciseDebugString(response_.content_range())
+      << "} bytes=" << response_.checksummed_data().content().size()
+      << " has_crc32c=" << response_.checksummed_data().has_crc32c();
 
   if (response_.has_checksummed_data()) {
     common_metrics_.bytes_read.IncrementBy(
@@ -336,7 +310,7 @@ void ReadTask::OnReadDone(bool ok) {
   }
   if (auto status = HandleResponse(response_); !status.ok()) {
     promise_.SetResult(status);
-    TryCancel();
+    call_.TryCancel();
     return;
   }
 
@@ -355,33 +329,20 @@ void ReadTask::OnDone(const grpc::Status& s) {
 void ReadTask::ReadFinished(absl::Status status) {
   ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2)) << this << " " << status;
 
+  call_.EndAttempt();
+
   // Streaming read complete.
   if (!promise_.result_needed()) {
     return;
   }
 
-  {
-    absl::MutexLock lock(mutex_);
-    context_ = nullptr;
-  }
-
   auto latency = absl::Now() - storage_generation_.time;
   common_metrics_.read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
 
-  if (!status.ok() && attempt_ == 0 &&
-      status.code() == absl::StatusCode::kUnauthenticated) {
-    // Allow a single unauthenticated error.
-    attempt_++;
-    Retry();
+  if (call_.MaybeRetry(
+          driver_.get(), status,
+          [self = internal::IntrusivePtr<ReadTask>(this)] { self->Retry(); })) {
     return;
-  }
-  if (!status.ok() && IsRetriable(status)) {
-    status = driver_->BackoffForAttemptAsync(
-        std::move(status), attempt_++,
-        [self = internal::IntrusivePtr<ReadTask>(this)] { self->Retry(); });
-    if (status.ok()) {
-      return;
-    }
   }
 
   promise_.SetResult(HandleFinalStatus(status));
@@ -393,10 +354,11 @@ void SetTestHook(
     absl::AnyInvocable<void(grpc::ClientContext*,
                             google::storage::v2::ReadObjectRequest&)>&&
         debug_hook) {
+  absl::MutexLock lock(g_test_hook_mutex);
   g_test_hook = std::move(debug_hook);
 }
 
-/// Implements GcsGrpcKeyValueStore::Read
+// Implements GcsGrpcKeyValueStore::Read
 Future<kvstore::ReadResult> InitiateRead(
     internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
     internal_kvstore::CommonMetrics& common_metrics, std::string_view key,

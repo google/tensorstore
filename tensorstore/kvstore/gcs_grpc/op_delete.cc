@@ -23,10 +23,8 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
-#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
@@ -70,9 +68,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   absl::Time start_time_;
   DeleteObjectRequest request_;
   ::google::protobuf::Empty response_;
-  int attempt_ = 0;
-  absl::Mutex mutex_;
-  std::shared_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
+  GrpcCallContext call_{MakeWriteId()};
 
   DeleteTask(internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
              kvstore::WriteOptions options,
@@ -81,29 +77,23 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
         options_(std::move(options)),
         promise_(std::move(promise)) {
     promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<DeleteTask>(
-                                       this)] { self->TryCancel(); });
+                                       this)] { self->call_.TryCancel(); });
   }
 
-  void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock lock(mutex_);
-    if (context_) context_->TryCancel();
-  }
   void SetupRequest(std::string_view bucket_name, std::string_view object_name);
-  void Start() ABSL_LOCKS_EXCLUDED(mutex_);
-  void Retry() ABSL_LOCKS_EXCLUDED(mutex_);
-  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context)
-      ABSL_LOCKS_EXCLUDED(mutex_);
-  void DeleteFinished(absl::Status status) ABSL_LOCKS_EXCLUDED(mutex_);
+  void Start();
+  void Retry();
+  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context);
+  void DeleteFinished(absl::Status status);
 };
 
 void DeleteTask::SetupRequest(std::string_view bucket_name,
                               std::string_view object_name) {
   request_.set_bucket(bucket_name);
   request_.set_object(object_name);
-  if (!StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
-    auto gen =
-        StorageGeneration::ToUint64(options_.generation_conditions.if_equal);
-    request_.set_if_generation_match(gen);
+  if (auto gen =
+          EncodeGenerationCondition(options_.generation_conditions.if_equal)) {
+    request_.set_if_generation_match(*gen);
   }
 }
 
@@ -116,28 +106,22 @@ void DeleteTask::Retry() {
   if (!promise_.result_needed()) {
     return;
   }
-
-  auto context_future = driver_->AllocateContext();
-  context_future.ExecuteWhenReady(
-      [self = internal::IntrusivePtr<DeleteTask>(this),
-       context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
-        self->RetryWithContext(std::move(f).value());
-      });
-  context_future.Force();
+  start_time_ = absl::Now();
+  GrpcCallContext::RunWithContext(internal::IntrusivePtr<DeleteTask>(this),
+                                  driver_.get(), /*routing_token=*/{},
+                                  &DeleteTask::RetryWithContext,
+                                  &DeleteTask::DeleteFinished);
 }
 
 void DeleteTask::RetryWithContext(
     std::shared_ptr<grpc::ClientContext> context) {
-  start_time_ = absl::Now();
+  if (!promise_.result_needed() || !call_.BeginAttempt(context)) {
+    return;
+  }
 
   ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2))
       << this << " " << ConciseDebugString(request_);
 
-  {
-    absl::MutexLock lock(mutex_);
-    assert(context_ == nullptr);
-    context_ = context;
-  }
   auto stub = driver_->get_stub();
 
   intrusive_ptr_increment(this);  // Adopted by OnDone
@@ -153,35 +137,23 @@ void DeleteTask::RetryWithContext(
 void DeleteTask::DeleteFinished(absl::Status status) {
   ABSL_LOG_IF(INFO, gcs_grpc_logging.Level(2)) << this << " " << status;
 
+  call_.EndAttempt();
   if (!promise_.result_needed()) {
     return;
   }
 
-  {
-    absl::MutexLock lock(mutex_);
-    context_ = nullptr;
-  }
-
-  if (!status.ok() && attempt_ == 0 &&
-      status.code() == absl::StatusCode::kUnauthenticated) {
-    // Allow a single unauthenticated error.
-    attempt_++;
-    Retry();
+  if (call_.MaybeRetry(driver_.get(), status,
+                       [self = internal::IntrusivePtr<DeleteTask>(this)] {
+                         self->Retry();
+                       })) {
     return;
-  }
-  if (!status.ok() && IsRetriable(status)) {
-    status = driver_->BackoffForAttemptAsync(
-        std::move(status), attempt_++,
-        [self = internal::IntrusivePtr<DeleteTask>(this)] { self->Retry(); });
-    if (status.ok()) {
-      return;
-    }
   }
 
   TimestampedStorageGeneration r;
   r.time = start_time_;
   r.generation = StorageGeneration::NoValue();
-  if (absl::IsFailedPrecondition(status)) {
+  if (absl::IsFailedPrecondition(status) &&
+      !StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
     // precondition did not match.
     r.generation = StorageGeneration::Unknown();
   } else if (absl::IsNotFound(status)) {
@@ -198,7 +170,7 @@ void DeleteTask::DeleteFinished(absl::Status status) {
 
 }  // namespace
 
-/// Implements GcsGrpcKeyValueStore::Delete
+// Implements GcsGrpcKeyValueStore::Delete
 Future<TimestampedStorageGeneration> InitiateDelete(
     internal::IntrusivePtr<GcsGrpcKeyValueStore> driver, kvstore::Key key,
     kvstore::WriteOptions options) {

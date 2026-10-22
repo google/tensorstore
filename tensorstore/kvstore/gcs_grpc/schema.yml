@@ -1,0 +1,141 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/gcs_grpc
+title: Read/write access to Google Cloud Storage (GCS) via gRPC.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: gcs_grpc
+    bucket:
+      type: string
+      title: Google Cloud Storage bucket to use.
+      description: |
+        The Google Cloud account that is used must have appropriate permissions
+        on the bucket.  If the bucket has `Requester Pays
+        <https://cloud.google.com/storage/docs/requester-pays>`__
+        enabled, either additional permissions are required or a separate
+        billing project must be specified using `Context.gcs_user_project`.
+    endpoint:
+      type: string
+      title: Endpoint to use for the gRPC connection.
+      description: |
+        When unset, a default Google Cloud Storage gRPC endpoint is used.
+        Setting this is normally only useful for testing against a fake server.
+      examples:
+      - "localhost:8080"
+      - "dns:///storage.googleapis.com"
+    num_channels:
+      type: integer
+      minimum: 0
+      title: Number of gRPC channels to use.
+      description: |
+        Each channel corresponds to an independent connection to the service.
+        When unset or :json:`0`, a default is chosen based on the endpoint: a
+        single channel is used for DirectPath endpoints, which multiplex
+        internally, and a larger number derived from the number of available
+        CPU cores is used otherwise.  Increasing this may improve throughput
+        for workloads that issue many concurrent requests.
+    timeout:
+      type: string
+      title: Timeout applied to each individual gRPC call.
+      description: |
+        Specified as a duration string, e.g. :json:`"5s"`.  This should
+        generally not be set; values less than 250ms are ignored.  When unset,
+        no per-call deadline is applied.
+    wait_for_connection:
+      type: string
+      title: Maximum duration to wait for the gRPC channel to become ready.
+      description: |
+        Specified as a duration string, e.g. :json:`"1s"`.  When unset,
+        requests do not wait for the channel to become connected before being
+        issued.
+    experimental_mode:
+      type: string
+      enum:
+      - "standard"
+      - "zonal"
+      - "non_atomic"
+      title: Experimental write mode for Google Cloud Storage objects.
+      description: |
+        .. warning::
+
+           This option is experimental and may change or be removed without
+           backward compatibility.
+
+        Selects how objects are written to the bucket:
+
+        - When omitted, TensorStore starts with standard non-appendable writes
+          and automatically switches to atomic zonal writes if the bucket
+          requires appendable objects.
+        - :json:`"standard"`: Always uses direct non-appendable writes without
+          fallback.  Writes to zonal (:literal:`RAPID`) buckets will fail.
+        - :json:`"zonal"`: Always uses atomic zonal writes by uploading an
+          appendable object to a temporary key and renaming it via
+          :literal:`MoveObject`.  Writes to non-zonal buckets will fail.
+        - :json:`"non_atomic"`: Exclusively for zonal (:literal:`RAPID`)
+          buckets.  Writes directly to the destination key as an appendable
+          object without a temporary object or :literal:`MoveObject`.
+          Concurrent readers may observe partial data during an in-flight write.
+
+        Zonal buckets do not support Requester Pays, so specifying a non-empty
+        `Context.gcs_user_project` together with :json:`"zonal"` or
+        :json:`"non_atomic"` is an error when the store is opened.  See
+        :ref:`gcs_grpc-rapid-buckets`.
+    gcs_user_project:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.gcs_user_project`.
+    gcs_request_retries:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.gcs_request_retries`.
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.
+  required:
+  - bucket
+definitions:
+  url:
+    $id: KvStoreUrl/gcs_grpc
+    type: string
+    allOf:
+    - $ref: KvStoreUrl
+    - type: string
+    title: |
+      :literal:`gcs_grpc://` KvStore URL scheme
+    description: |
+      Google Cloud Storage key-value stores accessed via gRPC may be
+      specified using the :file:`gcs_grpc://{bucket}/{path}` URL syntax.
+
+      The URL syntax provides no way to specify
+      :json:schema:`~kvstore/gcs_grpc.experimental_mode`, and converting a store
+      back to a URL drops it.  This only costs one extra round trip on the first
+      write: the bucket type is detected automatically, so the zonal write path
+      is still used when needed.  See :ref:`gcs_grpc-rapid-buckets`.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"gcs_grpc://my-bucket"``
+              - .. code-block:: json
+
+                   {"driver": "gcs_grpc",
+                    "bucket": "my-bucket"}
+            * - ``"gcs_grpc://my-bucket/path/to/dataset"``
+              - .. code-block:: json
+
+                   {"driver": "gcs_grpc",
+                    "bucket": "my-bucket",
+                    "path": "path/to/dataset"}

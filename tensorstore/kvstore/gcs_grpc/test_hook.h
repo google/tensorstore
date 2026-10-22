@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GCS_GRPC_DEBUG_HOOK_H_
-#define TENSORSTORE_KVSTORE_GCS_GRPC_DEBUG_HOOK_H_
+#ifndef TENSORSTORE_KVSTORE_GCS_GRPC_TEST_HOOK_H_
+#define TENSORSTORE_KVSTORE_GCS_GRPC_TEST_HOOK_H_
+
+#include <optional>
 
 #include "absl/functional/any_invocable.h"
 #include "grpcpp/client_context.h"  // third_party
+#include "tensorstore/kvstore/kvstore.h"
 
 // proto
 #include "google/storage/v2/storage.pb.h"
@@ -30,10 +33,18 @@ void SetTestHook(
         debug_hook);
 void SetTestHook(
     absl::AnyInvocable<void(grpc::ClientContext*,
-                            google::storage::v2::WriteObjectRequest&)>&&
+                            google::storage::v2::BidiWriteObjectRequest&)>&&
         debug_hook);
+
+// Test helper to force the driver's learned bucket zonal mode.
+// CHECK-fails if `store` is not a gcs_grpc store.
+void TestSetIsZonal(const KvStore& store, std::optional<bool> is_zonal);
+
+// Test helper to inspect the driver's learned bucket zonal mode.
+// CHECK-fails if `store` is not a gcs_grpc store.
+std::optional<bool> TestGetIsZonal(const KvStore& store);
 
 }  // namespace internal_gcs_grpc
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_GCS_GRPC_DEBUG_HOOK_H_
+#endif  // TENSORSTORE_KVSTORE_GCS_GRPC_TEST_HOOK_H_

@@ -48,7 +48,7 @@ namespace grpc_mocker {
 //
 //  class MockEchoService : public EchoService::Service {
 //    public:
-//     using ServiceType = EchoService
+//     using ServiceType = EchoService;
 //     TENSORSTORE_GRPC_MOCK(Echo, EchoProto, EchoProto);
 //  };
 //
@@ -56,11 +56,10 @@ namespace grpc_mocker {
 //
 //  EXPECT_CALL(*mock_service.service(),
 //              Echo(testing::_, testing::_, testing::_))
-//      .WillRepeatedly(testing::Invoke([](auto, auto* request, auto* response)
-//      {
-//          *request = *response;
-//          return regrpc::Status::OK;
-//       )));
+//      .WillRepeatedly([](auto, auto* request, auto* response) {
+//          *response = *request;
+//          return grpc::Status::OK;
+//       });
 //
 //  EchoClient client(mock_service.stub());
 //
@@ -137,17 +136,25 @@ class MockGrpcServer {
 
 #define TENSORSTORE_GRPC_MOCK(method, request, response) \
   MOCK_METHOD(::grpc::Status, method,                    \
-              (::grpc::ServerContext*, const request*, response*))
+              (::grpc::ServerContext*, const request*, response*), (override))
 
-#define TENSORSTORE_GRPC_CLIENT_STREAMING_MOCK(method, request, response) \
-  MOCK_METHOD(                                                            \
-      ::grpc::Status, method,                                             \
-      (::grpc::ServerContext*, ::grpc::ServerReader<request>*, response*))
+#define TENSORSTORE_GRPC_CLIENT_STREAMING_MOCK(method, request, response)  \
+  MOCK_METHOD(                                                             \
+      ::grpc::Status, method,                                              \
+      (::grpc::ServerContext*, ::grpc::ServerReader<request>*, response*), \
+      (override))
 
 #define TENSORSTORE_GRPC_SERVER_STREAMING_MOCK(method, request, response) \
   MOCK_METHOD(::grpc::Status, method,                                     \
               (::grpc::ServerContext*, const request*,                    \
-               ::grpc::ServerWriter<response>*))
+               ::grpc::ServerWriter<response>*),                          \
+              (override))
+
+#define TENSORSTORE_GRPC_BIDI_STREAMING_MOCK(method, request, response) \
+  MOCK_METHOD(::grpc::Status, method,                                   \
+              (::grpc::ServerContext*,                                  \
+               (::grpc::ServerReaderWriter<response, request>*)),       \
+              (override))
 
 }  // namespace grpc_mocker
 }  // namespace tensorstore

@@ -24,10 +24,8 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
-#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/synchronization/mutex.h"
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/support/client_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
@@ -40,7 +38,6 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/future.h"
 
 // proto
 #include "google/storage/v2/storage.grpc.pb.h"
@@ -69,47 +66,26 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
   std::shared_ptr<Storage::StubInterface> stub_;
   ListObjectsRequest request;
   ListObjectsResponse response;
-
-  int attempt_ = 0;
-  absl::Mutex mutex_;
-  std::shared_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
-  bool cancelled_ ABSL_GUARDED_BY(mutex_) = false;
+  GrpcCallContext call_;
 
   ListTask(internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
            kvstore::ListOptions options, kvstore::ListReceiver receiver)
       : driver_(std::move(driver)),
         options_(std::move(options)),
         receiver_(std::move(receiver)) {
-    // Start a call.
-    execution::set_starting(receiver_, [this] { TryCancel(); });
+    execution::set_starting(receiver_, [this] { call_.TryCancel(); });
   }
 
   ~ListTask() {
-    {
-      absl::MutexLock l(mutex_);
-      context_ = nullptr;
-    }
+    call_.EndAttempt();
     driver_ = {};
     execution::set_stopping(receiver_);
   }
 
-  bool is_cancelled() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock l(mutex_);
-    return cancelled_;
-  }
-
-  void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock l(mutex_);
-    if (!cancelled_) {
-      cancelled_ = true;
-      if (context_) context_->TryCancel();
-    }
-  }
-  void Start(std::string_view bucket_name) ABSL_LOCKS_EXCLUDED(mutex_);
-  void Retry() ABSL_LOCKS_EXCLUDED(mutex_);
-  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context)
-      ABSL_LOCKS_EXCLUDED(mutex_);
-  void ListFinished(absl::Status status) ABSL_LOCKS_EXCLUDED(mutex_);
+  void Start(std::string_view bucket_name);
+  void Retry();
+  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context);
+  void ListFinished(absl::Status status);
 };
 
 void ListTask::Start(std::string_view bucket_name) {
@@ -125,50 +101,44 @@ void ListTask::Start(std::string_view bucket_name) {
 
 // Retry/Continue a call.
 void ListTask::Retry() {
-  if (is_cancelled()) {
+  if (call_.is_cancelled()) {
     execution::set_done(receiver_);
     return;
   }
-
-  auto context_future = driver_->AllocateContext();
-  context_future.ExecuteWhenReady(
-      [self = internal::IntrusivePtr<ListTask>(this),
-       context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
-        self->RetryWithContext(std::move(f).value());
-      });
-  context_future.Force();
+  GrpcCallContext::RunWithContext(internal::IntrusivePtr<ListTask>(this),
+                                  driver_.get(), /*routing_token=*/{},
+                                  &ListTask::RetryWithContext,
+                                  &ListTask::ListFinished);
 }
 
 void ListTask::RetryWithContext(std::shared_ptr<grpc::ClientContext> context) {
-  {
-    absl::MutexLock lock(mutex_);
-    context_ = std::move(context);
-    stub_ = driver_->get_stub();
-
-    intrusive_ptr_increment(this);
-    stub_->async()->ListObjects(
-        context_.get(), &request, &response,
-        WithExecutor(driver_->executor(), [this](::grpc::Status s) {
-          internal::IntrusivePtr<ListTask> self(this,
-                                                internal::adopt_object_ref);
-          self->ListFinished(GrpcStatusToAbslStatus(s));
-        }));
+  if (!call_.BeginAttempt(context)) {
+    execution::set_done(receiver_);
+    return;
   }
+  stub_ = driver_->get_stub();
+
+  intrusive_ptr_increment(this);
+  stub_->async()->ListObjects(
+      context.get(), &request, &response,
+      WithExecutor(driver_->executor(), [this](::grpc::Status s) {
+        internal::IntrusivePtr<ListTask> self(this, internal::adopt_object_ref);
+        self->ListFinished(GrpcStatusToAbslStatus(s));
+      }));
 }
 
 void ListTask::ListFinished(absl::Status status) {
-  if (is_cancelled()) {
+  call_.EndAttempt();
+
+  if (call_.is_cancelled()) {
     execution::set_done(receiver_);
     return;
   }
 
-  if (!status.ok() && IsRetriable(status)) {
-    status = driver_->BackoffForAttemptAsync(
-        std::move(status), attempt_++,
-        [self = internal::IntrusivePtr<ListTask>(this)] { self->Retry(); });
-    if (status.ok()) {
-      return;
-    }
+  if (call_.MaybeRetry(
+          driver_.get(), status,
+          [self = internal::IntrusivePtr<ListTask>(this)] { self->Retry(); })) {
+    return;
   }
 
   if (!status.ok()) {
@@ -178,7 +148,7 @@ void ListTask::ListFinished(absl::Status status) {
 
   bool done = false;
   for (const auto& o : response.objects()) {
-    if (is_cancelled()) {
+    if (call_.is_cancelled()) {
       done = true;
       break;
     }
@@ -192,6 +162,9 @@ void ListTask::ListFinished(absl::Status status) {
       continue;
     }
     if (options_.strip_prefix_length) {
+      if (options_.strip_prefix_length > name.size()) {
+        continue;
+      }
       name = name.substr(options_.strip_prefix_length);
     }
     execution::set_value(receiver_,
@@ -204,7 +177,7 @@ void ListTask::ListFinished(absl::Status status) {
     // If there is a continuation token, issue the next request.
     request.set_page_token(response.next_page_token());
     response.Clear();
-    attempt_ = 0;
+    call_.ResetAttempts();
     Retry();
     return;
   }

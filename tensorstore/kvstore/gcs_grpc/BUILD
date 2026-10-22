@@ -8,23 +8,37 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+filegroup(
+    name = "doc_sources",
+    srcs = glob([
+        "**/*.rst",
+        "**/*.yml",
+    ]),
+)
+
 tensorstore_cc_library(
     name = "gcs_grpc",
     srcs = [
         "gcs_grpc.cc",
+        "op_bidi_write.cc",
         "op_delete.cc",
         "op_delete.h",
         "op_list.cc",
         "op_list.h",
+        "op_move.cc",
         "op_read.cc",
         "op_read.h",
-        "op_write.cc",
-        "op_write.h",
         "utils.h",
+        "zonal_bucket_state.cc",
     ],
     hdrs = [
         "gcs_grpc.h",
+        # Public so that `gcs_grpc_test` can unit test the error-message
+        # classifiers that drive zonal-bucket detection.
+        "op_bidi_write.h",
+        "op_move.h",
         "test_hook.h",
+        "zonal_bucket_state.h",
     ],
     deps = [
         ":default_endpoint",
@@ -73,7 +87,9 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/crc:crc32c",
         "@abseil-cpp//absl/functional:any_invocable",
+        "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/random",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
@@ -82,6 +98,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/time",
         "@abseil-cpp//absl/types:source_location",
         "@com_google_protobuf//:protobuf",
+        "@googleapis//google/rpc:status_cc_proto",
         "@googleapis//google/storage/v2:storage_cc_grpc",
         "@googleapis//google/storage/v2:storage_cc_proto",
         "@grpc//:grpc++",
@@ -103,12 +120,15 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal/grpc:grpc_mock",
-        "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:registry",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:test_util",
+        "//tensorstore/kvstore/gcs:validate",
         "//tensorstore/proto:parse_text_proto_or_die",
         "//tensorstore/proto:protobuf_matchers",
         "//tensorstore/util:future",
@@ -116,8 +136,10 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_testutil",
+        "@abseil-cpp//absl/functional:any_invocable",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
@@ -135,10 +157,11 @@ tensorstore_cc_library(
     visibility = ["//visibility:private"],
     deps = [
         "//tensorstore/internal/grpc:grpc_mock",
+        "//tensorstore/proto:protobuf_matchers",
         "@com_google_protobuf//:protobuf",
         "@googleapis//google/storage/v2:storage_cc_grpc",
         "@googleapis//google/storage/v2:storage_cc_proto",
-        "@grpc//:grpc++",
+        "@googletest//:gtest",
     ],
 )
 
@@ -162,9 +185,13 @@ tensorstore_cc_test(
         "//tensorstore/internal:global_initializer",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
+        "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore:test_matchers",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/gcs:gcs_testbench",
+        "//tensorstore/kvstore/ocdbt",
         "//tensorstore/util:future",
+        "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/flags:flag",
@@ -176,6 +203,7 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/synchronization",
         "@googletest//:gtest_main",
         "@grpc//:grpc++",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -231,5 +259,45 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "zonal_bucket_state_test",
+    srcs = ["zonal_bucket_state_test.cc"],
+    deps = [
+        ":gcs_grpc",
+        "@abseil-cpp//absl/strings:str_format",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "gcs_grpc_mock_test",
+    srcs = ["gcs_grpc_mock_test.cc"],
+    tags = ["cpu:2"],
+    deps = [
+        ":gcs_grpc",  # buildcleaner: keep
+        ":mock_storage_service",
+        "//tensorstore/internal/grpc:grpc_mock",
+        "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:registry",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/proto:parse_text_proto_or_die",
+        "//tensorstore/proto:protobuf_matchers",
+        "//tensorstore/util:future",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@googleapis//google/rpc:status_cc_proto",
+        "@googleapis//google/storage/v2:storage_cc_proto",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
     ],
 )
