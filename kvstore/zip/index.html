@@ -971,7 +971,7 @@
       <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span>
     
     <span class="md-ellipsis">
-      <span title="kvstore/zip (JSON type) — Read-only adapter for the ZIP archive format."><span>kvstore/zip</span></span>
+      <span title="kvstore/zip (JSON type) — Key-value store adapter for the ZIP archive format."><span>kvstore/zip</span></span>
     </span>
   </a>
   
@@ -1140,6 +1140,16 @@
     
     <span class="md-ellipsis">
       <span>Auto detection</span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transactions-and-write-amplification" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Transactions and Write Amplification</span>
     </span>
   </a>
   
@@ -1221,7 +1231,7 @@
       <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span>
     
     <span class="md-ellipsis">
-      <span title="kvstore/zip (JSON type) — Read-only adapter for the ZIP archive format."><span>kvstore/zip</span></span>
+      <span title="kvstore/zip (JSON type) — Key-value store adapter for the ZIP archive format."><span>kvstore/zip</span></span>
     </span>
   </a>
   
@@ -1396,6 +1406,16 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#transactions-and-write-amplification" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Transactions and Write Amplification</span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#limitations" class="md-nav__link">
     
     <span class="md-ellipsis">
@@ -1422,14 +1442,14 @@
 
 
 <h1 id="zip-key-value-store-driver"><span id="kvstore-zip"></span><code class="docutils literal notranslate"><span class="pre">zip</span></code> Key-Value Store driver<a class="headerlink" href="#zip-key-value-store-driver" title="Link to this heading">¶</a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">zip</span></code> driver implements support for reading from
+<p>The <code class="docutils literal notranslate"><span class="pre">zip</span></code> driver implements support for reading and writing
 <a class="reference external" href="https://en.wikipedia.org/wiki/ZIP_(file_format)">ZIP</a> format
 files on top of a base key-value store. (Not all ZIP features are supported.)</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zip">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/zip</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/zip" title="Link to this definition">¶</a></dt>
-<dd><span><p>Read-only adapter for the ZIP archive format.</p>
-  </span><p>JSON specification of the key-value store.</p>
+<dd><span><p>Key-value store adapter for the ZIP archive format.</p>
+  </span><p>JSON specification of the ZIP key-value store.</p>
 <dl class="field-list simple">
 <dt class="field-odd" id="extends-json-kvstore/zip">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/zip" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
@@ -1553,8 +1573,25 @@ supported if the end of file comment does not exceed 4096
 bytes. ZIP archives with comments up to the maximum length of 65535
 bytes are still supported without auto-detection, however.</p>
 </div>
+<h2 id="transactions-and-write-amplification">Transactions and Write Amplification<a class="headerlink" href="#transactions-and-write-amplification" title="Link to this heading">¶</a></h2>
+<p>This driver supports writing and deleting keys inside the ZIP archive. Since
+ZIP archives do not support random modification, each write or delete
+operation may rewrite the entire ZIP archive. Therefore, using transactions
+is strongly recommended to batch multiple write operations and minimize write
+amplification.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Link to this heading">¶</a></h2>
-<p>Writing is not supported, nor are all ZIP compression formats.</p>
+<p>Not all ZIP features and compression formats are supported:</p>
+<dl class="simple">
+<dt>Compression formats</dt><dd><ul class="simple">
+<li><p><strong>Reading</strong>: Support is limited to <code class="docutils literal notranslate"><span class="pre">deflate</span></code>, <code class="docutils literal notranslate"><span class="pre">bzip2</span></code>, <code class="docutils literal notranslate"><span class="pre">zstd</span></code>,
+<code class="docutils literal notranslate"><span class="pre">xz</span></code>, and <code class="docutils literal notranslate"><span class="pre">store</span></code> (no compression).</p></li>
+<li><p><strong>Writing</strong>: Support is limited to <code class="docutils literal notranslate"><span class="pre">deflate</span></code>, <code class="docutils literal notranslate"><span class="pre">zstd</span></code>, <code class="docutils literal notranslate"><span class="pre">xz</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">store</span></code>. Other compression methods (such as <code class="docutils literal notranslate"><span class="pre">lzma</span></code>) are not supported.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Standard ZIP encryption, strong encryption, and AES encryption are not
+supported.</p>
 
 
 
