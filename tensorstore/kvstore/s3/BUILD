@@ -84,6 +84,7 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal:data_copy_concurrency_resource",
+        "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/cache_key:json",
         "//tensorstore/internal/json_binding",
@@ -100,6 +101,7 @@ tensorstore_cc_test(
     deps = [
         ":aws_credentials_resource",
         "//tensorstore:context",
+        "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
@@ -419,8 +421,11 @@ tensorstore_cc_test(
     deps = [
         ":aws_credentials_spec",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",

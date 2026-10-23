@@ -23,10 +23,13 @@ namespace tensorstore {
 namespace internal_aws {
 
 /// Returns a credentials provider that uses the AWS default credentials chain.
+/// The returned provider caches resolved credentials internally.
 AwsCredentialsProvider MakeDefault(std::string_view profile_name_override);
 
 /// Returns a credentials provider that uses the AWS default credentials chain
 /// with anonymous credentials as a fallback.
+/// The default chain caches resolved credentials internally, while the
+/// anonymous fallback is not cached; do not wrap this provider in `MakeCache`.
 AwsCredentialsProvider MakeDefaultWithAnonymous(
     std::string_view profile_name_override);
 
@@ -53,7 +56,10 @@ AwsCredentialsProvider MakeEcsRole(std::string_view endpoint,
 /// NOTE: Add additional credentials providers such as STS, x509, SSO, Cognito,
 /// etc.
 
-/// Returns a credentials provider that caches the credentials.
+/// Returns a credentials provider that caches resolved credentials (refreshing
+/// expiring credentials 5 minutes before expiration, and caching non-expiring
+/// credentials indefinitely). Returns nullptr if `provider` is nullptr. Must
+/// not wrap a provider chain with an anonymous fallback.
 AwsCredentialsProvider MakeCache(AwsCredentialsProvider provider);
 
 }  // namespace internal_aws
