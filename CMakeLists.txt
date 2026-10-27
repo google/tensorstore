@@ -94,6 +94,17 @@ if(MINGW)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wa,-mbig-obj")
 endif()
 
+if(APPLE)
+    # Suppress warnings about duplicate libraries being ignored, which are common
+    # due to the transitive dependency model used by bazel_to_cmake.  The flag is
+    # only supported by the Xcode 15+ linker, so check for it first.
+    include(CheckLinkerFlag)
+    check_linker_flag(CXX "LINKER:-no_warn_duplicate_libraries"
+                      TENSORSTORE_LINKER_NO_WARN_DUPLICATE_LIBRARIES)
+    if(TENSORSTORE_LINKER_NO_WARN_DUPLICATE_LIBRARIES)
+        add_link_options("LINKER:-no_warn_duplicate_libraries")
+    endif()
+endif()
 
 include(bazel_to_cmake)
 
