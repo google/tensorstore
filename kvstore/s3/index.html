@@ -1126,6 +1126,30 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-kvstore/s3.unsigned_payload" class="md-nav__link">
+    
+      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
+    
+    <span class="md-ellipsis">
+      <span title="kvstore/s3.unsigned_payload (JSON member) — Override UNSIGNED-PAYLOAD behavior for write requests."><span>unsigned_<wbr>payload</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/s3.checksum" class="md-nav__link">
+    
+      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
+    
+    <span class="md-ellipsis">
+      <span title="kvstore/s3.checksum (JSON member) — Payload checksum algorithm for full-object reads and writes."><span>checksum</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-kvstore/s3.aws_credentials" class="md-nav__link">
     
       <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
@@ -2312,6 +2336,30 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-kvstore/s3.unsigned_payload" class="md-nav__link">
+    
+      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
+    
+    <span class="md-ellipsis">
+      <span title="kvstore/s3.unsigned_payload (JSON member) — Override UNSIGNED-PAYLOAD behavior for write requests."><span>unsigned_<wbr>payload</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/s3.checksum" class="md-nav__link">
+    
+      <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
+    
+    <span class="md-ellipsis">
+      <span title="kvstore/s3.checksum (JSON member) — Payload checksum algorithm for full-object reads and writes."><span>checksum</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-kvstore/s3.aws_credentials" class="md-nav__link">
     
       <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span>
@@ -3369,6 +3417,32 @@ than specified in <a class="reference internal" href="#json-kvstore/s3.endpoint"
   </span><p>Allows setting conditional writes to enabled or disabled. Unless detected or set, the
 default conditional write behavior is to use non-atomic HEAD requests for version checks,
 but to also add conditional write headers for the actual write requests.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/s3.unsigned_payload">
+<span class="sig-name descname"><span class="pre">unsigned_payload</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">boolean</span></span><a class="headerlink" href="#json-kvstore/s3.unsigned_payload" title="Link to this definition">¶</a></dt>
+<dd><span><p>Override <code class="docutils literal notranslate"><span class="pre">UNSIGNED-PAYLOAD</span></code> behavior for write requests.</p>
+  </span><p>Controls whether <code class="docutils literal notranslate"><span class="pre">UNSIGNED-PAYLOAD</span></code> is sent as the
+<code class="docutils literal notranslate"><span class="pre">x-amz-content-sha256</span></code> header value on write requests instead
+of computing the SHA-256 digest of the payload. If not specified,
+<code class="docutils literal notranslate"><span class="pre">UNSIGNED-PAYLOAD</span></code> is used by default over <code class="docutils literal notranslate"><span class="pre">https://</span></code>
+endpoints (with automatic fallback to a signed SHA-256 payload digest
+if rejected by the server) and disabled over <code class="docutils literal notranslate"><span class="pre">http://</span></code>
+endpoints.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/s3.checksum">
+<span class="sig-name descname"><span class="pre">checksum</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;none&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;crc32c&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;sha256&quot;</span></code><a class="headerlink" href="#json-kvstore/s3.checksum" title="Link to this definition">¶</a></dt>
+<dd><span><p>Payload checksum algorithm for full-object reads and writes.</p>
+  </span><p>Controls payload checksum computation and validation on full-object
+<code class="docutils literal notranslate"><span class="pre">PUT</span></code> and <code class="docutils literal notranslate"><span class="pre">GET</span></code> requests. If not specified, defaults
+to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;crc32c&quot;</span></code> (sending <code class="docutils literal notranslate"><span class="pre">x-amz-checksum-crc32c</span></code> on
+<code class="docutils literal notranslate"><span class="pre">PUT</span></code> with automatic fallback if rejected by the server, and
+requesting/validating full-object checksums via
+<code class="docutils literal notranslate"><span class="pre">x-amz-checksum-mode:</span> <span class="pre">ENABLED</span></code> on full-object <code class="docutils literal notranslate"><span class="pre">GET</span></code>
+requests).</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
