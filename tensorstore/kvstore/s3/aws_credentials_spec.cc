@@ -155,17 +155,24 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
   struct MakeCredentialsVisitor {
     using R = AwsCredentialsProvider;
 
+    // MakeDefault in MakeDefaultWithAnonymous already caches the default chain
+    // internally, and its anonymous fallback must not be cached; MakeAnonymous
+    // needs no cache.
     R operator()(const Spec::Default& v) {
       return MakeDefaultWithAnonymous(v.profile);
     }
     R operator()(const Spec::Anonymous&) { return MakeAnonymous(); }
-    R operator()(const Spec::Environment&) { return MakeEnvironment(); }
-    R operator()(const Spec::Imds&) { return MakeImds(); }
+    R operator()(const Spec::Environment&) {
+      return MakeCache(MakeEnvironment());
+    }
+    R operator()(const Spec::Imds&) { return MakeCache(MakeImds()); }
     R operator()(const Spec::Profile& v) {
-      return MakeProfile(v.profile, v.credentials_file, v.config_file);
+      return MakeCache(
+          MakeProfile(v.profile, v.credentials_file, v.config_file));
     }
     R operator()(const Spec::EcsRole& v) {
-      return MakeEcsRole(v.endpoint, v.auth_token_file, v.auth_token);
+      return MakeCache(
+          MakeEcsRole(v.endpoint, v.auth_token_file, v.auth_token));
     }
   };
 
@@ -182,7 +189,7 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
                                   aws_error_debug_str(err)));
   }
 
-  return MakeCache(std::move(credentials_provider));
+  return credentials_provider;
 }
 
 }  // namespace internal_kvstore_s3
