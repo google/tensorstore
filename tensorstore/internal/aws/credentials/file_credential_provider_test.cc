@@ -168,6 +168,21 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileOverride) {
               "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
     ASSERT_EQ(credentials.GetSessionToken(), "");
   }
+
+  {
+    SetEnv("AWS_CONFIG_FILE", config_filename.c_str());
+    std::string empty;
+    AwsCredentialsProvider provider =
+        MakeProfile(empty, credentials_filename, empty);
+    auto credentials_future = GetAwsCredentials(provider.get());
+    ASSERT_THAT(credentials_future, IsOk());
+
+    auto credentials = std::move(credentials_future.result()).value();
+    EXPECT_EQ(credentials.GetAccessKeyId(), "AKIAIOSFODNN7EXAMPLE");
+    EXPECT_EQ(credentials.GetSecretAccessKey(),
+              "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
+    EXPECT_EQ(credentials.GetSessionToken(), "abcdef1234567890");
+  }
 }
 
 }  // namespace

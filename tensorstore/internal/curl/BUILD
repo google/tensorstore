@@ -86,6 +86,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:env",
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/flags:reflection",
+        "@curl",
         "@googletest//:gtest_main",
     ],
 )
@@ -133,6 +134,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/synchronization",
         "@curl",
     ],
 )

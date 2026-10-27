@@ -15,12 +15,13 @@
 #include <stdint.h>
 
 #include <optional>
+#include <utility>
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
+#include <curl/curl.h>  // IWYU pragma: keep
 #include "tensorstore/internal/curl/default_factory.h"
 #include "tensorstore/internal/env.h"
 
@@ -59,6 +60,14 @@ TEST(DefaultCurlHandleFactoryTest, CreateHandle) {
   DefaultCurlHandleFactory factory(DefaultCurlHandleFactory::DefaultConfig());
   auto handle = factory.CreateHandle();
   EXPECT_NE(handle, nullptr);
+#if LIBCURL_VERSION_NUM >= 0x080700
+  auto* raw = handle.get();
+  factory.CleanupHandle(std::move(handle));
+  auto reused = factory.CreateHandle();
+  EXPECT_EQ(reused.get(), raw);
+#else
+  factory.CleanupHandle(std::move(handle));
+#endif
 }
 
 }  // namespace

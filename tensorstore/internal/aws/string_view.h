@@ -45,7 +45,8 @@ inline std::string_view AwsStringToStringView(
 inline aws_byte_cursor StringViewToAwsByteCursor(std::string_view s) {
   aws_byte_cursor c;
   c.len = s.size();
-  c.ptr = reinterpret_cast<uint8_t *>(const_cast<char *>(s.data()));
+  c.ptr = s.empty() ? nullptr
+                    : reinterpret_cast<uint8_t*>(const_cast<char*>(s.data()));
   return c;
 }
 

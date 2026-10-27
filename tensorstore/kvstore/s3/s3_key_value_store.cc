@@ -26,6 +26,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/crc/crc32c.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -49,6 +50,7 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
@@ -78,6 +80,7 @@
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/url_registry.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
@@ -158,7 +161,24 @@ static constexpr char kUriScheme[] = "s3";
 static constexpr char kEmptySha256[] =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+static constexpr char kUnsignedPayload[] = "UNSIGNED-PAYLOAD";
+
 static constexpr size_t kMaxS3PutSize = size_t{5} * 1024 * 1024 * 1024;  // 5GB
+
+enum class ChecksumAlgorithm {
+  kNone,
+  kCrc32c,
+  kSha256,
+};
+
+constexpr auto ChecksumAlgorithmJsonBinder =
+    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      return jb::Enum<ChecksumAlgorithm, std::string_view>({
+          {ChecksumAlgorithm::kNone, "none"},
+          {ChecksumAlgorithm::kCrc32c, "crc32c"},
+          {ChecksumAlgorithm::kSha256, "sha256"},
+      })(is_loading, options, obj, j);
+    };
 
 // Adds the generation header to the provided builder.
 bool AddGenerationHeader(S3RequestBuilder* builder, std::string_view header,
@@ -199,6 +219,15 @@ std::string PayloadSha256Base64(const absl::Cord& cord = absl::Cord()) {
                                     digest.size());
   return absl::Base64Escape(digest_sv);
 }
+std::string PayloadCrc32cBase64(const absl::Cord& cord = absl::Cord()) {
+  absl::crc32c_t crc{0};
+  for (std::string_view chunk : cord.Chunks()) {
+    crc = absl::ExtendCrc32c(crc, chunk);
+  }
+  char buf[4];
+  big_endian::Store32(buf, static_cast<uint32_t>(crc));
+  return absl::Base64Escape(std::string_view(buf, sizeof(buf)));
+}
 
 struct S3KeyValueStoreSpecData {
   std::string bucket;
@@ -207,6 +236,8 @@ struct S3KeyValueStoreSpecData {
   std::optional<std::string> host_header;
   std::string aws_region;
   std::optional<bool> use_conditional_write;
+  std::optional<bool> unsigned_payload;
+  std::optional<ChecksumAlgorithm> checksum;
 
   Context::Resource<AwsCredentialsResource> aws_credentials;
   Context::Resource<S3ConcurrencyResource> request_concurrency;
@@ -216,9 +247,9 @@ struct S3KeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.bucket, x.requester_pays, x.endpoint, x.host_header,
-             x.aws_region, x.use_conditional_write, x.aws_credentials,
-             x.request_concurrency, x.rate_limiter, x.retries,
-             x.data_copy_concurrency);
+             x.aws_region, x.use_conditional_write, x.unsigned_payload,
+             x.checksum, x.aws_credentials, x.request_concurrency,
+             x.rate_limiter, x.retries, x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Validate(
@@ -256,6 +287,12 @@ struct S3KeyValueStoreSpecData {
           jb::Member("use_conditional_write",
                      jb::Projection<
                          &S3KeyValueStoreSpecData::use_conditional_write>()),
+          jb::Member(
+              "unsigned_payload",
+              jb::Projection<&S3KeyValueStoreSpecData::unsigned_payload>()),
+          jb::Member("checksum",
+                     jb::Projection<&S3KeyValueStoreSpecData::checksum>(
+                         jb::Optional(ChecksumAlgorithmJsonBinder))),
           jb::Member(
               AwsCredentialsResource::id,
               jb::Projection<&S3KeyValueStoreSpecData::aws_credentials>()),
@@ -386,6 +423,8 @@ class S3KeyValueStore
   S3KeyValueStoreSpecData spec_;
   std::string host_header_;
   AwsCredentialsProvider provider_;
+  std::atomic<bool> auto_unsigned_payload_{true};
+  std::atomic<bool> auto_checksum_crc32c_{true};
 
   absl::Mutex mutex_;  // Guards resolve_ehr_ creation.
   Future<const S3EndpointRegion> resolve_ehr_ ABSL_GUARDED_BY(mutex_);
@@ -398,7 +437,6 @@ struct ReadTask : public RateLimiterNode,
   IntrusivePtr<S3KeyValueStore> owner;
   std::string object_name;
   kvstore::ReadOptions options;
-  AwsCredentials credentials_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
   Promise<kvstore::ReadResult> promise;
 
@@ -406,13 +444,12 @@ struct ReadTask : public RateLimiterNode,
   absl::Time start_time_;
 
   ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
-           kvstore::ReadOptions options, AwsCredentials credentials,
+           kvstore::ReadOptions options,
            ReadyFuture<const S3EndpointRegion> endpoint_region,
            Promise<kvstore::ReadResult> promise)
       : owner(std::move(owner)),
         object_name(std::move(object_name)),
         options(std::move(options)),
-        credentials_(std::move(credentials)),
         endpoint_region_(std::move(endpoint_region)),
         promise(std::move(promise)) {}
 
@@ -436,6 +473,30 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
+    auto credentials_future = owner->GetCredentials();
+    if (credentials_future.ready()) {
+      if (!credentials_future.status().ok()) {
+        promise.SetResult(credentials_future.status());
+        return;
+      }
+      IssueRequest(credentials_future.value());
+      return;
+    }
+    credentials_future.ExecuteWhenReady(WithExecutor(
+        owner->executor(), [self = IntrusivePtr<ReadTask>(this)](
+                               ReadyFuture<AwsCredentials> credentials) {
+          if (!credentials.status().ok()) {
+            self->promise.SetResult(credentials.status());
+            return;
+          }
+          self->IssueRequest(credentials.value());
+        }));
+  }
+
+  void IssueRequest(const AwsCredentials& credentials) {
+    if (!promise.result_needed()) {
+      return;
+    }
     const auto& ehr = endpoint_region_.value();
     auto request_builder =
         S3RequestBuilder(options.byte_range.size() == 0 ? "HEAD" : "GET",
@@ -448,7 +509,9 @@ struct ReadTask : public RateLimiterNode,
 
     if (options.byte_range.size() != 0) {
       request_builder.MaybeAddRangeHeader(options.byte_range);
-      if (options.byte_range.IsFull()) {
+      if (options.byte_range.IsFull() &&
+          owner->spec_.checksum.value_or(ChecksumAlgorithm::kCrc32c) !=
+              ChecksumAlgorithm::kNone) {
         // Checksum validation is only supported when reading the entire object,
         // and when the object was not written with a chunked upload.
         request_builder.AddHeader("x-amz-checksum-mode", "ENABLED");
@@ -458,7 +521,7 @@ struct ReadTask : public RateLimiterNode,
     start_time_ = absl::Now();
     auto request = request_builder.EnableAcceptEncoding()
                        .MaybeAddRequesterPayer(owner->spec_.requester_pays)
-                       .BuildRequest(owner->host_header_, credentials_,
+                       .BuildRequest(owner->host_header_, credentials,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, s3_logging) << "ReadTask: " << request;
@@ -529,24 +592,42 @@ struct ReadTask : public RateLimiterNode,
             options.generation_conditions.if_not_equal, start_time_});
     }
 
-    // Validate checksum if possible.
-    if (auto checksum_sha256 =
-            httpresponse.headers.find("x-amz-checksum-sha256");
-        checksum_sha256 != httpresponse.headers.end()) {
+    // Validate full-object checksum when reading the entire object.
+    if (options.byte_range.IsFull() &&
+        owner->spec_.checksum.value_or(ChecksumAlgorithm::kCrc32c) !=
+            ChecksumAlgorithm::kNone) {
       if (auto checksum_type = httpresponse.headers.find("x-amz-checksum-type");
           checksum_type == httpresponse.headers.end() ||
           checksum_type->second == "FULL_OBJECT") {
         // Only validate the payload checksum if the header indicates a full
         // object checksum was sent; multi-part uploads need to be validated
         // using the etag and multi-part configuration.
-        auto payload_sha256 = PayloadSha256Base64(httpresponse.payload);
-        if (payload_sha256 != checksum_sha256->second) {
-          return absl::DataLossError(
-              absl::StrFormat("Content hash mismatch: %s vs %s", payload_sha256,
-                              checksum_sha256->second));
+        if (auto checksum_crc32c =
+                httpresponse.headers.find("x-amz-checksum-crc32c");
+            checksum_crc32c != httpresponse.headers.end() &&
+            !absl::StrContains(checksum_crc32c->second, '-')) {
+          auto payload_crc32c = PayloadCrc32cBase64(httpresponse.payload);
+          if (payload_crc32c != checksum_crc32c->second) {
+            return absl::DataLossError(
+                absl::StrFormat("Content crc32c mismatch: %s vs %s",
+                                payload_crc32c, checksum_crc32c->second));
+          }
+        } else if (auto checksum_sha256 =
+                       httpresponse.headers.find("x-amz-checksum-sha256");
+                   checksum_sha256 != httpresponse.headers.end() &&
+                   !absl::StrContains(checksum_sha256->second, '-')) {
+          auto payload_sha256 = PayloadSha256Base64(httpresponse.payload);
+          if (payload_sha256 != checksum_sha256->second) {
+            return absl::DataLossError(
+                absl::StrFormat("Content hash mismatch: %s vs %s",
+                                payload_sha256, checksum_sha256->second));
+          }
         }
       }
     }
+
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto generation, StorageGenerationFromHeaders(httpresponse.headers));
 
     absl::Cord value;
     if (options.byte_range.size() != 0) {
@@ -558,9 +639,6 @@ struct ReadTask : public RateLimiterNode,
           std::move(httpresponse), options.byte_range, value, byte_range,
           total_size));
     }
-
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto generation, StorageGenerationFromHeaders(httpresponse.headers));
 
     return kvstore::ReadResult::Value(
         std::move(value),
@@ -589,17 +667,15 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
 
   LinkValue(
       [self = IntrusivePtr<S3KeyValueStore>(this), key = std::move(key),
-       options = std::move(options)](auto promise,
-                                     ReadyFuture<const S3EndpointRegion> ready,
-                                     ReadyFuture<AwsCredentials> credentials) {
+       options = std::move(options)](
+          auto promise, ReadyFuture<const S3EndpointRegion> ready) {
         auto state = internal::MakeIntrusivePtr<ReadTask>(
             std::move(self), std::move(key), std::move(options),
-            std::move(credentials.value()), std::move(ready),
-            std::move(promise));
+            std::move(ready), std::move(promise));
         intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
         state->owner->read_rate_limiter().Admit(state.get(), &ReadTask::Start);
       },
-      std::move(op.promise), MaybeResolveRegion(), GetCredentials());
+      std::move(op.promise), MaybeResolveRegion());
 
   return std::move(op.future);
 }
@@ -607,9 +683,9 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
 // WriteTask is a function object used to satisfy S3KeyValueStore::Write.
 // https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
 //
-// Not all S3-compatible object stores (such as moto) fully support the
-// conditional put operations required for atomic writes. For these cases
-// a HEAD request is used to determine if the write is necessary.
+// Not all S3-compatible object stores fully support conditional put operations
+// required for atomic writes. When conditional writes are disabled or rejected
+// by the server, a HEAD request is used prior to an unconditional PUT.
 struct WriteTask : public RateLimiterNode,
                    public internal::AtomicReferenceCount<WriteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
@@ -620,19 +696,20 @@ struct WriteTask : public RateLimiterNode,
   AwsCredentials credentials_;
   Promise<TimestampedStorageGeneration> promise;
   int attempt_ = 0;
+  bool used_unsigned_payload_ = false;
+  bool used_checksum_crc32c_ = false;
   absl::Time start_time_;
 
   WriteTask(IntrusivePtr<S3KeyValueStore> o, std::string object_name,
             kvstore::WriteOptions options,
             ReadyFuture<const S3EndpointRegion> endpoint_region,
-            absl::Cord value, AwsCredentials credentials,
-            Promise<TimestampedStorageGeneration> promise)
+            absl::Cord value, Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(o)),
         object_name_(std::move(object_name)),
         options_(std::move(options)),
         endpoint_region_(std::move(endpoint_region)),
         value_(std::move(value)),
-        credentials_(std::move(credentials)),
+        credentials_(nullptr),
         promise(std::move(promise)) {}
 
   ~WriteTask() { owner->admission_queue().Finish(this); }
@@ -662,18 +739,48 @@ struct WriteTask : public RateLimiterNode,
     promise.SetResult(std::in_place, std::move(g), start_time_);
   }
 
+  bool UseConditionalWrite() const {
+    return owner->spec_.use_conditional_write.value_or(
+        endpoint_region_.value().write_mode == ConditionalWriteMode::kEnabled);
+  }
+
   void Retry() {
     if (IsCancelled()) {
       return;
     }
-    const auto& ehr = endpoint_region_.value();
-    if (owner->spec_.use_conditional_write.value_or(
-            ehr.write_mode == ConditionalWriteMode::kEnabled) ||
+    auto credentials_future = owner->GetCredentials();
+    if (credentials_future.ready()) {
+      if (!credentials_future.status().ok()) {
+        Fail(credentials_future.status());
+        return;
+      }
+      credentials_ = std::move(credentials_future.value());
+      IssueRequest();
+      return;
+    }
+    credentials_future.ExecuteWhenReady(WithExecutor(
+        owner->executor(), [self = IntrusivePtr<WriteTask>(this)](
+                               ReadyFuture<AwsCredentials> credentials) {
+          if (!credentials.status().ok()) {
+            self->Fail(credentials.status());
+            return;
+          }
+          self->credentials_ = std::move(credentials.value());
+          self->IssueRequest();
+        }));
+  }
+
+  void IssueRequest() {
+    if (IsCancelled()) {
+      return;
+    }
+    if (UseConditionalWrite() ||
         StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
       AfterHeadRequest();
       return;
     }
 
+    const auto& ehr = endpoint_region_.value();
     start_time_ = absl::Now();
     auto builder = S3RequestBuilder("HEAD", ehr.endpoint, object_name_);
     AddGenerationHeader(&builder, "if-match",
@@ -724,6 +831,12 @@ struct WriteTask : public RateLimiterNode,
         Success(StorageGeneration::Unknown());
         return;
       }
+    } else if (response.value().status_code == 200 &&
+               options_.generation_conditions.MatchesNoValue()) {
+      // If the object exists and the if-match condition is NoValue, then the
+      // write fails even if the server ignored the empty if-match header.
+      Success(StorageGeneration::Unknown());
+      return;
     } else {
       bool is_retryable = false;
       auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
@@ -749,13 +862,29 @@ struct WriteTask : public RateLimiterNode,
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-authentication-HTTPPOST.html
 
     start_time_ = absl::Now();
-    auto content_sha256_hex = PayloadSha256Hex(value_);
-
     const auto& ehr = endpoint_region_.value();
+    used_unsigned_payload_ = owner->spec_.unsigned_payload.value_or(
+        owner->auto_unsigned_payload_.load(std::memory_order_relaxed) &&
+        absl::StartsWith(ehr.endpoint, "https://"));
+    auto content_sha256_hex = used_unsigned_payload_
+                                  ? std::string(kUnsignedPayload)
+                                  : PayloadSha256Hex(value_);
+
     auto builder = S3RequestBuilder("PUT", ehr.endpoint, object_name_);
     builder.AddHeader("content-type", "application/octet-stream")
         .AddHeader("content-length", absl::StrCat(value_.size()))
         .MaybeAddRequesterPayer(owner->spec_.requester_pays);
+    used_checksum_crc32c_ = false;
+    ChecksumAlgorithm checksum = owner->spec_.checksum.value_or(
+        owner->auto_checksum_crc32c_.load(std::memory_order_relaxed)
+            ? ChecksumAlgorithm::kCrc32c
+            : ChecksumAlgorithm::kNone);
+    if (checksum == ChecksumAlgorithm::kCrc32c) {
+      used_checksum_crc32c_ = true;
+      builder.AddHeader("x-amz-checksum-crc32c", PayloadCrc32cBase64(value_));
+    } else if (checksum == ChecksumAlgorithm::kSha256) {
+      builder.AddHeader("x-amz-checksum-sha256", PayloadSha256Base64(value_));
+    }
     if (owner->spec_.use_conditional_write.value_or(
             ehr.write_mode != ConditionalWriteMode::kDisabled) &&
         !StorageGeneration::IsUnknown(
@@ -816,6 +945,30 @@ struct WriteTask : public RateLimiterNode,
                    options_.generation_conditions.if_equal)) {
       Success(StorageGeneration::Unknown());
     } else if (!status.ok()) {
+      if (endpoint_region_.value().write_mode !=
+          ConditionalWriteMode::kEnabled) {
+        if (used_unsigned_payload_ &&
+            !owner->spec_.unsigned_payload.has_value() &&
+            (response.value().status_code == 400 ||
+             response.value().status_code == 501)) {
+          ABSL_LOG_IF(INFO, s3_logging)
+              << "WriteTask: UNSIGNED-PAYLOAD rejected (" << status
+              << "); falling back to signed payload";
+          owner->auto_unsigned_payload_.store(false, std::memory_order_relaxed);
+          AfterHeadRequest();
+          return;
+        }
+        if (used_checksum_crc32c_ && !owner->spec_.checksum.has_value() &&
+            (response.value().status_code == 400 ||
+             response.value().status_code == 501)) {
+          ABSL_LOG_IF(INFO, s3_logging)
+              << "WriteTask: x-amz-checksum-crc32c rejected (" << status
+              << "); falling back to no checksum header";
+          owner->auto_checksum_crc32c_.store(false, std::memory_order_relaxed);
+          AfterHeadRequest();
+          return;
+        }
+      }
       if (is_retryable || response.value().status_code == 409) {
         status =
             owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
@@ -860,13 +1013,12 @@ struct DeleteTask : public RateLimiterNode,
   DeleteTask(IntrusivePtr<S3KeyValueStore> o, std::string object_name,
              kvstore::WriteOptions options,
              ReadyFuture<const S3EndpointRegion> endpoint_region,
-             AwsCredentials credentials,
              Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(o)),
         object_name_(std::move(object_name)),
         options_(std::move(options)),
         endpoint_region_(std::move(endpoint_region)),
-        credentials_(std::move(credentials)),
+        credentials_(nullptr),
         promise(std::move(promise)) {}
 
   ~DeleteTask() { owner->admission_queue().Finish(this); }
@@ -897,6 +1049,32 @@ struct DeleteTask : public RateLimiterNode,
   }
 
   void Retry() {
+    if (IsCancelled()) {
+      return;
+    }
+    auto credentials_future = owner->GetCredentials();
+    if (credentials_future.ready()) {
+      if (!credentials_future.status().ok()) {
+        Fail(credentials_future.status());
+        return;
+      }
+      credentials_ = std::move(credentials_future.value());
+      IssueRequest();
+      return;
+    }
+    credentials_future.ExecuteWhenReady(WithExecutor(
+        owner->executor(), [self = IntrusivePtr<DeleteTask>(this)](
+                               ReadyFuture<AwsCredentials> credentials) {
+          if (!credentials.status().ok()) {
+            self->Fail(credentials.status());
+            return;
+          }
+          self->credentials_ = std::move(credentials.value());
+          self->IssueRequest();
+        }));
+  }
+
+  void IssueRequest() {
     if (IsCancelled()) {
       return;
     }
@@ -1074,14 +1252,12 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   LinkValue(
       [self = IntrusivePtr<S3KeyValueStore>(this), key = std::move(key),
        value = std::move(value), options = std::move(options)](
-          auto promise, ReadyFuture<const S3EndpointRegion> ready,
-          ReadyFuture<AwsCredentials> credentials) {
+          auto promise, ReadyFuture<const S3EndpointRegion> ready) {
         if (!value) {
           // Write with a std::nullopt value is a delete.
           auto state = internal::MakeIntrusivePtr<DeleteTask>(
               std::move(self), std::move(key), std::move(options),
-              std::move(ready), std::move(credentials.value()),
-              std::move(promise));
+              std::move(ready), std::move(promise));
 
           intrusive_ptr_increment(
               state.get());  // adopted by DeleteTask::Admit.
@@ -1092,14 +1268,13 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
 
         auto state = internal::MakeIntrusivePtr<WriteTask>(
             std::move(self), std::move(key), std::move(options),
-            std::move(ready), *std::move(value), std::move(credentials.value()),
-            std::move(promise));
+            std::move(ready), *std::move(value), std::move(promise));
 
         intrusive_ptr_increment(state.get());  // adopted by WriteTask::Admit.
         state->owner->write_rate_limiter().Admit(state.get(),
                                                  &WriteTask::Start);
       },
-      std::move(op.promise), MaybeResolveRegion(), GetCredentials());
+      std::move(op.promise), MaybeResolveRegion());
 
   return std::move(op.future);
 }
@@ -1113,7 +1288,6 @@ struct ListTask : public RateLimiterNode,
 
   std::string resource_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
-  AwsCredentials credentials_;
 
   std::string continuation_token_;
   absl::Time start_time_;
@@ -1125,8 +1299,7 @@ struct ListTask : public RateLimiterNode,
            ListOptions&& options, ListReceiver&& receiver)
       : owner_(std::move(owner)),
         options_(std::move(options)),
-        receiver_(std::move(receiver)),
-        credentials_(nullptr) {
+        receiver_(std::move(receiver)) {
     execution::set_starting(receiver_, [this] {
       cancelled_.store(true, std::memory_order_relaxed);
     });
@@ -1159,6 +1332,31 @@ struct ListTask : public RateLimiterNode,
       execution::set_done(receiver_);
       return;
     }
+    auto credentials_future = owner_->GetCredentials();
+    if (credentials_future.ready()) {
+      if (!credentials_future.status().ok()) {
+        execution::set_error(receiver_, credentials_future.status());
+        return;
+      }
+      IssueRequestWithCredentials(credentials_future.value());
+      return;
+    }
+    credentials_future.ExecuteWhenReady(WithExecutor(
+        owner_->executor(), [self = IntrusivePtr<ListTask>(this)](
+                                ReadyFuture<AwsCredentials> credentials) {
+          if (!credentials.status().ok()) {
+            execution::set_error(self->receiver_, credentials.status());
+            return;
+          }
+          self->IssueRequestWithCredentials(credentials.value());
+        }));
+  }
+
+  void IssueRequestWithCredentials(const AwsCredentials& credentials) {
+    if (is_cancelled()) {
+      execution::set_done(receiver_);
+      return;
+    }
 
     // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
     auto request_builder =
@@ -1177,7 +1375,7 @@ struct ListTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     auto request =
-        request_builder.BuildRequest(owner_->host_header_, credentials_,
+        request_builder.BuildRequest(owner_->host_header_, credentials,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, s3_logging) << "List: " << request;
@@ -1318,20 +1516,8 @@ void S3KeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
         }
         state->resource_ = absl::StrCat(ready.value().endpoint, "/");
         state->endpoint_region_ = std::move(ready);
-
-        auto credentials_future = state->owner_->GetCredentials();
-        credentials_future.ExecuteWhenReady(
-            [state =
-                 std::move(state)](ReadyFuture<AwsCredentials> credentials) {
-              if (!credentials.status().ok()) {
-                execution::set_error(state->receiver_, credentials.status());
-                return;
-              }
-              state->credentials_ = std::move(credentials.value());
-              intrusive_ptr_increment(state.get());
-              state->owner_->read_rate_limiter().Admit(state.get(),
-                                                       &ListTask::Start);
-            });
+        intrusive_ptr_increment(state.get());
+        state->owner_->read_rate_limiter().Admit(state.get(), &ListTask::Start);
       });
 }
 

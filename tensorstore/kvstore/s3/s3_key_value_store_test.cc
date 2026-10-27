@@ -119,7 +119,8 @@ TEST(S3KeyValueStoreTest, SpecRoundtripCustomEndpoint) {
   options.check_data_after_serialization = false;
   options.full_spec = {{"driver", "s3"},
                        {"bucket", "mybucket"},
-                       {"endpoint", "https://myendpoint"}};
+                       {"endpoint", "https://myendpoint"},
+                       {"unsigned_payload", true}};
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
@@ -264,9 +265,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
     if (request.method == "PUT" &&
         absl::StrContains(request.url, "key_write")) {
       EXPECT_THAT(request.headers,
-                  Contains(Pair("x-amz-content-sha256",
-                                "3608bca1e44ea6c4d268eb6db02260269892c0b42b"
-                                "86bbf1e77a6fa16c3c9282")));
+                  Contains(Pair("x-amz-content-sha256", "UNSIGNED-PAYLOAD")));
     }
   }
   EXPECT_THAT(host_header_validated, testing::Ge(2));
@@ -300,7 +299,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    kvstore::Open({{"driver", "s3"},
                                                   {"bucket", "my.bucket"},
-                                                  {"aws_region", "us-east-1"}},
+                                                  {"aws_region", "us-east-1"},
+                                                  {"unsigned_payload", false}},
                                                  context)
                                        .result());
 
@@ -323,8 +323,304 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
       EXPECT_THAT(request.headers,
                   Contains(Pair("host", "s3.us-east-1.amazonaws.com")));
     }
+    if (request.method == "PUT" &&
+        absl::StrContains(request.url, "key_write")) {
+      EXPECT_THAT(request.headers,
+                  Contains(Pair("x-amz-content-sha256",
+                                "3608bca1e44ea6c4d268eb6db02260269892c0b42b"
+                                "86bbf1e77a6fa16c3c9282")));
+    }
   }
   EXPECT_THAT(host_header_validated, testing::Ge(2));
+}
+
+TEST(S3KeyValueStoreTest, AutoUnsignedPayloadFallbackAndHttp) {
+  static constexpr char kXyzSha256[] =
+      "3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282";
+  static constexpr char kRejectedXml[] =
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+      "<Error><Code>InvalidArgument</Code>"
+      "<Message>UNSIGNED-PAYLOAD not supported</Message></Error>";
+
+  auto mock_transport = std::make_shared<
+      DefaultMockHttpTransport>(DefaultMockHttpTransport::Responses{
+      // First PUT over https:// uses UNSIGNED-PAYLOAD and is rejected (400).
+      {"PUT https://localhost:1234/my-bucket/key1",
+       HttpResponse{400, absl::Cord(kRejectedXml), {}}},
+      // Fallback retry of key1 uses SHA-256 and succeeds.
+      {"PUT https://localhost:1234/my-bucket/key1",
+       HttpResponse{
+           200, absl::Cord(),
+           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+      // Subsequent PUT on the same store immediately uses SHA-256.
+      {"PUT https://localhost:1234/my-bucket/key2",
+       HttpResponse{
+           200, absl::Cord(),
+           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+      // PUT over http:// with default (unset) unsigned_payload uses SHA-256.
+      {"PUT http://localhost:1234/my-bucket/key3",
+       HttpResponse{
+           200, absl::Cord(),
+           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+      // PUT over http:// with explicit unsigned_payload=true uses
+      // UNSIGNED-PAYLOAD.
+      {"PUT http://localhost:1234/my-bucket/key4",
+       HttpResponse{
+           200, absl::Cord(),
+           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+  });
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto https_store, kvstore::Open({{"driver", "s3"},
+                                       {"bucket", "my-bucket"},
+                                       {"endpoint", "https://localhost:1234"},
+                                       {"aws_region", "us-east-1"}},
+                                      context)
+                            .result());
+  TENSORSTORE_EXPECT_OK(kvstore::Write(https_store, "key1", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(https_store, "key2", absl::Cord("xyz")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto http_store, kvstore::Open({{"driver", "s3"},
+                                      {"bucket", "my-bucket"},
+                                      {"endpoint", "http://localhost:1234"},
+                                      {"aws_region", "us-east-1"}},
+                                     context)
+                           .result());
+  TENSORSTORE_EXPECT_OK(kvstore::Write(http_store, "key3", absl::Cord("xyz")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto http_unsigned_store,
+      kvstore::Open({{"driver", "s3"},
+                     {"bucket", "my-bucket"},
+                     {"endpoint", "http://localhost:1234"},
+                     {"aws_region", "us-east-1"},
+                     {"unsigned_payload", true}},
+                    context)
+          .result());
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(http_unsigned_store, "key4", absl::Cord("xyz")));
+
+  ASSERT_EQ(mock_transport->requests().size(), 5);
+  EXPECT_THAT(mock_transport->requests()[0].headers,
+              Contains(Pair("x-amz-content-sha256", "UNSIGNED-PAYLOAD")));
+  EXPECT_THAT(mock_transport->requests()[1].headers,
+              Contains(Pair("x-amz-content-sha256", kXyzSha256)));
+  EXPECT_THAT(mock_transport->requests()[2].headers,
+              Contains(Pair("x-amz-content-sha256", kXyzSha256)));
+  EXPECT_THAT(mock_transport->requests()[3].headers,
+              Contains(Pair("x-amz-content-sha256", kXyzSha256)));
+  EXPECT_THAT(mock_transport->requests()[4].headers,
+              Contains(Pair("x-amz-content-sha256", "UNSIGNED-PAYLOAD")));
+}
+
+TEST(S3KeyValueStoreTest, ConditionalWriteBehaviorAndOverride) {
+  static constexpr char kEtag1[] = "\"11111111111111111111111111111111\"";
+  static constexpr char kEtag2[] = "\"900150983cd24fb0d6963f7d28e17f72\"";
+  const auto kGen1 = StorageGeneration::FromString(kEtag1);
+  const auto kGen2 = StorageGeneration::FromString(kEtag2);
+
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // 1. Default conditional write on custom endpoint
+          // (ConditionalWriteMode::kDefault) uses preflight HEAD for version
+          // checks, and also adds conditional write headers on PUT.
+          {"HEAD https://localhost:1234/my-bucket/key1",
+           HttpResponse{200, absl::Cord(), HeaderMap{{"etag", kEtag1}}}},
+          {"PUT https://localhost:1234/my-bucket/key1",
+           HttpResponse{200, absl::Cord(), HeaderMap{{"etag", kEtag2}}}},
+
+          // 2. Explicit use_conditional_write=true sends conditional PUT
+          // directly without preceding HEAD.
+          {"PUT https://localhost:1234/my-bucket/key2",
+           HttpResponse{200, absl::Cord(), HeaderMap{{"etag", kEtag2}}}},
+
+          // 3. Explicit use_conditional_write=false uses preflight HEAD +
+          // unconditional PUT (no conditional headers on PUT).
+          {"HEAD https://localhost:1234/my-bucket/key3",
+           HttpResponse{404, absl::Cord(), {}}},
+          {"PUT https://localhost:1234/my-bucket/key3",
+           HttpResponse{200, absl::Cord(), HeaderMap{{"etag", kEtag2}}}},
+
+          // 4. Endpoint known to support conditional writes (AWS S3,
+          // ConditionalWriteMode::kEnabled) sends conditional PUT directly.
+          {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/key4",
+           HttpResponse{200, absl::Cord(), HeaderMap{{"etag", kEtag2}}}},
+      });
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto default_store, kvstore::Open({{"driver", "s3"},
+                                         {"bucket", "my-bucket"},
+                                         {"endpoint", "https://localhost:1234"},
+                                         {"aws_region", "us-east-1"}},
+                                        context)
+                              .result());
+  EXPECT_THAT(kvstore::Write(default_store, "key1", absl::Cord("xyz"), {kGen1})
+                  .result(),
+              MatchesTimestampedStorageGeneration(kGen2));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto enabled_store, kvstore::Open({{"driver", "s3"},
+                                         {"bucket", "my-bucket"},
+                                         {"endpoint", "https://localhost:1234"},
+                                         {"aws_region", "us-east-1"},
+                                         {"use_conditional_write", true}},
+                                        context)
+                              .result());
+  EXPECT_THAT(kvstore::Write(enabled_store, "key2", absl::Cord("xyz"),
+                             {StorageGeneration::NoValue()})
+                  .result(),
+              MatchesTimestampedStorageGeneration(kGen2));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto disabled_store,
+      kvstore::Open({{"driver", "s3"},
+                     {"bucket", "my-bucket"},
+                     {"endpoint", "https://localhost:1234"},
+                     {"aws_region", "us-east-1"},
+                     {"use_conditional_write", false}},
+                    context)
+          .result());
+  EXPECT_THAT(kvstore::Write(disabled_store, "key3", absl::Cord("xyz"),
+                             {StorageGeneration::NoValue()})
+                  .result(),
+              MatchesTimestampedStorageGeneration(kGen2));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto aws_store,
+                                   kvstore::Open({{"driver", "s3"},
+                                                  {"bucket", "my-bucket"},
+                                                  {"aws_region", "us-east-1"}},
+                                                 context)
+                                       .result());
+  EXPECT_THAT(
+      kvstore::Write(aws_store, "key4", absl::Cord("xyz"), {kGen1}).result(),
+      MatchesTimestampedStorageGeneration(kGen2));
+
+  ASSERT_EQ(mock_transport->requests().size(), 6);
+  // Request 0 & 1: default uses preflight HEAD then conditional PUT with
+  // if-match.
+  EXPECT_EQ(mock_transport->requests()[0].method, "HEAD");
+  EXPECT_THAT(mock_transport->requests()[0].headers,
+              Contains(Pair("if-match", kEtag1)));
+  EXPECT_EQ(mock_transport->requests()[1].method, "PUT");
+  EXPECT_THAT(mock_transport->requests()[1].headers,
+              Contains(Pair("if-match", kEtag1)));
+
+  // Request 2: explicit use_conditional_write=true sends conditional PUT
+  // directly.
+  EXPECT_EQ(mock_transport->requests()[2].method, "PUT");
+  EXPECT_THAT(mock_transport->requests()[2].headers,
+              Contains(Pair("if-none-match", "*")));
+
+  // Request 3 & 4: explicit use_conditional_write=false uses HEAD +
+  // unconditional PUT.
+  EXPECT_EQ(mock_transport->requests()[3].method, "HEAD");
+  EXPECT_EQ(mock_transport->requests()[4].method, "PUT");
+  EXPECT_THAT(mock_transport->requests()[4].headers,
+              testing::Not(Contains(Pair("if-match", testing::_))));
+  EXPECT_THAT(mock_transport->requests()[4].headers,
+              testing::Not(Contains(Pair("if-none-match", testing::_))));
+
+  // Request 5: AWS S3 endpoint sends conditional PUT directly.
+  EXPECT_EQ(mock_transport->requests()[5].method, "PUT");
+  EXPECT_THAT(mock_transport->requests()[5].headers,
+              Contains(Pair("if-match", kEtag1)));
+}
+
+TEST(S3KeyValueStoreTest, ChecksumOptions) {
+  static constexpr char kEtag[] = "\"900150983cd24fb0d6963f7d28e17f72\"";
+  // CRC32C of "abcd" (0x92c80a31) in base64 is "ksgKMQ==".
+  static constexpr char kAbcdCrc32c[] = "ksgKMQ==";
+  // CRC32C of "xyz" (0x25236885) in base64 is "JSNohQ==".
+  static constexpr char kXyzCrc32c[] = "JSNohQ==";
+
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // 1. Default full GET validates x-amz-checksum-crc32c.
+          {"GET https://localhost:1234/my-bucket/read_ok",
+           HttpResponse{200, absl::Cord("abcd"),
+                        HeaderMap{{"etag", kEtag},
+                                  {"x-amz-checksum-crc32c", kAbcdCrc32c}}}},
+          // 2. Default full GET detects x-amz-checksum-crc32c mismatch.
+          {"GET https://localhost:1234/my-bucket/read_bad_crc",
+           HttpResponse{200, absl::Cord("abcd"),
+                        HeaderMap{{"etag", kEtag},
+                                  {"x-amz-checksum-crc32c", kXyzCrc32c}}}},
+          // 3. Partial range GET ignores full-object x-amz-checksum-crc32c
+          // returned by servers like GCS XML API.
+          {"GET https://localhost:1234/my-bucket/read_range",
+           HttpResponse{206, absl::Cord("bc"),
+                        HeaderMap{{"etag", kEtag},
+                                  {"content-range", "bytes 1-2/4"},
+                                  {"x-amz-checksum-crc32c", kAbcdCrc32c}}}},
+          // 4. Default PUT includes x-amz-checksum-crc32c.
+          {"PUT https://localhost:1234/my-bucket/write_crc",
+           HttpResponse{200, absl::Cord(), HeaderMap{{"etag", kEtag}}}},
+          // 5. checksum="none" skips x-amz-checksum-mode on GET, ignores bad
+          // checksum header on GET, and omits x-amz-checksum-* on PUT.
+          {"GET https://localhost:1234/my-bucket/read_none",
+           HttpResponse{200, absl::Cord("abcd"),
+                        HeaderMap{{"etag", kEtag},
+                                  {"x-amz-checksum-crc32c", kXyzCrc32c}}}},
+          {"PUT https://localhost:1234/my-bucket/write_none",
+           HttpResponse{200, absl::Cord(), HeaderMap{{"etag", kEtag}}}},
+      });
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto default_store, kvstore::Open({{"driver", "s3"},
+                                         {"bucket", "my-bucket"},
+                                         {"endpoint", "https://localhost:1234"},
+                                         {"aws_region", "us-east-1"}},
+                                        context)
+                              .result());
+  EXPECT_THAT(kvstore::Read(default_store, "read_ok").result(),
+              MatchesKvsReadResult(absl::Cord("abcd"),
+                                   StorageGeneration::FromString(kEtag)));
+  EXPECT_THAT(kvstore::Read(default_store, "read_bad_crc").result(),
+              StatusIs(absl::StatusCode::kDataLoss));
+
+  kvstore::ReadOptions range_options;
+  range_options.byte_range = tensorstore::OptionalByteRangeRequest(1, 3);
+  EXPECT_THAT(
+      kvstore::Read(default_store, "read_range", range_options).result(),
+      MatchesKvsReadResult(absl::Cord("bc"),
+                           StorageGeneration::FromString(kEtag)));
+
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(default_store, "write_crc", absl::Cord("xyz")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto none_store, kvstore::Open({{"driver", "s3"},
+                                      {"bucket", "my-bucket"},
+                                      {"endpoint", "https://localhost:1234"},
+                                      {"aws_region", "us-east-1"},
+                                      {"checksum", "none"}},
+                                     context)
+                           .result());
+  EXPECT_THAT(kvstore::Read(none_store, "read_none").result(),
+              MatchesKvsReadResult(absl::Cord("abcd"),
+                                   StorageGeneration::FromString(kEtag)));
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(none_store, "write_none", absl::Cord("xyz")));
+
+  ASSERT_EQ(mock_transport->requests().size(), 6);
+  EXPECT_THAT(mock_transport->requests()[0].headers,
+              Contains(Pair("x-amz-checksum-mode", "ENABLED")));
+  EXPECT_THAT(mock_transport->requests()[2].headers,
+              testing::Not(Contains(Pair("x-amz-checksum-mode", testing::_))));
+  EXPECT_THAT(mock_transport->requests()[3].headers,
+              Contains(Pair("x-amz-checksum-crc32c", kXyzCrc32c)));
+  EXPECT_THAT(mock_transport->requests()[4].headers,
+              testing::Not(Contains(Pair("x-amz-checksum-mode", testing::_))));
+  EXPECT_THAT(
+      mock_transport->requests()[5].headers,
+      testing::Not(Contains(Pair("x-amz-checksum-crc32c", testing::_))));
 }
 
 TEST(S3KeyValueStoreTest, MockWrite_Conflict) {

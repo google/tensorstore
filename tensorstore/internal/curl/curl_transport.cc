@@ -18,7 +18,6 @@
 #include <stdint.h>
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <cassert>
 #include <cerrno>
@@ -170,8 +169,8 @@ struct CurlRequestState {
                         &CurlRequestState::CurlSeekCallback);
     }
 
+    handle_.SetOption(CURLOPT_PIPEWAIT, 1L);
     if (request.method == "GET") {
-      handle_.SetOption(CURLOPT_PIPEWAIT, 1L);
       handle_.SetOption(CURLOPT_HTTPGET, 1L);
     } else if (request.method == "HEAD") {
       handle_.SetOption(CURLOPT_NOBODY, 1L);

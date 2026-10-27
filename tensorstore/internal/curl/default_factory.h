@@ -22,7 +22,10 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "absl/base/thread_annotations.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/curl/curl_factory.h"
 #include "tensorstore/internal/curl/curl_wrappers.h"
 
@@ -52,13 +55,15 @@ class DefaultCurlHandleFactory : public CurlHandleFactory {
   }
 
   CurlPtr CreateHandle() override;
-  void CleanupHandle(CurlPtr&& h) override { h.reset(); }
+  void CleanupHandle(CurlPtr&& h) override;
 
   CurlMulti CreateMultiHandle() override;
   void CleanupMultiHandle(CurlMulti&& m) override { m.reset(); }
 
  private:
   Config config_;
+  absl::Mutex mutex_;
+  std::vector<CurlPtr> handles_ ABSL_GUARDED_BY(mutex_);
 };
 
 /// Returns the default CurlHandleFactory.

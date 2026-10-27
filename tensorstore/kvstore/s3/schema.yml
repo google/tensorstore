@@ -56,6 +56,32 @@ allOf:
         Allows setting conditional writes to enabled or disabled. Unless detected or set, the
         default conditional write behavior is to use non-atomic HEAD requests for version checks,
         but to also add conditional write headers for the actual write requests.
+    unsigned_payload:
+      type: boolean
+      title: Override :literal:`UNSIGNED-PAYLOAD` behavior for write requests.
+      description: |-
+        Controls whether :literal:`UNSIGNED-PAYLOAD` is sent as the
+        :literal:`x-amz-content-sha256` header value on write requests instead
+        of computing the SHA-256 digest of the payload. If not specified,
+        :literal:`UNSIGNED-PAYLOAD` is used by default over :literal:`https://`
+        endpoints (with automatic fallback to a signed SHA-256 payload digest
+        if rejected by the server) and disabled over :literal:`http://`
+        endpoints.
+    checksum:
+      type: string
+      enum:
+      - "none"
+      - "crc32c"
+      - "sha256"
+      title: Payload checksum algorithm for full-object reads and writes.
+      description: |-
+        Controls payload checksum computation and validation on full-object
+        :literal:`PUT` and :literal:`GET` requests. If not specified, defaults
+        to ``"crc32c"`` (sending :literal:`x-amz-checksum-crc32c` on
+        :literal:`PUT` with automatic fallback if rejected by the server, and
+        requesting/validating full-object checksums via
+        :literal:`x-amz-checksum-mode: ENABLED` on full-object :literal:`GET`
+        requests).
     aws_credentials:
       $ref: ContextResource
       description: |-
