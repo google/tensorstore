@@ -15,12 +15,15 @@
 #include "tensorstore/util/stop_token.h"
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/synchronization/notification.h"
 #include "tensorstore/internal/testing/concurrent.h"
+#include "tensorstore/internal/thread/thread.h"
 
 namespace {
 
@@ -118,6 +121,69 @@ TEST(StopTokenTest, StopAlreadyRequested) {
   bool called = false;
   tensorstore::StopCallback callback(source.get_token(),
                                      [&]() { called = true; });
+  EXPECT_TRUE(called);
+}
+
+TEST(StopTokenTest, StopAlreadyRequested_LvalueToken) {
+  tensorstore::StopSource source;
+  tensorstore::StopToken token = source.get_token();
+  EXPECT_TRUE(source.request_stop());
+
+  bool called = false;
+  tensorstore::StopCallback callback(token, [&]() { called = true; });
+  EXPECT_TRUE(called);
+  EXPECT_TRUE(token.stop_requested());
+}
+
+TEST(StopTokenTest, RequestStopTwice) {
+  tensorstore::StopSource source;
+  int calls = 0;
+  tensorstore::StopCallback callback(source.get_token(), [&]() { ++calls; });
+  EXPECT_TRUE(source.request_stop());
+  EXPECT_FALSE(source.request_stop());
+  EXPECT_EQ(calls, 1);
+}
+
+// Registering with an lvalue token must not consume the token's reference.
+TEST(StopCallbackTest, LvalueTokenRemainsUsable) {
+  tensorstore::StopSource source;
+  tensorstore::StopToken token = source.get_token();
+  bool called = false;
+  {
+    tensorstore::StopCallback callback(token, [&]() { called = true; });
+  }
+  tensorstore::StopCallback callback(token, [&]() { called = true; });
+  EXPECT_TRUE(token.stop_possible());
+  EXPECT_EQ(token, source.get_token());
+  EXPECT_TRUE(source.request_stop());
+  EXPECT_TRUE(called);
+}
+
+// A callback registered with an rvalue token owns the adopted reference, and
+// keeps the stop state alive after all other references are released.
+// Reference-count errors are reported by ASan/LSan.
+TEST(StopCallbackTest, RvalueTokenReferenceOutlivesSource) {
+  bool called = false;
+  std::optional<tensorstore::StopCallback<std::function<void()>>> callback;
+  {
+    tensorstore::StopSource source;
+    callback.emplace(source.get_token(), [&] { called = true; });
+  }
+  callback.reset();
+  EXPECT_FALSE(called);
+}
+
+// A callback registered with an rvalue token after a stop was requested
+// releases the adopted reference.  Leaks are reported by LSan.
+TEST(StopCallbackTest, RvalueTokenAfterStopReleasesReference) {
+  bool called = false;
+  {
+    tensorstore::StopSource source;
+    EXPECT_TRUE(source.request_stop());
+    tensorstore::StopToken token = source.get_token();
+    tensorstore::StopCallback callback(std::move(token),
+                                       [&]() { called = true; });
+  }
   EXPECT_TRUE(called);
 }
 
@@ -235,6 +301,53 @@ TEST(StopTokenTest, ReentrantQueryAndUnregisterDuringRequestStop) {
   EXPECT_TRUE(source.request_stop());
   EXPECT_TRUE(cb1_called);
   EXPECT_FALSE(cb2_called);
+}
+
+// Destroys a heap-allocated `StopCallback` concurrently with `request_stop`.
+// `~StopCallback` may return without acquiring the `StopState` mutex once
+// `request_stop` has finished invoking the callback, so `request_stop` must not
+// touch the callback afterwards.  Violations are reported by ASan/TSan.
+TEST(StopTokenTest, ConcurrentDestroyDuringRequestStop) {
+  using Callback = tensorstore::StopCallback<std::function<void()>>;
+  tensorstore::StopSource source;
+  std::unique_ptr<Callback> callback;
+
+  ::tensorstore::internal_testing::TestConcurrent(
+      /*num_iterations=*/1000,
+      /*initialize=*/
+      [&] {
+        source = tensorstore::StopSource();
+        callback = std::make_unique<Callback>(source.get_token(), [] {});
+      },
+      /*finalize=*/
+      [&] {
+        EXPECT_TRUE(source.stop_requested());
+        EXPECT_EQ(callback, nullptr);
+      },
+      // Concurrently:
+      // (a) request a stop.
+      [&] { source.request_stop(); },
+      // (b) destroy the callback.
+      [&] { callback.reset(); });
+}
+
+// `stop_requested` must be observable from another thread while a callback is
+// still running inside `request_stop`.
+TEST(StopTokenTest, StopRequestedVisibleWhileCallbackRuns) {
+  tensorstore::StopSource source;
+  absl::Notification in_callback;
+  absl::Notification observed;
+  tensorstore::StopCallback callback(source.get_token(), [&] {
+    in_callback.Notify();
+    observed.WaitForNotification();
+  });
+
+  tensorstore::internal::Thread thread({"request_stop"},
+                                       [&] { source.request_stop(); });
+  in_callback.WaitForNotification();
+  EXPECT_TRUE(source.get_token().stop_requested());
+  observed.Notify();
+  thread.Join();
 }
 
 }  // namespace

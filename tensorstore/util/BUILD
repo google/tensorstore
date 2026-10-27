@@ -812,6 +812,8 @@ tensorstore_cc_test(
     deps = [
         ":stop_token",
         "//tensorstore/internal/testing:concurrent",
+        "//tensorstore/internal/thread",
+        "@abseil-cpp//absl/synchronization",
         "@googletest//:gtest_main",
     ],
 )

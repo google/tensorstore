@@ -143,7 +143,18 @@ class StopSource {
 /// in the current thread before the constructor returns.  Otherwise, if a
 /// stop is requested on the stop state associated with `token` before this
 /// `StopCallback` is destroyed, the callback will be invoked synchronously
-/// from the thread that requested the stop.
+/// from the thread that requested the stop.  Callbacks registered with the
+/// same stop state are invoked in reverse order of registration.
+///
+/// If the callback is running on another thread when the `StopCallback` is
+/// destroyed, the destructor blocks until the callback returns.  Therefore,
+/// the callback must not wait for the thread that destroys the
+/// `StopCallback`, or the two will deadlock.  The callback may, however,
+/// destroy its own `StopCallback`.
+///
+/// `StopCallback` is neither copyable nor movable, since its address is
+/// registered with the stop state.  Use `std::optional` or `std::unique_ptr`
+/// to manage its lifetime.
 ///
 template <typename Callback>
 class StopCallback : private internal_stop_token::StopCallbackBase {
@@ -157,6 +168,10 @@ class StopCallback : private internal_stop_token::StopCallbackBase {
   StopCallback(StopCallback&&) = delete;
   StopCallback& operator=(StopCallback&&) = delete;
 
+  /// Constructs a callback and registers it with `token`.
+  ///
+  /// The `StopToken&&` overload takes over the reference to the stop state held
+  /// by `token`, rather than acquiring a new one.
   template <
       typename... Args,
       std::enable_if_t<std::is_constructible_v<Callback, Args...>, int> = 0>
@@ -165,17 +180,28 @@ class StopCallback : private internal_stop_token::StopCallbackBase {
     internal_stop_token::StopState* state = token.state_.get();
     if (state) {
       invoker_ = &StopCallback::Invoker;
-      state->RegisterImpl(*this);
-    }  /// else null state, callback never invoked.
+      state->RegisterImpl(*this, /*adopt_reference=*/false);
+    }  // else null state, callback never invoked.
+  }
+  template <
+      typename... Args,
+      std::enable_if_t<std::is_constructible_v<Callback, Args...>, int> = 0>
+  explicit StopCallback(StopToken&& token, Args&&... args)
+      : callback_(std::forward<Args>(args)...) {
+    internal_stop_token::StopState* state = token.state_.release();
+    if (state) {
+      invoker_ = &StopCallback::Invoker;
+      state->RegisterImpl(*this, /*adopt_reference=*/true);
+    }  // else null state, callback never invoked.
   }
 
   ~StopCallback() {
-    /// state_ will be nullptr if the callback was never registered, or if it
-    /// has been invoked (via request_stop).
+    // state_ will be nullptr if the callback was never registered, or if it
+    // has been invoked (via request_stop).
     internal_stop_token::StopState* state =
         state_.exchange(nullptr, std::memory_order_acq_rel);
     if (state != nullptr) {
-      /// UnregisterImpl decrements state reference count.
+      // UnregisterImpl decrements state reference count.
       state->UnregisterImpl(*this);
     }
   }
