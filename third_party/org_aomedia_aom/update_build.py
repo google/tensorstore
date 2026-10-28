@@ -245,7 +245,14 @@ def _emit_cc_library_with_constraint(t: _Target, out: io.StringIO):
     for s in t.hdrs:
       out.write(f'        "{s}",\n')
     out.write("    ],\n")
-  if copt:
+  if copt and t.kind in ("_neon_dotprod", "_neon_i8mm"):
+    out.write(
+        "    copts = LIBAOM_COPTS + select({\n"
+        '        "//conditions:default": [],\n'
+        f'        ":use_arm64_gcc": ["{copt}"],\n'
+        "    }),\n"
+    )
+  elif copt:
     out.write(f'    copts = LIBAOM_COPTS + ["{copt}"],\n')
   else:
     out.write(f"    copts = LIBAOM_COPTS{extra_copts},\n")

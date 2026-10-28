@@ -24,8 +24,8 @@ filegroup(
         "lib/decompress/*.c",
         "lib/decompress/*.h",
     ]) + select({
-        ":zstd_asm_supported": glob(["lib/decompress/*.S"]),
         "//conditions:default": [],
+        ":use_x86_gcc": glob(["lib/decompress/*.S"]),
     }),
 )
 
@@ -42,7 +42,7 @@ LOCAL_DEFINES = [
     "ZSTD_BUILD_SHARED=OFF",
     "ZSTD_BUILD_STATIC=ON",
 ] + select({
-    ":zstd_asm_supported": [],
+    ":use_x86_gcc": [],
     "//conditions:default": ["ZSTD_DISABLE_ASM=1"],
 })
 
@@ -70,9 +70,9 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
-# Constraint that indicates whether asm is supported by zstd
+# Constraint that indicates whether x86_64 gcc-style asm is supported by zstd
 alias(
-    name = "zstd_asm_supported",
+    name = "use_x86_gcc",
     actual = select({
         # Disable for msvc.
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",

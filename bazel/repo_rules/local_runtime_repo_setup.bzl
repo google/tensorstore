@@ -157,6 +157,14 @@ def define_local_runtime_toolchain_impl(
         implementation_name = implementation_name,
         abi_flags = abi_flags,
         pyc_tag = "{}-{}{}{}".format(implementation_name, major, minor, abi_flags),
+        # On Windows, a build-time venv contains only a symlink to python.exe,
+        # which cannot load the interpreter DLLs (e.g. python3XX.dll) from the
+        # venv directory.  Resolving the interpreter at runtime instead also
+        # links those DLLs into the venv.
+        supports_build_time_venv = select({
+            "@bazel_tools//src/conditions:windows": False,
+            "//conditions:default": True,
+        }),
     )
 
     py_runtime_pair(

@@ -27,8 +27,7 @@ cc_library(
         ":dav1d_core",
         ":headers",
     ] + select({
-        "@platforms//cpu:arm64": [],
-        "@platforms//cpu:ppc": [],
+        "//conditions:default": [],
         "@platforms//cpu:x86_64": [":dav1d_asm_x86"],
     }),
 )
@@ -55,6 +54,7 @@ PPC_ASM_SRCS = glob(
 
 # TMPL_SRCS are compiled for BITDEPTH=8 and BITDEPTH=16
 TMPL_SRCS = glob(["src/*_tmpl.c"]) + select({
+    "//conditions:default": [],
     "@platforms//cpu:arm64": glob(
         ["src/arm/*_tmpl.c"],
         allow_empty = True,
@@ -76,7 +76,10 @@ DAV1D_SRCS = glob(
     "@platforms//os:windows": glob(["src/win32/*.c"]),
     "//conditions:default": [],
 }) + select({
-    "@platforms//cpu:arm64": ARM_ASM_SRCS,
+    "//conditions:default": [],
+    ":use_arm64_gcc": ARM_ASM_SRCS,
+}) + select({
+    "//conditions:default": [],
     "@platforms//cpu:ppc": PPC_ASM_SRCS,
     "@platforms//cpu:x86_64": glob(
         ["src/x86/*.c"],
@@ -85,6 +88,7 @@ DAV1D_SRCS = glob(
 })
 
 TEXTUAL_HDRS = select({
+    "//conditions:default": glob(["src/*.h"]),
     "@platforms//cpu:arm64": glob([
         "src/*.h",
         "src/arm/*.h",
@@ -130,6 +134,7 @@ GCC_CLANG_COPTS = [
 
 COPTS = select({
     ":compiler_msvc": MSVC_COPTS,
+    "@rules_cc//cc/compiler:clang-cl": MSVC_COPTS,
     "//conditions:default": GCC_CLANG_COPTS,
 }) + select({
     "@platforms//cpu:arm64": ["-DNEON_INTRINSICS"],
@@ -313,6 +318,11 @@ ARM64_CONFIG_H = [
     "",
 ]
 
+ARM64_NOASM_CONFIG_H = [
+    "#define HAVE_ASM 0" if line == "#define HAVE_ASM 1" else line
+    for line in ARM64_CONFIG_H
+]
+
 PPC_CONFIG_H = [
     "#define ARCH_AARCH64 0",
     "#define ARCH_ARM 0",
@@ -323,6 +333,18 @@ PPC_CONFIG_H = [
     "",
     "#define HAVE_ASM 1",
     "#define HAVE_AS_FUNC 0",
+    "",
+]
+
+GENERIC_CONFIG_H = [
+    "#define ARCH_AARCH64 0",
+    "#define ARCH_ARM 0",
+    "#define ARCH_X86 0",
+    "#define ARCH_X86_32 0",
+    "#define ARCH_X86_64 0",
+    "#define ARCH_PPC64LE 0",
+    "",
+    "#define HAVE_ASM 0",
     "",
 ]
 
@@ -355,8 +377,10 @@ CONFIG_END_H = [
 ]
 
 CONFIG_H = CONFIG_START_H + select({
+    "//conditions:default": GENERIC_CONFIG_H,
     "@platforms//cpu:x86_64": X86_64_CONFIG_H,
-    "@platforms//cpu:arm64": ARM64_CONFIG_H,
+    ":use_arm64_gcc": ARM64_CONFIG_H,
+    ":use_arm64_msvc": ARM64_NOASM_CONFIG_H,
     "@platforms//cpu:ppc": PPC_CONFIG_H,
 }) + select({
     "@platforms//os:macos": DARWIN_CONFIG_H,
@@ -373,4 +397,22 @@ write_file(
 alias(
     name = "compiler_msvc",
     actual = "@rules_cc//cc/compiler:msvc-cl",
+)
+
+# The arm64 assembly uses GNU assembler syntax, which the MSVC toolchain cannot
+# assemble, so MSVC arm64 builds use the C implementation.
+alias(
+    name = "use_arm64_gcc",
+    actual = select({
+        ":compiler_msvc": "@platforms//:incompatible",
+        "//conditions:default": "@platforms//cpu:arm64",
+    }),
+)
+
+alias(
+    name = "use_arm64_msvc",
+    actual = select({
+        ":compiler_msvc": "@platforms//cpu:arm64",
+        "//conditions:default": "@platforms//:incompatible",
+    }),
 )

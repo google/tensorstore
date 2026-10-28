@@ -344,10 +344,12 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         build_command += ['--copt=/D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR']
 
         # Disable newer exception handling from Visual Studio 2019, since it
-        # requires a newer C++ runtime than shipped with Python.
+        # requires a newer C++ runtime than shipped with Python.  This only
+        # affects C++ code, and is a cxxopt so that C libraries built with
+        # clang-cl (which ignores this flag) don't warn about it.
         #
         # https://cibuildwheel.readthedocs.io/en/stable/faq/#importerror-dll-load-failed-the-specific-module-could-not-be-found-error-on-windows
-        build_command += ['--copt=/d2FH4-']
+        build_command += ['--cxxopt=/d2FH4-']
       else:
         # Build with hidden visibility for more efficient code generation.
         # Note that this also hides most symbols, but ultimately has no effect

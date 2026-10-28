@@ -133,12 +133,13 @@ cc_library(
 
 cc_library(
     name = "win32",
-    srcs = [
-        "blosc/win32/pthread.c",
-    ],
     hdrs = [
         "blosc/win32/pthread.h",
         "blosc/win32/stdint-windows.h",
     ],
     target_compatible_with = ["@platforms//os:windows"],
+    # blosc.c includes pthread.c directly.
+    textual_hdrs = [
+        "blosc/win32/pthread.c",
+    ],
 )

@@ -70,33 +70,33 @@ _SRCS = glob([
     ":linux_arm64": glob(["source/arch/arm/auxv/*.c"]),
     "//conditions:default": [],
 }) + select({
-    ":use_x86_gcc_flags": glob(["source/arch/intel/asm/*.c"]),
     "//conditions:default": [],
+    ":use_x86_gcc": glob(["source/arch/intel/asm/*.c"]),
 }) + select({
-    ":use_x86_msvc_flags": glob(["source/arch/intel/msvc/*.c"]),
     "//conditions:default": [],
+    ":use_x86_msvc": glob(["source/arch/intel/msvc/*.c"]),
 }) + select({
+    "//conditions:default": [],
     ":have_avx2_intrinsics": ["source/arch/intel/encoding_avx2.c"],
-    "//conditions:default": [],
 })
 
 _COPTS = select({
-    ":use_x86_msvc_flags": ["/arch:AVX2"],
     "//conditions:default": [],
+    ":use_x86_msvc": ["/arch:AVX2"],
 }) + select({
-    ":use_x86_gcc_flags": [
+    "//conditions:default": [],
+    ":use_x86_gcc": [
         "-mavx",
         "-mpclmul",
         "-msse4.2",
         "-mavx2",
     ],
-    "//conditions:default": [],
 }) + select({
-    ":use_arm64_gcc_flags": [
+    "//conditions:default": [],
+    ":use_arm64_gcc": [
         "-march=armv8-a+crc+crypto",
         "-mtune=neoverse-v1",
     ],
-    "//conditions:default": [],
 })
 
 cc_library(
@@ -209,7 +209,7 @@ alias(
 
 # Constraint that indicates whether gcc-style flags should be used.
 alias(
-    name = "use_x86_gcc_flags",
+    name = "use_x86_gcc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
 
@@ -219,7 +219,7 @@ alias(
 )
 
 alias(
-    name = "use_arm64_gcc_flags",
+    name = "use_arm64_gcc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
 
@@ -229,11 +229,9 @@ alias(
 )
 
 alias(
-    name = "use_x86_msvc_flags",
+    name = "use_x86_msvc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//cpu:x86_64",
-
-        # Otherwise condition on x86_64.
         "//conditions:default": "@platforms//:incompatible",
     }),
 )
