@@ -392,6 +392,8 @@ class SmallBitSet {
   /// `N`-bit unsigned integer type used to represent the bit set.
   using Uint = typename internal::uint_type<N>::type;
 
+  static constexpr Uint kMask = ~Uint(0);
+
   /// Container value type.
   using value_type = bool;
 
@@ -409,7 +411,7 @@ class SmallBitSet {
   template <typename T,
             // Prevent narrowing conversions to `bool`.
             typename = std::enable_if_t<std::is_same_v<T, bool>>>
-  constexpr SmallBitSet(T value) : bits_(value * ~Uint(0)) {}
+  constexpr SmallBitSet(T value) : bits_(value ? kMask : Uint(0)) {}
 
   /// Constructs from an unsigned integer as a bit vector.
   ///
@@ -466,8 +468,7 @@ class SmallBitSet {
   static constexpr SmallBitSet FromBoolRange(Iterator begin, Iterator end) {
     SmallBitSet set;
     size_t i = 0;
-    while (begin != end) {
-      ABSL_HARDENING_ASSERT(i < N);
+    while (begin != end && i < N) {
       set.bits_ |= (*begin++ ? Uint(1) : Uint(0)) << i;
       i++;
     }
@@ -480,8 +481,9 @@ class SmallBitSet {
   /// \membergroup Constructors
   static constexpr SmallBitSet UpTo(size_t k) {
     ABSL_HARDENING_ASSERT(k <= N);
-    return k == 0 ? SmallBitSet()
-                  : SmallBitSet::FromUint(~Uint(0) << (N - k) >> (N - k));
+    if (k == 0) return SmallBitSet();
+    if (k == N) return SmallBitSet::FromUint(kMask);
+    return SmallBitSet::FromUint((static_cast<Uint>(1) << k) - 1);
   }
 
   /// Sets all bits to the specified value.
@@ -489,7 +491,7 @@ class SmallBitSet {
             // Prevent narrowing conversions to `bool`.
             typename = std::enable_if_t<std::is_same_v<T, bool>>>
   constexpr SmallBitSet& operator=(T value) {
-    bits_ = ~Uint(0) * value;
+    bits_ = value ? kMask : Uint(0);
     return *this;
   }
 
@@ -521,13 +523,13 @@ class SmallBitSet {
   constexpr bool any() const { return bits_ != 0; }
 
   /// Returns `true` if all bits are set.
-  constexpr bool all() const { return bits_ == ~Uint(0); }
+  constexpr bool all() const { return bits_ == kMask; }
 
   /// Returns `true` if any bit is set.
   explicit operator bool() const { return any(); }
 
   constexpr SmallBitSet& set() noexcept {
-    bits_ = ~Uint(0);
+    bits_ = kMask;
     return *this;
   }
 
@@ -537,7 +539,7 @@ class SmallBitSet {
   }
 
   constexpr SmallBitSet& flip() noexcept {
-    bits_ = ~bits_;
+    bits_ ^= kMask;
     return *this;
   }
 
