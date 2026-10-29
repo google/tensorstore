@@ -17,6 +17,9 @@ jobs:
             # Revert to windows-latest after: https://github.com/actions/runner-images/issues/7662
             cibw_build: "*"
             wheel_identifier: windows
+          - os: "windows-11-arm"
+            cibw_build: "*"
+            wheel_identifier: windows_arm64
           - os: "macos-latest"
             cibw_build: "*_x86_64"
             wheel_identifier: macos_x86_64
@@ -45,13 +48,13 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
       - uses: actions/cache@v5
+          key: pip-${{ runner.os }}-${{ runner.arch }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
         with:
           path: |
             ~/.cache/cibuildwheel_bazel_cache/cache/repos
             ~/.cache/bazelisk
-          key: bazel-${{ runner.os }}-buildwheel-${{ hashFiles('.bazelversion', 'WORKSPACE', 'external.bzl', 'third_party/**') }}
+          key: bazel-${{ runner.os }}-${{ runner.arch }}-buildwheel-${{ hashFiles('.bazelversion', 'WORKSPACE', 'external.bzl', 'third_party/**') }}
       - name: Install cibuildwheel
         run: pip install -r third_party/pypa/cibuildwheel_requirements_frozen.txt
       - name: Build Python source distribution (sdist)
