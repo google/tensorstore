@@ -2,6 +2,9 @@ name: Build
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   python-build-package:
     strategy:
@@ -17,6 +20,9 @@ jobs:
             # Revert to windows-latest after: https://github.com/actions/runner-images/issues/7662
             cibw_build: "*"
             wheel_identifier: windows
+          - os: "windows-11-arm"
+            cibw_build: "*"
+            wheel_identifier: windows_arm64
           - os: "macos-latest"
             cibw_build: "*_x86_64"
             wheel_identifier: macos_x86_64
@@ -25,11 +31,11 @@ jobs:
             wheel_identifier: macos_arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
         with:
           # Need full history to determine version number.
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: "3.12"
       - name: "Configure bazel remote cache write credentials"
@@ -42,16 +48,16 @@ jobs:
         shell: bash
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v5
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
-      - uses: actions/cache@v5
+          key: pip-${{ runner.os }}-${{ runner.arch }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
         with:
           path: |
             ~/.cache/cibuildwheel_bazel_cache/cache/repos
             ~/.cache/bazelisk
-          key: bazel-${{ runner.os }}-buildwheel-${{ hashFiles('.bazelversion', 'WORKSPACE', 'external.bzl', 'third_party/**') }}
+          key: bazel-${{ runner.os }}-${{ runner.arch }}-buildwheel-${{ hashFiles('.bazelversion', 'WORKSPACE', 'external.bzl', 'third_party/**') }}
       - name: Install cibuildwheel
         run: pip install -r third_party/pypa/cibuildwheel_requirements_frozen.txt
       - name: Build Python source distribution (sdist)
@@ -63,7 +69,7 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.cibw_build }}
       - name: Upload wheels as artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: python-wheels-${{ matrix.wheel_identifier }}
           path: |
@@ -77,7 +83,7 @@ jobs:
     needs:
       - "python-build-package"
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
         with:
           pattern: python-wheels-*
           path: dist

@@ -146,6 +146,20 @@ The build is affected by the following environment variables:
    not be earlier than ``10.14``.  If not specified, defaults to the same macOS
    version required by the Python binary itself, or ``10.14`` if later.
 
+.. envvar:: TENSORSTORE_WINDOWS_ARM64_CLANG_CL
+
+   Windows ARM64 only.  Controls whether the build uses clang-cl instead of
+   MSVC.  clang-cl is ABI-compatible with MSVC, and is required for the ARM64
+   assembly and SIMD optimizations in some third-party libraries, such as zlib
+   and dav1d.  If unset or ``auto``, clang-cl is used when found, either from
+   :envvar:`BAZEL_LLVM` or the Visual Studio "C++ Clang Compiler for Windows"
+   component.  ``1`` requires clang-cl and ``0`` disables its use.
+
+.. envvar:: BAZEL_LLVM
+
+   Path to the LLVM installation directory (containing ``bin\clang-cl.exe``)
+   used by :envvar:`TENSORSTORE_WINDOWS_ARM64_CLANG_CL`.
+
 .. envvar:: TENSORSTORE_PREBUILT_DIR
 
    If specified, building is skipped, and instead ``setup.py`` expects to find
@@ -322,6 +336,12 @@ Running tests
 
    python3 bazelisk.py test //...
 
+.. note::
+
+   On Windows ARM64, to build and test with clang-cl as
+   :envvar:`TENSORSTORE_WINDOWS_ARM64_CLANG_CL` does, specify
+   ``--config=windows_arm64_clang_cl --repo_env=BAZEL_LLVM=<path to LLVM>``.
+
 
 .. _build-requirements:
 
@@ -334,6 +354,10 @@ following C++ compilers:
 - GCC 12 or later (Linux)
 - Clang 16 or later (Linux)
 - Microsoft Visual Studio 2022 version 17.8 (MSVC 14.38) or later
+  (Windows x86_64 and ARM64; on ARM64, install the MSVC ARM64 build tools
+  and use a native ARM64 Python.  The "C++ Clang Compiler for Windows"
+  component is also recommended; see
+  :envvar:`TENSORSTORE_WINDOWS_ARM64_CLANG_CL`.)
 - Mingw64 GCC 13 or later (Windows); CMake only, Bazel is not supported, and
   ``lld`` is recommended over ``ld`` for speed.
 - Apple Xcode 15.0 or later

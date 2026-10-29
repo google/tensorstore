@@ -197,3 +197,31 @@ build:windows_x86_64_mingw --host_copt=-D_NO_W32_PSEUDO_MODIFIERS
 build:windows_x86_64_mingw --per_file_copt=grpc/src/core/.*\\.cc$@-O2
 build:windows_x86_64_mingw --host_per_file_copt=grpc/src/core/.*\\.cc$@-O2
 
+# ------------------------------
+# clang-cl settings
+# ------------------------------
+
+# Builds with clang-cl instead of MSVC on Windows arm64.  clang-cl is
+# ABI-compatible with MSVC, and unlike MSVC can compile the GNU-syntax arm64
+# assembly and SIMD code in some third-party libraries.  Requires LLVM, e.g.
+# the Visual Studio "C++ Clang Compiler for Windows" component, specified via
+# `--repo_env=BAZEL_LLVM=<path to LLVM>`.
+#
+# https://bazel.build/configure/windows#clang
+build:windows_arm64_clang_cl --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows-clang-cl
+build:windows_arm64_clang_cl --extra_execution_platforms=//tools/bazel_platforms:windows_arm64_clang_cl
+
+# clang-cl defaults to delayed template parsing for MSVC compatibility, which
+# breaks name lookup of local classes in some templates.
+build:windows_arm64_clang_cl --cxxopt=/Zc:twoPhase
+build:windows_arm64_clang_cl --host_cxxopt=/Zc:twoPhase
+
+# Silence warnings for MSVC-only options (e.g. /Zc:hiddenFriend) that clang-cl
+# ignores, GCC-only warning options, and absl nullability annotations.
+build:windows_arm64_clang_cl --copt=-Wno-unused-command-line-argument
+build:windows_arm64_clang_cl --host_copt=-Wno-unused-command-line-argument
+build:windows_arm64_clang_cl --copt=-Wno-unknown-warning-option
+build:windows_arm64_clang_cl --host_copt=-Wno-unknown-warning-option
+build:windows_arm64_clang_cl --copt=-Wno-nullability-completeness
+build:windows_arm64_clang_cl --host_copt=-Wno-nullability-completeness
+

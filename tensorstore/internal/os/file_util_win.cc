@@ -385,7 +385,7 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
     return static_cast<size_t>(num_written);
   }
   auto status = StatusFromOsError(::GetLastError())
-                    .Format("Failed to write %d bytes to file %v", count, fd);
+                    .Format("Failed to write %d bytes to file %p", count, fd);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
