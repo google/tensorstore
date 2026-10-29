@@ -36,6 +36,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -83,6 +84,7 @@ struct CurlRequestState {
   HttpResponseHandler* response_handler_ = nullptr;
   size_t response_payload_size_ = 0;
   bool status_set = false;
+  bool header_block_done = false;
   char error_buffer_[CURL_ERROR_SIZE];
 
   CurlRequestState(std::shared_ptr<CurlHandleFactory> factory)
@@ -93,8 +95,9 @@ struct CurlRequestState {
     // NOTE: When there are no ca certs, we may want to set:
     // CURLOPT_SSL_VERIFYPEER CURLOPT_SSL_VERIFYHOST
 
-    // Use a 512k buffer.
+    // Use a 512k buffer for both downloads and uploads.
     handle_.SetOption(CURLOPT_BUFFERSIZE, 512 * 1024);
+    handle_.SetOption(CURLOPT_UPLOAD_BUFFERSIZE, 512 * 1024);
     handle_.SetOption(CURLOPT_TCP_NODELAY, 1L);
 
     handle_.SetOption(CURLOPT_WRITEDATA, this);
@@ -124,16 +127,36 @@ struct CurlRequestState {
   void Prepare(const HttpRequest& request, IssueRequestOptions options) {
     handle_.SetOption(CURLOPT_URL, request.url.c_str());
 
-    std::string user_agent = request.user_agent + GetCurlUserAgentSuffix();
-    handle_.SetOption(CURLOPT_USERAGENT, user_agent.c_str());
+    if (request.user_agent.empty()) {
+      handle_.SetOption(CURLOPT_USERAGENT, GetCurlUserAgentSuffix().c_str());
+    } else {
+      std::string user_agent =
+          absl::StrCat(request.user_agent, GetCurlUserAgentSuffix());
+      handle_.SetOption(CURLOPT_USERAGENT, user_agent.c_str());
+    }
 
-    // Convert headers to a curl slist
+    payload_ = std::move(options.payload);
+    payload_remaining_ = payload_.size();
+
+    // Convert headers to a curl slist.
     curl_slist* head = nullptr;
     size_t header_bytes_ = 0;
+    bool has_expect_header = false;
     for (const auto& [k, v] : request.headers) {
+      if (absl::EqualsIgnoreCase(k, "expect")) {
+        has_expect_header = true;
+      }
       std::string h = absl::StrCat(k, ": ", v);
       head = curl_slist_append(head, h.c_str());
       header_bytes_ += h.size();
+    }
+    // Suppress libcurl's automatic "Expect: 100-continue" on HTTP/1.1 PUT and
+    // large POST transfers unless the caller explicitly provided an Expect
+    // header, avoiding an extra round-trip or 1000ms expect_100_timeout stall.
+    if (!has_expect_header &&
+        (payload_remaining_ > 0 || request.method == "PUT" ||
+         request.method == "POST" || request.method == "PATCH")) {
+      head = curl_slist_append(head, "Expect:");
     }
     headers_.reset(head);
     handle_.SetOption(CURLOPT_HTTPHEADER, headers_.get());
@@ -150,8 +173,6 @@ struct CurlRequestState {
       handle_.SetOption(CURLOPT_CONNECTTIMEOUT_MS, ms > 0 ? ms : 1);
     }
 
-    payload_ = std::move(options.payload);
-    payload_remaining_ = payload_.size();
     if (payload_remaining_ > 0) {
       payload_it_ = payload_.char_begin();
 
@@ -187,7 +208,7 @@ struct CurlRequestState {
       handle_.SetOption(CURLOPT_UPLOAD, 1L);
       handle_.SetOption(CURLOPT_CUSTOMREQUEST, "PATCH");
 
-      handle_.SetOption(CURLOPT_POSTFIELDSIZE_LARGE, payload_remaining_);
+      handle_.SetOption(CURLOPT_INFILESIZE_LARGE, payload_remaining_);
     } else {
       // Such as "DELETE"
       handle_.SetOption(CURLOPT_CUSTOMREQUEST, request.method.c_str());
@@ -234,18 +255,28 @@ struct CurlRequestState {
     return true;
   }
 
+  void MaybeNotifyHeaderBlockDone() {
+    if (!header_block_done) {
+      header_block_done = true;
+      response_handler_->OnHeaderBlockDone();
+    }
+  }
+
   static size_t CurlHeaderCallback(void* contents, size_t size, size_t nmemb,
                                    void* userdata) {
     auto* self = static_cast<CurlRequestState*>(userdata);
     auto data =
         std::string_view(static_cast<char const*>(contents), size * nmemb);
     if (self->MaybeSetStatusAndProcess()) {
-      auto* h = self->response_handler_;
-      ParseAndSetHeaders(
-          data, [h](std::string_view field_name, std::string_view field_value) {
-            h->OnResponseHeader(field_name, field_value);
-          });
-      h->OnHeaderBlockDone();
+      if (data == "\r\n") {
+        self->MaybeNotifyHeaderBlockDone();
+      } else {
+        auto* h = self->response_handler_;
+        ParseAndSetHeaders(data, [h](std::string_view field_name,
+                                     std::string_view field_value) {
+          h->OnResponseHeader(field_name, field_value);
+        });
+      }
     }
     return data.size();
   }
@@ -256,6 +287,7 @@ struct CurlRequestState {
     auto data =
         std::string_view(static_cast<char const*>(contents), size * nmemb);
     if (self->MaybeSetStatusAndProcess()) {
+      self->MaybeNotifyHeaderBlockDone();
       self->response_payload_size_ += data.size();
       self->response_handler_->OnResponseBody(data);
     }
@@ -373,7 +405,7 @@ bool MultiTransportImpl::IsCurlThread() const {
 void MultiTransportImpl::EnqueueRequest(const HttpRequest& request,
                                         IssueRequestOptions options,
                                         HttpResponseHandler* response_handler) {
-  if (done_.load()) {
+  if (done_.load(std::memory_order_relaxed)) {
     response_handler->OnFailure(
         absl::InternalError("MultiTransportImpl is shutting down"));
     return;
@@ -383,20 +415,31 @@ void MultiTransportImpl::EnqueueRequest(const HttpRequest& request,
   state->response_handler_ = response_handler;
   state->Prepare(request, std::move(options));
 
-  // Select the thread with the fewest active connections, and then enqueue
-  // the request on that thread.
+  // Select the thread with the fewest active transfers, preferring lower
+  // thread indices on ties so sequential requests reuse the same CURLM
+  // connection pool while concurrent bursts spread across threads.
   size_t selected_index = 0;
-  for (size_t i = 1; i < threads_.size(); ++i) {
-    if (thread_data_[i].count < thread_data_[selected_index].count) {
+  int64_t min_count = thread_data_[0].count.load(std::memory_order_relaxed);
+  for (size_t i = 1; i < threads_.size() && min_count > 0; ++i) {
+    const int64_t c = thread_data_[i].count.load(std::memory_order_relaxed);
+    if (c < min_count) {
+      min_count = c;
       selected_index = i;
     }
   }
 
   auto& selected = thread_data_[selected_index];
-  absl::MutexLock l(selected.mutex);
-  selected.pending.push_back(std::move(state));
-  selected.count++;
-  curl_multi_wakeup(selected.multi.get());
+  selected.count.fetch_add(1, std::memory_order_relaxed);
+  GetHttpMetrics().active.Increment();
+  bool need_wakeup = false;
+  {
+    absl::MutexLock l(selected.mutex);
+    need_wakeup = selected.pending.empty();
+    selected.pending.push_back(std::move(state));
+  }
+  if (need_wakeup) {
+    curl_multi_wakeup(selected.multi.get());
+  }
 }
 
 void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
@@ -412,6 +455,7 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
   // NOTE: Consider recording curl getinfo options:
   // https://curl.se/libcurl/c/easy_getinfo_options.html
   auto& metrics = GetHttpMetrics();
+  metrics.active.Decrement();
   metrics.request_completed.Increment();
   metrics.response_bytes.Observe(state->response_payload_size_);
 
@@ -438,6 +482,7 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
 
   metrics.response_codes.Increment(state->handle_.GetResponseCode());
   assert(state->status_set);
+  state->MaybeNotifyHeaderBlockDone();
   state->response_handler_->OnComplete();
 }
 
@@ -447,7 +492,7 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
     // Add any pending transfers.
     MaybeAddPendingTransfers(thread_data);
 
-    if (thread_data.count == 0) {
+    if (thread_data.count.load(std::memory_order_relaxed) == 0) {
       // There are no active requests; wait for active requests or shutdown.
       absl::MutexLock l(thread_data.mutex);
       if (thread_data.done) break;
@@ -480,7 +525,6 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
       CURLMcode mcode;
       do {
         mcode = curl_multi_perform(thread_data.multi.get(), &running_handles);
-        metrics.active.Set(running_handles);
       } while (mcode == CURLM_CALL_MULTI_PERFORM);
 
       if (mcode != CURLM_OK) {
@@ -514,7 +558,8 @@ void MultiTransportImpl::MaybeAddPendingTransfers(ThreadData& thread_data) {
       state.release();
     } else {
       // This shouldn't happen unless things have really gone pear-shaped.
-      thread_data.count--;
+      thread_data.count.fetch_sub(1, std::memory_order_relaxed);
+      GetHttpMetrics().active.Decrement();
       state->handle_.SetOption(CURLOPT_PRIVATE, nullptr);
       state->response_handler_->OnFailure(
           CurlMCodeToStatus(mcode, "in curl_multi_add_handle"));
@@ -534,7 +579,7 @@ void MultiTransportImpl::RemoveCompletedTransfers(ThreadData& thread_data) {
       CURLcode result = m->data.result;
       CURL* e = m->easy_handle;
       curl_multi_remove_handle(thread_data.multi.get(), e);
-      thread_data.count--;
+      thread_data.count.fetch_sub(1, std::memory_order_relaxed);
       CurlRequestState* pvt = nullptr;
       curl_easy_getinfo(e, CURLINFO_PRIVATE, &pvt);
       assert(pvt);

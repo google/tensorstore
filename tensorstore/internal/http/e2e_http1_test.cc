@@ -778,6 +778,85 @@ TEST_P(Http1TransportTest, UntilCloseBodyCleanFinSucceeds) {
               HasStatusAndPayload(200, "complete-until-close-body"));
 }
 
+// Verifies OnHeaderBlockDone() is invoked once after all headers (and before
+// OnResponseBody), rather than on every header line (which toggles
+// CordWriter::SetWriteSizeHint and wipes out Content-Length size hints).
+TEST_P(Http1TransportTest, OnHeaderBlockDoneCalledOnceAfterAllHeaders) {
+  Http1LoopbackServer server({},
+                             [](const Http1Request&, Http1Actions& actions) {
+                               actions.Send(
+                                   "HTTP/1.1 200 OK\r\n"
+                                   "Content-Length: 5\r\n"
+                                   "X-Header-1: a\r\n"
+                                   "X-Header-2: b\r\n"
+                                   "\r\n"
+                                   "hello");
+                             });
+  auto transport = CreateTransport();
+
+  struct RecordingHandler : public HttpResponseHandler {
+    Promise<void> promise;
+    int header_count = 0;
+    int header_block_done_count = 0;
+    int headers_at_block_done = -1;
+    bool block_done_before_body = false;
+    std::string body;
+
+    void OnStatus(int32_t) override {}
+    void OnResponseHeader(std::string_view, std::string_view) override {
+      ++header_count;
+    }
+    void OnHeaderBlockDone() override {
+      ++header_block_done_count;
+      headers_at_block_done = header_count;
+    }
+    void OnResponseBody(std::string_view data) override {
+      if (body.empty()) {
+        block_done_before_body = (header_block_done_count == 1);
+      }
+      absl::StrAppend(&body, data);
+    }
+    void OnComplete() override { promise.SetResult(absl::OkStatus()); }
+    void OnFailure(absl::Status status) override {
+      promise.SetResult(std::move(status));
+    }
+  };
+
+  auto [promise, future] = PromiseFuturePair<void>::Make();
+  RecordingHandler handler;
+  handler.promise = std::move(promise);
+  transport->IssueRequestWithHandler(server.Request("GET", "/headers"),
+                                     Http1Options(request_timeout()), &handler);
+  TENSORSTORE_ASSERT_OK(future.result());
+  EXPECT_EQ(handler.header_count, 3);
+  EXPECT_EQ(handler.header_block_done_count, 1);
+  EXPECT_EQ(handler.headers_at_block_done, 3);
+  EXPECT_TRUE(handler.block_done_before_body);
+  EXPECT_EQ(handler.body, "hello");
+}
+
+// Verifies PUT uploads without an explicit Expect header do not inject
+// "Expect: 100-continue" on the wire.
+TEST_P(Http1TransportTest, PutWithoutExplicitExpectOmits100ContinueHeader) {
+  std::optional<std::string> seen_expect;
+  Http1LoopbackServer server(
+      {}, [&seen_expect](const Http1Request& request, Http1Actions& actions) {
+        if (auto h = request.Header("expect")) {
+          seen_expect = std::string(*h);
+        }
+        Echo(request, actions);
+      });
+  auto transport = CreateTransport();
+
+  EXPECT_THAT(
+      transport
+          ->IssueRequest(server.Request("PUT", "/upload"),
+                         Http1Options(absl::Cord("payload"), request_timeout()))
+          .result(),
+      HasStatusAndPayload(200, "PUT /upload body=payload"));
+  EXPECT_EQ(seen_expect, std::nullopt);
+}
+
 }  // namespace
 }  // namespace internal_http
 }  // namespace tensorstore
