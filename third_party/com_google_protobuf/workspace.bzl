@@ -35,6 +35,8 @@ def repo():
             Label("//third_party:com_google_protobuf/patches/build_defs_mingw.diff"),
             # protobuf uses rules_java, but we don't want to import it.
             Label("//third_party:com_google_protobuf/patches/no_rules_java.diff"),
+            # Fix crash compiling upb arm64 assembly with clang-cl.
+            Label("//third_party:com_google_protobuf/patches/upb_clang_cl_arm64_seh.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {

@@ -35,6 +35,13 @@ cc_library(
     ]),
     includes = ["include"],
     linkopts = select({
+        "@rules_cc//cc/compiler:clang-cl": [
+            "-DEFAULTLIB:ncrypt.lib",
+            "-DEFAULTLIB:ws2_32.lib",
+            "-DEFAULTLIB:secur32.lib",
+            "-DEFAULTLIB:crypt32.lib",
+            "-DEFAULTLIB:kernel32.lib",
+        ],
         "@rules_cc//cc/compiler:msvc-cl": [
             "-DEFAULTLIB:ncrypt.lib",
             "-DEFAULTLIB:ws2_32.lib",

@@ -10,6 +10,9 @@ _LINKOPTS = select({
         "-DEFAULTLIB:kernel32.lib",
         "-lkernel32",
     ],
+    "@rules_cc//cc/compiler:clang-cl": [
+        "-DEFAULTLIB:kernel32.lib",
+    ],
     "@rules_cc//cc/compiler:msvc-cl": [
         "-DEFAULTLIB:kernel32.lib",
     ],
