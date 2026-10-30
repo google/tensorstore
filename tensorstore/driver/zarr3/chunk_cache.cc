@@ -104,12 +104,18 @@ internal::ChunkGridSpecification CreateFieldGridSpecification(
                                  field.dtype);
     }
 
-    std::vector<Index> target_shape(chunked_rank, kInfIndex);
-    target_shape.insert(target_shape.end(), field.field_shape.begin(),
-                        field.field_shape.end());
+    // Unbounded in both directions: chunk grid indices may be negative.
+    Box<> fill_value_domain(total_rank);
+    for (DimensionIndex i = 0; i < chunked_rank; ++i) {
+      fill_value_domain[i] = IndexInterval::Infinite();
+    }
+    for (size_t i = 0; i < field_rank; ++i) {
+      fill_value_domain[chunked_rank + i] =
+          IndexInterval::UncheckedSized(0, field.field_shape[i]);
+    }
 
     auto chunk_fill_value =
-        BroadcastArray(fill_value, BoxView<>(target_shape)).value();
+        BroadcastArray(fill_value, BoxView<>(fill_value_domain)).value();
 
     std::vector<Index> component_chunk_shape(chunk_shape.begin(),
                                              chunk_shape.end());

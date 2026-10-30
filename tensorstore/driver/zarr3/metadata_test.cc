@@ -14,22 +14,22 @@
 
 #include "tensorstore/driver/zarr3/metadata.h"
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <cmath>
 #include <memory>
+#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "absl/base/casts.h"
 #include "absl/status/status.h"
-#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/chunk_layout.h"
@@ -149,6 +149,60 @@ TEST(MetadataTest, ParseValidNoDimensionNames) {
   EXPECT_THAT(metadata.dimension_names,
               ::testing::ElementsAre(std::nullopt, std::nullopt, std::nullopt));
   EXPECT_THAT(metadata.user_attributes, MatchesJson({{"a", "b"}, {"c", "d"}}));
+}
+
+TEST(MetadataTest, RegularBoundedChunkGrid) {
+  auto json = GetBasicMetadata();
+  json["chunk_grid"] = {{"name", "regular_bounded"},
+                        {"configuration",
+                         {{"chunk_shape", {1, 2, 3}},
+                          {"origin", {0, -1, 5}},
+                          {"lower_bound", {-3, 0, 2}}}}};
+  tensorstore::TestJsonBinderRoundTripJsonOnly<ZarrMetadata>({json});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
+  EXPECT_TRUE(metadata.chunk_grid_bounded);
+  EXPECT_THAT(metadata.chunk_shape, ::testing::ElementsAre(1, 2, 3));
+  EXPECT_THAT(metadata.chunk_grid_origin, ::testing::ElementsAre(0, -1, 5));
+  EXPECT_THAT(metadata.lower_bound, ::testing::ElementsAre(-3, 0, 2));
+}
+
+TEST(MetadataTest, RegularChunkGridRejectsBoundedMembers) {
+  auto json = GetBasicMetadata();
+  json["chunk_grid"]["configuration"]["origin"] = {0, 0, 0};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("regular_bounded")));
+}
+
+TEST(MetadataTest, RegularBoundedChunkGridRequiresBothMembers) {
+  auto json = GetBasicMetadata();
+  json["chunk_grid"] = {
+      {"name", "regular_bounded"},
+      {"configuration", {{"chunk_shape", {1, 2, 3}}, {"origin", {0, 0, 0}}}}};
+  EXPECT_THAT(
+      ZarrMetadata::FromJson(json),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("lower_bound")));
+  json["chunk_grid"]["configuration"]["lower_bound"] = {0, 0};
+  EXPECT_THAT(
+      ZarrMetadata::FromJson(json),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("lower_bound")));
+}
+
+TEST(MetadataTest, CompatibilityKeyIgnoresTheLowerBound) {
+  auto json = GetBasicMetadata();
+  json["chunk_grid"] = {{"name", "regular_bounded"},
+                        {"configuration",
+                         {{"chunk_shape", {1, 2, 3}},
+                          {"origin", {0, 0, 0}},
+                          {"lower_bound", {0, 0, 0}}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto a, ZarrMetadata::FromJson(json));
+  json["shape"] = {14, 11, 12};
+  json["chunk_grid"]["configuration"]["lower_bound"] = {-4, 0, 0};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto b, ZarrMetadata::FromJson(json));
+  EXPECT_EQ(a.GetCompatibilityKey(), b.GetCompatibilityKey());
+  json["chunk_grid"]["configuration"]["origin"] = {1, 0, 0};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto c, ZarrMetadata::FromJson(json));
+  EXPECT_NE(a.GetCompatibilityKey(), c.GetCompatibilityKey());
 }
 
 TEST(MetadataTest, UnknownExtensionAttribute) {
