@@ -628,6 +628,32 @@ async def test_zero_copy(writable: bool) -> None:
   np.testing.assert_equal(43, await store.read())
 
 
+@pytest.mark.parametrize("reference", [True, False])
+@pytest.mark.parametrize("dtype", [ts.bfloat16, ts.float32])
+def test_zero_copy_sharded_round_trip(
+    tmp_path: pathlib.Path, reference: bool, dtype: ts.dtype
+) -> None:
+  source = np.full((5, 64, 64, 64), 0.125, dtype=dtype.numpy_dtype)
+  spec = {
+      "driver": "zarr3",
+      "kvstore": {"driver": "file", "path": str(tmp_path) + "/"},
+      "metadata": {
+          "shape": list(source.shape),
+          "data_type": dtype.name,
+          "chunk_grid": {
+              "name": "regular",
+              "configuration": {"chunk_shape": list(source.shape)},
+          },
+      },
+  }
+  writer = ts.open(spec, create=True, open=True).result()
+  writer.write(
+      source, can_reference_source_data_indefinitely=reference
+  ).commit.result()
+  reader = ts.open(spec, open=True, context=ts.Context()).result()
+  np.testing.assert_array_equal(reader.read().result(), source)
+
+
 def test_issue_168() -> None:
   t = ts.array(np.zeros((0,)))
   assert t.spec().to_json(include_defaults=False) == {
