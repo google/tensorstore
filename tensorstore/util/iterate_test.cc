@@ -518,8 +518,8 @@ TEST(IterateOverStridedLayoutsTest, InnerRank0NonContiguousFortranStop) {
     result.emplace_back(a, b);
     return a != 3;
   };
-  IterateOverStridedLayouts(shape, {{strides0, strides1}}, func,
-                            ContiguousLayoutOrder::fortran, 0, 0);
+  EXPECT_FALSE(IterateOverStridedLayouts(shape, {{strides0, strides1}}, func,
+                                         ContiguousLayoutOrder::fortran, 0, 0));
   std::vector<R> expected_result{R{0, 0}, R{3, 12}};
   EXPECT_EQ(expected_result, result);
 }
