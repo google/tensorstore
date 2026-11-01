@@ -36,6 +36,12 @@ TensorStore
    driver/index
    kvstore/index
 
+.. toctree::
+   :hidden:
+   :caption: Advanced Features
+
+   open_as_void
+
 TensorStore is a library for efficiently reading and writing large multi-dimensional arrays.
 
 Highlights
