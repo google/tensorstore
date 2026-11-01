@@ -165,6 +165,7 @@ tensorstore_cc_test(
         ":zarr3",
         "//tensorstore",
         "//tensorstore:array",
+        "//tensorstore:array_storage_statistics",
         "//tensorstore:array_testutil",
         "//tensorstore:batch",
         "//tensorstore:box",

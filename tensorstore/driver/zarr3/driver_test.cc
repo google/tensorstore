@@ -14,12 +14,15 @@
 
 /// End-to-end tests of the zarr3 driver.
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -27,15 +30,13 @@
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/box.h"
@@ -1276,6 +1277,184 @@ TEST(ChunkKeyEncodingTest, V2Rank2Slash) {
           {{"name", "v2"}, {"configuration", {{"separator", "/"}}}},
           Schema::Shape{{5, 6}}, ChunkLayout::ChunkShape({3, 3})),
       ::testing::Optional(::testing::ElementsAre("0/0", "0/1", "1/0", "1/1")));
+}
+
+::nlohmann::json RegularBoundedSpec(Index shape, Index origin,
+                                    Index lower_bound) {
+  return {
+      {"driver", "zarr3"},
+      {"kvstore", "memory://"},
+      {"metadata",
+       {{"shape", {shape}},
+        {"data_type", "uint8"},
+        {"chunk_grid",
+         {{"name", "regular_bounded"},
+          {"configuration",
+           {{"chunk_shape", {3}},
+            {"origin", {origin}},
+            {"lower_bound", {lower_bound}}}}}}}},
+  };
+}
+
+std::vector<std::string> ChunkKeys(const tensorstore::KvStore& kvs) {
+  std::vector<std::string> keys;
+  auto entries = tensorstore::kvstore::ListFuture(kvs).value();
+  for (const auto& e : entries) {
+    if (e.key != "zarr.json") keys.push_back(e.key);
+  }
+  std::sort(keys.begin(), keys.end());
+  return keys;
+}
+
+TEST(RegularBoundedChunkGridTest, DomainStartsAtTheLowerBound) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(RegularBoundedSpec(/*shape=*/9, /*origin=*/1,
+                                           /*lower_bound=*/-4),
+                        context, tensorstore::OpenMode::create)
+          .result());
+  EXPECT_EQ(store.domain().box(), tensorstore::BoxView<1>({-4}, {9}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
+  EXPECT_THAT(layout.grid_origin(), ::testing::ElementsAre(1));
+  auto data =
+      tensorstore::MakeOffsetArray<uint8_t>({-4}, {1, 2, 3, 4, 5, 6, 7, 8, 9});
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(data, store));
+  EXPECT_THAT(tensorstore::Read(store).result(), ::testing::Optional(data));
+  // Chunk -2 is [-5, -2): the first element sits one place into it.
+  EXPECT_THAT(ChunkKeys(store.kvstore()),
+              ::testing::ElementsAre("c/-1", "c/-2", "c/0", "c/1"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto reopened,
+      tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
+                        context, tensorstore::OpenMode::open)
+          .result());
+  EXPECT_THAT(tensorstore::Read(reopened).result(), ::testing::Optional(data));
+}
+
+TEST(RegularBoundedChunkGridTest, GrowsInFrontByEditingZarrJsonAlone) {
+  auto context = Context::Default();
+  ::nlohmann::json spec{{"driver", "zarr3"}, {"kvstore", "memory://"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(spec, context, dtype_v<uint8_t>, Schema::Shape({6}),
+                        ChunkLayout::ChunkShape({3}),
+                        tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<uint8_t>({10, 11, 12, 13, 14, 15}), store));
+  auto kvs = store.kvstore();
+  EXPECT_THAT(ChunkKeys(kvs), ::testing::ElementsAre("c/0", "c/1"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result, tensorstore::kvstore::Read(kvs, "zarr.json").result());
+  auto metadata = ::nlohmann::json::parse(std::string(read_result.value));
+
+  // Two elements in front: less than a chunk.
+  metadata["shape"] = {8};
+  metadata["chunk_grid"] = {
+      {"name", "regular_bounded"},
+      {"configuration",
+       {{"chunk_shape", {3}}, {"origin", {0}}, {"lower_bound", {-2}}}}};
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::kvstore::Write(kvs, "zarr.json", absl::Cord(metadata.dump()))
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto grown,
+      tensorstore::Open(spec, context, tensorstore::OpenMode::open).result());
+  EXPECT_EQ(grown.domain().box(), tensorstore::BoxView<1>({-2}, {8}));
+  EXPECT_THAT(tensorstore::Read(grown).result(),
+              ::testing::Optional(tensorstore::MakeOffsetArray<uint8_t>(
+                  {-2}, {0, 0, 10, 11, 12, 13, 14, 15})));
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeOffsetArray<uint8_t>({-2}, {1, 2}),
+                         grown | tensorstore::Dims(0).HalfOpenInterval(-2, 0)));
+  EXPECT_THAT(tensorstore::Read(grown).result(),
+              ::testing::Optional(tensorstore::MakeOffsetArray<uint8_t>(
+                  {-2}, {1, 2, 10, 11, 12, 13, 14, 15})));
+  EXPECT_THAT(ChunkKeys(kvs), ::testing::ElementsAre("c/-1", "c/0", "c/1"));
+}
+
+TEST(RegularBoundedChunkGridTest, ResizeMovesTheLowerBound) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(RegularBoundedSpec(/*shape=*/6, /*origin=*/0,
+                                           /*lower_bound=*/0),
+                        context, tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<uint8_t>({10, 11, 12, 13, 14, 15}), store));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto grown,
+      tensorstore::Resize(store, {{-4}}, {{tensorstore::kImplicit}}).result());
+  EXPECT_EQ(grown.domain().box(), tensorstore::BoxView<1>({-4}, {10}));
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeOffsetArray<uint8_t>({-4}, {1, 2, 3, 4}),
+      grown | tensorstore::Dims(0).HalfOpenInterval(-4, 0)));
+  EXPECT_THAT(tensorstore::Read(grown).result(),
+              ::testing::Optional(tensorstore::MakeOffsetArray<uint8_t>(
+                  {-4}, {1, 2, 3, 4, 10, 11, 12, 13, 14, 15})));
+  EXPECT_THAT(ChunkKeys(store.kvstore()),
+              ::testing::ElementsAre("c/-1", "c/-2", "c/0", "c/1"));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto shrunk,
+      tensorstore::Resize(grown, {{1}}, {{tensorstore::kImplicit}}).result());
+  EXPECT_EQ(shrunk.domain().box(), tensorstore::BoxView<1>({1}, {5}));
+  EXPECT_THAT(tensorstore::Read(shrunk).result(),
+              ::testing::Optional(tensorstore::MakeOffsetArray<uint8_t>(
+                  {1}, {11, 12, 13, 14, 15})));
+  EXPECT_THAT(ChunkKeys(store.kvstore()), ::testing::ElementsAre("c/0", "c/1"));
+}
+
+TEST(RegularBoundedChunkGridTest, StorageStatisticsSeeNegativeKeys) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(RegularBoundedSpec(/*shape=*/30, /*origin=*/0,
+                                           /*lower_bound=*/-15),
+                        context, tensorstore::OpenMode::create)
+          .result());
+  using ::tensorstore::ArrayStorageStatistics;
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeScalarArray<uint8_t>(7),
+      store | tensorstore::Dims(0).HalfOpenInterval(-15, -9)));
+  EXPECT_THAT(tensorstore::GetStorageStatistics(
+                  store | tensorstore::Dims(0).HalfOpenInterval(-15, -9),
+                  ArrayStorageStatistics::query_fully_stored)
+                  .result(),
+              ::testing::Optional(ArrayStorageStatistics{
+                  /*.mask=*/ArrayStorageStatistics::query_fully_stored,
+                  /*.not_stored=*/false, /*.fully_stored=*/true}));
+  EXPECT_THAT(tensorstore::GetStorageStatistics(
+                  store | tensorstore::Dims(0).HalfOpenInterval(-9, 15),
+                  ArrayStorageStatistics::query_not_stored)
+                  .result(),
+              ::testing::Optional(ArrayStorageStatistics{
+                  /*.mask=*/ArrayStorageStatistics::query_not_stored,
+                  /*.not_stored=*/true}));
+}
+
+TEST(ChunkKeyEncodingTest, NegativeZeroIsNotAKey) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(RegularBoundedSpec(/*shape=*/6, /*origin=*/0,
+                                           /*lower_bound=*/-3),
+                        context, tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::kvstore::Write(store.kvstore(), "c/-0", absl::Cord("x"))
+          .result());
+  using ::tensorstore::ArrayStorageStatistics;
+  EXPECT_THAT(tensorstore::GetStorageStatistics(
+                  store, ArrayStorageStatistics::query_not_stored)
+                  .result(),
+              ::testing::Optional(ArrayStorageStatistics{
+                  /*.mask=*/ArrayStorageStatistics::query_not_stored,
+                  /*.not_stored=*/true}));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
