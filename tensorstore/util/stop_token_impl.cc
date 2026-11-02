@@ -22,6 +22,7 @@
 
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 
 namespace tensorstore {
 namespace internal_stop_token {
@@ -36,12 +37,16 @@ using CallbackListAccessor =
         StopCallbackBase>;
 
 bool StopState::RequestStop() {
+  // Fast path: `stop_requested_` never reverts to `false`, so a stop that has
+  // already been requested can be detected without acquiring `mutex_`.
+  if (stop_requested_.load(std::memory_order_acquire)) return false;
+
   StopCallbackInvocationState invocation_state{
       /*thread_id=*/std::this_thread::get_id(), /*callback_destroyed=*/false};
 
   absl::MutexLock lock(mutex_);
-  if (stop_requested_) return false;
-  stop_requested_ = true;
+  if (stop_requested_.load(std::memory_order_relaxed)) return false;
+  stop_requested_.store(true, std::memory_order_release);
 
   if (!callbacks_) return true;
 
@@ -78,13 +83,21 @@ bool StopState::RequestStop() {
     }
     if (cur_callback->state_.exchange(nullptr, std::memory_order_acq_rel)) {
       // `Unregister` was not called, and won't be called.  We are responsible
-      // for decrementing `ref_count_`. At this point, refcount cannot free the
-      // state object because a caller holds a pointer.
+      // for releasing the reference owned by `state_`. At this point, refcount
+      // cannot free the state object because a caller holds a pointer.
+      //
+      // Once the exchange above completes, `~StopCallback` may run on another
+      // thread without acquiring `mutex_` and free `cur_callback`, so it must
+      // not be accessed again.  No thread can be waiting in `Unregister`,
+      // since that requires winning the exchange.
       intrusive_ptr_decrement(this);
+      continue;
     }
 
-    // Another thread is waiting in `Unregister` for the callback invocation to
-    // complete.  Notify it that the callback has completed.
+    // Another thread won the exchange in `~StopCallback` and is (or will be)
+    // in `Unregister`, which cannot return until it acquires `mutex_`; hence
+    // `cur_callback` remains valid here.  Notify it that the callback has
+    // completed.
     cur_callback->invocation_state = nullptr;
   }
 
@@ -128,13 +141,15 @@ void StopState::UnregisterImpl(StopCallbackBase& callback) {
   intrusive_ptr_decrement(this);
 }
 
-void StopState::RegisterImpl(StopCallbackBase& callback) {
-  bool stop_requested;
-  {
+void StopState::RegisterImpl(StopCallbackBase& callback, bool adopt_reference) {
+  // Fast path: `stop_requested_` never reverts to `false`, so once a stop has
+  // been requested the callback can be invoked without acquiring `mutex_`.
+  if (!stop_requested_.load(std::memory_order_acquire)) {
     absl::MutexLock lock(mutex_);
-    stop_requested = stop_requested_;
-    if (!stop_requested) {
-      intrusive_ptr_increment(this);
+    if (!stop_requested_.load(std::memory_order_relaxed)) {
+      // `callback.state_` owns a reference, released by either
+      // `UnregisterImpl` or `RequestStop`.
+      if (!adopt_reference) intrusive_ptr_increment(this);
       callback.state_.store(this, std::memory_order_relaxed);
 
       internal::intrusive_linked_list::Initialize(CallbackListAccessor{},
@@ -144,13 +159,14 @@ void StopState::RegisterImpl(StopCallbackBase& callback) {
                                                       callbacks_, &callback);
       }
       callbacks_ = &callback;
+      return;
     }
   }
 
-  /// Stop requested; execute callback immediately.
-  if (stop_requested) {
-    callback.invoker_(callback);
-  }
+  // Stop requested; execute callback immediately.  The callback is never
+  // registered, so release the adopted reference, if any.
+  callback.invoker_(callback);
+  if (adopt_reference) intrusive_ptr_decrement(this);
 }
 
 }  // namespace internal_stop_token

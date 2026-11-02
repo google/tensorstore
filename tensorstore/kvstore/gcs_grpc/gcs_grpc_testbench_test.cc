@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/base/macros.h"
 #include "absl/base/no_destructor.h"
@@ -35,14 +36,18 @@
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
 #include "grpcpp/client_context.h"  // third_party
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
 #include "tensorstore/kvstore/gcs_grpc/test_hook.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/status_testutil.h"
 
 // Connect to an already-running testbench server on the grpc port by
 // setting e.g. --testbench_grpc_endpoint=localhost:43211
@@ -54,8 +59,12 @@ ABSL_FLAG(double, error_injection_probability, 0.1,
 namespace kvstore = ::tensorstore::kvstore;
 
 using ::gcs_testbench::StorageTestbench;
+using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
+using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal::MatchesListEntry;
 
 namespace {
 
@@ -145,7 +154,7 @@ struct WriteTestHook {
       absl::GetFlag(FLAGS_error_injection_probability);
 
   void operator()(grpc::ClientContext* context,
-                  google::storage::v2::WriteObjectRequest& request) {
+                  google::storage::v2::BidiWriteObjectRequest& request) {
     absl::MutexLock lock(insert_instructions->mutex);
     auto& rng = insert_instructions->rng;
     if (!absl::Bernoulli(rng, error_injection_probability)) {
@@ -204,10 +213,25 @@ tensorstore::KvStore OpenStore(std::string path = "") {
   std::string testbench_grpc_endpoint = GetTestBenchEndpoint();
   return kvstore::Open({{"driver", "gcs_grpc"},
                         {"endpoint", testbench_grpc_endpoint},
-                        {"timeout", "200ms"},
                         {"num_channels", 1},
                         {"bucket", "test_bucket"},
                         {"path", path}})
+      .value();
+}
+
+tensorstore::KvStore OpenOcdbtStore(std::string path = "") {
+  std::string testbench_grpc_endpoint = GetTestBenchEndpoint();
+  return kvstore::Open({
+                           {"driver", "ocdbt"},
+                           {"base",
+                            {
+                                {"driver", "gcs_grpc"},
+                                {"endpoint", testbench_grpc_endpoint},
+                                {"num_channels", 1},
+                                {"bucket", "test_bucket"},
+                                {"path", path},
+                            }},
+                       })
       .value();
 }
 
@@ -277,6 +301,68 @@ TEST(GcsGrpcTestbenchTest, BatchRead) {
 
   options.metric_prefix = "/tensorstore/kvstore/gcs_grpc/";
   tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
+}
+
+TEST(GcsGrpcTestbenchTest, OcdbtBasic) {
+  auto store = OpenOcdbtStore("ocdbt/");
+  // Reading a nonexistent key returns not found.
+  EXPECT_THAT(kvstore::Read(store, "key1").result(),
+              MatchesKvsReadResultNotFound());
+
+  // Write keys.
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "key1", absl::Cord("value1")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "key2", absl::Cord("value2")));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(store, "prefix/key3", absl::Cord("value3")));
+
+  // Read back keys.
+  EXPECT_THAT(kvstore::Read(store, "key1").result(),
+              MatchesKvsReadResult(absl::Cord("value1")));
+  EXPECT_THAT(kvstore::Read(store, "key2").result(),
+              MatchesKvsReadResult(absl::Cord("value2")));
+  EXPECT_THAT(kvstore::Read(store, "prefix/key3").result(),
+              MatchesKvsReadResult(absl::Cord("value3")));
+
+  // Overwrite a key.
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(store, "key1", absl::Cord("value1_updated")));
+  EXPECT_THAT(kvstore::Read(store, "key1").result(),
+              MatchesKvsReadResult(absl::Cord("value1_updated")));
+
+  // List all keys.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto list_result,
+                                     kvstore::ListFuture(store).result());
+    EXPECT_THAT(list_result,
+                ::testing::UnorderedElementsAre(
+                    MatchesListEntry("key1"), MatchesListEntry("key2"),
+                    MatchesListEntry("prefix/key3")));
+  }
+
+  // List with prefix.
+  {
+    kvstore::ListOptions list_options;
+    list_options.range = KeyRange::Prefix("prefix/");
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto list_result, kvstore::ListFuture(store, list_options).result());
+    EXPECT_THAT(list_result,
+                ::testing::ElementsAre(MatchesListEntry("prefix/key3")));
+  }
+
+  // Delete a key.
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(store, "key1"));
+  EXPECT_THAT(kvstore::Read(store, "key1").result(),
+              MatchesKvsReadResultNotFound());
+  EXPECT_THAT(kvstore::Read(store, "key2").result(),
+              MatchesKvsReadResult(absl::Cord("value2")));
+}
+
+TEST(GcsGrpcTestbenchTest, OcdbtConcurrentWrites) {
+  tensorstore::internal::TestConcurrentWritesOptions options;
+  auto store = OpenOcdbtStore("ocdbt_concurrent/");
+  options.get_store = [&] { return store; };
+  options.num_iterations = 0x1f;
+  tensorstore::internal::TestConcurrentWrites(options);
 }
 
 }  // namespace

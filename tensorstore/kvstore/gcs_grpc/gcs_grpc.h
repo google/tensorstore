@@ -23,10 +23,12 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/functional/any_invocable.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "absl/types/source_location.h"
 #include "grpcpp/client_context.h"  // third_party
@@ -45,6 +47,7 @@
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/gcs_grpc/storage_stub_pool.h"
+#include "tensorstore/kvstore/gcs_grpc/zonal_bucket_state.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
@@ -63,11 +66,19 @@
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
-
+#include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 // protos
 #include "google/protobuf/empty.pb.h"
 #include "google/storage/v2/storage.grpc.pb.h"
 #include "google/storage/v2/storage.pb.h"
+
+// Windows <wingdi.h> (included transitively via gRPC headers) defines
+// `GetObject` as `GetObjectA`/`GetObjectW`, which conflicts with
+// `google::storage::v2::Storage::GetObject`.
+#ifdef GetObject
+#undef GetObject
+#endif
 
 namespace tensorstore {
 namespace internal_gcs_grpc {
@@ -86,6 +97,7 @@ struct GcsGrpcKeyValueStoreSpecData {
   uint32_t num_channels = 0;
   absl::Duration timeout = absl::ZeroDuration();
   absl::Duration wait_for_connection = absl::ZeroDuration();
+  std::optional<GcsGrpcWriteMode> experimental_mode;
   Context::Resource<GcsUserProjectResource> user_project;
   Context::Resource<GcsRequestRetries> retries;
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
@@ -93,8 +105,8 @@ struct GcsGrpcKeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.bucket, x.endpoint, x.num_channels, x.timeout,
-             x.wait_for_connection, x.user_project, x.retries,
-             x.data_copy_concurrency, x.credentials);
+             x.wait_for_connection, x.experimental_mode, x.user_project,
+             x.retries, x.data_copy_concurrency, x.credentials);
   };
 
   TENSORSTORE_INTERNAL_DECLARE_JSON_BINDER_IMPL(
@@ -102,7 +114,7 @@ struct GcsGrpcKeyValueStoreSpecData {
       internal_kvstore::DriverFromJsonOptions, JsonSerializationOptions,
       ::nlohmann::json::object_t);
 
-  static inline constexpr JsonBinderImpl default_json_binder = {};
+  static constexpr JsonBinderImpl default_json_binder = {};
 };
 
 class GcsGrpcKeyValueStoreSpec
@@ -160,6 +172,9 @@ class GcsGrpcKeyValueStore
 
   kvstore::SupportedFeatures GetSupportedFeatures(
       const KeyRange& key_range) const final {
+    if (zonal_state_.is_non_atomic()) {
+      return kvstore::SupportedFeatures::kNone;
+    }
     return kvstore::SupportedFeatures::kSingleKeyAtomicReadModifyWrite |
            kvstore::SupportedFeatures::kAtomicWriteWithoutOverwrite;
   }
@@ -168,15 +183,20 @@ class GcsGrpcKeyValueStore
     return spec_.data_copy_concurrency->executor;
   }
 
-  // Bucket names are in the form: 'projects/{project-id}/buckets/{bucket-id}'
-  std::string bucket_name() { return bucket_; }
+  // Bucket names are in the form: 'projects/_/buckets/{bucket-id}'
+  const std::string& bucket_name() const { return bucket_; }
 
   using StubInterface = ::google::storage::v2::Storage::StubInterface;
   std::shared_ptr<StubInterface> get_stub() {
     return storage_stub_pool_->get_next_stub();
   }
 
-  Future<std::shared_ptr<grpc::ClientContext>> AllocateContext();
+  // Allocates a client context for a request on this bucket.
+  //
+  // `routing_token`, if non-empty, is appended to the `x-goog-request-params`
+  // routing header as required after a `BidiWriteObjectRedirectedError`.
+  Future<std::shared_ptr<grpc::ClientContext>> AllocateContext(
+      std::string_view routing_token = {});
 
   // Apply default backoff/retry logic to the task.
   // Returns whether the task will be retried. On false, max retries have
@@ -186,10 +206,17 @@ class GcsGrpcKeyValueStore
       absl::Status status, int attempt, absl::AnyInvocable<void() &&> task,
       absl::SourceLocation loc = absl::SourceLocation::current());
 
+  ZonalBucketState& zonal_state() { return zonal_state_; }
+  const ZonalBucketState& zonal_state() const { return zonal_state_; }
+
   GcsGrpcKeyValueStoreSpecData spec_;
   std::string bucket_;
+  std::string request_params_;
   std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy_;
   std::shared_ptr<StorageStubPool> storage_stub_pool_;
+
+ private:
+  ZonalBucketState zonal_state_;
 };
 
 }  // namespace internal_gcs_grpc

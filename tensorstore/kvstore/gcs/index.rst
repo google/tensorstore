@@ -7,8 +7,14 @@ The ``gcs`` driver provides access to Google Cloud Storage.  Keys directly
 correspond to paths within a Google Cloud Storage bucket.
 
 `Conditional writes
-<https://cloud.google.com/kvstore/docs/generations-preconditions>`_ are used to
+<https://cloud.google.com/storage/docs/generations-preconditions>`_ are used to
 safely allow concurrent access from multiple machines.
+
+.. note::
+
+   The ``gcs`` driver uses the Google Cloud Storage JSON/HTTP API and does not
+   support writing to ``RAPID`` storage class (zonal) buckets.  To write to
+   ``RAPID`` buckets, use the :ref:`gcs_grpc<kvstore/gcs_grpc>` driver instead.
 
 .. json:schema:: kvstore/gcs
 

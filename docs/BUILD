@@ -104,7 +104,7 @@ pytype_strict_test(
     ),
     env = {
         "TENSORSTORE_SPECIAL_CPU_USER_LIMITS": "forge-00=4",
-        "SPHINX_CLANG_FORMAT": "$(location @pypa_clang_format//:clang-format_binary)",
+        "SPHINX_CLANG_FORMAT": "$(rootpath @pypa_clang_format//:clang-format_binary)",
     } | select({
         ":exclude_cpp_api_setting": {"TENSORSTORE_SKIP_CPP_API_DOCS": "1"},
         "//conditions:default": {},
@@ -116,11 +116,11 @@ pytype_strict_test(
         "optonly",
     ],
     deps = [
-        "//docs/tensorstore_sphinx_ext:doctest",
+        "//docs/tensorstore_sphinx_ext:doctest",  # buildcleaner: keep
         "@pypa_libclang//:libclang",  # buildcleaner: keep
         "@pypa_pyyaml//:pyyaml",  # buildcleaner: keep
         "@pypa_sphinx//:sphinx",
-        "@pypa_sphinx_immaterial//:sphinx_immaterial",
+        "@pypa_sphinx_immaterial//:sphinx_immaterial",  # buildcleaner: keep
     ] + select({
         ":exclude_python_api_setting": [],
         "//conditions:default": ["//python/tensorstore:core"],
@@ -274,8 +274,8 @@ pytype_strict_binary(
     testonly = True,
     srcs = ["generate_cpp_api.py"],
     args = [
-        "--source=$(location :cpp_api_preprocessed.cc)",
-        "--flags-file=$(location :compiler_flags.json)",
+        "--source=$(rootpath :cpp_api_preprocessed.cc)",
+        "--flags-file=$(rootpath :compiler_flags.json)",
         "--interactive",
     ],
     data = [

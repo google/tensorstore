@@ -18,17 +18,40 @@
 #include "google/protobuf/empty.pb.h"
 #include "google/storage/v2/storage.grpc.pb.h"
 #include "google/storage/v2/storage.pb.h"
-#include "grpcpp/support/status.h"  // third_party
+#include <gmock/gmock.h>
 #include "tensorstore/internal/grpc/grpc_mock.h"
+#include "tensorstore/proto/protobuf_matchers.h"
+
+// Windows <wingdi.h> (included transitively via gRPC headers) defines
+// `GetObject` as `GetObjectA`/`GetObjectW`, which conflicts with
+// `google::storage::v2::Storage::GetObject`.
+#ifdef GetObject
+#undef GetObject
+#endif
 
 namespace tensorstore_grpc {
+
+MATCHER_P2(MatchesTempWriteRequest, name_prefix, expected_pb, "") {
+  if (!ExplainMatchResult(::testing::StartsWith(name_prefix),
+                          arg.write_object_spec().resource().name(),
+                          result_listener)) {
+    return false;
+  }
+  ::google::storage::v2::BidiWriteObjectRequest copy = arg;
+  copy.mutable_write_object_spec()->mutable_resource()->clear_name();
+  copy.mutable_write_object_spec()->mutable_resource()->clear_metadata();
+  return ExplainMatchResult(
+      ::protobuf_matchers::EqualsProto<
+          ::google::storage::v2::BidiWriteObjectRequest>(expected_pb),
+      copy, result_listener);
+}
 
 // Mock Storage service to be used with MockGrpcServer:
 //
 // Example:
 //
 //  grpc_mocker::MockGrpcServer<MockStorage> mock_service;
-//  EXPECT_CALL(*mock_service_.service(), ListObjects)
+//  EXPECT_CALL(*mock_service.service(), ListObjects)
 //      .WillOnce(DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
 //
 class MockStorage : public ::google::storage::v2::Storage::Service {
@@ -62,9 +85,14 @@ class MockStorage : public ::google::storage::v2::Storage::Service {
   TENSORSTORE_GRPC_MOCK(UpdateObject,
                         ::google::storage::v2::UpdateObjectRequest,
                         ::google::storage::v2::Object);
+  TENSORSTORE_GRPC_MOCK(MoveObject, ::google::storage::v2::MoveObjectRequest,
+                        ::google::storage::v2::Object);
   TENSORSTORE_GRPC_CLIENT_STREAMING_MOCK(
       WriteObject, ::google::storage::v2::WriteObjectRequest,
       ::google::storage::v2::WriteObjectResponse);
+  TENSORSTORE_GRPC_BIDI_STREAMING_MOCK(
+      BidiWriteObject, ::google::storage::v2::BidiWriteObjectRequest,
+      ::google::storage::v2::BidiWriteObjectResponse);
   TENSORSTORE_GRPC_MOCK(ListObjects, ::google::storage::v2::ListObjectsRequest,
                         ::google::storage::v2::ListObjectsResponse);
   TENSORSTORE_GRPC_MOCK(RewriteObject,
@@ -80,4 +108,4 @@ class MockStorage : public ::google::storage::v2::Storage::Service {
 
 }  // namespace tensorstore_grpc
 
-#endif  // TENSORSTORE_GOOGLE3_ONLY_GCS_GRPC_MOCK_STORAGE_SERVICE_H_
+#endif  // TENSORSTORE_KVSTORE_GCS_GRPC_MOCK_STORAGE_SERVICE_H_

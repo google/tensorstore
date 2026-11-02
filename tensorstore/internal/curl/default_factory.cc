@@ -20,11 +20,13 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/synchronization/mutex.h"
 #include <curl/curl.h>  // IWYU pragma: keep
 #include "tensorstore/internal/curl/curl_factory.h"
 #include "tensorstore/internal/curl/curl_wrappers.h"
@@ -71,6 +73,8 @@ namespace {
 
 ABSL_CONST_INIT internal_log::VerboseFlag curl_logging("curl");
 
+[[maybe_unused]] constexpr size_t kMaxPooledHandles = 128;
+
 // Concurrent CURL HTTP/2 streams.
 [[maybe_unused]] int32_t GetMaxHttp2ConcurrentStreams() {
   auto limit = GetFlagOrEnvValue(FLAGS_tensorstore_http2_max_concurrent_streams,
@@ -114,7 +118,17 @@ DefaultCurlHandleFactory::Config DefaultCurlHandleFactory::DefaultConfig() {
 };
 
 CurlPtr DefaultCurlHandleFactory::CreateHandle() {
-  CurlPtr handle(curl_easy_init());
+  CurlPtr handle;
+  {
+    absl::MutexLock lock(mutex_);
+    if (!handles_.empty()) {
+      handle = std::move(handles_.back());
+      handles_.pop_back();
+    }
+  }
+  if (!handle) {
+    handle.reset(curl_easy_init());
+  }
   SetLogToAbseil(handle.get());
 
   CurlPtrHook(handle);
@@ -189,7 +203,27 @@ CurlPtr DefaultCurlHandleFactory::CreateHandle() {
                                              CURLOPT_PROXY_SSL_VERIFYPEER, 0L));
   }
   return handle;
-};
+}
+
+void DefaultCurlHandleFactory::CleanupHandle(CurlPtr&& h) {
+  if (!h) return;
+#if LIBCURL_VERSION_NUM >= 0x080700
+  // Prior to libcurl 8.7.0, `data->state.buffer` is not freed by `multi_done`
+  // when a multiplexed connection is still in use or when a connection fails
+  // during DNS resolution/connect, nor is it freed by `curl_easy_reset`.
+  // Because `curl_easy_reset` resets `data->set.buffer_size` to 16 KiB and
+  // `CURLOPT_BUFFERSIZE` returns `CURLE_BAD_FUNCTION_ARGUMENT` when
+  // `data->state.buffer` is non-null, pooling reset handles breaks
+  // `CURLOPT_BUFFERSIZE` on older libcurl versions.
+  curl_easy_reset(h.get());
+  absl::MutexLock lock(mutex_);
+  if (handles_.size() < kMaxPooledHandles) {
+    handles_.push_back(std::move(h));
+  }
+#else
+  h.reset();
+#endif
+}
 
 CurlMulti DefaultCurlHandleFactory::CreateMultiHandle() {
   CurlMulti handle(curl_multi_init());

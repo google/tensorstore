@@ -15,12 +15,11 @@
 #ifndef TENSORSTORE_UTIL_STOP_TOKEN_IMPL_H_
 #define TENSORSTORE_UTIL_STOP_TOKEN_IMPL_H_
 
-#include <stdint.h>
-
 #include <atomic>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 
 namespace tensorstore {
 namespace internal_stop_token {
@@ -54,41 +53,39 @@ struct StopCallbackBase {
   std::atomic<StopState*> state_{nullptr};
 };
 
-struct StopState {
+struct StopState : public internal::AtomicReferenceCount<StopState> {
   absl::Mutex mutex_;
   StopCallbackBase* callbacks_ ABSL_GUARDED_BY(mutex_) = nullptr;
-  bool stop_requested_ ABSL_GUARDED_BY(mutex_) = false;
-  mutable std::atomic<uint32_t> ref_count_{0};
+
+  /// Only transitions from `false` to `true`, and only while holding `mutex_`,
+  /// so that `RegisterImpl` and `RequestStop` observe a consistent value under
+  /// the lock.  May be read without holding `mutex_`.
+  std::atomic<bool> stop_requested_{false};
 
   StopState() = default;
 
   // true if a stop has been requested.
-  bool stop_requested() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock l(&mutex_);
-    return stop_requested_;
-  }
-
-  friend void intrusive_ptr_increment(const StopState* p) noexcept {
-    p->ref_count_.fetch_add(1, std::memory_order_acq_rel);
-  }
-
-  friend void intrusive_ptr_decrement(const StopState* p) noexcept {
-    if (p->ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-      delete p;
-    }
+  bool stop_requested() const noexcept {
+    return stop_requested_.load(std::memory_order_acquire);
   }
 
   /// Request a stop, running all currently registered callbacks.
   bool RequestStop() ABSL_LOCKS_EXCLUDED(mutex_);
 
   /// Adds the stop callback to the callback list, or, when stop has been
-  /// requested immediately invokes the callback. May assign callback.state_
-  /// to this, also incrementing the reference count.
-  void RegisterImpl(StopCallbackBase& callback) ABSL_LOCKS_EXCLUDED(mutex_);
+  /// requested immediately invokes the callback.  If registered, assigns
+  /// `callback.state_` to `this`, which owns one reference to `this`.
+  ///
+  /// If `adopt_reference` is `true`, the caller transfers ownership of one
+  /// existing reference to `this`, which is either assigned to
+  /// `callback.state_` or released.  Otherwise a new reference is acquired if
+  /// needed.
+  void RegisterImpl(StopCallbackBase& callback, bool adopt_reference)
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   /// Removes the stop callback from the callback list. May block if the
   /// callback is currently being run by a separate process.
-  /// Call intrusive_ptr_increment(this) before returning, so the StopState
+  /// Calls intrusive_ptr_decrement(this) before returning, so the StopState
   /// may be deallocated immediately afterwards.
   void UnregisterImpl(StopCallbackBase& callback) ABSL_LOCKS_EXCLUDED(mutex_);
 };

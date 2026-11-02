@@ -275,7 +275,12 @@ TEST(SmallBitSetTest, FromUint) {
       "00000000",
       absl::StrFormat("%v", absl::FormatStreamed(v)));
 
+  auto v_all = BitSet::FromUint(~uint32_t(0));
+  EXPECT_TRUE(v_all.all());
+  EXPECT_EQ(0xffffffff, v_all.to_uint());
+
   auto v1 = BitSet::FromUint(0b101'1100);
+
   EXPECT_EQ(0b111'1111, (v | v1).to_uint());
   EXPECT_EQ(0b001'0100, (v & v1).to_uint());
   EXPECT_EQ(0b110'1011, (v ^ v1).to_uint());
@@ -293,6 +298,16 @@ TEST(SmallBitSetTest, FromUint) {
 TEST(SmallBitSetTest, BracedList) {
   auto v = BitSet::FromBools({0, 1, 1, 0, 0, 1});
   EXPECT_EQ(0b100110, v.to_uint());
+}
+
+TEST(SmallBitSetTest, FromBoolRange) {
+  std::vector<bool> bools(40, true);
+  auto v = BitSet::FromBoolRange(bools.begin(), bools.end());
+  EXPECT_EQ(0xffffffff, v.to_uint());
+
+  std::vector<bool> bools_small(10, true);
+  auto v_small = BitSet::FromBoolRange(bools_small.begin(), bools_small.end());
+  EXPECT_EQ(0x3ff, v_small.to_uint());
 }
 
 TEST(SmallBitSetTest, Reference) {
@@ -320,6 +335,35 @@ TEST(SmallBitSetTest, FromIndices) {
                 (static_cast<uint32_t>(1) << 10),
             v.to_uint());
   EXPECT_THAT(v.index_view(), ::testing::ElementsAre(1, 3, 10));
+}
+
+TEST(SmallBitSetTest, SubIntSizes) {
+  using BitSet8 = ::tensorstore::SmallBitSet<8>;
+  BitSet8 v8_true(true);
+  EXPECT_TRUE(v8_true.all());
+  EXPECT_EQ(8, v8_true.count());
+  EXPECT_EQ(0xff, v8_true.to_uint());
+
+  BitSet8 v8;
+  EXPECT_TRUE(v8.none());
+  EXPECT_FALSE(v8.all());
+  v8 = true;
+  EXPECT_TRUE(v8.all());
+  v8.flip();
+  EXPECT_TRUE(v8.none());
+  v8.set();
+  EXPECT_TRUE(v8.all());
+  EXPECT_EQ(0x00, BitSet8::UpTo(0).to_uint());
+  EXPECT_EQ(0x1f, BitSet8::UpTo(5).to_uint());
+  EXPECT_EQ(0xff, BitSet8::UpTo(8).to_uint());
+
+  using BitSet16 = ::tensorstore::SmallBitSet<16>;
+  BitSet16 v16_true(true);
+  EXPECT_TRUE(v16_true.all());
+  EXPECT_EQ(16, v16_true.count());
+  EXPECT_EQ(0xffff, v16_true.to_uint());
+  EXPECT_EQ(0x001f, BitSet16::UpTo(5).to_uint());
+  EXPECT_EQ(0xffff, BitSet16::UpTo(16).to_uint());
 }
 
 TEST(SmallBitSetTest, Hardening) {

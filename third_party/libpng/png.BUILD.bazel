@@ -66,14 +66,14 @@ cc_library(
         "pngconf.h",
     ],
     copts = select({
-        ":use_x86_gcc_flags": [
+        "//conditions:default": [],
+        ":use_x86_gcc": [
             "-mpclmul",
             "-msse2",
         ],
-        "//conditions:default": [],
     }) + select({
-        ":use_x86_msvc_flags": ["/arch:AVX"],
         "//conditions:default": [],
+        ":use_x86_msvc": ["/arch:AVX"],
     }),
     includes = ["."],
     linkopts = select({
@@ -98,7 +98,7 @@ alias(
 
 # Constraint that indicates whether gcc-style flags should be used.
 alias(
-    name = "use_x86_gcc_flags",
+    name = "use_x86_gcc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
 
@@ -108,11 +108,9 @@ alias(
 )
 
 alias(
-    name = "use_x86_msvc_flags",
+    name = "use_x86_msvc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//cpu:x86_64",
-
-        # Otherwise condition on x86_64.
         "//conditions:default": "@platforms//:incompatible",
     }),
 )

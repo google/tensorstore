@@ -22,6 +22,7 @@ Root drivers
 
    file/index
    gcs/index
+   gcs_grpc/index
    http/index
    memory/index
    s3/index

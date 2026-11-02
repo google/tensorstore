@@ -32,8 +32,10 @@
 
 #include "absl/base/attributes.h"
 #include "absl/functional/any_invocable.h"
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -44,6 +46,7 @@
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
@@ -60,14 +63,17 @@
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/gcs_grpc/default_endpoint.h"
 #include "tensorstore/kvstore/gcs_grpc/default_strategy.h"
+#include "tensorstore/kvstore/gcs_grpc/op_bidi_write.h"
 #include "tensorstore/kvstore/gcs_grpc/op_delete.h"
 #include "tensorstore/kvstore/gcs_grpc/op_list.h"
 #include "tensorstore/kvstore/gcs_grpc/op_read.h"
-#include "tensorstore/kvstore/gcs_grpc/op_write.h"
 #include "tensorstore/kvstore/gcs_grpc/storage_stub_pool.h"
+#include "tensorstore/kvstore/gcs_grpc/test_hook.h"
+#include "tensorstore/kvstore/gcs_grpc/zonal_bucket_state.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
@@ -87,7 +93,7 @@
 #include "tensorstore/internal/context_binding.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/bindable.h"  // IWYU pragma: keep
-#include "tensorstore/internal/json_binding/enum.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
 
@@ -127,6 +133,15 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 
+constexpr auto ModeJsonBinder = [](auto is_loading, const auto& options,
+                                   auto* obj, auto* j) {
+  return jb::Enum<GcsGrpcWriteMode, std::string_view>({
+      {GcsGrpcWriteMode::kStandard, "standard"},
+      {GcsGrpcWriteMode::kZonal, "zonal"},
+      {GcsGrpcWriteMode::kNonAtomic, "non_atomic"},
+  })(is_loading, options, obj, j);
+};
+
 }  // namespace
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
@@ -160,6 +175,10 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                 jb::DefaultValue<jb::kNeverIncludeDefaults>(
                     [](absl::Duration* x) { *x = absl::ZeroDuration(); }))),
         jb::Member(
+            "experimental_mode",
+            jb::Projection<&GcsGrpcKeyValueStoreSpecData::experimental_mode>(
+                jb::Optional(ModeJsonBinder))),
+        jb::Member(
             GcsUserProjectResource::id,
             jb::Projection<&GcsGrpcKeyValueStoreSpecData::user_project>()),
         jb::Member(internal_storage_gcs::GcsRequestRetries::id,
@@ -182,7 +201,12 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
           return absl::OkStatus();
         })));
 
-/// Obtains a `SpecData` representation from an open `Driver`.
+// Obtains a `SpecData` representation from an open `Driver`.
+//
+// The detected bucket type is deliberately not reflected in
+// `spec.experimental_mode`: a concrete `experimental_mode` value disables
+// detection, so round-tripping a detected value would turn a soft observation
+// into a hard setting.
 absl::Status GcsGrpcKeyValueStore::GetBoundSpecData(
     GcsGrpcKeyValueStoreSpecData& spec) const {
   spec = spec_;
@@ -190,10 +214,10 @@ absl::Status GcsGrpcKeyValueStore::GetBoundSpecData(
 }
 
 Future<std::shared_ptr<grpc::ClientContext>>
-GcsGrpcKeyValueStore::AllocateContext() {
+GcsGrpcKeyValueStore::AllocateContext(std::string_view routing_token) {
   auto context = std::make_shared<grpc::ClientContext>();
 
-  // For a requestor-pays bucket we need to set x-goog-user-project.
+  // For a requester-pays bucket we need to set x-goog-user-project.
   if (spec_.user_project->project_id &&
       !spec_.user_project->project_id->empty()) {
     context->AddMetadata("x-goog-user-project",
@@ -201,8 +225,13 @@ GcsGrpcKeyValueStore::AllocateContext() {
   }
 
   // gRPC requests need to have routing parameters added.
-  context->AddMetadata("x-goog-request-params",
-                       absl::StrFormat("bucket=%s", bucket_name()));
+  if (routing_token.empty()) {
+    context->AddMetadata("x-goog-request-params", request_params_);
+  } else {
+    context->AddMetadata(
+        "x-goog-request-params",
+        absl::StrCat(request_params_, "&routing_token=", routing_token));
+  }
 
   // NOTE: Evaluate this a bit more?
   // context.set_wait_for_ready(false);
@@ -238,7 +267,7 @@ absl::Status GcsGrpcKeyValueStore::BackoffForAttemptAsync(
   return absl::OkStatus();
 }
 
-/// Key value store operations.
+// Key value store operations.
 Future<kvstore::ReadResult> GcsGrpcKeyValueStore::Read(Key key,
                                                        ReadOptions options) {
   gcs_grpc_metrics.read.Increment();
@@ -271,15 +300,16 @@ Future<TimestampedStorageGeneration> GcsGrpcKeyValueStore::Write(
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 
+  internal::IntrusivePtr<GcsGrpcKeyValueStore> self(this);
+
   if (!value) {
-    return internal_gcs_grpc::InitiateDelete(
-        internal::IntrusivePtr<GcsGrpcKeyValueStore>(this), std::move(key),
-        std::move(options));
-  } else {
-    return internal_gcs_grpc::InitiateWrite(
-        internal::IntrusivePtr<GcsGrpcKeyValueStore>(this), gcs_grpc_metrics,
-        std::move(key), std::move(*value), std::move(options));
+    return internal_gcs_grpc::InitiateDelete(std::move(self), std::move(key),
+                                             std::move(options));
   }
+
+  return internal_gcs_grpc::InitiateBidiWrite(std::move(self), gcs_grpc_metrics,
+                                              std::move(key), std::move(*value),
+                                              std::move(options));
 }
 
 void GcsGrpcKeyValueStore::ListImpl(ListOptions options,
@@ -342,7 +372,19 @@ Future<const void> GcsGrpcKeyValueStore::DeleteRange(KeyRange range) {
 Future<kvstore::DriverPtr> GcsGrpcKeyValueStoreSpec::DoOpen() const {
   auto driver = internal::MakeIntrusivePtr<GcsGrpcKeyValueStore>();
   driver->spec_ = data_;
+  driver->zonal_state().set_configured_mode(data_.experimental_mode);
   driver->bucket_ = absl::StrFormat("projects/_/buckets/%s", data_.bucket);
+  driver->request_params_ = absl::StrFormat("bucket=%s", driver->bucket_);
+
+  if ((data_.experimental_mode == GcsGrpcWriteMode::kZonal ||
+       data_.experimental_mode == GcsGrpcWriteMode::kNonAtomic) &&
+      data_.user_project->project_id &&
+      !data_.user_project->project_id->empty()) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "gcs_user_project %v is not supported for RAPID (zonal) buckets, "
+        "which do not support Requester Pays",
+        QuoteString(*data_.user_project->project_id)));
+  }
 
   // Use direct path endpoint by default when running on a GCP machine.
   // https://github.com/googleapis/google-cloud-cpp/google/cloud/storage/internal/grpc/default_options.cc
@@ -409,5 +451,20 @@ const tensorstore::internal_kvstore::DriverRegistration<
     registration;
 
 }  // namespace
+
+void TestSetIsZonal(const KvStore& store, std::optional<bool> is_zonal) {
+  auto* driver = dynamic_cast<GcsGrpcKeyValueStore*>(store.driver.get());
+  ABSL_CHECK(driver != nullptr)  // Crash OK: test-only helper.
+      << "TestSetIsZonal requires a gcs_grpc store";
+  driver->zonal_state().set_is_zonal(is_zonal);
+}
+
+std::optional<bool> TestGetIsZonal(const KvStore& store) {
+  auto* driver = dynamic_cast<GcsGrpcKeyValueStore*>(store.driver.get());
+  ABSL_CHECK(driver != nullptr)  // Crash OK: test-only helper.
+      << "TestGetIsZonal requires a gcs_grpc store";
+  return driver->zonal_state().is_zonal();
+}
+
 }  // namespace internal_gcs_grpc
 }  // namespace tensorstore

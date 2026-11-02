@@ -275,7 +275,9 @@ def test_golden(test_name: str, config: dict[str, Any], tmpdir):
     root_repository.repo_mapping[RepositoryId(x[0])] = RepositoryId(x[1])
 
   # Workspace setup
-  workspace = Workspace(repository_id, CMAKE_VARS)
+  workspace = Workspace(
+      repository_id, {**CMAKE_VARS, **config.get('cmake_vars', {})}
+  )
   workspace.save_workspace = '_workspace.pickle'
   workspace.host_platform_name = 'linux'
   workspace._verbose = 3

@@ -85,6 +85,10 @@ TEST(AppendHeaderData, BadHeaders) {
   EXPECT_EQ(8, ParseAndSetHeaders("foo: bar", set_header));   // no CRLF
   EXPECT_EQ(5, ParseAndSetHeaders("foo\r\n", set_header));    // no :
   EXPECT_EQ(7, ParseAndSetHeaders("fo@: \r\n", set_header));  // invalid token
+  EXPECT_EQ(10, ParseAndSetHeaders(std::string_view("foo: a\0b\r\n", 10),
+                                   set_header));  // invalid value
+  EXPECT_EQ(14, ParseAndSetHeaders("foo bar: baz\r\n",
+                                   set_header));  // invalid header name
 
   EXPECT_TRUE(headers.empty());
 }
@@ -199,6 +203,31 @@ TEST(HttpHeaderTest, RedactsAuthorizationHeadersInAllBuildModes) {
               ::testing::Not(::testing::HasSubstr("secret-proxy-auth")));
   EXPECT_THAT(formatted,
               ::testing::Not(::testing::HasSubstr("secret-csek-key")));
+}
+
+TEST(HttpHeaderTest, ValidationAndRedactionHelpers) {
+  using ::tensorstore::internal_http::IsSensitiveHttpHeader;
+  using ::tensorstore::internal_http::IsValidHttpHeaderValue;
+  using ::tensorstore::internal_http::RedactH1HeaderLineForLog;
+  using ::tensorstore::internal_http::RedactHeaderValueForLog;
+
+  EXPECT_THAT(IsValidHttpHeaderValue("normal \t value\xfe"), Eq(true));
+  EXPECT_THAT(IsValidHttpHeaderValue("bad\r\nvalue"), Eq(false));
+  EXPECT_THAT(IsValidHttpHeaderValue(std::string_view("nul\0byte", 8)),
+              Eq(false));
+
+  EXPECT_THAT(IsSensitiveHttpHeader("X-Api-Key"), Eq(true));
+  EXPECT_THAT(IsSensitiveHttpHeader("WWW-Authenticate"), Eq(true));
+  EXPECT_THAT(IsSensitiveHttpHeader("Content-Type"), Eq(false));
+
+  EXPECT_THAT(RedactHeaderValueForLog("Authorization", "Bearer secret"),
+              Eq("[REDACTED]"));
+  EXPECT_THAT(RedactHeaderValueForLog("Accept", "*/*"), Eq("*/*"));
+
+  EXPECT_THAT(RedactH1HeaderLineForLog("Authorization: Bearer secret"),
+              Eq("Authorization: [REDACTED]"));
+  EXPECT_THAT(RedactH1HeaderLineForLog("Content-Type: text/plain"),
+              Eq("Content-Type: text/plain"));
 }
 
 }  // namespace

@@ -31,6 +31,20 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "http_metrics",
+    srcs = ["http_metrics.cc"],
+    hdrs = ["http_metrics.h"],
+    deps = [
+        "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:domain_field",
+        "//tensorstore/internal/metrics:metadata",
+        "//tensorstore/internal/metrics:registry",
+        "@abseil-cpp//absl/base",
+        "@abseil-cpp//absl/base:core_headers",
+    ],
+)
+
+tensorstore_cc_library(
     name = "http",
     srcs = [
         "http_request.cc",
@@ -178,6 +192,8 @@ tensorstore_cc_library(
     linkopts = _WS2_32_LINKOPTS,
     deps = [
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal/thread",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/log:absl_check",
@@ -185,6 +201,8 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/random",
         "@abseil-cpp//absl/random:distributions",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
     alwayslink = 1,
 )
@@ -211,4 +229,94 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@googletest//:gtest_main",
     ],
+)
+
+tensorstore_cc_library(
+    name = "e2e_test_util",
+    testonly = True,
+    srcs = ["e2e_test_util.cc"],
+    hdrs = ["e2e_test_util.h"],
+    deps = [
+        ":http",
+        "//tensorstore/util:future",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/types:span",
+        "@googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "e2e_http1_test",
+    testonly = True,
+    srcs = ["e2e_http1_test.cc"],
+    hdrs = ["e2e_http1_test.h"],
+    linkopts = _WS2_32_LINKOPTS,
+    deps = [
+        ":e2e_test_util",
+        ":http",
+        ":transport_test_utils",
+        "//tensorstore/internal/compression:zlib",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:span",
+        "@googletest//:gtest",
+    ],
+    alwayslink = True,
+)
+
+tensorstore_cc_library(
+    name = "e2e_h2_interop_test",
+    testonly = True,
+    srcs = ["e2e_h2_interop_test.cc"],
+    hdrs = ["e2e_h2_interop_test.h"],
+    deps = [
+        ":e2e_test_util",
+        ":http",
+        ":test_httpserver",
+        "//tensorstore/internal:env",
+        "//tensorstore/util:future",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/base",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest",
+    ],
+    alwayslink = True,
+)
+
+tensorstore_cc_library(
+    name = "e2e_http2_test",
+    testonly = True,
+    srcs = ["e2e_http2_test.cc"],
+    hdrs = ["e2e_http2_test.h"],
+    linkopts = _WS2_32_LINKOPTS,
+    deps = [
+        ":e2e_test_util",
+        ":http",
+        ":transport_test_utils",
+        "//tensorstore/internal/compression:zlib",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest",
+        "@org_nghttp2//:nghttp2",
+    ],
+    alwayslink = True,
 )

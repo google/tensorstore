@@ -69,23 +69,38 @@ set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 find_package(Threads REQUIRED)
 
-if(MSVC AND CMAKE_CXX_COMPILER_LAUNCHER MATCHES "sccache")
-  # sccache is incompatible with the /Zi option that CMake enables by default
-  #
+if(MSVC AND (PROJECT_IS_TOP_LEVEL OR
+             CMAKE_CXX_COMPILER_LAUNCHER MATCHES "sccache"))
+  option(TENSORSTORE_MSVC_USE_Z7
+         "Use /Z7 and disable incremental linking on MSVC" ON)
+endif()
+
+if(TENSORSTORE_MSVC_USE_Z7)
+  # /Zi spawns a separate mspdbsrv.exe process to build pdb files, which CMake
+  # enables by default and is incompatible with sccache.
   # https://github.com/mozilla/sccache#usage
   #
-  # Note that this unavoidably affects the entire build, not just this
-  # sub-project.
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-  elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-  elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-  endif()
+  # So we convert /Zi to /Z7.
+  #
+  # With /Z7, MSVC's default /INCREMENTAL linker flag generates huge .ilk
+  # files (~15-20 GiB across all test binaries). So when we convert /Zi to /Z7
+  # we also disable incremental linking.
+  #
+  # Note that this unavoidably affects the entire build, not just this project.
+  foreach(config IN ITEMS DEBUG RELEASE RELWITHDEBINFO)
+    string(REPLACE "/Zi" "/Z7"
+           CMAKE_CXX_FLAGS_${config} "${CMAKE_CXX_FLAGS_${config}}")
+    string(REPLACE "/Zi" "/Z7"
+           CMAKE_C_FLAGS_${config} "${CMAKE_C_FLAGS_${config}}")
+    foreach(kind IN ITEMS EXE SHARED MODULE)
+      string(REPLACE "/INCREMENTAL:NO" "/INCREMENTAL"
+             CMAKE_${kind}_LINKER_FLAGS_${config}
+             "${CMAKE_${kind}_LINKER_FLAGS_${config}}")
+      string(REPLACE "/INCREMENTAL" "/INCREMENTAL:NO"
+             CMAKE_${kind}_LINKER_FLAGS_${config}
+             "${CMAKE_${kind}_LINKER_FLAGS_${config}}")
+    endforeach()
+  endforeach()
 endif()
 
 # See bazelrc for this
@@ -94,6 +109,17 @@ if(MINGW)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wa,-mbig-obj")
 endif()
 
+if(APPLE)
+    # Suppress warnings about duplicate libraries being ignored, which are common
+    # due to the transitive dependency model used by bazel_to_cmake.  The flag is
+    # only supported by the Xcode 15+ linker, so check for it first.
+    include(CheckLinkerFlag)
+    check_linker_flag(CXX "LINKER:-no_warn_duplicate_libraries"
+                      TENSORSTORE_LINKER_NO_WARN_DUPLICATE_LIBRARIES)
+    if(TENSORSTORE_LINKER_NO_WARN_DUPLICATE_LIBRARIES)
+        add_link_options("LINKER:-no_warn_duplicate_libraries")
+    endif()
+endif()
 
 include(bazel_to_cmake)
 

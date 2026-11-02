@@ -36,6 +36,9 @@ class TestHttpServer {
   // Returns the http address of the server.
   std::string http_address() { return http_address_; }
 
+  // Returns the http proxy address of the server.
+  std::string proxy_address() { return proxy_address_; }
+
   // Returns the path to the certificate file.
   std::string GetCertPath();
 
@@ -46,6 +49,7 @@ class TestHttpServer {
   void InitializeCertificates();
 
   std::string http_address_;
+  std::string proxy_address_;
   std::string root_path_;
   std::optional<internal_testing::ScopedTemporaryDirectory> cert_dir_;
   std::optional<internal::Subprocess> child_;

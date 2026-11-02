@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # dependencies = [
-#     "brotli>=1.1.0",
+#     "brotli>=1.2.1",
 #     "lxml",
 #     "packaging",
 #     "requests",

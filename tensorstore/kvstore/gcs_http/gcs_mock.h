@@ -38,8 +38,8 @@
 
 namespace tensorstore {
 
-/// GCSMockStorageBucket provides a minimal mocking environment for
-/// GCS requests.
+// GCSMockStorageBucket provides a minimal mocking environment for
+// GCS requests.
 class GCSMockStorageBucket {
  public:
   // An individual data object with a name, value, and generation.
@@ -74,22 +74,27 @@ class GCSMockStorageBucket {
       const internal_http::HttpRequest& request, absl::Cord payload);
 
   // List objects in the bucket.
+  //
+  // The `Handle*` methods below are called by `Match` with `mutex_` held.
   std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
-  HandleListRequest(std::string_view path, const ParamMap& params);
+  HandleListRequest(std::string_view path, const ParamMap& params)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Insert an object into the bucket.
   std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
   HandleInsertRequest(std::string_view path, const ParamMap& params,
-                      absl::Cord payload);
+                      absl::Cord payload) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Get an object, which might be the data or the metadata.
   std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
   HandleGetRequest(const internal_http::HttpRequest& request,
-                   std::string_view path, const ParamMap& params);
+                   std::string_view path, const ParamMap& params)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Delete an object.
   std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
-  HandleDeleteRequest(std::string_view path, const ParamMap& params);
+  HandleDeleteRequest(std::string_view path, const ParamMap& params)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Construct an object metadata response.
   internal_http::HttpResponse ObjectMetadataResponse(const Object& object);
@@ -103,7 +108,7 @@ class GCSMockStorageBucket {
   // Triggers a guaranteed error for the next `count` requests.
   void TriggerErrors(int64_t count) {
     assert(count >= 0);
-    absl::MutexLock l(&mutex_);
+    absl::MutexLock l(mutex_);
     next_error_count_ += count;
     p_error_ = 0;
   }
@@ -111,7 +116,7 @@ class GCSMockStorageBucket {
   // Sets the error rate on the mock interface.
   void SetErrorRate(double p_error) {
     assert(p_error >= 0 && p_error <= 1);
-    absl::MutexLock l(&mutex_);
+    absl::MutexLock l(mutex_);
     p_error_ = p_error;
   }
 
@@ -120,15 +125,15 @@ class GCSMockStorageBucket {
   const std::string bucket_prefix_;
   const std::string upload_prefix_;
   const std::optional<std::string> requestor_pays_project_id_;
-  absl::Mutex mutex_;
-  int64_t next_generation_ = 123;
 
+  absl::Mutex mutex_;
+  int64_t next_generation_ ABSL_GUARDED_BY(mutex_) = 123;
   int64_t next_error_count_ ABSL_GUARDED_BY(mutex_) = 0;
   double p_error_ ABSL_GUARDED_BY(mutex_) = 0.05;
   std::minstd_rand urbg_ ABSL_GUARDED_BY(mutex_);
 
   using Map = std::map<std::string, Object, std::less<>>;
-  Map data_;
+  Map data_ ABSL_GUARDED_BY(mutex_);
 };
 
 }  // namespace tensorstore

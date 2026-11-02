@@ -25,14 +25,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "brotli",
-        doc_version = "1.1.0-20260620-83fe766",
-        urls = mirror_url("https://github.com/google/brotli/archive/83fe766bc81f7911a78716b8d3b3d01367009995.zip"),  # master(2026-06-20)
-        sha256 = "7062dad70a692e5dd2abe3cb9ea65f379553f6727b2b7125d05b57414f46370a",
-        strip_prefix = "brotli-83fe766bc81f7911a78716b8d3b3d01367009995",
-        patches = [
-            Label("//third_party:brotli/patches/fix_ror.diff"),
-        ],
-        patch_args = ["-p1"],
+        doc_version = "1.2.1",
+        urls = mirror_url("https://github.com/google/brotli/archive/v1.2.1.zip"),
+        sha256 = "ca87a5987470399c36752c7468c45df5e3004720625c8f808fe81a32783d8b5b",
+        strip_prefix = "brotli-1.2.1",
         repo_mapping = {
             "@org_brotli": "@brotli",
         },

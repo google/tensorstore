@@ -21,21 +21,22 @@ cc_library(
         "@platforms//cpu:arm64": glob(["source/arm/*.c"]),
         "//conditions:default": [],
     }) + select({
-        ":use_x86_gcc_flags": glob(["source/intel/asm/*.c"]),
         "//conditions:default": [],
+        ":use_x86_gcc": glob(["source/intel/asm/*.c"]),
     }),
     hdrs = glob([
         "include/aws/checksums/*.h",
         "include/aws/checksums/private/*.h",
     ]),
     copts = select({
-        ":use_x86_msvc_flags": [
+        "//conditions:default": [],
+        ":use_x86_msvc": [
             "/arch:AVX2",
             "/arch:AVX512",
         ],
-        "//conditions:default": [],
     }) + select({
-        ":use_x86_gcc_flags": [
+        "//conditions:default": [],
+        ":use_x86_gcc": [
             "-mavx",
             "-mpclmul",
             "-msse4.2",
@@ -43,16 +44,15 @@ cc_library(
             "-mavx512f",
             "-mvpclmulqdq",
         ],
-        "//conditions:default": [],
     }) + select({
-        ":use_arm64_msvc_flags": ["/arch:arm8.1"],
         "//conditions:default": [],
+        ":use_arm64_msvc": ["/arch:armv8.1"],
     }) + select({
-        ":use_arm64_gcc_flags": [
+        "//conditions:default": [],
+        ":use_arm64_gcc": [
             "-march=armv8-a+crc+crypto",
             "-mtune=neoverse-v1",
         ],
-        "//conditions:default": [],
     }),
     includes = ["include"],
     visibility = ["//visibility:public"],
@@ -63,7 +63,7 @@ cc_library(
 
 # Constraint that indicates whether gcc-style flags should be used.
 alias(
-    name = "use_x86_gcc_flags",
+    name = "use_x86_gcc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
 
@@ -73,7 +73,7 @@ alias(
 )
 
 alias(
-    name = "use_arm64_gcc_flags",
+    name = "use_arm64_gcc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
 
@@ -83,21 +83,17 @@ alias(
 )
 
 alias(
-    name = "use_x86_msvc_flags",
+    name = "use_x86_msvc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//cpu:x86_64",
-
-        # Otherwise condition on x86_64.
         "//conditions:default": "@platforms//:incompatible",
     }),
 )
 
 alias(
-    name = "use_arm64_msvc_flags",
+    name = "use_arm64_msvc",
     actual = select({
         "@rules_cc//cc/compiler:msvc-cl": "@platforms//cpu:arm64",
-
-        # Otherwise condition on arm64.
         "//conditions:default": "@platforms//:incompatible",
     }),
 )

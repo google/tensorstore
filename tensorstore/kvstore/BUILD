@@ -8,6 +8,7 @@ licenses(["notice"])
 DRIVER_DOCS = [
     "file",
     "gcs",
+    "gcs_grpc",
     "http",
     "kvstack",
     "memory",
@@ -31,7 +32,6 @@ filegroup(
 )
 
 DRIVERS = DRIVER_DOCS + [
-    "gcs_grpc",
     "gcs_http",
 ]
 

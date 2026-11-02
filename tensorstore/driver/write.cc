@@ -176,14 +176,17 @@ struct WriteChunkOp {
         commit_future = std::move(write_array_result.commit_future);
       } else {
         // Fallback to normal nditerable path.
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto target_iterable,
-            chunk.impl(WriteChunk::BeginWrite{}, chunk.transform, arena),
-            state->SetError(_));
-
+        // Acquire source_iterable before calling BeginWrite on the target chunk
+        // so that if constructing the source iterable fails, BeginWrite is not
+        // left without a matching EndWrite.
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto source_iterable,
             GetTransformedArrayNDIterable(std::move(source), arena),
+            state->SetError(_));
+
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto target_iterable,
+            chunk.impl(WriteChunk::BeginWrite{}, chunk.transform, arena),
             state->SetError(_));
 
         source_iterable = GetConvertedInputNDIterable(

@@ -1,0 +1,8 @@
+{
+    "modules": [
+        ".bzl_library.rules_nasm"
+    ],
+    "cmake_vars": {
+        "CMAKE_SYSTEM_PROCESSOR": "ARM64"
+    }
+}

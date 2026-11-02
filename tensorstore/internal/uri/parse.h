@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "absl/status/status.h"
@@ -61,6 +62,33 @@ struct HostPort {
 /// Splits an authority, or host:port string into host and port.
 /// Only minimal validation is performed.
 std::optional<HostPort> SplitHostPort(std::string_view host_port);
+
+/// Strips any `userinfo@` prefix from `authority`.
+std::string_view StripUserinfo(std::string_view authority);
+
+/// Strips surrounding `[` and `]` brackets from an IPv6 literal `host`.
+std::string_view StripIpv6Brackets(std::string_view host);
+
+/// Formats `host` and `port` as `"host:port"` or `"[ipv6]:port"`.
+std::string FormatHostPort(std::string_view host, std::string_view port);
+
+/// Returns true if `host` is a valid unbracketed IPv6 literal per RFC 4291.
+bool IsValidIpv6Literal(std::string_view host);
+
+/// Returns true if `host` is a valid unbracketed URI host (reg-name, IPv4, or
+/// IPv6 literal).
+bool IsValidHttpHost(std::string_view host);
+
+/// Returns true if `port` is a valid decimal TCP/UDP port in `[1, 65535]`.
+bool IsValidHttpPort(std::string_view port);
+
+/// Returns true if `authority` is a valid `host[:port]` or `[ipv6][:port]`
+/// without `userinfo@`.
+bool IsValidHttpAuthority(std::string_view authority);
+
+/// Redacts userinfo and query/fragment components from `raw_url` and C-escapes
+/// the result for safe inclusion in error messages and logs.
+std::string RedactUrlForError(std::string_view raw_url);
 
 /// Returns an error if the schema doesn't match.
 absl::Status EnsureSchema(const ParsedGenericUri& parsed_uri,

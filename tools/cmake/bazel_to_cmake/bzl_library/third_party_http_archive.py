@@ -215,6 +215,7 @@ from ..cmake_builder import OPTIONS_SECTION
 from ..cmake_repository import CMakeRepository
 from ..cmake_target import CMakeTarget
 from ..evaluation_state import EvaluationState
+from ..platforms import may_target_x86
 from ..starlark.bazel_target import parse_absolute_target
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
@@ -541,6 +542,9 @@ def _emit_fetch_content_impl(
         lang == "ASM_MASM"
         and state.workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] != "MSVC"
     ):
+      continue
+    # NASM only targets x86, so don't require it for other processors.
+    if lang == "ASM_NASM" and not may_target_x86(state.workspace.cmake_vars):
       continue
     builder.addtext(
         f"enable_language({lang})\n",

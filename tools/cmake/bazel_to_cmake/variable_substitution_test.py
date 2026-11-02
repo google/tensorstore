@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import os
 import pathlib
 from typing import Any
 
@@ -46,7 +45,9 @@ class MyContext(InvocationContext):
 
   def __init__(self):
     self._caller_package_id = PackageId.parse("@foo//bar/baz")
-    self._relative_to = os.path.dirname(__file__)
+    # Use forward slashes, as CMake paths do, so that expected values don't
+    # depend on how backslashes are escaped on Windows.
+    self._relative_to = pathlib.Path(__file__).parent.as_posix()
 
   @property
   def relative_to(self) -> str:
@@ -67,8 +68,10 @@ class MyContext(InvocationContext):
 
   def resolve_source_root(
       self, repository_id: RepositoryId
-  ) -> pathlib.PurePosixPath:
-    return pathlib.PurePosixPath(
+  ) -> pathlib.PurePath:
+    # Like the real implementation, this uses the native path flavor so that
+    # source paths can be made relative to it on Windows.
+    return pathlib.PurePath(
         f"{self.relative_to}/external/{repository_id.repository_name}"
     )
 

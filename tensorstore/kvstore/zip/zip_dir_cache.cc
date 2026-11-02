@@ -20,6 +20,7 @@
 #include <cassert>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 
@@ -68,11 +69,10 @@ struct ReadDirectoryOp
 
   void StartEOCDBlockRead() {
     auto& cache = internal::GetOwningCache(*entry_);
-    ABSL_LOG_IF(INFO, zip_logging)
-        << "StartEOCDBlockRead " << entry_->key() << " " << options_.byte_range;
+    ABSL_LOG_IF(INFO, zip_logging) << "StartEOCDBlockRead " << cache.base_path()
+                                   << " " << options_.byte_range;
 
-    auto future =
-        cache.kvstore_driver_->Read(std::string(entry_->key()), options_);
+    auto future = cache.kvstore_driver_->Read(cache.base_path(), options_);
 
     future.Force();
     future.ExecuteWhenReady(
@@ -154,15 +154,15 @@ struct ReadDirectoryOp
     }
 
     // Central Directory is outside the EOCD block; read it separately.
-    kvstore::ReadOptions other_options = options_;
+    kvstore::ReadOptions other_options;
     other_options.generation_conditions.if_equal =
         ready.value().stamp.generation;
     other_options.byte_range = OptionalByteRangeRequest::Range(
         eocd_.cd_offset, eocd_.cd_offset + eocd_.cd_size);
+    other_options.batch = options_.batch;
 
     auto& cache = internal::GetOwningCache(*entry_);
-    auto future =
-        cache.kvstore_driver_->Read(std::string(entry_->key()), other_options);
+    auto future = cache.kvstore_driver_->Read(cache.base_path(), other_options);
     future.Force();
     future.ExecuteWhenReady(
         [self = internal::IntrusivePtr<ReadDirectoryOp>(this)](
@@ -261,6 +261,10 @@ void ZipDirectoryCache::Entry::DoRead(AsyncCacheReadRequest request) {
   }
 
   state->StartEOCDBlockRead();
+}
+
+void ZipDirectoryCache::Invalidate(absl::Time time) {
+  GetCacheEntry(this, "")->MarkStale(time);
 }
 
 ZipDirectoryCache::Entry* ZipDirectoryCache::DoAllocateEntry() {

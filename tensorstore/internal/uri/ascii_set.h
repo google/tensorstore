@@ -45,6 +45,14 @@ class AsciiSet {
 
   constexpr bool operator()(char c) const { return Test(c); }
 
+  /// Returns `true` if every character in `s` is in the set.
+  constexpr bool ContainsAll(std::string_view s) const {
+    for (char c : s) {
+      if (!Test(c)) return false;
+    }
+    return true;
+  }
+
   friend constexpr AsciiSet operator|(AsciiSet a, AsciiSet b) {
     a.bitvec_[0] |= b.bitvec_[0];
     a.bitvec_[1] |= b.bitvec_[1];

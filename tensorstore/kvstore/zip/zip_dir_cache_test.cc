@@ -27,6 +27,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/read_all.h"
@@ -96,22 +97,27 @@ TEST(ZipDirectoryKvsTest, Basic) {
       IsOk());
 
   auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
-    return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
+    return std::make_unique<ZipDirectoryCache>(memory.driver, "data.zip",
+                                               InlineExecutor{});
   });
 
-  auto entry = GetCacheEntry(cache, "data.zip");
+  auto entry = GetCacheEntry(cache, "");
   auto status = entry->Read({absl::InfinitePast()}).status();
   ASSERT_THAT(status, IsOk());
 
-  ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
-  auto* dir = lock.data();
-  ASSERT_THAT(dir, ::testing::NotNull());
+  {
+    ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
+    auto* dir = lock.data();
+    ASSERT_THAT(dir, ::testing::NotNull());
 
-  ASSERT_THAT(dir->entries, ::testing::SizeIs(3));
+    ASSERT_THAT(dir->entries, ::testing::SizeIs(3));
 
-  EXPECT_THAT(dir->entries[0].filename, "data/a.png");
-  EXPECT_THAT(dir->entries[1].filename, "data/bb.png");
-  EXPECT_THAT(dir->entries[2].filename, "data/c.png");
+    EXPECT_THAT(dir->entries[0].filename, "data/a.png");
+    EXPECT_THAT(dir->entries[1].filename, "data/bb.png");
+    EXPECT_THAT(dir->entries[2].filename, "data/c.png");
+  }
+
+  cache->Invalidate(absl::Now());
 }
 
 TEST(ZipDirectoryKvsTest, MissingEntry) {
@@ -124,10 +130,11 @@ TEST(ZipDirectoryKvsTest, MissingEntry) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
-    return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
+    return std::make_unique<ZipDirectoryCache>(memory.driver, "data.zip",
+                                               InlineExecutor{});
   });
 
-  auto entry = GetCacheEntry(cache, "data.zip");
+  auto entry = GetCacheEntry(cache, "");
   TENSORSTORE_ASSERT_OK(entry->Read({absl::InfinitePast()}));
 
   ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
@@ -148,10 +155,11 @@ TEST(ZipDirectoryKvsTest, MinimalZip) {
               IsOk());
 
   auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
-    return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
+    return std::make_unique<ZipDirectoryCache>(memory.driver, "data.zip",
+                                               InlineExecutor{});
   });
 
-  auto entry = GetCacheEntry(cache, "data.zip");
+  auto entry = GetCacheEntry(cache, "");
   auto status = entry->Read({absl::InfinitePast()}).status();
   ASSERT_THAT(status, IsOk());
 
@@ -181,10 +189,11 @@ TEST(ZipDirectoryKvsTest, RetryOnConcurrentModification) {
   auto mock_store = MockKeyValueStore::Make();
 
   auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
-    return std::make_unique<ZipDirectoryCache>(mock_store, InlineExecutor{});
+    return std::make_unique<ZipDirectoryCache>(mock_store, "data.zip",
+                                               InlineExecutor{});
   });
 
-  auto entry = GetCacheEntry(cache, "data.zip");
+  auto entry = GetCacheEntry(cache, "");
   auto future = entry->Read({absl::InfinitePast()});
 
   // Step 1: Pop the EOCD read request and forward to memory.

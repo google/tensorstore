@@ -21,7 +21,7 @@ import io
 import itertools
 import os
 import pathlib
-from typing import cast
+from typing import Any, cast
 
 from .. import native_rules_cc
 from ..cmake_builder import CMakeBuilder
@@ -31,6 +31,7 @@ from ..cmake_target import CMakeTarget
 from ..emit_alias import emit_alwayslink_alias
 from ..emit_alias import emit_cc_library_aliases
 from ..evaluation_state import EvaluationState
+from ..platforms import may_target_x86
 from ..starlark.bazel_target import PackageId
 from ..starlark.bazel_target import parse_absolute_target
 from ..starlark.bazel_target import TargetId
@@ -63,6 +64,18 @@ unset(_nasm_compiler_barename)
 
 _NASM_TARGET = parse_absolute_target("@nasm//:nasm")
 
+# Arguments specific to NASM rules, which are not valid for `cc_library`.
+_NASM_ONLY_KWARGS = ("srcs", "hdrs", "preincs", "copts", "includes")
+
+
+def _nasm_enabled(context: InvocationContext) -> bool:
+  # NASM only targets x86, so NASM rules are empty for other processors.
+  return may_target_x86(context.access(EvaluationState).workspace.cmake_vars)
+
+
+def _cc_library_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+  return {k: v for k, v in kwargs.items() if k not in _NASM_ONLY_KWARGS}
+
 
 @register_bzl_library("@rules_nasm//nasm:nasm_library.bzl")
 class RulesNasmLibrary(ScopeCommon):
@@ -76,6 +89,15 @@ class RulesNasmLibrary(ScopeCommon):
     context = self._context.snapshot()
 
     target = context.resolve_target(name)
+    if not _nasm_enabled(context):
+      context.add_rule(
+          target,
+          lambda: context.add_analyzed_target(
+              target, TargetInfo(FilesProvider([]))
+          ),
+          visibility=visibility,
+      )
+      return
     context.add_rule(
         target,
         lambda: _common_nasm_resolve(
@@ -96,6 +118,15 @@ class RulesNasmCcLibrary(ScopeCommon):
   ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
+
+    if not _nasm_enabled(context):
+      native_rules_cc.cc_library(
+          self._context,
+          name=name,
+          visibility=visibility,
+          **_cc_library_kwargs(kwargs),
+      )
+      return
 
     state = context.access(EvaluationState)
 
@@ -128,12 +159,7 @@ class RulesNasmCcLibrary(ScopeCommon):
             _nasm_library_impl, context, asm_target, **kwargs
         ),
     )
-    cc_kwargs = kwargs.copy()
-    cc_kwargs.pop("srcs", None)
-    cc_kwargs.pop("hdrs", None)
-    cc_kwargs.pop("preincs", None)
-    cc_kwargs.pop("copts", None)
-    cc_kwargs.pop("includes", None)
+    cc_kwargs = _cc_library_kwargs(kwargs)
     cc_kwargs["srcs"] = [f":{asm_target.target_name}"]
     native_rules_cc.cc_library(
         self._context,
