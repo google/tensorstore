@@ -120,10 +120,13 @@ TEST(StatusBuilder, SourceLocations) {
 
   // Status created >= 4 lines earlier preserves both source locations in order.
   absl::Status initial = absl::InvalidArgumentError("initial");
-  // Line 1
-  // Line 2
-  // Line 3
-  // Line 4
+
+  // Ensure distance > 4 lines.
+  // 1
+  // 2
+  // 3
+  // 4
+
   absl::Status propagated = StatusBuilder(initial);
   ASSERT_THAT(propagated.GetSourceLocations(), SizeIs(2));
   EXPECT_LT(propagated.GetSourceLocations()[0].line(),
@@ -137,6 +140,25 @@ TEST(StatusBuilder, SourceLocations) {
             initial.GetSourceLocations()[0].line());
   EXPECT_LT(annotated.GetSourceLocations()[0].line(),
             annotated.GetSourceLocations()[1].line());
+}
+
+TEST(StatusBuilder, SourceLocationCopiedWhenFar) {
+  auto s1 = StatusBuilder(absl::UnknownError("msg")).BuildStatus();
+
+  // Ensure distance > 4 lines.
+  // 1
+  // 2
+  // 3
+  // 4
+
+  auto s2 = StatusBuilder(s1).BuildStatus();
+  EXPECT_THAT(s2.GetSourceLocations(), SizeIs(2));
+}
+
+TEST(StatusBuilder, SourceLocationSkippedWhenClose) {
+  auto s1 = StatusBuilder(absl::UnknownError("msg")).BuildStatus();
+  auto s2 = StatusBuilder(s1).BuildStatus();
+  EXPECT_THAT(s2.GetSourceLocations(), SizeIs(1));
 }
 
 }  // namespace

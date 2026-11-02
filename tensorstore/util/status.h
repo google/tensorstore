@@ -18,6 +18,7 @@
 #include <stddef.h>
 
 #include <cassert>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -31,7 +32,8 @@ namespace tensorstore {
 namespace internal {
 
 /// Logs a fatal error with the `status` and `message`, then terminates.
-[[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
+[[noreturn]] void FatalStatus(std::string_view message,
+                              const absl::Status& status,
                               absl::SourceLocation loc);
 
 /// Returns `f(args...)`, converting a `void` return to `absl::Status`.
@@ -41,10 +43,10 @@ inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
   static_assert(std::is_void_v<R> ||
                 std::is_same_v<absl::remove_cvref_t<R>, absl::Status>);
   if constexpr (std::is_void_v<R>) {
-    std::invoke(static_cast<F&&>(f), static_cast<Args&&>(args)...);
+    std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
     return absl::OkStatus();
   } else {
-    return std::invoke(static_cast<F&&>(f), static_cast<Args&&>(args)...);
+    return std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
   }
 }
 
