@@ -1047,6 +1047,33 @@ TEST(ArrayTest, Identical) {
           std::numeric_limits<float>::signaling_NaN())));
 }
 
+TEST(ArrayTest, CompareNonContiguousRank4) {
+  // Rank-4 sub-view with non-collapsible strides across all 4 dimensions,
+  // exercising recursive outer iteration (`layouts.size() > 1`) in
+  // `IterateOverArrays`.
+  auto base = tensorstore::AllocateArray<int>({3, 3, 3, 3}, c_order,
+                                              tensorstore::value_init);
+  Array<int, 4> sub_view(
+      base.data(),
+      StridedLayout<4>({2, 2, 2, 2},
+                       {27 * Index(sizeof(int)), 9 * Index(sizeof(int)),
+                        3 * Index(sizeof(int)), 1 * Index(sizeof(int))}));
+  auto zeros = tensorstore::AllocateArray<int>({2, 2, 2, 2}, c_order,
+                                               tensorstore::value_init);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto broadcast_zero,
+      BroadcastArray(MakeScalarArray<int>(0), BoxView<4>({2, 2, 2, 2})));
+  EXPECT_EQ(sub_view, zeros);
+  EXPECT_EQ(sub_view, broadcast_zero);
+  EXPECT_TRUE(AreArraysIdenticallyEqual(sub_view, broadcast_zero));
+
+  sub_view(0, 0, 0, 1) = 7;
+  EXPECT_NE(sub_view, zeros);
+  EXPECT_NE(sub_view, broadcast_zero);
+  EXPECT_FALSE(AreArraysIdenticallyEqual(sub_view, zeros));
+  EXPECT_FALSE(AreArraysIdenticallyEqual(sub_view, broadcast_zero));
+}
+
 TEST(ArrayTest, SharedArrayAccessors) {
   SharedArray<int, 2> array = MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   SharedArrayView<int, 2> view = array;

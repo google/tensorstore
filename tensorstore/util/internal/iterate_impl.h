@@ -267,8 +267,8 @@ class IterateHelper {
       }
     } else {
       for (Index i = 0; i < size_and_strides.size; ++i) {
-        auto result = LoopImpl(func, {&layouts[1], layouts.size() - 1},
-                               index_sequence, pointers...);
+        result = LoopImpl(func, {&layouts[1], layouts.size() - 1},
+                          index_sequence, pointers...);
         if (!result) break;
         increment_pointers();
       }

@@ -1506,6 +1506,50 @@ TEST(ZarrDriverTest, CanReferenceSourceDataIndefinitelyWithCast) {
   }
 }
 
+TEST(ZarrDriverTest, CanReferenceSourceDataIndefinitelyShardedRank4) {
+  using ::tensorstore::dtypes::bfloat16_t;
+  auto source = tensorstore::AllocateArray<bfloat16_t>({4, 4, 4, 4});
+  std::fill_n(source.data(), source.num_elements(),
+              static_cast<bfloat16_t>(0.125f));
+  auto write_and_reopen_read =
+      [&](tensorstore::SourceDataReferenceRestriction restriction)
+      -> Result<tensorstore::SharedOffsetArray<void>> {
+    auto context = Context::Default();
+    ::nlohmann::json json_spec{
+        {"driver", "zarr3"},
+        {"kvstore", {{"driver", "memory"}}},
+        {"schema",
+         {
+             {"dtype", "bfloat16"},
+             {"domain", {{"shape", {4, 4, 4, 4}}}},
+             {"chunk_layout",
+              {{"read_chunk", {{"shape", {2, 2, 2, 2}}}},
+               {"write_chunk", {{"shape", {4, 4, 4, 4}}}}}},
+         }},
+    };
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto writer,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
+            .result());
+    TENSORSTORE_RETURN_IF_ERROR(
+        tensorstore::Write(source, writer, restriction).result());
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto reader, tensorstore::Open({{"driver", "zarr3"},
+                                        {"kvstore", {{"driver", "memory"}}}},
+                                       context, tensorstore::OpenMode::open)
+                         .result());
+    return tensorstore::Read(reader).result();
+  };
+
+  EXPECT_THAT(
+      write_and_reopen_read(tensorstore::cannot_reference_source_data),
+      tensorstore::IsOkAndHolds(tensorstore::MatchesArrayIdentically(source)));
+  EXPECT_THAT(
+      write_and_reopen_read(
+          tensorstore::can_reference_source_data_indefinitely),
+      tensorstore::IsOkAndHolds(tensorstore::MatchesArrayIdentically(source)));
+}
+
 TEST(FullShardWriteTest, WithoutTransaction) {
   auto context = Context::Default();
 
