@@ -80,7 +80,9 @@ namespace {
 namespace py = ::pybind11;
 
 py::bytes CordToPython(const absl::Cord& value) {
-  return py::bytes(std::string(value));
+  auto obj = BytesFromCord(value);
+  if (!obj) throw py::error_already_set();
+  return py::reinterpret_steal<py::bytes>(obj.release());
 }
 
 std::optional<absl::Cord> OptionalCordFromPython(
