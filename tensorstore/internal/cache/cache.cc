@@ -38,7 +38,6 @@
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/registration.h"
 #include "tensorstore/internal/mutex.h"
@@ -296,8 +295,8 @@ void DestroyCache(CachePoolImpl* pool,
 template <typename T, typename LockFn>
 inline std::unique_lock<absl::Mutex> DecrementReferenceCountWithLock(
     std::atomic<T>& reference_count, LockFn mutex_fn, T& new_count,
-    internal::type_identity_t<T> decrease_amount,
-    internal::type_identity_t<T> lock_threshold) {
+    std::type_identity_t<T> decrease_amount,
+    std::type_identity_t<T> lock_threshold) {
   static_assert(std::is_invocable_v<LockFn>);
   static_assert(std::is_same_v<absl::Mutex&, std::invoke_result_t<LockFn>>);
 

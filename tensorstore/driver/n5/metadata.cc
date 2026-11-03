@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -59,7 +60,6 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_metadata_matching.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/riegeli/array_endian_codec.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
@@ -195,7 +195,7 @@ std::string N5Metadata::GetCompatibilityKey() const {
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     N5Metadata, jb::Validate([](const auto& options,
                                 auto* obj) { return ValidateMetadata(*obj); },
-                             MetadataJsonBinder(internal::identity{})))
+                             MetadataJsonBinder(std::identity{})))
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(N5MetadataConstraints,
                                        MetadataJsonBinder([](auto binder) {

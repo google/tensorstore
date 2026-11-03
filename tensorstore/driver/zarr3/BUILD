@@ -245,7 +245,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/cache:kvs_backed_chunk_cache",
-        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:division",

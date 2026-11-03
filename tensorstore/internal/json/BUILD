@@ -27,7 +27,6 @@ tensorstore_cc_library(
     srcs = ["value_as.cc"],
     hdrs = ["value_as.h"],
     deps = [
-        "//tensorstore/internal/meta:type_traits",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",

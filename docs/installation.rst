@@ -202,7 +202,7 @@ To add TensorStore as a dependency to an existing Bazel workspace:
    bazel_features_deps()
 
 
-Additionally, TensorStore must be built in C++17 mode.  You should add the
+Additionally, TensorStore must be built in C++20 mode.  You should add the
 compiler flags specified in the ``.bazelrc`` file in the TensorStore repository
 to your dependent project's ``.bazelrc``.
 
@@ -246,7 +246,7 @@ To add TensorStore as a dependency to an existing CMake project:
        tensorstore::tensorstore tensorstore::all_drivers
    )
 
-TensorStore requires that the project is built in C++17 mode.
+TensorStore requires that the project is built in C++20 mode.
 
 The `supported C++ toolchains<build-requirements>` and `additional system
 requirements<cmake-build-requirements>` are listed below.
@@ -333,7 +333,7 @@ following C++ compilers:
 
 - GCC 12 or later (Linux)
 - Clang 16 or later (Linux)
-- Microsoft Visual Studio 2022 version 17.8 (MSVC 14.38) or later
+- Microsoft Visual Studio 2022 version 17.12 (MSVC 14.42) or later
 - Mingw64 GCC 13 or later (Windows); CMake only, Bazel is not supported, and
   ``lld`` is recommended over ``ld`` for speed.
 - Apple Xcode 15.0 or later

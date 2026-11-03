@@ -37,7 +37,6 @@
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/meta/type_traits.h"
 
 namespace tensorstore {
 namespace internal_json {
@@ -51,29 +50,28 @@ absl::Status ValidationError(const ::nlohmann::json& j,
                              std::string_view type_name);
 
 /// GetTypeName returns the expected json field type name for error messages.
-inline constexpr const char* GetTypeName(internal::type_identity<int64_t>) {
+inline constexpr const char* GetTypeName(std::type_identity<int64_t>) {
   return "64-bit signed integer";
 }
-inline constexpr const char* GetTypeName(internal::type_identity<uint64_t>) {
+inline constexpr const char* GetTypeName(std::type_identity<uint64_t>) {
   return "64-bit unsigned integer";
 }
-inline constexpr const char* GetTypeName(internal::type_identity<int32_t>) {
+inline constexpr const char* GetTypeName(std::type_identity<int32_t>) {
   return "32-bit signed integer";
 }
-inline constexpr const char* GetTypeName(internal::type_identity<uint32_t>) {
+inline constexpr const char* GetTypeName(std::type_identity<uint32_t>) {
   return "32-bit unsigned integer";
 }
-inline constexpr const char* GetTypeName(internal::type_identity<double>) {
+inline constexpr const char* GetTypeName(std::type_identity<double>) {
   return "64-bit floating-point number";
 }
-inline constexpr const char* GetTypeName(internal::type_identity<std::string>) {
+inline constexpr const char* GetTypeName(std::type_identity<std::string>) {
   return "string";
 }
-inline constexpr const char* GetTypeName(internal::type_identity<bool>) {
+inline constexpr const char* GetTypeName(std::type_identity<bool>) {
   return "boolean";
 }
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::nullptr_t>) {
+inline constexpr const char* GetTypeName(std::type_identity<std::nullptr_t>) {
   return "null";
 }
 inline constexpr const char* GetTypeName(...) { return nullptr; }
@@ -144,12 +142,12 @@ JsonRequireValueAs(const ::nlohmann::json& j, T* result, ValidateFn is_valid,
   auto value = JsonValueAs<T>(j, strict);
   if (!value) {
     return internal_json::ExpectedError(
-        j, internal_json::GetTypeName(internal::type_identity<T>{}));
+        j, internal_json::GetTypeName(std::type_identity<T>{}));
   }
   // NOTE: improve is_valid; allow bool or status returns.
   if (!is_valid(*value)) {
     return internal_json::ValidationError(
-        j, internal_json::GetTypeName(internal::type_identity<T>{}));
+        j, internal_json::GetTypeName(std::type_identity<T>{}));
   }
   if (result != nullptr) {
     *result = *std::move(value);
@@ -180,8 +178,8 @@ absl::Status JsonRequireValueAs(const ::nlohmann::json& j, T* result,
 template <typename T>
 absl::Status JsonRequireInteger(
     const ::nlohmann::json& json, T* result, bool strict = false,
-    internal::type_identity_t<T> min_value = std::numeric_limits<T>::min(),
-    internal::type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
+    std::type_identity_t<T> min_value = std::numeric_limits<T>::min(),
+    std::type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
   static_assert(std::numeric_limits<T>::is_integer,
                 "T must be an integer type.");
   using U =

@@ -66,7 +66,7 @@ ABSL_FLAG(std::string, localstack_endpoint, "", "Localstack endpoint");
 ABSL_FLAG(std::string, localstack_binary, "", "Path to the localstack");
 
 // --localstack_timeout is the time the process will wait for localstack.
-ABSL_FLAG(absl::Duration, localstack_timeout, absl::Seconds(15),
+ABSL_FLAG(absl::Duration, localstack_timeout, absl::Seconds(60),
           "Time to wait for localstack process to start serving requests");
 
 // --host_header can override the host: header used for signing.

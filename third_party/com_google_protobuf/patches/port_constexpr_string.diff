@@ -1,0 +1,44 @@
+--- a/src/google/protobuf/port.h
++++ b/src/google/protobuf/port.h
+@@ -788,6 +788,30 @@
+ 
+ // Take advantage of C++20 constexpr support in std::string.
+ class alignas(8) GlobalEmptyStringConstexpr {
++  template <typename T>
++  struct NonConstexprAllocator {
++    using value_type = T;
++    using size_type = size_t;
++    using difference_type = ptrdiff_t;
++
++    constexpr NonConstexprAllocator() = default;
++
++    template <typename U>
++    constexpr NonConstexprAllocator(NonConstexprAllocator<U>) {}
++
++    friend constexpr bool operator==(NonConstexprAllocator,
++                                     NonConstexprAllocator) {
++      return true;
++    }
++    friend constexpr bool operator!=(NonConstexprAllocator,
++                                     NonConstexprAllocator) {
++      return false;
++    }
++
++    T* allocate(size_t);
++    void deallocate(void*, size_t);
++  };
++
+  public:
+   const std::string& get() const { return value_; }
+   // Nothing to init, or destroy.
+@@ -799,7 +823,9 @@
+   // during constant evaluation.
+ #if !defined(_MSC_VER) && !defined(__XTENSA__)
+   // Compilation fails on Xtensa: b/467129751
+-  template <typename T = std::string, bool = (T(), true)>
++  template <
++      typename Alloc = NonConstexprAllocator<char>,
++      int = std::basic_string<char, std::char_traits<char>, Alloc>().size()>
+   static constexpr std::true_type HasConstexprDefaultConstructor(int) {
+     return {};
+   }

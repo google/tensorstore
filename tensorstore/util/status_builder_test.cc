@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/config.h"  // IWYU pragma: keep
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -104,6 +105,17 @@ TEST(StatusBuilder, IsOk) {
   EXPECT_THAT(StatusBuilder(absl::OkStatus()), IsOk());
 }
 
+// Clang < 17 and AppleClang < 16 have a bug (LLVM #56379) where consteval
+// std::source_location::current() in a default argument evaluates at the
+// function declaration site rather than the caller site.
+#if defined(ABSL_USES_STD_SOURCE_LOCATION) &&                    \
+    ((defined(__apple_build_version__) &&                        \
+      __apple_build_version__ < 16000000) ||                     \
+     (defined(__clang__) && !defined(__apple_build_version__) && \
+      __clang_major__ < 17))
+#define TENSORSTORE_BROKEN_SOURCE_LOCATION_DEFAULT_ARG 1
+#endif
+
 TEST(StatusBuilder, SourceLocations) {
   absl::Status ok_status = StatusBuilder(absl::OkStatus());
   EXPECT_THAT(ok_status.GetSourceLocations(), IsEmpty());
@@ -111,6 +123,9 @@ TEST(StatusBuilder, SourceLocations) {
   absl::Status code_status =
       StatusBuilder(absl::StatusCode::kInvalidArgument).Format("formatted");
   EXPECT_THAT(code_status.GetSourceLocations(), SizeIs(1));
+#if defined(TENSORSTORE_BROKEN_SOURCE_LOCATION_DEFAULT_ARG)
+  return;
+#endif
   EXPECT_THAT(absl::StrCat(code_status), HasSubstr("status_builder_test"));
 
   // Same-line status and StatusBuilder deduplicates within 4 lines.
@@ -142,6 +157,7 @@ TEST(StatusBuilder, SourceLocations) {
             annotated.GetSourceLocations()[1].line());
 }
 
+#if !defined(TENSORSTORE_BROKEN_SOURCE_LOCATION_DEFAULT_ARG)
 TEST(StatusBuilder, SourceLocationCopiedWhenFar) {
   auto s1 = StatusBuilder(absl::UnknownError("msg")).BuildStatus();
 
@@ -160,5 +176,8 @@ TEST(StatusBuilder, SourceLocationSkippedWhenClose) {
   auto s2 = StatusBuilder(s1).BuildStatus();
   EXPECT_THAT(s2.GetSourceLocations(), SizeIs(1));
 }
+#endif  // !defined(TENSORSTORE_BROKEN_SOURCE_LOCATION_DEFAULT_ARG)
+
+#undef TENSORSTORE_BROKEN_SOURCE_LOCATION_DEFAULT_ARG
 
 }  // namespace

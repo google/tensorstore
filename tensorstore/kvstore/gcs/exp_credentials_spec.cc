@@ -35,7 +35,6 @@
 #include "tensorstore/internal/grpc/clientauth/impersonate_service_account.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
@@ -87,7 +86,7 @@ bool IsKnownCredential(std::string_view credential) {
 template <typename L, typename T>
 using MaybeConst =
     std::conditional_t<std::is_same_v<L, std::true_type>,
-                       internal::type_identity_t<T>, std::add_const_t<T>>;
+                       std::type_identity_t<T>, std::add_const_t<T>>;
 
 // The PartialBinder for ExperimentalGcsGrpcCredentialsSpec looks at the
 // "type" member and then invokes the credential-specific binder.

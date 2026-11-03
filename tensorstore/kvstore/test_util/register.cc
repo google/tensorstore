@@ -85,7 +85,7 @@ struct TransactionalReadOpsFunctor {
       if (write_to_other_node) {
         TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base, store.base());
         p.write_to_other_node =
-            [=, base = std::move(base)](
+            [this, base = std::move(base)](
                 std::string key,
                 absl::Cord value) -> Result<TimestampedStorageGeneration> {
           Result<TimestampedStorageGeneration> result{};
@@ -131,7 +131,7 @@ struct TransactionalListOpsFunctor {
       p.transaction_mode = transaction_mode;
       if (write_to_other_node) {
         TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base, store.base());
-        p.get_other_store = [=, base = std::move(base)](auto callback) {
+        p.get_other_store = [this, base = std::move(base)](auto callback) {
           get_store_adapter(base, std::move(callback));
         };
       }

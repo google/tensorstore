@@ -92,7 +92,7 @@ def _emit_cc_common_options(
     srcs: Iterable[str] | None = None,
     public_srcs: Iterable[str] | None = None,
     emit_enum: CcCommonEnum = CcCommonEnum.LIBRARY,
-    cpp_standard: str = "17",
+    cpp_standard: str = "20",
     **kwargs,
 ):
   """Emits CMake rules for common C++ target options."""

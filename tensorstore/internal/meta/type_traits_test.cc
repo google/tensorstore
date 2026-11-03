@@ -30,7 +30,6 @@ using ::tensorstore::internal::IsConstConvertible;
 using ::tensorstore::internal::IsConstConvertibleOrVoid;
 using ::tensorstore::internal::IsEqualityComparable;
 using ::tensorstore::internal::PossiblyEmptyObjectGetter;
-using ::tensorstore::internal::type_identity_t;
 using ::tensorstore::internal::TypePackElement;
 
 namespace equality_comparable_tests {
@@ -108,9 +107,6 @@ TEST(PossiblyEmptyObjectGetterTest, Basic) {
     EXPECT_EQ(&value, &obj);
   }
 }
-
-static_assert(std::is_same_v<int, type_identity_t<int>>);
-
 
 namespace explict_conversion_tests {
 using ::tensorstore::internal::IsOnlyExplicitlyConvertible;

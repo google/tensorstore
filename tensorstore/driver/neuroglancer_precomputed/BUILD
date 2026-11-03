@@ -162,7 +162,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:data_type",
-        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/kvstore/neuroglancer_uint64_sharded:uint64_sharded",
         "//tensorstore/serialization",
         "//tensorstore/serialization:json",

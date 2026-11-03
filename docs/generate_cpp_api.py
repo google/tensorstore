@@ -86,7 +86,7 @@ def main():
       + [
           # Due to https://github.com/bazelbuild/bazel/issues/14764, this is not
           # picked up from .bazelrc.
-          "-std=c++17"
+          "-std=c++20"
       ],
       include_directory_map={"./": ""},
       # Only entities whose original source path matches any of these regular
@@ -144,8 +144,6 @@ def main():
       type_replacements={
           "absl::remove_cvref_t": "std::remove_cvref_t",
           "absl::weak_ordering": "std::weak_ordering",
-          "tensorstore::internal::type_identity_t": "std::type_identity_t",
-          "internal::type_identity_t": "std::type_identity_t",
       },
       verbose=args.verbose,
   )

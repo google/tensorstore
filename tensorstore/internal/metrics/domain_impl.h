@@ -153,19 +153,6 @@ constexpr bool IsPerfect(const T* keys, size_t n, uint32_t seed,
   return true;
 }
 
-// Replace with std::optional<uint32_t> in C++20 (P2231R1).
-struct ConstexprSeed {
-  bool has_val;
-  uint32_t val;
-  constexpr bool has_value() const { return has_val; }
-  constexpr uint32_t value() const { return val; }
-  constexpr uint32_t operator*() const { return val; }
-
-  constexpr operator std::optional<uint32_t>() const {
-    return has_val ? std::optional<uint32_t>(val) : std::nullopt;
-  }
-};
-
 // std::array wrapper for IsPerfect.
 template <typename T, size_t N, bool CaseSensitive, size_t TableSize>
 constexpr bool IsPerfect(const std::array<T, N>& keys, uint32_t seed) {

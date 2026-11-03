@@ -663,6 +663,7 @@ tensorstore_cc_test(
     deps = [
         ":status",
         ":status_testutil",
+        "@abseil-cpp//absl/base:config",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",

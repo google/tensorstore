@@ -31,7 +31,7 @@ target_include_directories(CMakeProject_a PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_include_directories(CMakeProject_a PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a PUBLIC cxx_std_20)
 target_sources(CMakeProject_a PRIVATE
         "${PROJECT_BINARY_DIR}/_nasm/asm_library/e3a1b44e/a.asm.o"
         "${PROJECT_SOURCE_DIR}/a.cc")

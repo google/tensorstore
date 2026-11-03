@@ -31,7 +31,6 @@
 #include "tensorstore/internal/aws/credentials/common.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
@@ -65,7 +64,7 @@ namespace {
 template <typename L, typename T>
 using MaybeConst =
     std::conditional_t<std::is_same_v<L, std::true_type>,
-                       internal::type_identity_t<T>, std::add_const_t<T>>;
+                       std::type_identity_t<T>, std::add_const_t<T>>;
 
 constexpr auto kDefaultBinder =  //
     jb::Sequence(jb::Member(

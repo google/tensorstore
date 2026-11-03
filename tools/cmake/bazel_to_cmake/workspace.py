@@ -42,7 +42,7 @@ _PLATFORM_NAME_TO_BAZEL_PLATFORM = {
     "Linux": "linux",
 }
 
-_DEFAULT_CPP_STANDARD = "17"
+_DEFAULT_CPP_STANDARD = "20"
 
 
 def _parse_bazelrc(path: str) -> dict[str, list[str]]:

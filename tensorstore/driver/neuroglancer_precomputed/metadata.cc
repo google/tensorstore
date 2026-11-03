@@ -58,7 +58,6 @@
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_metadata_matching.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
@@ -234,8 +233,9 @@ constexpr static auto EncodingJsonBinder = [](auto maybe_optional) {
             jb::Projection(&T::encoding,
                            maybe_optional(ScaleMetatadaEncodingBinder()))),
         jb::Member("jpeg_quality",
-                   [maybe_optional](auto is_loading, const auto& options,
-                                    auto* obj, auto* j) -> absl::Status {
+                   [maybe_optional = maybe_optional](
+                       auto is_loading, const auto& options, auto* obj,
+                       auto* j) -> absl::Status {
                      if constexpr (is_loading) {
                        if (j->is_discarded()) return absl::OkStatus();
                        if (obj->encoding != ScaleMetadata::Encoding::jpeg) {
@@ -254,8 +254,9 @@ constexpr static auto EncodingJsonBinder = [](auto maybe_optional) {
                          is_loading, options, obj, j);
                    }),
         jb::Member("png_level",
-                   [maybe_optional](auto is_loading, const auto& options,
-                                    auto* obj, auto* j) -> absl::Status {
+                   [maybe_optional = maybe_optional](
+                       auto is_loading, const auto& options, auto* obj,
+                       auto* j) -> absl::Status {
                      if constexpr (is_loading) {
                        if (j->is_discarded()) return absl::OkStatus();
                        if (obj->encoding != ScaleMetadata::Encoding::png) {
@@ -336,8 +337,7 @@ constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
 }
 
 constexpr static auto ScaleMetadataBinder = jb::Object(
-    ScaleMetadataCommon(internal::identity{}),
-    jb::Initialize([](ScaleMetadata* x) {
+    ScaleMetadataCommon(std::identity{}), jb::Initialize([](ScaleMetadata* x) {
       x->box.Fill(IndexInterval::UncheckedSized(0, 0));
     }),
     jb::Member("size", jb::Projection([](auto& x) { return x.box.shape(); })),

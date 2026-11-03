@@ -53,7 +53,7 @@ target_link_libraries(CMakeProject_a_proto__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_a_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_a_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_a_proto__cpp_library "CMakeProject_aspect_cpp__43b0bcf1")
 target_sources(CMakeProject_a_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/a.pb.h")
@@ -108,7 +108,7 @@ target_link_libraries(CMakeProject_a_proto__minitable_library PUBLIC
         "m")
 target_include_directories(CMakeProject_a_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
-target_compile_features(CMakeProject_a_proto__minitable_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a_proto__minitable_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_a_proto__minitable_library "CMakeProject_aspect_upb_minitable__43b0bcf1")
 target_sources(CMakeProject_a_proto__minitable_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.h")
@@ -164,7 +164,7 @@ target_link_libraries(CMakeProject_a_proto__upb_library PUBLIC
         "m")
 target_include_directories(CMakeProject_a_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_a_proto__upb_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a_proto__upb_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_a_proto__upb_library "CMakeProject_aspect_upb__43b0bcf1")
 target_sources(CMakeProject_a_proto__upb_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h")
@@ -221,7 +221,7 @@ target_link_libraries(CMakeProject_a_proto__upbdefs_library PUBLIC
         "m")
 target_include_directories(CMakeProject_a_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upbdefs>")
-target_compile_features(CMakeProject_a_proto__upbdefs_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a_proto__upbdefs_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_a_proto__upbdefs_library "CMakeProject_aspect_upbdefs__43b0bcf1")
 target_sources(CMakeProject_a_proto__upbdefs_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upbdefs/a.upbdefs.h")
@@ -283,7 +283,7 @@ target_link_libraries(CMakeProject_ab_proto__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_ab_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_ab_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_ab_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_ab_proto__cpp_library "CMakeProject_aspect_cpp__3daadd2b" "CMakeProject_aspect_cpp__43b0bcf1")
 target_sources(CMakeProject_ab_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/a.pb.h"
@@ -377,7 +377,7 @@ target_link_libraries(CMakeProject_ab_proto__minitable_library PUBLIC
         "m")
 target_include_directories(CMakeProject_ab_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
-target_compile_features(CMakeProject_ab_proto__minitable_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_ab_proto__minitable_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_ab_proto__minitable_library "CMakeProject_aspect_upb_minitable__3daadd2b" "CMakeProject_aspect_upb_minitable__43b0bcf1")
 target_sources(CMakeProject_ab_proto__minitable_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.h"
@@ -398,7 +398,7 @@ target_link_libraries(CMakeProject_ab_proto__upb_library PUBLIC
         "m")
 target_include_directories(CMakeProject_ab_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_ab_proto__upb_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_ab_proto__upb_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_ab_proto__upb_library "CMakeProject_aspect_upb__3daadd2b" "CMakeProject_aspect_upb__43b0bcf1")
 target_sources(CMakeProject_ab_proto__upb_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
@@ -457,7 +457,7 @@ target_link_libraries(CMakeProject_ab_proto__upbdefs_library PUBLIC
         "m")
 target_include_directories(CMakeProject_ab_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upbdefs>")
-target_compile_features(CMakeProject_ab_proto__upbdefs_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_ab_proto__upbdefs_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_ab_proto__upbdefs_library "CMakeProject_aspect_upbdefs__3daadd2b" "CMakeProject_aspect_upbdefs__43b0bcf1")
 target_sources(CMakeProject_ab_proto__upbdefs_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upbdefs/a.upbdefs.h"
@@ -477,7 +477,7 @@ target_link_libraries(CMakeProject_ab_protos_cc PUBLIC
         "m")
 target_include_directories(CMakeProject_ab_protos_cc PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_ab_protos_cc PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_ab_protos_cc PUBLIC cxx_std_20)
 target_sources(CMakeProject_ab_protos_cc PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 add_library(CMakeProject::ab_protos_cc ALIAS CMakeProject_ab_protos_cc)
@@ -581,7 +581,7 @@ target_link_libraries(CMakeProject_d_proto__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_d_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_d_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_d_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_d_proto__cpp_library "CMakeProject_aspect_cpp__ae7c401d")
 target_sources(CMakeProject_d_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/d.pb.h")
@@ -601,7 +601,7 @@ target_link_libraries(CMakeProject_abcd_proto__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_abcd_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_abcd_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_abcd_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_abcd_proto__cpp_library "CMakeProject_aspect_cpp__84819b61")
 target_sources(CMakeProject_abcd_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h")
@@ -730,7 +730,7 @@ target_link_libraries(CMakeProject_d_proto__minitable_library PUBLIC
         "m")
 target_include_directories(CMakeProject_d_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
-target_compile_features(CMakeProject_d_proto__minitable_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_d_proto__minitable_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_d_proto__minitable_library "CMakeProject_aspect_upb_minitable__ae7c401d")
 target_sources(CMakeProject_d_proto__minitable_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.h")
@@ -750,7 +750,7 @@ target_link_libraries(CMakeProject_abcd_proto__minitable_library PUBLIC
         "m")
 target_include_directories(CMakeProject_abcd_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
-target_compile_features(CMakeProject_abcd_proto__minitable_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_abcd_proto__minitable_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_abcd_proto__minitable_library "CMakeProject_aspect_upb_minitable__84819b61")
 target_sources(CMakeProject_abcd_proto__minitable_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h")
@@ -806,7 +806,7 @@ target_link_libraries(CMakeProject_d_proto__upb_library PUBLIC
         "m")
 target_include_directories(CMakeProject_d_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_d_proto__upb_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_d_proto__upb_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_d_proto__upb_library "CMakeProject_aspect_upb__ae7c401d")
 target_sources(CMakeProject_d_proto__upb_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h")
@@ -829,7 +829,7 @@ target_link_libraries(CMakeProject_abcd_proto__upb_library PUBLIC
         "m")
 target_include_directories(CMakeProject_abcd_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_abcd_proto__upb_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_abcd_proto__upb_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_abcd_proto__upb_library "CMakeProject_aspect_upb__84819b61")
 target_sources(CMakeProject_abcd_proto__upb_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.h")
@@ -923,7 +923,7 @@ target_link_libraries(CMakeProject_d_proto__upbdefs_library PUBLIC
         "m")
 target_include_directories(CMakeProject_d_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upbdefs>")
-target_compile_features(CMakeProject_d_proto__upbdefs_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_d_proto__upbdefs_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_d_proto__upbdefs_library "CMakeProject_aspect_upbdefs__ae7c401d")
 target_sources(CMakeProject_d_proto__upbdefs_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upbdefs/d.upbdefs.h")
@@ -947,7 +947,7 @@ target_link_libraries(CMakeProject_abcd_proto__upbdefs_library PUBLIC
         "m")
 target_include_directories(CMakeProject_abcd_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upbdefs>")
-target_compile_features(CMakeProject_abcd_proto__upbdefs_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_abcd_proto__upbdefs_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_abcd_proto__upbdefs_library "CMakeProject_aspect_upbdefs__84819b61")
 target_sources(CMakeProject_abcd_proto__upbdefs_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.h")
@@ -965,7 +965,7 @@ target_link_libraries(CMakeProject_abcd_protos_cc PUBLIC
         "m")
 target_include_directories(CMakeProject_abcd_protos_cc PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_abcd_protos_cc PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_abcd_protos_cc PUBLIC cxx_std_20)
 target_sources(CMakeProject_abcd_protos_cc PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 add_library(CMakeProject::abcd_protos_cc ALIAS CMakeProject_abcd_protos_cc)
@@ -988,7 +988,7 @@ target_link_libraries(CMakeProject_b_proto__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_b_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_b_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_b_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_b_proto__cpp_library "CMakeProject_aspect_cpp__3daadd2b")
 target_sources(CMakeProject_b_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/b.pb.h")
@@ -1006,7 +1006,7 @@ target_link_libraries(CMakeProject_b_proto__minitable_library PUBLIC
         "m")
 target_include_directories(CMakeProject_b_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
-target_compile_features(CMakeProject_b_proto__minitable_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_b_proto__minitable_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_b_proto__minitable_library "CMakeProject_aspect_upb_minitable__3daadd2b")
 target_sources(CMakeProject_b_proto__minitable_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/b.upb_minitable.h")
@@ -1025,7 +1025,7 @@ target_link_libraries(CMakeProject_b_proto__upb_library PUBLIC
         "m")
 target_include_directories(CMakeProject_b_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_b_proto__upb_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_b_proto__upb_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_b_proto__upb_library "CMakeProject_aspect_upb__3daadd2b")
 target_sources(CMakeProject_b_proto__upb_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb/b.upb.h")
@@ -1045,7 +1045,7 @@ target_link_libraries(CMakeProject_b_proto__upbdefs_library PUBLIC
         "m")
 target_include_directories(CMakeProject_b_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upbdefs>")
-target_compile_features(CMakeProject_b_proto__upbdefs_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_b_proto__upbdefs_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_b_proto__upbdefs_library "CMakeProject_aspect_upbdefs__3daadd2b")
 target_sources(CMakeProject_b_proto__upbdefs_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upbdefs/b.upbdefs.h")
@@ -1148,7 +1148,7 @@ target_link_libraries(CMakeProject_x_proto__minitable_library PUBLIC
         "m")
 target_include_directories(CMakeProject_x_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
-target_compile_features(CMakeProject_x_proto__minitable_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_x_proto__minitable_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_x_proto__minitable_library "CMakeProject_aspect_upb_minitable__a1bf1338")
 target_sources(CMakeProject_x_proto__minitable_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/x.upb_minitable.h")
@@ -1169,7 +1169,7 @@ target_link_libraries(CMakeProject_x_proto__upb_library PUBLIC
         "m")
 target_include_directories(CMakeProject_x_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_x_proto__upb_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_x_proto__upb_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_x_proto__upb_library "CMakeProject_aspect_upb__a1bf1338")
 target_sources(CMakeProject_x_proto__upb_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb/x.upb.h")
@@ -1228,7 +1228,7 @@ target_link_libraries(CMakeProject_x_proto__upbdefs_library PUBLIC
         "m")
 target_include_directories(CMakeProject_x_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upbdefs>")
-target_compile_features(CMakeProject_x_proto__upbdefs_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_x_proto__upbdefs_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_x_proto__upbdefs_library "CMakeProject_aspect_upbdefs__a1bf1338")
 target_sources(CMakeProject_x_proto__upbdefs_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upbdefs/x.upbdefs.h")
@@ -1282,7 +1282,7 @@ target_link_libraries(CMakeProject_x_proto__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_x_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_x_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_x_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_x_proto__cpp_library "CMakeProject_aspect_cpp__a1bf1338")
 target_sources(CMakeProject_x_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/x.pb.h")
@@ -1300,7 +1300,7 @@ target_link_libraries(CMakeProject_x_proto_cc PUBLIC
         "m")
 target_include_directories(CMakeProject_x_proto_cc PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_x_proto_cc PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_x_proto_cc PUBLIC cxx_std_20)
 target_sources(CMakeProject_x_proto_cc PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 add_library(CMakeProject::x_proto_cc ALIAS CMakeProject_x_proto_cc)
@@ -1359,7 +1359,7 @@ target_link_libraries(CMakeProject_y_proto__cpp_library PUBLIC
 target_include_directories(CMakeProject_y_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp/src>")
-target_compile_features(CMakeProject_y_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_y_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_y_proto__cpp_library "CMakeProject_aspect_cpp__9651e148")
 target_sources(CMakeProject_y_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/src/subdir/y.pb.h")
@@ -1452,7 +1452,7 @@ target_link_libraries(CMakeProject_y_proto__minitable_library PUBLIC
 target_include_directories(CMakeProject_y_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable/src>")
-target_compile_features(CMakeProject_y_proto__minitable_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_y_proto__minitable_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_y_proto__minitable_library "CMakeProject_aspect_upb_minitable__9651e148")
 target_sources(CMakeProject_y_proto__minitable_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.h")
@@ -1472,7 +1472,7 @@ target_link_libraries(CMakeProject_y_proto__upb_library PUBLIC
 target_include_directories(CMakeProject_y_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb/src>")
-target_compile_features(CMakeProject_y_proto__upb_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_y_proto__upb_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_y_proto__upb_library "CMakeProject_aspect_upb__9651e148")
 target_sources(CMakeProject_y_proto__upb_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_upb/src/subdir/y.upb.h")

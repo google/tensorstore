@@ -31,6 +31,7 @@ def repo():
         patches = [
             # Fixes, including https://github.com/grpc/grpc/issues/34482
             Label("//third_party:grpc/patches/update_build_system.diff"),
+            Label("//third_party:grpc/patches/fix_msvc_filter_fusion.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {

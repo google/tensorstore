@@ -711,8 +711,7 @@ template <size_t Arity, typename... ExtraArg, typename Pointers>
 inline bool InvokeElementwiseClosure(
     ElementwiseClosure<Arity, ExtraArg...> closure,
     IterationBufferKind buffer_kind, internal::IterationBufferShape shape,
-    const Pointers& pointers,
-    internal::type_identity_t<ExtraArg>... extra_arg) {
+    const Pointers& pointers, std::type_identity_t<ExtraArg>... extra_arg) {
   return internal_elementwise_function::InvokeElementwiseFunctionImpl<
       Arity, ExtraArg...>(
       std::make_index_sequence<Arity>{}, (*closure.function)[buffer_kind],

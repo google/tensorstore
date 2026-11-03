@@ -274,7 +274,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:dimension_indexed",
-        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/riegeli:array_endian_codec",
         "//tensorstore/serialization",
         "//tensorstore/serialization:json",

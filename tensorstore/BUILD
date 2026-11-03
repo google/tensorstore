@@ -1054,7 +1054,6 @@ tensorstore_cc_library(
         ":spec",
         ":tensorstore",
         "//tensorstore/driver/downsample",
-        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
     ],

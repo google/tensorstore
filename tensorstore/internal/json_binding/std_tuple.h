@@ -89,9 +89,8 @@ constexpr auto TupleDefaultJsonBinderImpl(std::index_sequence<Is...>) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         ::nlohmann::json::array_t * array_ptr,
         EnsureJsonTupleRepresentationImpl(is_loading, j, sizeof...(Is)));
-    using std::get;
     if (absl::Status status;
-        (((status = DefaultBinder<>(is_loading, options, &get<Is>(*obj),
+        (((status = DefaultBinder<>(is_loading, options, &std::get<Is>(*obj),
                                     &(*array_ptr)[Is]))
               .ok() ||
           ((status = MaybeAnnotateTupleElementError(status, Is, is_loading)),
