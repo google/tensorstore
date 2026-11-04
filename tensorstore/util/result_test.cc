@@ -56,6 +56,33 @@ static_assert(!tensorstore::internal_result::is_result_status_or_inplace<int>);
 static_assert(
     tensorstore::internal_result::is_result_status_or_inplace<Result<void>>);
 
+template <typename T>
+struct Deduce {
+  using value_t = decltype(std::declval<T>().value());
+  using deref_t = decltype(*std::declval<T>());
+  using arrow_t = decltype(std::declval<T>().operator->());
+};
+
+// Validate Result<int>&
+static_assert(std::is_same_v<Deduce<Result<int>&>::value_t, int&>);
+static_assert(std::is_same_v<Deduce<Result<int>&>::deref_t, int&>);
+static_assert(std::is_same_v<Deduce<Result<int>&>::arrow_t, int*>);
+
+// Validate const Result<int>&
+static_assert(std::is_same_v<Deduce<const Result<int>&>::value_t, const int&>);
+static_assert(std::is_same_v<Deduce<const Result<int>&>::deref_t, const int&>);
+static_assert(std::is_same_v<Deduce<const Result<int>&>::arrow_t, const int*>);
+
+// Validate Result<int>&&
+static_assert(std::is_same_v<Deduce<Result<int>&&>::value_t, int&&>);
+static_assert(std::is_same_v<Deduce<Result<int>&&>::deref_t, int&&>);
+
+// Validate const Result<int>&&
+static_assert(
+    std::is_same_v<Deduce<const Result<int>&&>::value_t, const int&&>);
+static_assert(
+    std::is_same_v<Deduce<const Result<int>&&>::deref_t, const int&&>);
+
 TEST(ResultTest, ConstructDefault) {
   Result<int> result{std::in_place};
   EXPECT_TRUE(result.has_value());
@@ -474,34 +501,9 @@ TEST(ResultTest, Message) {
 }
 
 TEST(ResultTest, Value) {
-  static_assert(
-      std::is_same_v<decltype(std::declval<const Result<int>&>().value()),
-                     const int&>);
-  static_assert(
-      std::is_same_v<decltype(std::declval<Result<int>&>().value()), int&>);
-
-  static_assert(
-      std::is_same_v<decltype(std::declval<const Result<int>&&>().value()),
-                     const int&&>);
-  static_assert(
-      std::is_same_v<decltype(std::declval<Result<int>&&>().value()), int&&>);
-
-  static_assert(std::is_same_v<decltype(*std::declval<Result<int>&>()), int&>);
-
-  static_assert(
-      std::is_same_v<decltype(*std::declval<Result<int>&&>()), int&&>);
-
-  static_assert(
-      std::is_same_v<decltype(std::declval<const Result<int>&>().operator->()),
-                     const int*>);
-  static_assert(
-      std::is_same_v<decltype(std::declval<Result<int>&>().operator->()),
-                     int*>);
-
   Result<int> result = 3;
   EXPECT_EQ(3, result.value());
   EXPECT_EQ(3, *result);
-  EXPECT_EQ(3, result.value_or(4));
   EXPECT_EQ(3, static_cast<const Result<int>&>(result).value());
   EXPECT_EQ(3, std::move(result).value());
 
@@ -515,12 +517,6 @@ TEST(ResultTest, Value) {
 }
 
 TEST(ResultTest, ValueConstRvalueRef) {
-  static_assert(
-      std::is_same_v<decltype(std::declval<const Result<int>&&>().value()),
-                     const int&&>);
-  static_assert(std::is_same_v<decltype(*std::declval<const Result<int>&&>()),
-                               const int&&>);
-
   // Tests ::value and ::operator* const&&
   auto get_const = []() -> Result<std::vector<int>> {
     return std::vector<int>({1, 2, 3});
@@ -539,6 +535,50 @@ TEST(ResultTest, ValueConstRvalueRef) {
   EXPECT_THAT(v, ::testing::ElementsAre(1, 2, 3));
 }
 
+TEST(ResultTest, OperatorStar) {
+  const Result<std::string> const_lvalue("hello");
+  EXPECT_EQ("hello", *const_lvalue);
+
+  Result<std::string> lvalue("hello");
+  EXPECT_EQ("hello", *lvalue);
+
+  const Result<std::string> const_rvalue("hello");
+  EXPECT_EQ("hello", *std::move(const_rvalue));
+
+  Result<std::string> rvalue("hello");
+  EXPECT_EQ("hello", *std::move(rvalue));
+}
+
+TEST(ResultTest, ValueAccessors) {
+  const Result<std::string> const_lvalue("hello");
+  EXPECT_EQ("hello", const_lvalue.value());
+
+  Result<std::string> lvalue("hello");
+  EXPECT_EQ("hello", lvalue.value());
+
+  const Result<std::string> const_rvalue("hello");
+  EXPECT_EQ("hello", std::move(const_rvalue).value());
+
+  Result<std::string> rvalue("hello");
+  EXPECT_EQ("hello", std::move(rvalue).value());
+}
+
+TEST(ResultTest, RvalueValueAccess) {
+  Result<std::string> result("hello");
+  std::string&& v = std::move(result).value();
+  EXPECT_EQ("hello", v);
+}
+
+TEST(ResultTest, StatusAccessors) {
+  Result<std::string> result("hello");
+  EXPECT_TRUE(result.status().ok());
+
+  const Result<std::string> const_result("hello");
+  EXPECT_TRUE(const_result.status().ok());
+
+  EXPECT_TRUE(std::move(result).status().ok());
+}
+
 TEST(ResultTest, Emplace) {
   {
     Result<int> result = absl::UnknownError("");
@@ -554,35 +594,6 @@ TEST(ResultTest, Emplace) {
     std::vector<int> x = *std::move(result);
     EXPECT_EQ(3, x.size());
   }
-}
-
-TEST(ResultTest, ValueOrInt) {
-  {
-    Result<int> result = absl::UnknownError("");
-    EXPECT_EQ(3, std::move(result).value_or(3));
-  }
-
-  {
-    Result<int> result = absl::UnknownError("");
-    EXPECT_EQ(3, result.value_or(3));
-    result = 4;
-    EXPECT_EQ(4, result.value_or(3));
-
-    int x = std::move(result).value_or(5);
-    EXPECT_EQ(4, x);
-  }
-}
-
-TEST(ResultTest, ValueOrVectorInt) {
-  Result<std::vector<int>> result = absl::UnknownError("");
-
-  std::vector<int> a({4, 5, 6});
-  EXPECT_EQ(a, result.value_or(a));
-
-  std::vector<int> b({3, 2, 1});
-  result = a;
-
-  EXPECT_EQ(a, result.value_or(b));
 }
 
 TEST(ResultTest, ConvertAssignmentWithCopy) {

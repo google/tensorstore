@@ -25,6 +25,12 @@
 // Sphinx C++ parser chokes on it.
 #define TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND
 #define TENSORSTORE_NODISCARD
+#undef absl_nonnull
+#define absl_nonnull
+#undef absl_nullable
+#define absl_nullable
+#undef absl_nullability_unknown
+#define absl_nullability_unknown
 #endif
 
 // When defining a conditionally-explicit constructor, this may be used on the

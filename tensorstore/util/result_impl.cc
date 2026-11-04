@@ -26,7 +26,7 @@
 namespace tensorstore {
 namespace internal_result {
 
-void HandleInvalidResultCtor(absl::Status* absl_nonnull status) {
+[[noreturn]] void HandleInvalidResultCtor(absl::Status* absl_nonnull status) {
   std::fputs("An OK status is not a valid constructor argument to Result<T>",
              stderr);
   std::fflush(stderr);
@@ -36,7 +36,7 @@ void HandleInvalidResultCtor(absl::Status* absl_nonnull status) {
   // instead of terminating the process.
 }
 
-void CrashOnResultNotOk(const absl::Status& status) {
+[[noreturn]] void CrashOnResultNotOk(const absl::Status& status) {
   std::fprintf(
       stderr,
       "Attempting to fetch Result<T> value instead of handling error %s",

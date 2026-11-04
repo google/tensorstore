@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/base/nullability.h"
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
@@ -64,7 +65,7 @@ struct value_t {};
 
 // Move type-agnostic error handling to the .cc.
 [[noreturn]] void CrashOnResultNotOk(const absl::Status& status);
-void HandleInvalidResultCtor(absl::Status* absl_nonnull status);
+[[noreturn]] void HandleInvalidResultCtor(absl::Status* absl_nonnull status);
 
 // `ResultStorage` is the storage base class for `Result<T>` (where
 // `T != void`), and implements the constructors, copy, and assignment
@@ -155,22 +156,20 @@ struct ResultStorage {
 
   ~ResultStorage() {
     if (ok()) {
-      status_.~Status();
       if constexpr (!std::is_trivially_destructible_v<T>) {
         value_.~T();
       }
-    } else {
-      status_.~Status();
     }
+    status_.~Status();
   }
 
   template <typename... Args>
-  inline void construct_value(Args&&... args) {
+  void construct_value(Args&&... args) {
     ::new (&value_) T(std::forward<Args>(args)...);
   }
 
   template <typename... Args>
-  inline void construct_status(Args&&... args) {
+  void construct_status(Args&&... args) {
     ::new (&status_) absl::Status(std::forward<Args>(args)...);
   }
 
@@ -203,23 +202,9 @@ struct ResultStorage {
   }
 
   void EnsureOk() const {
-    if (ABSL_PREDICT_FALSE(!ok())) internal_result::CrashOnResultNotOk(status_);
-  }
-
-  template <typename U>
-  T ValueOrImpl(U&& default_value) const& {
-    if (ok()) {
-      return value_;
+    if (ABSL_PREDICT_FALSE(!ok())) {
+      internal_result::CrashOnResultNotOk(status_);
     }
-    return std::forward<U>(default_value);
-  }
-
-  template <typename U>
-  T ValueOrImpl(U&& default_value) && {
-    if (ok()) {
-      return std::move(value_);
-    }
-    return std::forward<U>(default_value);
   }
 
   // status_ will always be active, however by putting it in a union
@@ -320,8 +305,8 @@ template <typename T, typename U>
 constexpr inline bool is_constructible_convertible_from = std::disjunction<
     std::is_constructible<T, U&>, std::is_constructible<T, const U&>,
     std::is_constructible<T, U&&>, std::is_constructible<T, const U&&>,
-    std::is_convertible<U&, T>, std::is_convertible<const U&&, T>,
-    std::is_convertible<U&, T>, std::is_convertible<const U&&, T>>::value;
+    std::is_convertible<U&, T>, std::is_convertible<const U&, T>,
+    std::is_convertible<U&&, T>, std::is_convertible<const U&&, T>>::value;
 
 // Metafunction for Result value constructor SFINAE overloads exclusions.
 // These should parallel the other value constructors.
@@ -353,9 +338,9 @@ constexpr inline bool value_conversion =
 template <typename U>
 constexpr inline bool value_conversion<void, U> = false;
 
-/// Checks if `T` is equality comparable with `U`, but in the case that `U` is
-/// itself an instance of `Result`, evaluates to `false` and avoids overload
-/// resolution in order to prevent infinite SFINAE recursion.
+// Checks if `T` is equality comparable with `U`, but in the case that `U` is
+// itself an instance of `Result`, evaluates to `false` and avoids overload
+// resolution in order to prevent infinite SFINAE recursion.
 template <typename T, typename U>
 constexpr inline bool IsEqualityComparableIfNotResult =
     internal::IsEqualityComparable<T, U>;

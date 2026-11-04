@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/nullability.h"
 #include "absl/base/optimization.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
@@ -507,31 +508,14 @@ class Result : private internal_result::ResultStorage<T>,
   /// Returns a pointer to the current value.
   ///
   /// \pre `this->ok() == true`, otherwise the behavior is undefined.
-  const T* operator->() const TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    return std::addressof(**this);
+  const T* absl_nonnull operator->() const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->AssertOk();
+    return std::addressof(this->value_);
   }
-  T* operator->() TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
-    return std::addressof(**this);
-  }
-
-  /// Returns the current value if `this->ok() == true`. Otherwise constructs a
-  /// value using the provided `default_value`.
-  ///
-  /// Unlike `value`, this function returns by value, copying the current value
-  /// if necessary. If the value type supports an efficient move, it can be used
-  /// as follows::
-  ///
-  ///   T value = std::move(statusor).value_or(def);
-  ///
-  /// Unlike with `value`, calling `std::move()` on the result of `value_or`
-  /// will still trigger a copy.
-  template <typename U>
-  T value_or(U&& default_value) const& {
-    return this->ValueOrImpl(std::forward<U>(default_value));
-  }
-  template <typename U>
-  T value_or(U&& default_value) && {
-    return std::move(*this).ValueOrImpl(std::forward<U>(default_value));
+  T* absl_nonnull operator->() TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
+    this->AssertOk();
+    return std::addressof(this->value_);
   }
 
   /// "Pipeline" operator for `Result`.
@@ -547,13 +531,13 @@ class Result : private internal_result::ResultStorage<T>,
   ///    return !x.ok() ? x.status() : Result<U>(y(x.value()))
   ///
   template <typename Func>
-  inline FlatResult<std::invoke_result_t<Func&&, T&>>  //
+  FlatResult<std::invoke_result_t<Func&&, T&>>  //
   operator|(Func&& func) const& {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());
   }
   template <typename Func>
-  inline FlatResult<std::invoke_result_t<Func&&, T&&>>  //
+  FlatResult<std::invoke_result_t<Func&&, T&&>>  //
   operator|(Func&& func) && {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());
@@ -676,9 +660,15 @@ class Result : private internal_result::ResultStorage<T>,
   }
 
  private:
+  void AssertOk() const {
+#if !defined(NDEBUG)
+    this->EnsureOk();
+#endif
+  }
+
   // Implements assignment from a Result<U>.
   template <typename U>
-  inline void Assign(const Result<U>& other) {
+  void Assign(const Result<U>& other) {
     if (other.ok()) {
       this->assign_value(other.value());
     } else {
@@ -686,25 +676,19 @@ class Result : private internal_result::ResultStorage<T>,
     }
   }
   template <typename U>
-  inline void Assign(Result<U>&& other) {
+  void Assign(Result<U>&& other) {
     if (other.ok()) {
       this->assign_value(std::move(other).value());
     } else {
       this->assign_status(std::move(other).status());
     }
   }
-
-  inline void AssertOk() const {
-#if !defined(NDEBUG)
-    this->EnsureOk();
-#endif
-  }
 };
 
 // Specialization of `Result` for `void`.  This just wraps a plain
 // `absl::Status` to provide the same API as `Result`.
 template <>
-class Result<void> {
+class [[nodiscard]] Result<void> {
  public:
   using value_type = void;
   using reference_type = void;
@@ -892,7 +876,7 @@ MapResult(Func&& func, T&&... arg) {
   if (!([&] {
         if constexpr (IsResult<absl::remove_cvref_t<T>>) {
           if (!arg.ok()) {
-            status = arg.status();
+            status = std::forward<T>(arg).status();
             return false;
           }
         }
