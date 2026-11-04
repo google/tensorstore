@@ -269,6 +269,9 @@ Result<IndexDomain<>> GetCombinedDomain(
   if (!status.ok()) return status;
   TENSORSTORE_ASSIGN_OR_RETURN(
       domain, ConstrainIndexDomain(schema.domain(), std::move(domain)));
+  if (!domain.valid()) {
+    return domain;
+  }
   // stack disallows resize, so mark all dimensions as explicit.
   return WithImplicitDimensions(std::move(domain), false, false);
 }
@@ -294,6 +297,10 @@ Result<DimensionUnitsVector> GetDimensionUnits(
   // Retrieve dimension units from schema. These take precedence over computed
   // dimensions, so disallow further assignment.
   DimensionUnitsVector dimension_units(schema.dimension_units());
+  if (schema.rank() != dynamic_rank &&
+      dimension_units.size() < static_cast<size_t>(schema.rank())) {
+    dimension_units.resize(schema.rank());
+  }
   DimensionSet allow_assignment(true);
   for (size_t i = 0; i < dimension_units.size(); i++) {
     if (dimension_units[i].has_value()) {
@@ -414,7 +421,7 @@ class StackDriverSpec
     return ForEachLayer(layers.size(), [&](size_t layer_i) -> absl::Status {
       auto& layer = layers[layer_i];
       DimensionIndex layer_rank = internal::GetRank(layer);
-      if (schema.rank() != dynamic_rank && layer_rank != schema.rank()) {
+      if (!RankConstraint::EqualOrUnspecified(layer_rank, schema.rank())) {
         return absl::InvalidArgumentError(
             absl::StrFormat("Rank of %d does not match existing rank of %d",
                             layer_rank, schema.rank()));
@@ -521,11 +528,15 @@ Result<internal::Driver::Handle> MakeStackDriverHandle(
   TENSORSTORE_ASSIGN_OR_RETURN(
       driver->layer_domain_,
       internal_stack::GetCombinedDomain(schema, layer_domains));
+  if (!driver->layer_domain_.valid()) {
+    return absl::InvalidArgumentError("Domain must be specified");
+  }
   TENSORSTORE_RETURN_IF_ERROR(driver->InitializeGridIndices(layer_domains));
   auto transform = IdentityTransform(driver->layer_domain_);
-  driver->dimension_units_ =
-      internal_stack::GetDimensionUnits<StackLayer>(schema, driver->layers_)
-          .value_or(DimensionUnitsVector(transform.input_rank()));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      driver->dimension_units_,
+      internal_stack::GetDimensionUnits<StackLayer>(schema, driver->layers_));
+  driver->dimension_units_.resize(transform.input_rank());
   return internal::DriverHandle{std::move(driver), std::move(transform),
                                 std::move(transaction)};
 }
@@ -872,8 +883,13 @@ Result<internal::ReadWritePtr<StackDriver>> MakeDriverFromLayerSpecs(
       ForEachLayer(layer_specs.size(), [&](size_t layer_i) -> absl::Status {
         auto& layer = driver->layers_[layer_i];
         const auto& layer_spec = layer_specs[layer_i];
+        if (!layer_spec.is_open() && !layer_spec.driver_spec) {
+          return absl::InvalidArgumentError("Layer is not valid");
+        }
         const auto& layer_transaction =
-            layer_spec.is_open() ? layer_spec.transaction : transaction;
+            (layer_spec.is_open() && layer_spec.transaction != no_transaction)
+                ? layer_spec.transaction
+                : transaction;
         if (layer_i == 0) {
           common_transaction = layer_transaction;
         } else if (layer_transaction != common_transaction) {
