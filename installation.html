@@ -1616,7 +1616,7 @@ overall build.</p>
 <span class="n">bazel_features_deps</span><span class="p">()</span>
 </code></pre></div>
 </div>
-<p>Additionally, TensorStore must be built in C++17 mode.  You should add the
+<p>Additionally, TensorStore must be built in C++20 mode.  You should add the
 compiler flags specified in the <code class="docutils literal notranslate"><span class="pre">.bazelrc</span></code> file in the TensorStore repository
 to your dependent project’s <code class="docutils literal notranslate"><span class="pre">.bazelrc</span></code>.</p>
 <p>See the <a class="reference internal" href="#build-requirements"><span class="std std-ref">supported C++ toolchains</span></a> listed above.</p>
@@ -1652,7 +1652,7 @@ variable <code class="docutils literal notranslate"><span class="pre">TENSORSTOR
 <span class="p">)</span>
 </code></pre></div>
 </div>
-<p>TensorStore requires that the project is built in C++17 mode.</p>
+<p>TensorStore requires that the project is built in C++20 mode.</p>
 <p>The <a class="reference internal" href="#build-requirements"><span class="std std-ref">supported C++ toolchains</span></a> and <a class="reference internal" href="#cmake-build-requirements"><span class="std std-ref">additional system
 requirements</span></a> are listed below.</p>
 <div class="note admonition">
@@ -1712,7 +1712,7 @@ following C++ compilers:</p>
 <ul class="simple">
 <li><p>GCC 12 or later (Linux)</p></li>
 <li><p>Clang 16 or later (Linux)</p></li>
-<li><p>Microsoft Visual Studio 2022 version 17.8 (MSVC 14.38) or later</p></li>
+<li><p>Microsoft Visual Studio 2022 version 17.12 (MSVC 14.42) or later</p></li>
 <li><p>Mingw64 GCC 13 or later (Windows); CMake only, Bazel is not supported, and
 <code class="docutils literal notranslate"><span class="pre">lld</span></code> is recommended over <code class="docutils literal notranslate"><span class="pre">ld</span></code> for speed.</p></li>
 <li><p>Apple Xcode 15.0 or later</p></li>
