@@ -103,6 +103,7 @@ TEST(DivisionTest, CeilAndFloorOfRatio) {
 }
 
 static_assert(0 == tensorstore::RoundUpTo(0, 1));
+static_assert(10 == tensorstore::RoundUpTo(6, 5));
 static_assert(10 == tensorstore::RoundUpTo(7, 5));
 static_assert(10 == tensorstore::RoundUpTo(10, 5));
 static_assert(2147483645 == tensorstore::RoundUpTo(2147483641, 5));
@@ -130,6 +131,21 @@ static_assert(8 ==
 static_assert(8 == tensorstore::GreatestCommonDivisor<int32_t>(8, -0x80000000));
 static_assert(8 ==
               tensorstore::GreatestCommonDivisor<int32_t>(-8, -0x80000000));
+static_assert(1 == tensorstore::GreatestCommonDivisor<int32_t>(
+                       -1, std::numeric_limits<int32_t>::min()));
+static_assert(1 == tensorstore::GreatestCommonDivisor<int32_t>(
+                       std::numeric_limits<int32_t>::min(), 1));
+static_assert(1 == tensorstore::GreatestCommonDivisor<int32_t>(
+                       1, std::numeric_limits<int32_t>::min()));
+
+TEST(DivisionTest, RoundUpTo) {
+  EXPECT_EQ(int64_t{9223372036854775806},
+            tensorstore::RoundUpTo(int64_t{9223372036854775806}, int64_t{3}));
+  EXPECT_EQ(int64_t{9223372036854775806},
+            tensorstore::RoundUpTo(int64_t{9223372036854775805}, int64_t{3}));
+  EXPECT_EQ(int64_t{9223372036854775806},
+            tensorstore::RoundUpTo(int64_t{9223372036854775804}, int64_t{3}));
+}
 
 static_assert(1 ==
               tensorstore::GreatestCommonDivisor<int32_t>(-0x80000000, -1));

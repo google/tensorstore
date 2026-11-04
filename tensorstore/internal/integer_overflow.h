@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_INTEGER_OVERFLOW_H_
 #define TENSORSTORE_INTERNAL_INTEGER_OVERFLOW_H_
 
+#include <stddef.h>
+
 #include <limits>
 #include <type_traits>
 
@@ -135,8 +137,15 @@ constexpr bool MulOverflow(T a, T b, T* result) {
 #if defined(__clang__) || !defined(_MSC_VER)
   return __builtin_mul_overflow(a, b, result);
 #else
+  if constexpr (std::is_signed_v<T>) {
+    if (b == -1 && a == std::numeric_limits<T>::min()) {
+      *result = wrap_on_overflow::Multiply(a, b);
+      return true;
+    }
+  }
   const T r = *result = wrap_on_overflow::Multiply(a, b);
-  return b && (r / b) != a;
+  if (b == 0) return false;
+  return (r / b) != a;
 #endif
 }
 

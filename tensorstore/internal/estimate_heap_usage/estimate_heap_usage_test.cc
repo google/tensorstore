@@ -14,9 +14,15 @@
 
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 
+#include <stddef.h>
+
+#include <memory>
 #include <optional>
+#include <string>
 #include <tuple>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -42,13 +48,17 @@ TEST(EstimateHeapUsageTest, Trivial) {
 }
 
 TEST(EstimateHeapUsageTest, String) {
+  EXPECT_EQ(0, EstimateHeapUsage(std::string()));
   std::string s(1000, 'x');
   EXPECT_EQ(s.capacity(), EstimateHeapUsage(s));
 }
 
 TEST(EstimateHeapUsageTest, Cord) {
+  EXPECT_EQ(0, EstimateHeapUsage(absl::Cord("abc")));
   auto cord = absl::Cord(std::string(1000, 'x'));
-  EXPECT_EQ(cord.size(), EstimateHeapUsage(cord));
+  EXPECT_THAT(EstimateHeapUsage(cord),
+              testing::AllOf(testing::Ge(1000),
+                             testing::Le(cord.EstimatedMemoryUsage())));
 }
 
 TEST(EstimateHeapUsageTest, Optional) {
@@ -100,9 +110,15 @@ TEST(EstimateHeapUsageTest, Composite) {
   v = std::vector<std::string>({"a", "b"});
   {
     auto& string_vec = std::get<std::vector<std::string>>(v);
-    EXPECT_EQ(string_vec.capacity() * sizeof(std::string) +
-                  string_vec[0].capacity() + string_vec[1].capacity(),
-              EstimateHeapUsage(v));
+    EXPECT_THAT(
+        EstimateHeapUsage(v),
+        testing::AnyOf(
+            // SSO
+            testing::Eq(string_vec.capacity() * sizeof(std::string)),
+            // Non-SSO
+            testing::Eq(string_vec.capacity() * sizeof(std::string) +
+                        string_vec[0].capacity() + string_vec[1].capacity())));
+
     EXPECT_EQ(string_vec.capacity() * sizeof(std::string),
               EstimateHeapUsage(v, /*max_depth=*/0));
   }

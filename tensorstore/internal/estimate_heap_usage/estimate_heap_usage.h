@@ -22,6 +22,7 @@
 
 #include <stddef.h>
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -96,7 +97,12 @@ struct HeapUsageEstimator<T, std::enable_if_t<SupportsApplyMembers<T>>> {
 template <>
 struct HeapUsageEstimator<std::string> {
   static size_t EstimateHeapUsage(const std::string& x, size_t max_depth) {
-    // FIXME: include heap allocation overhead
+    const char* data = x.data();
+    const char* obj_start = reinterpret_cast<const char*>(&x);
+    if (std::greater_equal<const char*>{}(data, obj_start) &&
+        std::less<const char*>{}(data, obj_start + sizeof(x))) {
+      return 0;
+    }
     return x.capacity();
   }
 };
@@ -104,7 +110,7 @@ struct HeapUsageEstimator<std::string> {
 template <>
 struct HeapUsageEstimator<absl::Cord> {
   static size_t EstimateHeapUsage(const absl::Cord& x, size_t max_depth) {
-    return x.size();
+    return x.EstimatedMemoryUsage() - sizeof(x);
   }
 };
 

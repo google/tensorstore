@@ -16,6 +16,8 @@
 
 #include <stdint.h>
 
+#include <limits>
+
 #include <gtest/gtest.h>
 #include "tensorstore/index.h"
 
@@ -97,6 +99,26 @@ TEST(MulOverflow, Int32) {
   EXPECT_EQ(int32_t{-0x80000000LL}, c);
   EXPECT_EQ(true, MulOverflow(b, a, &c));
   EXPECT_EQ(int32_t{-0x80000000LL}, c);
+}
+
+TEST(MulOverflow, Int32Limits) {
+  int32_t c;
+  EXPECT_EQ(true,
+            MulOverflow(std::numeric_limits<int32_t>::min(), int32_t{-1}, &c));
+  EXPECT_EQ(c, std::numeric_limits<int32_t>::min());
+  EXPECT_EQ(true,
+            MulOverflow(int32_t{-1}, std::numeric_limits<int32_t>::min(), &c));
+  EXPECT_EQ(c, std::numeric_limits<int32_t>::min());
+}
+
+TEST(MulOverflow, Int64Limits) {
+  int64_t c;
+  EXPECT_EQ(true,
+            MulOverflow(std::numeric_limits<int64_t>::min(), int64_t{-1}, &c));
+  EXPECT_EQ(c, std::numeric_limits<int64_t>::min());
+  EXPECT_EQ(true,
+            MulOverflow(int64_t{-1}, std::numeric_limits<int64_t>::min(), &c));
+  EXPECT_EQ(c, std::numeric_limits<int64_t>::min());
 }
 
 TEST(AddOverflow, Uint32) {
