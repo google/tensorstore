@@ -20,6 +20,7 @@
 #include <cassert>
 #include <vector>
 
+#include "absl/container/inlined_vector.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_domain.h"
@@ -68,7 +69,8 @@ class IrregularGrid {
       auto x = indices[i];
       if (x < 0) {
         origin.push_back(-kInfIndex);
-      } else if (x >= shape_[i]) {
+      } else if (static_cast<size_t>(x) >= inclusive_mins_[i].size() ||
+                 inclusive_mins_[i][x] >= kInfIndex) {
         origin.push_back(kInfIndex);
       } else {
         origin.push_back(inclusive_mins_[i][x]);

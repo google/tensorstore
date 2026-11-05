@@ -272,6 +272,27 @@ TEST(StackDriverTest, ReadSparse) {
 
     EXPECT_THAT(array, MatchesArray<int32_t>({1, 2, 3}));
   }
+
+  // With an explicit domain extending below and above all layers, unmapped
+  // cells before, between, and after the layers report their cell origins.
+  json_spec["schema"] = {
+      {"domain", {{"inclusive_min", {-10}}, {"exclusive_max", {10}}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expanded_store,
+                                   tensorstore::Open(json_spec).result());
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(
+          expanded_store | tensorstore::AllDims().SizedInterval({-10}, {2}))
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cell with origin={-4611686018427387903} "
+                         "missing layer mapping")));
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(
+          expanded_store | tensorstore::AllDims().SizedInterval({6}, {4}))
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cell with origin={6} missing layer mapping")));
 }
 
 TEST(StackDriverTest, NoLayers) {

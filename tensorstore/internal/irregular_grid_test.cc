@@ -22,8 +22,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_domain.h"
-#include "tensorstore/internal/grid_partition.h"
-#include "tensorstore/internal/grid_partition_impl.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/util/span.h"
 
 namespace {
@@ -32,10 +31,12 @@ using ::tensorstore::BoxView;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
 using ::tensorstore::IndexDomain;
+using ::tensorstore::IndexDomainBuilder;
 using ::tensorstore::IndexInterval;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::internal::IrregularGrid;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 
 TEST(IrregularGridTest, Basic) {
   std::vector<Index> dimension0{2, 0, -3};
@@ -71,6 +72,7 @@ TEST(IrregularGridTest, Basic) {
   EXPECT_EQ(grid_cell, IndexInterval::UncheckedSized(10, 10));
   EXPECT_EQ(grid(1, 57, &grid_cell), 3);
   EXPECT_EQ(grid_cell, IndexInterval::UncheckedClosed(45, kInfIndex));
+  EXPECT_EQ(grid(0, 0, nullptr), 1);
 }
 
 TEST(IrregularGridTest, IndexDomain) {
@@ -120,14 +122,99 @@ TEST(IrregularGridTest, IndexDomain) {
   EXPECT_EQ(grid_cell, IndexInterval::UncheckedSized(10, 10));
   EXPECT_EQ(grid(1, 57, &grid_cell), 3);
   EXPECT_EQ(grid_cell, IndexInterval::UncheckedClosed(45, kInfIndex));
+  EXPECT_EQ(grid(0, 0, nullptr), 1);
 }
 
 TEST(IrregularGridTest, Rank0) {
+  IrregularGrid default_grid;
+  EXPECT_EQ(0, default_grid.rank());
+  EXPECT_THAT(default_grid.shape(), IsEmpty());
+  EXPECT_THAT(default_grid.cell_origin({}), IsEmpty());
+
   std::vector<std::vector<Index>> inclusive_mins;
   auto grid = IrregularGrid(inclusive_mins);
   EXPECT_EQ(0, grid.rank());
-  EXPECT_TRUE(grid.shape().empty());
-  EXPECT_TRUE(grid.cell_origin({}).empty());
+  EXPECT_THAT(grid.shape(), IsEmpty());
+  EXPECT_THAT(grid.cell_origin({}), IsEmpty());
+}
+
+TEST(IrregularGridTest, CellOrigin) {
+  auto grid = IrregularGrid({{2, 0, -3}, {10, 45, 20, 30}});
+  ASSERT_THAT(grid.shape(), ElementsAre(2, 3));
+
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{-1, -1}),
+              ElementsAre(-kInfIndex, -kInfIndex));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{0, 0}), ElementsAre(-3, 10));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{1, 1}), ElementsAre(0, 20));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{1, 2}), ElementsAre(0, 30));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{2, 3}), ElementsAre(2, 45));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{0, 3}), ElementsAre(-3, 45));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{2, -1}),
+              ElementsAre(2, -kInfIndex));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{3, 4}),
+              ElementsAre(kInfIndex, kInfIndex));
+}
+
+TEST(IrregularGridTest, EmptyDimension) {
+  auto grid = IrregularGrid({{}, {10, 20}});
+  EXPECT_EQ(2, grid.rank());
+  EXPECT_THAT(grid.shape(), ElementsAre(0, 1));
+  EXPECT_THAT(grid.inclusive_min(0), IsEmpty());
+
+  IndexInterval cell_bounds;
+  EXPECT_EQ(grid(0, 5, &cell_bounds), -1);
+  EXPECT_EQ(cell_bounds, IndexInterval::Infinite());
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{-1, 0}),
+              ElementsAre(-kInfIndex, 10));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{-1, 1}),
+              ElementsAre(-kInfIndex, 20));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{0, 2}),
+              ElementsAre(kInfIndex, kInfIndex));
+}
+
+TEST(IrregularGridTest, UnboundedIndexDomain) {
+  IndexDomain<> domain = IndexDomainBuilder(2)
+                             .origin({10, -kInfIndex})
+                             .exclusive_max({kInfIndex + 1, 20})
+                             .Finalize()
+                             .value();
+  auto grid =
+      IrregularGrid::Make(tensorstore::span<const IndexDomain<>>(&domain, 1));
+  EXPECT_THAT(grid.shape(), ElementsAre(1, 1));
+
+  IndexInterval cell_bounds;
+  EXPECT_EQ(grid(0, 5, &cell_bounds), -1);
+  EXPECT_EQ(cell_bounds, IndexInterval::UncheckedHalfOpen(-kInfIndex, 10));
+  EXPECT_EQ(grid(0, 100, &cell_bounds), 0);
+  EXPECT_EQ(cell_bounds, IndexInterval::UncheckedClosed(10, kInfIndex));
+  EXPECT_EQ(grid(1, 25, &cell_bounds), 1);
+  EXPECT_EQ(cell_bounds, IndexInterval::UncheckedClosed(20, kInfIndex));
+
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{-1, 0}),
+              ElementsAre(-kInfIndex, -kInfIndex));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{0, 0}),
+              ElementsAre(10, -kInfIndex));
+  EXPECT_THAT(grid.cell_origin(std::vector<Index>{1, 1}),
+              ElementsAre(kInfIndex, 20));
+}
+
+TEST(IrregularGridTest, HighRankDomainViews) {
+  constexpr DimensionIndex kRank = 10;
+  std::vector<Index> origin_a(kRank, 0);
+  std::vector<Index> shape_a(kRank, 4);
+  std::vector<Index> origin_b(kRank, 4);
+  std::vector<Index> shape_b(kRank, 6);
+  IndexDomain<> domain_a(BoxView<>(origin_a, shape_a));
+  IndexDomain<> domain_b(BoxView<>(origin_b, shape_b));
+  std::vector<tensorstore::IndexDomainView<>> views{domain_a, domain_b};
+
+  auto grid = IrregularGrid::Make(tensorstore::span(views));
+  EXPECT_EQ(kRank, grid.rank());
+  EXPECT_EQ(std::vector<Index>(kRank, 2),
+            std::vector<Index>(grid.shape().begin(), grid.shape().end()));
+  EXPECT_THAT(grid.inclusive_min(9), ElementsAre(0, 4, 10));
+  EXPECT_EQ(grid.cell_origin(std::vector<Index>(kRank, 1)),
+            std::vector<Index>(kRank, 4));
 }
 
 }  // namespace
