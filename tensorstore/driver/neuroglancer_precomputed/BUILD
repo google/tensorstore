@@ -176,7 +176,6 @@ tensorstore_cc_library(
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/algorithm:container",
         "@abseil-cpp//absl/base:core_headers",
-        "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/numeric:bits",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",

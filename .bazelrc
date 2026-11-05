@@ -25,6 +25,8 @@ build:gcc_or_clang --host_cxxopt=-std=c++20
 build:gcc_or_clang --cxxopt=-fsized-deallocation
 build:gcc_or_clang --host_cxxopt=-fsized-deallocation
 
+build:msvc --features=-default_cpp_std
+build:msvc --host_features=-default_cpp_std
 build:msvc --cxxopt=/std:c++20
 build:msvc --host_cxxopt=/std:c++20
 
