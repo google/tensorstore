@@ -1756,4 +1756,81 @@ TEST(OcdbtTest, CopyRangeTargetPrefixExceedsMaxKeyLength) {
               MatchesKvsReadResult(absl::Cord("ok")));
 }
 
+TEST(OcdbtTest, SeparateManifestBoundSpec) {
+  auto context = Context::Default();
+  ::nlohmann::json spec_json = {
+      {"driver", "ocdbt"},
+      {"base", {{"driver", "memory"}, {"path", "base_dir/"}}},
+      {"manifest",
+       {{"driver", "ocdbt"},
+        {"base", {{"driver", "memory"}, {"path", "manifest_dir/"}}},
+        {"config", {{"max_inline_value_bytes", 8}}},
+        {"assume_config", true}}},
+      {"config", {{"max_inline_value_bytes", 4}, {"manifest_kind", "single"}}},
+      {"assume_config", true},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(spec_json, context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_json, bound_spec.ToJson());
+  EXPECT_EQ(bound_json["base"]["driver"], "memory");
+  EXPECT_EQ(bound_json["base"]["path"], "base_dir/");
+  EXPECT_EQ(bound_json["manifest"]["driver"], "ocdbt");
+  EXPECT_EQ(bound_json["manifest"]["base"]["path"], "manifest_dir/");
+  EXPECT_EQ(bound_json["manifest"]["config"]["max_inline_value_bytes"], 8);
+  EXPECT_EQ(bound_json["manifest"]["assume_config"], true);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_spec,
+                                   store.spec(tensorstore::MinimalSpec{true}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_json, minimal_spec.ToJson());
+  EXPECT_FALSE(minimal_json.contains("config"));
+  EXPECT_FALSE(minimal_json.contains("assume_config"));
+  EXPECT_EQ(minimal_json["manifest"]["driver"], "ocdbt");
+  EXPECT_EQ(minimal_json["manifest"]["base"]["path"], "manifest_dir/");
+  EXPECT_FALSE(minimal_json["manifest"].contains("config"));
+  EXPECT_FALSE(minimal_json["manifest"].contains("assume_config"));
+}
+
+TEST(OcdbtTest, SeparateManifestSupportedFeatures) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto memory_store, kvstore::Open("memory://", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  MockKeyValueStore* mock_key_value_store =
+      mock_key_value_store_resource->get();
+  mock_key_value_store->supported_features =
+      SupportedFeatures::kAtomicWriteWithoutOverwrite;
+  mock_key_value_store->forward_to = memory_store.driver;
+  mock_key_value_store->log_requests = true;
+
+  // `base` ("memory") supports `kSingleKeyAtomicReadModifyWrite`, which would
+  // select `manifest_kind = "single"` if queried. `manifest`
+  // ("mock_key_value_store") only supports `kAtomicWriteWithoutOverwrite`,
+  // which selects `manifest_kind = "numbered"`.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open(
+          {{"driver", "ocdbt"},
+           {"base", {{"driver", "memory"}, {"path", "base_dir/"}}},
+           {"manifest",
+            {{"driver", "mock_key_value_store"}, {"path", "manifest_dir/"}}}},
+          context)
+          .result());
+  EXPECT_THAT(
+      mock_key_value_store->request_log.pop(),
+      tensorstore::MatchesJson(
+          {{"type", "supported_features"},
+           {"range", {"manifest_dir/manifest.", "manifest_dir/manifest/"}}}));
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("b")));
+  EXPECT_THAT(kvstore::ListFuture(memory_store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry(::testing::StartsWith("base_dir/d/")),
+                  MatchesListEntry("manifest_dir/manifest.ocdbt"),
+                  MatchesListEntry("manifest_dir/manifest.0000000000000001"),
+                  MatchesListEntry("manifest_dir/manifest.0000000000000002"))));
+}
+
 }  // namespace
