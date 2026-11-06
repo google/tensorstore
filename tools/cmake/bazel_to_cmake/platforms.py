@@ -136,6 +136,11 @@ def add_platform_constraints(workspace: Workspace) -> None:
       and workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "GNU"
   ):
     bazel_compiler = "mingw-gcc"
+  elif (
+      cmake_is_true(workspace.cmake_vars.get("MSVC"))
+      and cmake_cxx_compiler_id == "Clang"
+  ):
+    bazel_compiler = "clang-cl"
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/cpp:compiler"),
@@ -211,7 +216,7 @@ def add_platform_constraints(workspace: Workspace) -> None:
     # Bazel defines this by default.
     workspace.cdefines.append("NOMINMAX")
 
-  if cmake_cxx_compiler_id == "MSVC":
+  if bazel_compiler in ("msvc-cl", "clang-cl"):
     # Bazel defines this by default.  In practice, heavy use of C++ templates
     # can cause compilation to fail without this flag.
     workspace.copts.append("/bigobj")

@@ -14,6 +14,9 @@ _WS2_32_LINKOPTS = select({
         "-DEFAULTLIB:ws2_32.lib",
         "-lws2_32",
     ],
+    "@rules_cc//cc/compiler:clang-cl": [
+        "-DEFAULTLIB:ws2_32.lib",
+    ],
     "@rules_cc//cc/compiler:msvc-cl": [
         "-DEFAULTLIB:ws2_32.lib",
     ],
