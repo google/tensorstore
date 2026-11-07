@@ -340,3 +340,35 @@ def test_kvstore_readresult_concurrent() -> None:
       rr.stamp = ts.KvStore.TimestampedStorageGeneration()
 
   _run_threads(stop, read_props, update_props)
+
+
+def test_ocdbt_dump_and_undump() -> None:
+  store = ts.KvStore.open({
+      'driver': 'ocdbt',
+      'config': {
+          'max_inline_value_bytes': 1,
+          'version_tree_arity_log2': 1,
+      },
+      'base': 'memory://',
+  }).result()
+  base = store.base
+  assert base is not None
+  store['a'] = b'b'
+  store['b'] = b'ce'
+  manifest = ts.ocdbt.dump(base).result()
+  assert ts.ocdbt.undump_manifest(manifest) == base['manifest.ocdbt']
+
+  btree = ts.ocdbt.dump(
+      base, manifest['versions'][-1]['root']['location']
+  ).result()
+  assert btree['entries'][0]['inline_value'] == b'b'
+  indirect_ref = btree['entries'][1]['indirect_value']
+  assert ts.ocdbt.dump(base, indirect_ref).result() == b'ce'
+
+  version_node_loc = manifest['version_tree_nodes'][0]['location']
+  version_node = ts.ocdbt.dump(base, version_node_loc).result()
+  encoded_version_node = ts.ocdbt.undump_version_tree_node(
+      manifest['config'], version_node
+  )
+  assert isinstance(encoded_version_node, bytes)
+  assert len(encoded_version_node) > 0

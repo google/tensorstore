@@ -116,6 +116,10 @@ namespace internal_python {
 /// If an error occurs, returns `nullptr` and sets the Python error indicator.
 pybind11::object BytesFromCord(const absl::Cord& cord) noexcept;
 
+/// Converts a Cord to a Python bytes object, throwing `py::error_already_set`
+/// on failure.
+pybind11::bytes CordToPython(const absl::Cord& cord);
+
 /// Allows encoding serializable values to a pickle-compatible representation.
 ///
 /// The specified `encode` callback should encode objects to the provided

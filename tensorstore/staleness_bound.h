@@ -148,8 +148,8 @@ struct RecheckCached : public RecheckCacheOption {
 
 class StalenessBound {
  public:
-  /// The default StalenessBound of `absl::InfiniteFuture()` ensures data is
-  /// never stale.
+  // The default StalenessBound of `absl::InfiniteFuture()` ensures data is
+  // never stale.
   StalenessBound() = default;
 
   StalenessBound(RecheckCacheOption option)
@@ -161,7 +161,7 @@ class StalenessBound {
   StalenessBound(absl::Duration duration_before_now)
       : time(absl::Now() - duration_before_now) {}
 
-  /// Overload for the benefit of GoogleTest.
+  // Overload for the benefit of GoogleTest.
   friend std::ostream& operator<<(std::ostream& os,
                                   const StalenessBound& bound) {
     return os << absl::StreamFormat("%v", bound);
@@ -172,7 +172,7 @@ class StalenessBound {
                  absl::FormatTime(bound.time, absl::UTCTimeZone()));
   }
 
-  /// Returns the effective bound given the specified open time.
+  // Returns the effective bound given the specified open time.
   StalenessBound BoundAtOpen(absl::Time open_time) const {
     StalenessBound result = *this;
     if (result.bounded_by_open_time) {
@@ -181,19 +181,19 @@ class StalenessBound {
     return result;
   }
 
-  /// Returns a new staleness bound with `bounded_at_open_time == true`.
+  // Returns a new staleness bound with `bounded_at_open_time == true`.
   static StalenessBound BoundedByOpen() {
     StalenessBound b;
     b.bounded_by_open_time = true;
     return b;
   }
 
-  /// Time bound.
+  // Time bound.
   absl::Time time = absl::InfiniteFuture();
 
-  /// Specifies whether this `StalenessBound` was initialized with an "open
-  /// time".  When serializing back to JSON, such a bound is recorded specially
-  /// rather than as a timestamp.
+  // Specifies whether this `StalenessBound` was initialized with an "open
+  // time".  When serializing back to JSON, such a bound is recorded specially
+  // rather than as a timestamp.
   bool bounded_by_open_time = false;
 
   friend bool operator==(const StalenessBound& a, const StalenessBound& b) {
@@ -211,23 +211,23 @@ class StalenessBound {
 
 // Combines staleness bound for metadata and data.
 struct StalenessBounds {
-  /// Initializes the `metadata` and `data` bound to `absl::InfiniteFuture()`,
-  /// which ensures stale data is never seen.
+  // Initializes the `metadata` and `data` bound to `absl::InfiniteFuture()`,
+  // which ensures stale data is never seen.
   StalenessBounds() = default;
 
-  /// Initializes the `metadata` and `data` bounds separately.
+  // Initializes the `metadata` and `data` bounds separately.
   StalenessBounds(StalenessBound metadata, StalenessBound data)
       : metadata(metadata), data(data) {}
 
-  /// Initializes both the `metadata` and `data` bounds to `bound`.
+  // Initializes both the `metadata` and `data` bounds to `bound`.
   StalenessBounds(StalenessBound bound) : metadata(bound), data(bound) {}
 
-  /// Initializes both the `metadata` and `data` bounds to `newer_than_time`.
+  // Initializes both the `metadata` and `data` bounds to `newer_than_time`.
   StalenessBounds(absl::Time newer_than_time)
       : StalenessBounds(StalenessBound(newer_than_time)) {}
 
-  /// Initializes both the `metadata` and `data` bounds to
-  /// `duration_before_now`.
+  // Initializes both the `metadata` and `data` bounds to
+  // `duration_before_now`.
   StalenessBounds(absl::Duration duration_before_now)
       : StalenessBounds(StalenessBound(duration_before_now)) {}
 

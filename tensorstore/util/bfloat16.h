@@ -861,33 +861,33 @@ struct numeric_limits<tensorstore::BFloat16> {
   static constexpr bool tinyness_before =
       numeric_limits<float>::tinyness_before;
 
-  /// Smallest positive normalized value: 0x1p-126 = 1.175494351e-38
+  // Smallest positive normalized value: 0x1p-126 = 1.175494351e-38
   static constexpr tensorstore::BFloat16 min() {
     return tensorstore::BFloat16(tensorstore::BFloat16::bitcast_construct_t{},
                                  static_cast<uint16_t>(0x0080));
   }
 
-  /// Lowest finite negative value: -0x1.fep+127 = -3.38953139e+38
+  // Lowest finite negative value: -0x1.fep+127 = -3.38953139e+38
   static constexpr tensorstore::BFloat16 lowest() {
     return tensorstore::BFloat16(tensorstore::BFloat16::bitcast_construct_t{},
                                  static_cast<uint16_t>(0xff7f));
   }
 
-  /// Largest finite value: 0x1.fep127 = 3.38953139e+38
+  // Largest finite value: 0x1.fep127 = 3.38953139e+38
   static constexpr tensorstore::BFloat16 max() {
     return tensorstore::BFloat16(tensorstore::BFloat16::bitcast_construct_t{},
                                  static_cast<uint16_t>(0x7f7f));
   }
 
-  /// Machine epsilon: 0x1p-7 = 0.0078125
-  ///
-  /// Equal to `nextafter(BFloat16(1), BFloat16(2)) - BFloat16(1)`.
+  // Machine epsilon: 0x1p-7 = 0.0078125
+  //
+  // Equal to `nextafter(BFloat16(1), BFloat16(2)) - BFloat16(1)`.
   static constexpr tensorstore::BFloat16 epsilon() {
     return tensorstore::BFloat16(tensorstore::BFloat16::bitcast_construct_t{},
                                  static_cast<uint16_t>(0x3c00));
   }
 
-  /// Largest possible rounding error in ULPs (units in the last place): 0.5
+  // Largest possible rounding error in ULPs (units in the last place): 0.5
   static constexpr tensorstore::BFloat16 round_error() {
     return tensorstore::BFloat16(tensorstore::BFloat16::bitcast_construct_t{},
                                  static_cast<uint16_t>(0x3f00));
@@ -905,7 +905,7 @@ struct numeric_limits<tensorstore::BFloat16> {
                                  static_cast<uint16_t>(0x7f81));
   }
 
-  /// Smallest positive subnormal value: 0x1p-133 = 9.18354962e-41
+  // Smallest positive subnormal value: 0x1p-133 = 9.18354962e-41
   static constexpr tensorstore::BFloat16 denorm_min() {
     return tensorstore::BFloat16(tensorstore::BFloat16::bitcast_construct_t{},
                                  static_cast<uint16_t>(0x0001));
