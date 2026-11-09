@@ -73,8 +73,9 @@ AwsCredentialsProvider MakeDefaultWithAnonymous(
   aws_allocator* allocator = GetAwsAllocator();
 
   auto default_provider = MakeDefault(profile_name_override);
+  if (!default_provider) return nullptr;
   auto anonymous_provider = MakeAnonymous();
-  if (!default_provider || !anonymous_provider) return nullptr;
+  if (!anonymous_provider) return nullptr;
 
   aws_credentials_provider* providers[2];
   AWS_ZERO_ARRAY(providers);

@@ -95,7 +95,8 @@ TEST(AwsCredentialsResourceTest, ProfileSpecMissingFilesFails) {
            {"credentials_file", "/nonexistent/credentials"},
            {"config_file", "/nonexistent/config"}}));
   EXPECT_THAT(context.GetResource(profile_spec),
-              StatusIs(absl::StatusCode::kInternal));
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Failed to create credentials provider")));
 }
 
 TEST(AwsCredentialsResourceTest, ValidAnonymousSpec) {
@@ -120,13 +121,22 @@ TEST(AwsCredentialsResourceTest, SharesProviderWithinContext) {
   EXPECT_THAT(r1->credentials_provider.get(), ::testing::NotNull());
   EXPECT_EQ(r1->credentials_provider.get(), r2->credentials_provider.get());
 
-  auto child = Context(Context::Spec{}, parent);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto child, Context::FromJson(::nlohmann::json::object_t(), parent));
+  ASSERT_NE(child, parent);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r3, child.GetResource(resource_spec));
   EXPECT_EQ(r1->credentials_provider.get(), r3->credentials_provider.get());
 
-  auto other = Context::Default();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r4, other.GetResource(resource_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto child2,
+      Context::FromJson({{"aws_credentials", {{"type", "anonymous"}}}},
+                        parent));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r4, child2.GetResource(resource_spec));
   EXPECT_NE(r1->credentials_provider.get(), r4->credentials_provider.get());
+
+  auto other = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r5, other.GetResource(resource_spec));
+  EXPECT_NE(r1->credentials_provider.get(), r5->credentials_provider.get());
 }
 
 TEST(AwsCredentialsResourceTest, InvalidSpecs) {

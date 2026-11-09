@@ -177,6 +177,7 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
   };
 
   (void)internal_aws::GetAwsAllocator();  // Force AWS library initialization.
+  aws_reset_error();
   AwsCredentialsProvider credentials_provider =
       std::visit(MakeCredentialsVisitor{}, spec.config);
 
@@ -185,7 +186,7 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
     return (err == 0)
                ? absl::InternalError("Failed to create credentials provider")
                : absl::InternalError(
-                     absl::StrCat("Failed to create credentials provider",
+                     absl::StrCat("Failed to create credentials provider: ",
                                   aws_error_debug_str(err)));
   }
 

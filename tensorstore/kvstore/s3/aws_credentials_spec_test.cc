@@ -209,6 +209,17 @@ TEST(SpecTest, DefaultDoesNotCacheAnonymousFallback) {
     EXPECT_EQ(creds->GetAccessKeyId(), "AKIDEXAMPLE");
     EXPECT_EQ(creds->GetSecretAccessKey(), "secretexample");
   }
+
+  // Subsequent changes to the environment remain cached by the default chain.
+  SetEnv("AWS_ACCESS_KEY_ID", "AKIDSECOND");
+  SetEnv("AWS_SECRET_ACCESS_KEY", "secretsecond");
+  {
+    auto creds = GetAwsCredentials(provider.get()).result();
+    ASSERT_THAT(creds, IsOk());
+    EXPECT_FALSE(creds->IsAnonymous());
+    EXPECT_EQ(creds->GetAccessKeyId(), "AKIDEXAMPLE");
+    EXPECT_EQ(creds->GetSecretAccessKey(), "secretexample");
+  }
 }
 
 }  // namespace
