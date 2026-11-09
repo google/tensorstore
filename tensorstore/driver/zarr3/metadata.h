@@ -124,21 +124,22 @@ struct ZarrMetadata {
   std::vector<std::optional<std::string>> dimension_names;
   ChunkKeyEncoding chunk_key_encoding;
   std::vector<Index> chunk_shape;
-  // `regular_bounded` chunk grid: `chunk_grid_origin` is the array coordinate
-  // where chunk 0 starts and `lower_bound` the coordinate of the first
-  // element.  Both are empty for the `regular` chunk grid.
-  bool chunk_grid_bounded = false;
-  std::vector<Index> chunk_grid_origin;
+  // `bounds` in place of `shape`: `lower_bound` is `bounds.inclusive_min`.
+  bool bounded = false;
   std::vector<Index> lower_bound;
+  // `offset` chunk grid around `regular`: `chunk_grid_origin` is its `offset`,
+  // the array coordinate where chunk 0 starts.
+  bool offset_grid = false;
+  std::vector<Index> chunk_grid_origin;
   ZarrCodecChainSpec codec_specs;
   std::vector<SharedArray<const void>> fill_value;
   ::nlohmann::json::object_t unknown_extension_attributes;
 
   Index GridOrigin(DimensionIndex dim) const {
-    return chunk_grid_bounded ? chunk_grid_origin[dim] : 0;
+    return offset_grid ? chunk_grid_origin[dim] : 0;
   }
   Index LowerBound(DimensionIndex dim) const {
-    return chunk_grid_bounded ? lower_bound[dim] : 0;
+    return bounded ? lower_bound[dim] : 0;
   }
 
   std::string GetCompatibilityKey() const;
@@ -190,9 +191,10 @@ struct ZarrMetadataConstraints {
   std::optional<std::vector<std::optional<std::string>>> dimension_names;
   std::optional<ChunkKeyEncoding> chunk_key_encoding;
   std::optional<std::vector<Index>> chunk_shape;
-  std::optional<bool> chunk_grid_bounded;
-  std::optional<std::vector<Index>> chunk_grid_origin;
+  std::optional<bool> bounded;
   std::optional<std::vector<Index>> lower_bound;
+  std::optional<bool> offset_grid;
+  std::optional<std::vector<Index>> chunk_grid_origin;
   std::optional<ZarrCodecChainSpec> codec_specs;
   std::optional<std::vector<SharedArray<const void>>> fill_value;
   ::nlohmann::json::object_t unknown_extension_attributes;
