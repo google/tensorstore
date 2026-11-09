@@ -21,6 +21,14 @@
 namespace tensorstore {
 namespace internal_python {
 
+PyTypeObject* DefineHeapType(PyType_Spec& spec) {
+  auto* type = reinterpret_cast<PyTypeObject*>(PyType_FromSpec(&spec));
+  if (!type) {
+    throw pybind11::error_already_set();
+  }
+  return type;
+}
+
 void DisallowInstantiationFromPython(pybind11::handle type_object) {
   auto* python_type = reinterpret_cast<PyTypeObject*>(type_object.ptr());
   python_type->tp_new = nullptr;

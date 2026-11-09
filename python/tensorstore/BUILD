@@ -220,7 +220,9 @@ pybind11_cc_library(
     name = "subscript_method",
     hdrs = ["subscript_method.h"],
     deps = [
+        ":define_heap_type",
         "//tensorstore/internal/meta:type_traits",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/strings:str_format",
         "@com_github_pybind_pybind11//:pybind11",
     ],
@@ -1035,6 +1037,8 @@ pybind11_cc_library(
         ":status",
         ":type_name_override",
         "//tensorstore/util:status",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@com_github_pybind_pybind11//:pybind11",
