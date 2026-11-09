@@ -317,6 +317,7 @@ tensorstore_cc_library(
     deps = [
         ":integer_overflow",
         "//tensorstore:index",
+        "//tensorstore/internal/meta:attributes",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/meta:void_wrapper",
         "//tensorstore/util:byte_strided_pointer",

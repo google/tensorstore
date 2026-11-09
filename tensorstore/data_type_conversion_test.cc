@@ -14,7 +14,15 @@
 
 #include "tensorstore/data_type_conversion.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <array>
+#include <bit>
+#include <cmath>
+#include <cstring>
 #include <limits>
+#include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -969,6 +977,198 @@ TEST(GetDataTypeConverterOrErrorTest, Basic) {
           "Explicit data type conversion required to convert uint32 -> int32"));
 }
 
+using LowPrecisionByteTestTypes =
+    ::testing::Types<float8_e3m4_t, float8_e4m3fn_t, float8_e4m3fnuz_t,
+                     float8_e4m3b11fnuz_t, float8_e5m2_t, float8_e5m2fnuz_t,
+                     float8_e8m0fnu_t, float4_e2m1fn_t, int2_t, int4_t>;
+
+template <typename T>
+class LowPrecisionByteConversionTest : public ::testing::Test {};
+TYPED_TEST_SUITE(LowPrecisionByteConversionTest, LowPrecisionByteTestTypes);
+
+template <typename From, typename To>
+void RunAllBufferKindsAndVerifyBitIdentical(
+    const From* in, size_t n_elems,
+    std::unique_ptr<To[]>* out_contiguous_out = nullptr) {
+  const Index n = static_cast<Index>(n_elems);
+  const auto conv = GetDataTypeConverter(dtype_v<From>, dtype_v<To>);
+  ASSERT_EQ(conv.flags & kSupported, kSupported);
+
+  auto out_contiguous = std::make_unique<To[]>(n);
+  auto in_strided = std::make_unique<From[]>(n * 2);
+  auto out_strided = std::make_unique<To[]>(n * 2);
+  std::vector<Index> in_offsets(n);
+  std::vector<Index> out_offsets(n);
+  auto out_indexed = std::make_unique<To[]>(n);
+  for (Index i = 0; i < n; ++i) {
+    in_strided[i * 2] = in[i];
+    in_offsets[i] = i * static_cast<Index>(sizeof(From));
+    out_offsets[i] = (n - 1 - i) * static_cast<Index>(sizeof(To));
+  }
+
+  absl::Status status;
+  ASSERT_TRUE((*conv.closure.function)[IterationBufferKind::kContiguous](
+      conv.closure.context, {1, n},
+      IterationBufferPointer{const_cast<From*>(in),
+                             static_cast<Index>(sizeof(From)) * n,
+                             static_cast<Index>(sizeof(From))},
+      IterationBufferPointer{out_contiguous.get(),
+                             static_cast<Index>(sizeof(To)) * n,
+                             static_cast<Index>(sizeof(To))},
+      &status))
+      << status;
+
+  ASSERT_TRUE((*conv.closure.function)[IterationBufferKind::kStrided](
+      conv.closure.context, {1, n},
+      IterationBufferPointer{in_strided.get(),
+                             static_cast<Index>(sizeof(From)) * n * 2,
+                             static_cast<Index>(sizeof(From)) * 2},
+      IterationBufferPointer{out_strided.get(),
+                             static_cast<Index>(sizeof(To)) * n * 2,
+                             static_cast<Index>(sizeof(To)) * 2},
+      &status))
+      << status;
+
+  ASSERT_TRUE((*conv.closure.function)[IterationBufferKind::kIndexed](
+      conv.closure.context, {1, n},
+      IterationBufferPointer{const_cast<From*>(in), n, in_offsets.data()},
+      IterationBufferPointer{out_indexed.get(), n, out_offsets.data()},
+      &status))
+      << status;
+
+  for (Index i = 0; i < n; ++i) {
+    const To& c = out_contiguous[i];
+    const To& s = out_strided[i * 2];
+    const To& x = out_indexed[n - 1 - i];
+    if constexpr (tensorstore::IsTrivial<To>) {
+      EXPECT_EQ(std::memcmp(&c, &s, sizeof(To)), 0) << "index=" << i;
+      EXPECT_EQ(std::memcmp(&c, &x, sizeof(To)), 0) << "index=" << i;
+    } else if constexpr (std::is_same_v<To, json_t>) {
+      if (c.is_number_float() && std::isnan(c.template get<double>())) {
+        EXPECT_TRUE(s.is_number_float() && std::isnan(s.template get<double>()))
+            << "index=" << i;
+        EXPECT_TRUE(x.is_number_float() && std::isnan(x.template get<double>()))
+            << "index=" << i;
+      } else {
+        EXPECT_TRUE(tensorstore::internal_data_type::CompareIdentical(c, s))
+            << "index=" << i;
+        EXPECT_TRUE(tensorstore::internal_data_type::CompareIdentical(c, x))
+            << "index=" << i;
+      }
+    } else {
+      EXPECT_TRUE(tensorstore::internal_data_type::CompareIdentical(c, s))
+          << "index=" << i;
+      EXPECT_TRUE(tensorstore::internal_data_type::CompareIdentical(c, x))
+          << "index=" << i;
+    }
+  }
+  if (out_contiguous_out != nullptr) {
+    *out_contiguous_out = std::move(out_contiguous);
+  }
+}
+
+TYPED_TEST(LowPrecisionByteConversionTest, Exhaustive256ByteRepresentations) {
+  static_assert(tensorstore::internal::SaturatedFloatToInt<int8_t>(
+                    std::numeric_limits<float8_e5m2_t>::infinity()) == 127);
+  static_assert(tensorstore::internal::SaturatedFloatToInt<int8_t>(
+                    -std::numeric_limits<float8_e5m2_t>::infinity()) == -128);
+  static_assert(tensorstore::internal::SaturatedFloatToInt<int8_t>(
+                    std::numeric_limits<float8_e5m2_t>::quiet_NaN()) == 0);
+  static_assert(static_cast<float8_e4m3fn_t>(int4_t(3)) ==
+                float8_e4m3fn_t(3.0f));
+  static_assert(static_cast<float8_e4m3fn_t>(int2_t(-2)) ==
+                float8_e4m3fn_t(-2.0f));
+  using LowPrec = TypeParam;
+  std::array<LowPrec, 256> all_bytes;
+  for (int i = 0; i < 256; ++i) {
+    all_bytes[i] = std::bit_cast<LowPrec>(static_cast<uint8_t>(i));
+  }
+
+  tensorstore::MapCanonicalDataTypes([&](auto d) {
+    using Other = typename decltype(d)::Element;
+    const auto to_other =
+        GetDataTypeConverter(dtype_v<LowPrec>, dtype_v<Other>);
+    std::unique_ptr<Other[]> converted;
+    if ((to_other.flags & kSupported) == kSupported &&
+        to_other.closure.function != nullptr) {
+      RunAllBufferKindsAndVerifyBitIdentical<LowPrec, Other>(
+          all_bytes.data(), all_bytes.size(), &converted);
+      for (int i = 0; i < 256; ++i) {
+        if constexpr (std::is_same_v<Other, float16_t> ||
+                      std::is_same_v<Other, bfloat16_t> ||
+                      (std::is_same_v<Other, float64_t> &&
+                       std::numeric_limits<LowPrec>::is_integer)) {
+          using Hub = std::conditional_t<std::is_same_v<LowPrec, int2_t> ||
+                                             std::is_same_v<LowPrec, int4_t>,
+                                         int8_t, float>;
+          const Hub hub_val = static_cast<Hub>(all_bytes[i]);
+          if constexpr (std::is_same_v<Hub, float>) {
+            if (std::isnan(hub_val)) {
+              EXPECT_TRUE(std::isnan(static_cast<float>(converted[i])))
+                  << "i=" << i << " to=" << dtype_v<Other>;
+              continue;
+            }
+          }
+          const Other expected = static_cast<Other>(hub_val);
+          EXPECT_EQ(std::memcmp(&converted[i], &expected, sizeof(Other)), 0)
+              << "i=" << i << " to=" << dtype_v<Other>;
+        } else if constexpr (std::numeric_limits<Other>::is_integer &&
+                             !std::is_same_v<Other, bool> &&
+                             !std::numeric_limits<LowPrec>::is_integer) {
+          const Other expected =
+              tensorstore::internal::SaturatedFloatToInt<Other>(all_bytes[i]);
+          EXPECT_EQ(std::memcmp(&converted[i], &expected, sizeof(Other)), 0)
+              << "i=" << i << " to=" << dtype_v<Other>;
+        } else if constexpr (std::is_arithmetic_v<Other> ||
+                             std::is_same_v<Other, int2_t> ||
+                             std::is_same_v<Other, int4_t>) {
+          const Other expected = static_cast<Other>(all_bytes[i]);
+          EXPECT_EQ(std::memcmp(&converted[i], &expected, sizeof(Other)), 0)
+              << "i=" << i << " to=" << dtype_v<Other>;
+        }
+      }
+    }
+
+    const auto from_other =
+        GetDataTypeConverter(dtype_v<Other>, dtype_v<LowPrec>);
+    if ((from_other.flags & kSupported) == kSupported &&
+        from_other.closure.function != nullptr && converted != nullptr) {
+      auto valid_inputs = std::make_unique<Other[]>(256);
+      size_t num_valid = 0;
+      for (size_t i = 0; i < 256; ++i) {
+        if constexpr (std::is_same_v<Other, json_t>) {
+          if (converted[i].is_null()) continue;
+        }
+        valid_inputs[num_valid++] = converted[i];
+      }
+      if (num_valid > 0) {
+        std::unique_ptr<LowPrec[]> roundtrip;
+        RunAllBufferKindsAndVerifyBitIdentical<Other, LowPrec>(
+            valid_inputs.get(), num_valid, &roundtrip);
+        if constexpr (std::is_arithmetic_v<Other> ||
+                      std::is_same_v<Other, int2_t> ||
+                      std::is_same_v<Other, int4_t> ||
+                      std::is_same_v<Other, bfloat16_t>) {
+          for (size_t i = 0; i < num_valid; ++i) {
+            LowPrec expected;
+            if constexpr (std::is_same_v<Other, float16_t> &&
+                          !std::is_same_v<LowPrec, int2_t> &&
+                          !std::is_same_v<LowPrec, int4_t>) {
+              expected =
+                  static_cast<LowPrec>(static_cast<float>(valid_inputs[i]));
+            } else {
+              expected = static_cast<LowPrec>(valid_inputs[i]);
+            }
+            EXPECT_EQ(std::memcmp(&roundtrip[i], &expected, sizeof(LowPrec)), 0)
+                << "i=" << i << " from=" << dtype_v<Other>;
+          }
+        }
+      }
+    }
+    return 0;
+  });
+}
+
 template <typename From, typename To>
 void BM_ConvertContiguous(benchmark::State& state) {
   constexpr Index kCount = 4096;
@@ -1033,7 +1233,7 @@ BENCHMARK(BM_ConvertContiguous<bfloat16_t, float32_t>);
 BENCHMARK(BM_ConvertContiguous<float32_t, float64_t>);
 BENCHMARK(BM_ConvertContiguous<float32_t, int32_t>);
 
-// Direct scalar static_cast<To>(From) loop outside data_type.cc
+// Direct scalar static_cast<To>(From) loop outside data_type_conversion.cc
 BENCHMARK(BM_ScalarStaticCast<float8_e4m3fn_t, float32_t>);
 BENCHMARK(BM_ScalarStaticCast<float32_t, float8_e4m3fn_t>);
 

@@ -456,7 +456,10 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "data_type",
-    srcs = ["data_type.cc"],
+    srcs = [
+        "data_type.cc",
+        "data_type_conversion.cc",
+    ],
     hdrs = [
         "data_type.h",
         "data_type_conversion.h",

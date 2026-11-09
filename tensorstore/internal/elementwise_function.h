@@ -144,6 +144,7 @@
 #include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/meta/void_wrapper.h"
 #include "tensorstore/util/byte_strided_pointer.h"
@@ -263,10 +264,11 @@ struct IterationBufferPointer {
 /// This function template returns a pointer to the element at the specified
 /// offset in `array`, which must be of kind `BufferKind`.
 template <IterationBufferKind BufferKind>
-struct IterationBufferAccessor;
+struct TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN IterationBufferAccessor;
 
 template <>
-struct IterationBufferAccessor<IterationBufferKind::kStrided> {
+struct TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN
+    IterationBufferAccessor<IterationBufferKind::kStrided> {
   constexpr static IterationBufferKind buffer_kind =
       IterationBufferKind::kStrided;
   template <typename Element>
@@ -280,7 +282,8 @@ struct IterationBufferAccessor<IterationBufferKind::kStrided> {
 };
 
 template <>
-struct IterationBufferAccessor<IterationBufferKind::kContiguous> {
+struct TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN
+    IterationBufferAccessor<IterationBufferKind::kContiguous> {
   constexpr static IterationBufferKind buffer_kind =
       IterationBufferKind::kContiguous;
   template <typename Element>
@@ -295,7 +298,8 @@ struct IterationBufferAccessor<IterationBufferKind::kContiguous> {
 };
 
 template <>
-struct IterationBufferAccessor<IterationBufferKind::kIndexed> {
+struct TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN
+    IterationBufferAccessor<IterationBufferKind::kIndexed> {
   constexpr static IterationBufferKind buffer_kind =
       IterationBufferKind::kIndexed;
   template <typename Element>
@@ -335,19 +339,8 @@ struct ElementwiseFunctionPointerHelper<std::index_sequence<Is...>,
                         IterationBufferPointerHelper<Is>..., ExtraArg...);
 };
 
-template <typename, typename SFINAE, typename...>
-constexpr inline bool HasApplyContiguous = false;
-
-template <typename Func, typename... Element, typename... ExtraArg>
-constexpr inline bool HasApplyContiguous<
-    Func(Element...),
-    std::void_t<decltype(std::declval<Func>().ApplyContiguous(
-        std::declval<Index>(), std::declval<Element*>()...,
-        std::declval<ExtraArg>()...))>,
-    ExtraArg...> = true;
-
 template <typename, typename...>
-struct SimpleLoopTemplate;
+struct TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN SimpleLoopTemplate;
 
 template <typename T, typename Func>
 struct Stateless {
@@ -368,6 +361,54 @@ struct StatelessTraits<Stateless<T, Func>> {
   using type = Func;
 };
 
+/// Evaluates to `true` if `Func` (or the underlying function of
+/// `Stateless<T, Func>`) defines an `ApplyContiguous` method for processing an
+/// entire contiguous inner row at once:
+///
+///     bool ApplyContiguous(Index count, Element*..., ExtraArg...);
+///
+/// or, when wrapped in `Stateless<T, Func>`:
+///
+///     bool ApplyContiguous(T& context, Index count, Element*..., ExtraArg...);
+///
+/// When `true`, `SimpleLoopTemplate` dispatches `kContiguous` buffers to
+/// `FastLoop`, which calls `ApplyContiguous` once per outer row instead of
+/// invoking `operator()` per element.
+template <typename, typename SFINAE, typename...>
+constexpr inline bool HasApplyContiguous = false;
+
+template <typename Func, typename... Element, typename... ExtraArg>
+constexpr inline bool HasApplyContiguous<
+    Func(Element...),
+    std::void_t<decltype(std::declval<Func>().ApplyContiguous(
+        std::declval<Index>(), std::declval<Element*>()...,
+        std::declval<ExtraArg>()...))>,
+    ExtraArg...> = true;
+
+template <typename T, typename Func, typename... Element, typename... ExtraArg>
+constexpr inline bool HasApplyContiguous<
+    Stateless<T, Func>(Element...),
+    std::void_t<decltype(std::declval<Func>().ApplyContiguous(
+        std::declval<T&>(), std::declval<Index>(), std::declval<Element*>()...,
+        std::declval<ExtraArg>()...))>,
+    ExtraArg...> = true;
+
+/// Evaluates to `true` if `Func::kUseStridedForContiguous` is defined and
+/// converts to `true`.
+///
+/// When `true` (and `HasApplyContiguous` is `false`), `SimpleLoopTemplate`
+/// reuses `&Loop<IterationBufferAccessor<IterationBufferKind::kStrided>>` for
+/// the `IterationBufferKind::kContiguous` slot of `ElementwiseFunction` instead
+/// of instantiating a separate `kContiguous` loop function, reducing code bloat
+/// when a separate contiguous instantiation is not beneficial.
+template <typename Func, typename SFINAE = void>
+constexpr inline bool UseStridedForContiguous = false;
+
+template <typename Func>
+constexpr inline bool UseStridedForContiguous<
+    Func, std::void_t<decltype(Func::kUseStridedForContiguous)>> =
+    static_cast<bool>(Func::kUseStridedForContiguous);
+
 /// LoopTemplate implementation for an element-wise function that returns either
 /// `void` or `true`.
 ///
@@ -386,17 +427,28 @@ struct StatelessTraits<Stateless<T, Func>> {
 /// - Otherwise, the context pointer must be a valid pointer to an object of
 ///   type `Func`.
 template <typename Func, typename... Element, typename... ExtraArg>
-struct SimpleLoopTemplate<Func(Element...), ExtraArg...> {
+struct TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN
+    SimpleLoopTemplate<Func(Element...), ExtraArg...> {
   using ElementwiseFunctionType =
       internal::ElementwiseFunction<sizeof...(Element), ExtraArg...>;
 
   template <typename ArrayAccessor>
   static constexpr auto GetLoopFn() {
+    using FuncType = typename StatelessTraits<Func>::type;
     if constexpr (ArrayAccessor::buffer_kind ==
-                      internal::IterationBufferKind::kContiguous &&
-                  HasApplyContiguous<Func(Element...), /*SFINAE=*/void,
-                                     ExtraArg...>) {
-      return &FastLoop<ArrayAccessor>;
+                  internal::IterationBufferKind::kContiguous) {
+      if constexpr (HasApplyContiguous<Func(Element...), /*SFINAE=*/void,
+                                       ExtraArg...>) {
+        return &FastLoop<ArrayAccessor>;
+      } else if constexpr (UseStridedForContiguous<FuncType> ||
+                           (!std::is_trivially_copyable_v<
+                                std::remove_const_t<Element>> ||
+                            ...)) {
+        return &Loop<internal::IterationBufferAccessor<
+            internal::IterationBufferKind::kStrided>>;
+      } else {
+        return &Loop<ArrayAccessor>;
+      }
     } else {
       return &Loop<ArrayAccessor>;
     }
@@ -404,7 +456,7 @@ struct SimpleLoopTemplate<Func(Element...), ExtraArg...> {
 
   /// \tparam ArrayAccessor The ArrayAccessor type.
   template <typename ArrayAccessor>
-  static bool FastLoop(
+  TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN static bool FastLoop(
       void* context, internal::IterationBufferShape shape,
       internal::FirstType<internal::IterationBufferPointer, Element>... pointer,
       ExtraArg... extra_arg) {
@@ -441,7 +493,7 @@ struct SimpleLoopTemplate<Func(Element...), ExtraArg...> {
 
   /// \tparam ArrayAccessor The ArrayAccessor type.
   template <typename ArrayAccessor>
-  static bool Loop(
+  TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN static bool Loop(
       void* context, internal::IterationBufferShape shape,
       internal::FirstType<internal::IterationBufferPointer, Element>... pointer,
       ExtraArg... extra_arg) {
@@ -577,7 +629,7 @@ class ElementwiseFunction {
 ///
 /// \tparam LoopTemplate A model of the LoopTemplate concept.
 template <typename LoopTemplate>
-struct GetElementwiseFunction {
+struct TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN GetElementwiseFunction {
   using ElementwiseFunctionType =
       typename LoopTemplate::ElementwiseFunctionType;
 
