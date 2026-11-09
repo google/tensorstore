@@ -27,6 +27,8 @@
 #include <utility>
 
 #include "absl/base/casts.h"
+#include "absl/numeric/bits.h"
+#include "absl/strings/str_format.h"
 #include <half.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/util/bfloat16.h"
@@ -65,8 +67,6 @@ limitations under the License.
 #endif
 #endif  // TENSORSTORE_FLOATINLINE
 
-#include "absl/strings/str_format.h"
-
 namespace tensorstore {
 namespace float8_internal {
 
@@ -91,35 +91,48 @@ class Float8Base {
   Float8Base() = default;
 
   template <typename T>
-  explicit Float8Base(T i,
-                      std::enable_if_t<!std::is_floating_point_v<T>, int> = 0)
+  constexpr explicit Float8Base(
+      T i, std::enable_if_t<std::is_integral_v<T>, int> = 0)
+      : Float8Base(ConvertFrom(i).rep(), ConstructFromRepTag{}) {}
+
+  template <typename T>
+  constexpr explicit Float8Base(
+      T i,
+      std::enable_if_t<!std::is_integral_v<T> && !std::is_floating_point_v<T>,
+                       int> = 0)
       : Float8Base(ConvertFrom(static_cast<float>(i)).rep(),
                    ConstructFromRepTag{}) {}
 
   template <typename T>
-  explicit Float8Base(T f,
-                      std::enable_if_t<std::is_floating_point_v<T>, int> = 0)
+  constexpr explicit Float8Base(
+      T f, std::enable_if_t<std::is_floating_point_v<T>, int> = 0)
       : Float8Base(ConvertFrom(f).rep(), ConstructFromRepTag{}) {}
 
-  explicit Float8Base(BFloat16 bf16)
+  constexpr explicit Float8Base(BFloat16 bf16)
       : Float8Base(ConvertFrom(bf16).rep(), ConstructFromRepTag{}) {}
-  explicit Float8Base(::half_float::half f16)
+  constexpr explicit Float8Base(::half_float::half f16)
       : Float8Base(ConvertFrom(f16).rep(), ConstructFromRepTag{}) {}
 
   constexpr uint8_t rep() const { return rep_; }
 
   template <typename T,
             typename EnableIf = std::enable_if<std::is_arithmetic_v<T>>>
-  explicit operator T() const {
+  constexpr explicit operator T() const {
     return static_cast<T>(static_cast<float>(derived()));
   }
-  explicit operator double() const { return ConvertTo<double>(derived()); }
-  explicit operator float() const { return ConvertTo<float>(derived()); }
-  explicit operator BFloat16() const { return ConvertTo<BFloat16>(derived()); }
-  explicit operator ::half_float::half() const {
+  constexpr explicit operator double() const {
+    return ConvertTo<double>(derived());
+  }
+  constexpr explicit operator float() const {
+    return ConvertTo<float>(derived());
+  }
+  constexpr explicit operator BFloat16() const {
+    return ConvertTo<BFloat16>(derived());
+  }
+  constexpr explicit operator ::half_float::half() const {
     return ConvertTo<::half_float::half>(derived());
   }
-  explicit operator bool() const { return (rep() & 0x7F) != 0; }
+  constexpr explicit operator bool() const { return (rep() & 0x7F) != 0; }
 
   constexpr Derived operator-() const {
     return Derived(static_cast<uint8_t>(rep() ^ 0x80), ConstructFromRepTag{});
@@ -137,77 +150,92 @@ class Float8Base {
 
   // Conversions allowing saturation and truncation.
   template <bool kSaturate = false, bool kTruncate = false, typename From>
-  static inline Derived ConvertFrom(From from);
+  static constexpr Derived ConvertFrom(From from);
 
   template <typename To, bool kSaturate = false, bool kTruncate = false>
-  static inline To ConvertTo(const Derived& from);
+  static constexpr To ConvertTo(const Derived& from);
 
   // Operators via float32.
-  Derived operator+(const Derived& other) const {
+  constexpr Derived operator+(const Derived& other) const {
     return Derived{float{derived()} + float{other}};
   }
 
-  Derived operator-(const Derived& other) const {
+  constexpr Derived operator-(const Derived& other) const {
     return Derived{float{derived()} - float{other}};
   }
 
-  Derived operator*(const Derived& other) const {
+  constexpr Derived operator*(const Derived& other) const {
     return Derived{float{derived()} * float{other}};
   }
 
-  Derived operator/(const Derived& other) const {
+  constexpr Derived operator/(const Derived& other) const {
     return Derived{float{derived()} / float{other}};
   }
 
-  constexpr inline bool operator==(const Derived& other) const {
+  constexpr bool operator==(const Derived& other) const {
     return Compare(derived(), other) == Ordering::kEquivalent;
   }
 
-  constexpr inline bool operator!=(const Derived& other) const {
+  constexpr bool operator!=(const Derived& other) const {
     return Compare(derived(), other) != Ordering::kEquivalent;
   }
 
-  TENSORSTORE_FLOATINLINE bool operator<(const Derived& other) const {
+  TENSORSTORE_FLOATINLINE constexpr bool operator<(const Derived& other) const {
     return Compare(derived(), other) == Ordering::kLess;
   }
 
-  TENSORSTORE_FLOATINLINE bool operator<=(const Derived& other) const {
+  TENSORSTORE_FLOATINLINE constexpr bool operator<=(
+      const Derived& other) const {
     return Compare(derived(), other) <= Ordering::kEquivalent;
   }
 
-  TENSORSTORE_FLOATINLINE bool operator>(const Derived& other) const {
+  TENSORSTORE_FLOATINLINE constexpr bool operator>(const Derived& other) const {
     return Compare(derived(), other) == Ordering::kGreater;
   }
 
-  TENSORSTORE_FLOATINLINE bool operator>=(const Derived& other) const {
+  TENSORSTORE_FLOATINLINE constexpr bool operator>=(
+      const Derived& other) const {
     Ordering ordering = Compare(derived(), other);
     return ordering == Ordering::kGreater || ordering == Ordering::kEquivalent;
   }
 
   // Compound assignment.
-  TENSORSTORE_FLOATINLINE Derived& operator+=(const Derived& other) {
+  TENSORSTORE_FLOATINLINE constexpr Derived& operator+=(const Derived& other) {
     derived() = derived() + other;
     return derived();
   }
 
-  // for downsample_nditerable
-  friend TENSORSTORE_FLOATINLINE float operator+=(const float& a, Derived b) {
-    return a + static_cast<float>(b);
-  }
-
-  TENSORSTORE_FLOATINLINE Derived& operator-=(const Derived& other) {
+  TENSORSTORE_FLOATINLINE constexpr Derived& operator-=(const Derived& other) {
     derived() = derived() - other;
     return derived();
   }
 
-  TENSORSTORE_FLOATINLINE Derived& operator*=(const Derived& other) {
+  TENSORSTORE_FLOATINLINE constexpr Derived& operator*=(const Derived& other) {
     derived() = derived() * other;
     return derived();
   }
 
-  TENSORSTORE_FLOATINLINE Derived& operator/=(const Derived& other) {
+  TENSORSTORE_FLOATINLINE constexpr Derived& operator/=(const Derived& other) {
     derived() = derived() / other;
     return derived();
+  }
+
+  // for downsample_nditerable
+  friend TENSORSTORE_FLOATINLINE constexpr float& operator+=(float& a,
+                                                             Derived b) {
+    return a += static_cast<float>(b);
+  }
+  friend TENSORSTORE_FLOATINLINE constexpr float& operator-=(float& a,
+                                                             Derived b) {
+    return a -= static_cast<float>(b);
+  }
+  friend TENSORSTORE_FLOATINLINE constexpr float& operator*=(float& a,
+                                                             Derived b) {
+    return a *= static_cast<float>(b);
+  }
+  friend TENSORSTORE_FLOATINLINE constexpr float& operator/=(float& a,
+                                                             Derived b) {
+    return a /= static_cast<float>(b);
   }
 
   // Note: Comparison operators do not need to be defined since they are
@@ -237,14 +265,14 @@ class Float8Base {
   }
 
  private:
-  static TENSORSTORE_FLOATINLINE std::pair<uint8_t, uint8_t> SignAndMagnitude(
-      Derived x) {
+  static TENSORSTORE_FLOATINLINE constexpr std::pair<uint8_t, uint8_t>
+  SignAndMagnitude(Derived x) {
     const uint8_t x_abs_bits = absl::bit_cast<uint8_t>(abs(x));
     const uint8_t x_bits = absl::bit_cast<uint8_t>(x);
     const uint8_t x_sign = (x_bits ^ x_abs_bits) << (CHAR_BIT - Derived::kBits);
     return {x_sign, x_abs_bits};
   }
-  static TENSORSTORE_FLOATINLINE int8_t
+  static TENSORSTORE_FLOATINLINE constexpr int8_t
   SignAndMagnitudeToTwosComplement(uint8_t sign, uint8_t magnitude) {
     return magnitude ^ (static_cast<int8_t>(sign) < 0 ? -1 : 0);
   }
@@ -256,9 +284,14 @@ class Float8Base {
     kUnordered = 2,
   };
 
-  friend Ordering Compare(const Derived& lhs, const Derived& rhs) {
+  friend constexpr Ordering Compare(const Derived& lhs, const Derived& rhs) {
     if (isnan(lhs) || isnan(rhs)) {
       return Ordering::kUnordered;
+    }
+    if constexpr (!std::numeric_limits<Derived>::is_signed) {
+      return lhs.rep() < rhs.rep()   ? Ordering::kLess
+             : lhs.rep() > rhs.rep() ? Ordering::kGreater
+                                     : Ordering::kEquivalent;
     }
     auto [lhs_sign, lhs_mag] = SignAndMagnitude(lhs);
     auto [rhs_sign, rhs_mag] = SignAndMagnitude(rhs);
@@ -295,7 +328,7 @@ class Float8e3m4 : public Float8Base<Float8e3m4> {
 
  public:
   template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float8e3m4(T f8) : Float8e3m4(ConvertFrom(f8)) {}
+  constexpr explicit Float8e3m4(T f8) : Float8e3m4(ConvertFrom(f8)) {}
 };
 
 class Float8e4m3fn : public Float8Base<Float8e4m3fn> {
@@ -312,7 +345,7 @@ class Float8e4m3fn : public Float8Base<Float8e4m3fn> {
 
  public:
   template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float8e4m3fn(T f8) : Float8e4m3fn(ConvertFrom(f8)) {}
+  constexpr explicit Float8e4m3fn(T f8) : Float8e4m3fn(ConvertFrom(f8)) {}
 };
 
 class Float8e4m3b11fnuz : public Float8Base<Float8e4m3b11fnuz> {
@@ -325,7 +358,10 @@ class Float8e4m3b11fnuz : public Float8Base<Float8e4m3b11fnuz> {
 
  public:
   template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float8e4m3b11fnuz(T f8) : Float8e4m3b11fnuz(ConvertFrom(f8)) {}
+  constexpr explicit Float8e4m3b11fnuz(T f8)
+      : Float8e4m3b11fnuz(ConvertFrom(f8)) {}
+
+  using Base::operator-;
 
   constexpr Float8e4m3b11fnuz operator-() const {
     if ((rep() & 0x7f) == 0x00) {
@@ -334,11 +370,7 @@ class Float8e4m3b11fnuz : public Float8Base<Float8e4m3b11fnuz> {
     return Base::operator-();
   }
 
-  Float8e4m3b11fnuz operator-(const Float8e4m3b11fnuz& other) const {
-    return Base::operator-(other);
-  }
-
-  explicit operator bool() const { return rep() != 0; }
+  constexpr explicit operator bool() const { return rep() != 0; }
 };
 
 class Float8e4m3fnuz : public Float8Base<Float8e4m3fnuz> {
@@ -364,7 +396,9 @@ class Float8e4m3fnuz : public Float8Base<Float8e4m3fnuz> {
 
  public:
   template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float8e4m3fnuz(T f8) : Float8e4m3fnuz(ConvertFrom(f8)) {}
+  constexpr explicit Float8e4m3fnuz(T f8) : Float8e4m3fnuz(ConvertFrom(f8)) {}
+
+  using Base::operator-;
 
   constexpr Float8e4m3fnuz operator-() const {
     if ((rep() & 0x7f) == 0x00) {
@@ -373,11 +407,7 @@ class Float8e4m3fnuz : public Float8Base<Float8e4m3fnuz> {
     return Base::operator-();
   }
 
-  Float8e4m3fnuz operator-(const Float8e4m3fnuz& other) const {
-    return Base::operator-(other);
-  }
-
-  explicit operator bool() const { return rep() != 0; }
+  constexpr explicit operator bool() const { return rep() != 0; }
 };
 
 class Float8e5m2 : public Float8Base<Float8e5m2> {
@@ -390,7 +420,7 @@ class Float8e5m2 : public Float8Base<Float8e5m2> {
 
  public:
   template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float8e5m2(T f8) : Float8e5m2(ConvertFrom(f8)) {}
+  constexpr explicit Float8e5m2(T f8) : Float8e5m2(ConvertFrom(f8)) {}
 };
 
 class Float8e5m2fnuz : public Float8Base<Float8e5m2fnuz> {
@@ -416,7 +446,9 @@ class Float8e5m2fnuz : public Float8Base<Float8e5m2fnuz> {
 
  public:
   template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float8e5m2fnuz(T f8) : Float8e5m2fnuz(ConvertFrom(f8)) {}
+  constexpr explicit Float8e5m2fnuz(T f8) : Float8e5m2fnuz(ConvertFrom(f8)) {}
+
+  using Base::operator-;
 
   constexpr Float8e5m2fnuz operator-() const {
     if ((rep() & 0x7f) == 0x00) {
@@ -425,16 +457,12 @@ class Float8e5m2fnuz : public Float8Base<Float8e5m2fnuz> {
     return Base::operator-();
   }
 
-  Float8e5m2fnuz operator-(const Float8e5m2fnuz& other) const {
-    return Base::operator-(other);
-  }
-
-  explicit operator bool() const { return rep() != 0; }
+  constexpr explicit operator bool() const { return rep() != 0; }
 };
 
 class Float8e8m0fnu : public Float8Base<Float8e8m0fnu> {
   // Exponent: 8, Mantissa: 0, bias: 127.
-  // No inf, unsigned zero, NaN represented by 0xFF.
+  // No inf, no zero, NaN represented by 0xFF.
  private:
   using Base = Float8Base<Float8e8m0fnu>;
   friend class Float8Base<Float8e8m0fnu>;
@@ -442,15 +470,19 @@ class Float8e8m0fnu : public Float8Base<Float8e8m0fnu> {
 
  public:
   template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float8e8m0fnu(T f8) : Float8e8m0fnu(ConvertFrom(f8)) {}
+  constexpr explicit Float8e8m0fnu(T f8) : Float8e8m0fnu(ConvertFrom(f8)) {}
 
-  constexpr Float8e8m0fnu operator-() const { return *this; }
+  using Base::operator-;
 
-  Float8e8m0fnu operator-(const Float8e8m0fnu& other) const {
-    return Base::operator-(other);
+  constexpr Float8e8m0fnu operator-() const {
+    // No negative numbers supported in E8M0 => NaN
+    return Float8e8m0fnu::FromRep(0xFF);
   }
 
-  explicit operator bool() const { return rep() != 0; }
+  constexpr explicit operator bool() const {
+    // No zero supported in E8M0 format.
+    return true;
+  }
 };
 
 constexpr double ConstexprAbs(double x) { return x < 0.0 ? -x : x; }
@@ -523,48 +555,47 @@ constexpr int MaxExponent10FromMaxExponentAndDigits(int max_exponent,
 // Structures for use in specializing std::numeric_limits.
 struct numeric_limits_float8_base {
   // NOLINTBEGIN: these names must match std::numeric_limits.
-  static inline constexpr const bool is_specialized = true;
-  static inline constexpr const bool is_signed = true;
-  static inline constexpr const bool is_integer = false;
-  static inline constexpr const bool is_exact = false;
-  static inline constexpr const bool has_quiet_NaN = true;
+  static constexpr const bool is_specialized = true;
+  static constexpr const bool is_signed = true;
+  static constexpr const bool is_integer = false;
+  static constexpr const bool is_exact = false;
+  static constexpr const bool has_quiet_NaN = true;
 // has_denorm and has_denorm_loss are deprecated in C++23.
 #if !defined(__cplusplus) || __cplusplus < 202302L
-  static inline constexpr const std::float_denorm_style has_denorm =
+  static constexpr const std::float_denorm_style has_denorm =
       std::denorm_present;
-  static inline constexpr const bool has_denorm_loss = false;
+  static constexpr const bool has_denorm_loss = false;
 #endif
-  static inline constexpr const std::float_round_style round_style =
+  static constexpr const std::float_round_style round_style =
       std::round_to_nearest;
-  static inline constexpr const bool is_bounded = true;
-  static inline constexpr const bool is_modulo = false;
-  static inline constexpr const int radix = std::numeric_limits<float>::radix;
-  static inline constexpr const bool traps = std::numeric_limits<float>::traps;
-  static inline constexpr const bool tinyness_before =
+  static constexpr const bool is_bounded = true;
+  static constexpr const bool is_modulo = false;
+  static constexpr const int radix = std::numeric_limits<float>::radix;
+  static constexpr const bool traps = std::numeric_limits<float>::traps;
+  static constexpr const bool tinyness_before =
       std::numeric_limits<float>::tinyness_before;
   // NOLINTEND
 };
 
 struct numeric_limits_float8_e3m4 : public numeric_limits_float8_base {
  private:
-  static inline constexpr const int kExponentBias = 3;
-  static inline constexpr const int kMantissaBits = 4;
+  static constexpr const int kExponentBias = 3;
+  static constexpr const int kMantissaBits = 4;
 
  public:
   // NOLINTBEGIN: these names must match std::numeric_limits.
-  static inline constexpr const int digits = kMantissaBits + 1;
-  static inline constexpr const int digits10 = Digits10FromDigits(digits);
-  static inline constexpr const int max_digits10 =
-      MaxDigits10FromDigits(digits);
-  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
-  static inline constexpr const int min_exponent10 =
+  static constexpr const int digits = kMantissaBits + 1;
+  static constexpr const int digits10 = Digits10FromDigits(digits);
+  static constexpr const int max_digits10 = MaxDigits10FromDigits(digits);
+  static constexpr const int min_exponent = (1 - kExponentBias) + 1;
+  static constexpr const int min_exponent10 =
       MinExponent10FromMinExponent(min_exponent);
-  static inline constexpr const int max_exponent = 0b111 - kExponentBias;
-  static inline constexpr const int max_exponent10 =
+  static constexpr const int max_exponent = 0b111 - kExponentBias;
+  static constexpr const int max_exponent10 =
       MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
-  static inline constexpr const bool is_iec559 = true;
-  static inline constexpr const bool has_infinity = true;
-  static inline constexpr const bool has_signaling_NaN = true;
+  static constexpr const bool is_iec559 = true;
+  static constexpr const bool has_infinity = true;
+  static constexpr const bool has_signaling_NaN = true;
   // NOLINTEND
 
   // 1.0 * 2^(0b001 - 3) = 1.0 * 2^-2 = 1/4 (min normal)
@@ -611,25 +642,24 @@ struct numeric_limits_float8_e3m4 : public numeric_limits_float8_base {
 
 struct numeric_limits_float8_e4m3fn : public numeric_limits_float8_base {
  private:
-  static inline constexpr const int kExponentBias = 7;
-  static inline constexpr const int kMantissaBits = 3;
+  static constexpr const int kExponentBias = 7;
+  static constexpr const int kMantissaBits = 3;
 
  public:
   // NOLINTBEGIN: these names must match std::numeric_limits.
-  static inline constexpr const int digits = kMantissaBits + 1;
-  static inline constexpr const int digits10 = Digits10FromDigits(digits);
-  static inline constexpr const int max_digits10 =
-      MaxDigits10FromDigits(digits);
-  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
-  static inline constexpr const int min_exponent10 =
+  static constexpr const int digits = kMantissaBits + 1;
+  static constexpr const int digits10 = Digits10FromDigits(digits);
+  static constexpr const int max_digits10 = MaxDigits10FromDigits(digits);
+  static constexpr const int min_exponent = (1 - kExponentBias) + 1;
+  static constexpr const int min_exponent10 =
       MinExponent10FromMinExponent(min_exponent);
-  static inline constexpr const int max_exponent =
+  static constexpr const int max_exponent =
       (0b1111 - 7) + 1;  // Extended format.
-  static inline constexpr const int max_exponent10 =
+  static constexpr const int max_exponent10 =
       MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
-  static inline constexpr const bool is_iec559 = false;
-  static inline constexpr const bool has_infinity = false;
-  static inline constexpr const bool has_signaling_NaN = false;
+  static constexpr const bool is_iec559 = false;
+  static constexpr const bool has_infinity = false;
+  static constexpr const bool has_signaling_NaN = false;
   // NOLINTEND
 
   // 1.0 * 2^(0b0001 - 7) = 1.0 * 2^-6 = 0.015625
@@ -671,25 +701,24 @@ struct numeric_limits_float8_e4m3fn : public numeric_limits_float8_base {
 
 struct numeric_limits_float8_e4m3b11fnuz : public numeric_limits_float8_base {
  private:
-  static inline constexpr const int kExponentBias = 11;
-  static inline constexpr const int kMantissaBits = 3;
+  static constexpr const int kExponentBias = 11;
+  static constexpr const int kMantissaBits = 3;
 
  public:
   // NOLINTBEGIN: these names must match std::numeric_limits.
-  static inline constexpr const int digits = kMantissaBits + 1;
-  static inline constexpr const int digits10 = Digits10FromDigits(digits);
-  static inline constexpr const int max_digits10 =
-      MaxDigits10FromDigits(digits);
-  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
-  static inline constexpr const int min_exponent10 =
+  static constexpr const int digits = kMantissaBits + 1;
+  static constexpr const int digits10 = Digits10FromDigits(digits);
+  static constexpr const int max_digits10 = MaxDigits10FromDigits(digits);
+  static constexpr const int min_exponent = (1 - kExponentBias) + 1;
+  static constexpr const int min_exponent10 =
       MinExponent10FromMinExponent(min_exponent);
-  static inline constexpr const int max_exponent =
+  static constexpr const int max_exponent =
       (0b1111 - kExponentBias) + 1;  // Extended format.
-  static inline constexpr const int max_exponent10 =
+  static constexpr const int max_exponent10 =
       MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
-  static inline constexpr const bool is_iec559 = false;
-  static inline constexpr const bool has_infinity = false;
-  static inline constexpr const bool has_signaling_NaN = false;
+  static constexpr const bool is_iec559 = false;
+  static constexpr const bool has_infinity = false;
+  static constexpr const bool has_signaling_NaN = false;
   // NOLINTEND
 
   // 1.0 * 2^(0b0001 - 11) = 1.0 * 2^-10 = 0.0009765625
@@ -731,25 +760,24 @@ struct numeric_limits_float8_e4m3b11fnuz : public numeric_limits_float8_base {
 
 struct numeric_limits_float8_e4m3fnuz : public numeric_limits_float8_base {
  private:
-  static inline constexpr const int kExponentBias = 8;
-  static inline constexpr const int kMantissaBits = 3;
+  static constexpr const int kExponentBias = 8;
+  static constexpr const int kMantissaBits = 3;
 
  public:
   // NOLINTBEGIN: these names must match std::numeric_limits.
-  static inline constexpr const int digits = kMantissaBits + 1;
-  static inline constexpr const int digits10 = Digits10FromDigits(digits);
-  static inline constexpr const int max_digits10 =
-      MaxDigits10FromDigits(digits);
-  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
-  static inline constexpr const int min_exponent10 =
+  static constexpr const int digits = kMantissaBits + 1;
+  static constexpr const int digits10 = Digits10FromDigits(digits);
+  static constexpr const int max_digits10 = MaxDigits10FromDigits(digits);
+  static constexpr const int min_exponent = (1 - kExponentBias) + 1;
+  static constexpr const int min_exponent10 =
       MinExponent10FromMinExponent(min_exponent);
-  static inline constexpr const int max_exponent =
+  static constexpr const int max_exponent =
       (0b1111 - kExponentBias) + 1;  // Extended format.
-  static inline constexpr const int max_exponent10 =
+  static constexpr const int max_exponent10 =
       MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
-  static inline constexpr const bool is_iec559 = false;
-  static inline constexpr const bool has_infinity = false;
-  static inline constexpr const bool has_signaling_NaN = false;
+  static constexpr const bool is_iec559 = false;
+  static constexpr const bool has_infinity = false;
+  static constexpr const bool has_signaling_NaN = false;
   // NOLINTEND
 
   static constexpr Float8e4m3fnuz min() {
@@ -785,24 +813,23 @@ struct numeric_limits_float8_e4m3fnuz : public numeric_limits_float8_base {
 
 struct numeric_limits_float8_e5m2 : public numeric_limits_float8_base {
  private:
-  static inline constexpr const int kExponentBias = 15;
-  static inline constexpr const int kMantissaBits = 2;
+  static constexpr const int kExponentBias = 15;
+  static constexpr const int kMantissaBits = 2;
 
  public:
   // NOLINTBEGIN: these names must match std::numeric_limits.
-  static inline constexpr const int digits = kMantissaBits + 1;
-  static inline constexpr const int digits10 = Digits10FromDigits(digits);
-  static inline constexpr const int max_digits10 =
-      MaxDigits10FromDigits(digits);
-  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
-  static inline constexpr const int min_exponent10 =
+  static constexpr const int digits = kMantissaBits + 1;
+  static constexpr const int digits10 = Digits10FromDigits(digits);
+  static constexpr const int max_digits10 = MaxDigits10FromDigits(digits);
+  static constexpr const int min_exponent = (1 - kExponentBias) + 1;
+  static constexpr const int min_exponent10 =
       MinExponent10FromMinExponent(min_exponent);
-  static inline constexpr const int max_exponent = 0b11111 - kExponentBias;
-  static inline constexpr const int max_exponent10 =
+  static constexpr const int max_exponent = 0b11111 - kExponentBias;
+  static constexpr const int max_exponent10 =
       MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
-  static inline constexpr const bool is_iec559 = true;
-  static inline constexpr const bool has_infinity = true;
-  static inline constexpr const bool has_signaling_NaN = true;
+  static constexpr const bool is_iec559 = true;
+  static constexpr const bool has_infinity = true;
+  static constexpr const bool has_signaling_NaN = true;
   // NOLINTEND
 
   // 1.0 * 2^(0b00001 - 15) = 1.0 * 2^-14 = 0.00006103515625
@@ -849,25 +876,23 @@ struct numeric_limits_float8_e5m2 : public numeric_limits_float8_base {
 
 struct numeric_limits_float8_e5m2fnuz : public numeric_limits_float8_base {
  private:
-  static inline constexpr const int kExponentBias = 16;
-  static inline constexpr const int kMantissaBits = 2;
+  static constexpr const int kExponentBias = 16;
+  static constexpr const int kMantissaBits = 2;
 
  public:
   // NOLINTBEGIN: these names must match std::numeric_limits.
-  static inline constexpr const int digits = kMantissaBits + 1;
-  static inline constexpr const int digits10 = Digits10FromDigits(digits);
-  static inline constexpr const int max_digits10 =
-      MaxDigits10FromDigits(digits);
-  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
-  static inline constexpr const int min_exponent10 =
+  static constexpr const int digits = kMantissaBits + 1;
+  static constexpr const int digits10 = Digits10FromDigits(digits);
+  static constexpr const int max_digits10 = MaxDigits10FromDigits(digits);
+  static constexpr const int min_exponent = (1 - kExponentBias) + 1;
+  static constexpr const int min_exponent10 =
       MinExponent10FromMinExponent(min_exponent);
-  static inline constexpr const int max_exponent =
-      (0b11111 - kExponentBias) + 1;
-  static inline constexpr const int max_exponent10 =
+  static constexpr const int max_exponent = (0b11111 - kExponentBias) + 1;
+  static constexpr const int max_exponent10 =
       MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
-  static inline constexpr const bool is_iec559 = false;
-  static inline constexpr const bool has_infinity = false;
-  static inline constexpr const bool has_signaling_NaN = false;
+  static constexpr const bool is_iec559 = false;
+  static constexpr const bool has_infinity = false;
+  static constexpr const bool has_signaling_NaN = false;
   // NOLINTEND
 
   static constexpr Float8e5m2fnuz min() {
@@ -902,37 +927,44 @@ struct numeric_limits_float8_e5m2fnuz : public numeric_limits_float8_base {
 
 struct numeric_limits_float8_e8m0fnu : public numeric_limits_float8_base {
  private:
-  static inline constexpr const int kExponentBias = 127;
-  static inline constexpr const int kMantissaBits = 0;
+  static constexpr const int kExponentBias = 127;
+  static constexpr const int kMantissaBits = 0;
 
  public:
   // NOLINTBEGIN: these names must match std::numeric_limits.
-  static inline constexpr const int digits = kMantissaBits + 1;
-  static inline constexpr const int digits10 = Digits10FromDigits(digits);
-  static inline constexpr const int max_digits10 =
-      MaxDigits10FromDigits(digits);
-  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
-  static inline constexpr const int min_exponent10 =
+  static constexpr const bool is_signed = false;
+// has_denorm and has_denorm_loss are deprecated in C++23.
+#if !defined(__cplusplus) || __cplusplus < 202302L
+  static constexpr const std::float_denorm_style has_denorm =
+      std::denorm_absent;
+#endif
+  static constexpr const int digits = kMantissaBits + 1;
+  static constexpr const int digits10 = Digits10FromDigits(digits);
+  static constexpr const int max_digits10 = MaxDigits10FromDigits(digits);
+  // 2**-127 smallest valid normalized value.
+  static constexpr const int min_exponent = -kExponentBias + 1;
+  static constexpr const int min_exponent10 =
       MinExponent10FromMinExponent(min_exponent);
-  static inline constexpr const int max_exponent =
-      (0b11111110 - kExponentBias) + 1;
-  static inline constexpr const int max_exponent10 =
+  // 128 encoding used for NaN.
+  static constexpr const int max_exponent = kExponentBias + 1;
+  static constexpr const int max_exponent10 =
       MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
-  static inline constexpr const bool is_iec559 = false;
-  static inline constexpr const bool has_infinity = false;
-  static inline constexpr const bool has_signaling_NaN = false;
+  static constexpr const bool is_iec559 = false;
+  static constexpr const bool has_infinity = false;
+  static constexpr const bool has_signaling_NaN = false;
   // NOLINTEND
 
-  static constexpr Float8e8m0fnu min() { return Float8e8m0fnu::FromRep(0x01); }
+  static constexpr Float8e8m0fnu min() { return Float8e8m0fnu::FromRep(0x00); }
   static constexpr Float8e8m0fnu lowest() {
     return Float8e8m0fnu::FromRep(0x00);
   }
   static constexpr Float8e8m0fnu max() { return Float8e8m0fnu::FromRep(0xFE); }
   static constexpr Float8e8m0fnu epsilon() {
-    return Float8e8m0fnu::FromRep(kExponentBias);
+    return Float8e8m0fnu::FromRep((-kMantissaBits + kExponentBias)
+                                  << kMantissaBits);
   }
   static constexpr Float8e8m0fnu round_error() {
-    return Float8e8m0fnu::FromRep(kExponentBias);
+    return Float8e8m0fnu::FromRep((-1 + kExponentBias) << kMantissaBits);
   }
   static constexpr Float8e8m0fnu quiet_NaN() {
     return Float8e8m0fnu::FromRep(0xFF);
@@ -944,6 +976,7 @@ struct numeric_limits_float8_e8m0fnu : public numeric_limits_float8_base {
     return Float8e8m0fnu::FromRep(0xFF);
   }
   static constexpr Float8e8m0fnu denorm_min() {
+    // No denorm => smallest value.
     return Float8e8m0fnu::FromRep(0x00);
   }
 };
@@ -986,62 +1019,62 @@ struct numeric_limits<tensorstore::float8_internal::Float8e8m0fnu>
 namespace tensorstore {
 namespace float8_internal {
 
-constexpr inline Float8e3m4 abs(const Float8e3m4& a) {
+constexpr Float8e3m4 abs(const Float8e3m4& a) {
   return Float8e3m4::FromRep(a.rep() & 0b0'111'1111);
 }
 
-constexpr inline bool(isnan)(const Float8e3m4& a) {
+constexpr bool(isnan)(const Float8e3m4& a) {
   return abs(a).rep() > std::numeric_limits<Float8e3m4>::infinity().rep();
 }
 
-constexpr inline Float8e4m3fn abs(const Float8e4m3fn& a) {
+constexpr Float8e4m3fn abs(const Float8e4m3fn& a) {
   return Float8e4m3fn::FromRep(a.rep() & 0b0'1111'111);
 }
 
-constexpr inline bool(isnan)(const Float8e4m3fn& a) {
+constexpr bool(isnan)(const Float8e4m3fn& a) {
   return abs(a).rep() == std::numeric_limits<Float8e4m3fn>::quiet_NaN().rep();
 }
 
-constexpr inline Float8e4m3b11fnuz abs(const Float8e4m3b11fnuz& a) {
+constexpr Float8e4m3b11fnuz abs(const Float8e4m3b11fnuz& a) {
   return (a.rep() & 0b0'1111'111) == 0
              ? Float8e4m3b11fnuz::FromRep(a.rep())
              : Float8e4m3b11fnuz::FromRep(a.rep() & 0b0'1111'111);
 }
 
-constexpr inline bool(isnan)(const Float8e4m3b11fnuz& a) {
+constexpr bool(isnan)(const Float8e4m3b11fnuz& a) {
   return a.rep() == std::numeric_limits<Float8e4m3b11fnuz>::quiet_NaN().rep();
 }
 
-constexpr inline Float8e4m3fnuz abs(const Float8e4m3fnuz& a) {
+constexpr Float8e4m3fnuz abs(const Float8e4m3fnuz& a) {
   return (a.rep() & 0x7F) == 0 ? Float8e4m3fnuz::FromRep(a.rep())
                                : Float8e4m3fnuz::FromRep(a.rep() & 0x7F);
 }
 
-constexpr inline bool(isnan)(const Float8e4m3fnuz& a) {
+constexpr bool(isnan)(const Float8e4m3fnuz& a) {
   return abs(a).rep() == std::numeric_limits<Float8e4m3fnuz>::quiet_NaN().rep();
 }
 
-constexpr inline Float8e5m2 abs(const Float8e5m2& a) {
+constexpr Float8e5m2 abs(const Float8e5m2& a) {
   return Float8e5m2::FromRep(a.rep() & 0b0'11111'11);
 }
 
-constexpr inline bool(isnan)(const Float8e5m2& a) {
+constexpr bool(isnan)(const Float8e5m2& a) {
   return abs(a).rep() > std::numeric_limits<Float8e5m2>::infinity().rep();
 }
 
-constexpr inline Float8e5m2fnuz abs(const Float8e5m2fnuz& a) {
+constexpr Float8e5m2fnuz abs(const Float8e5m2fnuz& a) {
   return (a.rep() & 0x7F) == 0 ? Float8e5m2fnuz::FromRep(a.rep())
                                : Float8e5m2fnuz::FromRep(a.rep() & 0x7F);
 }
 
-constexpr inline bool isnan(const Float8e5m2fnuz& a) { return a.rep() == 0x80; }
+constexpr bool isnan(const Float8e5m2fnuz& a) { return a.rep() == 0x80; }
 
-constexpr inline Float8e8m0fnu abs(const Float8e8m0fnu& a) { return a; }
+constexpr Float8e8m0fnu abs(const Float8e8m0fnu& a) { return a; }
 
-constexpr inline bool(isnan)(const Float8e8m0fnu& a) { return a.rep() == 0xFF; }
+constexpr bool(isnan)(const Float8e8m0fnu& a) { return a.rep() == 0xFF; }
 
 template <typename Float8>
-constexpr inline bool(isinf)(const Float8Base<Float8>& a) {
+constexpr bool(isinf)(const Float8Base<Float8>& a) {
   if constexpr (std::numeric_limits<Float8>::has_infinity) {
     return abs(a.derived()).rep() ==
            std::numeric_limits<Float8>::infinity().rep();
@@ -1052,7 +1085,7 @@ constexpr inline bool(isinf)(const Float8Base<Float8>& a) {
 }
 
 template <typename Float8>
-constexpr inline bool(isfinite)(const Float8Base<Float8>& a) {
+constexpr bool(isfinite)(const Float8Base<Float8>& a) {
   return !isnan(a.derived()) && !isinf(a.derived());
 }
 
@@ -1123,6 +1156,10 @@ template <int kNumBytes>
 using GetUnsignedInteger =
     typename get_integer_by_size<kNumBytes>::unsigned_type;
 
+template <int kNumBits>
+using GetUnsignedIntegerBits =
+    GetUnsignedInteger<NextPowerOfTwo<(kNumBits + 7) / 8>::value>;
+
 // Converts between two floating-point types.
 template <typename From, typename To, bool kSaturate, bool kTruncate,
           typename EnableIf = void>
@@ -1132,7 +1169,7 @@ struct ConvertImpl;
 // of template parameters to avoid ambiguities.
 template <typename Scalar>
 struct IdentityConversion {
-  static inline Scalar run(const Scalar& from) { return from; }
+  static constexpr Scalar run(const Scalar& from) { return from; }
 };
 
 template <typename Scalar, bool kSaturate, bool kTruncate>
@@ -1155,6 +1192,11 @@ struct TraitsBase {
                                             << kMantissaBits;
   static constexpr BitsType kMantissaMask = (BitsType{1} << kMantissaBits) - 1;
   static constexpr int kExponentBias = (1 << (kExponentBits - 1)) - 1;
+
+  // Type that can hold mantissa, exponent, and one extra (overflow) bit.
+  // This may be larger than BitsType for unsigned types.
+  using WideBitsType =
+      GetUnsignedIntegerBits<kMantissaBits + kExponentBits + 1>;
 };
 
 template <typename Float>
@@ -1177,9 +1219,15 @@ struct Traits<Float8e5m2fnuz> : public TraitsBase<Float8e5m2fnuz> {
   static constexpr int kExponentBias = Base::kExponentBias + 1;
 };
 
+template <>
+struct Traits<Float8e8m0fnu> : public TraitsBase<Float8e8m0fnu> {
+  using Base = TraitsBase<Float8e8m0fnu>;
+  // No zero in E8M0 OCP MX format description.
+  static constexpr bool kHasZero = false;
+};
+
 template <typename Bits>
-constexpr inline Bits RoundBitsToNearestEven(Bits bits, int roundoff,
-                                             bool use_implicit_bit) {
+constexpr Bits RoundBitsToNearestEven(Bits bits, int roundoff) {
   // Round to nearest even by adding a bias term.
   // Consider a bit pattern
   //   FFF...FLRTT...T,
@@ -1188,74 +1236,20 @@ constexpr inline Bits RoundBitsToNearestEven(Bits bits, int roundoff,
   // - L is 1, R is 1, OR
   // - L is 0, R is 1, any T is one.
   // We do this by adding L to a bit pattern consisting of all T = 1.
-  //
-  // When rounding to zero mantissa (E8M0 type), the L bit is implicitly 1 (do
-  // not use the exponent bits for rounding). Add only the R bit in this case.
-  Bits bias = !use_implicit_bit
-                  ? ((bits >> roundoff) & 1) + (Bits{1} << (roundoff - 1)) - 1
-                  : Bits{1} << (roundoff - 1);
+  Bits bias = ((bits >> roundoff) & 1) + (Bits{1} << (roundoff - 1)) - 1;
   return bits + bias;
 }
 
 #if (defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L)
 using std::countl_zero;
 #else
-static constexpr inline int countl_zero(uint64_t x) {
-  int zeroes = 60;
-  if (x >> 32) {
-    zeroes -= 32;
-    x >>= 32;
-  }
-  if (x >> 16) {
-    zeroes -= 16;
-    x >>= 16;
-  }
-  if (x >> 8) {
-    zeroes -= 8;
-    x >>= 8;
-  }
-  if (x >> 4) {
-    zeroes -= 4;
-    x >>= 4;
-  }
-  return "\4\3\2\2\1\1\1\1\0\0\0\0\0\0\0"[x] + zeroes;
-}
-static constexpr inline int countl_zero(uint32_t x) {
-  int zeroes = 28;
-  if (x >> 16) {
-    zeroes -= 16;
-    x >>= 16;
-  }
-  if (x >> 8) {
-    zeroes -= 8;
-    x >>= 8;
-  }
-  if (x >> 4) {
-    zeroes -= 4;
-    x >>= 4;
-  }
-  return "\4\3\2\2\1\1\1\1\0\0\0\0\0\0\0"[x] + zeroes;
-}
-static constexpr inline int countl_zero(uint16_t x) {
-  int zeroes = 12;
-  if (x >> 8) {
-    zeroes -= 8;
-    x >>= 8;
-  }
-  if (x >> 4) {
-    zeroes -= 4;
-    x >>= 4;
-  }
-  return "\4\3\2\2\1\1\1\1\0\0\0\0\0\0\0"[x] + zeroes;
-}
-static constexpr inline int countl_zero(uint8_t x) {
-  int zeroes = 4;
-  if (x >> 4) {
-    zeroes -= 4;
-    x >>= 4;
-  }
-  return "\4\3\2\2\1\1\1\1\0\0\0\0\0\0\0"[x] + zeroes;
-}
+using absl::countl_zero;
+#endif
+
+#if (defined(__cpp_lib_int_pow2) && __cpp_lib_int_pow2 >= 202002L)
+using std::bit_width;
+#else
+using absl::bit_width;
 #endif
 
 template <typename From, typename To, bool kSaturate, bool kTruncate>
@@ -1269,219 +1263,227 @@ struct ConvertImpl<From, To, kSaturate, kTruncate,
   static constexpr int kFromMantissaBits = FromTraits::kMantissaBits;
   static constexpr int kFromExponentBits = FromTraits::kExponentBits;
   static constexpr int kFromExponentBias = FromTraits::kExponentBias;
-  static constexpr FromBits kFromExponentMask = FromTraits::kExponentMask;
+  // FromBits has to be able to hold the implicit bit at `kFromMantissaBits +
+  // 1` and handle shifts wide enough to clear the implicit bit.
+  static_assert(std::numeric_limits<FromBits>::digits > kFromMantissaBits + 1);
 
   using ToTraits = Traits<To>;
   using ToBits = typename ToTraits::BitsType;
+  using WideToBits = typename ToTraits::WideBitsType;
   static constexpr bool kToIsSigned = ToTraits::kIsSigned;
   static constexpr bool kToHasZero = ToTraits::kHasZero;
-  static constexpr int kToBits = ToTraits::kBits;
   static constexpr int kToMantissaBits = ToTraits::kMantissaBits;
   static constexpr int kToExponentBits = ToTraits::kExponentBits;
   static constexpr int kToExponentBias = ToTraits::kExponentBias;
-  static constexpr ToBits kToExponentMask = ToTraits::kExponentMask;
+  // See Step 4 for why a target without zero gets one more binade.
+  static constexpr int kToEncodingBias = kToExponentBias + !kToHasZero;
 
-  // `WideBits` is wide enough to accommodate the largest exponent and mantissa
-  // in either `From` or `To`.
-  static constexpr int kWideBits =
-      (std::max(kToMantissaBits, kFromMantissaBits)) +  // Max significand.
-      (std::max(kToExponentBits, kFromExponentBits));   // Max exponent.
-  static constexpr int kWideBytesRaw = (kWideBits + (CHAR_BIT - 1)) / CHAR_BIT;
-  // Need a power of two (i.e. not 3 bytes).
-  static constexpr int kWideBytes = NextPowerOfTwo<kWideBytesRaw>::value;
-
-  using WideBits = GetUnsignedInteger<kWideBytes>;
-  static_assert(!std::is_void_v<WideBits>,
-                "`WideBits` type can not be void type.");
-
-  static constexpr int kExponentOffset = kToExponentBias - kFromExponentBias;
-  static constexpr int kDigitShift = kToMantissaBits - kFromMantissaBits;
-
-  static inline To run(From from) {
-    using std::abs;
-    using std::isinf;  // NOLINT
-    using std::isnan;  // NOLINT
-    // Shift bits to destination type, without sign bit.
-    const bool from_sign_bit =
-        absl::bit_cast<FromBits>(from) >> (kFromBits - 1) && kFromIsSigned;
-    const FromBits from_bits = absl::bit_cast<FromBits>(abs(from));
-
-    // Special values, preserving sign.
-    if (isinf(from)) {
-      return from_sign_bit ? -std::numeric_limits<To>::infinity()
-                           : std::numeric_limits<To>::infinity();
+  static constexpr To run(From from) {
+    const FromBits from_bits = absl::bit_cast<FromBits>(from);
+    const bool from_sign = (from_bits >> (kFromBits - 1)) && kFromIsSigned;
+    FromBits from_abs_bits;
+    bool from_isinf;
+    bool from_isnan;
+    // Check exponent and mantissa bits as integers instead of calling
+    // isinf/isnan on `from`. When auto-vectorizing on ARM64, Clang can compile
+    // `isinf || isnan` into a floating-point `>` comparison against +inf,
+    // which sets the hardware FE_INVALID exception flag on quiet NaNs.
+    // Integer comparisons never raise floating-point exceptions.
+    if constexpr (std::numeric_limits<From>::is_iec559 ||
+                  !std::is_base_of_v<Float8Base<From>, From>) {
+      from_abs_bits = from_bits & ~(FromBits{1} << (kFromBits - 1));
+      from_isinf = from_abs_bits == FromTraits::kExponentMask;
+      from_isnan = from_abs_bits > FromTraits::kExponentMask;
+    } else {
+      From from_abs = abs(from);
+      from_abs_bits = absl::bit_cast<FromBits>(from_abs);
+      from_isinf = isinf(from_abs);
+      from_isnan = isnan(from_abs);
     }
-    if (isnan(from)) {
-      return from_sign_bit ? -std::numeric_limits<To>::quiet_NaN()
-                           : std::numeric_limits<To>::quiet_NaN();
+
+    // 1. Handle non-finite values (Infinity and NaN).
+    if (from_isinf) {
+      return from_sign ? -std::numeric_limits<To>::infinity()
+                       : std::numeric_limits<To>::infinity();
     }
-    // Dealing with zero, when `From` has one.
-    if (from_bits == 0 && kFromHasZero) {
+    if (from_isnan) {
+      return from_sign ? -std::numeric_limits<To>::quiet_NaN()
+                       : std::numeric_limits<To>::quiet_NaN();
+    }
+
+    // 2. Handle Zero.
+    // Note: Types without zero (e.g., E8M0 where kFromHasZero=false) encode
+    // values in 0x00 and pass through as normal numbers.
+    if (from_abs_bits == 0 && kFromHasZero) {
       if constexpr (kToHasZero) {
-        // Keep the sign, if `To` supports it.
-        return from_sign_bit && kToIsSigned ? -To{} : To{};
+        To zero = absl::bit_cast<To>(ToBits{0});
+        return from_sign && kToIsSigned ? -zero : zero;
       } else {
+        // If the target has no zero (e.g., E8M0), we saturate to the minimum
+        // denormalized value.
         return kSaturate ? std::numeric_limits<To>::denorm_min()
                          : std::numeric_limits<To>::quiet_NaN();
       }
     }
+
     // `To` unsigned floating format: NaN or saturate.
-    if constexpr (!kToIsSigned && kFromIsSigned) {
-      if (from_sign_bit) {
+    if constexpr (kFromIsSigned && !kToIsSigned) {
+      if (from_sign) {
         return kSaturate ? std::numeric_limits<To>::lowest()
                          : std::numeric_limits<To>::quiet_NaN();
       }
     }
 
-    const int biased_from_exponent = from_bits >> kFromMantissaBits;
-    const bool to_zero_mantissa = kToMantissaBits == 0;
+    // 3. Unpack and Normalize Input.
+    // We convert the input into a normalized (unbiased_exponent, mantissa)
+    // pair. The mantissa is shifted such that the implicit leading 1 is at
+    // bit `kFromMantissaBits`.
+    int unbiased_exponent;
+    FromBits normalized_mantissa;
 
-    // `To` supports more exponents near zero which means that some subnormal
-    // values in `From` may become normal.
-    if constexpr (std::numeric_limits<To>::min_exponent <
-                  std::numeric_limits<From>::min_exponent) {
-      if (biased_from_exponent == 0) {
-        // Subnormals.
-        WideBits bits = from_bits;
+    const FromBits from_biased_exp = from_abs_bits >> kFromMantissaBits;
+    const FromBits from_fraction = from_abs_bits & FromTraits::kMantissaMask;
 
-        // Determine exponent in target type.
-        const int msb =
-            sizeof(from_bits) * CHAR_BIT - countl_zero(from_bits) - 1;
-        const int normalization_factor = kFromMantissaBits - msb;
-        const int biased_exponent = kExponentOffset - normalization_factor + 1;
-        if (biased_exponent <= 0) {
-          // Result is subnormal.  Adjust the subnormal bits to account for
-          // the difference in exponent bias.
-          if constexpr (kExponentOffset < sizeof(WideBits) * CHAR_BIT) {
-            bits <<= kExponentOffset;
-          }
-        } else {
-          // Result is normal. Shift the mantissa to account for the number of
-          // leading zero digits, and clear the hidden bit.
-          bits <<= normalization_factor;
-          bits &= ~(WideBits{1} << kFromMantissaBits);
-          // Insert the exponent bits.
-          bits |= static_cast<WideBits>(biased_exponent) << kFromMantissaBits;
-        }
+    constexpr FromBits kImplicitBit = FromBits{1} << kFromMantissaBits;
+    if (from_biased_exp != 0 || !kFromHasZero) {
+      // Normal number (or E8M0).
+      unbiased_exponent = from_biased_exp - kFromExponentBias;
+      normalized_mantissa = kImplicitBit | from_fraction;
+    } else {
+      // Input is subnormal. We normalize it by shifting the fraction until the
+      // MSB is 1, adjusting the exponent accordingly.
+      // `countl_zero` counts from the MSB of the storage type, so we adjust
+      // based on the actual bit width of the type.
+      int type_leading_zeros = countl_zero(from_fraction);
+      int storage_bits = sizeof(FromBits) * CHAR_BIT;
+      int fraction_leading_zeros =
+          type_leading_zeros - (storage_bits - kFromMantissaBits);
 
-        // Truncate/round mantissa if necessary.
-        if constexpr (kDigitShift >= 0) {
-          bits <<= kDigitShift;
-        } else {
-          if constexpr (!kTruncate) {
-            // When converting float to e8m0, the bits represent a denormal,
-            // so don't use the implicit mantissa bit for rounding.
-            bits = RoundBitsToNearestEven(
-                bits, -kDigitShift, to_zero_mantissa && kExponentOffset != 0);
-          }
-          bits >>= -kDigitShift;
-        }
-        To to = absl::bit_cast<To>(static_cast<ToBits>(bits));
-        return from_sign_bit ? -to : to;
-      }
-    }
-    // `To` supports fewer exponents near zero which means that some values in
-    // `From` may become subnormal.
-    if constexpr (std::numeric_limits<To>::min_exponent >
-                  std::numeric_limits<From>::min_exponent) {
-      const int unbiased_exponent = biased_from_exponent - kFromExponentBias;
-      const int biased_to_exponent = unbiased_exponent + kToExponentBias;
-      // Subnormals and zero.
-      if (biased_to_exponent <= 0) {
-        // Round and shift mantissa down.
-        // Zero exponent valid if From has no zero representation.
-        FromBits from_has_leading_one =
-            (biased_from_exponent > 0 || !kFromHasZero ? 1 : 0);
-        int exponent_shift =
-            -kDigitShift - biased_to_exponent + from_has_leading_one;
-        // Insert the implicit leading 1 bit on the mantissa for normalized
-        // inputs.
-        FromBits rounded_from_bits =
-            (from_bits & FromTraits::kMantissaMask) |
-            (from_has_leading_one << kFromMantissaBits);
-        ToBits bits = 0;
-        if (exponent_shift > 0) {
-          // To avoid UB, limit rounding and shifting to the full mantissa plus
-          // leading 1.
-          if (exponent_shift <= kFromMantissaBits + 1) {
-            if constexpr (!kTruncate) {
-              // NOTE: we need to round again from the original from_bits,
-              // otherwise the lower precision bits may already be lost.  There
-              // is an edge-case where rounding to a normalized value would
-              // normally round down, but for a subnormal, we need to round up.
-              rounded_from_bits = RoundBitsToNearestEven(rounded_from_bits,
-                                                         exponent_shift, false);
-            }
-            bits = rounded_from_bits >> exponent_shift;
-          }
-        } else {
-          bits = rounded_from_bits << -exponent_shift;
-        }
-        // Insert sign and return.
-        To to = absl::bit_cast<To>(bits);
-        return from_sign_bit ? -to : to;
-      }
+      int normalization_shift = fraction_leading_zeros + 1;
+      normalized_mantissa = from_fraction << normalization_shift;
+      unbiased_exponent = (1 - kFromExponentBias) - normalization_shift;
     }
 
-    // Round the mantissa if it is shrinking.
-    WideBits rounded_from_bits = from_bits;
-    if constexpr (kDigitShift < 0) {
-      if constexpr (!kTruncate) {
-        rounded_from_bits =
-            RoundBitsToNearestEven(from_bits, -kDigitShift, to_zero_mantissa);
+    // 4. Calculate Target Parameters.
+    // We calculate `target_biased_exponent_base` representing:
+    // `BiasedExp - 1`.
+    //
+    // The "-1" is critical to the packing algorithm (Step 6). We maintain the
+    // mantissa with its implicit leading 1. When we eventually add the
+    // mantissa to the exponent bits, that leading 1 acts as `1 <<
+    // kToMantissaBits`, effectively adding 1 to the exponent.
+    //
+    // If the result is negative, it indicates the value is too small for the
+    // normal range of the target (underflow), requiring denormalization.
+    //
+    // A target without zero (e.g., E8M0) has no subnormals: biased exponent 0
+    // is its smallest normal binade. We encode it as if it had zero and
+    // subnormals one binade below that, and Step 6 shifts the encoding down.
+    int target_biased_exponent_base = unbiased_exponent + kToEncodingBias - 1;
+
+    // 5. Apply Shift and Rounding, and 6. Pack and Handle Overflow.
+    // We calculate the shift needed to align the source mantissa to the target
+    // mantissa.
+    // Positive shift: Right shift (truncation/rounding needed).
+    // Negative shift: Left shift (padding needed).
+    constexpr int kNormalShift = kFromMantissaBits - kToMantissaBits;
+    WideToBits result_bits_wide;
+    if (target_biased_exponent_base >= 0) {
+      if constexpr (kNormalShift > 0) {
+        if constexpr (!kTruncate) {
+          // Rounding may cause a carry (e.g., 1.11... -> 10.00...).
+          // This carry will naturally flow into the exponent during packing.
+          normalized_mantissa =
+              RoundBitsToNearestEven(normalized_mantissa, kNormalShift);
+        }
+        result_bits_wide = normalized_mantissa >> kNormalShift;
+      } else {
+        result_bits_wide = static_cast<ToBits>(normalized_mantissa)
+                           << -kNormalShift;
       }
-      // Zero-out tail bits.
-      rounded_from_bits &= ~((WideBits{1} << (-kDigitShift)) - 1);
+      // Reassemble the bits using integer addition.
+      //
+      // As noted in Step 4, `target_biased_exponent_base` holds
+      // `BiasedExp - 1`, and `result_bits_wide` still holds the implicit
+      // leading 1 at position `kToMantissaBits`.
+      //
+      // Therefore:
+      //   (BiasedExp - 1) << Shift  +  (1 << Shift | Fraction)
+      //   = ((BiasedExp - 1) + 1) << Shift  +  Fraction
+      //   = BiasedExp << Shift  +  Fraction
+      //
+      // This addition also handles rounding overflow automatically. If
+      // rounding created a carry (mantissa = 2.0), it adds an extra 1 to the
+      // exponent (creating `BiasedExp + 1`). `WideToBits` is required to store
+      // the highest bit in this case.
+      result_bits_wide += static_cast<WideToBits>(target_biased_exponent_base)
+                          << kToMantissaBits;
+    } else {
+      const int denormal_adjustment = -target_biased_exponent_base;
+      // A shift of `kFromMantissaBits + 1` removes the implicit bit, but the
+      // result may still round to 1. A shift of `kFromMantissaBits + 2`
+      // guarantees a result of 0 after rounding. We clamp the shift to this
+      // value.
+      const int alignment_shift =
+          std::min(kNormalShift + denormal_adjustment, kFromMantissaBits + 2);
+      if (alignment_shift > 0) {
+        if constexpr (!kTruncate) {
+          normalized_mantissa =
+              RoundBitsToNearestEven(normalized_mantissa, alignment_shift);
+        }
+        result_bits_wide = normalized_mantissa >> alignment_shift;
+      } else {
+        result_bits_wide = static_cast<ToBits>(normalized_mantissa)
+                           << -alignment_shift;
+      }
+    }
+    if constexpr (!kToHasZero) {
+      // Undo the extra binade from Step 4. Values that rounded or truncated to
+      // zero or a subnormal clamp to the smallest representable value (which is
+      // the nearest value when rounding, and matches llvm::APFloat rmTowardZero
+      // when truncating since no representable value is <= x).
+      constexpr WideToBits kSmallest = WideToBits{1} << kToMantissaBits;
+      result_bits_wide = std::max(result_bits_wide, kSmallest) - kSmallest;
     }
 
-    // Re-bias the exponent.
-    rounded_from_bits += static_cast<WideBits>(kExponentOffset)
-                         << kFromMantissaBits;
-
-    ToBits bits;
-    // Check for overflows by aligning the significands. We always align the
-    // narrower significand to the wider significand.
-    const WideBits kToHighestRep =
+    const ToBits kToMaxFinite =
         absl::bit_cast<ToBits>(std::numeric_limits<To>::max());
-    WideBits aligned_highest{kToHighestRep};
-    if constexpr (kDigitShift < 0) {
-      aligned_highest <<= -kDigitShift;
-      // Shift down, all dropped bits should already be zero.
-      bits = static_cast<ToBits>(rounded_from_bits >> -kDigitShift);
-    } else if constexpr (kDigitShift >= 0) {
-      // Shift up, inserting zeros in the newly created digits.
-      rounded_from_bits <<= kDigitShift;
-      bits = static_cast<ToBits>(rounded_from_bits);
+
+    // Check for overflow.
+    // Condition 1: Exponent calculated exceeds target max.
+    // Condition 2: The final packed bits exceed the max finite representation
+    // (handles cases where rounding pushed a max-value into infinity).
+    ToBits result_bits;
+    if (target_biased_exponent_base >=
+            std::numeric_limits<To>::max_exponent + kToEncodingBias ||
+        result_bits_wide > kToMaxFinite) {
+      if constexpr (kSaturate) {
+        result_bits = kToMaxFinite;
+      } else {
+        result_bits =
+            absl::bit_cast<ToBits>(std::numeric_limits<To>::infinity());
+      }
+    } else {
+      result_bits = static_cast<ToBits>(result_bits_wide);
     }
 
-    To to = absl::bit_cast<To>(bits);
-    // `From` supports larger values than `To`, we may overflow.
-    if constexpr (std::make_pair(std::numeric_limits<To>::max_exponent,
-                                 std::numeric_limits<To>::digits) <
-                  std::make_pair(std::numeric_limits<From>::max_exponent,
-                                 std::numeric_limits<From>::digits)) {
-      if (rounded_from_bits > aligned_highest) {
-        // Overflowed values map to highest or infinity depending on kSaturate.
-        to = kSaturate ? std::numeric_limits<To>::max()
-                       : std::numeric_limits<To>::infinity();
-      }
-    }
-    // Insert sign bit.
-    return from_sign_bit ? -to : to;
+    // 7. Apply Sign
+    To result = absl::bit_cast<To>(result_bits);
+    return from_sign ? -result : result;
   }
 };
 
-// Saturation has no impact when casting e4m3 to e5m2.
+// Saturation has no impact when casting e4m3fn to e5m2.
 template <bool kTruncate>
 struct ConvertImpl<Float8e4m3fn, Float8e5m2, true, kTruncate> {
-  static inline Float8e5m2 run(const Float8e4m3fn& from) {
+  static constexpr Float8e5m2 run(Float8e4m3fn from) {
     return ConvertImpl<Float8e4m3fn, Float8e5m2, false, kTruncate>::run(from);
   }
 };
 
 template <bool kSaturate, bool kTruncate>
 struct ConvertImpl<::half_float::half, Float8e5m2, kSaturate, kTruncate> {
-  static inline Float8e5m2 run(const ::half_float::half& from) {
+  static constexpr Float8e5m2 run(const ::half_float::half& from) {
     uint16_t from_bits = absl::bit_cast<uint16_t>(from);
 
     // Special values (Inf or NaN).
@@ -1498,7 +1500,7 @@ struct ConvertImpl<::half_float::half, Float8e5m2, kSaturate, kTruncate> {
     }
 
     if constexpr (!kTruncate) {
-      from_bits = RoundBitsToNearestEven(from_bits, 8, false);
+      from_bits = RoundBitsToNearestEven(from_bits, 8);
       // Rounding can cause an overflow to infinity. Clamp to the largest finite
       // value if saturation is requested.
       if constexpr (kSaturate) {
@@ -1513,62 +1515,115 @@ struct ConvertImpl<::half_float::half, Float8e5m2, kSaturate, kTruncate> {
   }
 };
 
-template <>
-struct ConvertImpl<Float8e5m2, ::half_float::half, /*kSaturate=*/false,
-                   /*kTruncate=*/false> {
-  static inline ::half_float::half run(const Float8e5m2& from) {
-    return absl::bit_cast<::half_float::half>(
-        static_cast<uint16_t>(static_cast<uint16_t>(from.rep()) << 8));
-  }
-};
-
 // Direct casts of e5m2 to ::half_float::half simply shifts bits over.
 template <bool kSaturate, bool kTruncate>
 struct ConvertImpl<Float8e5m2, ::half_float::half, kSaturate, kTruncate> {
-  static inline ::half_float::half run(const Float8e5m2& from) {
+  static constexpr ::half_float::half run(const Float8e5m2& from) {
     return absl::bit_cast<::half_float::half>(
         static_cast<uint16_t>(static_cast<uint16_t>(from.rep()) << 8));
   }
 };
 
+// Converts `from` to float such that rounding (or truncating) the result to a
+// type with at least two fewer significand bits than float gives the same
+// result as rounding (or truncating) `from` to that type directly.
+template <typename From>
+constexpr float RoundToOddFloat(From from) {
+  static_assert(std::numeric_limits<float>::is_iec559);
+  static_assert(std::numeric_limits<float>::radix == 2);
+  constexpr int kFloatDigits = std::numeric_limits<float>::digits;
+  if constexpr (std::is_integral_v<From>) {
+    if constexpr (std::numeric_limits<From>::digits <= kFloatDigits) {
+      // Every value of `From` is representable without rounding.
+      return static_cast<float>(from);
+    } else {
+      static_assert(std::numeric_limits<From>::digits <=
+                        std::numeric_limits<uint64_t>::digits,
+                    "Integer types wider than 64 bits are not supported.");
+      bool is_negative = false;
+      uint64_t magnitude = static_cast<uint64_t>(from);
+      if constexpr (std::is_signed_v<From>) {
+        if (from < 0) {
+          is_negative = true;
+          // Unsigned negation is exact, even for the minimum value.
+          magnitude = uint64_t{0} - magnitude;
+        }
+      }
+      if ((magnitude >> kFloatDigits) == 0) {
+        return static_cast<float>(from);
+      }
+      const int bit_width = float8_internal::bit_width(magnitude);
+      // Keep the `kFloatDigits` leading bits, and set the lowest of them if
+      // any of the discarded bits are set.
+      const int shift = bit_width - kFloatDigits;
+      const uint64_t sticky = (magnitude & ((uint64_t{1} << shift) - 1)) != 0;
+      magnitude = ((magnitude >> shift) | sticky) << shift;
+      // `magnitude` has at most `kFloatDigits` significant bits now, so this
+      // conversion is exact.
+      const float abs_narrow = static_cast<float>(magnitude);
+      return is_negative ? -abs_narrow : abs_narrow;
+    }
+  } else {
+    static_assert(std::is_floating_point_v<From>);
+    if constexpr (std::numeric_limits<From>::digits <= kFloatDigits) {
+      return static_cast<float>(from);
+    } else if constexpr (std::numeric_limits<From>::is_iec559 &&
+                         sizeof(From) == sizeof(uint64_t)) {
+      static_assert(std::numeric_limits<From>::digits >= kFloatDigits + 2);
+      static_assert(std::numeric_limits<float>::min_exponent >=
+                    std::numeric_limits<From>::min_exponent + 2);
+      const uint64_t wide_bits = absl::bit_cast<uint64_t>(from);
+      const bool is_negative = (wide_bits >> 63) != 0;
+      const uint64_t abs_wide_bits = wide_bits & 0x7FFF'FFFF'FFFF'FFFFULL;
+      if (abs_wide_bits > 0x7FF0'0000'0000'0000ULL) {
+        return is_negative ? -std::numeric_limits<float>::quiet_NaN()
+                           : std::numeric_limits<float>::quiet_NaN();
+      }
+      const From abs_wide = absl::bit_cast<From>(abs_wide_bits);
+      float abs_narrow = static_cast<float>(abs_wide);
+      const uint64_t abs_narrow_as_wide_bits =
+          absl::bit_cast<uint64_t>(static_cast<From>(abs_narrow));
+      uint32_t narrow_bits = absl::bit_cast<uint32_t>(abs_narrow);
+      const bool keep_narrow =
+          (abs_wide_bits == abs_narrow_as_wide_bits) || (narrow_bits & 1);
+      const bool narrow_is_rd = abs_wide_bits > abs_narrow_as_wide_bits;
+      narrow_bits += keep_narrow ? 0 : narrow_is_rd ? 1 : -1;
+      abs_narrow = absl::bit_cast<float>(narrow_bits);
+      return is_negative ? -abs_narrow : abs_narrow;
+    } else {
+      static_assert(std::numeric_limits<From>::digits >= kFloatDigits + 2);
+      static_assert(std::numeric_limits<float>::min_exponent >=
+                    std::numeric_limits<From>::min_exponent + 2);
+      if (from != from) {
+        return std::signbit(from) ? -std::numeric_limits<float>::quiet_NaN()
+                                  : std::numeric_limits<float>::quiet_NaN();
+      }
+      const bool is_negative = std::signbit(from);
+      const From abs_wide = std::fabs(from);
+      float abs_narrow = static_cast<float>(abs_wide);
+      const From abs_narrow_as_wide = static_cast<From>(abs_narrow);
+
+      uint32_t narrow_bits = absl::bit_cast<uint32_t>(abs_narrow);
+      const bool keep_narrow =
+          (abs_wide == abs_narrow_as_wide) || (narrow_bits & 1);
+      const bool narrow_is_rd = abs_wide > abs_narrow_as_wide;
+      narrow_bits += keep_narrow ? 0 : narrow_is_rd ? 1 : -1;
+      abs_narrow = absl::bit_cast<float>(narrow_bits);
+      return is_negative ? -abs_narrow : abs_narrow;
+    }
+  }
+}
+
 template <typename Derived>
 template <bool kSaturate, bool kTruncate, typename From>
-Derived Float8Base<Derived>::ConvertFrom(const From from) {
-  // We are rounding long double -> float -> float8. This can induce
-  // double-rounding which may alter the results. We can correct for this using
-  // a trick explained in: Boldo, Sylvie, and Guillaume Melquiond. "When double
-  // rounding is odd." 17th IMACS World Congress. 2005.
-  if constexpr (std::is_floating_point_v<From> &&
-                sizeof(From) > sizeof(double)) {
-    // binary64, float80, binary128, etc. end up here.
-    static_assert(std::numeric_limits<From>::digits >=
-                  std::numeric_limits<float>::digits + 2);
-    static_assert(std::numeric_limits<float>::min_exponent >=
-                  std::numeric_limits<From>::min_exponent + 2);
-    static_assert(std::numeric_limits<float>::is_iec559);
-    static_assert(std::numeric_limits<float>::radix == 2);
-    const bool is_negative = std::signbit(from);
-    const From abs_wide = std::fabs(from);
-    float abs_narrow = static_cast<float>(abs_wide);
-    const From abs_narrow_as_wide = static_cast<From>(abs_narrow);
-
-    uint32_t narrow_bits = absl::bit_cast<uint32_t>(abs_narrow);
-    // We can keep the narrow value as-is if narrowing was exact (no rounding
-    // error), the wide value was NaN (the narrow value is also NaN and should
-    // be preserved) or if we rounded to the odd value.
-    const bool keep_narrow = (abs_wide == abs_narrow_as_wide) ||
-                             std::isnan(abs_narrow) || (narrow_bits & 1);
-    // We morally performed a round-down if `abs_narrow` is smaller than
-    // `abs_wide`.
-    const bool narrow_is_rd = abs_wide > abs_narrow_as_wide;
-    // If the narrow value is odd or exact, pick it.
-    // Otherwise, narrow is even and corresponds to either the rounded-up or
-    // rounded-down value. If narrow is the rounded-down value, we want the
-    // rounded-up value as it will be odd.
-    narrow_bits += keep_narrow ? 0 : narrow_is_rd ? 1 : -1;
-    abs_narrow = absl::bit_cast<float>(narrow_bits);
+constexpr Derived Float8Base<Derived>::ConvertFrom(const From from) {
+  // Integers and floating point types wider than double (float80, binary128,
+  // etc.) have no direct conversion. Narrowing them to float first must not
+  // round twice, so use round to odd.
+  if constexpr (std::is_integral_v<From> || (std::is_floating_point_v<From> &&
+                                             sizeof(From) > sizeof(double))) {
     return ConvertImpl<float, Derived, kSaturate, kTruncate>::run(
-        is_negative ? -abs_narrow : abs_narrow);
+        RoundToOddFloat(from));
   } else {
     return ConvertImpl<From, Derived, kSaturate, kTruncate>::run(from);
   }
@@ -1576,7 +1631,7 @@ Derived Float8Base<Derived>::ConvertFrom(const From from) {
 
 template <typename Derived>
 template <typename To, bool kSaturate, bool kTruncate>
-To Float8Base<Derived>::ConvertTo(const Derived& from) {
+constexpr To Float8Base<Derived>::ConvertTo(const Derived& from) {
   return ConvertImpl<Derived, To, kSaturate, kTruncate>::run(from);
 }
 

@@ -17,7 +17,9 @@
 #include <limits>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
+#include <benchmark/benchmark.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
@@ -544,7 +546,9 @@ TYPED_TEST_SUITE(InternalFloat8Test, InternalFloat8Types);
 TYPED_TEST(InternalFloat8Test, DataTypeConversionTest_InternalFloat8Types) {
   using T = TypeParam;
   const T pos(3.5);
-  EXPECT_EQ(false, TestConversion<bool_t>(T(0)));
+  if constexpr (!std::is_same_v<T, float8_e8m0fnu_t>) {
+    EXPECT_EQ(false, TestConversion<bool_t>(T(0)));
+  }
   EXPECT_EQ(true, TestConversion<bool_t>(pos));
   EXPECT_EQ(int4_t(pos), TestConversion<int4_t>(pos));
   EXPECT_EQ(int8_t(pos), TestConversion<int8_t>(pos));
@@ -964,5 +968,73 @@ TEST(GetDataTypeConverterOrErrorTest, Basic) {
           absl::StatusCode::kInvalidArgument,
           "Explicit data type conversion required to convert uint32 -> int32"));
 }
+
+template <typename From, typename To>
+void BM_ConvertContiguous(benchmark::State& state) {
+  constexpr Index kCount = 4096;
+  std::vector<From> src(kCount);
+  for (Index i = 0; i < kCount; ++i) {
+    src[i] = static_cast<From>((i & 63) * 0.25f - 8.0f);
+  }
+  std::vector<To> dst(kCount);
+  auto r = GetDataTypeConverter(dtype_v<From>, dtype_v<To>);
+  absl::Status status;
+  const auto fn = (*r.closure.function)[IterationBufferKind::kContiguous];
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(src.data());
+    fn(r.closure.context, {1, kCount},
+       IterationBufferPointer(src.data(), Index(0), sizeof(From)),
+       IterationBufferPointer(dst.data(), Index(0), sizeof(To)), &status);
+    benchmark::DoNotOptimize(dst.data());
+    benchmark::ClobberMemory();
+  }
+  state.SetItemsProcessed(state.iterations() * kCount);
+}
+
+template <typename From, typename To>
+void BM_ScalarStaticCast(benchmark::State& state) {
+  constexpr Index kCount = 4096;
+  std::vector<From> src(kCount);
+  for (Index i = 0; i < kCount; ++i) {
+    src[i] = static_cast<From>((i & 63) * 0.25f - 8.0f);
+  }
+  std::vector<To> dst(kCount);
+  for (auto _ : state) {
+    const From* s = src.data();
+    To* d = dst.data();
+    benchmark::DoNotOptimize(s);
+    for (Index i = 0; i < kCount; ++i) {
+      d[i] = static_cast<To>(s[i]);
+    }
+    benchmark::DoNotOptimize(d);
+    benchmark::ClobberMemory();
+  }
+  state.SetItemsProcessed(state.iterations() * kCount);
+}
+
+// Regime B: 1-byte low-precision -> multi-byte upcasts
+BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, bfloat16_t>);
+BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, float32_t>);
+BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, float64_t>);
+BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, int32_t>);
+BENCHMARK(BM_ConvertContiguous<float4_e2m1fn_t, bfloat16_t>);
+
+// Regime A: 1-byte -> 1-byte conversions
+BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, float8_e5m2_t>);
+BENCHMARK(BM_ConvertContiguous<int4_t, float8_e4m3fn_t>);
+
+// Regime C: multi-byte -> 1-byte downcasts
+BENCHMARK(BM_ConvertContiguous<float32_t, float8_e4m3fn_t>);
+BENCHMARK(BM_ConvertContiguous<bfloat16_t, float8_e4m3fn_t>);
+
+// Standard multi-byte contiguous conversions
+BENCHMARK(BM_ConvertContiguous<float32_t, bfloat16_t>);
+BENCHMARK(BM_ConvertContiguous<bfloat16_t, float32_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, float64_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, int32_t>);
+
+// Direct scalar static_cast<To>(From) loop outside data_type.cc
+BENCHMARK(BM_ScalarStaticCast<float8_e4m3fn_t, float32_t>);
+BENCHMARK(BM_ScalarStaticCast<float32_t, float8_e4m3fn_t>);
 
 }  // namespace

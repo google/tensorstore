@@ -201,10 +201,17 @@ struct FloatFloatDataTypeConversionTraits {
       // float -> float conversions are always supported.
       DataTypeConversionFlags::kSupported |
       // `kSafeAndImplicit` if there is no reduction in mantissa or exponent
-      // bits.
+      // bits. For unsigned formats with no subnormals (such as E8M0), the
+      // minimum value 2^(min_exponent - 1) is still exact in `To` if it fits
+      // in `To`'s subnormal range.
       ((std::numeric_limits<From>::digits <= std::numeric_limits<To>::digits &&
-        std::numeric_limits<From>::min_exponent >=
-            std::numeric_limits<To>::min_exponent &&
+        (std::numeric_limits<From>::min_exponent >=
+             std::numeric_limits<To>::min_exponent ||
+         (!std::numeric_limits<From>::is_signed &&
+          std::numeric_limits<From>::min_exponent -
+                  std::numeric_limits<From>::digits >=
+              std::numeric_limits<To>::min_exponent -
+                  std::numeric_limits<To>::digits)) &&
         std::numeric_limits<From>::max_exponent <=
             std::numeric_limits<To>::max_exponent)
            ? DataTypeConversionFlags::kSafeAndImplicit

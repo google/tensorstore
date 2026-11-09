@@ -17,9 +17,12 @@
 #include <stdint.h>
 
 #include <cmath>
+#include <complex>
 #include <limits>
 #include <string>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -63,6 +66,7 @@ std::string TypeToName() {
   if constexpr (std::is_same_v<T, Float8e5m2>) return "Float8e5m2";
   if constexpr (std::is_same_v<T, Float8e4m3fnuz>) return "Float8e4m3fnuz";
   if constexpr (std::is_same_v<T, Float8e5m2fnuz>) return "Float8e5m2fnuz";
+  if constexpr (std::is_same_v<T, Float8e8m0fnu>) return "Float8e8m0fnu";
   if constexpr (std::is_same_v<T, long double>) return "long_double";
   if constexpr (std::is_same_v<T, double>) return "double";
   if constexpr (std::is_same_v<T, float>) return "float";
@@ -259,18 +263,131 @@ TEST(Float8E5m2fnuzTest, NumericLimits) {
   EXPECT_EQ(std::numeric_limits<Float8e5m2fnuz>::has_signaling_NaN, false);
 }
 
+TEST(Float8E8m0fnuTest, NumericLimits) {
+  using limits = std::numeric_limits<Float8e8m0fnu>;
+  EXPECT_FALSE(limits::is_signed);
+  EXPECT_TRUE(isnan(limits::quiet_NaN()));
+  EXPECT_TRUE(isnan(limits::signaling_NaN()));
+  EXPECT_TRUE(isnan(limits::infinity()));  // No infinity.
+  EXPECT_EQ(static_cast<float>(limits::min()), 0x1p-127);
+  EXPECT_EQ(static_cast<float>(limits::max()), 0x1p+127);
+  EXPECT_EQ(static_cast<float>(limits::lowest()), 0x1p-127);
+  EXPECT_EQ(static_cast<float>(limits::epsilon()), 1.0);
+  EXPECT_EQ(static_cast<float>(limits::round_error()), 0.5);
+  EXPECT_EQ(limits::digits, 1);
+  EXPECT_EQ(limits::digits10, 0);
+  EXPECT_EQ(limits::max_digits10, 2);
+  EXPECT_EQ(limits::min_exponent, -126);
+  EXPECT_EQ(limits::min_exponent10, -38);
+  EXPECT_EQ(limits::max_exponent, 128);
+  EXPECT_EQ(limits::max_exponent10, 38);
+  EXPECT_EQ(limits::is_iec559, false);
+  EXPECT_EQ(limits::has_infinity, false);
+  EXPECT_EQ(limits::has_quiet_NaN, true);
+  EXPECT_EQ(limits::has_signaling_NaN, false);
+}
+
+TEST(Float8E8m0fnuTest, NegativeInput) {
+  using Float8 = Float8e8m0fnu;
+  std::vector<float> inputs = {
+      -std::fabs(std::numeric_limits<float>::quiet_NaN()),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<float>::lowest(),
+      -1.0f,
+      -0.5f,
+      -std::numeric_limits<float>::min(),
+      -std::numeric_limits<float>::denorm_min(),
+      -0.0f,
+  };
+  for (float input : inputs) {
+    Float8 f8 = Float8::template ConvertFrom</*kSaturate=*/false,
+                                             /*kTruncate=*/false>(input);
+    EXPECT_TRUE(isnan(f8));
+  }
+  for (float input : inputs) {
+    Float8 f8 = Float8::template ConvertFrom</*kSaturate=*/true,
+                                             /*kTruncate=*/false>(input);
+    if (std::isfinite(input)) {
+      EXPECT_EQ(f8, std::numeric_limits<Float8>::lowest())
+          << "input: " << input << " f8: " << f8;
+    } else {
+      EXPECT_TRUE(isnan(f8));
+    }
+  }
+}
+
+TEST(Float8E8m0fnuTest, ConvertFromWideIntegers) {
+  // 2^24 + 2^23 - 1 rounds to 2^24 + 2^23 as a float, which is halfway between
+  // 2^24 and 2^25.
+  EXPECT_EQ(static_cast<float>(Float8e8m0fnu(int32_t{0x17F'FFFF})), 0x1p24);
+  EXPECT_EQ(static_cast<float>(Float8e8m0fnu(int32_t{0x180'0001})), 0x1p25);
+  EXPECT_EQ(static_cast<float>(Float8e8m0fnu(uint64_t{0xBFFF'FFFF'FFFF'FFFF})),
+            0x1p63);
+  EXPECT_EQ(
+      static_cast<float>(Float8e8m0fnu(std::numeric_limits<uint64_t>::max())),
+      0x1p64);
+  // Truncation must not be affected by rounding up when narrowing to float.
+  EXPECT_EQ(static_cast<float>(Float8e8m0fnu::ConvertFrom</*kSaturate=*/false,
+                                                          /*kTruncate=*/true>(
+                std::numeric_limits<int64_t>::max())),
+            0x1p62);
+  EXPECT_EQ(static_cast<float>(Float8e8m0fnu::ConvertFrom</*kSaturate=*/false,
+                                                          /*kTruncate=*/true>(
+                std::numeric_limits<uint64_t>::max())),
+            0x1p63);
+}
+
+TEST(Float8E8m0fnuTest, ConvertFromLowestBinade) {
+  EXPECT_EQ(static_cast<BFloat16>(Float8e8m0fnu::FromRep(0x00)), 0x1p-127f);
+  EXPECT_EQ(static_cast<float>(Float8e8m0fnu::FromRep(0x00)), 0x1p-127f);
+  EXPECT_EQ(static_cast<double>(Float8e8m0fnu::FromRep(0x00)), 0x1p-127);
+
+  // 2^-127 is the smallest value, not a subnormal: inputs below the midpoint of
+  // [2^-127, 2^-126] round down, and positive inputs below 2^-127 saturate to
+  // 2^-127.
+  const std::vector<std::pair<float, uint8_t>> cases = {
+      {0x1p-149f, 0x00},        {0x1.fffff8p-128f, 0x00}, {0x1p-127f, 0x00},
+      {0x1.000004p-127f, 0x00}, {0x1.1p-127f, 0x00},      {0x1.4p-127f, 0x00},
+      {0x1.7ffffcp-127f, 0x00}, {0x1.8p-127f, 0x01},      {0x1.4p-126f, 0x01},
+      {0x1.8p-126f, 0x02},
+  };
+  for (const auto& [input, rep] : cases) {
+    EXPECT_EQ(Float8e8m0fnu(input).rep(), rep) << "input: " << input;
+    EXPECT_EQ((Float8e8m0fnu::ConvertFrom</*kSaturate=*/true>(input)).rep(),
+              rep)
+        << "input: " << input;
+    EXPECT_EQ(Float8e8m0fnu(static_cast<double>(input)).rep(), rep)
+        << "input: " << input;
+    const tensorstore::BFloat16 bf16_input(input);
+    if (static_cast<float>(bf16_input) == input) {
+      EXPECT_EQ(Float8e8m0fnu(bf16_input).rep(), rep) << "input: " << input;
+    }
+  }
+  EXPECT_EQ(Float8e8m0fnu(0x1p-1022).rep(), 0x00);
+  EXPECT_EQ(Float8e8m0fnu(0x1.7ffffffffffffp-127).rep(), 0x00);
+  EXPECT_EQ(Float8e8m0fnu(0x1.8p-127).rep(), 0x01);
+  EXPECT_EQ((Float8e8m0fnu::ConvertFrom</*kSaturate=*/false,
+                                        /*kTruncate=*/true>(0x1.cp-127f))
+                .rep(),
+            0x00);
+  EXPECT_EQ((Float8e8m0fnu::ConvertFrom</*kSaturate=*/false,
+                                        /*kTruncate=*/true>(0x1.cp-126f))
+                .rep(),
+            0x01);
+}
+
 template <typename Float8_>
 class Float8Test : public ::testing::Test {};
 
-using Float8Types =
-    ::testing::Types<Float8e3m4, Float8e4m3fn, Float8e5m2, Float8e4m3b11fnuz,
-                     Float8e4m3fnuz, Float8e5m2fnuz>;
+using Float8Types = ::testing::Types<Float8e3m4, Float8e4m3fn, Float8e4m3fnuz,
+                                     Float8e4m3b11fnuz, Float8e5m2,
+                                     Float8e5m2fnuz, Float8e8m0fnu>;
 
 TYPED_TEST_SUITE(Float8Test, Float8Types, Float8TestParamNames);
 
 TYPED_TEST(Float8Test, DefaultConstruction) {
   using Float = TypeParam;
-  const Float zero(0);
+  const Float zero = Float::FromRep(0);
 
   // sd is static, so it must be zero initialized.
   static Float sd;
@@ -287,12 +404,28 @@ TYPED_TEST(Float8Test, DefaultConstruction) {
 
 TYPED_TEST(Float8Test, FromRep) {
   using Float8 = TypeParam;
-  Float8 x = Float8::FromRep(0x4F);
-  EXPECT_EQ(x.rep(), 0x4F);
+
+  for (int i = 0x00; i <= 0xFF; ++i) {
+    // Cast up to each other floating-point type, and verify they are the same.
+    Float8 f8 = Float8::FromRep(static_cast<uint8_t>(i));
+    EXPECT_EQ(i, f8.rep());
+
+    if (isnan(f8) || isinf(f8)) continue;
+    EXPECT_EQ(static_cast<double>(static_cast<float>(f8)),
+              static_cast<double>(f8))
+        << i;
+    EXPECT_EQ(static_cast<float>(static_cast<double>(f8)),
+              static_cast<float>(f8))
+        << i;
+  }
 }
 
 TYPED_TEST(Float8Test, Negate) {
   using Float8 = TypeParam;
+  if (!std::numeric_limits<Float8>::is_signed) {
+    GTEST_SKIP() << "Type doesn't support negative numbers";
+  }
+
   Float8 x = -Float8::FromRep(0x4F);
   EXPECT_EQ(x.rep(), 0x80 | 0x4F);
 
@@ -313,7 +446,7 @@ TYPED_TEST(Float8Test, UpCasts) {
   // Loop through each float8 value.
   for (int i = 0x00; i <= 0xFF; ++i) {
     // Cast up to each other floating-point type, and verify they are the same.
-    Float8 f8 = Float8::FromRep(i);
+    Float8 f8 = Float8::FromRep(static_cast<uint8_t>(i));
     double f64 = static_cast<double>(f8);
     float f32 = static_cast<float>(f8);
     tensorstore::BFloat16 bf16 = static_cast<tensorstore::BFloat16>(f8);
@@ -327,7 +460,9 @@ TYPED_TEST(Float8Test, UpCasts) {
     } else {
       EXPECT_EQ(f64, f32);
       EXPECT_EQ(f32, bf16);
-      EXPECT_EQ(bf16, f16);
+      if (!std::is_same_v<Float8, Float8e8m0fnu>) {
+        EXPECT_EQ(bf16, f16);
+      }
     }
   }
 }
@@ -335,7 +470,7 @@ TYPED_TEST(Float8Test, UpCasts) {
 TYPED_TEST(Float8Test, DownCasts) {
   using Float8 = TypeParam;
   for (int i = 0x00; i <= 0xFF; ++i) {
-    float x = static_cast<float>(Float8::FromRep(i));
+    float x = static_cast<float>(Float8::FromRep(static_cast<uint8_t>(i)));
 
     Float8 f64 = static_cast<Float8>(static_cast<double>(x));
     Float8 f32 = static_cast<Float8>(static_cast<float>(x));
@@ -351,7 +486,9 @@ TYPED_TEST(Float8Test, DownCasts) {
       EXPECT_EQ(f64.rep(), i) << i;
       EXPECT_EQ(f32.rep(), i) << i;
       EXPECT_EQ(bf16.rep(), i) << i;
-      EXPECT_EQ(f16.rep(), i) << i;
+      if (!std::is_same_v<Float8, Float8e8m0fnu>) {
+        EXPECT_EQ(f16.rep(), i) << i;
+      }
     }
   }
 }
@@ -362,13 +499,15 @@ TYPED_TEST(Float8Test, ConvertFromWithSaturation) {
   // Saturation above max value.
   Float8 upper =
       Float8::template ConvertFrom</*kSaturate=*/true, /*kTruncate=*/false>(
-          static_cast<float>(std::numeric_limits<Float8>::max()) * 2);
+          static_cast<double>(std::numeric_limits<Float8>::max()) * 2);
   EXPECT_EQ(upper, std::numeric_limits<Float8>::max());
 
-  Float8 lower =
-      Float8::template ConvertFrom</*kSaturate=*/true, /*kTruncate=*/false>(
-          static_cast<float>(std::numeric_limits<Float8>::lowest()) * 2);
-  EXPECT_EQ(lower, std::numeric_limits<Float8>::lowest());
+  if (std::numeric_limits<Float8>::is_signed) {
+    Float8 lower =
+        Float8::template ConvertFrom</*kSaturate=*/true, /*kTruncate=*/false>(
+            static_cast<double>(std::numeric_limits<Float8>::lowest()) * 2);
+    EXPECT_EQ(lower, std::numeric_limits<Float8>::lowest());
+  }
 
   // Special values remain with saturation.
   Float8 nan =
@@ -403,7 +542,7 @@ TYPED_TEST(Float8Test, ConvertFromWithTruncation) {
           less_than_two);
   EXPECT_EQ(static_cast<float>(rounded), 2);
 
-  double kLarge = 0x1.c001p+16;
+  double kLarge = 0x1p+128;
   EXPECT_EQ(
       (Float8::template ConvertFrom</*kSaturate=*/false, /*kTruncate=*/true>(
            kLarge)
@@ -462,6 +601,38 @@ TYPED_TEST(Float8Test, ConvertTo) {
                                                  /*kTruncate=*/true>(f8)));
     }
   }
+}
+
+TYPED_TEST(Float8Test, FloatCompoundAddAssign) {
+  using Float8 = TypeParam;
+  float acc = 1.25f;
+  float& ref = (acc += Float8(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 3.25f);
+}
+
+TYPED_TEST(Float8Test, FloatCompoundSubAssign) {
+  using Float8 = TypeParam;
+  float acc = 3.25f;
+  float& ref = (acc -= Float8(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 1.25f);
+}
+
+TYPED_TEST(Float8Test, FloatCompoundMulAssign) {
+  using Float8 = TypeParam;
+  float acc = 1.25f;
+  float& ref = (acc *= Float8(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 2.5f);
+}
+
+TYPED_TEST(Float8Test, FloatCompoundDivAssign) {
+  using Float8 = TypeParam;
+  float acc = 2.5f;
+  float& ref = (acc /= Float8(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 1.25f);
 }
 
 TEST(Float8Test, Float8E5m2_To_Float8E4m3) {
@@ -862,6 +1033,7 @@ struct Float8CastTestParamNames {
     std::pair<T, Float8e4m3fnuz>, \
     std::pair<T, Float8e5m2fnuz>, \
     std::pair<T, Float8e5m2>, \
+    std::pair<T, Float8e8m0fnu>, \
     std::pair<T, bool>, \
     std::pair<T, int32_t>, \
     std::pair<T, int64_t>
@@ -872,7 +1044,8 @@ using Float8CastTypePairs = ::testing::Types<
     GEN_TYPE_PAIRS(Float8e4m3b11fnuz),
     GEN_TYPE_PAIRS(Float8e5m2),
     GEN_TYPE_PAIRS(Float8e4m3fnuz),
-    GEN_TYPE_PAIRS(Float8e5m2fnuz)>;
+    GEN_TYPE_PAIRS(Float8e5m2fnuz),
+    GEN_TYPE_PAIRS(Float8e8m0fnu)>;
 // clang-format on
 
 template <typename CastPair>
@@ -911,6 +1084,58 @@ TYPED_TEST(Float8CastTest, CastThroughFloat) {
       EXPECT_THAT(dest, EqOrIsNan<DestType>(expected));
     }
   }
+}
+
+TEST(Float8ConstexprConversionTest, ConstexprCasts) {
+  constexpr Float8e4m3fn kOneE4m3 = Float8e4m3fn::FromRep(0x38);
+  constexpr Float8e5m2 kOneE5m2(kOneE4m3);
+  constexpr Float8e4m3fn kFromFloat(1.0f);
+  constexpr Float8e4m3fn kFromDouble(1.0);
+  constexpr Float8e4m3fn kFromInt(1);
+  static_assert(kOneE5m2.rep() == 0x3C);
+  static_assert(kFromFloat.rep() == 0x38);
+  static_assert(kFromDouble.rep() == 0x38);
+  static_assert(kFromInt.rep() == 0x38);
+  static_assert(static_cast<float>(kOneE4m3) == 1.0f);
+  static_assert(static_cast<double>(kOneE4m3) == 1.0);
+  static_assert(static_cast<int8_t>(kOneE4m3) == 1);
+  static_assert(static_cast<float>(static_cast<BFloat16>(kOneE4m3)) == 1.0f);
+  static_assert(absl::bit_cast<uint16_t>(
+                    static_cast<::half_float::half>(kOneE4m3)) == 0x3C00);
+  static_assert(absl::bit_cast<uint16_t>(
+                    static_cast<::half_float::half>(kOneE5m2)) == 0x3C00);
+  static_assert(static_cast<std::complex<float>>(Float8e4m3fn(3.5f)) ==
+                std::complex<float>(3.5f, 0.0f));
+  static_assert(BFloat16(1.5f) == 1.5f);
+  static_assert(BFloat16(2) == 2.0f);
+  static_assert(BFloat16(true) == 1.0f);
+  static_assert(kOneE4m3 == Float8e4m3fn(1.0f));
+  static_assert(kOneE4m3 != Float8e4m3fn(2.0f));
+  static_assert(kOneE4m3 < Float8e4m3fn(2.0f));
+  static_assert(kOneE4m3 <= Float8e4m3fn(1.0f));
+  static_assert(Float8e4m3fn(2.0f) > kOneE4m3);
+  static_assert(Float8e4m3fn(2.0f) >= kOneE4m3);
+  static_assert((kOneE4m3 + kOneE4m3) == Float8e4m3fn(2.0f));
+  static_assert((Float8e4m3fn(3.0f) - kOneE4m3) == Float8e4m3fn(2.0f));
+  static_assert((Float8e4m3fn(2.0f) * Float8e4m3fn(3.0f)) ==
+                Float8e4m3fn(6.0f));
+  static_assert((Float8e4m3fn(6.0f) / Float8e4m3fn(2.0f)) ==
+                Float8e4m3fn(3.0f));
+  static_assert(Float8e8m0fnu(1.0f) == Float8e8m0fnu::FromRep(0x7F));
+  static_assert(Float8e8m0fnu(1.0f) < Float8e8m0fnu(2.0f));
+  static_assert(static_cast<float>(Float8e3m4(1.0f)) == 1.0f);
+  static_assert(static_cast<float>(Float8e4m3b11fnuz(1.0f)) == 1.0f);
+  static_assert(static_cast<float>(Float8e4m3fnuz(1.0f)) == 1.0f);
+  static_assert(static_cast<float>(Float8e5m2fnuz(1.0f)) == 1.0f);
+  static_assert(static_cast<float>(Float8e8m0fnu(1.0f)) == 1.0f);
+  static_assert((Float8e4m3b11fnuz(3.0f) - Float8e4m3b11fnuz(1.0f)) ==
+                Float8e4m3b11fnuz(2.0f));
+  static_assert((Float8e4m3fnuz(3.0f) - Float8e4m3fnuz(1.0f)) ==
+                Float8e4m3fnuz(2.0f));
+  static_assert((Float8e5m2fnuz(3.0f) - Float8e5m2fnuz(1.0f)) ==
+                Float8e5m2fnuz(2.0f));
+  static_assert((Float8e8m0fnu(4.0f) - Float8e8m0fnu(2.0f)) ==
+                Float8e8m0fnu(2.0f));
 }
 
 TEST(Float8StringifyTest, AbslStringify) {

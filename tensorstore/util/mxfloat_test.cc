@@ -17,6 +17,7 @@
 #include <stdint.h>
 
 #include <cmath>
+#include <complex>
 #include <limits>
 #include <string>
 #include <utility>
@@ -248,6 +249,38 @@ TYPED_TEST(MXFloatTest, ConvertFromWithSaturation) {
   EXPECT_EQ(nan, std::numeric_limits<Float>::quiet_NaN());
 }
 
+TYPED_TEST(MXFloatTest, FloatCompoundAddAssign) {
+  using Float = TypeParam;
+  float acc = 1.25f;
+  float& ref = (acc += Float(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 3.25f);
+}
+
+TYPED_TEST(MXFloatTest, FloatCompoundSubAssign) {
+  using Float = TypeParam;
+  float acc = 3.25f;
+  float& ref = (acc -= Float(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 1.25f);
+}
+
+TYPED_TEST(MXFloatTest, FloatCompoundMulAssign) {
+  using Float = TypeParam;
+  float acc = 1.25f;
+  float& ref = (acc *= Float(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 2.5f);
+}
+
+TYPED_TEST(MXFloatTest, FloatCompoundDivAssign) {
+  using Float = TypeParam;
+  float acc = 2.5f;
+  float& ref = (acc /= Float(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 1.25f);
+}
+
 using ::testing::Eq;
 using ::testing::IsTrue;
 MATCHER_P(EqOrIsNan, other, "") {
@@ -396,6 +429,25 @@ TYPED_TEST(MXFloatCastTest, CastThroughFloat) {
       EXPECT_THAT(dest, EqOrIsNan<DestType>(expected));
     }
   }
+}
+
+TEST(MXFloatConstexprConversionTest, ConstexprCasts) {
+  constexpr Float4e2m1fn kOneE2m1 = Float4e2m1fn::FromRep(0b0'01'0);
+  constexpr Float6e2m3fn kOneE2m3(kOneE2m1);
+  constexpr Float6e3m2fn kOneE3m2(kOneE2m3);
+  constexpr Float4e2m1fn kFromFloat(1.0f);
+  static_assert(kOneE2m3.rep() == 0b0'01'000);
+  static_assert(kOneE3m2.rep() == 0b0'011'00);
+  static_assert(kFromFloat.rep() == 0b0'01'0);
+  static_assert(static_cast<float>(kOneE2m1) == 1.0f);
+  static_assert(static_cast<double>(kOneE2m1) == 1.0);
+  static_assert(static_cast<float>(static_cast<BFloat16>(kOneE2m1)) == 1.0f);
+  static_assert(static_cast<std::complex<float>>(Float4e2m1fn(1.5f)) ==
+                std::complex<float>(1.5f, 0.0f));
+  static_assert(kOneE2m1 == Float4e2m1fn(1.0f));
+  static_assert(kOneE2m1 < Float4e2m1fn(2.0f));
+  static_assert((kOneE2m1 + kOneE2m1) == Float4e2m1fn(2.0f));
+  static_assert((Float4e2m1fn(3.0f) - kOneE2m1) == Float4e2m1fn(2.0f));
 }
 
 }  // namespace

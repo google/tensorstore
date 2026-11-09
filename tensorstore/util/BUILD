@@ -825,6 +825,7 @@ tensorstore_cc_library(
     deps = [
         ":bfloat16",
         "@abseil-cpp//absl/base",
+        "@abseil-cpp//absl/numeric:bits",
         "@abseil-cpp//absl/strings:str_format",
         "@net_sourceforge_half//:half",
         "@nlohmann_json//:json",

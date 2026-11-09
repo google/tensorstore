@@ -409,6 +409,39 @@ TEST(Bfloat16Test, Arithmetic) {
               NearFloat(0.3339f));
   EXPECT_EQ(static_cast<float>(-bfloat16_t(4096.0f)), -4096.0f);
   EXPECT_EQ(static_cast<float>(-bfloat16_t(-4096.0f)), 4096.0f);
+
+  static_assert(bfloat16_t(2) + bfloat16_t(3) == bfloat16_t(5));
+  static_assert(bfloat16_t(5) - bfloat16_t(2) == bfloat16_t(3));
+  static_assert(bfloat16_t(2) * bfloat16_t(3) == bfloat16_t(6));
+  static_assert(bfloat16_t(6) / bfloat16_t(2) == bfloat16_t(3));
+}
+
+TEST(Bfloat16Test, FloatCompoundAddAssign) {
+  float acc = 1.25f;
+  float& ref = (acc += bfloat16_t(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 3.25f);
+}
+
+TEST(Bfloat16Test, FloatCompoundSubAssign) {
+  float acc = 3.25f;
+  float& ref = (acc -= bfloat16_t(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 1.25f);
+}
+
+TEST(Bfloat16Test, FloatCompoundMulAssign) {
+  float acc = 1.25f;
+  float& ref = (acc *= bfloat16_t(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 2.5f);
+}
+
+TEST(Bfloat16Test, FloatCompoundDivAssign) {
+  float acc = 2.5f;
+  float& ref = (acc /= bfloat16_t(2.0f));
+  EXPECT_EQ(&ref, &acc);
+  EXPECT_FLOAT_EQ(acc, 1.25f);
 }
 
 TEST(Bfloat16Test, Comparison) {
