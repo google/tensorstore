@@ -151,58 +151,157 @@ TEST(MetadataTest, ParseValidNoDimensionNames) {
   EXPECT_THAT(metadata.user_attributes, MatchesJson({{"a", "b"}, {"c", "d"}}));
 }
 
-TEST(MetadataTest, RegularBoundedChunkGrid) {
+::nlohmann::json OffsetChunkGrid(::nlohmann::json offset) {
+  return {{"name", "offset"},
+          {"configuration",
+           {{"offset", std::move(offset)},
+            {"base_chunk_grid",
+             {{"name", "regular"},
+              {"configuration", {{"chunk_shape", {1, 2, 3}}}}}}}}};
+}
+
+TEST(MetadataTest, Bounds) {
   auto json = GetBasicMetadata();
-  json["chunk_grid"] = {{"name", "regular_bounded"},
-                        {"configuration",
-                         {{"chunk_shape", {1, 2, 3}},
-                          {"origin", {0, -1, 5}},
-                          {"lower_bound", {-3, 0, 2}}}}};
+  json.erase("shape");
+  json["bounds"] = {{"inclusive_min", {-3, 0, 2}},
+                    {"exclusive_max", {7, 11, 14}}};
   tensorstore::TestJsonBinderRoundTripJsonOnly<ZarrMetadata>({json});
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
-  EXPECT_TRUE(metadata.chunk_grid_bounded);
+  EXPECT_TRUE(metadata.bounded);
+  EXPECT_FALSE(metadata.offset_grid);
+  EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
+  EXPECT_THAT(metadata.lower_bound, ::testing::ElementsAre(-3, 0, 2));
+  EXPECT_THAT(metadata.chunk_grid_origin, ::testing::IsEmpty());
+}
+
+TEST(MetadataTest, BoundsWithOffsetChunkGrid) {
+  auto json = GetBasicMetadata();
+  json.erase("shape");
+  json["bounds"] = {{"inclusive_min", {-3, 0, 2}},
+                    {"exclusive_max", {7, 11, 14}}};
+  json["chunk_grid"] = OffsetChunkGrid({0, -1, 5});
+  tensorstore::TestJsonBinderRoundTripJsonOnly<ZarrMetadata>({json});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
+  EXPECT_TRUE(metadata.bounded);
+  EXPECT_TRUE(metadata.offset_grid);
   EXPECT_THAT(metadata.chunk_shape, ::testing::ElementsAre(1, 2, 3));
   EXPECT_THAT(metadata.chunk_grid_origin, ::testing::ElementsAre(0, -1, 5));
   EXPECT_THAT(metadata.lower_bound, ::testing::ElementsAre(-3, 0, 2));
 }
 
-TEST(MetadataTest, RegularChunkGridRejectsBoundedMembers) {
+TEST(MetadataTest, ShapeWithOffsetChunkGridRoundTrips) {
   auto json = GetBasicMetadata();
-  json["chunk_grid"]["configuration"]["origin"] = {0, 0, 0};
-  EXPECT_THAT(ZarrMetadata::FromJson(json),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("regular_bounded")));
+  json["chunk_grid"] = OffsetChunkGrid({0, 0, 0});
+  tensorstore::TestJsonBinderRoundTripJsonOnly<ZarrMetadata>({json});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(json));
+  EXPECT_FALSE(metadata.bounded);
+  EXPECT_TRUE(metadata.offset_grid);
+  EXPECT_THAT(metadata.chunk_grid_origin, ::testing::ElementsAre(0, 0, 0));
 }
 
-TEST(MetadataTest, RegularBoundedChunkGridRequiresBothMembers) {
+TEST(MetadataTest, ShapeAndBoundsRejected) {
   auto json = GetBasicMetadata();
-  json["chunk_grid"] = {
-      {"name", "regular_bounded"},
-      {"configuration", {{"chunk_shape", {1, 2, 3}}, {"origin", {0, 0, 0}}}}};
+  json["bounds"] = {{"inclusive_min", {0, 0, 0}},
+                    {"exclusive_max", {10, 11, 12}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Only one of \"shape\" and \"bounds\"")));
+}
+
+TEST(MetadataTest, NeitherShapeNorBoundsRejected) {
+  auto json = GetBasicMetadata();
+  json.erase("shape");
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Exactly one of \"shape\" and \"bounds\"")));
+}
+
+TEST(MetadataTest, BoundsInclusiveMinAboveExclusiveMaxRejected) {
+  auto json = GetBasicMetadata();
+  json.erase("shape");
+  json["bounds"] = {{"inclusive_min", {0, 5, 0}},
+                    {"exclusive_max", {10, 4, 12}}};
   EXPECT_THAT(
       ZarrMetadata::FromJson(json),
-      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("lower_bound")));
-  json["chunk_grid"]["configuration"]["lower_bound"] = {0, 0};
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"bounds\"")));
+  json["bounds"] = {{"inclusive_min", {0, 5}}, {"exclusive_max", {10, 5, 12}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"exclusive_max\"")));
+}
+
+TEST(MetadataTest, RegularChunkGridRejectsOrigin) {
+  auto json = GetBasicMetadata();
+  json["chunk_grid"]["configuration"]["origin"] = {0, 0, 0};
   EXPECT_THAT(
       ZarrMetadata::FromJson(json),
-      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("lower_bound")));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"origin\"")));
+}
+
+TEST(MetadataTest, OffsetChunkGridRejectsNestedOffset) {
+  auto json = GetBasicMetadata();
+  json["chunk_grid"] = OffsetChunkGrid({1, 0, 0});
+  json["chunk_grid"]["configuration"]["base_chunk_grid"] =
+      OffsetChunkGrid({0, 0, 0});
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected \"regular\"")));
+}
+
+TEST(MetadataTest, OffsetChunkGridRejectsOtherBase) {
+  auto json = GetBasicMetadata();
+  json["chunk_grid"] = OffsetChunkGrid({1, 0, 0});
+  json["chunk_grid"]["configuration"]["base_chunk_grid"]["name"] =
+      "rectilinear";
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected \"regular\"")));
 }
 
 TEST(MetadataTest, CompatibilityKeyIgnoresTheLowerBound) {
   auto json = GetBasicMetadata();
-  json["chunk_grid"] = {{"name", "regular_bounded"},
-                        {"configuration",
-                         {{"chunk_shape", {1, 2, 3}},
-                          {"origin", {0, 0, 0}},
-                          {"lower_bound", {0, 0, 0}}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto shape, ZarrMetadata::FromJson(json));
+  json.erase("shape");
+  json["bounds"] = {{"inclusive_min", {0, 0, 0}},
+                    {"exclusive_max", {10, 11, 12}}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto a, ZarrMetadata::FromJson(json));
-  json["shape"] = {14, 11, 12};
-  json["chunk_grid"]["configuration"]["lower_bound"] = {-4, 0, 0};
+  json["bounds"] = {{"inclusive_min", {-4, 0, 0}},
+                    {"exclusive_max", {10, 11, 12}}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto b, ZarrMetadata::FromJson(json));
   EXPECT_EQ(a.GetCompatibilityKey(), b.GetCompatibilityKey());
-  json["chunk_grid"]["configuration"]["origin"] = {1, 0, 0};
+  // The form decides whether the lower bounds are implicit.
+  EXPECT_NE(a.GetCompatibilityKey(), shape.GetCompatibilityKey());
+  json["chunk_grid"] = OffsetChunkGrid({1, 0, 0});
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto c, ZarrMetadata::FromJson(json));
-  EXPECT_NE(a.GetCompatibilityKey(), c.GetCompatibilityKey());
+  EXPECT_NE(b.GetCompatibilityKey(), c.GetCompatibilityKey());
+}
+
+TEST(MetadataTest, ConstraintsAcceptEitherShapeOrBounds) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<ZarrMetadataConstraints>({
+      {{"node_type", "array"}, {"shape", {10, 11, 12}}},
+      {{"node_type", "array"},
+       {"bounds",
+        {{"inclusive_min", {-3, 0, 2}}, {"exclusive_max", {7, 11, 14}}}}},
+      {{"node_type", "array"}, {"chunk_grid", OffsetChunkGrid({0, -1, 5})}},
+      {{"node_type", "array"}},
+  });
+  EXPECT_THAT(
+      ZarrMetadataConstraints::FromJson(
+          {{"shape", {10, 11, 12}},
+           {"bounds",
+            {{"inclusive_min", {0, 0, 0}}, {"exclusive_max", {10, 11, 12}}}}}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Only one of \"shape\" and \"bounds\"")));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto constraints,
+      ZarrMetadataConstraints::FromJson(
+          {{"bounds",
+            {{"inclusive_min", {-3, 0, 2}}, {"exclusive_max", {7, 11, 14}}}}}));
+  EXPECT_THAT(constraints.shape,
+              ::testing::Optional(::testing::ElementsAre(10, 11, 12)));
+  EXPECT_THAT(constraints.lower_bound,
+              ::testing::Optional(::testing::ElementsAre(-3, 0, 2)));
+  EXPECT_THAT(constraints.bounded, ::testing::Optional(true));
 }
 
 TEST(MetadataTest, UnknownExtensionAttribute) {
@@ -308,6 +407,34 @@ absl::Status TestMetadataConstraints(::nlohmann::json metadata_json,
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto constraints, ZarrMetadataConstraints::FromJson(constraints_json));
   return ValidateMetadata(metadata, constraints);
+}
+
+TEST(MetadataConstraintsTest, BoundsAndOffsetConstraints) {
+  auto metadata_json = GetBasicMetadata();
+  metadata_json.erase("shape");
+  metadata_json["bounds"] = {{"inclusive_min", {-4, 0, 0}},
+                             {"exclusive_max", {6, 11, 12}}};
+  metadata_json["chunk_grid"] = OffsetChunkGrid({1, 0, 0});
+  TENSORSTORE_EXPECT_OK(TestMetadataConstraints(
+      metadata_json, {{"bounds", metadata_json["bounds"]},
+                      {"chunk_grid", metadata_json["chunk_grid"]}}));
+  TENSORSTORE_EXPECT_OK(TestMetadataConstraints(
+      GetBasicMetadata(),
+      {{"bounds",
+        {{"inclusive_min", {0, 0, 0}}, {"exclusive_max", {10, 11, 12}}}}}));
+  EXPECT_THAT(
+      TestMetadataConstraints(metadata_json, {{"shape", {10, 11, 12}}}),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               ::testing::StartsWith("Expected \"bounds.inclusive_min\" ")));
+  EXPECT_THAT(TestMetadataConstraints(
+                  metadata_json, {{"chunk_grid", OffsetChunkGrid({2, 0, 0})}}),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       ::testing::StartsWith("Expected \"offset\" ")));
+  EXPECT_THAT(
+      TestMetadataConstraints(
+          metadata_json, {{"chunk_grid", GetBasicMetadata()["chunk_grid"]}}),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               ::testing::StartsWith("Expected \"chunk_grid\" ")));
 }
 
 TEST(MetadataConstraintsTest, ValidateMetadataErrors) {

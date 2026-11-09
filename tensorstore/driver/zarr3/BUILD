@@ -112,6 +112,7 @@ tensorstore_cc_library(
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore:rank",
         "//tensorstore:schema",

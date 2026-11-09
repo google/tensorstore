@@ -1279,20 +1279,26 @@ TEST(ChunkKeyEncodingTest, V2Rank2Slash) {
       ::testing::Optional(::testing::ElementsAre("0/0", "0/1", "1/0", "1/1")));
 }
 
-::nlohmann::json RegularBoundedSpec(Index shape, Index origin,
-                                    Index lower_bound) {
+// `bounds` from `lower_bound` and `shape`; the `offset` chunk grid when
+// `origin` is non-zero, else `regular`.
+::nlohmann::json BoundsSpec(Index lower_bound, Index shape, Index origin) {
+  ::nlohmann::json regular{{"name", "regular"},
+                           {"configuration", {{"chunk_shape", {3}}}}};
+  ::nlohmann::json chunk_grid =
+      origin == 0 ? regular
+                  : ::nlohmann::json{
+                        {"name", "offset"},
+                        {"configuration",
+                         {{"offset", {origin}}, {"base_chunk_grid", regular}}}};
   return {
       {"driver", "zarr3"},
       {"kvstore", "memory://"},
       {"metadata",
-       {{"shape", {shape}},
+       {{"bounds",
+         {{"inclusive_min", {lower_bound}},
+          {"exclusive_max", {lower_bound + shape}}}},
         {"data_type", "uint8"},
-        {"chunk_grid",
-         {{"name", "regular_bounded"},
-          {"configuration",
-           {{"chunk_shape", {3}},
-            {"origin", {origin}},
-            {"lower_bound", {lower_bound}}}}}}}},
+        {"chunk_grid", chunk_grid}}},
   };
 }
 
@@ -1306,17 +1312,23 @@ std::vector<std::string> ChunkKeys(const tensorstore::KvStore& kvs) {
   return keys;
 }
 
-TEST(RegularBoundedChunkGridTest, DomainStartsAtTheLowerBound) {
+TEST(BoundsTest, DomainStartsAtTheLowerBound) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(RegularBoundedSpec(/*shape=*/9, /*origin=*/1,
-                                           /*lower_bound=*/-4),
-                        context, tensorstore::OpenMode::create)
-          .result());
+      auto store, tensorstore::Open(BoundsSpec(/*lower_bound=*/-4, /*shape=*/9,
+                                               /*origin=*/1),
+                                    context, tensorstore::OpenMode::create)
+                      .result());
   EXPECT_EQ(store.domain().box(), tensorstore::BoxView<1>({-4}, {9}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
   EXPECT_THAT(layout.grid_origin(), ::testing::ElementsAre(1));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_json, spec.ToJson());
+  EXPECT_FALSE(spec_json["metadata"].contains("shape"));
+  EXPECT_THAT(spec_json["metadata"]["bounds"],
+              MatchesJson({{"inclusive_min", {-4}}, {"exclusive_max", {5}}}));
+  EXPECT_THAT(spec_json["metadata"]["chunk_grid"],
+              MatchesJson(BoundsSpec(-4, 9, 1)["metadata"]["chunk_grid"]));
   auto data =
       tensorstore::MakeOffsetArray<uint8_t>({-4}, {1, 2, 3, 4, 5, 6, 7, 8, 9});
   TENSORSTORE_ASSERT_OK(tensorstore::Write(data, store));
@@ -1332,7 +1344,7 @@ TEST(RegularBoundedChunkGridTest, DomainStartsAtTheLowerBound) {
   EXPECT_THAT(tensorstore::Read(reopened).result(), ::testing::Optional(data));
 }
 
-TEST(RegularBoundedChunkGridTest, GrowsInFrontByEditingZarrJsonAlone) {
+TEST(BoundsTest, GrowsInFrontByEditingZarrJsonAlone) {
   auto context = Context::Default();
   ::nlohmann::json spec{{"driver", "zarr3"}, {"kvstore", "memory://"}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1350,11 +1362,8 @@ TEST(RegularBoundedChunkGridTest, GrowsInFrontByEditingZarrJsonAlone) {
   auto metadata = ::nlohmann::json::parse(std::string(read_result.value));
 
   // Two elements in front: less than a chunk.
-  metadata["shape"] = {8};
-  metadata["chunk_grid"] = {
-      {"name", "regular_bounded"},
-      {"configuration",
-       {{"chunk_shape", {3}}, {"origin", {0}}, {"lower_bound", {-2}}}}};
+  metadata.erase("shape");
+  metadata["bounds"] = {{"inclusive_min", {-2}}, {"exclusive_max", {6}}};
   TENSORSTORE_ASSERT_OK(
       tensorstore::kvstore::Write(kvs, "zarr.json", absl::Cord(metadata.dump()))
           .result());
@@ -1375,14 +1384,13 @@ TEST(RegularBoundedChunkGridTest, GrowsInFrontByEditingZarrJsonAlone) {
   EXPECT_THAT(ChunkKeys(kvs), ::testing::ElementsAre("c/-1", "c/0", "c/1"));
 }
 
-TEST(RegularBoundedChunkGridTest, ResizeMovesTheLowerBound) {
+TEST(BoundsTest, ResizeMovesTheLowerBound) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(RegularBoundedSpec(/*shape=*/6, /*origin=*/0,
-                                           /*lower_bound=*/0),
-                        context, tensorstore::OpenMode::create)
-          .result());
+      auto store, tensorstore::Open(BoundsSpec(/*lower_bound=*/0, /*shape=*/6,
+                                               /*origin=*/0),
+                                    context, tensorstore::OpenMode::create)
+                      .result());
   TENSORSTORE_ASSERT_OK(tensorstore::Write(
       tensorstore::MakeArray<uint8_t>({10, 11, 12, 13, 14, 15}), store));
 
@@ -1409,12 +1417,36 @@ TEST(RegularBoundedChunkGridTest, ResizeMovesTheLowerBound) {
   EXPECT_THAT(ChunkKeys(store.kvstore()), ::testing::ElementsAre("c/0", "c/1"));
 }
 
-TEST(RegularBoundedChunkGridTest, StorageStatisticsSeeNegativeKeys) {
+TEST(BoundsTest, CreatedFromADomainBelowZeroWritesBounds) {
+  auto context = Context::Default();
+  ::nlohmann::json spec{{"driver", "zarr3"}, {"kvstore", "memory://"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(spec, context, dtype_v<uint8_t>,
+                                    tensorstore::IndexDomainBuilder(1)
+                                        .origin({-2})
+                                        .shape({6})
+                                        .Finalize()
+                                        .value(),
+                                    ChunkLayout::ChunkShape({3}),
+                                    tensorstore::OpenMode::create)
+                      .result());
+  EXPECT_EQ(store.domain().box(), tensorstore::BoxView<1>({-2}, {6}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result,
+      tensorstore::kvstore::Read(store.kvstore(), "zarr.json").result());
+  auto metadata = ::nlohmann::json::parse(std::string(read_result.value));
+  EXPECT_FALSE(metadata.contains("shape"));
+  EXPECT_THAT(metadata["bounds"],
+              MatchesJson({{"inclusive_min", {-2}}, {"exclusive_max", {4}}}));
+  EXPECT_EQ(metadata["chunk_grid"]["name"], "regular");
+}
+
+TEST(BoundsTest, StorageStatisticsSeeNegativeKeys) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(RegularBoundedSpec(/*shape=*/30, /*origin=*/0,
-                                           /*lower_bound=*/-15),
+      tensorstore::Open(BoundsSpec(/*lower_bound=*/-15, /*shape=*/30,
+                                   /*origin=*/0),
                         context, tensorstore::OpenMode::create)
           .result());
   using ::tensorstore::ArrayStorageStatistics;
@@ -1440,11 +1472,10 @@ TEST(RegularBoundedChunkGridTest, StorageStatisticsSeeNegativeKeys) {
 TEST(ChunkKeyEncodingTest, NegativeZeroIsNotAKey) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(RegularBoundedSpec(/*shape=*/6, /*origin=*/0,
-                                           /*lower_bound=*/-3),
-                        context, tensorstore::OpenMode::create)
-          .result());
+      auto store, tensorstore::Open(BoundsSpec(/*lower_bound=*/-3, /*shape=*/6,
+                                               /*origin=*/0),
+                                    context, tensorstore::OpenMode::create)
+                      .result());
   TENSORSTORE_ASSERT_OK(
       tensorstore::kvstore::Write(store.kvstore(), "c/-0", absl::Cord("x"))
           .result());

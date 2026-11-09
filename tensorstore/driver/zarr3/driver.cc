@@ -360,7 +360,7 @@ class DataCacheBase
     for (DimensionIndex i = 0;
          i < static_cast<DimensionIndex>(metadata.shape.size()); ++i) {
       bounds.origin()[i] = metadata.LowerBound(i) - metadata.GridOrigin(i);
-      implicit_lower_bounds[i] = metadata.chunk_grid_bounded;
+      implicit_lower_bounds[i] = metadata.bounded;
       implicit_upper_bounds[i] = true;
     }
     if (bounds.rank() > static_cast<DimensionIndex>(metadata.shape.size()) &&
@@ -393,7 +393,7 @@ class DataCacheBase
       const Index new_min = ExplicitIndexOr(new_inclusive_min[i], old_min);
       const Index new_max = ExplicitIndexOr(new_exclusive_max[i],
                                             old_min + new_metadata->shape[i]);
-      if (new_metadata->chunk_grid_bounded) {
+      if (new_metadata->bounded) {
         new_metadata->lower_bound[i] = new_min + origin;
       } else {
         assert(new_min == 0);
@@ -525,7 +525,7 @@ class DataCacheBase
     DimensionSet implicit_lower_bounds(false);
     DimensionSet implicit_upper_bounds(false);
     for (DimensionIndex i = 0; i < rank; ++i) {
-      implicit_lower_bounds[i] = metadata.chunk_grid_bounded;
+      implicit_lower_bounds[i] = metadata.bounded;
       implicit_upper_bounds[i] = true;
     }
     builder.implicit_lower_bounds(implicit_lower_bounds);
