@@ -35,6 +35,7 @@ cc_library(
     ]),
     hdrs = glob(["api/**/*.h"]),
     copts = select({
+        "@rules_cc//cc/compiler:clang-cl": ["/FI$(location :utils/s2n_prelude.h)"],
         "@rules_cc//cc/compiler:msvc-cl": ["/FI$(location :utils/s2n_prelude.h)"],
         "//conditions:default": [
             "-include$(location :utils/s2n_prelude.h)",

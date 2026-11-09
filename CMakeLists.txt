@@ -33,14 +33,14 @@ set(CMAKE_INCLUDE_CURRENT_DIR OFF)
 # Set all outputs to a single /bin directory.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 if(PROJECT_IS_TOP_LEVEL)
   include(CTest)
   enable_testing()
 
   # Use lld if it is available.
-  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  if (NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
       find_program(LLD_EXECUTABLE lld)
       if (LLD_EXECUTABLE)
           set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")

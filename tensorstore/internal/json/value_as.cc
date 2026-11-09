@@ -29,7 +29,6 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/meta/type_traits.h"
 
 namespace tensorstore {
 namespace internal_json {
@@ -72,7 +71,7 @@ absl::Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
       return "64-bit signed integer";
     if constexpr (sizeof(T) == 8 && std::is_unsigned_v<T>)
       return "64-bit unsigned integer";
-    return GetTypeName(internal::type_identity_t<T>{});
+    return GetTypeName(std::type_identity_t<T>{});
   }();
 
   if constexpr (kTypeName != nullptr) {

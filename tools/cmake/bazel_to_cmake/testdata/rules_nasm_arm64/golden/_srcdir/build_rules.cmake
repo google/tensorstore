@@ -7,7 +7,7 @@ target_link_libraries(CMakeProject_a PUBLIC
         "m")
 target_include_directories(CMakeProject_a PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a PUBLIC cxx_std_20)
 target_sources(CMakeProject_a PRIVATE
         "${PROJECT_SOURCE_DIR}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
@@ -20,7 +20,7 @@ target_link_libraries(CMakeProject_cc_library_alwayslink.alwayslink PUBLIC
         "m")
 target_include_directories(CMakeProject_cc_library_alwayslink.alwayslink PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_cc_library_alwayslink.alwayslink PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_cc_library_alwayslink.alwayslink PUBLIC cxx_std_20)
 target_sources(CMakeProject_cc_library_alwayslink.alwayslink PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 
@@ -40,7 +40,7 @@ target_link_libraries(CMakeProject_cc_library_both.alwayslink PUBLIC
         "m")
 target_include_directories(CMakeProject_cc_library_both.alwayslink PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_cc_library_both.alwayslink PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_cc_library_both.alwayslink PUBLIC cxx_std_20)
 target_sources(CMakeProject_cc_library_both.alwayslink PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 
@@ -57,5 +57,5 @@ add_library(CMakeProject_cc_library_linkstatic INTERFACE)
 target_link_libraries(CMakeProject_cc_library_linkstatic INTERFACE
         "Threads::Threads"
         "m")
-target_compile_features(CMakeProject_cc_library_linkstatic INTERFACE cxx_std_17)
+target_compile_features(CMakeProject_cc_library_linkstatic INTERFACE cxx_std_20)
 add_library(CMakeProject::cc_library_linkstatic ALIAS CMakeProject_cc_library_linkstatic)

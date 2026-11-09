@@ -79,10 +79,6 @@ namespace {
 
 namespace py = ::pybind11;
 
-py::bytes CordToPython(const absl::Cord& value) {
-  return py::bytes(std::string(value));
-}
-
 std::optional<absl::Cord> OptionalCordFromPython(
     std::optional<StrOrBytesView> value) {
   if (!value) return std::nullopt;
@@ -811,7 +807,8 @@ Group:
 
   cls.def(
       "write",
-      [](const Self& self, StrOrBytesView key, std::optional<StrOrBytes> value,
+      [](const Self& self, StrOrBytesView key,
+         std::optional<StrOrBytesView> value,
          std::optional<StrOrBytes> if_equal)
           -> Future<TimestampedStorageGeneration> {
         kvstore::WriteOptions options;
@@ -1884,10 +1881,10 @@ void DefineReadResultAttributes(ReadResultCls& cls) {
   using MutableHandle = with_handle<kvstore::ReadResult&>;
   using State = kvstore::ReadResult::State;
 
-  cls.def(py::init([](State state, StrOrBytes value,
+  cls.def(py::init([](State state, StrOrBytesView value,
                       TimestampedStorageGeneration stamp) {
-            return kvstore::ReadResult{
-                state, absl::Cord(std::move(value.value)), std::move(stamp)};
+            return kvstore::ReadResult{state, absl::Cord(value.value),
+                                       std::move(stamp)};
           }),
           py::arg("state") = State::kUnspecified, py::arg("value") = "",
           py::arg("stamp") = TimestampedStorageGeneration(), R"(
@@ -1914,9 +1911,9 @@ Indicates the interpretation of :py:obj:`.value`.
         ScopedPyCriticalSection cs(self.handle.ptr());
         return CordToPython(self.value.value);
       },
-      [](MutableHandle self, StrOrBytes value) {
+      [](MutableHandle self, StrOrBytesView value) {
         ScopedPyCriticalSection cs(self.handle.ptr());
-        self.value.value = absl::Cord(std::move(value.value));
+        self.value.value = absl::Cord(value.value);
       },
       R"(
 Value associated with the key.
@@ -1938,11 +1935,10 @@ Generation and timestamp associated with the value.
 
   cls.def("__repr__", [](ConstHandle self) -> std::string {
     ScopedPyCriticalSection cs(self.handle.ptr());
-    return absl::StrFormat(
-        "KvStore.ReadResult(state=%s, value=%s, stamp=%s)",
-        pybind11::repr(py::cast(self.value.state)),
-        pybind11::repr(py::bytes(std::string(self.value.value))),
-        pybind11::repr(py::cast(self.value.stamp)));
+    return absl::StrFormat("KvStore.ReadResult(state=%s, value=%s, stamp=%s)",
+                           pybind11::repr(py::cast(self.value.state)),
+                           pybind11::repr(CordToPython(self.value.value)),
+                           pybind11::repr(py::cast(self.value.stamp)));
   });
 
   cls.def("__copy__", [](ConstHandle self) {

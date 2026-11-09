@@ -1021,6 +1021,43 @@ TEST(ArrayTest, Compare) {
                    std::numeric_limits<float>::quiet_NaN()) ==
                MakeScalarArray<std::complex<float>>(
                    std::numeric_limits<float>::quiet_NaN()));
+
+  // Self-comparison (shared data pointer and strides) must still treat NaN as
+  // unequal under regular equality.
+  {
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    auto nan_scalar = MakeScalarArray<float>(nan);
+    EXPECT_FALSE(nan_scalar == nan_scalar);
+    EXPECT_TRUE(nan_scalar != nan_scalar);
+    EXPECT_FALSE(AreArraysEqual(nan_scalar, nan_scalar));
+
+    auto nan_array = MakeArray<float>({{1.0f, nan}, {3.0f, 4.0f}});
+    EXPECT_FALSE(nan_array == nan_array);
+    EXPECT_TRUE(nan_array != nan_array);
+    EXPECT_FALSE(AreArraysEqual(nan_array, nan_array));
+
+    auto nan_offset =
+        MakeOffsetArray<float>({2, 3}, {{1.0f, nan}, {3.0f, 4.0f}});
+    EXPECT_FALSE(nan_offset == nan_offset);
+    EXPECT_TRUE(nan_offset != nan_offset);
+
+    auto nan_complex =
+        MakeArray<std::complex<float>>({{1.0f, 0.0f}, {nan, 0.0f}});
+    EXPECT_FALSE(nan_complex == nan_complex);
+    EXPECT_TRUE(nan_complex != nan_complex);
+
+    auto nan_json = MakeArray<tensorstore::dtypes::json_t>(
+        {1.0, std::numeric_limits<double>::quiet_NaN()});
+    EXPECT_FALSE(nan_json == nan_json);
+    EXPECT_TRUE(nan_json != nan_json);
+
+    // An empty view into a buffer containing NaN has zero elements and is equal
+    // to itself.
+    ArrayView<const float> empty_nan_view(
+        nan_array.element_pointer(),
+        tensorstore::StridedLayoutView<>({0}, {Index(sizeof(float))}));
+    EXPECT_TRUE(empty_nan_view == empty_nan_view);
+  }
 }
 
 TEST(ArrayTest, Identical) {
@@ -1045,6 +1082,52 @@ TEST(ArrayTest, Identical) {
           std::numeric_limits<float>::quiet_NaN()),
       MakeScalarArray<std::complex<float>>(
           std::numeric_limits<float>::signaling_NaN())));
+
+  {
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    auto nan_scalar = MakeScalarArray<float>(nan);
+    EXPECT_TRUE(AreArraysIdenticallyEqual(nan_scalar, nan_scalar));
+
+    auto nan_array = MakeArray<float>({{1.0f, nan}, {3.0f, 4.0f}});
+    EXPECT_TRUE(AreArraysIdenticallyEqual(nan_array, nan_array));
+
+    auto nan_complex =
+        MakeArray<std::complex<float>>({{1.0f, 0.0f}, {nan, 0.0f}});
+    EXPECT_TRUE(AreArraysIdenticallyEqual(nan_complex, nan_complex));
+
+    // JsonSame delegates float comparison to `operator==`, so JSON NaN is not
+    // reflexive even under EqualityComparisonKind::identical.
+    auto nan_json = MakeArray<tensorstore::dtypes::json_t>(
+        {1.0, std::numeric_limits<double>::quiet_NaN()});
+    EXPECT_FALSE(AreArraysIdenticallyEqual(nan_json, nan_json));
+  }
+}
+
+TEST(ArrayTest, CompareNonContiguousRank4) {
+  // Rank-4 sub-view with non-collapsible strides across all 4 dimensions,
+  // exercising recursive outer iteration (`layouts.size() > 1`) in
+  // `IterateOverArrays`.
+  auto base = tensorstore::AllocateArray<int>({3, 3, 3, 3}, c_order,
+                                              tensorstore::value_init);
+  Array<int, 4> sub_view(
+      base.data(),
+      StridedLayout<4>({2, 2, 2, 2},
+                       {27 * Index(sizeof(int)), 9 * Index(sizeof(int)),
+                        3 * Index(sizeof(int)), 1 * Index(sizeof(int))}));
+  auto zeros = tensorstore::AllocateArray<int>({2, 2, 2, 2}, c_order,
+                                               tensorstore::value_init);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto broadcast_zero,
+      BroadcastArray(MakeScalarArray<int>(0), BoxView<4>({2, 2, 2, 2})));
+  EXPECT_EQ(sub_view, zeros);
+  EXPECT_EQ(sub_view, broadcast_zero);
+  EXPECT_TRUE(AreArraysIdenticallyEqual(sub_view, broadcast_zero));
+
+  sub_view(0, 0, 0, 1) = 7;
+  EXPECT_NE(sub_view, zeros);
+  EXPECT_NE(sub_view, broadcast_zero);
+  EXPECT_FALSE(AreArraysIdenticallyEqual(sub_view, zeros));
+  EXPECT_FALSE(AreArraysIdenticallyEqual(sub_view, broadcast_zero));
 }
 
 TEST(ArrayTest, SharedArrayAccessors) {

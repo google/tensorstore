@@ -54,11 +54,42 @@ namespace tensorstore {
 namespace internal_array {
 
 namespace {
+
+constexpr bool IsComparisonReflexive(DataTypeId id,
+                                     EqualityComparisonKind comparison_kind) {
+  switch (id) {
+#define TENSORSTORE_INTERNAL_CASE_REFLEXIVE(T, ...) case DataTypeId::T:
+    TENSORSTORE_FOR_EACH_BOOL_DATA_TYPE(TENSORSTORE_INTERNAL_CASE_REFLEXIVE)
+    TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE(TENSORSTORE_INTERNAL_CASE_REFLEXIVE)
+    TENSORSTORE_FOR_EACH_INT_DATA_TYPE(TENSORSTORE_INTERNAL_CASE_REFLEXIVE)
+    TENSORSTORE_FOR_EACH_STRING_DATA_TYPE(TENSORSTORE_INTERNAL_CASE_REFLEXIVE)
+#undef TENSORSTORE_INTERNAL_CASE_REFLEXIVE
+    return true;
+#define TENSORSTORE_INTERNAL_CASE_IDENTICAL_ONLY(T, ...) case DataTypeId::T:
+    TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+        TENSORSTORE_INTERNAL_CASE_IDENTICAL_ONLY)
+    TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+        TENSORSTORE_INTERNAL_CASE_IDENTICAL_ONLY)
+#undef TENSORSTORE_INTERNAL_CASE_IDENTICAL_ONLY
+    return comparison_kind == EqualityComparisonKind::identical;
+    case DataTypeId::json_t:
+    case DataTypeId::custom:
+    case DataTypeId::num_ids:
+      return false;
+  }
+  return false;
+}
+
 template <ArrayOriginKind OKind>
 bool CompareArraysEqualImpl(const ArrayView<const void, dynamic_rank, OKind>& a,
                             const ArrayView<const void, dynamic_rank, OKind>& b,
                             EqualityComparisonKind comparison_kind) {
   if (a.dtype() != b.dtype()) return false;
+  if (a.data() != nullptr && a.data() == b.data() &&
+      IsComparisonReflexive(a.dtype().id(), comparison_kind) &&
+      internal::RangesEqual(a.byte_strides(), b.byte_strides())) {
+    return true;
+  }
   const auto& funcs =
       a.dtype()->compare_equal[static_cast<size_t>(comparison_kind)];
   if (IsBroadcastScalar(a)) {

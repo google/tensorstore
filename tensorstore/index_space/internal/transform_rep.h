@@ -297,7 +297,10 @@ struct TransformRep {
   ///        `index_array_data.byte_strides[0:input_rank]` must specify a valid
   ///        array of shape `input_shape()[0:input_rank]`.
   span<OutputIndexMap> output_index_maps() {
-    return span(reinterpret_cast<OutputIndexMap*>(this) - output_rank_capacity,
+    return span(reinterpret_cast<OutputIndexMap*>(
+                    reinterpret_cast<unsigned char*>(this) -
+                    static_cast<ptrdiff_t>(sizeof(OutputIndexMap)) *
+                        output_rank_capacity),
                 output_rank_capacity);
   }
 

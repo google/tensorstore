@@ -46,6 +46,6 @@ target_link_libraries(CMakeProject_config_cc_library INTERFACE
         "m")
 target_include_directories(CMakeProject_config_cc_library INTERFACE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_config_cc_library INTERFACE cxx_std_17)
+target_compile_features(CMakeProject_config_cc_library INTERFACE cxx_std_20)
 add_dependencies(CMakeProject_config_cc_library "CMakeProject_config2_h" "CMakeProject_config_copy_rule")
 add_library(CMakeProject::config_cc_library ALIAS CMakeProject_config_cc_library)

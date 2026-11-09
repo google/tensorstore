@@ -480,6 +480,12 @@ pybind11::object BytesFromCord(const absl::Cord& cord) noexcept {
   return obj;
 }
 
+pybind11::bytes CordToPython(const absl::Cord& cord) {
+  auto obj = BytesFromCord(cord);
+  if (!obj) throw py::error_already_set();
+  return py::reinterpret_steal<py::bytes>(obj.release());
+}
+
 Result<pybind11::object> PickleEncodeImpl(
     absl::FunctionRef<bool(serialization::EncodeSink& sink)> encode) noexcept {
   auto rep = py::reinterpret_steal<py::object>(PyList_New(1));

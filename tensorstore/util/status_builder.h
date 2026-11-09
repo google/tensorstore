@@ -84,7 +84,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   StatusBuilder& operator=(const StatusBuilder& other) = default;
 
   /// Returns whether the current status code is `absl::StatusCode::kOk`.
-  bool ok() const { return status_.ok(); }
+  ABSL_MUST_USE_RESULT bool ok() const { return status_.ok(); }
 
   /// Returns the status code of the underlying status, or the overridden code
   /// if one has been set.
@@ -150,8 +150,9 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
     if (!status_.ok()) status_.SetPayload(type_url, absl::Cord(payload));
     return *this;
   }
-  template <typename T,
-            std::enable_if_t<std::is_same_v<T, std::string>, int> = 0>
+  template <
+      typename T,
+      std::enable_if_t<std::is_same_v<std::decay_t<T>, std::string>, int> = 0>
   StatusBuilder& SetPayload(std::string_view type_url, T&& payload) {
     if (!status_.ok())
       status_.SetPayload(type_url, absl::Cord(std::forward<T>(payload)));
@@ -210,7 +211,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
 
   /// Converts to `absl::Status`.
   operator absl::Status() const& { return BuildStatus(); }
-  operator absl::Status() && { return BuildStatus(); }
+  operator absl::Status() && { return std::move(*this).BuildStatus(); }
 
  private:
   // Construct rep_ and initialize it properly.
@@ -256,12 +257,7 @@ inline StatusBuilder& StatusBuilder::SetCode(absl::StatusCode code) & {
 }
 
 inline StatusBuilder&& StatusBuilder::SetCode(absl::StatusCode code) && {
-  assert(code != absl::StatusCode::kOk);
-  if (status_.ok()) {
-    status_ = absl::Status(code, "", loc_);
-  } else {
-    rep_.code = code;
-  }
+  SetCode(code);
   return std::move(*this);
 }
 

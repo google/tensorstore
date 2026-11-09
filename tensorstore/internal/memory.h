@@ -28,13 +28,14 @@
 namespace tensorstore {
 namespace internal {
 
-/// Returns the address represented by `x` without forming a reference to the
-/// pointee.
+/// Returns the raw pointer represented by `x` without forming a reference to
+/// the pointee.
 ///
-/// This is a C++11 implementation of the function with the same name specified
-/// by the C++20 standard.
-///
-/// See https://en.cppreference.com/w/cpp/memory/to_address.
+/// Unlike `std::to_address`, which delegates to `operator->()` when
+/// `std::pointer_traits<Ptr>::to_address` is not specialized (and therefore
+/// requires non-null smart pointers), these overloads call `.get()` directly
+/// and support null smart pointers, `std::unique_ptr<T[]>`, `std::nullptr_t`,
+/// and custom pointer types (`IntrusivePtr`, `TaggedPtr`).
 template <typename T>
 inline T* to_address(const std::shared_ptr<T>& x) {
   return x.get();
@@ -56,17 +57,6 @@ inline T* to_address(T* x) {
 }
 
 inline std::nullptr_t to_address(std::nullptr_t) { return nullptr; }
-
-// C++20 already defines an rvalue static_pointer_cast.  MSVC also defines it
-// even in C++17 mode.
-#if __cplusplus <= 201703L && !defined(_MSC_VER)
-/// Additional overload of static_pointer_cast for the no-op case that avoids an
-/// extra copy.
-template <typename T>
-inline std::shared_ptr<T> static_pointer_cast(std::shared_ptr<T>&& other) {
-  return std::move(other);
-}
-#endif
 
 using std::const_pointer_cast;    // NOLINT
 using std::dynamic_pointer_cast;  // NOLINT

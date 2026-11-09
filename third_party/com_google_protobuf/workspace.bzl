@@ -35,6 +35,8 @@ def repo():
             Label("//third_party:com_google_protobuf/patches/build_defs_mingw.diff"),
             # protobuf uses rules_java, but we don't want to import it.
             Label("//third_party:com_google_protobuf/patches/no_rules_java.diff"),
+            # Probe NonConstexprAllocator for C++20 constexpr std::string on Clang 14.
+            Label("//third_party:com_google_protobuf/patches/port_constexpr_string.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {

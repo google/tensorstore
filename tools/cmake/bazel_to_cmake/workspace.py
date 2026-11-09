@@ -42,7 +42,7 @@ _PLATFORM_NAME_TO_BAZEL_PLATFORM = {
     "Linux": "linux",
 }
 
-_DEFAULT_CPP_STANDARD = "17"
+_DEFAULT_CPP_STANDARD = "20"
 
 
 def _parse_bazelrc(path: str) -> dict[str, list[str]]:
@@ -89,10 +89,14 @@ class Workspace:
 
     # Create a parser for the .bazelrc files
     host_platform_name = self.host_platform_name
-    if host_platform_name == "windows" and cmake_is_true(
-        self.cmake_vars.get("MINGW")
-    ):
-      host_platform_name = "windows_x86_64_mingw"
+    if host_platform_name == "windows":
+      if cmake_is_true(self.cmake_vars.get("MINGW")):
+        host_platform_name = "windows_x86_64_mingw"
+      elif (
+          cmake_is_true(self.cmake_vars.get("MSVC"))
+          and self.cmake_vars.get("CMAKE_CXX_COMPILER_ID") == "Clang"
+      ):
+        host_platform_name = "windows_clang_cl"
     self._parsed_bazelrc = ParsedBazelrc(host_platform_name)
 
     self.global_ignored_libraries: set[TargetId] = set()

@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -40,7 +41,9 @@ IrregularGrid::IrregularGrid(std::vector<std::vector<Index>> inclusive_mins)
         std::unique(inclusive_mins_[i].begin(), inclusive_mins_[i].end());
     inclusive_mins_[i].resize(
         std::distance(inclusive_mins_[i].begin(), new_it));
-    shape_[i] = inclusive_mins_[i].size() - 1;
+    shape_[i] = inclusive_mins_[i].empty()
+                    ? 0
+                    : static_cast<Index>(inclusive_mins_[i].size() - 1);
   }
 }
 
@@ -50,9 +53,11 @@ Index IrregularGrid::operator()(DimensionIndex dim, Index output_index,
   auto it = std::upper_bound(points.begin(), points.end(), output_index);
   Index cell = std::distance(points.begin(), it) - 1;
   if (cell_bounds) {
-    if (cell < 0) {
+    if (points.empty()) {
+      *cell_bounds = IndexInterval::Infinite();
+    } else if (cell < 0) {
       *cell_bounds = IndexInterval::UncheckedHalfOpen(-kInfIndex, points[0]);
-    } else if (cell < points.size() - 1) {
+    } else if (static_cast<size_t>(cell) < points.size() - 1) {
       *cell_bounds =
           IndexInterval::UncheckedHalfOpen(points[cell], points[cell + 1]);
     } else {
@@ -79,6 +84,9 @@ IrregularGrid IrregularGrid::Make(
 
   std::vector<std::vector<Index>> inclusive_mins;
   inclusive_mins.resize(rank);
+  for (DimensionIndex i = 0; i < rank; i++) {
+    inclusive_mins[i].reserve(domains.size() * 2);
+  }
   for (auto& d : domains) {
     assert(d.rank() == rank);
     for (DimensionIndex i = 0; i < rank; i++) {

@@ -204,7 +204,7 @@ template <typename LayoutOrder, DimensionIndex Rank, ArrayOriginKind OriginKind>
 std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder, Rank>>
 InitializeContiguousLayout(
     LayoutOrder order, Index element_stride,
-    internal::type_identity_t<
+    std::type_identity_t<
         tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>>
         shape,
     StridedLayout<Rank, OriginKind>* layout) {

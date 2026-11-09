@@ -24,7 +24,6 @@
 #include <cstring>
 #include <iterator>
 #include <memory>
-#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -325,24 +324,15 @@ bool AreIndexMapsEqual(const OutputIndexMap& a, const OutputIndexMap& b,
       if (index_array_data_a.index_range != index_array_data_b.index_range) {
         return false;
       }
-      return ArrayView<const Index, dynamic_rank, offset_origin>(
-                 index_array_data_a.element_pointer,
-                 StridedLayoutView<dynamic_rank, offset_origin>(
-                     input_domain.rank(), input_domain.origin().data(),
-                     input_domain.shape().data(),
-                     index_array_data_a.byte_strides)) ==
-             ArrayView<const Index, dynamic_rank, offset_origin>(
-                 index_array_data_b.element_pointer,
-                 StridedLayoutView<dynamic_rank, offset_origin>(
-                     input_domain.rank(), input_domain.origin().data(),
-                     input_domain.shape().data(),
-                     index_array_data_b.byte_strides));
+      return index_array_data_a.array_view(input_domain) ==
+             index_array_data_b.array_view(input_domain);
     }
   }
   ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 bool AreDomainsEqual(TransformRep* a, TransformRep* b) {
+  if (a == b) return true;
   if (!a != !b) return false;
   if (!a) return true;
   if (a->input_rank != b->input_rank) return false;
@@ -363,6 +353,7 @@ bool AreDomainsEqual(TransformRep* a, TransformRep* b) {
 }
 
 bool AreEqual(TransformRep* a, TransformRep* b) {
+  if (a == b) return true;
   if (!AreDomainsEqual(a, b)) return false;
   if (!a) return true;
   if (a->output_rank != b->output_rank) return false;

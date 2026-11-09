@@ -980,21 +980,38 @@ TEST(ContextTest, ConcurrentCreateMultipleResources) {
 TEST(ContextTest, ConcurrentCreateInParent) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto spec, Context::Spec::FromJson({{"int_resource", {{"value", 5}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto child_spec, Context::Spec::FromJson(::nlohmann::json::object_t()));
   Context context;
   TestConcurrent<3>(
       /*num_iterations=*/100,
       /*initialize=*/[&] { context = Context(spec); },
       /*finalize=*/[&] {},
       [&](auto i) {
-        Context child({}, context);
+        Context child(child_spec, context);
+        EXPECT_NE(context, child);
+        EXPECT_EQ(context, child.parent());
         TENSORSTORE_EXPECT_OK(child.GetResource<IntResource>());
       });
 }
 
 TEST(ContextTest, DefaultSpecWithParent) {
   Context parent = Context::Default();
-  Context child(Context::Spec{}, parent);
-  EXPECT_EQ(parent, child);
+  // A default-constructed `Context::Spec{}` represents an omitted spec (used
+  // e.g. when binding a `DriverSpec` with no nested `"context"` override), so
+  // `Context(Context::Spec{}, parent)` returns `parent` directly rather than
+  // creating a new child context.
+  Context same_as_parent(Context::Spec{}, parent);
+  EXPECT_EQ(parent, same_as_parent);
+  EXPECT_FALSE(same_as_parent.parent());
+
+  // To create a distinct child context that inherits all resources from
+  // `parent` without overriding any, parse an empty JSON object into a
+  // non-null `Context::Spec` (or use `Context::FromJson`).
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      Context child, Context::FromJson(::nlohmann::json::object_t(), parent));
+  EXPECT_NE(parent, child);
+  EXPECT_EQ(parent, child.parent());
 }
 
 TEST(ContextTest, AllContextResources) {

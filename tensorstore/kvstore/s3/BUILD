@@ -405,7 +405,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
-        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/uri:parse",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",

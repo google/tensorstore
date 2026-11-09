@@ -250,7 +250,9 @@ void WriteToMask(MaskData* mask, BoxView<> output_box,
                  ContiguousLayoutPermutation<> layout_order, Arena* arena) {
   assert(input_to_output.output_rank() == output_box.rank());
 
-  if (input_to_output.domain().box().is_empty()) {
+  const Index num_elements = output_box.num_elements();
+  if (mask->num_masked_elements == num_elements ||
+      input_to_output.domain().box().is_empty()) {
     return;
   }
 
@@ -263,7 +265,6 @@ void WriteToMask(MaskData* mask, BoxView<> output_box,
 
   const bool use_mask_array =
       output_box.rank() != 0 &&
-      mask->num_masked_elements != output_box.num_elements() &&
       (mask->mask_array.valid() ||
        (!Contains(mask->region, output_range) &&
         (!range_is_exact || !IsHullEqualToUnion(mask->region, output_range))));

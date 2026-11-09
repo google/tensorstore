@@ -1,0 +1,12 @@
+diff -Nur a/src/core/filter/fused_filters.cc b/src/core/filter/fused_filters.cc
+--- a/src/core/filter/fused_filters.cc
++++ b/src/core/filter/fused_filters.cc
+@@ -21,7 +21,7 @@
+ 
+ #include "src/core/config/core_configuration.h"
+ 
+-#ifndef GRPC_NO_FILTER_FUSION
++#if !defined(GRPC_NO_FILTER_FUSION) && !defined(_MSC_VER)
+ 
+ #include "src/core/call/filter_fusion.h"
+ #include "src/core/ext/filters/http/client/http_client_filter.h"

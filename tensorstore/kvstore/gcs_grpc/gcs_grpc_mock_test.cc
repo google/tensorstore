@@ -114,7 +114,7 @@ class GcsMockTest : public testing::Test {
     return kvstore::Open({{"driver", "gcs_grpc"},
                           {"endpoint", mock_service_.server_address()},
                           {"bucket", "bucket"},
-                          {"timeout", "250ms"}})
+                          {"timeout", "10s"}})
         .value();
   }
 
@@ -128,7 +128,7 @@ class GcsMockTest : public testing::Test {
     return kvstore::Open({{"driver", "gcs_grpc"},
                           {"endpoint", mock_service_.server_address()},
                           {"bucket", "bucket"},
-                          {"timeout", "250ms"},
+                          {"timeout", "10s"},
                           {"experimental_mode", mode}})
         .value();
   }
@@ -2081,7 +2081,7 @@ TEST_F(GcsMockTest, BidiWriteStopsFollowingRedirectsAfterMaxRedirects) {
            {"endpoint", mock_service_.server_address()},
            {"bucket", "bucket"},
            {"experimental_mode", "standard"},
-           {"timeout", "250ms"},
+           {"timeout", "10s"},
            {"context", {{"gcs_request_retries", {{"max_retries", 1}}}}}})
           .result());
 

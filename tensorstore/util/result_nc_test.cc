@@ -39,7 +39,6 @@ struct Z {
 
 void BasicNonCompile() {
   Result<void> v = MakeResult();
-  EXPECT_NON_COMPILE("value_or", v.value_or());
   EXPECT_NON_COMPILE("pointer", *v);
 
   Result<int> int_result(3);

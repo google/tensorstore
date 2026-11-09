@@ -16,7 +16,7 @@ target_link_libraries(CMakeProject_main PUBLIC
         "m")
 target_include_directories(CMakeProject_main PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_main PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_main PUBLIC cxx_std_20)
 target_sources(CMakeProject_main PRIVATE
         "${PROJECT_SOURCE_DIR}/main.cc")
 add_library(CMakeProject::main ALIAS CMakeProject_main)

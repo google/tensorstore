@@ -110,39 +110,39 @@ struct StaticCastTraits;
 // order to obtain the default `Construct` behavior.
 template <typename T>
 struct DefaultStaticCastTraits {
-  /// Constructs a value of type `T` from `source`.
-  ///
-  /// The return type must be `T`.
-  ///
-  /// Should be disabled via SFINAE when the cast is not supported.
-  ///
-  /// The `DefaultStaticCastTraits` implementation returns
-  /// `T(unchecked, std::forward<SourceRef>(source))`.
+  // Constructs a value of type `T` from `source`.
+  //
+  // The return type must be `T`.
+  //
+  // Should be disabled via SFINAE when the cast is not supported.
+  //
+  // The `DefaultStaticCastTraits` implementation returns
+  // `T(unchecked, std::forward<SourceRef>(source))`.
   template <typename SourceRef>
   static std::enable_if_t<std::is_constructible_v<T, unchecked_t, SourceRef>, T>
   Construct(SourceRef&& source) {
     return T(unchecked, std::forward<SourceRef>(source));
   }
 
-  /// Returns `true` if a value of type `T` can be constructed from `source`.
-  ///
-  /// This should check whether any runtime-specified values of `source` (such
-  /// as rank or data type) are compatible with the compile-time constraints
-  /// imposed by the target type `T`.
-  ///
-  /// The `StaticCast` function will only ever call this function for source
-  /// types `SourceRef&&` accepted by `Construct`.
+  // Returns `true` if a value of type `T` can be constructed from `source`.
+  //
+  // This should check whether any runtime-specified values of `source` (such
+  // as rank or data type) are compatible with the compile-time constraints
+  // imposed by the target type `T`.
+  //
+  // The `StaticCast` function will only ever call this function for source
+  // types `SourceRef&&` accepted by `Construct`.
   template <typename SourceRef>
   static bool IsCompatible(SourceRef&& source) = delete;
 
-  /// Returns a type convertible to `std::string_view` that describes the type
-  /// `T` and any compile-time constraints it imposes for use in cast error
-  /// messages.
+  // Returns a type convertible to `std::string_view` that describes the type
+  // `T` and any compile-time constraints it imposes for use in cast error
+  // messages.
   static std::string Describe() = delete;
 
-  /// Returns a type convertible to `std::string_view` that describes the
-  /// compile-time and run-time constraints specified by `value` for use in cast
-  /// error messages.
+  // Returns a type convertible to `std::string_view` that describes the
+  // compile-time and run-time constraints specified by `value` for use in cast
+  // error messages.
   static std::string Describe(const T& value) = delete;
 };
 

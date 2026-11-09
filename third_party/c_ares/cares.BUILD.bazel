@@ -235,11 +235,15 @@ cc_library(
         "include",
     ],
     linkopts = select({
-        ":compiler_mingw_gcc": [
+        "@rules_cc//cc/compiler:mingw-gcc": [
             "-lws2_32",
             "-liphlpapi",
         ],
-        ":compiler_msvc": [
+        "@rules_cc//cc/compiler:clang-cl": [
+            "-defaultlib:ws2_32.lib",
+            "-defaultlib:iphlpapi.lib",
+        ],
+        "@rules_cc//cc/compiler:msvc-cl": [
             "-defaultlib:ws2_32.lib",
             "-defaultlib:iphlpapi.lib",
         ],
@@ -264,14 +268,4 @@ cc_library(
     visibility = [
         "//visibility:private",
     ],
-)
-
-alias(
-    name = "compiler_mingw_gcc",
-    actual = "@rules_cc//cc/compiler:mingw-gcc",
-)
-
-alias(
-    name = "compiler_msvc",
-    actual = "@rules_cc//cc/compiler:msvc-cl",
 )

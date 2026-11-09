@@ -23,7 +23,6 @@
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
@@ -52,7 +51,7 @@ namespace tensorstore {
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 Result<TensorStore<Element, Rank, ReadWriteMode::read>> Downsample(
     TensorStore<Element, Rank, Mode> store,
-    internal::type_identity_t<tensorstore::span<const Index, Rank>>
+    std::type_identity_t<tensorstore::span<const Index, Rank>>
         downsample_factors,
     DownsampleMethod downsample_method) {
   static_assert(Mode != ReadWriteMode::write,

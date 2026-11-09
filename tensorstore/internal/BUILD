@@ -695,8 +695,6 @@ tensorstore_cc_test(
     name = "irregular_grid_test",
     srcs = ["irregular_grid_test.cc"],
     deps = [
-        ":grid_partition",
-        ":grid_partition_impl",
         ":irregular_grid",
         "//tensorstore:box",
         "//tensorstore:index",

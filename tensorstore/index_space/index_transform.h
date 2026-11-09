@@ -880,10 +880,10 @@ Result<IndexTransform<Rank, Rank>> InverseTransform(
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 absl::Status PropagateBounds(
-    internal::type_identity_t<BoxView<OutputRank>> b_domain,
+    std::type_identity_t<BoxView<OutputRank>> b_domain,
     DimensionSet b_implicit_lower_bounds, DimensionSet b_implicit_upper_bounds,
     const IndexTransform<InputRank, OutputRank, CKind> a_to_b,
-    internal::type_identity_t<MutableBoxView<InputRank>> a_domain,
+    std::type_identity_t<MutableBoxView<InputRank>> a_domain,
     DimensionSet& a_implicit_lower_bounds,
     DimensionSet& a_implicit_upper_bounds) {
   return internal_index_space::PropagateBounds(
@@ -894,10 +894,10 @@ absl::Status PropagateBounds(
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 absl::Status PropagateBounds(
-    internal::type_identity_t<BoxView<OutputRank>> b_domain,
+    std::type_identity_t<BoxView<OutputRank>> b_domain,
     DimensionSet b_implicit_lower_bounds, DimensionSet b_implicit_upper_bounds,
     const IndexTransform<InputRank, OutputRank, CKind> a_to_b,
-    internal::type_identity_t<MutableBoxView<InputRank>> a_domain) {
+    std::type_identity_t<MutableBoxView<InputRank>> a_domain) {
   return internal_index_space::PropagateBounds(
       b_domain, b_implicit_lower_bounds, b_implicit_upper_bounds,
       internal_index_space::TransformAccess::rep(a_to_b), a_domain);
@@ -914,9 +914,9 @@ absl::Status PropagateBounds(
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 absl::Status PropagateExplicitBounds(
-    internal::type_identity_t<BoxView<OutputRank>> b_domain,
+    std::type_identity_t<BoxView<OutputRank>> b_domain,
     const IndexTransform<InputRank, OutputRank, CKind> a_to_b,
-    internal::type_identity_t<MutableBoxView<InputRank>> a_domain) {
+    std::type_identity_t<MutableBoxView<InputRank>> a_domain) {
   return internal_index_space::PropagateExplicitBounds(
       b_domain, internal_index_space::TransformAccess::rep(a_to_b), a_domain);
 }
@@ -987,7 +987,7 @@ absl::Status PropagateExplicitBounds(
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
-    internal::type_identity_t<BoxView<OutputRank>> b_domain,
+    std::type_identity_t<BoxView<OutputRank>> b_domain,
     DimensionSet b_implicit_lower_bounds, DimensionSet b_implicit_upper_bounds,
     IndexTransform<InputRank, OutputRank, CKind> a_to_b) {
   using internal_index_space::TransformAccess;
@@ -1001,7 +1001,7 @@ Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
-    internal::type_identity_t<IndexDomainView<OutputRank>> b_domain,
+    std::type_identity_t<IndexDomainView<OutputRank>> b_domain,
     IndexTransform<InputRank, OutputRank, CKind> a_to_b) {
   return PropagateBoundsToTransform(
       b_domain.box(), b_domain.implicit_lower_bounds(),
@@ -1021,7 +1021,7 @@ template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 Result<IndexTransform<InputRank, OutputRank>>
 PropagateExplicitBoundsToTransform(
-    internal::type_identity_t<BoxView<OutputRank>> b_domain,
+    std::type_identity_t<BoxView<OutputRank>> b_domain,
     IndexTransform<InputRank, OutputRank, CKind> a_to_b) {
   using internal_index_space::TransformAccess;
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -1322,7 +1322,7 @@ template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 Result<IndexTransform<InputRank, OutputRank>> TranslateOutputDimensionsBy(
     IndexTransform<InputRank, OutputRank, CKind> transform,
-    internal::type_identity_t<span<const Index, OutputRank>> offsets) {
+    std::type_identity_t<span<const Index, OutputRank>> offsets) {
   using internal_index_space::TransformAccess;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto rep,

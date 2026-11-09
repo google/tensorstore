@@ -17,12 +17,10 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <stdint.h>
-
 #include <optional>
 #include <string>
 #include <utility>
-#include <vector>
+#include <variant>
 
 #include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
@@ -31,6 +29,7 @@
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/context.h"
@@ -40,7 +39,42 @@
 #include "tensorstore/kvstore/ocdbt/format/dump.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/garbage_collection/json.h"
+#include "tensorstore/util/garbage_collection/json.h"  // IWYU pragma: keep
+#include "tensorstore/util/garbage_collection/std_variant.h"  // IWYU pragma: keep
+
+namespace tensorstore {
+namespace internal_python {
+
+struct OcdbtDumpValue {
+  std::variant<absl::Cord, ::nlohmann::json> value;
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.value);
+  };
+};
+
+}  // namespace internal_python
+}  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+template <>
+struct type_caster<tensorstore::internal_python::OcdbtDumpValue> {
+  using Value = tensorstore::internal_python::OcdbtDumpValue;
+  PYBIND11_TYPE_CASTER(Value, _("typing.Any"));
+  static handle cast(const Value& src, return_value_policy /* policy */,
+                     handle /* parent */) {
+    if (auto* cord = std::get_if<absl::Cord>(&src.value)) {
+      return tensorstore::internal_python::CordToPython(*cord).release();
+    }
+    auto h = tensorstore::internal_python::JsonToPyObject(
+                 std::get<::nlohmann::json>(src.value))
+                 .release();
+    if (!h) throw error_already_set();
+    return h;
+  }
+};
+}  // namespace detail
+}  // namespace pybind11
 
 namespace tensorstore {
 namespace internal_python {
@@ -89,30 +123,22 @@ void RegisterOcdbtBindings(py::module m, Executor defer) {
         "dump",
         [](PythonKvStoreObject& base, std::optional<std::string> node,
            std::optional<internal_context::ContextImplPtr> context)
-            -> PythonFutureWrapper<::nlohmann::json> {
+            -> PythonFutureWrapper<OcdbtDumpValue> {
           using internal_ocdbt::LabeledIndirectDataReference;
           std::optional<LabeledIndirectDataReference> node_identifier;
           if (node) {
             node_identifier =
                 ValueOrThrow(LabeledIndirectDataReference::Parse(*node));
           }
-          auto read_and_dump_future = internal_ocdbt::ReadAndDump(
-              base.value, node_identifier,
-              context ? WrapImpl(*std::move(context)) : Context());
-          return PythonFutureWrapper<::nlohmann::json>(
+          return PythonFutureWrapper<OcdbtDumpValue>(
               MapFutureValue(
                   InlineExecutor{},
-                  [](auto& value) {
-                    if (auto* cord = std::get_if<absl::Cord>(&value)) {
-                      auto cord_copy = *cord;
-                      auto s = cord_copy.Flatten();
-                      return ::nlohmann::json::binary(
-                          std::vector<uint8_t>(s.begin(), s.end()));
-                    } else {
-                      return std::move(std::get<::nlohmann::json>(value));
-                    }
+                  [](std::variant<absl::Cord, ::nlohmann::json>& value) {
+                    return OcdbtDumpValue{std::move(value)};
                   },
-                  std::move(read_and_dump_future)),
+                  internal_ocdbt::ReadAndDump(
+                      base.value, node_identifier,
+                      context ? WrapImpl(*std::move(context)) : Context())),
               base.reference_manager());
         },
         py::arg("base"), py::arg("node") = std::nullopt, py::kw_only(),
@@ -198,7 +224,7 @@ Examples:
         [](::nlohmann::json dumped_manifest) -> py::bytes {
           auto encoded_manifest =
               ValueOrThrow(internal_ocdbt::UndumpManifest(dumped_manifest));
-          return py::bytes(std::string(encoded_manifest));
+          return CordToPython(encoded_manifest);
         },
         py::arg("dumped_manifest"),
         R"(
@@ -234,7 +260,7 @@ Examples:
           auto encoded_version_tree_node =
               ValueOrThrow(internal_ocdbt::UndumpVersionTreeNode(dumped_config,
                                                                  dumped_node));
-          return py::bytes(std::string(encoded_version_tree_node));
+          return CordToPython(encoded_version_tree_node);
         },
         py::arg("dumped_config"), py::arg("dumped_node"),
         R"(

@@ -458,10 +458,7 @@ class IntrusivePtr {
     return ptr;
   }
 
-  void swap(IntrusivePtr& rhs) noexcept {
-    // FIXME: std::swap constexpr in C++20
-    std::swap(ptr_, rhs.ptr_);
-  }
+  constexpr void swap(IntrusivePtr& rhs) noexcept { std::swap(ptr_, rhs.ptr_); }
 
   /// Abseil hash support.
   template <typename H>

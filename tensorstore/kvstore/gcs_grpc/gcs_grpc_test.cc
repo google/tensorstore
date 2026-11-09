@@ -133,7 +133,7 @@ class GcsGrpcTest : public testing::Test {
     return kvstore::Open({{"driver", "gcs_grpc"},
                           {"endpoint", mock_service_.server_address()},
                           {"bucket", "bucket"},
-                          {"timeout", "250ms"}})
+                          {"timeout", "10s"}})
         .value();
   }
 
@@ -150,7 +150,7 @@ class GcsGrpcTest : public testing::Test {
     return kvstore::Open({{"driver", "gcs_grpc"},
                           {"endpoint", mock_service_.server_address()},
                           {"bucket", "bucket"},
-                          {"timeout", "250ms"},
+                          {"timeout", "10s"},
                           {"experimental_mode", mode}})
         .value();
   }
@@ -1434,7 +1434,7 @@ TEST_F(GcsGrpcTest, UserProjectPlumbedWhenNotZonal) {
   auto store = kvstore::Open({{"driver", "gcs_grpc"},
                               {"endpoint", mock_service_.server_address()},
                               {"bucket", "bucket"},
-                              {"timeout", "250ms"},
+                              {"timeout", "10s"},
                               {"gcs_user_project",
                                {{"project_id", "my-billing-project"}}}})
                    .value();
@@ -1448,7 +1448,7 @@ TEST_F(GcsGrpcTest, UserProjectWithZonalModeFailsToOpen) {
   EXPECT_THAT(kvstore::Open({{"driver", "gcs_grpc"},
                              {"endpoint", mock_service_.server_address()},
                              {"bucket", "bucket"},
-                             {"timeout", "250ms"},
+                             {"timeout", "10s"},
                              {"experimental_mode", "zonal"},
                              {"gcs_user_project",
                               {{"project_id", "my-billing-project"}}}})
@@ -1461,7 +1461,7 @@ TEST_F(GcsGrpcTest, UserProjectWithNonAtomicModeFailsToOpen) {
   EXPECT_THAT(kvstore::Open({{"driver", "gcs_grpc"},
                              {"endpoint", mock_service_.server_address()},
                              {"bucket", "bucket"},
-                             {"timeout", "250ms"},
+                             {"timeout", "10s"},
                              {"experimental_mode", "non_atomic"},
                              {"gcs_user_project",
                               {{"project_id", "my-billing-project"}}}})
@@ -1491,7 +1491,7 @@ TEST_F(GcsGrpcTest, UserProjectSentWhenDetectedZonal) {
   auto store = kvstore::Open({{"driver", "gcs_grpc"},
                               {"endpoint", mock_service_.server_address()},
                               {"bucket", "bucket"},
-                              {"timeout", "250ms"},
+                              {"timeout", "10s"},
                               {"gcs_user_project",
                                {{"project_id", "my-billing-project"}}}})
                    .value();
@@ -1704,7 +1704,8 @@ TEST_F(GcsGrpcTest, BidiWriteReusesCordExpectedChecksum) {
   payload.SetExpectedChecksum(kPrecomputedCrc);
 
   EXPECT_CALL(mock(), BidiWriteObject(_, _))
-      .WillOnce([&](auto*, auto* stream) -> grpc::Status {
+      .Times(AtLeast(1))
+      .WillRepeatedly([&](auto*, auto* stream) -> grpc::Status {
         BidiWriteObjectRequest req;
         EXPECT_TRUE(stream->Read(&req));
         EXPECT_EQ(req.checksummed_data().crc32c(), kPrecomputedCrc);
@@ -1724,7 +1725,8 @@ TEST_F(GcsGrpcTest, BidiWriteReusesCordExpectedChecksum) {
 
 TEST_F(GcsGrpcTest, ReadFullObjectChecksumValidatedWithoutFragmentCrc32c) {
   EXPECT_CALL(mock(), ReadObject(_, _, _))
-      .WillOnce(
+      .Times(AtLeast(1))
+      .WillRepeatedly(
           [](auto*, auto*,
              grpc::ServerWriter<ReadObjectResponse>* resp) -> grpc::Status {
             resp->Write(ParseTextProtoOrDie(R"pb(

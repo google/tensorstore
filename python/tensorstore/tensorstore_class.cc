@@ -569,7 +569,7 @@ Group:
 )",
       py::kw_only(), py::arg("order") = "C", py::arg("batch") = std::nullopt);
 
-  ForwardWriteSetters([&](auto... param_def) {
+  ForwardWriteSetters([&]<typename... ParamDef>(ParamDef... param_def) {
     std::string doc = R"(
 Writes to the current domain.
 
@@ -764,10 +764,10 @@ writes to be read:
         [](Self& self,
            std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder>
                source,
-           KeywordArgument<decltype(param_def)>... kwarg) {
+           KeywordArgument<ParamDef>... kwarg) -> PythonWriteFutures {
           return PythonWriteFutures(
-              IssueCopyOrWrite<decltype(param_def)...>(
-                  self.value, std::move(source), kwarg...),
+              IssueCopyOrWrite<ParamDef...>(self.value, std::move(source),
+                                            kwarg...),
               self.reference_manager());
         },
         doc.c_str(), py::arg("source"), py::kw_only(),

@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <exception>
 #include <string>
+#include <string_view>
 
 #include "absl/status/status.h"
 #include "absl/types/source_location.h"
@@ -24,10 +25,12 @@
 namespace tensorstore {
 namespace internal {
 
-[[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
+[[noreturn]] void FatalStatus(std::string_view message,
+                              const absl::Status& status,
                               absl::SourceLocation loc) {
   std::fprintf(
-      stderr, "%s:%d: %s: %s\n", loc.file_name(), loc.line(), message,
+      stderr, "%s:%d: %.*s: %s\n", loc.file_name(), loc.line(),
+      static_cast<int>(message.size()), message.data(),
       status.ToString(absl::StatusToStringMode::kWithEverything).c_str());
   std::fflush(stderr);
   std::terminate();

@@ -24,6 +24,7 @@
 #include <numeric>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -57,7 +58,6 @@
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/internal/storage_statistics.h"
 #include "tensorstore/internal/unaligned_data_type_functions.h"
@@ -466,8 +466,7 @@ Result<IndexTransform<>> TranslateCellToSourceTransformForShard(
 template <typename Receiver, typename BaseFunc, typename CodecFunc>
 void ShardedInvokeWithArrayToArrayCodecs(
     ZarrShardedChunkCache& self, BaseFunc base_func, CodecFunc codec_func,
-    IndexTransform<> transform,
-    internal::type_identity_t<Receiver>&& receiver) {
+    IndexTransform<> transform, std::type_identity_t<Receiver>&& receiver) {
   const auto& grid = self.grid();
   span<const Index> chunk_shape = grid.chunk_shape;
   const span<const ZarrArrayToArrayCodec::PreparedState::Ptr>
@@ -691,9 +690,9 @@ struct ShardedGridStorageStatisticsChunkHandler
     ShardedInvokeWithArrayToArrayCodecs<StatePtr>(
         static_cast<ZarrShardedChunkCache&>(*cache),
         /*base_func=*/
-        [=, entry = std::move(entry)](span<const Index> decoded_shape,
-                                      IndexTransform<> transform,
-                                      StatePtr state) {
+        [this, entry = std::move(entry)](span<const Index> decoded_shape,
+                                         IndexTransform<> transform,
+                                         StatePtr state) {
           entry->sub_chunk_cache->GetStorageStatistics(
               std::move(state), {transaction, decoded_shape,
                                  std::move(transform), staleness_bound});

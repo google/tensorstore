@@ -68,3 +68,33 @@ def test_add_platform_constraints_windows_arm64():
       is False
   )
   assert ("cpu", "arm64_windows") in ws.values
+
+
+def test_add_platform_constraints_windows_clang_cl():
+  ws = Workspace(
+      RepositoryId("test_repo"),
+      {
+          "CMAKE_CXX_COMPILER_ID": "Clang",
+          "CMAKE_SYSTEM_NAME": "Windows",
+          "CMAKE_SYSTEM_PROCESSOR": "AMD64",
+          "MSVC": "1",
+      },
+  )
+  add_platform_constraints(ws)
+  assert (
+      ws._persisted_target_info[
+          parse_absolute_target("@rules_cc//cc/compiler:clang-cl")
+      ][ConditionProvider].value
+      is True
+  )
+  assert (
+      ws._persisted_target_info[
+          parse_absolute_target("@rules_cc//cc/compiler:clang")
+      ][ConditionProvider].value
+      is False
+  )
+  assert (
+      "@bazel_tools//tools/cpp:cc_compiler",
+      "@bazel_tools//tools/cpp:clang-cl",
+  ) in ws.values
+  assert "/bigobj" in ws.copts

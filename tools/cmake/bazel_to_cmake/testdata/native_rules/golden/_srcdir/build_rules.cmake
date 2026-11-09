@@ -9,7 +9,7 @@ target_link_libraries(CMakeProject_b_binary PUBLIC
         "m")
 target_include_directories(CMakeProject_b_binary PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_b_binary PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_b_binary PUBLIC cxx_std_20)
 target_sources(CMakeProject_b_binary PRIVATE
         "${PROJECT_SOURCE_DIR}/b.cc")
 
@@ -54,7 +54,7 @@ target_include_directories(CMakeProject_a PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_include_directories(CMakeProject_a PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_a "CMakeProject_h_file")
 target_sources(CMakeProject_a PRIVATE
         "${PROJECT_SOURCE_DIR}/a.cc")
@@ -121,7 +121,7 @@ target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_c_proto__cpp_library "CMakeProject_aspect_cpp__2c7be24c")
 target_sources(CMakeProject_c_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h")
@@ -140,7 +140,7 @@ target_link_libraries(CMakeProject_c_proto_cc PUBLIC
         "m")
 target_include_directories(CMakeProject_c_proto_cc PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_c_proto_cc PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_c_proto_cc PUBLIC cxx_std_20)
 target_sources(CMakeProject_c_proto_cc PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
@@ -155,7 +155,7 @@ target_link_libraries(CMakeProject_a_test PUBLIC
         "m")
 target_include_directories(CMakeProject_a_test PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_a_test PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a_test PUBLIC cxx_std_20)
 target_sources(CMakeProject_a_test PRIVATE
         "${PROJECT_SOURCE_DIR}/a.cc")
 add_test(NAME CMakeProject_a_test
@@ -171,7 +171,7 @@ target_link_libraries(CMakeProject_a_binary PUBLIC
         "m")
 target_include_directories(CMakeProject_a_binary PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_a_binary PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_a_binary PUBLIC cxx_std_20)
 target_sources(CMakeProject_a_binary PRIVATE
         "${PROJECT_SOURCE_DIR}/a.cc")
 
@@ -186,7 +186,7 @@ target_link_libraries(CMakeProject_b PRIVATE
         "CMakeProject::a")
 target_include_directories(CMakeProject_b PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_b PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_b PUBLIC cxx_std_20)
 target_sources(CMakeProject_b PRIVATE
         "${PROJECT_SOURCE_DIR}/b.cc")
 add_library(CMakeProject::b ALIAS CMakeProject_b)
@@ -204,7 +204,7 @@ target_include_directories(CMakeProject_b_public PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_include_directories(CMakeProject_b_public PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_b_public PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_b_public PUBLIC cxx_std_20)
 target_sources(CMakeProject_b_public PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 add_library(CMakeProject::b_public ALIAS CMakeProject_b_public)
@@ -221,7 +221,7 @@ target_link_libraries(CMakeProject_b_public_isystem PRIVATE
 target_include_directories(CMakeProject_b_public_isystem SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_b_public_isystem PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_b_public_isystem PUBLIC cxx_std_20)
 target_sources(CMakeProject_b_public_isystem PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 add_library(CMakeProject::b_public_isystem ALIAS CMakeProject_b_public_isystem)
@@ -245,7 +245,7 @@ target_link_libraries(CMakeProject_c_proto_2__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_c_proto_2__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_c_proto_2__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_c_proto_2__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_c_proto_2__cpp_library "CMakeProject_aspect_cpp__2c7be24c")
 target_sources(CMakeProject_c_proto_2__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h")
@@ -270,7 +270,7 @@ target_link_libraries(CMakeProject_subdir_x PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_x PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_subdir_x PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_x PUBLIC cxx_std_20)
 target_sources(CMakeProject_subdir_x PRIVATE
         "${PROJECT_SOURCE_DIR}/subdir/x.cc")
 add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
@@ -330,7 +330,7 @@ target_link_libraries(CMakeProject_subdir_y PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_y PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_y PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_y PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_y "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
@@ -349,7 +349,7 @@ target_link_libraries(CMakeProject_subdir_no_hdrs PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_no_hdrs PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_no_hdrs PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_no_hdrs PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_no_hdrs "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_no_hdrs PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
@@ -366,7 +366,7 @@ target_include_directories(CMakeProject_subdir_strip_include_prefix_subdir PUBLI
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/subdir>")
 target_include_directories(CMakeProject_subdir_strip_include_prefix_subdir PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_strip_include_prefix_subdir PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_strip_include_prefix_subdir PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_strip_include_prefix_subdir "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_strip_include_prefix_subdir PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
@@ -381,7 +381,7 @@ target_link_libraries(CMakeProject_subdir_include_prefix_subdir PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_include_prefix_subdir PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_include_prefix_subdir PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_include_prefix_subdir PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_include_prefix_subdir "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_include_prefix_subdir PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
@@ -399,7 +399,7 @@ target_include_directories(CMakeProject_subdir_includes_dot SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/subdir>")
 target_include_directories(CMakeProject_subdir_includes_dot PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_includes_dot PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_includes_dot PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_includes_dot "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_includes_dot PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
@@ -414,7 +414,7 @@ target_link_libraries(CMakeProject_subdir_linkstatic PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_linkstatic PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_linkstatic PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_linkstatic PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_linkstatic "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_linkstatic PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
@@ -429,7 +429,7 @@ target_link_libraries(CMakeProject_subdir_linkstatic_header_only INTERFACE
         "m")
 target_include_directories(CMakeProject_subdir_linkstatic_header_only INTERFACE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_linkstatic_header_only INTERFACE cxx_std_17)
+target_compile_features(CMakeProject_subdir_linkstatic_header_only INTERFACE cxx_std_20)
 add_dependencies(CMakeProject_subdir_linkstatic_header_only "CMakeProject_subdir_make_y")
 add_library(CMakeProject::subdir_linkstatic_header_only ALIAS CMakeProject_subdir_linkstatic_header_only)
 
@@ -442,7 +442,7 @@ target_link_libraries(CMakeProject_subdir_alwayslink.alwayslink PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_alwayslink.alwayslink PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_alwayslink.alwayslink PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_alwayslink.alwayslink PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_alwayslink.alwayslink "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_alwayslink.alwayslink PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
@@ -464,7 +464,7 @@ target_link_libraries(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PUBLI
         "m")
 target_include_directories(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_alwayslink_linkstatic.alwayslink "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_alwayslink_linkstatic.alwayslink PRIVATE
         "${PROJECT_BINARY_DIR}/subdir/y.cc")
@@ -487,7 +487,7 @@ target_link_libraries(CMakeProject_subdir_alwayslink_header_only.alwayslink PUBL
         "m")
 target_include_directories(CMakeProject_subdir_alwayslink_header_only.alwayslink PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_alwayslink_header_only.alwayslink PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_alwayslink_header_only.alwayslink PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_alwayslink_header_only.alwayslink "CMakeProject_subdir_make_y")
 target_sources(CMakeProject_subdir_alwayslink_header_only.alwayslink PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -511,7 +511,7 @@ target_link_libraries(CMakeProject_subdir_alwayslink_header_only_implementation_
         "CMakeProject::subdir_y")
 target_include_directories(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink "CMakeProject_subdir_make_y")
 target_sources(CMakeProject_subdir_alwayslink_header_only_implementation_deps.alwayslink PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -534,7 +534,7 @@ target_link_libraries(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwa
         "m")
 target_include_directories(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink "CMakeProject_subdir_make_y")
 target_sources(CMakeProject_subdir_alwayslink_linkstatic_header_only.alwayslink PRIVATE
         "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
@@ -601,7 +601,7 @@ target_link_libraries(CMakeProject_subdir_z_proto__cpp_library PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_z_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
-target_compile_features(CMakeProject_subdir_z_proto__cpp_library PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_subdir_z_proto__cpp_library PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_subdir_z_proto__cpp_library "CMakeProject_subdir_aspect_cpp__2eff1b8c")
 target_sources(CMakeProject_subdir_z_proto__cpp_library PUBLIC
         "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.h")
@@ -620,7 +620,7 @@ target_include_directories(CMakeProject_defines PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_include_directories(CMakeProject_defines PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
-target_compile_features(CMakeProject_defines PUBLIC cxx_std_17)
+target_compile_features(CMakeProject_defines PUBLIC cxx_std_20)
 add_dependencies(CMakeProject_defines "CMakeProject_h_file")
 target_sources(CMakeProject_defines PRIVATE
         "${PROJECT_SOURCE_DIR}/a.cc")

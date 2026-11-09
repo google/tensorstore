@@ -349,27 +349,6 @@ using DefaultConstructibleFunctionIfEmpty =
                         !std::is_default_constructible_v<T>),
                        DefaultConstructibleFunction<T>, T>;
 
-/// Identity metafunction for types, as added in C++20.
-///
-/// See https://en.cppreference.com/w/cpp/types/type_identity
-///
-/// This is useful for preventing deduction of a function parameter.
-template <typename T>
-struct type_identity {
-  using type = T;
-};
-
-template <typename T>
-using type_identity_t = typename type_identity<T>::type;
-
-/// Implementation of C++20 `std::identity`.
-struct identity {
-  template <typename T>
-  constexpr T&& operator()(T&& t) const noexcept {
-    return static_cast<T&&>(t);
-  }
-};
-
 template <typename Base, typename Derived>
 Base* BaseCast(Derived* derived) {
   return derived;

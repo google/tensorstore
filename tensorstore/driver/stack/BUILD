@@ -95,6 +95,8 @@ tensorstore_cc_test(
         "//tensorstore:box",
         "//tensorstore:context",
         "//tensorstore:data_type",
+        "//tensorstore:downsample",
+        "//tensorstore:downsample_method",
         "//tensorstore:index",
         "//tensorstore:open",
         "//tensorstore:open_mode",
@@ -104,6 +106,7 @@ tensorstore_cc_test(
         "//tensorstore:strided_layout",
         "//tensorstore:transaction",
         "//tensorstore/driver/array",
+        "//tensorstore/driver/cast",  # build_cleaner: keep
         "//tensorstore/driver/n5",
         "//tensorstore/driver/zarr3",
         "//tensorstore/index_space:dim_expression",

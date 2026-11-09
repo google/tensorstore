@@ -526,7 +526,10 @@ constexpr auto MetadataJsonBinder = [] {
     }
   };
 
-  return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
+  return [maybe_optional = maybe_optional,
+          maybe_optional_member = maybe_optional_member,
+          non_compatibility_field = non_compatibility_field](
+             auto is_loading, const auto& options, auto* obj, auto* j) {
     using Self = absl::remove_cvref_t<decltype(*obj)>;
     DimensionIndex* rank = nullptr;
     if constexpr (is_loading) {

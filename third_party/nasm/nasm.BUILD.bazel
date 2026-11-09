@@ -22,6 +22,7 @@ INCLUDES = [
 ]
 
 COPTS = select({
+    "@rules_cc//cc/compiler:clang-cl": [],
     "@rules_cc//cc/compiler:msvc-cl": [],
     "//conditions:default": [
         "-std=c17",

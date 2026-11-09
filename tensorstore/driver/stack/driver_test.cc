@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <stdint.h>
 
+#include <limits>
 #include <optional>
 #include <type_traits>
 #include <utility>
@@ -30,6 +31,8 @@
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/downsample.h"
+#include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/array/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -269,6 +272,27 @@ TEST(StackDriverTest, ReadSparse) {
 
     EXPECT_THAT(array, MatchesArray<int32_t>({1, 2, 3}));
   }
+
+  // With an explicit domain extending below and above all layers, unmapped
+  // cells before, between, and after the layers report their cell origins.
+  json_spec["schema"] = {
+      {"domain", {{"inclusive_min", {-10}}, {"exclusive_max", {10}}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expanded_store,
+                                   tensorstore::Open(json_spec).result());
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(
+          expanded_store | tensorstore::AllDims().SizedInterval({-10}, {2}))
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cell with origin={-4611686018427387903} "
+                         "missing layer mapping")));
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(
+          expanded_store | tensorstore::AllDims().SizedInterval({6}, {4}))
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cell with origin={6} missing layer mapping")));
 }
 
 TEST(StackDriverTest, NoLayers) {
@@ -279,11 +303,29 @@ TEST(StackDriverTest, NoLayers) {
                       {"dtype", "int32"},
                       {"schema", {{"domain", {{"shape", {2, 3}}}}}}}));
   EXPECT_EQ(OpenMode::unknown, spec.open_mode());
+  EXPECT_THAT(
+      spec.dimension_units(),
+      ::testing::Optional(::testing::ElementsAre(std::nullopt, std::nullopt)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    tensorstore::Open(spec).result());
   EXPECT_EQ(tensorstore::IndexDomain({2, 3}), store.domain());
   EXPECT_EQ(tensorstore::dtype_v<int32_t>, store.dtype());
   EXPECT_EQ(ReadWriteMode::read_write, store.read_write_mode());
+  EXPECT_THAT(
+      store.dimension_units(),
+      ::testing::Optional(::testing::ElementsAre(std::nullopt, std::nullopt)));
+  TENSORSTORE_EXPECT_OK(store.schema());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec_no_domain,
+      tensorstore::Spec::FromJson({{"driver", "stack"},
+                                   {"layers", ::nlohmann::json::array_t()},
+                                   {"dtype", "int32"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto empty_domain, spec_no_domain.domain());
+  EXPECT_FALSE(empty_domain.valid());
+  EXPECT_THAT(tensorstore::Open(spec_no_domain).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Domain must be specified")));
 }
 
 TEST(StackDriverTest, Rank0) {
@@ -980,7 +1022,49 @@ TEST(OverlayTest, Transaction) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store, tensorstore::Overlay({base, base_shifted}, context, txn1));
     EXPECT_EQ(txn1, store.transaction());
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(
+            tensorstore::MakeArray<int32_t>({10, 20, 30, 40, 50}),
+            store | tensorstore::Dims(0).SizedInterval(0, 5))
+            .result());
+    // Uncommitted writes stay isolated inside `txn1` until commit.
+    EXPECT_THAT(tensorstore::Read(base).result(),
+                ::testing::Optional(MatchesArray<int32_t>({1, 2, 3, 4, 5})));
+    EXPECT_THAT(
+        tensorstore::Read(store | tensorstore::Dims(0).SizedInterval(0, 5))
+            .result(),
+        ::testing::Optional(MatchesArray<int32_t>({10, 20, 30, 40, 50})));
   }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Overlay({base, base_spec_shifted}, context, txn1));
+    EXPECT_EQ(txn1, store.transaction());
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Overlay({(base | txn1).value(), base_shifted},
+                                         context, txn1));
+    EXPECT_EQ(txn1, store.transaction());
+  }
+
+  EXPECT_THAT(tensorstore::Overlay({tensorstore::TensorStore<>{}}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 0: Layer is not valid")));
+  EXPECT_THAT(tensorstore::Overlay({tensorstore::Spec{}}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 0: Layer is not valid")));
+  EXPECT_THAT(tensorstore::Overlay({base, tensorstore::TensorStore<>{}}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 1: Layer is not valid")));
+  EXPECT_THAT(tensorstore::Stack({tensorstore::TensorStore<>{}}, 0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 0: Layer is not valid")));
+  EXPECT_THAT(tensorstore::Concat({tensorstore::TensorStore<>{}}, 0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 0: Layer is not valid")));
 
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1004,7 +1088,13 @@ TEST(OverlayTest, Transaction) {
                HasSubstr("Layer 1: Transaction mismatch")));
 
   EXPECT_THAT(
-      tensorstore::Overlay({(base | txn1).value(), base_spec_shifted}, context),
+      tensorstore::Overlay({(base | txn1).value(), base_shifted}, context),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Layer 1: Transaction mismatch")));
+
+  EXPECT_THAT(
+      tensorstore::Overlay(
+          {(base | txn1).value(), (base_shifted | txn2).value()}, context),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Layer 1: Transaction mismatch")));
 
@@ -1022,6 +1112,131 @@ TEST(OverlayTest, NoLayers) {
   EXPECT_EQ(tensorstore::IndexDomain({2, 3}), store.domain());
   EXPECT_EQ(tensorstore::dtype_v<int32_t>, store.dtype());
   EXPECT_EQ(ReadWriteMode::read_write, store.read_write_mode());
+  EXPECT_THAT(
+      store.dimension_units(),
+      ::testing::Optional(::testing::ElementsAre(std::nullopt, std::nullopt)));
+  TENSORSTORE_EXPECT_OK(store.schema());
+
+  EXPECT_THAT(tensorstore::Overlay({}, tensorstore::dtype_v<int32_t>),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Domain must be specified")));
+}
+
+TEST(OverlayTest, DimensionUnitsErrorPropagated) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base,
+      tensorstore::FromArray(tensorstore::MakeArray<float>({42.0f})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transformed_base,
+      base | tensorstore::Dims(0).Stride(std::numeric_limits<Index>::max() / 2 +
+                                         2));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto downsampled,
+      tensorstore::Downsample(transformed_base, {2},
+                              tensorstore::DownsampleMethod::kMean));
+  EXPECT_THAT(downsampled.dimension_units(),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(
+      tensorstore::Overlay({downsampled}),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Layer 0:")));
+}
+
+TEST(StackDriverTest, SchemaRankWithUnspecifiedLayerRank) {
+  {
+    ::nlohmann::json json_spec{
+        {"driver", "stack"},
+        {"layers",
+         {{
+             {"driver", "zarr3"},
+             {"kvstore", "memory://"},
+             {"schema", {{"dtype", "int32"}}},
+         }}},
+        {"schema", {{"rank", 2}}},
+    };
+    EXPECT_THAT(tensorstore::Spec::FromJson(json_spec),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Layer 0: Domain must be specified")));
+  }
+
+  // Positive case: `"cast"` over an `"n5"` layer without an explicit layer
+  // transform initially has `schema.rank() == dynamic_rank` before options
+  // propagate, while `GetEffectiveDomain` resolves its rank-1 domain `[0, 2)`.
+  auto context = tensorstore::Context::Default();
+  ::nlohmann::json n5_base{
+      {"driver", "n5"},
+      {"kvstore", {{"driver", "memory"}, {"path", "cast_rank/"}}},
+      {"metadata",
+       {
+           {"compression", {{"type", "raw"}}},
+           {"dataType", "int32"},
+           {"dimensions", {2}},
+           {"blockSize", {2}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::Open(n5_base, context, OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeArray<int32_t>({7, 8}), base_store)
+          .result());
+
+  ::nlohmann::json stack_spec_json{
+      {"driver", "stack"},
+      {"layers",
+       {{
+           {"driver", "cast"},
+           {"dtype", "int64"},
+           {"base", n5_base},
+       }}},
+      {"schema", {{"rank", 1}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stack_spec, tensorstore::Spec::FromJson(stack_spec_json));
+  EXPECT_EQ(1, stack_spec.rank());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stack_store, tensorstore::Open(stack_spec, context).result());
+  EXPECT_THAT(tensorstore::Read(stack_store).result(),
+              ::testing::Optional(MatchesArray<int64_t>({7, 8})));
+
+  // Without an explicit stack `schema.rank`,
+  // `StackDriverSpec::GetDimensionUnits` and `Open` still derive the rank-1
+  // dimension units vector from the layer.
+  stack_spec_json.erase("schema");
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stack_spec_unconstrained,
+      tensorstore::Spec::FromJson(stack_spec_json));
+  EXPECT_THAT(stack_spec_unconstrained.dimension_units(),
+              ::testing::Optional(::testing::ElementsAre(std::nullopt)));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stack_store_unconstrained,
+      tensorstore::Open(stack_spec_unconstrained, context).result());
+  EXPECT_THAT(stack_store_unconstrained.dimension_units(),
+              ::testing::Optional(::testing::ElementsAre(std::nullopt)));
+
+  // Mismatched explicit stack `schema.rank` is rejected when propagated to the
+  // layer.
+  stack_spec_json["schema"] = {{"rank", 2}};
+  EXPECT_THAT(
+      tensorstore::Spec::FromJson(stack_spec_json),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Layer 0:")));
+
+  // Passing an untransformed `Spec` layer directly to `Overlay` resolves its
+  // identity transform from `GetEffectiveDomain`, or rejects if unspecified.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto n5_spec,
+                                   tensorstore::Spec::FromJson(n5_base));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto n5_overlay,
+                                   tensorstore::Overlay({n5_spec}, context));
+  EXPECT_THAT(tensorstore::Read(n5_overlay).result(),
+              ::testing::Optional(MatchesArray<int32_t>({7, 8})));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto zarr_no_domain,
+      tensorstore::Spec::FromJson({{"driver", "zarr3"},
+                                   {"kvstore", "memory://"},
+                                   {"schema", {{"dtype", "int32"}}}}));
+  EXPECT_THAT(tensorstore::Overlay({zarr_no_domain}, context),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Layer 0: Domain must be specified")));
 }
 
 TEST(OverlayTest, ReadWriteMode) {

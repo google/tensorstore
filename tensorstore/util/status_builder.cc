@@ -16,7 +16,6 @@
 
 #include <stddef.h>
 
-#include <array>
 #include <cassert>
 #include <limits>
 #include <optional>
@@ -26,8 +25,8 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/source_location.h"
 
@@ -64,13 +63,13 @@ StatusBuilder& StatusBuilder::AddStatusPayload(std::string_view type_url,
     status_.SetPayload(type_url, std::move(payload));
     return *this;
   }
-  if (p.value() == payload) {
+  if (*p == payload) {
     return *this;
   }
 
   int i = 1;
   while (true) {
-    auto payload_id = absl::StrFormat("%s[%d]", type_url, i++);
+    auto payload_id = absl::StrCat(type_url, "[", i++, "]");
     if (!status_.GetPayload(payload_id).has_value()) {
       status_.SetPayload(payload_id, std::move(payload));
       return *this;
@@ -83,22 +82,18 @@ absl::Status StatusBuilder::BuildStatusImpl() const {
 
   const auto& message = rep_.message;
   const bool append = rep_.append;
-  std::string buffer;
-  std::string_view composed_message =
-      [&](const absl::Status& status) -> std::string_view {
-    if (status.message().empty()) {
-      return message;
-    }
-    if (message.empty()) {
-      return status.message();
-    }
-    std::array<std::string_view, 3> to_join = {};
-    to_join[append ? 0 : 2] = status.message();
-    to_join[append ? 2 : 0] = message;
-    to_join[1] = ": ";
-    buffer = absl::StrJoin(to_join, "");
-    return buffer;
-  }(status_);
+  std::string_view composed_message;
+  std::string composed_message_buffer;
+  if (status_.message().empty()) {
+    composed_message = message;
+  } else if (message.empty()) {
+    composed_message = status_.message();
+  } else {
+    composed_message_buffer =
+        append ? absl::StrCat(status_.message(), ": ", message)
+               : absl::StrCat(message, ": ", status_.message());
+    composed_message = composed_message_buffer;
+  }
 
   // Create a new status with the correct message, etc.
   auto status_loc = status_.GetSourceLocations();

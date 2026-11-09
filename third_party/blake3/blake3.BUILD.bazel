@@ -42,6 +42,12 @@ cc_library(
             "c/blake3_sse2_x86-64_windows_msvc.asm",
             "c/blake3_sse41_x86-64_windows_msvc.asm",
         ],
+        "@rules_cc//cc/compiler:clang-cl": [
+            "c/blake3_avx2_x86-64_windows_gnu.S",
+            "c/blake3_avx512_x86-64_windows_gnu.S",
+            "c/blake3_sse2_x86-64_windows_gnu.S",
+            "c/blake3_sse41_x86-64_windows_gnu.S",
+        ],
         "@rules_cc//cc/compiler:mingw-gcc": [
             "c/blake3_avx2_x86-64_windows_gnu.S",
             "c/blake3_avx512_x86-64_windows_gnu.S",

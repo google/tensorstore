@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <string>
@@ -61,7 +62,6 @@
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/riegeli/array_endian_codec.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"
@@ -517,7 +517,7 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     ZarrMetadata, jb::Validate([](const auto& options,
                                   auto* obj) { return ValidateMetadata(*obj); },
-                               MetadataJsonBinder(internal::identity{})))
+                               MetadataJsonBinder(std::identity{})))
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
                                        MetadataJsonBinder([](auto binder) {

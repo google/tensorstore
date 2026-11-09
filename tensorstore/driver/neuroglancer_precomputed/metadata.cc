@@ -27,13 +27,13 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include "absl/algorithm/container.h"
 #include "absl/base/optimization.h"
-#include "absl/meta/type_traits.h"
 #include "absl/numeric/bits.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
@@ -58,7 +58,6 @@
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_metadata_matching.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
@@ -214,69 +213,66 @@ constexpr static auto ShardingBinder = [](auto is_loading, const auto& options,
 };
 
 /// Binder for ScaleMetadata::Encoding
-constexpr static auto ScaleMetatadaEncodingBinder() {
+constexpr static auto ScaleMetatadaEncodingBinder =
+    [](auto is_loading, const auto& options, auto* obj,
+       auto* j) -> absl::Status {
   return jb::Enum<ScaleMetadata::Encoding, std::string_view>({
       {ScaleMetadata::Encoding::raw, "raw"},
       {ScaleMetadata::Encoding::png, "png"},
       {ScaleMetadata::Encoding::jpeg, "jpeg"},
       {ScaleMetadata::Encoding::compressed_segmentation,
        "compressed_segmentation"},
-  });
-}
-
-constexpr static auto EncodingJsonBinder = [](auto maybe_optional) {
-  return [=](auto is_loading, const auto& options, auto* obj,
-             auto* j) -> absl::Status {
-    using T = absl::remove_cvref_t<decltype(*obj)>;
-    return jb::Sequence(
-        jb::Member(
-            "encoding",
-            jb::Projection(&T::encoding,
-                           maybe_optional(ScaleMetatadaEncodingBinder()))),
-        jb::Member("jpeg_quality",
-                   [maybe_optional](auto is_loading, const auto& options,
-                                    auto* obj, auto* j) -> absl::Status {
-                     if constexpr (is_loading) {
-                       if (j->is_discarded()) return absl::OkStatus();
-                       if (obj->encoding != ScaleMetadata::Encoding::jpeg) {
-                         return absl::InvalidArgumentError(
-                             "Only valid for \"jpeg\" encoding");
-                       }
-                     } else {
-                       if (obj->encoding != ScaleMetadata::Encoding::jpeg) {
-                         *j = ::nlohmann::json(
-                             ::nlohmann::json::value_t::discarded);
-                         return absl::OkStatus();
-                       }
-                     }
-                     return jb::Projection(&T::jpeg_quality,
-                                           maybe_optional(jb::Integer(0, 100)))(
-                         is_loading, options, obj, j);
-                   }),
-        jb::Member("png_level",
-                   [maybe_optional](auto is_loading, const auto& options,
-                                    auto* obj, auto* j) -> absl::Status {
-                     if constexpr (is_loading) {
-                       if (j->is_discarded()) return absl::OkStatus();
-                       if (obj->encoding != ScaleMetadata::Encoding::png) {
-                         return absl::InvalidArgumentError(
-                             "Only valid for \"png\" encoding");
-                       }
-                     } else {
-                       if (obj->encoding != ScaleMetadata::Encoding::png ||
-                           obj->png_level == -1) {
-                         *j = ::nlohmann::json(
-                             ::nlohmann::json::value_t::discarded);
-                         return absl::OkStatus();
-                       }
-                     }
-                     return jb::Projection(&T::png_level,
-                                           maybe_optional(jb::Integer(0, 9)))(
-                         is_loading, options, obj, j);
-                   }) /**/
-        )(is_loading, options, obj, j);
-  };
+  })(is_loading, options, obj, j);
 };
+
+template <typename T, typename MaybeOptional>
+constexpr auto EncodingJsonBinder(MaybeOptional maybe_optional) {
+  return jb::Sequence(
+      jb::Member("encoding",
+                 jb::Projection(&T::encoding,
+                                maybe_optional(ScaleMetatadaEncodingBinder))),
+      jb::Member("jpeg_quality",
+                 [maybe_optional](auto is_loading, const auto& options,
+                                  auto* obj, auto* j) -> absl::Status {
+                   if constexpr (is_loading) {
+                     if (j->is_discarded()) return absl::OkStatus();
+                     if (obj->encoding != ScaleMetadata::Encoding::jpeg) {
+                       return absl::InvalidArgumentError(
+                           "Only valid for \"jpeg\" encoding");
+                     }
+                   } else {
+                     if (obj->encoding != ScaleMetadata::Encoding::jpeg) {
+                       *j = ::nlohmann::json(
+                           ::nlohmann::json::value_t::discarded);
+                       return absl::OkStatus();
+                     }
+                   }
+                   return jb::Projection(&T::jpeg_quality,
+                                         maybe_optional(jb::Integer(0, 100)))(
+                       is_loading, options, obj, j);
+                 }),
+      jb::Member("png_level",
+                 [maybe_optional](auto is_loading, const auto& options,
+                                  auto* obj, auto* j) -> absl::Status {
+                   if constexpr (is_loading) {
+                     if (j->is_discarded()) return absl::OkStatus();
+                     if (obj->encoding != ScaleMetadata::Encoding::png) {
+                       return absl::InvalidArgumentError(
+                           "Only valid for \"png\" encoding");
+                     }
+                   } else {
+                     if (obj->encoding != ScaleMetadata::Encoding::png ||
+                         obj->png_level == -1) {
+                       *j = ::nlohmann::json(
+                           ::nlohmann::json::value_t::discarded);
+                       return absl::OkStatus();
+                     }
+                   }
+                   return jb::Projection(&T::png_level,
+                                         maybe_optional(jb::Integer(0, 9)))(
+                       is_loading, options, obj, j);
+                 }));
+}
 
 constexpr static auto WrapInOptional = [](auto binder) {
   return jb::Optional(binder);
@@ -284,59 +280,53 @@ constexpr static auto WrapInOptional = [](auto binder) {
 
 /// Common attributes for NeuroglancerPrecomputedCodecSpec,
 /// ScaleMetadata and ScaleMetadataConstraints.
-template <typename MaybeOptional>
+template <typename T, typename MaybeOptional>
 constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
-  return [=](auto is_loading, const auto& options, auto* obj,
-             auto* j) -> absl::Status {
-    using T = absl::remove_cvref_t<decltype(*obj)>;
-    return jb::Sequence(
-        jb::Member("key", jb::Projection(&T::key)),
-        jb::Member(
-            "resolution",
-            jb::Projection(&T::resolution, maybe_optional(jb::FixedSizeArray(
-                                               jb::LooseFloatBinder)))),
-        jb::Member(
-            "sharding",
-            jb::Projection(
-                &T::sharding,
-                [=](auto is_loading, const auto& options, auto* obj, auto* j) {
-                  if constexpr (!is_loading &&
-                                std::is_same_v<T, ScaleMetadata>) {
-                    if (std::holds_alternative<NoShardingSpec>(*obj))
-                      return absl::OkStatus();
-                  }
-                  return maybe_optional(ShardingBinder)(is_loading, options,
-                                                        obj, j);
-                })),
-        EncodingJsonBinder(maybe_optional),
-        jb::Member(
-            "compressed_segmentation_block_size",
-            [maybe_optional](auto is_loading, const auto& options, auto* obj,
-                             auto* j) -> absl::Status {
-              if constexpr (is_loading) {
-                if (obj->encoding !=
-                    ScaleMetadata::Encoding::compressed_segmentation) {
-                  if (j->is_discarded()) return absl::OkStatus();
-                  return absl::InvalidArgumentError(
-                      "Only valid for \"compressed_segmentation\" encoding");
-                }
-              } else {
-                if (obj->encoding !=
-                    ScaleMetadata::Encoding::compressed_segmentation) {
-                  return absl::OkStatus();
-                }
+  return jb::Sequence(
+      jb::Member("key", jb::Projection(&T::key)),
+      jb::Member("resolution", jb::Projection(&T::resolution,
+                                              maybe_optional(jb::FixedSizeArray(
+                                                  jb::LooseFloatBinder)))),
+      jb::Member(
+          "sharding",
+          jb::Projection(&T::sharding,
+                         [maybe_optional](auto is_loading, const auto& options,
+                                          auto* obj, auto* j) {
+                           if constexpr (!is_loading &&
+                                         std::is_same_v<T, ScaleMetadata>) {
+                             if (std::holds_alternative<NoShardingSpec>(*obj))
+                               return absl::OkStatus();
+                           }
+                           return maybe_optional(ShardingBinder)(
+                               is_loading, options, obj, j);
+                         })),
+      EncodingJsonBinder<T>(maybe_optional),
+      jb::Member(
+          "compressed_segmentation_block_size",
+          [maybe_optional](auto is_loading, const auto& options, auto* obj,
+                           auto* j) -> absl::Status {
+            if constexpr (is_loading) {
+              if (obj->encoding !=
+                  ScaleMetadata::Encoding::compressed_segmentation) {
+                if (j->is_discarded()) return absl::OkStatus();
+                return absl::InvalidArgumentError(
+                    "Only valid for \"compressed_segmentation\" encoding");
               }
-              return jb::Projection(
-                  &T::compressed_segmentation_block_size,
-                  maybe_optional(jb::FixedSizeArray(jb::Integer(1))))(
-                  is_loading, options, obj, j);
-            })
-        /**/)(is_loading, options, obj, j);
-  };
+            } else {
+              if (obj->encoding !=
+                  ScaleMetadata::Encoding::compressed_segmentation) {
+                return absl::OkStatus();
+              }
+            }
+            return jb::Projection(
+                &T::compressed_segmentation_block_size,
+                maybe_optional(jb::FixedSizeArray(jb::Integer(1))))(
+                is_loading, options, obj, j);
+          }));
 }
 
 constexpr static auto ScaleMetadataBinder = jb::Object(
-    ScaleMetadataCommon(internal::identity{}),
+    ScaleMetadataCommon<ScaleMetadata>(std::identity{}),
     jb::Initialize([](ScaleMetadata* x) {
       x->box.Fill(IndexInterval::UncheckedSized(0, 0));
     }),
@@ -366,7 +356,7 @@ constexpr static auto ScaleMetadataBinder = jb::Object(
     }));
 
 constexpr static auto ScaleMetadataConstraintsBinder = jb::Object(
-    ScaleMetadataCommon(WrapInOptional),
+    ScaleMetadataCommon<ScaleMetadataConstraints>(WrapInOptional),
     jb::Member("size",
                jb::Projection(
                    &ScaleMetadataConstraints::box,
@@ -406,7 +396,7 @@ constexpr static auto ScaleMetadataConstraintsBinder = jb::Object(
       if (obj->box.has_value()) {
         return CheckScaleBounds(*obj->box);
       }
-      return absl ::OkStatus();
+      return absl::OkStatus();
     }));
 
 constexpr static auto MultiscaleMetadataBinder = jb::Object(
@@ -1610,16 +1600,16 @@ absl::Status NeuroglancerPrecomputedCodecSpec::DoMergeFrom(
   return absl::OkStatus();
 }
 
-TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
-    NeuroglancerPrecomputedCodecSpec,
-    jb::Sequence(
-        EncodingJsonBinder(WrapInOptional),
-        jb::Member(
-            "shard_data_encoding",
-            jb::Projection(
-                &NeuroglancerPrecomputedCodecSpec::shard_data_encoding,
-                jb::Optional(
-                    neuroglancer_uint64_sharded::DataEncodingJsonBinder)))))
+constexpr static auto NeuroglancerPrecomputedCodecSpecBinder = jb::Sequence(
+    EncodingJsonBinder<NeuroglancerPrecomputedCodecSpec>(WrapInOptional),
+    jb::Member("shard_data_encoding",
+               jb::Projection(
+                   &NeuroglancerPrecomputedCodecSpec::shard_data_encoding,
+                   jb::Optional(
+                       neuroglancer_uint64_sharded::DataEncodingJsonBinder))));
+
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(NeuroglancerPrecomputedCodecSpec,
+                                       NeuroglancerPrecomputedCodecSpecBinder)
 
 namespace {
 const internal::CodecSpecRegistration<NeuroglancerPrecomputedCodecSpec>

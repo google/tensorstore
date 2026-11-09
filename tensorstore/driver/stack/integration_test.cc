@@ -44,11 +44,10 @@
 namespace {
 
 using ::tensorstore::Context;
-using ::tensorstore::CopyProgressFunction;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
-using ::tensorstore::ReadProgressFunction;
 using ::tensorstore::StatusIs;
+using ::testing::AllOf;
 using ::testing::HasSubstr;
 
 // hexdump -e \"\"\ 16/1\ \"\ 0x%02x,\"\ \"\\n\" image.png
@@ -193,12 +192,31 @@ TEST_F(ImageDriverIntegrationTest, OpenImageStack) {
 TEST_F(ImageDriverIntegrationTest, Transform) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest());
 
+  /// dimensions = (512, 512, 3)
   ::nlohmann::json spec{
       {"driver", "stack"},
       {
           "layers",
           {
               {
+                  // 0,0
+                  {"driver", "png"},
+                  {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
+                  {"transform",
+                   {
+                       {"input_labels", {"y", "x", "c"}},
+                       {"input_inclusive_min", {0, 0, 0}},
+                       {"input_exclusive_max", {256, 256, 3}},
+                       {
+                           "output",
+                           {{{"input_dimension", 0}, {"offset", 0}},
+                            {{"input_dimension", 1}, {"offset", 0}},
+                            {{"input_dimension", 2}, {"offset", 0}}},
+                       },
+                   }},
+              },
+              {
+                  // 0, 256
                   {"driver", "png"},
                   {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
                   {"transform",
@@ -210,6 +228,23 @@ TEST_F(ImageDriverIntegrationTest, Transform) {
                            "output",
                            {{{"input_dimension", 0}, {"offset", 0}},
                             {{"input_dimension", 1}, {"offset", -256}},
+                            {{"input_dimension", 2}, {"offset", 0}}},
+                       },
+                   }},
+              },
+              {
+                  // 256, 0
+                  {"driver", "png"},
+                  {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
+                  {"transform",
+                   {
+                       {"input_labels", {"y", "x", "c"}},
+                       {"input_inclusive_min", {256, 0, 0}},
+                       {"input_exclusive_max", {512, 256, 3}},
+                       {
+                           "output",
+                           {{{"input_dimension", 0}, {"offset", -256}},
+                            {{"input_dimension", 1}, {"offset", 0}},
                             {{"input_dimension", 2}, {"offset", 0}}},
                        },
                    }},
@@ -269,6 +304,150 @@ TEST_F(ImageDriverIntegrationTest, Transform) {
     EXPECT_EQ(d.domain(), tensorstore::BoxView({0}, {2}));
     EXPECT_THAT(d, (tensorstore::MatchesArray<uint8_t, 2>({44, 102})));
   }
+
+  // Read across a tile boundary spanning layers (0, 0) and (0, 256).
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto cross,
+        tensorstore::Read<>(store | tensorstore::AllDims()
+                                        .SizedInterval({100, 255, 1}, {1, 2, 1})
+                                        .TranslateTo(0))
+            .result());
+    EXPECT_THAT(
+        cross, (tensorstore::MatchesArray<uint8_t, 1, 2, 1>({{{100}, {100}}})));
+  }
+
+  // Unmapped bottom-right quadrant [256..512, 256..512, 0..3) fails with cell
+  // origin {256, 256, 0}.
+  EXPECT_THAT(tensorstore::Read<>(store | tensorstore::AllDims().SizedInterval(
+                                              {256, 256, 0}, {1, 1, 1}))
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cell with origin={256, 256, 0} missing layer "
+                                 "mapping")));
+}
+
+TEST_F(ImageDriverIntegrationTest, LayerSizeMismatch) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest());
+
+  ::nlohmann::json spec{
+      {"driver", "stack"},
+      {
+          "layers",
+          {
+              {
+                  {"driver", "png"},
+                  {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
+                  {"transform",
+                   {
+                       {"input_labels", {"y", "x", "c"}},
+                       {"input_inclusive_min", {0, 0, 0}},
+                       {"input_exclusive_max", {512, 512, 1}},
+                       {"output",
+                        {{{"input_dimension", 0}},
+                         {{"input_dimension", 1}},
+                         {{"input_dimension", 2}, {"offset", 0}}}},
+                   }},
+              },
+          },
+      },
+  };
+
+  // Path is embedded in kvstore, so we don't write it.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(spec, context, tensorstore::ReadWriteMode::read)
+          .result());
+
+  EXPECT_THAT(tensorstore::Read<>(store | tensorstore::AllDims().SizedInterval(
+                                              {200, 200, 0}, {200, 200, 1}))
+                  .result(),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       AllOf(HasSubstr("While opening layer 0:"),
+                             HasSubstr("Error opening \"png\" driver:"),
+                             HasSubstr("Propagated bounds [0, 256)"))));
+
+  EXPECT_THAT(tensorstore::Read<>(store).result(),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       AllOf(HasSubstr("While opening layer 0:"),
+                             HasSubstr("Error opening \"png\" driver:"),
+                             HasSubstr("Propagated bounds [0, 256)"))));
+}
+
+TEST_F(ImageDriverIntegrationTest, WrongDimension) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest());
+
+  ::nlohmann::json spec =
+      ::nlohmann::json::parse(R"json({
+  "driver" : "stack",
+  "dtype" : "uint8",
+  "layers" : [
+    {
+      "driver" : "png",
+      "dtype" : "uint8",
+      "kvstore": {"driver": "memory", "path": "a.png"},
+      "transform" : {
+        "input_exclusive_max" : [ 3072, 2560, 1 ],
+        "input_inclusive_min" : [ 2560, 2048, 0 ],
+        "output" : [
+          {"input_dimension" : 0, "offset" : -2560},
+          {"input_dimension" : 1, "offset" : -2048},
+          {"input_dimension" : 2}
+        ]
+      }
+    },
+    {
+      "driver" : "png",
+      "dtype" : "uint8",
+      "kvstore": {"driver": "memory", "path": "a.png"},
+      "transform" : {
+        "input_exclusive_max" : [ 3584, 3072, 1 ],
+        "input_inclusive_min" : [ 3072, 2560, 0 ],
+        "output" : [
+          {"input_dimension" : 0, "offset" : -3072},
+          {"input_dimension" : 1, "offset" : -2560},
+          {"input_dimension" : 2}
+        ]
+      }
+    }
+  ],
+  "schema" : {
+    "domain" : {
+      "exclusive_max" : [ 8704, 6114, 1 ],
+      "inclusive_min" : [ 0, 0, 0 ]
+    }
+  }
+})json",
+                              nullptr, /*exceptions=*/false);
+
+  ASSERT_TRUE(spec.is_object());
+
+  // Path is embedded in kvstore, so we don't write it.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      (tensorstore::Open<uint8_t, 3, tensorstore::ReadWriteMode::read>(spec,
+                                                                       context)
+           .result()));
+
+  // Reading inside schema.domain but past all layers reports the unmapped
+  // trailing cell origin {3584, 3072, 0}.
+  EXPECT_THAT(
+      tensorstore::Read<>(store | tensorstore::AllDims().SizedInterval(
+                                      {4608, 3072, 0}, {256, 256, 1}))
+          .result(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Cell with origin={3584, 3072, 0} missing layer "
+                         "mapping")));
+
+  // Reading inside Layer 0 lazily opens the 256x256 PNG and rejects the
+  // 512x512 layer transform bounds.
+  EXPECT_THAT(tensorstore::Read<>(store | tensorstore::AllDims().SizedInterval(
+                                              {2560, 2048, 0}, {256, 256, 1}))
+                  .result(),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       AllOf(HasSubstr("While opening layer 0:"),
+                             HasSubstr("Error opening \"png\" driver:"),
+                             HasSubstr("Propagated bounds [2560, 2816)"))));
 }
 
 TEST(IntegrationTest, NeuroglancerPrecomputed_InferredDTypeAndDomain) {

@@ -16,17 +16,19 @@ build --define=absl=1
 build --define=protobuf_allow_msvc=true
 
 # ----------------------------------------
-# Configure C++17 mode
+# Configure C++20 mode
 # ----------------------------------------
 
-build:gcc_or_clang --cxxopt=-std=c++17
-build:gcc_or_clang --host_cxxopt=-std=c++17
+build:gcc_or_clang --cxxopt=-std=c++20
+build:gcc_or_clang --host_cxxopt=-std=c++20
 
 build:gcc_or_clang --cxxopt=-fsized-deallocation
 build:gcc_or_clang --host_cxxopt=-fsized-deallocation
 
-build:msvc --cxxopt=/std:c++17
-build:msvc --host_cxxopt=/std:c++17
+build:msvc --features=-default_cpp_std
+build:msvc --host_features=-default_cpp_std
+build:msvc --cxxopt=/std:c++20
+build:msvc --host_cxxopt=/std:c++20
 
 # Use sized deallocation for C++ objects
 build:msvc --cxxopt=/Zc:sizedDealloc

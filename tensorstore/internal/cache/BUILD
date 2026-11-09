@@ -258,7 +258,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:mutex",
         "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/internal/container:intrusive_linked_list",
-        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:registration",
         "@abseil-cpp//absl/base",

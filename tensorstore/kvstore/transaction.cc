@@ -1555,11 +1555,7 @@ Future<ReadResult> MultiPhaseMutation::ReadImpl(
   bool repeatable_read_mode =
       static_cast<bool>(node->transaction()->mode() & repeatable_read);
 
-  auto promise_future_pair = PromiseFuturePair<ReadResult>::Make();
-  // Not using structured bindings due to C++17 structured binding lambda
-  // capture limitation.
-  auto& promise = promise_future_pair.promise;
-  auto& future = promise_future_pair.future;
+  auto [promise, future] = PromiseFuturePair<ReadResult>::Make();
   auto get_read_receiver = [&]() -> ReadModifyWriteTarget::ReadReceiver {
     if (!StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
       return IfEqualCheckingReadReceiver<Promise<kvstore::ReadResult>>{

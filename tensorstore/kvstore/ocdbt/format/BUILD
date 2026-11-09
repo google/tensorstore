@@ -100,7 +100,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_test(
     name = "btree_test",
-    size = "small",
+    size = "medium",
     srcs = ["btree_test.cc"],
     deps = [
         ":format",

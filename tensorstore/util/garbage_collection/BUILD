@@ -1,4 +1,4 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -15,6 +15,7 @@ tensorstore_cc_library(
         "std_pair.h",
         "std_set.h",
         "std_tuple.h",
+        "std_variant.h",
         "std_vector.h",
     ],
     deps = [
@@ -42,5 +43,16 @@ tensorstore_cc_library(
     deps = [
         ":garbage_collection",
         "@com_google_protobuf//:protobuf_lite",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "std_variant_test",
+    size = "small",
+    srcs = ["std_variant_test.cc"],
+    deps = [
+        ":garbage_collection",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )
