@@ -92,6 +92,19 @@ inline absl::weak_ordering DoThreeWayCompare(const T& a, const T& b) {
   return absl::weak_ordering::equivalent;
 }
 
+struct CompareByFields {
+  template <typename T>
+  bool operator()(const T& a, const T& b) const {
+    return a.fields < b.fields;
+  }
+};
+
+struct CompareMetricByName {
+  bool operator()(const CollectedMetric& a, const CollectedMetric& b) const {
+    return CompareByName(a, b) == absl::weak_ordering::less;
+  }
+};
+
 }  // namespace
 
 /// Compares two collected metrics, a, and b.
@@ -113,6 +126,23 @@ absl::weak_ordering CompareByName(const CollectedMetric& a,
     }
   }
   return DoThreeWayCompare(a.field_names.size(), b.field_names.size());
+}
+
+// Shared out-of-line sort helpers used by both `collect.cc` and `registry.cc`
+// so `std::stable_sort` is instantiated once per element/comparator pair.
+void SortCollectedMetricValues(std::vector<CollectedMetric::Value>& values) {
+  // fields is only a partial order, so we need stable_sort.
+  std::stable_sort(values.begin(), values.end(), CompareByFields{});
+}
+
+void SortCollectedMetricHistograms(
+    std::vector<CollectedMetric::Histogram>& histograms) {
+  // fields is only a partial order, so we need stable_sort.
+  std::stable_sort(histograms.begin(), histograms.end(), CompareByFields{});
+}
+
+void SortCollectedMetricsByName(std::vector<CollectedMetric>& metrics) {
+  std::stable_sort(metrics.begin(), metrics.end(), CompareMetricByName{});
 }
 
 bool IsCollectedMetricNonZero(const CollectedMetric& metric) {
@@ -147,13 +177,8 @@ CollectedMetric CollectedMetricDelta(const CollectedMetric& before,
     std::vector<CollectedMetric::Value> before_values = before.values;
     std::vector<CollectedMetric::Value> after_values = after.values;
 
-    // fields is only a partial order, so we need stable_sort.
-    std::stable_sort(
-        before_values.begin(), before_values.end(),
-        [](const auto& a, const auto& b) { return a.fields < b.fields; });
-    std::stable_sort(
-        after_values.begin(), after_values.end(),
-        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+    SortCollectedMetricValues(before_values);
+    SortCollectedMetricValues(after_values);
 
     const std::variant<std::monostate, int64_t, double, std::string> zero_value;
     const std::variant<std::monostate, int64_t, double> zero_max_value;
@@ -204,13 +229,8 @@ CollectedMetric CollectedMetricDelta(const CollectedMetric& before,
     std::vector<CollectedMetric::Histogram> before_values = before.histograms;
     std::vector<CollectedMetric::Histogram> after_values = after.histograms;
 
-    // fields is only a partial order, so we need stable_sort.
-    std::stable_sort(
-        before_values.begin(), before_values.end(),
-        [](const auto& a, const auto& b) { return a.fields < b.fields; });
-    std::stable_sort(
-        after_values.begin(), after_values.end(),
-        [](const auto& a, const auto& b) { return a.fields < b.fields; });
+    SortCollectedMetricHistograms(before_values);
+    SortCollectedMetricHistograms(after_values);
 
     auto before_it = before_values.begin();
     auto after_it = after_values.begin();
@@ -272,12 +292,8 @@ CollectedMetric CollectedMetricDelta(const CollectedMetric& before,
 
 std::vector<CollectedMetric> CollectedMetricsDelta(
     std::vector<CollectedMetric>& before, std::vector<CollectedMetric>& after) {
-  std::sort(before.begin(), before.end(), [](const auto& a, const auto& b) {
-    return CompareByName(a, b) == absl::weak_ordering::less;
-  });
-  std::sort(after.begin(), after.end(), [](const auto& a, const auto& b) {
-    return CompareByName(a, b) == absl::weak_ordering::less;
-  });
+  SortCollectedMetricsByName(before);
+  SortCollectedMetricsByName(after);
 
   std::vector<CollectedMetric> result;
 

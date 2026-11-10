@@ -71,6 +71,16 @@ struct CollectedMetric {
 absl::weak_ordering CompareByName(const CollectedMetric& a,
                                   const CollectedMetric& b);
 
+/// Sorts `values` by `fields`.
+void SortCollectedMetricValues(std::vector<CollectedMetric::Value>& values);
+
+/// Sorts `histograms` by `fields`.
+void SortCollectedMetricHistograms(
+    std::vector<CollectedMetric::Histogram>& histograms);
+
+/// Sorts `metrics` by `CompareByName`.
+void SortCollectedMetricsByName(std::vector<CollectedMetric>& metrics);
+
 /// Returns whether a collected metric is non-zero
 bool IsCollectedMetricNonZero(const CollectedMetric& metric);
 
