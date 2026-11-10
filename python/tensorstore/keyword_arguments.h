@@ -54,7 +54,10 @@
 // inclusion constraints are satisfied.
 #include <string>
 #include <string_view>
+#include <utility>
 
+#include "absl/base/attributes.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -99,12 +102,12 @@ template <typename ParamDef>
 using KeywordArgument = KeywordArgumentPlaceholder<typename ParamDef::type>;
 
 /// Appends the documentation for a single keyword argument.
-template <typename ParamDef>
-void AppendKeywordArgumentDoc(std::string& doc) {
-  absl::StrAppend(&doc, "  ", ParamDef::name, ": ");
+ABSL_ATTRIBUTE_NOINLINE inline void AppendKeywordArgumentDoc(
+    std::string& doc, std::string_view name, std::string_view param_doc) {
+  absl::StrAppend(&doc, "  ", name, ": ");
   std::string_view delim = "";
   for (std::string_view line :
-       absl::StrSplit(absl::StripAsciiWhitespace(ParamDef::doc), '\n')) {
+       absl::StrSplit(absl::StripAsciiWhitespace(param_doc), '\n')) {
     absl::StrAppend(&doc, delim, line, "\n");
     delim = "    ";
   }
@@ -131,14 +134,32 @@ void AppendKeywordArgumentDoc(std::string& doc) {
 ///       b: Specifies b.
 template <typename... ParamDef>
 void AppendKeywordArgumentDocs(std::string& doc, ParamDef... params) {
-  (AppendKeywordArgumentDoc<ParamDef>(doc), ...);
+  (AppendKeywordArgumentDoc(doc, ParamDef::name, ParamDef::doc), ...);
 }
 
 /// Returns the `pybind11::arg` object that specifies the name and default value
 /// (`None`) for a keyword argument.
+ABSL_ATTRIBUTE_NOINLINE inline pybind11::arg_v MakeKeywordArgumentPyArg(
+    const char* name) {
+  return (pybind11::arg(name) = pybind11::none());
+}
+
 template <typename ParamDef>
-auto MakeKeywordArgumentPyArg(ParamDef param_def) {
-  return (pybind11::arg(decltype(param_def)::name) = pybind11::none());
+inline pybind11::arg_v MakeKeywordArgumentPyArg(ParamDef param_def) {
+  return MakeKeywordArgumentPyArg(decltype(param_def)::name);
+}
+
+/// Throws `pybind11::type_error` for an invalid keyword argument out of line.
+ABSL_ATTRIBUTE_NORETURN ABSL_ATTRIBUTE_NOINLINE inline void
+ThrowInvalidKeywordArgumentTypeError(const char* name) {
+  throw pybind11::type_error(absl::StrFormat("Invalid %s", name));
+}
+
+/// Annotates `status` with `name` and throws a status exception out of line.
+ABSL_ATTRIBUTE_NOINLINE inline void ThrowInvalidKeywordArgumentStatusError(
+    absl::Status status, const char* name) {
+  ThrowStatusExceptionImpl(
+      StatusBuilder(std::move(status)).Format("Invalid %s", name));
 }
 
 /// Used by `ApplyKeywordArguments` to convert and apply keyword arguments.
@@ -161,14 +182,13 @@ void SetKeywordArgumentOrThrow(Target& target, KeywordArgument<ParamDef>& arg) {
   if (arg.value.is_none()) return;
   pybind11::detail::make_caster<typename ParamDef::type> caster;
   if (!caster.load(arg.value, /*convert=*/true)) {
-    throw pybind11::type_error(absl::StrFormat("Invalid %s", ParamDef::name));
+    ThrowInvalidKeywordArgumentTypeError(ParamDef::name);
   }
   auto status = ParamDef::Apply(
       target,
       pybind11::detail::cast_op<typename ParamDef::type&&>(std::move(caster)));
   if (!status.ok()) {
-    ThrowStatusException(
-        StatusBuilder(std::move(status)).Format("Invalid %s", ParamDef::name));
+    ThrowInvalidKeywordArgumentStatusError(std::move(status), ParamDef::name);
   }
 }
 

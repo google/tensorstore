@@ -92,23 +92,10 @@ struct StaticHeapTypeWrapperCaster {
 };
 
 /// Base class for use in defining `load`-only specializations of
-/// `pybind11::detail::type_caster` for types defined using `DefineHeapType`.
-///
-/// For every heap type defined using `DefineHeapType<T>`, you should define a
-/// specialization of `pybind11::detail::type_caster<T>` that inherits from
-/// `StaticHeapTypeCaster<T>`: that allows you to use `T&` and `T*` as parameter
-/// types in pybind11-bound functions.
+/// `pybind11::detail::type_caster` for custom Python heap types.
 template <typename T>
-struct StaticHeapTypeCaster {
+struct HeapTypeCaster {
   static constexpr auto name = pybind11::detail::_(T::python_type_name);
-
-  bool load(pybind11::handle src, bool convert) {
-    if (Py_TYPE(src.ptr()) != T::python_type) {
-      return false;
-    }
-    value = reinterpret_cast<T*>(src.ptr());
-    return true;
-  }
 
   operator T&() { return *value; }
 
@@ -117,9 +104,30 @@ struct StaticHeapTypeCaster {
   template <typename U>
   using cast_op_type = pybind11::detail::cast_op_type<U>;
 
- private:
+ protected:
   T* value = nullptr;
 };
+
+/// Base class for use in defining `load`-only specializations of
+/// `pybind11::detail::type_caster` for types defined using `DefineHeapType`.
+///
+/// For every heap type defined using `DefineHeapType<T>`, you should define a
+/// specialization of `pybind11::detail::type_caster<T>` that inherits from
+/// `StaticHeapTypeCaster<T>`: that allows you to use `T&` and `T*` as parameter
+/// types in pybind11-bound functions.
+template <typename T>
+struct StaticHeapTypeCaster : public HeapTypeCaster<T> {
+  bool load(pybind11::handle src, bool convert) {
+    if (Py_TYPE(src.ptr()) != T::python_type) {
+      return false;
+    }
+    this->value = reinterpret_cast<T*>(src.ptr());
+    return true;
+  }
+};
+
+/// Creates a Python "heap type" from the specified `spec`.
+PyTypeObject* DefineHeapType(PyType_Spec& spec);
 
 /// Creates a Python "heap type" from the specified `spec`.
 ///
@@ -144,10 +152,7 @@ template <typename T>
 pybind11::class_<T> DefineHeapType(PyType_Spec& spec) {
   spec.basicsize = sizeof(T);
   spec.name = T::python_type_name;
-  T::python_type = reinterpret_cast<PyTypeObject*>(PyType_FromSpec(&spec));
-  if (!T::python_type) {
-    throw pybind11::error_already_set();
-  }
+  T::python_type = DefineHeapType(spec);
   return pybind11::class_<T>(pybind11::reinterpret_borrow<pybind11::object>(
       pybind11::handle(reinterpret_cast<PyObject*>(T::python_type))));
 }

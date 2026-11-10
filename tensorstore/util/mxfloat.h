@@ -59,12 +59,10 @@ class MXFloat6Base : public float8_internal::Float8Base<Derived> {
  public:
   static constexpr int kBits = 6;
 
-  explicit operator bool() const { return (Base::rep() & 0x1F) != 0; }
+  constexpr explicit operator bool() const { return (Base::rep() & 0x1F) != 0; }
+  using Base::operator-;
   constexpr Derived operator-() const {
     return Derived::FromRep(Base::rep() ^ 0x20);
-  }
-  Derived operator-(const Derived& other) const {
-    return Base::operator-(other);
   }
 };
 
@@ -77,12 +75,10 @@ class MXFloat4Base : public float8_internal::Float8Base<Derived> {
  public:
   static constexpr int kBits = 4;
 
-  explicit operator bool() const { return (Base::rep() & 0x07) != 0; }
+  constexpr explicit operator bool() const { return (Base::rep() & 0x07) != 0; }
+  using Base::operator-;
   constexpr Derived operator-() const {
     return Derived::FromRep(Base::rep() ^ 0x08);
-  }
-  Derived operator-(const Derived& other) const {
-    return Base::operator-(other);
   }
 };
 
@@ -95,7 +91,7 @@ class Float6e2m3fn : public MXFloat6Base<Float6e2m3fn> {
 
  public:
   template <typename T, float8_internal::RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float6e2m3fn(T f8) : Float6e2m3fn(ConvertFrom(f8)) {}
+  constexpr explicit Float6e2m3fn(T f8) : Float6e2m3fn(ConvertFrom(f8)) {}
 };
 
 class Float6e3m2fn : public MXFloat6Base<Float6e3m2fn> {
@@ -107,7 +103,7 @@ class Float6e3m2fn : public MXFloat6Base<Float6e3m2fn> {
 
  public:
   template <typename T, float8_internal::RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float6e3m2fn(T f8) : Float6e3m2fn(ConvertFrom(f8)) {}
+  constexpr explicit Float6e3m2fn(T f8) : Float6e3m2fn(ConvertFrom(f8)) {}
 };
 
 class Float4e2m1fn : public MXFloat4Base<Float4e2m1fn> {
@@ -119,7 +115,7 @@ class Float4e2m1fn : public MXFloat4Base<Float4e2m1fn> {
 
  public:
   template <typename T, float8_internal::RequiresIsDerivedFromFloat8Base<T> = 0>
-  explicit Float4e2m1fn(T f8) : Float4e2m1fn(ConvertFrom(f8)) {}
+  constexpr explicit Float4e2m1fn(T f8) : Float4e2m1fn(ConvertFrom(f8)) {}
 };
 
 // Common properties for specializing std::numeric_limits.
@@ -278,28 +274,28 @@ struct numeric_limits_float4_e2m1fn : public numeric_limits_mxfloat_tpl<2, 1> {
   }
 };
 
-constexpr inline Float6e2m3fn abs(const Float6e2m3fn& a) {
+constexpr Float6e2m3fn abs(const Float6e2m3fn& a) {
   return Float6e2m3fn::FromRep(a.rep() & 0b0'11'111);
 }
 
-constexpr inline bool(isnan)(const Float6e2m3fn& a) { return false; }
+constexpr bool(isnan)(const Float6e2m3fn& a) { return false; }
 
-constexpr inline Float6e3m2fn abs(const Float6e3m2fn& a) {
+constexpr Float6e3m2fn abs(const Float6e3m2fn& a) {
   return Float6e3m2fn::FromRep(a.rep() & 0b0'111'11);
 }
-constexpr inline bool(isinf)(const Float6e2m3fn& a) { return false; }
+constexpr bool(isinf)(const Float6e2m3fn& a) { return false; }
 
-constexpr inline bool(isnan)(const Float6e3m2fn& a) { return false; }
+constexpr bool(isnan)(const Float6e3m2fn& a) { return false; }
 
-constexpr inline bool(isinf)(const Float6e3m2fn& a) { return false; }
+constexpr bool(isinf)(const Float6e3m2fn& a) { return false; }
 
-constexpr inline Float4e2m1fn abs(const Float4e2m1fn& a) {
+constexpr Float4e2m1fn abs(const Float4e2m1fn& a) {
   return Float4e2m1fn::FromRep(a.rep() & 0b0'11'1);
 }
 
-constexpr inline bool(isnan)(const Float4e2m1fn& a) { return false; }
+constexpr bool(isnan)(const Float4e2m1fn& a) { return false; }
 
-constexpr inline bool(isinf)(const Float4e2m1fn& a) { return false; }
+constexpr bool(isinf)(const Float4e2m1fn& a) { return false; }
 
 // Define traits required for floating point conversion.
 template <typename T, int E, int M>

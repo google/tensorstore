@@ -407,4 +407,30 @@ TEST(DownsampleArrayTest, MultipleBlocks) {
               Optional(tensorstore::MatchesArray(expected_downsampled)));
 }
 
+TEST(DownsampleArrayTest, MeanLowPrecisionFloat) {
+  using ::tensorstore::dtypes::bfloat16_t;
+  using ::tensorstore::dtypes::float4_e2m1fn_t;
+  using ::tensorstore::dtypes::float8_e4m3fn_t;
+  EXPECT_THAT(
+      DownsampleArray(
+          MakeArray<bfloat16_t>({bfloat16_t(1.0f), bfloat16_t(2.0f),
+                                 bfloat16_t(5.0f), bfloat16_t(7.0f)}),
+          span<const Index>({2}), DownsampleMethod::kMean),
+      Optional(MakeArray<bfloat16_t>({bfloat16_t(1.5f), bfloat16_t(6.0f)})));
+  EXPECT_THAT(
+      DownsampleArray(MakeArray<float8_e4m3fn_t>(
+                          {float8_e4m3fn_t(1.0f), float8_e4m3fn_t(2.0f),
+                           float8_e4m3fn_t(5.0f), float8_e4m3fn_t(7.0f)}),
+                      span<const Index>({2}), DownsampleMethod::kMean),
+      Optional(MakeArray<float8_e4m3fn_t>(
+          {float8_e4m3fn_t(1.5f), float8_e4m3fn_t(6.0f)})));
+  EXPECT_THAT(
+      DownsampleArray(MakeArray<float4_e2m1fn_t>(
+                          {float4_e2m1fn_t(1.0f), float4_e2m1fn_t(2.0f),
+                           float4_e2m1fn_t(2.0f), float4_e2m1fn_t(6.0f)}),
+                      span<const Index>({2}), DownsampleMethod::kMean),
+      Optional(MakeArray<float4_e2m1fn_t>(
+          {float4_e2m1fn_t(1.5f), float4_e2m1fn_t(4.0f)})));
+}
+
 }  // namespace

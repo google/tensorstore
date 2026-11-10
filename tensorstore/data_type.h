@@ -656,23 +656,6 @@ struct DataTypeOperations {
   };
 
   CompareEqualFunctions compare_equal[kNumEqualityComparisonKinds];
-
-  struct CanonicalConversionOperations {
-    // Function for converting to/from canonical data type.
-    //
-    // The `void*` pointer is a pointer to an `absl::Status` that may be set to
-    // an error status in the case of failure.
-    using ConvertFunction = ElementwiseFunction<2, void*>;
-    std::array<ConvertFunction, kNumDataTypeIds> convert;
-    std::array<DataTypeConversionFlags, kNumDataTypeIds> flags;
-  };
-
-  struct BidirectionalCanonicalConversionOperations {
-    CanonicalConversionOperations to;
-    CanonicalConversionOperations from;
-  };
-
-  const BidirectionalCanonicalConversionOperations* canonical_conversion;
 };
 
 /// Specifies a conversion between two data types.
@@ -1187,7 +1170,6 @@ constexpr internal::DataTypeOperations DataTypeOperationsImpl = {
          typename DataTypeElementwiseOperationsImpl<
              T>::CompareIdenticalScalar()},
     },
-    /*.canonical_conversion=*/nullptr,
 };
 
 template <typename T>

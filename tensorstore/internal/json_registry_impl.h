@@ -30,8 +30,8 @@
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_json_registry {
@@ -71,26 +71,22 @@ class JsonRegistryImpl {
     /// allocated pointer to `T`.
     Allocate allocate;
 
-    /// JSON binder, where `obj` is a non-null pointer to `T`, and `options` is
-    /// a pointer to `LoadOptions` or `SaveOptions` depending on the type of
-    /// `is_loading`.
-    poly::Poly<0, /*Copyable=*/false,
-               absl::Status(std::true_type is_loading, const void* options,
-                            const void* obj, ::nlohmann::json::object_t*) const,
-               absl::Status(std::false_type is_loading, const void* options,
-                            const void* obj, ::nlohmann::json::object_t*) const>
-        binder;
+    using ObjectBinder = absl::Status (*)(const void* options, const void* obj,
+                                          ::nlohmann::json::object_t* j_obj);
+
+    /// JSON binders for loading and saving `T`, where `obj` is a non-null
+    /// pointer to `Base`, and `options` is a pointer to `LoadOptions` or
+    /// `SaveOptions`.
+    ObjectBinder load;
+    ObjectBinder save;
   };
 
-  /// Registers an object type.
+  /// Registers an object type and any aliases.
   ///
-  /// Logs a fatal error if the id is already registered.
-  ///
-  /// If `alias==false`, logs a fatal error if the type is already
-  /// registered.
-  ///
-  /// If `alias==true`, does not register the type, only the id.
-  void Register(std::unique_ptr<Entry> entry, bool alias);
+  /// Logs a fatal error if the id or type is already registered.
+  void Register(std::string_view id, const std::type_info* type,
+                Entry::Allocate allocate, Entry::ObjectBinder load,
+                Entry::ObjectBinder save, span<const std::string_view> aliases);
 
   /// Initializes a `BasePtr` from a JSON representation of the object
   /// identifier.

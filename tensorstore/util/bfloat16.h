@@ -63,9 +63,9 @@ struct numeric_limits<::tensorstore::BFloat16>;
 
 namespace tensorstore {
 namespace internal {
-BFloat16 NumericFloat32ToBfloat16RoundNearestEven(float v);
-BFloat16 Float32ToBfloat16RoundNearestEven(float v);
-float Bfloat16ToFloat(BFloat16 v);
+constexpr BFloat16 NumericFloat32ToBfloat16RoundNearestEven(float v);
+constexpr BFloat16 Float32ToBfloat16RoundNearestEven(float v);
+constexpr float Bfloat16ToFloat(BFloat16 v);
 }  // namespace internal
 
 /// Storage-only bfloat16 type.
@@ -86,7 +86,7 @@ class BFloat16 {
   /// \id convert
   template <typename T,
             typename = std::enable_if_t<std::is_convertible_v<T, float>>>
-  explicit BFloat16(T x) {
+  constexpr explicit BFloat16(T x) : rep_(0) {
     if constexpr (std::is_same_v<T, bool>) {
       rep_ = static_cast<uint16_t>(x) * 0x3f80;
     } else if constexpr (std::numeric_limits<T>::is_integer) {
@@ -99,27 +99,32 @@ class BFloat16 {
   }
 
   /// Lossless conversion to `float`.
-  operator float() const { return internal::Bfloat16ToFloat(*this); }
+  constexpr operator float() const { return internal::Bfloat16ToFloat(*this); }
 
   /// Possibly lossy conversion from `float`.
   ///
   /// \id float
   /// \membergroup Assignment operators
-  BFloat16& operator=(float v) { return *this = static_cast<BFloat16>(v); }
+  TENSORSTORE_BFLOATINLINE constexpr BFloat16& operator=(float v) {
+    return *this = static_cast<BFloat16>(v);
+  }
 
   /// Bool assignment.
   ///
   /// \id bool
   /// \membergroup Assignment operators
-  BFloat16& operator=(bool v) { return *this = static_cast<BFloat16>(v); }
+  TENSORSTORE_BFLOATINLINE constexpr BFloat16& operator=(bool v) {
+    return *this = static_cast<BFloat16>(v);
+  }
 
   /// Possibly lossy conversion from any integer type.
   ///
   /// \id integer
   /// \membergroup Assignment operators
   template <typename T>
-  std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16&> operator=(
-      T v) {  // NOLINT: misc-unconventional-assign-operator
+  TENSORSTORE_BFLOATINLINE constexpr std::enable_if_t<
+      std::numeric_limits<T>::is_integer, BFloat16&>
+  operator=(T v) {  // NOLINT: misc-unconventional-assign-operator
     return *this = static_cast<BFloat16>(v);
   }
 
@@ -129,34 +134,34 @@ class BFloat16 {
   /// `BFloat16` parameter and one integer parameter, we provide an
   /// implementation that converts the result back to `BFloat16` for
   /// consistency with the builtin floating point operations.
-#define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(OP)              \
-  friend TENSORSTORE_BFLOATINLINE BFloat16 operator OP(BFloat16 a,   \
-                                                       BFloat16 b) { \
-    return BFloat16(static_cast<float>(a) OP static_cast<float>(b)); \
-  }                                                                  \
-  template <typename T>                                              \
-  friend TENSORSTORE_BFLOATINLINE                                    \
-      std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16> \
-      operator OP(BFloat16 a, T b) {                                 \
-    return BFloat16(static_cast<float>(a) OP b);                     \
-  }                                                                  \
-  template <typename T>                                              \
-  friend TENSORSTORE_BFLOATINLINE                                    \
-      std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16> \
-      operator OP(T a, BFloat16 b) {                                 \
-    return BFloat16(a OP static_cast<float>(b));                     \
-  }                                                                  \
+#define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(OP)                        \
+  friend TENSORSTORE_BFLOATINLINE constexpr BFloat16 operator OP(BFloat16 a,   \
+                                                                 BFloat16 b) { \
+    return BFloat16(static_cast<float>(a) OP static_cast<float>(b));           \
+  }                                                                            \
+  template <typename T>                                                        \
+  friend TENSORSTORE_BFLOATINLINE constexpr std::enable_if_t<                  \
+      std::numeric_limits<T>::is_integer, BFloat16>                            \
+  operator OP(BFloat16 a, T b) {                                               \
+    return BFloat16(static_cast<float>(a) OP b);                               \
+  }                                                                            \
+  template <typename T>                                                        \
+  friend TENSORSTORE_BFLOATINLINE constexpr std::enable_if_t<                  \
+      std::numeric_limits<T>::is_integer, BFloat16>                            \
+  operator OP(T a, BFloat16 b) {                                               \
+    return BFloat16(a OP static_cast<float>(b));                               \
+  }                                                                            \
   /**/
 
 #define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(OP)           \
-  friend TENSORSTORE_BFLOATINLINE BFloat16& operator OP## =              \
+  friend TENSORSTORE_BFLOATINLINE constexpr BFloat16& operator OP## =    \
       (BFloat16 & a, BFloat16 b) {                                       \
     return a = BFloat16(static_cast<float>(a) OP static_cast<float>(b)); \
   }                                                                      \
   template <typename T>                                                  \
-  friend TENSORSTORE_BFLOATINLINE                                        \
-      std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16&>    \
-      operator OP## = (BFloat16 & a, T b) {                              \
+  friend TENSORSTORE_BFLOATINLINE constexpr std::enable_if_t<            \
+      std::numeric_limits<T>::is_integer, BFloat16&>                     \
+  operator OP## = (BFloat16 & a, T b) {                                  \
     return a = BFloat16(static_cast<float>(a) OP b);                     \
   }                                                                      \
   /**/
@@ -210,23 +215,24 @@ class BFloat16 {
   ///
   /// \membergroup Arithmetic operators
   /// \id negate
-  TENSORSTORE_BFLOATINLINE friend BFloat16 operator-(BFloat16 a) {
-    BFloat16 result;
-    result.rep_ = a.rep_ ^ 0x8000;
-    return result;
+  TENSORSTORE_BFLOATINLINE friend constexpr BFloat16 operator-(BFloat16 a) {
+    return BFloat16(bitcast_construct_t{},
+                    static_cast<uint16_t>(a.rep_ ^ 0x8000));
   }
 
   /// Unary plus.
   ///
   /// \membergroup Arithmetic operators
   /// \id unary
-  TENSORSTORE_BFLOATINLINE friend BFloat16 operator+(BFloat16 a) { return a; }
+  TENSORSTORE_BFLOATINLINE friend constexpr BFloat16 operator+(BFloat16 a) {
+    return a;
+  }
 
   /// Pre-increment.
   ///
   /// \id pre
   /// \membergroup Arithmetic operators
-  friend BFloat16 operator++(BFloat16& a) {
+  friend TENSORSTORE_BFLOATINLINE constexpr BFloat16 operator++(BFloat16& a) {
     a += BFloat16(1);
     return a;
   }
@@ -235,7 +241,7 @@ class BFloat16 {
   ///
   /// \membergroup Arithmetic operators
   /// \id pre
-  friend BFloat16 operator--(BFloat16& a) {
+  friend TENSORSTORE_BFLOATINLINE constexpr BFloat16 operator--(BFloat16& a) {
     a -= BFloat16(1);
     return a;
   }
@@ -244,7 +250,8 @@ class BFloat16 {
   ///
   /// \membergroup Arithmetic operators
   /// \id post
-  friend BFloat16 operator++(BFloat16& a, int) {
+  friend TENSORSTORE_BFLOATINLINE constexpr BFloat16 operator++(BFloat16& a,
+                                                                int) {
     BFloat16 original_value = a;
     ++a;
     return original_value;
@@ -254,7 +261,8 @@ class BFloat16 {
   ///
   /// \membergroup Arithmetic operators
   /// \id post
-  friend BFloat16 operator--(BFloat16& a, int) {
+  friend TENSORSTORE_BFLOATINLINE constexpr BFloat16 operator--(BFloat16& a,
+                                                                int) {
     BFloat16 original_value = a;
     --a;
     return original_value;
@@ -290,7 +298,7 @@ class BFloat16 {
 
   // Workaround for non-constexpr bit_cast implementation.
   struct bitcast_construct_t {};
-  explicit constexpr BFloat16(bitcast_construct_t, uint16_t rep) : rep_(rep) {}
+  constexpr explicit BFloat16(bitcast_construct_t, uint16_t rep) : rep_(rep) {}
   uint16_t rep_;
 };
 
@@ -298,26 +306,32 @@ class BFloat16 {
 ///
 /// \membergroup Classification functions
 /// \relates BFloat16
-inline bool isinf(BFloat16 x) { return std::isinf(static_cast<float>(x)); }
+constexpr bool isinf(BFloat16 x) {
+  return (absl::bit_cast<uint16_t>(x) & 0x7fffu) == 0x7f80u;
+}
 
 /// Returns `true` if `x` is negative.
 ///
 /// \relates BFloat16
 /// \membergroup Floating-point manipulation functions
-inline bool signbit(BFloat16 x) { return std::signbit(static_cast<float>(x)); }
+constexpr bool signbit(BFloat16 x) {
+  return (absl::bit_cast<uint16_t>(x) & 0x8000u) != 0;
+}
 
 /// Returns `true` if `x` is NaN.
 ///
 /// \membergroup Classification functions
 /// \relates BFloat16
-inline bool isnan(BFloat16 x) { return std::isnan(static_cast<float>(x)); }
+constexpr bool isnan(BFloat16 x) {
+  return (absl::bit_cast<uint16_t>(x) & 0x7fffu) > 0x7f80u;
+}
 
 /// Returns `true` if `x` is finite.
 ///
 /// \membergroup Classification functions
 /// \relates BFloat16
-inline bool isfinite(BFloat16 x) {
-  return std::isfinite(static_cast<float>(x));
+constexpr bool isfinite(BFloat16 x) {
+  return (absl::bit_cast<uint16_t>(x) & 0x7f80u) != 0x7f80u;
 }
 
 /// Returns the absolute value of `x`.
@@ -325,9 +339,9 @@ inline bool isfinite(BFloat16 x) {
 /// \membergroup Basic operations
 /// \relates BFloat16
 /// \id bfloat16
-inline BFloat16 abs(BFloat16 x) {
-  x.rep_ &= 0x7fff;
-  return x;
+constexpr BFloat16 abs(BFloat16 x) {
+  return BFloat16(BFloat16::bitcast_construct_t{},
+                  static_cast<uint16_t>(absl::bit_cast<uint16_t>(x) & 0x7fffu));
 }
 
 /// Computes :math:`e` raised to the given power (:math:`e^x`).
@@ -618,12 +632,16 @@ inline BFloat16 nextafter(BFloat16 from, BFloat16 to) {
 
 namespace internal {
 
-inline uint16_t GetFloat32High16(float v) {
+constexpr bool constexpr_is_nan(float v) {
+  return (absl::bit_cast<uint32_t>(v) & 0x7fffffffu) > 0x7f800000u;
+}
+
+constexpr uint16_t GetFloat32High16(float v) {
   return static_cast<uint16_t>(absl::bit_cast<uint32_t>(v) >> 16);
 }
 
 /// Converts float32 -> bfloat16, rounding towards zero (truncating).
-inline BFloat16 Float32ToBfloat16Truncate(float v) {
+constexpr BFloat16 Float32ToBfloat16Truncate(float v) {
   // IEEE 764 binary32 floating point representation:
   //
   // Exponent  | Fraction = 0 | Fraction != 0
@@ -639,7 +657,7 @@ inline BFloat16 Float32ToBfloat16Truncate(float v) {
   // However, if the exponent is equal to `0xff`, truncating the low 16 bits of
   // the fraction may convert a NaN to infinity.
   uint32_t bits = absl::bit_cast<uint32_t>(v);
-  if (std::isnan(v)) {
+  if (constexpr_is_nan(v)) {
     // Set bit 21 (second to highest fraction bit) to 1, to ensure the truncated
     // fraction still indicates a NaN.  This preserves the sign and also
     // preserves the high bit of the fraction (quiet/signalling NaN bit).
@@ -654,8 +672,8 @@ inline BFloat16 Float32ToBfloat16Truncate(float v) {
 /// The input must not be NaN.  This is more efficient than the general
 /// `Float32ToBfloat16RoundNearestEven` conversion in the case that the input is
 /// known not to be NaN (e.g. for integer conversion by way of float).
-inline BFloat16 NumericFloat32ToBfloat16RoundNearestEven(float v) {
-  assert(!std::isnan(v));
+constexpr BFloat16 NumericFloat32ToBfloat16RoundNearestEven(float v) {
+  assert(!constexpr_is_nan(v));
   // Fast rounding algorithm that rounds a half value to nearest even. This
   // reduces expected error when we convert a large number of floats. Here
   // is how it works:
@@ -812,8 +830,8 @@ inline BFloat16 NumericFloat32ToBfloat16RoundNearestEven(float v) {
 
 /// Converts float32 -> bfloat16, rounding to the nearest, or to even in the
 /// case of a tie.
-inline BFloat16 Float32ToBfloat16RoundNearestEven(float v) {
-  if (std::isnan(v)) {
+constexpr BFloat16 Float32ToBfloat16RoundNearestEven(float v) {
+  if (constexpr_is_nan(v)) {
     return tensorstore::BFloat16(
         tensorstore::BFloat16::bitcast_construct_t{},
         static_cast<uint16_t>((absl::bit_cast<uint32_t>(v) | 0x00200000u) >>
@@ -822,7 +840,7 @@ inline BFloat16 Float32ToBfloat16RoundNearestEven(float v) {
   return NumericFloat32ToBfloat16RoundNearestEven(v);
 }
 
-inline float Bfloat16ToFloat(BFloat16 v) {
+constexpr float Bfloat16ToFloat(BFloat16 v) {
   return absl::bit_cast<float>(
       static_cast<uint32_t>(absl::bit_cast<uint16_t>(v)) << 16);
 }

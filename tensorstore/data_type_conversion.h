@@ -15,23 +15,16 @@
 #ifndef TENSORSTORE_DATA_TYPE_CONVERSION_H_
 #define TENSORSTORE_DATA_TYPE_CONVERSION_H_
 
-#include <array>
+#include <stdint.h>
+
 #include <complex>
 #include <limits>
 #include <type_traits>
 
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
-
-template <typename From, typename To>
-struct ConvertDataType {
-  void operator()(const From* from, To* to, void* arg) const {
-    *to = static_cast<To>(*from);
-  }
-};
 
 template <typename From, typename To>
 struct DataTypeConversionTraits {
@@ -77,12 +70,6 @@ constexpr inline bool
 
 namespace internal {
 
-/// Outer array is indexed by source type.  Inner array is indexed by target
-/// type.
-extern const std::array<DataTypeOperations::CanonicalConversionOperations,
-                        kNumDataTypeIds>
-    canonical_data_type_conversions;
-
 /// Returns the data type converter.
 ///
 /// If `from == to`, `flags` is set to
@@ -116,49 +103,29 @@ DataTypeConversionLookupResult GetDataTypeConverter(DataType from, DataType to);
 Result<DataTypeConversionLookupResult> GetDataTypeConverterOrError(
     DataType from, DataType to, DataTypeConversionFlags required_flags = {});
 
+/// Converts a floating-point value to an integer data type `T` (`int8_t` ..
+/// `uint64_t`, `int2_t`, `int4_t`), mapping NaN to 0 and clamping out-of-range
+/// values to `[lowest(), max()]` so that conversion is well-defined for all
+/// inputs (including in `constexpr` evaluation).
+template <typename T, typename From>
+constexpr T SaturatedFloatToInt(From x) {
+  if constexpr (!std::is_integral_v<T> && std::numeric_limits<T>::is_integer) {
+    return static_cast<T>(SaturatedFloatToInt<int8_t>(x));
+  } else {
+    static_assert(std::is_integral_v<T> && !std::is_same_v<T, bool>);
+    const float f = static_cast<float>(x);
+    if (constexpr_is_nan(f)) return T{0};
+    if (f >= static_cast<float>(std::numeric_limits<T>::max())) {
+      return std::numeric_limits<T>::max();
+    }
+    if (f <= static_cast<float>(std::numeric_limits<T>::lowest())) {
+      return std::numeric_limits<T>::lowest();
+    }
+    return static_cast<T>(f);
+  }
+}
+
 }  // namespace internal
-
-namespace internal_data_type {
-
-template <typename From, typename To>
-std::enable_if_t<((DataTypeConversionTraits<From, To>::flags &
-                   (DataTypeConversionFlags::kSupported |
-                    DataTypeConversionFlags::kCanReinterpretCast)) ==
-                      DataTypeConversionFlags::kSupported &&
-                  !std::is_same_v<From, To>),
-                 internal::ElementwiseFunction<2, void*>>
-GetConvertFunction() {
-  return internal::SimpleElementwiseFunction<
-      ConvertDataType<From, To>(From, const To), void*>();
-}
-
-template <typename From, typename To>
-std::enable_if_t<((DataTypeConversionTraits<From, To>::flags &
-                   (DataTypeConversionFlags::kSupported |
-                    DataTypeConversionFlags::kCanReinterpretCast)) !=
-                      DataTypeConversionFlags::kSupported ||
-                  std::is_same_v<From, To>),
-                 internal::ElementwiseFunction<2, void*>>
-GetConvertFunction() {
-  return {};
-}
-
-template <typename From>
-constexpr internal::DataTypeOperations::CanonicalConversionOperations
-GetConvertToCanonicalOperations() {
-  return {
-      /*.convert=*/MapCanonicalDataTypes([](auto dtype) {
-        using X = typename decltype(dtype)::Element;
-        return GetConvertFunction<From, X>();
-      }),
-      /*.flags=*/MapCanonicalDataTypes([](auto dtype) {
-        using X = typename decltype(dtype)::Element;
-        return DataTypeConversionTraits<From, X>::flags;
-      }),
-  };
-}
-
-}  // namespace internal_data_type
 
 // Define conversion traits between canonical data types.
 
@@ -201,10 +168,17 @@ struct FloatFloatDataTypeConversionTraits {
       // float -> float conversions are always supported.
       DataTypeConversionFlags::kSupported |
       // `kSafeAndImplicit` if there is no reduction in mantissa or exponent
-      // bits.
+      // bits. For unsigned formats with no subnormals (such as E8M0), the
+      // minimum value 2^(min_exponent - 1) is still exact in `To` if it fits
+      // in `To`'s subnormal range.
       ((std::numeric_limits<From>::digits <= std::numeric_limits<To>::digits &&
-        std::numeric_limits<From>::min_exponent >=
-            std::numeric_limits<To>::min_exponent &&
+        (std::numeric_limits<From>::min_exponent >=
+             std::numeric_limits<To>::min_exponent ||
+         (!std::numeric_limits<From>::is_signed &&
+          std::numeric_limits<From>::min_exponent -
+                  std::numeric_limits<From>::digits >=
+              std::numeric_limits<To>::min_exponent -
+                  std::numeric_limits<To>::digits)) &&
         std::numeric_limits<From>::max_exponent <=
             std::numeric_limits<To>::max_exponent)
            ? DataTypeConversionFlags::kSafeAndImplicit

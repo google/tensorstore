@@ -20,6 +20,14 @@
 #ifndef TENSORSTORE_CPP_DOC_GENERATION
 #define TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND ABSL_ATTRIBUTE_LIFETIME_BOUND
 #define TENSORSTORE_NODISCARD [[nodiscard]]
+
+#if defined(__has_attribute) && !defined(_WIN32)
+#if __has_attribute(visibility)
+#define TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN \
+  __attribute__((visibility("hidden")))
+#endif
+#endif  // defined(__has_attribute) && !defined(_WIN32)
+
 #else
 // Expand to nothing to avoid cluttering the documentation and because the
 // Sphinx C++ parser chokes on it.
@@ -31,6 +39,10 @@
 #define absl_nullable
 #undef absl_nullability_unknown
 #define absl_nullability_unknown
+#endif
+
+#ifndef TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN
+#define TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN
 #endif
 
 // When defining a conditionally-explicit constructor, this may be used on the
@@ -67,7 +79,7 @@
 //       Foo(U &&value);
 //     };
 namespace tensorstore {
-constexpr inline bool ExplicitRequires(bool value) { return value; }
+constexpr bool ExplicitRequires(bool value) { return value; }
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_META_ATTRIBUTES_H_
