@@ -38,6 +38,7 @@
 #include <stddef.h>
 
 #include <cassert>
+#include <cstring>
 #include <new>
 #include <type_traits>
 #include <typeinfo>
@@ -122,6 +123,24 @@ struct InlineStorageOps {
   }
 };
 
+/// Shared out-of-line relocation/copy helpers for heap-allocated and
+/// trivially-copyable inline `Poly` storage.
+inline void HeapRelocate(void* dest, void* source) {
+  void*& s = Launder<void*>(source);
+  Launder<void*>(dest) = s;
+  s = nullptr;
+}
+
+template <size_t N>
+void TrivialInlineRelocate(void* dest, void* source) {
+  std::memcpy(dest, source, N);
+}
+
+template <size_t N>
+void TrivialInlineCopy(void* dest, const void* source) {
+  std::memcpy(dest, source, N);
+}
+
 /// Defines construct, destroy, relocate, and copy operations for an object
 /// type `Self` stored in a PointerAndSize structure.
 ///
@@ -148,11 +167,7 @@ struct HeapStorageOps {
     Launder<Self*>(dest) = new Self(*Launder<Self*>(source));
   }
 
-  static void Relocate(void* dest, void* source) {
-    Self*& s = Launder<Self*>(source);
-    Launder<Self*>(dest) = s;
-    s = nullptr;
-  }
+  static void Relocate(void* dest, void* source) { HeapRelocate(dest, source); }
 };
 
 /// Base class for vtables.
@@ -219,7 +234,16 @@ struct NullVTable {
 ///     otherwise.
 template <typename Ops>
 constexpr VTableBase::Copy GetCopyImpl(std::true_type copyable) {
-  return &Ops::Copy;
+  using T = typename Ops::Type;
+  if constexpr (Ops::UsesInlineStorage() && std::is_trivially_copyable_v<T>) {
+    if constexpr (std::is_empty_v<T>) {
+      return &NullVTable::Copy;
+    } else {
+      return &TrivialInlineCopy<sizeof(T)>;
+    }
+  } else {
+    return &Ops::Copy;
+  }
 }
 
 /// Overload that handles the non-copyable case, and avoids attempting to
@@ -229,12 +253,39 @@ constexpr VTableBase::Copy GetCopyImpl(std::false_type copyable) {
   return nullptr;
 }
 
+template <typename Ops>
+constexpr VTableBase::Destroy GetDestroyImpl() {
+  using T = typename Ops::Type;
+  if constexpr (Ops::UsesInlineStorage() &&
+                std::is_trivially_destructible_v<T>) {
+    return &NullVTable::Destroy;
+  } else {
+    return &Ops::Destroy;
+  }
+}
+
+template <typename Ops>
+constexpr VTableBase::Relocate GetRelocateImpl() {
+  using T = typename Ops::Type;
+  if constexpr (!Ops::UsesInlineStorage()) {
+    return &HeapRelocate;
+  } else if constexpr (std::is_trivially_copyable_v<T>) {
+    if constexpr (std::is_empty_v<T>) {
+      return &NullVTable::Relocate;
+    } else {
+      return &TrivialInlineRelocate<sizeof(T)>;
+    }
+  } else {
+    return &Ops::Relocate;
+  }
+}
+
 template <typename Ops, bool Copyable>
 constexpr VTableBase GetVTableBase() {
   return {
       /*.type=*/GetTypeId<typename Ops::Type>,
-      /*.destroy=*/&Ops::Destroy,
-      /*.relocate=*/&Ops::Relocate,
+      /*.destroy=*/GetDestroyImpl<Ops>(),
+      /*.relocate=*/GetRelocateImpl<Ops>(),
       /*.copy=*/GetCopyImpl<Ops>(std::integral_constant<bool, Copyable>{}),
   };
 }

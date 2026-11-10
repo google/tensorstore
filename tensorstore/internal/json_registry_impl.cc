@@ -43,19 +43,36 @@ absl::Status GetJsonUnregisteredError(std::string_view id) {
       absl::StrFormat("%v is not registered", QuoteString(id)));
 }
 
-void JsonRegistryImpl::Register(std::unique_ptr<Entry> entry, bool alias) {
+void JsonRegistryImpl::Register(std::string_view id, const std::type_info* type,
+                                Entry::Allocate allocate,
+                                Entry::ObjectBinder load,
+                                Entry::ObjectBinder save,
+                                span<const std::string_view> aliases) {
   absl::WriterMutexLock lock(mutex_);
-  if (!alias) {
-    auto [it, inserted] = entries_by_type_.insert(entry.get());
-    if (!inserted) {
-      ABSL_LOG(FATAL) << (*it)->type->name() << " already registered";
+  auto register_id = [&](std::string_view id_to_register,
+                         bool alias) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    auto entry = std::make_unique<Entry>();
+    entry->id = std::string(id_to_register);
+    entry->type = type;
+    entry->allocate = allocate;
+    entry->load = load;
+    entry->save = save;
+    if (!alias) {
+      auto [it, inserted] = entries_by_type_.insert(entry.get());
+      if (!inserted) {
+        ABSL_LOG(FATAL) << (*it)->type->name() << " already registered";
+      }
     }
-  }
-  {
-    auto [it, inserted] = entries_.insert(std::move(entry));
-    if (!inserted) {
-      ABSL_LOG(FATAL) << QuoteString((*it)->id) << " already registered";
+    {
+      auto [it, inserted] = entries_.insert(std::move(entry));
+      if (!inserted) {
+        ABSL_LOG(FATAL) << QuoteString((*it)->id) << " already registered";
+      }
     }
+  };
+  register_id(id, false);
+  for (std::string_view alias : aliases) {
+    register_id(alias, true);
   }
 }
 
@@ -108,7 +125,7 @@ absl::Status JsonRegistryImpl::LoadRegisteredObject(
     }
   }
   if (entry) {
-    return entry->binder(std::true_type{}, options, obj, j_obj);
+    return entry->load(options, obj, j_obj);
   }
   return absl::OkStatus();
 }
@@ -124,7 +141,7 @@ absl::Status JsonRegistryImpl::SaveRegisteredObject(
     }
   }
   if (entry) {
-    return entry->binder(std::false_type{}, options, obj, j_obj);
+    return entry->save(options, obj, j_obj);
   }
   return absl::OkStatus();
 }

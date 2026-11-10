@@ -32,6 +32,7 @@
 #include <typeindex>
 #include <utility>
 
+#include "absl/base/no_destructor.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
@@ -147,31 +148,25 @@ class JsonRegistry {
   void Register(std::string_view id, Binder binder,
                 tensorstore::span<const std::string_view> aliases = {}) {
     static_assert(std::is_base_of_v<Base, T>);
-    auto register_id = [&](std::string_view id_to_register, bool alias) {
-      auto entry =
-          std::make_unique<internal_json_registry::JsonRegistryImpl::Entry>();
-      entry->id = std::string(id_to_register);
-      entry->type = &typeid(T);
-      entry->allocate =
-          +[](void* obj) { static_cast<BasePtr*>(obj)->reset(new T); };
-      entry->binder = [binder](
-                          auto is_loading, const void* options, const void* obj,
-                          ::nlohmann::json::object_t* j_obj) -> absl::Status {
-        using Options = std::conditional_t<decltype(is_loading)::value,
-                                           LoadOptions, SaveOptions>;
-        using Obj = std::conditional_t<decltype(is_loading)::value, T, const T>;
-        return binder(is_loading, *static_cast<const Options*>(options),
-                      const_cast<Obj*>(static_cast<const Obj*>(
-                          static_cast<const Base*>(obj))),
-                      j_obj);
-      };
-      impl_.Register(std::move(entry), alias);
-    };
-
-    register_id(id, false);
-    for (auto alias : aliases) {
-      register_id(alias, true);
-    }
+    static const absl::NoDestructor<Binder> static_binder(std::move(binder));
+    impl_.Register(
+        id, &typeid(T),
+        +[](void* obj) { static_cast<BasePtr*>(obj)->reset(new T); },
+        +[](const void* options, const void* obj,
+            ::nlohmann::json::object_t* j_obj) -> absl::Status {
+          return (*static_binder)(
+              std::true_type{}, *static_cast<const LoadOptions*>(options),
+              const_cast<T*>(
+                  static_cast<const T*>(static_cast<const Base*>(obj))),
+              j_obj);
+        },
+        +[](const void* options, const void* obj,
+            ::nlohmann::json::object_t* j_obj) -> absl::Status {
+          return (*static_binder)(
+              std::false_type{}, *static_cast<const SaveOptions*>(options),
+              static_cast<const T*>(static_cast<const Base*>(obj)), j_obj);
+        },
+        aliases);
   }
 
  private:
