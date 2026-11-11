@@ -29,6 +29,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/array/array.h"
@@ -602,6 +603,106 @@ TEST(DownsampleTest, ReadChunkWithIndexTransform) {
     // `PropagateIndexTransformDownsampling` handles index arrays.
     EXPECT_EQ(MakeArray<float>({4.5, 12, 14.666666666666666}), target_array);
   }
+}
+
+#if 0
+// Tests reading a chunk where `IndexSlice` / `IndexArraySlice` on a downsampled
+// dimension eliminates the target dimension (`target_rank == 1 < base_rank ==
+// 2`), and the selected output index (`1`) maps to a clipped boundary window
+// `[2, 3)` of extent 1 in the base domain.
+//
+// Aborts at HEAD with `assert(target_rank == base_domain.rank())` at
+// `downsample_nditerable.cc:1315` because `DownsampleNDIterable` treats any
+// dimension with `base_domain.shape()[i] == 1` as a non-downsampled dimension
+// (`has_downsample_dim == false`) and returns the untransformed rank-2
+// `base_iterable` instead of truncating the synthetic dimension to
+// `target_rank`.
+TEST(DownsampleTest, ReadChunkIndexSlicedToClippedExtent1Window) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::FromArray(MakeArray<float>({{1, 2}, {3, 4}, {5, 6}})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto downsampled,
+      tensorstore::Downsample(store, {2, 1}, DownsampleMethod::kMean));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto chunks,
+                                   CollectReadChunks(downsampled).result());
+  ASSERT_EQ(chunks.size(), 1);
+  auto& entry = chunks[0];
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto slice_transform, entry.second | tensorstore::Dims(0).IndexSlice(1));
+  auto row_target = tensorstore::AllocateArray<float>({2});
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::CopyReadChunk(
+      entry.first.impl, slice_transform,
+      tensorstore::TransformedArray(row_target)));
+  EXPECT_EQ(row_target, MakeArray<float>({5.0f, 6.0f}));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto idx_transform, entry.second | tensorstore::Dims(0).IndexArraySlice(
+                                             MakeArray<Index>({1, 1})));
+  auto idx_target = tensorstore::AllocateArray<float>({2, 2});
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::CopyReadChunk(
+      entry.first.impl, idx_transform,
+      tensorstore::TransformedArray(idx_target)));
+  EXPECT_EQ(idx_target, MakeArray<float>({{5.0f, 6.0f}, {5.0f, 6.0f}}));
+}
+
+// Tests reading a chunk from a 1-D extent-1 store downsampled by factor 3 and
+// `IndexSlice`d to a 0-D scalar (`target_rank == 0 < base_rank == 1`).
+//
+// Aborts at HEAD with `assert(target_rank == base_domain.rank())` at
+// `downsample_nditerable.cc:1315` for the same reason as
+// `ReadChunkIndexSlicedToClippedExtent1Window`.
+TEST(DownsampleTest, ReadChunkIndexSlicedExtent1StoreToScalar) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store_1d, tensorstore::FromArray(MakeArray<float>({42.0f})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto downsampled_1d,
+      tensorstore::Downsample(store_1d, {3}, DownsampleMethod::kMean));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto chunks,
+                                   CollectReadChunks(downsampled_1d).result());
+  ASSERT_EQ(chunks.size(), 1);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto scalar_transform,
+      chunks[0].second | tensorstore::Dims(0).IndexSlice(0));
+  auto scalar_target = tensorstore::MakeScalarArray<float>(0.0f);
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::CopyReadChunk(
+      chunks[0].first.impl, scalar_transform,
+      tensorstore::TransformedArray(scalar_target)));
+  EXPECT_EQ(scalar_target, tensorstore::MakeScalarArray<float>(42.0f));
+}
+#endif
+
+// Tests reading a chunk from a Fortran-order `4 x 4` store downsampled by
+// `{2, 2}` and jointly `IndexArraySlice`d across both dimensions into a 1-D
+// target (`target_rank == 1 < base_rank == 3`), where
+// `PropagateIndexTransformDownsampling` appends two synthetic downsampled
+// dimensions whose base memory order follows Fortran layout.
+TEST(DownsampleTest, ReadChunkIndexArraySlicedFortranOrder) {
+  auto fortran_arr =
+      tensorstore::AllocateArray<float>({4, 4}, tensorstore::fortran_order);
+  for (Index i = 0; i < 4; ++i) {
+    for (Index j = 0; j < 4; ++j) {
+      fortran_arr(i, j) = static_cast<float>(i * 10 + j);
+    }
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_f,
+                                   tensorstore::FromArray(fortran_arr));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto downsampled_f,
+      tensorstore::Downsample(store_f, {2, 2}, DownsampleMethod::kMean));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto chunks,
+                                   CollectReadChunks(downsampled_f).result());
+  ASSERT_EQ(chunks.size(), 1);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      chunks[0].second |
+          tensorstore::Dims(0, 1).IndexArraySlice(MakeArray<Index>({0, 1}),
+                                                  MakeArray<Index>({1, 0})));
+  auto target = tensorstore::AllocateArray<float>({2});
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::CopyReadChunk(
+      chunks[0].first.impl, transform, tensorstore::TransformedArray(target)));
+  EXPECT_EQ(target, MakeArray<float>({7.5f, 25.5f}));
 }
 
 // Tests that an error from the base `NDIterable` is handled correctly.
