@@ -111,6 +111,35 @@ struct IndexDomainLike {
   IndexDomain<> value;
 };
 
+/// Out-of-line dimension-op and subscript helpers on dynamic-rank
+/// `IndexTransform<>` (translating errors via `ValueOrThrow`) so indexable
+/// pybind11 bindings emit thin forwarding wrappers rather than duplicating
+/// buffer setup, GIL release, and status translation per bound class.
+IndexTransform<> ApplyOpToAllDims(IndexTransform<> transform,
+                                  const PythonTranslateOp& op,
+                                  bool domain_only);
+IndexTransform<> ApplyOpToAllDims(IndexTransform<> transform,
+                                  const PythonLabelOp& op, bool domain_only);
+IndexTransform<> ApplyOpToAllDims(IndexTransform<> transform,
+                                  const PythonChangeImplicitStateOp& op,
+                                  bool domain_only);
+
+IndexTransform<> ApplyTransposeToDynamic(
+    IndexTransform<> transform,
+    const std::optional<DimensionSelectionLike>& axes, bool domain_only);
+
+IndexTransform<> ApplyIndexTransformSubscript(IndexTransform<> transform,
+                                              IndexTransform<> other_transform);
+
+IndexTransform<> ApplyIndexDomainSubscript(IndexTransform<> transform,
+                                           IndexDomain<> other_domain);
+
+IndexTransform<> ApplyDimExpressionSubscript(IndexTransform<> transform,
+                                             const PythonDimExpression& expr);
+
+IndexTransform<> ApplyNumpyIndexingSpecSubscript(IndexTransform<> transform,
+                                                 const NumpyIndexingSpec& spec);
+
 template <size_t NumAssign>
 struct IndexTransformOperationDocstrings {
   NumpyIndexingMethodDocstrings<NumAssign> numpy_indexing;
@@ -184,16 +213,9 @@ void DefineIndexTransformOrDomainOperations(
   using ConstHandle = with_handle<const absl::remove_cvref_t<Self>&>;
 
   auto apply_op = [get_transform, apply_transform](const Self& self,
-                                                   auto&& op) {
-    IndexTransform<> transform = get_transform(self);
-    const DimensionIndex rank = transform.input_rank();
-    DimensionIndexBuffer dims(rank);
-    for (DimensionIndex i = 0; i < rank; ++i) {
-      dims[i] = i;
-    }
-    return apply_transform(self,
-                           ValueOrThrow(op.Apply(std::move(transform), &dims,
-                                                 /*domain_only=*/DomainOnly)));
+                                                   const auto& op) {
+    return apply_transform(
+        self, ApplyOpToAllDims(get_transform(self), op, DomainOnly));
   };
 
   DefineTranslateToOp<WithLocking, Self>(*cls, apply_op, R"(
@@ -316,20 +338,9 @@ Group:
       [get_transform, apply_transform](
           ConstHandle self, std::optional<DimensionSelectionLike> axes) {
         MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
-        IndexTransform<> transform = get_transform(self.value);
-        if (!axes.has_value()) {
-          transform =
-              internal_index_space::TransformAccess::Make<IndexTransform<>>(
-                  internal_index_space::TransposeInputDimensions(
-                      internal_index_space::TransformAccess::rep_ptr<container>(
-                          std::move(transform)),
-                      /*domain_only=*/DomainOnly));
-        } else {
-          transform = ValueOrThrow(internal_index_space::ApplyTranspose(
-              std::move(transform), axes->value.dims(),
-              /*domain_only=*/DomainOnly));
-        }
-        return apply_transform(self.value, std::move(transform));
+        return apply_transform(
+            self.value, ApplyTransposeToDynamic(get_transform(self.value), axes,
+                                                DomainOnly));
       },
       R"(
 Returns a view with a transposed domain.
@@ -384,41 +395,19 @@ void DefineIndexTransformOperations(
   using MutableHandle = with_handle<absl::remove_cvref_t<Self>&>;
 
   DefineIndexingMethods<WithLocking, IndexTransform<>>(
-      cls, "transform", doc_strings.index_transform,
-      get_transform, /*modify_transform=*/
-      [](IndexTransform<> transform, IndexTransform<> other_transform) {
-        return ValueOrThrow(
-            [&] {
-              GilScopedRelease gil_release;
-              return ComposeTransforms(transform, other_transform);
-            }(),
-            StatusExceptionPolicy::kIndexError);
-      },
-      apply_transform, assign...);
+      cls, "transform", doc_strings.index_transform, get_transform,
+      /*modify_transform=*/&ApplyIndexTransformSubscript, apply_transform,
+      assign...);
 
   DefineIndexingMethods<WithLocking, IndexDomain<>>(
-      cls, "domain", doc_strings.index_domain,
-      get_transform, /*modify_transform=*/
-      [](IndexTransform<> transform, IndexDomain<> other_domain) {
-        return ValueOrThrow(other_domain(std::move(transform)),
-                            StatusExceptionPolicy::kIndexError);
-      },
-      apply_transform, assign...);
+      cls, "domain", doc_strings.index_domain, get_transform,
+      /*modify_transform=*/&ApplyIndexDomainSubscript, apply_transform,
+      assign...);
 
   DefineIndexingMethods<WithLocking, const PythonDimExpression&>(
-      cls, "expr", doc_strings.dim_expression,
-      get_transform, /*modify_transform=*/
-      [](IndexTransform<> transform, const PythonDimExpression& expr) {
-        return ValueOrThrow(
-            [&] {
-              GilScopedRelease gil_release;
-              DimensionIndexBuffer dims;
-              return expr.Apply(std::move(transform), &dims,
-                                /*domain_only=*/false);
-            }(),
-            StatusExceptionPolicy::kIndexError);
-      },
-      apply_transform, assign...);
+      cls, "expr", doc_strings.dim_expression, get_transform,
+      /*modify_transform=*/&ApplyDimExpressionSubscript, apply_transform,
+      assign...);
 
   // Defined as separate function rather than expanded inline within parameter
   // list below to work around MSVC 2019 ICE.
@@ -432,17 +421,8 @@ void DefineIndexTransformOperations(
                    SourceType source) {
           auto spec = spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
           MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
-          IndexTransform<> transform = get_transform(self.value);
-          transform = ValueOrThrow(
-              [&]() -> Result<IndexTransform<>> {
-                GilScopedRelease gil_release;
-                TENSORSTORE_ASSIGN_OR_RETURN(
-                    auto spec_transform,
-                    ToIndexTransform(spec, transform.domain()));
-                return ComposeTransforms(std::move(transform),
-                                         std::move(spec_transform));
-              }(),
-              StatusExceptionPolicy::kIndexError);
+          auto transform =
+              ApplyNumpyIndexingSpecSubscript(get_transform(self.value), spec);
           return assign(apply_transform(self.value, std::move(transform)),
                         source);
         };
@@ -453,17 +433,8 @@ void DefineIndexTransformOperations(
           ConstHandle self, NumpyIndexingSpecPlaceholder spec_placeholder) {
         auto spec = spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
         MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
-        IndexTransform<> transform = get_transform(self.value);
-        transform = ValueOrThrow(
-            [&]() -> Result<IndexTransform<>> {
-              GilScopedRelease gil_release;
-              TENSORSTORE_ASSIGN_OR_RETURN(
-                  auto spec_transform,
-                  ToIndexTransform(spec, transform.domain()));
-              return ComposeTransforms(std::move(transform),
-                                       std::move(spec_transform));
-            }(),
-            StatusExceptionPolicy::kIndexError);
+        auto transform =
+            ApplyNumpyIndexingSpecSubscript(get_transform(self.value), spec);
         return apply_transform(self.value, std::move(transform));
       },
       DirectAssignMethod(assign)...);

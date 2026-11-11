@@ -1036,6 +1036,7 @@ pybind11_cc_library(
     deps = [
         ":status",
         ":type_name_override",
+        "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/status",

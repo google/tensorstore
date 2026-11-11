@@ -63,7 +63,9 @@
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/internal/numpy_indexing_spec.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/internal/transpose.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/output_index_method.h"
@@ -96,6 +98,92 @@ bool operator==(const OutputIndexMap& a, const OutputIndexMap& b) {
              a.index_range == b.index_range;
   }
   ABSL_UNREACHABLE();  // COV_NF_LINE
+}
+
+namespace {
+
+template <typename Op>
+IndexTransform<> ApplyOpToAllDimsImpl(IndexTransform<> transform, const Op& op,
+                                      bool domain_only) {
+  const DimensionIndex rank = transform.input_rank();
+  DimensionIndexBuffer dims(rank);
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    dims[i] = i;
+  }
+  return ValueOrThrow(op.Apply(std::move(transform), &dims, domain_only));
+}
+
+}  // namespace
+
+IndexTransform<> ApplyOpToAllDims(IndexTransform<> transform,
+                                  const PythonTranslateOp& op,
+                                  bool domain_only) {
+  return ApplyOpToAllDimsImpl(std::move(transform), op, domain_only);
+}
+
+IndexTransform<> ApplyOpToAllDims(IndexTransform<> transform,
+                                  const PythonLabelOp& op, bool domain_only) {
+  return ApplyOpToAllDimsImpl(std::move(transform), op, domain_only);
+}
+
+IndexTransform<> ApplyOpToAllDims(IndexTransform<> transform,
+                                  const PythonChangeImplicitStateOp& op,
+                                  bool domain_only) {
+  return ApplyOpToAllDimsImpl(std::move(transform), op, domain_only);
+}
+
+IndexTransform<> ApplyTransposeToDynamic(
+    IndexTransform<> transform,
+    const std::optional<DimensionSelectionLike>& axes, bool domain_only) {
+  if (!axes.has_value()) {
+    return internal_index_space::TransformAccess::Make<IndexTransform<>>(
+        internal_index_space::TransposeInputDimensions(
+            internal_index_space::TransformAccess::rep_ptr<container>(
+                std::move(transform)),
+            domain_only));
+  }
+  return ValueOrThrow(internal_index_space::ApplyTranspose(
+      std::move(transform), axes->value.dims(), domain_only));
+}
+
+IndexTransform<> ApplyIndexTransformSubscript(
+    IndexTransform<> transform, IndexTransform<> other_transform) {
+  return ValueOrThrow(
+      [&] {
+        GilScopedRelease gil_release;
+        return ComposeTransforms(transform, other_transform);
+      }(),
+      StatusExceptionPolicy::kIndexError);
+}
+
+IndexTransform<> ApplyIndexDomainSubscript(IndexTransform<> transform,
+                                           IndexDomain<> other_domain) {
+  return ValueOrThrow(other_domain(std::move(transform)),
+                      StatusExceptionPolicy::kIndexError);
+}
+
+IndexTransform<> ApplyDimExpressionSubscript(IndexTransform<> transform,
+                                             const PythonDimExpression& expr) {
+  return ValueOrThrow(
+      [&] {
+        GilScopedRelease gil_release;
+        DimensionIndexBuffer dims;
+        return expr.Apply(std::move(transform), &dims, /*domain_only=*/false);
+      }(),
+      StatusExceptionPolicy::kIndexError);
+}
+
+IndexTransform<> ApplyNumpyIndexingSpecSubscript(
+    IndexTransform<> transform, const NumpyIndexingSpec& spec) {
+  return ValueOrThrow(
+      [&]() -> Result<IndexTransform<>> {
+        GilScopedRelease gil_release;
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto spec_transform, ToIndexTransform(spec, transform.domain()));
+        return ComposeTransforms(std::move(transform),
+                                 std::move(spec_transform));
+      }(),
+      StatusExceptionPolicy::kIndexError);
 }
 
 HomogeneousTuple<Index> GetExclusiveMax(IndexDomainView<> domain) {
