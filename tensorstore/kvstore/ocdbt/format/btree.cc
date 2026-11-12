@@ -74,7 +74,8 @@ bool ReadKeySuffixLengths(riegeli::Reader& reader,
 // function is `WriteKeys` in `btree_node_encoder.cc`.
 template <typename Entry>
 bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
-              BtreeNode::KeyBuffer& key_buffer, span<Entry> entries) {
+              KeyLength& max_entry_key_length, BtreeNode::KeyBuffer& key_buffer,
+              span<Entry> entries) {
   const size_t num_entries = entries.size();
   KeyLength common_prefix_length;
   std::vector<KeyLength> key_length_buffer(num_entries * 2);
@@ -101,6 +102,7 @@ bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
   common_prefix_length = std::min(suffix_lengths[0], common_prefix_length);
 
   size_t key_buffer_size = common_prefix_length;
+  size_t max_key_length = 0;
 
   // Verify that lengths are valid, calculate the size required for the
   // `key_buffer`, and for interior nodes, adjust `subtree_common_prefix_length`
@@ -134,8 +136,11 @@ bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
       entry.subtree_common_prefix_length -= common_prefix_length;
     }
     prev_length = key_length;
+    max_key_length = std::max(max_key_length, key_length);
     key_buffer_size += key_length - common_prefix_length;
   }
+  max_entry_key_length =
+      static_cast<KeyLength>(max_key_length - common_prefix_length);
 
   key_buffer = BtreeNode::KeyBuffer(key_buffer_size);
 
@@ -184,7 +189,8 @@ bool ReadBtreeNodeEntries(riegeli::Reader& reader,
                           uint64_t num_entries, BtreeNode& node) {
   auto& entries = node.entries.emplace<std::vector<Entry>>();
   entries.resize(num_entries);
-  if (!ReadKeys<Entry>(reader, node.key_prefix, node.key_buffer, entries)) {
+  if (!ReadKeys<Entry>(reader, node.key_prefix, node.max_entry_key_length,
+                       node.key_buffer, entries)) {
     return false;
   }
   if constexpr (std::is_same_v<Entry, InteriorNodeEntry>) {
@@ -250,17 +256,16 @@ absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
         "Expected height of %d but received: %d", height, node.height));
   }
 
+  const size_t max_full_key_length =
+      prefix_length + node.key_prefix.size() + node.max_entry_key_length;
+  if (max_full_key_length > kMaxKeyLength) {
+    return absl::DataLossError(
+        absl::StrFormat("Full key length %d exceeds limit of %d",
+                        max_full_key_length, kMaxKeyLength));
+  }
+
   return std::visit(
       [&](auto& entries) {
-        for (const auto& entry : entries) {
-          const size_t full_key_length =
-              prefix_length + node.key_prefix.size() + entry.key.size();
-          if (full_key_length > kMaxKeyLength) {
-            return absl::DataLossError(
-                absl::StrFormat("Full key length %d exceeds limit of %d",
-                                full_key_length, kMaxKeyLength));
-          }
-        }
         if (ComparePrefixedKeyToUnprefixedKey{node.key_prefix}(
                 entries.front().key, inclusive_min_key) < 0) {
           return absl::DataLossError(absl::StrCat(
@@ -447,6 +452,7 @@ span<const InteriorNodeEntry> FindBtreeEntryRange(
 
 #ifndef NDEBUG
 void CheckBtreeNodeInvariants(const BtreeNode& node) {
+  size_t max_entry_key_length = 0;
   if (node.height == 0) {
     assert(std::holds_alternative<BtreeNode::LeafNodeEntries>(node.entries));
     auto& entries = std::get<BtreeNode::LeafNodeEntries>(node.entries);
@@ -454,6 +460,7 @@ void CheckBtreeNodeInvariants(const BtreeNode& node) {
     assert(entries.size() <= kMaxNodeArity);
     for (size_t i = 0; i < entries.size(); ++i) {
       auto& entry = entries[i];
+      max_entry_key_length = std::max(max_entry_key_length, entry.key.size());
       if (auto* location =
               std::get_if<IndirectDataReference>(&entry.value_reference)) {
         assert(!location->IsMissing());
@@ -470,6 +477,7 @@ void CheckBtreeNodeInvariants(const BtreeNode& node) {
     assert(entries.size() <= kMaxNodeArity);
     for (size_t i = 0; i < entries.size(); ++i) {
       auto& entry = entries[i];
+      max_entry_key_length = std::max(max_entry_key_length, entry.key.size());
       assert(entry.subtree_common_prefix_length <= entry.key.size());
       assert(!entry.node.location.IsMissing());
       if (i != 0) {
@@ -477,6 +485,7 @@ void CheckBtreeNodeInvariants(const BtreeNode& node) {
       }
     }
   }
+  assert(node.max_entry_key_length == max_entry_key_length);
 }
 #endif  // NDEBUG
 

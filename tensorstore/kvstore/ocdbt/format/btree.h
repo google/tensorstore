@@ -231,6 +231,10 @@ struct BtreeNode {
   /// Equal to 0 for leaf nodes.
   BtreeNodeHeight height;
 
+  /// Maximum length of `entry.key` (excluding `key_prefix`) across all entries
+  /// in `entries`.
+  KeyLength max_entry_key_length = 0;
+
   /// Common prefix for every entry in `entries`.
   ///
   /// References a substring of `key_buffer`.
@@ -254,7 +258,8 @@ struct BtreeNode {
   KeyBuffer key_buffer;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.height, x.key_prefix, x.entries, x.key_buffer);
+    return f(x.height, x.max_entry_key_length, x.key_prefix, x.entries,
+             x.key_buffer);
   };
 };
 

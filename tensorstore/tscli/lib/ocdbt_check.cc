@@ -17,7 +17,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <algorithm>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -538,10 +537,8 @@ class OcdbtCheckRunner {
           if (!entries.empty()) {
             first_key = absl::StrCat(node.key_prefix, entries.front().key);
             last_key = absl::StrCat(node.key_prefix, entries.back().key);
-          }
-          for (const auto& entry : entries) {
-            max_suffix_length = std::max(
-                max_suffix_length, node.key_prefix.size() + entry.key.size());
+            max_suffix_length =
+                node.key_prefix.size() + node.max_entry_key_length;
           }
         },
         node.entries);

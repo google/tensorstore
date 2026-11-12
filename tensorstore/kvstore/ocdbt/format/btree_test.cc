@@ -55,13 +55,16 @@ using ::tensorstore::internal_ocdbt::DecodeBtreeNode;
 using ::tensorstore::internal_ocdbt::EncodedNode;
 using ::tensorstore::internal_ocdbt::IndirectDataReference;
 using ::tensorstore::internal_ocdbt::InteriorNodeEntry;
+using ::tensorstore::internal_ocdbt::kMaxKeyLength;
 using ::tensorstore::internal_ocdbt::kMaxNodeArity;
 using ::tensorstore::internal_ocdbt::LeafNodeEntry;
 using ::tensorstore::internal_ocdbt::LeafNodeValueReference;
+using ::tensorstore::internal_ocdbt::ValidateBtreeNodeReference;
 using ::testing::HasSubstr;
 
 Result<std::vector<EncodedNode>> EncodeExistingNode(const Config& config,
-                                                    const BtreeNode& node) {
+                                                    const BtreeNode& node,
+                                                    bool may_be_root = false) {
   return std::visit(
       [&](const auto& entries) {
         using Entry = typename std::decay_t<decltype(entries)>::value_type;
@@ -71,7 +74,7 @@ Result<std::vector<EncodedNode>> EncodeExistingNode(const Config& config,
           encoder.AddEntry(/*existing=*/true, Entry(entry));
         }
 
-        return encoder.Finalize(/*may_be_root=*/false);
+        return encoder.Finalize(may_be_root);
       },
       node.entries);
 }
@@ -450,6 +453,75 @@ TEST(BtreeNodeTest, EncoderStatisticsSaturateOnOverflow) {
   EXPECT_EQ(encoded_nodes[0].info.statistics.num_indirect_value_bytes, kMax);
   EXPECT_EQ(encoded_nodes[0].info.statistics.num_tree_bytes, kMax);
   EXPECT_EQ(encoded_nodes[0].info.statistics.num_keys, kMax);
+}
+
+TEST(BtreeNodeTest, ValidateBtreeNodeReferenceMaxKeyLength) {
+  Config config;
+  config.compression = Config::NoCompression{};
+
+  // Entries share node-local `key_prefix` "k_" (length 2), and the middle
+  // entry suffix ("b_longest_middle_key", length 20) is strictly longer than
+  // front ("a", length 1) and back ("c", length 1).
+  constexpr std::string_view kNodeKeyPrefix = "k_";
+  constexpr std::string_view kMiddleKey = "k_b_longest_middle_key";
+  constexpr std::string_view kMiddleSuffix =
+      kMiddleKey.substr(kNodeKeyPrefix.size());
+  constexpr size_t kMaxValidPrefix = kMaxKeyLength - kMiddleKey.size();
+
+  BtreeNode raw_leaf;
+  raw_leaf.height = 0;
+  raw_leaf.entries.emplace<BtreeNode::LeafNodeEntries>({
+      LeafNodeEntry{"k_a", absl::Cord("v0")},
+      LeafNodeEntry{kMiddleKey, absl::Cord("v1")},
+      LeafNodeEntry{"k_c", absl::Cord("v2")},
+  });
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded_leaves,
+      EncodeExistingNode(config, raw_leaf, /*may_be_root=*/true));
+  ASSERT_EQ(encoded_leaves.size(), 1);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decoded_leaf,
+      DecodeBtreeNode(encoded_leaves[0].encoded_node, /*base_path=*/{}));
+  EXPECT_EQ(decoded_leaf.key_prefix, kNodeKeyPrefix);
+  EXPECT_EQ(decoded_leaf.max_entry_key_length, kMiddleSuffix.size());
+  TENSORSTORE_EXPECT_OK(ValidateBtreeNodeReference(
+      decoded_leaf, /*height=*/0, /*inclusive_min_key=*/"k_a", kMaxValidPrefix,
+      /*exclusive_max_key=*/"k_d"));
+  EXPECT_THAT(ValidateBtreeNodeReference(decoded_leaf, /*height=*/0,
+                                         /*inclusive_min_key=*/"k_a",
+                                         kMaxValidPrefix + 1,
+                                         /*exclusive_max_key=*/"k_d"),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Full key length 65536 exceeds limit of "
+                                 "65535")));
+
+  DataFileId file_id{"", "d/node_file"};
+  BtreeNode raw_interior;
+  raw_interior.height = 1;
+  raw_interior.entries.emplace<BtreeNode::InteriorNodeEntries>({
+      InteriorNodeEntry{"k_a", 2, {{file_id, 0, 64}, {0, 64, 1}}},
+      InteriorNodeEntry{kMiddleKey, 2, {{file_id, 64, 64}, {0, 64, 1}}},
+      InteriorNodeEntry{"k_c", 2, {{file_id, 128, 64}, {0, 64, 1}}},
+  });
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded_interiors,
+      EncodeExistingNode(config, raw_interior, /*may_be_root=*/true));
+  ASSERT_EQ(encoded_interiors.size(), 1);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decoded_interior,
+      DecodeBtreeNode(encoded_interiors[0].encoded_node, /*base_path=*/{}));
+  EXPECT_EQ(decoded_interior.key_prefix, kNodeKeyPrefix);
+  EXPECT_EQ(decoded_interior.max_entry_key_length, kMiddleSuffix.size());
+  TENSORSTORE_EXPECT_OK(ValidateBtreeNodeReference(
+      decoded_interior, /*height=*/1, /*inclusive_min_key=*/"k_a",
+      kMaxValidPrefix, /*exclusive_max_key=*/"k_d"));
+  EXPECT_THAT(ValidateBtreeNodeReference(decoded_interior, /*height=*/1,
+                                         /*inclusive_min_key=*/"k_a",
+                                         kMaxValidPrefix + 1,
+                                         /*exclusive_max_key=*/"k_d"),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Full key length 65536 exceeds limit of "
+                                 "65535")));
 }
 
 }  // namespace
