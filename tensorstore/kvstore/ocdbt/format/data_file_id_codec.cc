@@ -139,7 +139,12 @@ void DataFileTableBuilder::Clear() { data_files_.clear(); }
   const size_t max_path_length = kMaxPathLength - transitive_path_sv.size();
 
   uint64_t num_files;
-  if (!riegeli::ReadVarint64(reader, num_files)) return false;
+  if (!ReadVarintChecked(reader, num_files)) return false;
+  if (num_files > kMaxDataFiles) {
+    reader.Fail(absl::DataLossError(absl::StrFormat(
+        "num_files (%d) exceeds maximum (%d)", num_files, kMaxDataFiles)));
+    return false;
+  }
 
   std::vector<PathLength> path_length_buffer;
   constexpr uint64_t kMaxReserve = 1024;
@@ -213,6 +218,7 @@ void DataFileTableBuilder::Clear() { data_files_.clear(); }
 
   prev_base_path_length = 0;
   size_t prev_relative_path_length = 0;
+  size_t total_path_bytes = 0;
   for (uint64_t i = 0; i < num_files; ++i) {
     size_t prefix_length = path_length_buffer[i];
     size_t suffix_length = path_length_buffer[num_files + i];
@@ -237,8 +243,15 @@ void DataFileTableBuilder::Clear() { data_files_.clear(); }
     } else {
       // Base path is not identical to the previous one.  Create a new
       // `RefCountedString`.
-      internal::RefCountedStringWriter writer(base_path_length +
-                                              transitive_path_sv.size());
+      size_t alloc_size = base_path_length + transitive_path_sv.size();
+      if (alloc_size > kMaxTotalDataFilePathBytes - total_path_bytes) {
+        reader.Fail(absl::DataLossError(
+            absl::StrFormat("Total data file path length exceeds maximum (%d)",
+                            kMaxTotalDataFilePathBytes)));
+        return false;
+      }
+      total_path_bytes += alloc_size;
+      internal::RefCountedStringWriter writer(alloc_size);
       std::memcpy(writer.data(), transitive_path_sv.data(),
                   transitive_path_sv.size());
       size_t offset = transitive_path_sv.size();
@@ -281,6 +294,13 @@ void DataFileTableBuilder::Clear() { data_files_.clear(); }
       continue;
     }
 
+    if (relative_path_length > kMaxTotalDataFilePathBytes - total_path_bytes) {
+      reader.Fail(absl::DataLossError(
+          absl::StrFormat("Total data file path length exceeds maximum (%d)",
+                          kMaxTotalDataFilePathBytes)));
+      return false;
+    }
+    total_path_bytes += relative_path_length;
     internal::RefCountedStringWriter writer(relative_path_length);
     size_t offset = 0;
     if (prefix_length) {

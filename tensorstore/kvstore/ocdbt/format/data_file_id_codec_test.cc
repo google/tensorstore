@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <string>
@@ -43,6 +44,7 @@ using ::tensorstore::internal_ocdbt::DataFileTable;
 using ::tensorstore::internal_ocdbt::DataFileTableBuilder;
 using ::tensorstore::internal_ocdbt::FinalizeReader;
 using ::tensorstore::internal_ocdbt::FinalizeWriter;
+using ::tensorstore::internal_ocdbt::kMaxDataFiles;
 using ::tensorstore::internal_ocdbt::kMaxPathLength;
 using ::tensorstore::internal_ocdbt::ReadDataFileTable;
 using ::testing::HasSubstr;
@@ -346,6 +348,49 @@ TEST(DataFileBuilderTest, PrefixLengthWithEmptyPrevRelativePath) {
                                     /*suffix_lengths=*/{2, 2},
                                     /*base_path_lengths=*/{2, 2}, "abcd")),
       StatusIs(absl::StatusCode::kDataLoss, HasSubstr("path_prefix_length")));
+}
+
+TEST(DataFileBuilderTest, NumFilesTooLarge) {
+  absl::Cord encoded;
+  riegeli::CordWriter writer{&encoded};
+  ASSERT_TRUE(riegeli::WriteVarint64(kMaxDataFiles + 1, writer));
+  ASSERT_TRUE(writer.Close());
+  EXPECT_THAT(Decode(encoded),
+              StatusIs(absl::StatusCode::kDataLoss, HasSubstr("num_files")));
+}
+
+TEST(DataFileBuilderTest, TotalPathBytesExceeded) {
+  constexpr size_t kPathLen = kMaxPathLength;
+  constexpr size_t kNumFiles =
+      tensorstore::internal_ocdbt::kMaxTotalDataFilePathBytes / kPathLen + 2;
+  absl::Cord encoded;
+  {
+    riegeli::CordWriter writer(&encoded);
+    ASSERT_TRUE(riegeli::WriteVarint64(kNumFiles, writer));
+    // Prefix lengths: each entry after the first shares kPathLen - 1 bytes.
+    for (size_t i = 1; i < kNumFiles; ++i) {
+      ASSERT_TRUE(riegeli::WriteVarint64(kPathLen - 1, writer));
+    }
+    // Suffix lengths: first entry has kPathLen bytes; subsequent entries have
+    // 1 byte, forcing a new allocation of size kPathLen for every entry.
+    ASSERT_TRUE(riegeli::WriteVarint64(kPathLen, writer));
+    for (size_t i = 1; i < kNumFiles; ++i) {
+      ASSERT_TRUE(riegeli::WriteVarint64(1, writer));
+    }
+    // Base path lengths: all 0.
+    for (size_t i = 0; i < kNumFiles; ++i) {
+      ASSERT_TRUE(riegeli::WriteVarint64(0, writer));
+    }
+    // Suffix bytes.
+    ASSERT_TRUE(writer.Write(std::string(kPathLen, 'a')));
+    for (size_t i = 1; i < kNumFiles; ++i) {
+      ASSERT_TRUE(writer.WriteByte('b'));
+    }
+    ASSERT_TRUE(writer.Close());
+  }
+  EXPECT_THAT(Decode(encoded, /*base_path=*/{}),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Total data file path length exceeds")));
 }
 
 }  // namespace

@@ -46,6 +46,7 @@ namespace internal_ocdbt {
 constexpr uint32_t kBtreeNodeMagic = 0x0cdb20de;
 constexpr uint8_t kBtreeNodeFormatVersion = 0;
 constexpr size_t kMaxNodeArity = 1024 * 1024;
+static_assert(kMaxDataFiles == kMaxNodeArity);
 
 using NumIndirectValueBytesCodec = VarintCodec<uint64_t>;
 using NumTreeBytesCodec = VarintCodec<uint64_t>;
