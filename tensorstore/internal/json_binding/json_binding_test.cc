@@ -351,6 +351,12 @@ TEST(JsonBindingTest, ObjectMember) {
           {3, ::nlohmann::json({{"x", 3}})},
       },
       jb::Object(jb::Member("x")));
+  tensorstore::TestJsonBinderRoundTrip<int>(
+      {
+          {3, ::nlohmann::json({{"x", 3}})},
+          {42, ::nlohmann::json::object_t()},
+      },
+      jb::Object(jb::Member("x", jb::DefaultValue([](int* v) { *v = 42; }))));
 }
 
 TEST(JsonBindingTest, ObjectOptionalMember) {
@@ -418,6 +424,54 @@ TEST(JsonBindingTest, Null) {
       {42, StatusIs(absl::StatusCode::kInvalidArgument,
                     HasSubstr("Expected null, but received: 42"))},
   });
+
+  int dummy = 0;
+  const auto null_constant = jb::Constant([] { return nullptr; });
+  ::nlohmann::json j_out = 123;
+  TENSORSTORE_EXPECT_OK(
+      null_constant(std::false_type{}, jb::NoOptions{}, &dummy, &j_out));
+  EXPECT_TRUE(j_out.is_null());
+  TENSORSTORE_EXPECT_OK(
+      null_constant(std::true_type{}, jb::NoOptions{}, &dummy, &j_out));
+  ::nlohmann::json j_bad = 42;
+  EXPECT_THAT(null_constant(std::true_type{}, jb::NoOptions{}, &dummy, &j_bad),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Expected null, but received: 42")));
+}
+
+TEST(JsonBindingTest, AtMostOneAndAtLeastOne) {
+  struct Foo {
+    std::optional<int> a;
+    std::optional<int> b;
+  };
+  const auto binder =
+      jb::Object(jb::AtLeastOne("a", "b"), jb::AtMostOne("a", "b"),
+                 jb::Member("a", jb::Projection(&Foo::a)),
+                 jb::Member("b", jb::Projection(&Foo::b)));
+  EXPECT_THAT(jb::FromJson<Foo>({{"a", 1}}, binder).value().a,
+              ::testing::Optional(1));
+  EXPECT_THAT(
+      jb::FromJson<Foo>(::nlohmann::json::object_t(), binder),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("At least one of \"a\", \"b\" members must be specified")));
+  EXPECT_THAT(
+      jb::FromJson<Foo>({{"a", 1}, {"b", 2}}, binder),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("At most one of \"a\", \"b\" members is allowed")));
+}
+
+TEST(JsonBindingTest, ReadMember) {
+  struct Foo {
+    int x = 0;
+    int y = 0;
+  };
+  const auto binder = jb::Object(jb::ReadMember("x", jb::Projection(&Foo::y)),
+                                 jb::Member("x", jb::Projection(&Foo::x)));
+  auto foo = jb::FromJson<Foo>({{"x", 7}}, binder).value();
+  EXPECT_EQ(7, foo.x);
+  EXPECT_EQ(7, foo.y);
+  EXPECT_EQ(::nlohmann::json({{"x", 7}}), jb::ToJson(foo, binder));
 }
 
 }  // namespace

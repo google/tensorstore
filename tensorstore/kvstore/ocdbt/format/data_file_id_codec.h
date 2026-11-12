@@ -58,6 +58,9 @@ struct DataFileTable {
   std::vector<DataFileId> files;
 };
 
+constexpr size_t kMaxDataFiles = 1024 * 1024;
+constexpr size_t kMaxTotalDataFilePathBytes = 512 * 1024 * 1024;
+
 // Reads a data file table.
 //
 // The specified `transitive_path` is prepended to every decoded `base_path`

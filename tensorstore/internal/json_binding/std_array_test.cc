@@ -15,7 +15,6 @@
 #include "tensorstore/internal/json_binding/std_array.h"
 
 #include <array>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -42,11 +41,25 @@ TEST(JsonBindingTest, Array) {
       binder);
   tensorstore::TestJsonBinderFromJson<std::vector<int>>(
       {
+          {"not_an_array",
+           StatusIs(
+               absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expected array, but received: \"not_an_array\""))},
           {{1, 2, "a"},
            StatusIs(
                absl::StatusCode::kInvalidArgument,
                HasSubstr(
                    "Error parsing value at position 2: Expected integer"))},
+      },
+      binder);
+}
+
+TEST(JsonBindingTest, OptionalArray) {
+  const auto binder = jb::OptionalArray();
+  tensorstore::TestJsonBinderRoundTrip<std::vector<int>>(
+      {
+          {{}, ::nlohmann::json(::nlohmann::json::value_t::discarded)},
+          {{1, 2}, {1, 2}},
       },
       binder);
 }

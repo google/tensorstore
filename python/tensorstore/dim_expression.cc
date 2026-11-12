@@ -42,6 +42,7 @@
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/subscript_method.h"
 #include "python/tensorstore/tensorstore_module_components.h"
+#include "python/tensorstore/typed_slice.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_identifier.h"
@@ -129,6 +130,33 @@ Result<IndexTransform<>> PythonStrideOp::Apply(IndexTransform<> transform,
                                                bool domain_only) const {
   return internal_index_space::ApplyStrideOp(std::move(transform), buffer,
                                              strides, domain_only);
+}
+
+PythonLabelOp MakePythonLabelOp(
+    std::variant<std::string, SequenceParameter<std::string>> labels_variant) {
+  std::vector<std::string> labels;
+  if (auto* label = std::get_if<std::string>(&labels_variant)) {
+    labels.push_back(std::move(*label));
+  } else {
+    labels = std::move(std::get<SequenceParameter<std::string>>(labels_variant))
+                 .value;
+  }
+  return PythonLabelOp{std::move(labels)};
+}
+
+PythonChangeImplicitStateOp MakePythonChangeImplicitStateOp(
+    const MarkBoundsImplicitSpec& bounds) {
+  struct Visitor {
+    PythonChangeImplicitStateOp operator()(std::optional<bool> value) const {
+      return PythonChangeImplicitStateOp{value, value};
+    }
+    PythonChangeImplicitStateOp operator()(
+        const TypedSlice<std::optional<bool>, std::optional<bool>,
+                         std::nullptr_t>& slice) const {
+      return PythonChangeImplicitStateOp{slice.start, slice.stop};
+    }
+  };
+  return std::visit(Visitor{}, bounds);
 }
 
 std::string PythonLabelOp::repr() const {

@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
 #include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/subscript_method.h"
@@ -91,6 +92,22 @@ using IndexingOperationDocstrings = const char* const (&)[1 + NumAssign];
 template <size_t NumAssign>
 using NumpyIndexingMethodDocstrings = const char* const (&)[3][1 + NumAssign];
 
+/// Out-of-line wrappers so the `kDefault`, `kOindex`, and `kVindex` mode
+/// lambdas in `DefineNumpyIndexingMethodsForMode` share one body per target
+/// class instead of duplicating `func` and `assign` three times.
+template <typename Func, typename GetHandle>
+ABSL_ATTRIBUTE_NOINLINE decltype(auto) InvokeNumpyIndexingGet(
+    const Func& func, GetHandle self, NumpyIndexingSpecPlaceholder indices) {
+  return func(self, std::move(indices));
+}
+
+template <typename Assign, typename SetHandle, typename Source>
+ABSL_ATTRIBUTE_NOINLINE decltype(auto) InvokeNumpyIndexingAssign(
+    const Assign& assign, SetHandle self, NumpyIndexingSpecPlaceholder indices,
+    Source&& source) {
+  return assign(self, std::move(indices), std::forward<Source>(source));
+}
+
 /// Defines `__getitem__` and `__setitem__` methods that take a NumPy-style
 /// indexing spec of the specified mode and usage.
 ///
@@ -117,7 +134,7 @@ void DefineNumpyIndexingMethodsForMode(
       "__getitem__",
       [func](GetHandle self, NumpyIndexingSpecPlaceholder indices) {
         indices.mode = Mode;
-        return func(self, std::move(indices));
+        return InvokeNumpyIndexingGet(func, self, std::move(indices));
       },
       doc_strings[0], pybind11::arg("indices"));
   // Defined as separate function, rather than expanded inline within `,` fold
@@ -126,16 +143,15 @@ void DefineNumpyIndexingMethodsForMode(
   [[maybe_unused]] const auto DefineAssignMethod = [&](auto assign) {
     using SetHandle = typename FunctionArgType<
         0, pybind11::detail::function_signature_t<decltype(assign)>>::type;
+    using SourceType = typename FunctionArgType<
+        2, pybind11::detail::function_signature_t<decltype(assign)>>::type;
     cls->def(
         "__setitem__",
-        [assign](
-            SetHandle self, NumpyIndexingSpecPlaceholder indices,
-            typename FunctionArgType<2, pybind11::detail::function_signature_t<
-                                            decltype(assign)>>::type source
-
-        ) {
+        [assign](SetHandle self, NumpyIndexingSpecPlaceholder indices,
+                 SourceType source) {
           indices.mode = Mode;
-          return assign(self, std::move(indices), source);
+          return InvokeNumpyIndexingAssign(assign, self, std::move(indices),
+                                           std::forward<SourceType>(source));
         },
         doc_strings[doc_string_index++], pybind11::arg("indices"),
         pybind11::arg("source"));

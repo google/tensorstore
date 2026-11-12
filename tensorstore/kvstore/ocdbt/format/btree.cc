@@ -319,12 +319,13 @@ BtreeNodeStatistics GetBtreeNodeLocalStatistics(const BtreeNode& node,
     for (const auto& entry : entries) {
       if (std::holds_alternative<IndirectDataReference>(
               entry.value_reference)) {
-        stats.num_indirect_value_bytes +=
-            std::get<IndirectDataReference>(entry.value_reference).length;
+        stats.num_indirect_value_bytes = internal::AddSaturate(
+            stats.num_indirect_value_bytes,
+            std::get<IndirectDataReference>(entry.value_reference).length);
       }
     }
   }
-  stats.num_tree_bytes += own_size;
+  stats.num_tree_bytes = internal::AddSaturate(stats.num_tree_bytes, own_size);
   return stats;
 }
 

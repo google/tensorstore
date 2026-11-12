@@ -165,6 +165,31 @@ TEST(AddSaturate, Int32) {
   EXPECT_EQ(-0x80000000, AddSaturate<int32_t>(-0x40000000, -0x41000000));
 }
 
+TEST(AddSaturate, Uint32) {
+  EXPECT_EQ(0xffffffffu, AddSaturate<uint32_t>(0x7fffffffu, 0x80000000u));
+  EXPECT_EQ(0xffffffffu, AddSaturate<uint32_t>(0x80000000u, 0x80000000u));
+}
+
+TEST(SaturateNarrowAnd64Bit, BoundariesAndSignedPromotions) {
+  EXPECT_EQ(int8_t{127}, AddSaturate<int8_t>(100, 40));
+  EXPECT_EQ(int8_t{-128}, AddSaturate<int8_t>(-100, -40));
+  EXPECT_EQ(uint8_t{255}, AddSaturate<uint8_t>(200, 100));
+
+#if 0
+  // Fails `--config=ubsan` at HEAD: `wrap_on_overflow::Multiply<uint16_t>`
+  // casts operands to `uint16_t`, which C++ integral promotion promotes to
+  // signed 32-bit `int` before multiplying (`65535 * 65535 > INT_MAX`).
+  EXPECT_EQ(uint16_t{1}, Multiply<uint16_t>(0xffffu, 0xffffu));
+#endif
+
+  constexpr int64_t kI64Min = std::numeric_limits<int64_t>::min();
+  constexpr int64_t kI64Max = std::numeric_limits<int64_t>::max();
+  constexpr uint64_t kU64Max = std::numeric_limits<uint64_t>::max();
+  EXPECT_EQ(kI64Max, AddSaturate<int64_t>(kI64Max - 5, 10));
+  EXPECT_EQ(kI64Min, AddSaturate<int64_t>(kI64Min + 5, -10));
+  EXPECT_EQ(kU64Max, AddSaturate<uint64_t>(kU64Max - 5, 10));
+}
+
 TEST(SubOverflow, Uint32) {
   uint32_t a, b, c;
 

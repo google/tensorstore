@@ -77,8 +77,7 @@ hard constraint.  Corresponds to the JSON
 :py:obj:`~ChunkLayout.inner_order` is also specified, it takes precedence.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(ChunkLayout& self, const type& value) {
     return self.Set(ChunkLayout::InnerOrder(value, HardConstraint));
   }
 };
@@ -96,8 +95,7 @@ Corresponds to the JSON :json:schema:`ChunkLayout.grid_origin` member.
 Soft constraints on the origin of the chunk grid.  Corresponds to the JSON
 :json:schema:`ChunkLayout.grid_origin_soft_constraint` member.
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(ChunkLayout& self, const type& value) {
     return self.Set(ChunkLayout::GridOrigin(
         tensorstore::internal_python::ConvertVectorWithDefault<Index>(
             value, kImplicit),
@@ -108,8 +106,7 @@ Soft constraints on the origin of the chunk grid.  Corresponds to the JSON
 template <ChunkLayout::Usage U, bool HardConstraint>
 struct SetChunkShapeBase {
   using type = SequenceParameter<std::optional<Index>>;
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(ChunkLayout& self, const type& value) {
     return self.Set(ChunkLayout::ChunkShapeFor<U>(
         tensorstore::internal_python::ConvertVectorWithDefault<Index>(value, 0),
         HardConstraint));
@@ -192,8 +189,7 @@ JSON :json:schema:`~ChunkLayout/Grid.shape_soft_constraint` member of
 template <ChunkLayout::Usage U, bool HardConstraint>
 struct SetChunkAspectRatioBase {
   using type = SequenceParameter<std::optional<double>>;
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(ChunkLayout& self, const type& value) {
     return self.Set(ChunkLayout::ChunkAspectRatioFor<U>(
         tensorstore::internal_python::ConvertVectorWithDefault<double>(value,
                                                                        0.0),
@@ -284,8 +280,7 @@ JSON :json:schema:`~ChunkLayout/Grid.aspect_ratio_soft_constraint` member of
 template <ChunkLayout::Usage U, bool HardConstraint>
 struct SetChunkElementsBase {
   using type = Index;
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(ChunkLayout& self, type value) {
     return self.Set(ChunkLayout::ChunkElementsFor<U>(value, HardConstraint));
   }
 };
@@ -382,8 +377,7 @@ of :json:schema:`ChunkLayout.codec_chunk`.
 template <ChunkLayout::Usage U>
 struct SetChunkBase {
   using type = const ChunkLayout::Grid*;
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(ChunkLayout& self, type value) {
     return self.Set(ChunkLayout::GridViewFor<U>(*value));
   }
 };

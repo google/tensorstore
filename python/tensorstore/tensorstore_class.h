@@ -39,6 +39,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
@@ -90,8 +91,7 @@ such as cache pools, between multiple open TensorStores, you must specify a
 context.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(OpenOptions& self, type value) {
     return self.Set(WrapImpl(std::move(value)));
   }
 };
@@ -111,8 +111,7 @@ default, the open is non-transactional.
    :py:obj:`TensorStore.with_transaction`.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(TransactionalOpenOptions& self, type value) {
     return self.Set(
         internal::TransactionState::ToTransaction(std::move(value)));
   }
@@ -151,8 +150,7 @@ It is an error to specify this if the TensorStore driver does not use a
 key-value store.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(TransactionalOpenOptions& self, type value) {
     return std::visit(
         [&](auto* p) {
           ScopedPyCriticalSection cs(reinterpret_cast<PyObject*>(p));

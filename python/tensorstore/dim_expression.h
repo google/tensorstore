@@ -24,7 +24,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <cstddef>
+#include <cstddef>  // std::nullptr_t
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -32,6 +32,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
 #include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/index.h"
@@ -227,6 +228,11 @@ struct PythonLabelOp {
                                  bool domain_only) const;
 };
 
+/// Converts a single label or sequence of labels into a `PythonLabelOp` out of
+/// line so `DefineLabelOp` bindings do not duplicate variant handling.
+PythonLabelOp MakePythonLabelOp(
+    std::variant<std::string, SequenceParameter<std::string>> labels_variant);
+
 struct LabelOpTag;
 template <bool WithLocking, typename Self, typename Cls, typename ApplyOp>
 void DefineLabelOp(Cls& cls, ApplyOp apply_op, const char* doc) {
@@ -240,15 +246,8 @@ void DefineLabelOp(Cls& cls, ApplyOp apply_op, const char* doc) {
                      std::variant<std::string, SequenceParameter<std::string>>
                          labels_variant) {
             MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
-            std::vector<std::string> labels;
-            if (auto* label = std::get_if<std::string>(&labels_variant)) {
-              labels.push_back(std::move(*label));
-            } else {
-              labels = std::move(std::get<SequenceParameter<std::string>>(
-                                     labels_variant))
-                           .value;
-            }
-            return apply_op(self.value, PythonLabelOp{std::move(labels)});
+            return apply_op(self.value,
+                            MakePythonLabelOp(std::move(labels_variant)));
           },
           doc, py::arg("labels"));
 }
@@ -312,6 +311,15 @@ struct PythonChangeImplicitStateOp {
                                  bool domain_only) const;
 };
 
+using MarkBoundsImplicitSpec = std::variant<
+    std::optional<bool>,
+    TypedSlice<std::optional<bool>, std::optional<bool>, std::nullptr_t>>;
+
+/// Converts a scalar bool or `start:stop` slice into a
+/// `PythonChangeImplicitStateOp` out of line.
+PythonChangeImplicitStateOp MakePythonChangeImplicitStateOp(
+    const MarkBoundsImplicitSpec& bounds);
+
 struct MarkBoundsImplicitOpTag;
 template <bool WithLocking, typename Self, typename Cls, typename ApplyOp>
 void DefineMarkBoundsImplicitOp(Cls& cls, ApplyOp apply_op, const char* doc) {
@@ -322,33 +330,10 @@ void DefineMarkBoundsImplicitOp(Cls& cls, ApplyOp apply_op, const char* doc) {
       &cls, "mark_bounds_implicit", "_MarkBoundsImplicit")
       .def(
           "__getitem__",
-          [apply_op](
-              ConstHandle self,
-              std::variant<std::optional<bool>,
-                           TypedSlice<std::optional<bool>, std::optional<bool>,
-                                      std::nullptr_t>>
-                  bounds) {
+          [apply_op](ConstHandle self, MarkBoundsImplicitSpec bounds) {
             MaybeScopedPyCriticalSection<WithLocking> cs(self.handle.ptr());
-            struct Visitor {
-              std::optional<bool>& lower_implicit;
-              std::optional<bool>& upper_implicit;
-              void operator()(std::optional<bool> value) {
-                lower_implicit = value;
-                upper_implicit = value;
-              }
-
-              void operator()(
-                  const TypedSlice<std::optional<bool>, std::optional<bool>,
-                                   std::nullptr_t>& slice) {
-                lower_implicit = slice.start;
-                upper_implicit = slice.stop;
-              }
-            };
-            std::optional<bool> lower_implicit;
-            std::optional<bool> upper_implicit;
-            std::visit(Visitor{lower_implicit, upper_implicit}, bounds);
-            return apply_op(self.value, PythonChangeImplicitStateOp{
-                                            lower_implicit, upper_implicit});
+            return apply_op(self.value,
+                            MakePythonChangeImplicitStateOp(bounds));
           },
           doc, py::arg("implicit"));
 }
@@ -511,7 +496,7 @@ class PythonDimExpression {
 
   // Extends the chain of operations with a new head (final) operation.
   template <typename Op>
-  PythonDimExpression Extend(Op&& op) const {
+  ABSL_ATTRIBUTE_NOINLINE PythonDimExpression Extend(Op&& op) const {
     auto new_chain = internal::MakeIntrusivePtr<
         PythonDimExpressionChainOp<absl::remove_cvref_t<Op>>>();
     new_chain->op = std::forward<Op>(op);

@@ -25,6 +25,7 @@
 #include <memory>
 #include <ostream>
 #include <sstream>
+#include <string>
 #include <thread>  // NOLINT
 #include <type_traits>
 #include <utility>
@@ -64,8 +65,10 @@ using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal_future::FutureAccess;
 using ::tensorstore::internal_testing::TestConcurrent;
+using ::testing::ElementsAre;
 using ::testing::EndsWith;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
 using ::testing::StartsWith;
 
 static_assert(IsFutureConvertible<int, const int>);
@@ -116,7 +119,13 @@ struct Deduce {
 };
 
 // Validate Future<int> return types.
+static_assert(std::is_same_v<Deduce<const Future<int>&>::status_t,  //
+                             const absl::Status&>);
+static_assert(std::is_same_v<Deduce<const Future<int>&&>::status_t,  //
+                             const absl::Status&>);
 static_assert(std::is_same_v<Deduce<Future<int>&>::status_t,  //
+                             const absl::Status&>);
+static_assert(std::is_same_v<Deduce<Future<int>&&>::status_t,  //
                              const absl::Status&>);
 
 static_assert(std::is_same_v<Deduce<const Future<int>&>::value_t, int&>);
@@ -134,7 +143,13 @@ static_assert(std::is_same_v<Deduce<Future<int>&&>::result_t,  //
                              Result<int>&>);
 
 // Validate Future<const int> return types.
+static_assert(std::is_same_v<Deduce<const Future<const int>&>::status_t,  //
+                             const absl::Status&>);
+static_assert(std::is_same_v<Deduce<const Future<const int>&&>::status_t,  //
+                             const absl::Status&>);
 static_assert(std::is_same_v<Deduce<Future<const int>&>::status_t,  //
+                             const absl::Status&>);
+static_assert(std::is_same_v<Deduce<Future<const int>&&>::status_t,  //
                              const absl::Status&>);
 
 static_assert(std::is_same_v<Deduce<const Future<const int>&>::value_t,  //
@@ -154,9 +169,24 @@ static_assert(std::is_same_v<Deduce<Future<const int>&>::result_t,  //
                              const Result<int>&>);
 static_assert(std::is_same_v<Deduce<Future<const int>&&>::result_t,  //
                              const Result<int>&>);
+static_assert(std::is_same_v<
+              decltype(std::move(std::declval<Future<const int>&>().result())
+                           .value()),
+              const int&&>);
+static_assert(
+    std::is_same_v<
+        decltype(std::move(std::declval<const Future<const int>&>().result())
+                     .value()),
+        const int&&>);
 
 // Validate Future<void> return types.
+static_assert(std::is_same_v<Deduce<const Future<void>&>::status_t,  //
+                             const absl::Status&>);
+static_assert(std::is_same_v<Deduce<const Future<void>&&>::status_t,  //
+                             const absl::Status&>);
 static_assert(std::is_same_v<Deduce<Future<void>&>::status_t,  //
+                             const absl::Status&>);
+static_assert(std::is_same_v<Deduce<Future<void>&&>::status_t,  //
                              const absl::Status&>);
 
 static_assert(std::is_void_v<Deduce<const Future<void>&>::value_t>);
@@ -174,7 +204,13 @@ static_assert(std::is_same_v<Deduce<Future<void>&&>::result_t,  //
                              Result<void>&>);
 
 // Validate Future<const void> return types.
+static_assert(std::is_same_v<Deduce<const Future<const void>&>::status_t,  //
+                             const absl::Status&>);
+static_assert(std::is_same_v<Deduce<const Future<const void>&&>::status_t,  //
+                             const absl::Status&>);
 static_assert(std::is_same_v<Deduce<Future<const void>&>::status_t,  //
+                             const absl::Status&>);
+static_assert(std::is_same_v<Deduce<Future<const void>&&>::status_t,  //
                              const absl::Status&>);
 
 static_assert(std::is_void_v<Deduce<const Future<const void>&>::value_t>);
@@ -219,6 +255,44 @@ TEST(FutureTest, MakeInPlace) {
   auto pair = PromiseFuturePair<int>::Make(tensorstore::in_place, 4);
   pair.promise.reset();  // drop link.
   EXPECT_THAT(pair.future.result(), IsOkAndHolds(4));
+}
+
+TEST(FutureTest, Accessors) {
+  auto future = MakeReadyFuture<int>(3);
+  EXPECT_TRUE(future.status().ok());
+
+  auto fail_future = MakeReadyFuture<int>(absl::UnknownError("fail"));
+  EXPECT_THAT(fail_future.status(),
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("fail")));
+
+  {
+    auto vec_future =
+        MakeReadyFuture<std::vector<int>>(std::vector<int>{1, 2, 3});
+    auto observer = vec_future;
+    std::vector<int> copied_from_rvalue_future = std::move(vec_future).value();
+    EXPECT_THAT(copied_from_rvalue_future, ElementsAre(1, 2, 3));
+    EXPECT_THAT(observer.value(), ElementsAre(1, 2, 3));
+
+    Future<const std::vector<int>> const_future = observer;
+    std::vector<int> copied_from_const_result =
+        std::move(const_future.result()).value();
+    EXPECT_THAT(copied_from_const_result, ElementsAre(1, 2, 3));
+    EXPECT_THAT(observer.value(), ElementsAre(1, 2, 3));
+
+    std::vector<int> moved_from_mutable_result =
+        std::move(observer.result()).value();
+    EXPECT_THAT(moved_from_mutable_result, ElementsAre(1, 2, 3));
+    EXPECT_THAT(observer.value(), IsEmpty());
+  }
+
+  Future<void> ok_void = absl::OkStatus();
+  ok_void.value();
+
+  Future<void> fail_void = absl::UnknownError("fail_void");
+  EXPECT_DEATH(fail_void.value(), "fail_void");
+
+  Future<const void> fail_const_void = absl::UnknownError("fail_const_void");
+  EXPECT_DEATH(fail_const_void.value(), "fail_const_void");
 }
 
 /// Tests that a ready future can be constructed implicitly.
@@ -1541,6 +1615,41 @@ TEST(LinkErrorTest, ConcurrentForceAndSetError) {
       [&] { pairB.promise.SetResult(absl::UnknownError("")); });
 }
 
+#if 0
+// Crashes at HEAD with SIGILL in `FutureStateBase::~FutureStateBase()` via
+// `ReleaseFutureReference()` due to a promise/future reference-count race when
+// `Unregister()` runs concurrently with two linked futures becoming ready with
+// errors.
+//
+// Tests that concurrently unregistering a link (or dropping the linked
+// future) while two linked futures B and C are marked ready with errors does
+// not race on promise/future reference counts.
+TEST(LinkErrorTest, ConcurrentUnregisterAndSetError) {
+  PromiseFuturePair<void> pairA, pairB, pairC;
+  FutureCallbackRegistration registration;
+  TestConcurrent(
+      /*num_iterations=*/1000,
+      /*initialize=*/
+      [&] {
+        pairA = PromiseFuturePair<void>::Make(tensorstore::MakeResult());
+        pairB = PromiseFuturePair<void>::Make(tensorstore::MakeResult());
+        pairC = PromiseFuturePair<void>::Make(tensorstore::MakeResult());
+        registration =
+            LinkError(std::move(pairA.promise), std::move(pairB.future),
+                      std::move(pairC.future));
+      },
+      /*finalize=*/
+      [&] { pairA.future = {}; },
+      // Concurrently:
+      // (a) Unregister the link.
+      [&] { registration.Unregister(); },
+      // (b) Mark pairB.promise ready with an error.
+      [&] { pairB.promise.SetResult(absl::UnknownError("b")); },
+      // (c) Mark pairC.promise ready with an error.
+      [&] { pairC.promise.SetResult(absl::UnknownError("c")); });
+}
+#endif
+
 TEST(LinkErrorTest, LinkErrorVoidImmediateSuccessFailure) {
   auto [promise, future] = PromiseFuturePair<void>::Make();
   LinkError(std::move(promise), MakeReadyFuture<void>(absl::OkStatus()),
@@ -2066,6 +2175,67 @@ TEST(FutureTest, SetResultReadyCallbackReleasesAllReferences) {
   future = {};
   promise.SetResult(42);
   EXPECT_EQ(42, result);
+}
+
+TEST(FutureTest, AnyFutureMoveConversionAndReadyFutureAssign) {
+  {
+    auto f = MakeReadyFuture<int>(42);
+    EXPECT_EQ(1, tensorstore::internal_future::FutureReferenceCount(f));
+    AnyFuture any_f(std::move(f));
+    // NOLINTNEXTLINE(bugprone-use-after-move)
+    EXPECT_TRUE(f.null());
+    EXPECT_EQ(1, tensorstore::internal_future::FutureReferenceCount(any_f));
+  }
+  {
+    Future<int> f = MakeReadyFuture<int>(42);
+    EXPECT_EQ(1, tensorstore::internal_future::FutureReferenceCount(f));
+    AnyFuture any_f(std::move(f));
+    // NOLINTNEXTLINE(bugprone-use-after-move)
+    EXPECT_TRUE(f.null());
+    EXPECT_EQ(1, tensorstore::internal_future::FutureReferenceCount(any_f));
+  }
+  {
+    ReadyFuture<int> rf = MakeReadyFuture<int>(7);
+    ReadyFuture<const int> const_rf;
+    const_rf = rf;
+    EXPECT_TRUE(HaveSameSharedState(rf, const_rf));
+    EXPECT_EQ(7, const_rf.value());
+    Future<const int> const_f;
+    const_f = rf;
+    EXPECT_TRUE(HaveSameSharedState(rf, const_f));
+    EXPECT_EQ(7, const_f.value());
+  }
+}
+
+TEST(FutureTest, FutureConcurrentTest) {
+  Future<std::string> future;
+
+  TestConcurrent(
+      /*num_iterations=*/1000,
+      /*initialize=*/
+      [&] { future = MakeReadyFuture<std::string>("original"); },
+      /*finalize=*/[&] {},
+      // Thread A: `std::move(future_copy).result()` returns an lvalue
+      // reference `Result<T>&`, so `.value()` copies without stealing from
+      // shared state.
+      [&] {
+        Future<std::string> future_copy = future;
+        std::string copied = std::move(future_copy).result().value();
+        EXPECT_EQ(copied, "original");
+      },
+      // Thread B: `future_copy.result()` on `Future<const T>` returns
+      // `const Result<T>&`, so `std::move(future_copy.result()).value()`
+      // returns `const std::string&&` and copies without stealing.
+      [&] {
+        Future<const std::string> future_copy = future;
+        std::string copied = std::move(future_copy.result()).value();
+        EXPECT_EQ(copied, "original");
+      },
+      // Thread C: Concurrently reads the value.
+      [&] {
+        std::string not_stolen = future.result().value();
+        EXPECT_EQ(not_stolen, "original");
+      });
 }
 
 static void BM_Future_ExecuteWhenReady(benchmark::State& state) {

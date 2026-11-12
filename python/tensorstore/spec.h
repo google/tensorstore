@@ -26,6 +26,7 @@
 #include <stddef.h>
 
 #include <optional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -49,6 +50,7 @@
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
@@ -95,8 +97,7 @@ Constrains the data type of the TensorStore.  If a data type has already been
 set, it is an error to specify a different data type.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(Schema& self, type value) {
     return self.Set(value.value);
   }
 };
@@ -110,8 +111,7 @@ Constrains the rank of the TensorStore.  If there is an index transform, the
 rank constraint must match the rank of the *input* space.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(Schema& self, type value) {
     return self.Set(RankConstraint{value});
   }
 };
@@ -137,8 +137,7 @@ Note that if there is an index transform, the domain must match the *input*
 space, not the output space.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, const type& value) {
+  static absl::Status Apply(Schema& self, const type& value) {
     return self.Set(value);
   }
 };
@@ -156,8 +155,7 @@ Constrains the shape and origin of the TensorStore.  Equivalent to specifying a
    This option also constrains the origin of all dimensions to be zero.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, const type& value) {
+  static absl::Status Apply(Schema& self, const type& value) {
     return self.Set(Schema::Shape(value));
   }
 };
@@ -171,8 +169,7 @@ Constrains the codec.  If there is an existing codec constraint, the constraints
 are merged.  If the constraints are incompatible, an error is raised.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(Schema& self, type value) {
     return self.Set(CodecSpec(std::move(value)));
   }
 };
@@ -187,8 +184,7 @@ the constraints are merged.  If the constraints are incompatible, an error
 is raised.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(Schema& self, type value) {
     return self.Set(std::move(value));
   }
 };
@@ -201,8 +197,7 @@ struct SetSchema {
 Additional schema constraints to merge with existing constraints.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(Schema& self, type value) {
     return self.Set(std::move(value));
   }
 };
@@ -223,8 +218,7 @@ error to specify a different fill value (where the comparison is done after
 normalization by broadcasting).
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(Schema& self, type value) {
     SharedArray<const void> array;
     internal_python::ConvertToArray(value.value, &array, self.dtype());
     return self.Set(Schema::FillValue(std::move(array)));
@@ -245,8 +239,7 @@ A value of :python:`None` indicates that the unit is unknown.  A dimension-less
 quantity can be indicated by a unit of :python:`""`.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(Schema& self, type value) {
     const size_t size = value.size();
     std::vector<std::optional<Unit>> units(size);
     for (size_t i = 0; i < size; ++i) {
@@ -273,7 +266,10 @@ namespace spec_setters {
 template <auto Mode>
 struct SetModeBase {
   using type = bool;
-  template <typename Self>
+  // `ReadWriteMode` is only accepted by `OpenOptions` (and subclasses), whereas
+  // `OpenMode` is accepted by `SpecOptions` and all derived option classes.
+  using Self = std::conditional_t<std::is_same_v<decltype(Mode), OpenMode>,
+                                  SpecOptions, OpenOptions>;
   static absl::Status Apply(Self& self, bool value) {
     if (!value) return absl::OkStatus();
     return self.Set(Mode);
@@ -369,8 +365,7 @@ Overrides the existing open mode.
 
 )";
 
-  template <typename Self>
-  static absl::Status Apply(Self& self, PythonOpenMode value) {
+  static absl::Status Apply(SpecOptions& self, PythonOpenMode value) {
     return self.Set(value.value);
   }
 };
@@ -391,8 +386,7 @@ When applied to an existing :py:obj:`~tensorstore.Spec` via
 has any effect.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, bool value) {
+  static absl::Status Apply(SpecRequestOptions& self, bool value) {
     return self.Set(tensorstore::MinimalSpec{value});
   }
 };
@@ -400,8 +394,7 @@ has any effect.
 template <ContextBindingMode Mode>
 struct SetContextBindingModeBase {
   using type = bool;
-  template <typename Self>
-  static absl::Status Apply(Self& self, bool value) {
+  static absl::Status Apply(SpecRequestOptions& self, bool value) {
     if (!value) return absl::OkStatus();
     return self.Set(Mode);
   }
@@ -470,8 +463,7 @@ resources specified by a nested :json:schema:`TensorStore.context` spec will be
 created as specified, but won't be overridden by :py:param:`.context`.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(SpecConvertOptions& self, type value) {
     return self.Set(WrapImpl(std::move(value)));
   }
 };
@@ -490,8 +482,7 @@ It is an error to specify this if the TensorStore driver does not use a
 key-value store.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(SpecOptions& self, type value) {
     ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(value));
     return self.Set(value->value);
   }
@@ -514,8 +505,7 @@ read. To enable in-memory data caching, you must both specify a
 ``"open"``, or an explicit time bound for :py:param:`.recheck_cached_data`.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(SpecOptions& self, type value) {
     return self.Set(RecheckCachedData{value});
   }
 };
@@ -535,8 +525,7 @@ metadata is revalidated when the TensorStore is opened but is not rechecked for
 each read or write operation.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(SpecOptions& self, type value) {
     return self.Set(RecheckCachedMetadata{value});
   }
 };
@@ -550,8 +539,7 @@ Sets both :py:param:`.recheck_cached_data` and
 :py:param:`.recheck_cached_metadata`.
 
 )";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
+  static absl::Status Apply(SpecOptions& self, type value) {
     return self.Set(RecheckCached{value});
   }
 };

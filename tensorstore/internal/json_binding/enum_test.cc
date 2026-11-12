@@ -14,15 +14,14 @@
 
 #include "tensorstore/internal/json_binding/enum.h"
 
-#include <memory>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include <nlohmann/json_fwd.hpp>
-#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
@@ -54,22 +53,29 @@ TEST(JsonBindingTest, Enum) {
                HasSubstr("Expected one of \"a\", \"b\", but received: \"c\""))},
       },
       binder);
+
+  std::string_view s;
+  TestEnum v = TestEnum::b;
+  TENSORSTORE_EXPECT_OK(binder(std::false_type{}, jb::NoOptions{}, &v, &s));
+  EXPECT_EQ("b", s);
 }
 
 TEST(JsonBindingTest, MapValue) {
-  enum class TestMap { a, b };
+  enum class TestMap { a, b, c };
 
   const auto binder = jb::MapValue(
       [](auto...) { return absl::InvalidArgumentError("missing"); },
-      std::make_pair(TestMap::a, "a"),  //
-      std::make_pair(TestMap::b, "b"),  //
-      std::make_pair(TestMap::a, 1),    //
+      std::make_pair(TestMap::a, "a"),      //
+      std::make_pair(TestMap::b, "b"),      //
+      std::make_pair(TestMap::c, nullptr),  //
+      std::make_pair(TestMap::a, 1),        //
       std::make_pair(TestMap::b, 2));
 
   tensorstore::TestJsonBinderRoundTrip<TestMap>(
       {
           {TestMap::a, "a"},
           {TestMap::b, "b"},
+          {TestMap::c, nullptr},
       },
       binder);
 
@@ -77,6 +83,7 @@ TEST(JsonBindingTest, MapValue) {
       {
           {"a", ::testing::Eq(TestMap::a)},
           {"b", ::testing::Eq(TestMap::b)},
+          {nullptr, ::testing::Eq(TestMap::c)},
           {"c",
            StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("missing"))},
           {1, ::testing::Eq(TestMap::a)},
