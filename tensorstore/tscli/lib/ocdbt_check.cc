@@ -338,7 +338,7 @@ class OcdbtCheckRunner {
             absl::Status file_status;
             if (!result.ok()) {
               file_status =
-                  tensorstore::StatusBuilder(file_status)
+                  tensorstore::StatusBuilder(result.status())
                       .Format("Error stat'ing indirect value %v", file_path);
               reporter_.ReportError(file_status);
             } else if (result->state == kvstore::ReadResult::State::kMissing) {
