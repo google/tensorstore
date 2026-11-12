@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -413,6 +414,42 @@ TEST(BtreeFormatTest, AbslStringify) {
       "statistics={num_indirect_value_bytes=10, num_tree_bytes=200, "
       "num_keys=30}}}",
       absl::StrCat(interior_entry));
+}
+
+TEST(BtreeNodeTest, GetBtreeNodeLocalStatisticsSaturatesOnOverflow) {
+  using ::tensorstore::internal_ocdbt::GetBtreeNodeLocalStatistics;
+  constexpr uint64_t kMax = std::numeric_limits<uint64_t>::max();
+  BtreeNode node;
+  node.height = 0;
+  auto& entries = node.entries.emplace<BtreeNode::LeafNodeEntries>();
+  entries.push_back(
+      {"a", IndirectDataReference{DataFileId{"", "d/f"}, 0, kMax - 10}});
+  entries.push_back({"b", IndirectDataReference{DataFileId{"", "d/f"}, 0, 20}});
+  auto stats = GetBtreeNodeLocalStatistics(node, /*own_size=*/100);
+  EXPECT_EQ(stats.num_indirect_value_bytes, kMax);
+  EXPECT_EQ(stats.num_tree_bytes, 100);
+  EXPECT_EQ(stats.num_keys, 2);
+}
+
+TEST(BtreeNodeTest, EncoderStatisticsSaturateOnOverflow) {
+  constexpr uint64_t kMax = std::numeric_limits<uint64_t>::max();
+  Config config;
+  config.compression = Config::NoCompression{};
+  BtreeNode node;
+  node.height = 1;
+  auto& entries = node.entries.emplace<BtreeNode::InteriorNodeEntries>();
+  DataFileId file_id{"", "d/f"};
+  entries.push_back(
+      {"a", 0,
+       BtreeNodeReference{{file_id, 0, 10}, {kMax - 5, kMax - 5, kMax - 5}}});
+  entries.push_back(
+      {"b", 0, BtreeNodeReference{{file_id, 10, 10}, {20, 20, 20}}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_nodes,
+                                   EncodeExistingNode(config, node));
+  ASSERT_EQ(encoded_nodes.size(), 1);
+  EXPECT_EQ(encoded_nodes[0].info.statistics.num_indirect_value_bytes, kMax);
+  EXPECT_EQ(encoded_nodes[0].info.statistics.num_tree_bytes, kMax);
+  EXPECT_EQ(encoded_nodes[0].info.statistics.num_keys, kMax);
 }
 
 }  // namespace
