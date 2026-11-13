@@ -482,6 +482,43 @@ TEST_P(FileHookTest, DeleteRetriesOnDeleteEio) {
   }
 }
 
+TEST_P(FileHookTest, ShorterWriteAfterAbortedWriteTruncatesStaleLockFile) {
+  if (std::string_view(GetParam()) == "lockfile") {
+    GTEST_SKIP() << "lockfile mode requires manual stale lock cleanup";
+  }
+
+  ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+
+  auto store = OpenStore(root);
+
+  // Simulate a write that writes 16 bytes to the lock file and then crashes/
+  // fails before renaming or deleting the lock file.
+  {
+    ScopedTestHook<FsyncOpTag> fsync_hook(
+        [&](FileDescriptor fd) -> std::optional<absl::Status> {
+          return absl::DataLossError("Injected fsync failure");
+        });
+    ScopedTestHook<DeleteOpTag> delete_hook(
+        [&](FileDescriptor fd,
+            const std::string& path) -> std::optional<absl::Status> {
+          return absl::DataLossError("Injected delete failure");
+        });
+
+    auto result =
+        kvstore::Write(store, "foo", absl::Cord("0123456789abcdef")).result();
+    EXPECT_THAT(result, StatusIs(absl::StatusCode::kDataLoss));
+  }
+
+  // Subsequent shorter write should not retain trailing bytes from the aborted
+  // write.
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(store, "foo", absl::Cord("xyz")).result());
+  auto read_result = kvstore::Read(store, "foo").result();
+  ASSERT_THAT(read_result, IsOk());
+  EXPECT_EQ(absl::Cord("xyz"), read_result->value);
+}
+
 INSTANTIATE_TEST_SUITE_P(AllModes, FileHookTest,
                          ::testing::Values("os", "lockfile", "none",
                                            "non_atomic"));

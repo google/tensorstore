@@ -33,7 +33,8 @@ class FileLock;
 /// Opens a file with an OS write lock.
 ///
 /// This uses os-level advisory file locking to ensure mutual exclusion, and
-/// will block until the lock is acquired.
+/// will block until the lock is acquired. Once the lock is acquired, any
+/// existing contents of the file are truncated.
 ///
 /// NOTE: Stale lock files may be left behind if the process crashes; this
 /// is acceptable as os-level advisory locks are dropped on process exit.

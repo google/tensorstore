@@ -413,7 +413,9 @@ Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
 absl::Status TruncateFile(FileDescriptor fd) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
 
-  if (::SetEndOfFile(fd)) {
+  ::FILE_END_OF_FILE_INFO eof_info{};
+  if (::SetFileInformationByHandle(fd, FileEndOfFileInfo, &eof_info,
+                                   sizeof(eof_info))) {
     return absl::OkStatus();
   }
   auto status =

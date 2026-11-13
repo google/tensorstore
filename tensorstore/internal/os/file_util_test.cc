@@ -190,7 +190,15 @@ TEST(FileUtilTest, TruncateFile) {
     char buf[16];
     EXPECT_THAT(ReadFromFile(f->get(), tensorstore::span(buf, 16)),
                 IsOkAndHolds(0));
+
+    EXPECT_THAT(WriteToFile(f->get(), "foobar", 6), IsOkAndHolds(6));
+    EXPECT_THAT(TruncateFile(f->get()), IsOk());
+
+    FileInfo info;
+    EXPECT_THAT(GetFileInfo(f->get(), &info), IsOk());
+    EXPECT_EQ(info.GetSize(), 0);
   }
+  EXPECT_THAT(ReadAllToString(foo_txt), IsOkAndHolds(""));
 }
 
 TEST(FileUtilTest, LockFile) {

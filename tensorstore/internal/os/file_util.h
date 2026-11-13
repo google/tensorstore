@@ -143,7 +143,7 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf, size_t count);
 /// \returns Number of bytes written or a failure absl::Status code.
 Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value);
 
-/// Truncates an open file.
+/// Truncates an open file to length 0.
 ///
 /// \returns `absl::OkStatus` on success, or a failure absl::Status code.
 absl::Status TruncateFile(FileDescriptor fd);

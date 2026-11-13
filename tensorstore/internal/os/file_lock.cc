@@ -68,6 +68,8 @@ absl::Status FileLock::Close() && {
 }
 
 Result<FileLock> AcquireFileLock(std::string lock_path) {
+  // Do not use `OpenFlags::Truncate` on open before the lock and inode are
+  // verified; truncate after acquiring the lock instead.
   TENSORSTORE_ASSIGN_OR_RETURN(
       UniqueFileDescriptor fd,
       OpenFileWrapper(lock_path, OpenFlags::DefaultWrite));
@@ -89,15 +91,30 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
         _.Format("Failed to acquire lock on file: %v", QuoteString(lock_path)));
 
     // Reopening the file should give the same value since the lock is held.
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        UniqueFileDescriptor other_fd,
-        OpenFileWrapper(lock_path,
-                        OpenFlags::DefaultWrite | OpenFlags::CloseOnExec));
+    auto other_fd = OpenFileWrapper(
+        lock_path, OpenFlags::DefaultWrite | OpenFlags::CloseOnExec);
+    if (!other_fd.ok()) {
+      (*std::move(unlock_fn))(fd.get());
+      return std::move(other_fd).status();
+    }
 
     FileInfo* other_info = info == &a ? &b : &a;
-    TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(other_fd.get(), other_info));
+    if (auto status = GetFileInfo(other_fd->get(), other_info); !status.ok()) {
+      (*std::move(unlock_fn))(fd.get());
+      return status;
+    }
     if (a.GetDeviceId() == b.GetDeviceId() && a.GetFileId() == b.GetFileId()) {
       // Lock was acquired successfully.
+      if (other_info->GetSize() != 0) {
+        // The lock file may contain stale data from a previous write attempt
+        // that terminated unexpectedly.
+        if (auto status = TruncateFile(fd.get()); !status.ok()) {
+          (*std::move(unlock_fn))(fd.get());
+          return StatusBuilder(std::move(status))
+              .Format("Failed to truncate lock file: %v",
+                      QuoteString(lock_path));
+        }
+      }
       return FileLock(FileLock::private_t(), std::move(lock_path), fd.release(),
                       std::move(unlock_fn));
     }
@@ -105,7 +122,7 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
     // Release lock and try again.
     (*std::move(unlock_fn))(fd.get());
     info = other_info;
-    fd = std::move(other_fd);
+    fd = *std::move(other_fd);
     lock_contention.Increment();
   }
 }
