@@ -419,17 +419,23 @@ struct PythonFutureObject {
       if (!gil.acquired()) return;
       auto* py_obj = reinterpret_cast<PyObject*>(self);
       if (Py_REFCNT(py_obj) == 0) return;  // implicitly cancelled
-      absl::ReleasableMutexLock lock(self->cpp_data.mutex);
-      if (!self->cpp_data.state) return;  // cancelled
-      auto keep_alive = pybind11::reinterpret_borrow<pybind11::object>(py_obj);
-      auto& r = future.result();
-      if constexpr (!std::is_void_v<T>) {
-        if (r.ok()) {
-          self->cpp_data.reference_manager.Update(*r);
+      PythonObjectReferenceManager old_refs;
+      std::vector<pybind11::object> callbacks;
+      {
+        absl::MutexLock lock(self->cpp_data.mutex);
+        if (!self->cpp_data.state || Py_REFCNT(py_obj) == 0) {
+          return;  // cancelled
         }
+        old_refs = std::move(self->cpp_data.reference_manager);
+        if constexpr (!std::is_void_v<T>) {
+          auto& r = future.result();
+          if (r.ok()) {
+            self->cpp_data.reference_manager.Update(*r);
+          }
+        }
+        callbacks = std::move(self->cpp_data.callbacks);
       }
-      auto callbacks = std::move(self->cpp_data.callbacks);
-      lock.Release();
+      old_refs.Clear();
       self->RunCallbacks(std::move(callbacks));
     }
   };
