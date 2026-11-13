@@ -666,7 +666,6 @@ pybind11_cc_library(
         ":define_heap_type",
         ":tensorstore_module_components",
         "//tensorstore/internal:global_initializer",
-        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/util:executor",
         "//tensorstore/util/garbage_collection",

@@ -202,8 +202,7 @@ pybind11::object GetException(internal_future::FutureStateBase& state) {
     if constexpr (std::is_same_v<T, GilSafePythonValueOrExceptionWeakRef>) {
       auto& value = **result;
       if (!value.value) {
-        return pybind11::reinterpret_borrow<pybind11::object>(
-            value.error_value.get_value_or_none());
+        return value.error_value.get_value_or_none();
       }
     }
     return pybind11::none();

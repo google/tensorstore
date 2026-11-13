@@ -46,6 +46,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <atomic>
 #include <optional>
 #include <type_traits>
 #include <typeinfo>
@@ -54,7 +55,6 @@
 #include "absl/container/flat_hash_set.h"
 #include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/define_heap_type.h"
-#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 
@@ -141,15 +141,21 @@ class PythonWeakRef {
   /// Constructs a null reference.
   PythonWeakRef() = default;
 
-  /// Creates a `PythonWeakRef` that actually holds a strong reference.
+  PythonWeakRef(const PythonWeakRef& other);
+  PythonWeakRef(PythonWeakRef&& other) noexcept;
+  PythonWeakRef& operator=(const PythonWeakRef& other);
+  PythonWeakRef& operator=(PythonWeakRef&& other) noexcept;
+  ~PythonWeakRef();
+
+  /// Creates a `PythonWeakRef` that initially retains a strong reference to
+  /// `obj`.
   ///
-  /// It will be converted automatically to a weak reference when it is first
-  /// encountered by `PythonObjectReferenceManager::Update`.  This is used
-  /// during deserialization and construction when a
-  /// `PythonObjectReferenceManager` may not be available at the call site.
-  PythonWeakRef(pybind11::object obj)
-      : weak_ref_(TaggedObjectPtr(obj.release().ptr(), 1),
-                  internal::adopt_object_ref) {}
+  /// The strong reference to `obj` will be transferred automatically to the
+  /// `PythonObjectReferenceManager` when it is first encountered by
+  /// `PythonObjectReferenceManager::Update`.  This is used during
+  /// deserialization and construction when a `PythonObjectReferenceManager` may
+  /// not be available at the call site.
+  PythonWeakRef(pybind11::object obj);
 
   /// Creates a weak reference to `obj`.
   ///
@@ -160,32 +166,30 @@ class PythonWeakRef {
                          pybind11::handle obj);
 
   /// Returns `true` if this is non-null.
-  explicit operator bool() const { return static_cast<bool>(weak_ref_); }
+  explicit operator bool() const {
+    return static_cast<bool>(weak_ref_.load(std::memory_order_relaxed));
+  }
 
-  /// Returns a borrowed reference to the reference.  Any subsequent Python API
-  /// calls, other than increasing a reference count, may invalidate it.
+  /// Returns a new reference to the referent.
   ///
   /// \threadsafety The GIL must be held by the calling thread.
-  pybind11::handle get_value_or_none() const;
-  pybind11::handle get_value_or_null() const;
-  pybind11::handle get_value_or_throw() const;
+  pybind11::object get_value_or_none() const;
+  pybind11::object get_value_or_null() const;
+  pybind11::object get_value_or_throw() const;
 
  private:
-  // Tag bit indicates if this is a strong reference rather than a weak
-  // reference.
-  using TaggedObjectPtr = internal::TaggedPtr<PyObject, 1>;
+  // Tag bits:
+  //   0: `PyWeakref*` whose referent is managed by
+  //      `PythonObjectReferenceManager`.
+  //   1: Non-GC `PyObject*` held as a permanent strong reference.
+  //   2: `PyWeakref*` that also owns an unclaimed strong reference to its
+  //      referent until the first `PythonObjectReferenceManager::Update` call.
+  using TaggedObjectPtr = internal::TaggedPtr<PyObject, 2>;
 
-  struct TaggedObjectTraits {
-    template <typename>
-    using pointer = TaggedObjectPtr;
+  static TaggedObjectPtr AcquireRef(TaggedObjectPtr p) noexcept;
+  static void ReleaseRef(TaggedObjectPtr p) noexcept;
 
-    static void increment(PyObject* p) { Py_INCREF(p); }
-    static void decrement(PyObject* p) { Py_DECREF(p); }
-  };
-
-  using TaggedHandle = internal::IntrusivePtr<PyObject, TaggedObjectTraits>;
-
-  mutable TaggedHandle weak_ref_;
+  mutable std::atomic<TaggedObjectPtr> weak_ref_{nullptr};
 
   friend class PythonObjectReferenceManager;
 };

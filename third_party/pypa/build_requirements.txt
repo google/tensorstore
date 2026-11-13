@@ -1,2 +1,3 @@
 numpy>=2
-pybind11-stubgen
+# Match //third_party/py/pybind11_stubgen version in Google3.
+pybind11-stubgen==2.5.5

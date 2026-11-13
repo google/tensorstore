@@ -42,17 +42,17 @@ def invoke_tests(argv):
   implicit_args += PYTEST_TARGETS
   print(implicit_args + argv[1:])
 
-  # Monkey patch os.path.samefile and os.lstat only on Windows to avoid flakes
-  # from the 'local-spawn-runner' race condition.
+  # Monkey patch os.path.samefile, os.stat, and os.lstat only on Windows to
+  # avoid flakes from the 'local-spawn-runner' race condition.
   #
   # Because Bazel on Windows lacks native mount namespaces for sandboxing,
   # concurrent Bazel test runs execute in a shared directory hierarchy.
   # During test discovery, Pytest lists files (finding temporary files named
   # 'local-spawn-runner.XXXX' files from peer actions) and subsequently queries
   # their metadata. If a concurrent Bazel action deletes these temporary files
-  # after listing but before Pytest queries them, os.lstat or os.path.samefile
-  # fails with a FileNotFoundError, causing the test runner execution to
-  # crash/flake.
+  # after listing but before Pytest queries them, os.stat (used by
+  # pathlib.Path.lstat in pytest 9+), os.lstat, or os.path.samefile fails with a
+  # FileNotFoundError, causing the test runner execution to crash/flake.
   if sys.platform == 'win32':
     orig_samefile = os.path.samefile
 
@@ -63,6 +63,19 @@ def invoke_tests(argv):
         return False
 
     os.path.samefile = samefile
+
+    orig_stat = os.stat
+
+    def stat_wrapper(path, *args, **kwargs):
+      try:
+        return orig_stat(path, *args, **kwargs)
+      except FileNotFoundError:
+        if 'local-spawn-runner' in str(path):
+          # Return a stat result of a fake empty regular file.
+          return os.stat_result((stat.S_IFREG, 0, 0, 1, 0, 0, 0, 0, 0, 0))
+        raise
+
+    os.stat = stat_wrapper
 
     orig_lstat = os.lstat
 
