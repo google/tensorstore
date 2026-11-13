@@ -187,37 +187,6 @@ def data_type_conversion_h(out):
   return out
 
 
-DATA_TYPE_CONVERSION_CC = [
-    (
-        'COMPLEX',
-        'INT',
-        'internal_data_type::ComplexNumericConvertDataType',
-    ),
-    (
-        'COMPLEX',
-        'FLOAT',
-        'internal_data_type::ComplexNumericConvertDataType',
-    ),
-]
-
-
-def data_type_conversion_cc(out):
-  """Generates ConvertDataType specializations in data_type_conversion.cc."""
-
-  out.write('\n')
-  for specialization in DATA_TYPE_CONVERSION_CC:
-    f, t, parent = specialization
-    for f0 in MAP.get(f, [f]):
-      for t0 in MAP.get(t, [t]):
-        out.write(
-            'TENSORSTORE_INTERNAL_INHERITED_CONVERT(//\n'
-            f'::tensorstore::dtypes::{f0}, ::tensorstore::dtypes::{t0},'
-            f' {parent})\n'
-        )
-  out.write('\n')
-  return out
-
-
 def data_type_h(out):
   """Generates the specializations for data_type.h."""
   out.write("""
@@ -267,12 +236,6 @@ def main():
       path=os.path.join(os.path.dirname(__file__), 'data_type.h'),
       script_name=os.path.basename(__file__),
       new_content=data_type_h(io.StringIO()).getvalue(),
-  )
-
-  update_generated_source_code.update_generated_content(
-      path=os.path.join(os.path.dirname(__file__), 'data_type_conversion.cc'),
-      script_name=os.path.basename(__file__),
-      new_content=data_type_conversion_cc(io.StringIO()).getvalue(),
   )
 
   update_generated_source_code.update_generated_content(

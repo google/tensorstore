@@ -1440,6 +1440,36 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "scatter_gather_util",
+    srcs = ["scatter_gather_util.cc"],
+    hdrs = ["scatter_gather_util.h"],
+    deps = [
+        ":elementwise_function",
+        ":integer_overflow",
+        "//tensorstore:index",
+        "//tensorstore/internal/meta:attributes",
+        "//tensorstore/util:byte_strided_pointer",
+        "@abseil-cpp//absl/base:core_headers",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "scatter_gather_util_test",
+    size = "small",
+    srcs = ["scatter_gather_util_test.cc"],
+    deps = [
+        ":elementwise_function",
+        ":scatter_gather_util",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/util:span",
+        "//tensorstore/util:utf8_string",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
+tensorstore_cc_library(
     name = "string_like",
     hdrs = ["string_like.h"],
     deps = [

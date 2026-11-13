@@ -384,8 +384,6 @@ TEST(DataTypeConversionTest, Uint16) {
   EXPECT_THAT(T{0}, ConvertsTo<bool_t>(false));
   EXPECT_THAT(pos, ConvertsTo<bool_t>(true));
   EXPECT_THAT(neg, ConvertsTo<bool_t>(true));
-  EXPECT_THAT(pos, ConvertsTo<bool_t>(true));
-  EXPECT_THAT(neg, ConvertsTo<bool_t>(true));
   EXPECT_THAT(neg, ConvertsTo(int4_t(neg)));
   EXPECT_THAT(pos, ConvertsTo(int4_t(pos)));
   EXPECT_THAT(neg, ConvertsTo(static_cast<int8_t>(neg)));
@@ -578,7 +576,8 @@ TEST(DataTypeConversionTest, Float16) {
   const T pos(42.5);
   EXPECT_THAT(T(0), ConvertsTo<bool_t>(false));
   EXPECT_THAT(pos, ConvertsTo<bool_t>(true));
-  EXPECT_THAT(pos, ConvertsTo(static_cast<int4_t>(pos)));
+  // 42.5 exceeds `int4_t` range `[-8, 7]`, so it saturates to 7.
+  EXPECT_THAT(pos, ConvertsTo(std::numeric_limits<int4_t>::max()));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int8_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int16_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int32_t>(pos)));
@@ -699,9 +698,6 @@ TYPED_TEST(InternalMXFloatTest, DataTypeConversionTest_InternalFloat8Types) {
   EXPECT_THAT(pos, ConvertsTo(static_cast<uint64_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(T(pos), kSafeAndImplicit | kIdentity |
                                           kCanReinterpretCast));
-  if (!std::is_same_v<T, float4_e2m1fn_t>) {
-    EXPECT_THAT(pos, ConvertsTo(float4_e2m1fn_t(pos)));
-  }
   EXPECT_THAT(pos, ConvertsTo(float16_t(pos), kSafeAndImplicit));
   EXPECT_THAT(pos, ConvertsTo(bfloat16_t(pos), kSafeAndImplicit));
   EXPECT_THAT(pos, ConvertsTo(float32_t(pos), kSafeAndImplicit));
@@ -718,7 +714,8 @@ TEST(DataTypeConversionTest, Bfloat16) {
   const T pos(42.5);
   EXPECT_THAT(T(0), ConvertsTo<bool_t>(false));
   EXPECT_THAT(pos, ConvertsTo<bool_t>(true));
-  EXPECT_THAT(pos, ConvertsTo(int4_t(pos)));
+  // 42.5 exceeds `int4_t` range `[-8, 7]`, so it saturates to 7.
+  EXPECT_THAT(pos, ConvertsTo(std::numeric_limits<int4_t>::max()));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int8_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int16_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int32_t>(pos)));
@@ -743,14 +740,12 @@ TEST(DataTypeConversionTest, Bfloat16) {
 TEST(DataTypeConversionTest, Float32) {
   using T = float32_t;
   constexpr T pos = 42.5;
-  // Don't test overflow of float -> int conversion, because that is undefined
-  // behavior according to the C++ standard, and the behavior differs in
-  // practice between x86 and PPC64le.
-  //
-  // See: https://github.com/numpy/numpy/issues/9040
+  // Out-of-range and NaN float -> int conversions saturate; see
+  // `MultiByteFloatToIntegerSaturationTest`.
   EXPECT_THAT(T(0), ConvertsTo<bool_t>(false));
   EXPECT_THAT(pos, ConvertsTo<bool_t>(true));
-  EXPECT_THAT(pos, ConvertsTo(int4_t(pos)));
+  // 42.5 exceeds `int4_t` range `[-8, 7]`, so it saturates to 7.
+  EXPECT_THAT(pos, ConvertsTo(std::numeric_limits<int4_t>::max()));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int8_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int16_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int32_t>(pos)));
@@ -759,7 +754,6 @@ TEST(DataTypeConversionTest, Float32) {
   EXPECT_THAT(pos, ConvertsTo(static_cast<uint8_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<uint16_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<uint32_t>(pos)));
-  EXPECT_THAT(pos, ConvertsTo(static_cast<uint64_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<uint64_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(float16_t(pos)));
   EXPECT_THAT(pos, ConvertsTo(bfloat16_t(pos)));
@@ -778,7 +772,8 @@ TEST(DataTypeConversionTest, Float64) {
   constexpr T pos = 42.5;
   EXPECT_THAT(T(0), ConvertsTo<bool_t>(false));
   EXPECT_THAT(pos, ConvertsTo<bool_t>(true));
-  EXPECT_THAT(pos, ConvertsTo(int4_t(pos)));
+  // 42.5 exceeds `int4_t` range `[-8, 7]`, so it saturates to 7.
+  EXPECT_THAT(pos, ConvertsTo(std::numeric_limits<int4_t>::max()));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int8_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int16_t>(pos)));
   EXPECT_THAT(pos, ConvertsTo(static_cast<int32_t>(pos)));
@@ -803,7 +798,8 @@ TEST(DataTypeConversionTest, Float64) {
 TEST(DataTypeConversionTest, Complex64) {
   using T = complex64_t;
   constexpr T value(42.5, 43.5);
-  EXPECT_THAT(value, ConvertsTo(int4_t(value.real())));
+  // 42.5 exceeds `int4_t` range `[-8, 7]`, so it saturates to 7.
+  EXPECT_THAT(value, ConvertsTo(std::numeric_limits<int4_t>::max()));
   EXPECT_THAT(value, ConvertsTo(static_cast<int8_t>(value.real())));
   EXPECT_THAT(value, ConvertsTo(static_cast<int16_t>(value.real())));
   EXPECT_THAT(value, ConvertsTo(static_cast<int32_t>(value.real())));
@@ -836,7 +832,8 @@ TEST(DataTypeConversionTest, Complex64) {
 TEST(DataTypeConversionTest, Complex128) {
   using T = complex128_t;
   constexpr T value(42.5, 43.5);
-  EXPECT_THAT(value, ConvertsTo(int4_t(value.real())));
+  // 42.5 exceeds `int4_t` range `[-8, 7]`, so it saturates to 7.
+  EXPECT_THAT(value, ConvertsTo(std::numeric_limits<int4_t>::max()));
   EXPECT_THAT(value, ConvertsTo(static_cast<int8_t>(value.real())));
   EXPECT_THAT(value, ConvertsTo(static_cast<int16_t>(value.real())));
   EXPECT_THAT(value, ConvertsTo(static_cast<int32_t>(value.real())));
@@ -960,8 +957,6 @@ TEST(DataTypeConversionTest, Json) {
   EXPECT_THAT(json_t(nullptr), ConvertsToMatching<string_t>(StatusIs(
                                    absl::StatusCode::kInvalidArgument)));
   EXPECT_THAT(json_t(nullptr), ConvertsToMatching<ustring_t>(StatusIs(
-                                   absl::StatusCode::kInvalidArgument)));
-  EXPECT_THAT(json_t(nullptr), ConvertsToMatching<string_t>(StatusIs(
                                    absl::StatusCode::kInvalidArgument)));
   EXPECT_THAT(json_t(false), ConvertsTo<bool_t>(false));
   EXPECT_THAT(json_t("false"), ConvertsTo<bool_t>(false));
@@ -1309,13 +1304,11 @@ TYPED_TEST(LowPrecisionByteConversionTest, Exhaustive256ByteRepresentations) {
   });
 }
 
-#if 0
-// Fails at HEAD on `50331647 = 1.5 * 2^25 - 1`, `201326591 = 1.5 * 2^27 - 1`,
-// and `(1LL << 40) + (1LL << 39) - 1`: HEAD converts `int32/uint32/int64/uint64
-// -> float8_e8m0fnu_t` via `static_cast<float>`, which double-rounds values
-// just below `1.5 * 2^E` up to `1.5 * 2^E` in `float32` and then up again to
-// `2^(E+1)` in `float8_e8m0fnu_t` instead of rounding down to `2^E` (as direct
-// `static_cast<float8_e8m0fnu_t>(wide_int)` via `RoundToOddFloat` does).
+// Values just below `1.5 * 2^E` (e.g. `50331647 = 1.5 * 2^25 - 1`) must round
+// down to `2^E`. Converting `int32/uint32/int64/uint64 -> float8_e8m0fnu_t`
+// via a plain `static_cast<float>` would double-round them up to `1.5 * 2^E` in
+// `float32` and then up again to `2^(E+1)`; the hub loop instead uses
+// `RoundToOddFloat`, matching direct `static_cast<float8_e8m0fnu_t>(wide_int)`.
 TEST(DataTypeConversionTest, WideIntToFloat8E8m0fnuNoDoubleRounding) {
   EXPECT_THAT(int32_t{50331647}, ConvertsTo(float8_e8m0fnu_t(33554432.0f)));
   EXPECT_THAT(int32_t{50331649}, ConvertsTo(float8_e8m0fnu_t(67108864.0f)));
@@ -1329,7 +1322,6 @@ TEST(DataTypeConversionTest, WideIntToFloat8E8m0fnuNoDoubleRounding) {
   EXPECT_THAT(uint64_t{(1ULL << 40) + (1ULL << 39) - 1},
               ConvertsTo(float8_e8m0fnu_t(static_cast<float>(1ULL << 40))));
 }
-#endif
 
 TEST(DataTypeConversionTest, ByteAndCharConversions) {
   // `char_t -> byte_t` allows `kCanReinterpretCast` (any char is a raw byte),
@@ -1380,6 +1372,26 @@ constexpr bool IsComplex = IsAnyOf<T, complex64_t, complex128_t>;
 template <typename T>
 constexpr bool IsStringOrJson = IsAnyOf<T, string_t, ustring_t, json_t>;
 
+// Reference scalar conversion (independent of `internal::SaturatedFloatToInt`):
+// floating-point -> integer saturates (NaN -> 0, out-of-range -> `[lowest(),
+// max()]`); everything else is `static_cast`.
+template <typename To, typename T>
+To ExpectedScalarConversion(T val) {
+  if constexpr (!std::numeric_limits<T>::is_integer &&
+                ((std::is_integral_v<To> && !std::is_same_v<To, bool_t>) ||
+                 IsAnyOf<To, int2_t, int4_t>)) {
+    const double d = static_cast<double>(val);
+    if (std::isnan(d)) return To{0};
+    const double lo = static_cast<double>(std::numeric_limits<To>::lowest());
+    const double hi = static_cast<double>(std::numeric_limits<To>::max());
+    if (d <= lo) return std::numeric_limits<To>::lowest();
+    if (d >= hi) return std::numeric_limits<To>::max();
+    return static_cast<To>(d);
+  } else {
+    return static_cast<To>(val);
+  }
+}
+
 template <typename From, typename To>
 bool PopulateExpectedElements(const void* in_ptr, void* expected_ptr,
                               size_t n_elems) {
@@ -1390,27 +1402,38 @@ bool PopulateExpectedElements(const void* in_ptr, void* expected_ptr,
     To* expected = static_cast<To*>(expected_ptr);
     for (size_t i = 0; i < n_elems; ++i) {
       if constexpr (std::is_same_v<From, json_t>) {
-        expected[i] = static_cast<To>(in[i].template get<double>());
+        if constexpr (std::is_unsigned_v<To> && !std::is_same_v<To, bool_t>) {
+          expected[i] = static_cast<To>(in[i].template get<uint64_t>());
+        } else if constexpr (std::numeric_limits<To>::is_integer) {
+          expected[i] = static_cast<To>(in[i].template get<int64_t>());
+        } else {
+          expected[i] =
+              ExpectedScalarConversion<To>(in[i].template get<double>());
+        }
       } else if constexpr (IsComplex<From>) {
         if constexpr (IsComplex<To>) {
           using ToReal = typename To::value_type;
           expected[i] = To{static_cast<ToReal>(in[i].real()),
                            static_cast<ToReal>(in[i].imag())};
         } else {
-          expected[i] = static_cast<To>(in[i].real());
+          expected[i] = ExpectedScalarConversion<To>(in[i].real());
         }
       } else {
-        using ScalarIn =
-            std::conditional_t<IsAnyOf<From, float16_t, bfloat16_t> ||
-                                   (std::is_integral_v<From> &&
-                                    std::is_same_v<To, float16_t>),
-                               float, From>;
-        const ScalarIn val = static_cast<ScalarIn>(in[i]);
+        using PromotedFrom =
+            std::conditional_t<IsAnyOf<From, int2_t, int4_t>, int8_t, From>;
+        using ScalarIn = std::conditional_t<
+            IsAnyOf<PromotedFrom, float8_e4m3fn_t, float4_e2m1fn_t, float16_t,
+                    bfloat16_t> ||
+                (std::is_integral_v<PromotedFrom> &&
+                 std::is_same_v<To, float16_t>),
+            float, PromotedFrom>;
+        const ScalarIn val =
+            static_cast<ScalarIn>(static_cast<PromotedFrom>(in[i]));
         if constexpr (IsComplex<To>) {
           using ToReal = typename To::value_type;
           expected[i] = To{static_cast<ToReal>(val), ToReal{0}};
         } else {
-          expected[i] = static_cast<To>(val);
+          expected[i] = ExpectedScalarConversion<To>(val);
         }
       }
     }
@@ -1421,7 +1444,26 @@ bool PopulateExpectedElements(const void* in_ptr, void* expected_ptr,
 template <typename From, typename To>
 void PopulateMultiBlockTestInputs(From* in, size_t n_elems) {
   for (size_t i = 0; i < n_elems; ++i) {
-    if constexpr (std::is_same_v<From, int16_t>) {
+    if constexpr (std::is_same_v<From, bool_t>) {
+      in[i] = (i % 3 != 0);
+    } else if constexpr (std::is_same_v<From, int2_t>) {
+      constexpr int8_t kVals[] = {-2, -1, 0, 1};
+      in[i] = static_cast<int2_t>(kVals[i % 4]);
+    } else if constexpr (std::is_same_v<From, int4_t>) {
+      const int8_t v = (std::is_unsigned_v<To> && !std::is_same_v<To, bool_t>)
+                           ? static_cast<int8_t>(i % 8)
+                           : static_cast<int8_t>(static_cast<int>(i % 16) - 8);
+      in[i] = static_cast<int4_t>(v);
+    } else if constexpr (std::is_same_v<From, int8_t>) {
+      constexpr int8_t kSpecial[] = {-128, -127, -8, -2, -1, 0, 1, 2, 7, 127};
+      in[i] = (i < std::size(kSpecial)) ? kSpecial[i]
+                                        : static_cast<int8_t>((i % 64) - 32);
+    } else if constexpr (std::is_same_v<From, uint8_t>) {
+      constexpr uint8_t kSpecial[] = {0u,   1u,   2u,   7u,  8u,
+                                      127u, 128u, 254u, 255u};
+      in[i] = (i < std::size(kSpecial)) ? kSpecial[i]
+                                        : static_cast<uint8_t>(i % 256);
+    } else if constexpr (std::is_same_v<From, int16_t>) {
       constexpr int16_t kSpecial[] = {-32768, -300, -129, -128, -2,  -1,   0,
                                       1,      2,    127,  128,  300, 32767};
       in[i] = (i < std::size(kSpecial)) ? kSpecial[i]
@@ -1475,7 +1517,13 @@ void PopulateMultiBlockTestInputs(From* in, size_t n_elems) {
       } else if constexpr (std::is_same_v<From, complex128_t>) {
         in[i] = complex128_t{static_cast<double>(v), -static_cast<double>(v)};
       } else if constexpr (std::is_same_v<From, json_t>) {
-        in[i] = static_cast<double>(v);
+        if constexpr (std::is_unsigned_v<To> && !std::is_same_v<To, bool_t>) {
+          in[i] = static_cast<uint64_t>(i % 64);
+        } else if constexpr (std::numeric_limits<To>::is_integer) {
+          in[i] = static_cast<int64_t>(i % 64) - 32;
+        } else {
+          in[i] = static_cast<double>(v);
+        }
       } else {
         in[i] = static_cast<From>(v);
       }
@@ -1523,6 +1571,13 @@ void AddMultiBlockConversionTestCasesForSource(
 
 std::vector<MultiBlockConversionTestCase> GetMultiBlockConversionTestCases() {
   std::vector<MultiBlockConversionTestCase> cases;
+  AddMultiBlockConversionTestCasesForSource<bool_t>(&cases);
+  AddMultiBlockConversionTestCasesForSource<int2_t>(&cases);
+  AddMultiBlockConversionTestCasesForSource<int4_t>(&cases);
+  AddMultiBlockConversionTestCasesForSource<int8_t>(&cases);
+  AddMultiBlockConversionTestCasesForSource<uint8_t>(&cases);
+  AddMultiBlockConversionTestCasesForSource<float8_e4m3fn_t>(&cases);
+  AddMultiBlockConversionTestCasesForSource<float4_e2m1fn_t>(&cases);
   AddMultiBlockConversionTestCasesForSource<int16_t>(&cases);
   AddMultiBlockConversionTestCasesForSource<uint16_t>(&cases);
   AddMultiBlockConversionTestCasesForSource<float16_t>(&cases);
@@ -1536,6 +1591,9 @@ std::vector<MultiBlockConversionTestCase> GetMultiBlockConversionTestCases() {
   AddMultiBlockConversionTestCasesForSource<int64_t>(&cases);
   AddMultiBlockConversionTestCasesForSource<uint64_t>(&cases);
 
+  cases.push_back(MakeMultiBlockConversionTestCase<json_t, int32_t>());
+  cases.push_back(MakeMultiBlockConversionTestCase<json_t, int64_t>());
+  cases.push_back(MakeMultiBlockConversionTestCase<json_t, uint64_t>());
   cases.push_back(MakeMultiBlockConversionTestCase<json_t, float16_t>());
   cases.push_back(MakeMultiBlockConversionTestCase<json_t, bfloat16_t>());
   cases.push_back(MakeMultiBlockConversionTestCase<json_t, float32_t>());
@@ -1715,6 +1773,65 @@ TYPED_TEST(InPlaceStridedConversionTest, MultiBlockStrided) {
   }
 }
 
+TYPED_TEST(InPlaceStridedConversionTest,
+           DisjointSlicesAndExactContiguousInPlace) {
+  using From = typename TypeParam::FromType;
+  using To = typename TypeParam::ToType;
+  constexpr int kOffset = TypeParam::offset;
+  constexpr Index kCount = 150;  // Multiple 64-element blocks + tail.
+  static_assert(sizeof(From) == sizeof(To));
+  const auto conv = GetDataTypeConverter(dtype_v<From>, dtype_v<To>);
+  absl::Status status;
+
+  // 1. Exact in-place `kContiguous` conversion (`from_ptr == to_ptr`) across
+  // multiple 64-element blocks.
+  alignas(std::max(alignof(From), alignof(To)))
+      std::array<char, kCount * sizeof(From)>
+          in_place_buf{};
+  auto* in_place_from = reinterpret_cast<From*>(in_place_buf.data());
+  auto* in_place_to = reinterpret_cast<To*>(in_place_buf.data());
+  for (Index i = 0; i < kCount; ++i) {
+    in_place_from[i] = static_cast<From>(static_cast<float>(i + kOffset));
+  }
+  ASSERT_TRUE((*conv.closure.function)[IterationBufferKind::kContiguous](
+      conv.closure.context, {1, kCount},
+      IterationBufferPointer{in_place_from, Index(0),
+                             static_cast<Index>(sizeof(From))},
+      IterationBufferPointer{in_place_to, Index(0),
+                             static_cast<Index>(sizeof(To))},
+      &status))
+      << status;
+  for (Index i = 0; i < kCount; ++i) {
+    EXPECT_EQ(static_cast<To>(static_cast<float>(i + kOffset)), in_place_to[i])
+        << "i=" << i;
+  }
+
+  // 2. Interleaved even-to-odd column slices (`from = &buf[2*i]`,
+  // `to = &buf[2*i + 1]`) sharing the same allocation with overlapping overall
+  // `[lo, hi)` byte bounds (`BuffersAreDisjoint == false`).
+  alignas(std::max(alignof(From), alignof(To)))
+      std::array<char, 2 * kCount * sizeof(From)>
+          interleaved_buf{};
+  for (Index i = 0; i < kCount; ++i) {
+    *reinterpret_cast<From*>(interleaved_buf.data() + 2 * i * sizeof(From)) =
+        static_cast<From>(static_cast<float>(i + kOffset));
+  }
+  ASSERT_TRUE((*conv.closure.function)[IterationBufferKind::kStrided](
+      conv.closure.context, {1, kCount},
+      IterationBufferPointer{interleaved_buf.data(), Index(0),
+                             static_cast<Index>(2 * sizeof(From))},
+      IterationBufferPointer{interleaved_buf.data() + sizeof(From), Index(0),
+                             static_cast<Index>(2 * sizeof(To))},
+      &status))
+      << status;
+  for (Index i = 0; i < kCount; ++i) {
+    const To actual = *reinterpret_cast<const To*>(interleaved_buf.data() +
+                                                   (2 * i + 1) * sizeof(To));
+    EXPECT_EQ(static_cast<To>(static_cast<float>(i + kOffset)), actual)
+        << "i=" << i;
+  }
+}
+
 TEST(DataTypeConversionTest, EmptyShapesConversion) {
   const auto f32_to_i32 =
       GetDataTypeConverter(dtype_v<float32_t>, dtype_v<int32_t>);
@@ -1859,19 +1976,14 @@ TYPED_TEST(Float8ToIntegerNaNConversionTest, NaNConvertsToZero) {
               ConvertsTo(Int{0}));
 }
 
-// Excludes `int2_t` and `int4_t` (covered in `#if 0` below).
-using StandardIntegerSaturationTestTypes =
-    ::testing::Types<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t,
-                     int64_t, uint64_t>;
-
 template <typename T>
 class Float8ToIntegerSaturationTest : public ::testing::Test {};
-TYPED_TEST_SUITE(Float8ToIntegerSaturationTest,
-                 StandardIntegerSaturationTestTypes);
+TYPED_TEST_SUITE(Float8ToIntegerSaturationTest, AllIntegerTargetTestTypes);
 
 TYPED_TEST(Float8ToIntegerSaturationTest, InfinitySaturatesToBounds) {
-  // Out-of-range / infinite 1-byte floats saturate to `[min(), max()]` (so
-  // `-Inf` clamps to `0` on unsigned integer targets).
+  // Out-of-range / infinite 1-byte floats saturate to `[min(), max()]` of the
+  // target (so `-Inf` clamps to `0` on unsigned targets, and `int2_t` /
+  // `int4_t` clamp to their own range rather than keeping only the low bits).
   using Int = TypeParam;
   EXPECT_THAT(std::numeric_limits<float8_e5m2_t>::infinity(),
               ConvertsTo(std::numeric_limits<Int>::max()));
@@ -1879,29 +1991,18 @@ TYPED_TEST(Float8ToIntegerSaturationTest, InfinitySaturatesToBounds) {
               ConvertsTo(std::numeric_limits<Int>::min()));
 }
 
-#if 0
-// Fails at HEAD (`-1` instead of `max()` and `0` instead of `min()`):
-// `SaturatedFloatToInt` clamps to `int8_t` bounds (`[-128, 127]`) before
-// `static_cast<IntPadded<N>>`, which masks to the low `N` bits (`0x7f -> -1`,
-// `0x80 -> 0`) rather than saturating to `[-2^(N-1), 2^(N-1)-1]`.
-using SubByteIntegerSaturationTestTypes = ::testing::Types<int2_t, int4_t>;
-
-template <typename T>
-class Float8ToSubByteIntegerSaturationTest : public ::testing::Test {};
-TYPED_TEST_SUITE(Float8ToSubByteIntegerSaturationTest,
-                 SubByteIntegerSaturationTestTypes);
-
-TYPED_TEST(Float8ToSubByteIntegerSaturationTest, InfinitySaturatesToBounds) {
+TYPED_TEST(Float8ToIntegerSaturationTest, FiniteOutOfRangeSaturatesToBounds) {
   using Int = TypeParam;
-  EXPECT_THAT(std::numeric_limits<float8_e5m2_t>::infinity(),
-              ConvertsTo(std::numeric_limits<Int>::max()));
-  EXPECT_THAT(-std::numeric_limits<float8_e5m2_t>::infinity(),
-              ConvertsTo(std::numeric_limits<Int>::min()));
+  // `float8_e4m3fn_t` max is 448, which exceeds `int8_t` / `uint8_t` and the
+  // sub-byte ranges.
+  if constexpr (std::numeric_limits<Int>::max() < 448) {
+    EXPECT_THAT(std::numeric_limits<float8_e4m3fn_t>::max(),
+                ConvertsTo(std::numeric_limits<Int>::max()));
+    EXPECT_THAT(std::numeric_limits<float8_e4m3fn_t>::lowest(),
+                ConvertsTo(std::numeric_limits<Int>::min()));
+  }
 }
 
-// Fails / triggers UBSan `float-cast-overflow` at HEAD: multi-byte floats
-// (`float16_t`, `bfloat16_t`, `float32_t`, `float64_t`) convert to integers via
-// raw `static_cast<Int>(*from)` rather than `SaturatedFloatToInt<Int>(*from)`.
 template <typename T>
 class MultiByteFloatToIntegerSaturationTest : public ::testing::Test {};
 TYPED_TEST_SUITE(MultiByteFloatToIntegerSaturationTest,
@@ -1909,6 +2010,9 @@ TYPED_TEST_SUITE(MultiByteFloatToIntegerSaturationTest,
 
 TYPED_TEST(MultiByteFloatToIntegerSaturationTest,
            NaNAndInfinitySaturateToZeroAndBounds) {
+  // Multi-byte floats (`float16_t`, `bfloat16_t`, `float32_t`, `float64_t`)
+  // use the same saturating semantics as 1-byte floats, rather than a raw
+  // `static_cast<Int>`, which is undefined behavior for these inputs.
   using Int = TypeParam;
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
   EXPECT_THAT(float16_t{kNaN}, ConvertsTo(Int{0}));
@@ -1926,7 +2030,116 @@ TYPED_TEST(MultiByteFloatToIntegerSaturationTest,
   EXPECT_THAT(float64_t{kInf}, ConvertsTo(std::numeric_limits<Int>::max()));
   EXPECT_THAT(float64_t{-kInf}, ConvertsTo(std::numeric_limits<Int>::min()));
 }
-#endif
+
+TYPED_TEST(MultiByteFloatToIntegerSaturationTest,
+           FiniteOutOfRangeSaturatesToBounds) {
+  using Int = TypeParam;
+  // `1e30` exceeds every integer range, including `uint64_t`.
+  EXPECT_THAT(float32_t{1e30f}, ConvertsTo(std::numeric_limits<Int>::max()));
+  EXPECT_THAT(float32_t{-1e30f}, ConvertsTo(std::numeric_limits<Int>::min()));
+  EXPECT_THAT(float64_t{1e300}, ConvertsTo(std::numeric_limits<Int>::max()));
+  EXPECT_THAT(float64_t{-1e300}, ConvertsTo(std::numeric_limits<Int>::min()));
+  EXPECT_THAT(bfloat16_t{1e30f}, ConvertsTo(std::numeric_limits<Int>::max()));
+  EXPECT_THAT(bfloat16_t{-1e30f}, ConvertsTo(std::numeric_limits<Int>::min()));
+  // `float16_t` max is 65504.
+  if constexpr (std::numeric_limits<Int>::max() < 65504) {
+    EXPECT_THAT(std::numeric_limits<float16_t>::max(),
+                ConvertsTo(std::numeric_limits<Int>::max()));
+    EXPECT_THAT(std::numeric_limits<float16_t>::lowest(),
+                ConvertsTo(std::numeric_limits<Int>::min()));
+  }
+}
+
+TYPED_TEST(MultiByteFloatToIntegerSaturationTest,
+           MultiBlockBufferKindsSaturationAndBoundaries) {
+  using Int = TypeParam;
+  constexpr size_t kNum = 136;  // Multiple 64-element blocks + tail, 2 rows.
+  constexpr double kSamples[] = {
+      0.0,
+      -0.0,
+      1.0,
+      -1.0,
+      -0.5,
+      0.5,
+      std::numeric_limits<double>::quiet_NaN(),
+      -std::numeric_limits<double>::quiet_NaN(),
+      std::numeric_limits<double>::infinity(),
+      -std::numeric_limits<double>::infinity(),
+      2.0,
+      -2.0,
+      -3.0,
+      7.0,
+      8.0,
+      -8.0,
+      -9.0,
+      127.0,
+      128.0,
+      -128.0,
+      -129.0,
+      255.0,
+      256.0,
+      32767.0,
+      32768.0,
+      -32768.0,
+      -32769.0,
+      65535.0,
+      65536.0,
+      static_cast<double>(0x1.fffffep30f),        // Largest float32 < 2^31
+      2147483647.0,                               // 2^31 - 1
+      2147483648.0,                               // 2^31
+      -2147483648.0,                              // -2^31
+      -2147483649.0,                              // -2^31 - 1
+      static_cast<double>(0x1.fffffep31f),        // Largest float32 < 2^32
+      4294967295.0,                               // 2^32 - 1
+      4294967296.0,                               // 2^32
+      static_cast<double>(0x1.fffffep62f),        // Largest float32 < 2^63
+      static_cast<double>(0x1.fffffffffffffp62),  // Largest double < 2^63
+      9223372036854775808.0,                      // 2^63
+      -9223372036854775808.0,                     // -2^63
+      -1e20,
+      static_cast<double>(0x1.fffffep63f),        // Largest float32 < 2^64
+      static_cast<double>(0x1.fffffffffffffp63),  // Largest double < 2^64
+      18446744073709551616.0,                     // 2^64
+      1e30,
+      -1e30,
+  };
+  auto run_for_source = [&](auto src_tag) {
+    using Src = decltype(src_tag);
+    std::vector<Src> in(kNum);
+    for (size_t i = 0; i < kNum; ++i) {
+      in[i] = static_cast<Src>(kSamples[i % std::size(kSamples)]);
+    }
+    auto res = RunAllBufferKinds(dtype_v<Src>, dtype_v<Int>, in.data(), kNum);
+    ASSERT_EQ(res.flags & kSupported, kSupported);
+    ASSERT_TRUE(res.copy_strided_ok) << res.status;
+    ASSERT_TRUE(res.contiguous_ok) << res.status;
+    ASSERT_TRUE(res.strided_ok) << res.status;
+    ASSERT_TRUE(res.indexed_ok) << res.status;
+    EXPECT_THAT(res.strided_view(),
+                MatchesConvertedArray(res.contiguous_view()));
+    EXPECT_THAT(res.indexed_view(),
+                MatchesConvertedArray(res.contiguous_view()));
+    auto expected = AllocateArray({res.rows, res.cols}, tensorstore::c_order,
+                                  tensorstore::default_init, dtype_v<Int>);
+    ASSERT_TRUE(
+        (PopulateExpectedElements<Src, Int>(in.data(), expected.data(), kNum)));
+    EXPECT_THAT(res.contiguous_view(), MatchesConvertedArray(expected));
+  };
+  run_for_source(float16_t{});
+  run_for_source(bfloat16_t{});
+  run_for_source(float32_t{});
+  run_for_source(float64_t{});
+}
+
+TEST(DataTypeConversionTest, Float64ToInt64PreservesDoublePrecision) {
+  // `2^62 + 2^10` is exact in `double` but not in `float`; saturation must not
+  // round through `float32`.
+  constexpr int64_t kValue = (int64_t{1} << 62) + 1024;
+  EXPECT_THAT(static_cast<float64_t>(kValue), ConvertsTo(kValue));
+  EXPECT_THAT(static_cast<float64_t>(kValue),
+              ConvertsTo(static_cast<uint64_t>(kValue)));
+  EXPECT_THAT(-static_cast<float64_t>(kValue), ConvertsTo(-kValue));
+}
 
 template <typename From, typename To>
 void BM_ConvertContiguous(benchmark::State& state) {
@@ -1977,6 +2190,7 @@ BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, float32_t>);
 BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, float64_t>);
 BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, int32_t>);
 BENCHMARK(BM_ConvertContiguous<float4_e2m1fn_t, bfloat16_t>);
+BENCHMARK(BM_ConvertContiguous<uint8_t, float32_t>);
 
 // 1-byte -> 1-byte conversions
 BENCHMARK(BM_ConvertContiguous<float8_e4m3fn_t, float8_e5m2_t>);
@@ -1990,8 +2204,21 @@ BENCHMARK(BM_ConvertContiguous<bfloat16_t, float8_e4m3fn_t>);
 BENCHMARK(BM_ConvertContiguous<float32_t, bfloat16_t>);
 BENCHMARK(BM_ConvertContiguous<bfloat16_t, float32_t>);
 BENCHMARK(BM_ConvertContiguous<float32_t, float64_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, int4_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, int8_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, uint8_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, int16_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, uint16_t>);
 BENCHMARK(BM_ConvertContiguous<float32_t, int32_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, uint32_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, int64_t>);
+BENCHMARK(BM_ConvertContiguous<float32_t, uint64_t>);
+BENCHMARK(BM_ConvertContiguous<float64_t, int8_t>);
+BENCHMARK(BM_ConvertContiguous<float64_t, uint8_t>);
+BENCHMARK(BM_ConvertContiguous<float64_t, int32_t>);
+BENCHMARK(BM_ConvertContiguous<float64_t, uint32_t>);
 BENCHMARK(BM_ConvertContiguous<int32_t, float32_t>);
+BENCHMARK(BM_ConvertContiguous<int32_t, float64_t>);
 
 // Direct scalar static_cast<To>(From) loop outside data_type_conversion.cc
 BENCHMARK(BM_ScalarStaticCast<float8_e4m3fn_t, float32_t>);
