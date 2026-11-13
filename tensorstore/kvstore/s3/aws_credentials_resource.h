@@ -18,9 +18,11 @@
 #include <stddef.h>
 
 #include <cassert>
+#include <utility>
 
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/s3/aws_credentials_spec.h"
@@ -33,10 +35,12 @@ namespace internal_kvstore_s3 {
 struct AwsCredentialsResource
     : public internal::ContextResourceTraits<AwsCredentialsResource> {
   static constexpr char id[] = "aws_credentials";
-  constexpr static bool config_only = true;
 
   using Spec = AwsCredentialsSpec;
-  using Resource = Spec;
+  struct Resource {
+    Spec spec;
+    internal_aws::AwsCredentialsProvider credentials_provider;
+  };
 
   static Spec Default() { return Spec{}; }
   static constexpr auto JsonBinder() {
@@ -45,12 +49,14 @@ struct AwsCredentialsResource
 
   static Result<Resource> Create(
       const Spec& spec, internal::ContextResourceCreationContext context) {
-    return spec;
+    TENSORSTORE_ASSIGN_OR_RETURN(auto credentials_provider,
+                                 MakeAwsCredentialsProvider(spec));
+    return Resource{spec, std::move(credentials_provider)};
   }
 
   static Spec GetSpec(const Resource& resource,
                       const internal::ContextSpecBuilder& builder) {
-    return resource;
+    return resource.spec;
   }
 };
 

@@ -107,7 +107,6 @@ using ::tensorstore::internal::RateLimiterNode;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal_aws::AwsCredentials;
-using ::tensorstore::internal_aws::AwsCredentialsProvider;
 using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
@@ -121,7 +120,6 @@ using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
 using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
 using ::tensorstore::internal_kvstore_s3::IsValidStorageGeneration;
-using ::tensorstore::internal_kvstore_s3::MakeAwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::S3ConcurrencyResource;
 using ::tensorstore::internal_kvstore_s3::S3EndpointRegion;
 using ::tensorstore::internal_kvstore_s3::S3RateLimiterResource;
@@ -337,11 +335,10 @@ class S3KeyValueStore
                                                 S3KeyValueStoreSpec> {
  public:
   S3KeyValueStore(std::shared_ptr<HttpTransport> transport,
-                  S3KeyValueStoreSpecData spec, AwsCredentialsProvider provider)
+                  S3KeyValueStoreSpecData spec)
       : transport_(std::move(transport)),
         spec_(std::move(spec)),
-        host_header_(spec_.host_header.value_or(std::string())),
-        provider_(std::move(provider)) {}
+        host_header_(spec_.host_header.value_or(std::string())) {}
 
   internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
       const {
@@ -388,7 +385,8 @@ class S3KeyValueStore
   RateLimiter& admission_queue() { return *spec_.request_concurrency->queue; }
 
   Future<AwsCredentials> GetCredentials() {
-    return GetAwsCredentials(provider_.get());
+    return GetAwsCredentials(
+        spec_.aws_credentials->credentials_provider.get());
   }
 
   // Resolves the region endpoint for the bucket.
@@ -422,7 +420,6 @@ class S3KeyValueStore
   std::shared_ptr<HttpTransport> transport_;
   S3KeyValueStoreSpecData spec_;
   std::string host_header_;
-  AwsCredentialsProvider provider_;
   std::atomic<bool> auto_unsigned_payload_{true};
   std::atomic<bool> auto_checksum_crc32c_{true};
 
@@ -1599,11 +1596,8 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   (void)internal_aws::GetAwsAllocator();  // Force AWS library initialization.
   // TODO: The transport should support the AWS_CA_BUNDLE environment
   // variable.
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto provider, MakeAwsCredentialsProvider(*data_.aws_credentials));
-
   auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>(
-      internal_http::GetDefaultHttpTransport(), data_, std::move(provider));
+      internal_http::GetDefaultHttpTransport(), data_);
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
