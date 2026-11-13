@@ -149,10 +149,44 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "downsample_kernels",
+    hdrs = ["downsample_kernels.h"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/internal:elementwise_function",
+        "//tensorstore/internal:insertion_sort",
+        "//tensorstore/internal:scatter_gather_util",
+        "//tensorstore/internal/meta:attributes",
+        "//tensorstore/util:utf8_string",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/numeric:bits",
+        "@abseil-cpp//absl/numeric:int128",
+        "@nlohmann_json//:json",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "downsample_kernels_test",
+    size = "small",
+    srcs = ["downsample_kernels_test.cc"],
+    deps = [
+        ":downsample_kernels",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/util:span",
+        "@abseil-cpp//absl/numeric:int128",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "downsample_nditerable",
     srcs = ["downsample_nditerable.cc"],
     hdrs = ["downsample_nditerable.h"],
     deps = [
+        ":downsample_kernels",
         "//tensorstore:box",
         "//tensorstore:data_type",
         "//tensorstore:downsample_method",
@@ -160,15 +194,19 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore/internal:arena",
         "//tensorstore/internal:elementwise_function",
+        "//tensorstore/internal:insertion_sort",
+        "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:nditerable",
         "//tensorstore/internal:nditerable_buffer_management",
+        "//tensorstore/internal:scatter_gather_util",
         "//tensorstore/internal:unique_with_intrusive_allocator",
-        "//tensorstore/util:extents",
+        "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:generic_stringify",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
+        "//tensorstore/util:utf8_string",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_log",
-        "@abseil-cpp//absl/numeric:int128",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@nlohmann_json//:json",

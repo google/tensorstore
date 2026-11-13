@@ -394,6 +394,12 @@ constexpr inline DataTypeId DataTypeIdOfHelper = DataTypeId::custom;
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID
 
+template <typename T>
+constexpr inline bool IsComplex = false;
+
+template <typename T>
+constexpr inline bool IsComplex<std::complex<T>> = true;
+
 }  // namespace internal_data_type
 
 /// Metafunction that maps an unqualified type `T` to the equivalent canonical
@@ -452,6 +458,11 @@ constexpr inline bool IsElementType =
      // `__int128_t` and `_Float16` that we wish to support.
      !std::is_reference_v<T> && !std::is_function_v<std::remove_const_t<T>> &&
      !std::is_array_v<std::remove_const_t<T>>);
+
+// Indicates whether `T` is a `std::complex` specialization.
+template <typename T>
+constexpr inline bool IsComplex =
+    internal_data_type::IsComplex<std::remove_cv_t<T>>;
 
 /// Specifies traits for the conversion from one data type to another.
 ///
@@ -1605,7 +1616,22 @@ using pointee_dtype_t = dtype_t<
     typename std::pointer_traits<absl::remove_cvref_t<Pointer>>::element_type>;
 
 namespace internal {
+
 absl::Status NonSerializableDataTypeError(DataType dtype);
+
+/// Returns `nullptr` if `dtype` is a canonical trivially copyable type, or
+/// `&dtype->copy_assign` otherwise.
+template <typename DataTypeLike>
+constexpr const ElementwiseFunction<2, void*>* GetCopyAssignIfNotTrivial(
+    DataTypeLike dtype) {
+  // All 27 canonical types before `string_t` (`bool_t` through `complex128_t`)
+  // are trivially copyable with `size()` in `{1, 2, 4, 8, 16}`.
+  return static_cast<unsigned>(dtype.id()) <
+                 static_cast<unsigned>(DataTypeId::string_t)
+             ? nullptr
+             : &dtype->copy_assign;
+}
+
 }  // namespace internal
 }  // namespace tensorstore
 

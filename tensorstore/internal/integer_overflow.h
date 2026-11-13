@@ -47,15 +47,21 @@ namespace wrap_on_overflow {
 /// builtin operator, but is still useful as documentation that wrapping is
 /// expected, and suppresses errors from Undefined Behavior Sanitizer when the
 /// non-default unsigned-integer-overflow detection has been enabled.
-#define TENSORSTORE_INTERNAL_DEFINE_WRAP_ON_OVERFLOW_OP(OP, NAME) \
-  template <typename T>                                           \
-  TENSORSTORE_ATTRIBUTE_NO_SANITIZE_UNSIGNED_INTEGER_OVERFLOW     \
-      std::enable_if_t<std::is_integral<T>::value, T>             \
-      NAME(T a, T b) {                                            \
-    using UnsignedT = std::make_unsigned_t<T>;                    \
-    return static_cast<T>(static_cast<UnsignedT>(                 \
-        static_cast<UnsignedT>(a) OP static_cast<UnsignedT>(b))); \
-  }                                                               \
+#define TENSORSTORE_INTERNAL_DEFINE_WRAP_ON_OVERFLOW_OP(OP, NAME)             \
+  template <typename T>                                                       \
+  TENSORSTORE_ATTRIBUTE_NO_SANITIZE_UNSIGNED_INTEGER_OVERFLOW constexpr std:: \
+      enable_if_t<std::is_integral_v<T> &&                                    \
+                      !std::is_same_v<std::remove_cv_t<T>, bool>,             \
+                  T>                                                          \
+      NAME(T a, T b) {                                                        \
+    using UnsignedT = std::make_unsigned_t<T>;                                \
+    using ArithT =                                                            \
+        std::conditional_t<(sizeof(UnsignedT) < sizeof(unsigned int)),        \
+                           unsigned int, UnsignedT>;                          \
+    return static_cast<T>(static_cast<UnsignedT>(                             \
+        static_cast<ArithT>(static_cast<UnsignedT>(a))                        \
+            OP static_cast<ArithT>(static_cast<UnsignedT>(b))));              \
+  }                                                                           \
   /**/
 TENSORSTORE_INTERNAL_DEFINE_WRAP_ON_OVERFLOW_OP(+, Add)
 TENSORSTORE_INTERNAL_DEFINE_WRAP_ON_OVERFLOW_OP(-, Subtract)
@@ -95,6 +101,8 @@ inline AccumType InnerProduct(const T0* a, const T1* b) {
 /// result.
 template <typename T>
 constexpr bool AddOverflow(T a, T b, T* result) {
+  static_assert(std::is_integral_v<T> &&
+                !std::is_same_v<std::remove_cv_t<T>, bool>);
 #if defined(__clang__) || !defined(_MSC_VER)
   return __builtin_add_overflow(a, b, result);
 #else
@@ -107,10 +115,14 @@ constexpr bool AddOverflow(T a, T b, T* result) {
 /// Returns the result of adding `a` and `b`, saturating on overflow.
 template <typename T>
 constexpr T AddSaturate(T a, T b) {
-  T result;
+  static_assert(std::is_integral_v<T> &&
+                !std::is_same_v<std::remove_cv_t<T>, bool>);
+  T result = 0;
   if (AddOverflow(a, b, &result)) {
-    result = (b >= 0 ? std::numeric_limits<T>::max()
-                     : std::numeric_limits<T>::min());
+    if constexpr (std::is_signed_v<T>) {
+      if (b < 0) return std::numeric_limits<T>::min();
+    }
+    return std::numeric_limits<T>::max();
   }
   return result;
 }
@@ -120,6 +132,8 @@ constexpr T AddSaturate(T a, T b) {
 /// infinite precision result.
 template <typename T>
 constexpr bool SubOverflow(T a, T b, T* result) {
+  static_assert(std::is_integral_v<T> &&
+                !std::is_same_v<std::remove_cv_t<T>, bool>);
 #if defined(__clang__) || !defined(_MSC_VER)
   return __builtin_sub_overflow(a, b, result);
 #else
@@ -129,11 +143,28 @@ constexpr bool SubOverflow(T a, T b, T* result) {
 #endif
 }
 
+/// Returns the result of subtracting `b` from `a`, saturating on overflow.
+template <typename T>
+constexpr T SubSaturate(T a, T b) {
+  static_assert(std::is_integral_v<T> &&
+                !std::is_same_v<std::remove_cv_t<T>, bool>);
+  T result = 0;
+  if (SubOverflow(a, b, &result)) {
+    if constexpr (std::is_signed_v<T>) {
+      if (b < 0) return std::numeric_limits<T>::max();
+    }
+    return std::numeric_limits<T>::min();
+  }
+  return result;
+}
+
 /// Sets `*result` to the result of multiplying `a` and `b` with infinite
 /// precision, and returns `true` if the stored value does not equal the
 /// infinite precision result.
 template <typename T>
 constexpr bool MulOverflow(T a, T b, T* result) {
+  static_assert(std::is_integral_v<T> &&
+                !std::is_same_v<std::remove_cv_t<T>, bool>);
 #if defined(__clang__) || !defined(_MSC_VER)
   return __builtin_mul_overflow(a, b, result);
 #else
@@ -147,6 +178,21 @@ constexpr bool MulOverflow(T a, T b, T* result) {
   if (b == 0) return false;
   return (r / b) != a;
 #endif
+}
+
+/// Returns the result of multiplying `a` and `b`, saturating on overflow.
+template <typename T>
+constexpr T MulSaturate(T a, T b) {
+  static_assert(std::is_integral_v<T> &&
+                !std::is_same_v<std::remove_cv_t<T>, bool>);
+  T result = 0;
+  if (MulOverflow(a, b, &result)) {
+    if constexpr (std::is_signed_v<T>) {
+      if ((a < 0) != (b < 0)) return std::numeric_limits<T>::min();
+    }
+    return std::numeric_limits<T>::max();
+  }
+  return result;
 }
 
 }  // namespace internal

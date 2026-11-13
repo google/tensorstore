@@ -24,6 +24,7 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/insertion_sort.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/rank.h"
@@ -91,11 +92,11 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
       std::reverse(info->iteration_dimensions.begin(),
                    info->iteration_dimensions.end());
     } else if (constraints.order_constraint() == unspecified_order) {
-      std::sort(info->iteration_dimensions.begin(),
-                info->iteration_dimensions.end(),
-                [&](DimensionIndex dim_i, DimensionIndex dim_j) {
-                  return iterable.GetDimensionOrder(dim_i, dim_j) < 0;
-                });
+      InsertionSort(info->iteration_dimensions.begin(),
+                    info->iteration_dimensions.end(),
+                    [&](DimensionIndex dim_i, DimensionIndex dim_j) {
+                      return iterable.GetDimensionOrder(dim_i, dim_j) < 0;
+                    });
     }
 
     DimensionIndex dim_i = info->iteration_dimensions[0];

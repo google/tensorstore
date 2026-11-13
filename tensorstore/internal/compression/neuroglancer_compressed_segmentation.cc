@@ -25,6 +25,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/util/endian.h"
 
 namespace tensorstore {
@@ -41,7 +42,8 @@ void WriteBlockHeader(size_t encoded_value_base_offset,
 }
 
 template <typename Label>
-void EncodeBlock(const Label* input, const ptrdiff_t input_shape[3],
+void EncodeBlock(const Label* TENSORSTORE_INTERNAL_RESTRICT input,
+                 const ptrdiff_t input_shape[3],
                  const ptrdiff_t input_byte_strides[3],
                  const ptrdiff_t block_shape[3], size_t base_offset,
                  size_t* encoded_bits_output, size_t* table_offset_output,
@@ -130,7 +132,8 @@ void EncodeBlock(const Label* input, const ptrdiff_t input_shape[3],
   }
 
   output->resize(encoded_value_base_offset + elements_to_write * 4);
-  char* output_ptr = output->data() + encoded_value_base_offset;
+  char* TENSORSTORE_INTERNAL_RESTRICT output_ptr =
+      output->data() + encoded_value_base_offset;
   // Write encoded representation.
   ForEachElement([&](size_t z, size_t y, size_t x, Label value) {
     uint32_t index = seen_values.at(value);
@@ -227,7 +230,8 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
                  const char* table_input, size_t table_size,
                  const ptrdiff_t block_shape[3],
                  const ptrdiff_t output_shape[3],
-                 const ptrdiff_t output_byte_strides[3], Label* output) {
+                 const ptrdiff_t output_byte_strides[3],
+                 Label* TENSORSTORE_INTERNAL_RESTRICT output) {
   // TODO(jbms): Consider specializing this function for the value of
   // `encoded_bits` and whether `table_size` is `< 2**encoded_bits`.  If
   // `table_size >= 2**encoded_bits`, there is no need to check below that

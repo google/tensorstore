@@ -643,6 +643,25 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "insertion_sort",
+    hdrs = ["insertion_sort.h"],
+    deps = [
+        "//tensorstore/internal/meta:attributes",
+        "@abseil-cpp//absl/base:core_headers",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "insertion_sort_test",
+    size = "small",
+    srcs = ["insertion_sort_test.cc"],
+    deps = [
+        ":insertion_sort",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "integer_overflow",
     hdrs = ["integer_overflow.h"],
     deps = ["@abseil-cpp//absl/base:core_headers"],
@@ -1143,6 +1162,7 @@ tensorstore_cc_test(
         "//tensorstore:data_type",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:transformed_array",
+        "//tensorstore/internal/meta:attributes",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/base:core_headers",
@@ -1343,6 +1363,7 @@ tensorstore_cc_library(
     deps = [
         ":arena",
         ":elementwise_function",
+        ":insertion_sort",
         ":integer_overflow",
         ":nditerable",
         "//tensorstore:contiguous_layout",

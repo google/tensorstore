@@ -23,6 +23,11 @@
 namespace tensorstore {
 namespace internal {
 
+/// Forward declaration to avoid a circular dependency on dtype.h
+template <typename DataTypeLike>
+constexpr const ElementwiseFunction<2, void*>* GetCopyAssignIfNotTrivial(
+    DataTypeLike dtype);
+
 /// Unaligned (`alignof == 1`) byte-array wrapper for size-erased trivial
 /// element moves without over-alignment or C++ strict-aliasing UB.
 template <size_t N>
@@ -90,17 +95,6 @@ void ScatterContiguousBufferImpl(
     IterationBufferKind kind, IterationBufferShape shape, const void* src,
     IterationBufferPointer dst);
 
-template <typename DataTypeLike>
-constexpr const ElementwiseFunction<2, void*>* GetCopyAssignIfNeeded(
-    DataTypeLike dtype) {
-  using Id = decltype(dtype.id());
-  // All 27 canonical types before `string_t` (`bool_t` through `complex128_t`)
-  // are trivially copyable with `size()` in `{1, 2, 4, 8, 16}`.
-  return static_cast<unsigned>(dtype.id()) < static_cast<unsigned>(Id::string_t)
-             ? nullptr
-             : &dtype->copy_assign;
-}
-
 }  // namespace internal_scatter_gather
 
 /// Copies `count` elements from outer row `row` of `(kind, src)` into the
@@ -110,8 +104,8 @@ inline void GatherContiguousRow(DataTypeLike dtype, IterationBufferKind kind,
                                 IterationBufferPointer src, Index row,
                                 Index count, void* dst) {
   internal_scatter_gather::GatherContiguousRowImpl(
-      dtype.size(), internal_scatter_gather::GetCopyAssignIfNeeded(dtype), kind,
-      src, row, count, dst);
+      dtype.size(), GetCopyAssignIfNotTrivial(dtype), kind, src, row, count,
+      dst);
 }
 
 /// Returns a pointer to `count` contiguous `dtype` elements for outer row `row`
@@ -127,8 +121,8 @@ inline const void* EnsureContiguousRow(DataTypeLike dtype,
                                        IterationBufferPointer src, Index row,
                                        Index count, void* scratch) {
   return internal_scatter_gather::EnsureContiguousRowImpl(
-      dtype.size(), internal_scatter_gather::GetCopyAssignIfNeeded(dtype), kind,
-      src, row, count, scratch);
+      dtype.size(), GetCopyAssignIfNotTrivial(dtype), kind, src, row, count,
+      scratch);
 }
 
 /// Copies `count` contiguous elements from `src` into outer row `row` of
@@ -138,8 +132,8 @@ inline void ScatterContiguousRow(DataTypeLike dtype, IterationBufferKind kind,
                                  const void* src, IterationBufferPointer dst,
                                  Index row, Index count) {
   internal_scatter_gather::ScatterContiguousRowImpl(
-      dtype.size(), internal_scatter_gather::GetCopyAssignIfNeeded(dtype), kind,
-      src, dst, row, count);
+      dtype.size(), GetCopyAssignIfNotTrivial(dtype), kind, src, dst, row,
+      count);
 }
 
 /// Copies a 2-d block of shape `shape` from `(kind, src)` into a packed
@@ -149,8 +143,7 @@ inline void GatherContiguousBuffer(DataTypeLike dtype, IterationBufferKind kind,
                                    IterationBufferShape shape,
                                    IterationBufferPointer src, void* dst) {
   internal_scatter_gather::GatherContiguousBufferImpl(
-      dtype.size(), internal_scatter_gather::GetCopyAssignIfNeeded(dtype), kind,
-      shape, src, dst);
+      dtype.size(), GetCopyAssignIfNotTrivial(dtype), kind, shape, src, dst);
 }
 
 /// Copies a packed row-major contiguous buffer `src` into a 2-d block `(kind,
@@ -161,8 +154,7 @@ inline void ScatterContiguousBuffer(DataTypeLike dtype,
                                     IterationBufferShape shape, const void* src,
                                     IterationBufferPointer dst) {
   internal_scatter_gather::ScatterContiguousBufferImpl(
-      dtype.size(), internal_scatter_gather::GetCopyAssignIfNeeded(dtype), kind,
-      shape, src, dst);
+      dtype.size(), GetCopyAssignIfNotTrivial(dtype), kind, shape, src, dst);
 }
 
 }  // namespace internal

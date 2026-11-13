@@ -27,10 +27,35 @@ using ::tensorstore::Index;
 using ::tensorstore::internal::AddOverflow;
 using ::tensorstore::internal::AddSaturate;
 using ::tensorstore::internal::MulOverflow;
+using ::tensorstore::internal::MulSaturate;
 using ::tensorstore::internal::SubOverflow;
+using ::tensorstore::internal::SubSaturate;
 using ::tensorstore::internal::wrap_on_overflow::Add;
 using ::tensorstore::internal::wrap_on_overflow::InnerProduct;
 using ::tensorstore::internal::wrap_on_overflow::Multiply;
+using ::tensorstore::internal::wrap_on_overflow::Subtract;
+
+// Compile-time verification of `constexpr` evaluation across narrow and 64-bit
+// signed/unsigned types (including 16-bit promotion boundaries).
+static_assert(Add(uint16_t{0xffffu}, uint16_t{2u}) == uint16_t{1u});
+static_assert(Subtract(uint16_t{1u}, uint16_t{2u}) == uint16_t{0xffffu});
+static_assert(Multiply(uint16_t{0xffffu}, uint16_t{0xffffu}) == uint16_t{1u});
+static_assert(Multiply(int16_t{-1}, int16_t{-1}) == int16_t{1});
+static_assert(AddSaturate<int8_t>(100, 50) == 127);
+static_assert(AddSaturate<int8_t>(-100, -50) == -128);
+static_assert(AddSaturate<uint8_t>(200, 100) == 255);
+static_assert(SubSaturate<int16_t>(-30000, 10000) == -32768);
+static_assert(SubSaturate<uint16_t>(5, 10) == 0);
+static_assert(MulSaturate<uint16_t>(0xffffu, 0xffffu) == 0xffffu);
+static_assert(MulSaturate<int16_t>(-1, -1) == 1);
+static_assert(MulSaturate<int16_t>(std::numeric_limits<int16_t>::min(), -1) ==
+              std::numeric_limits<int16_t>::max());
+static_assert(AddSaturate<int64_t>(std::numeric_limits<int64_t>::max(), 1) ==
+              std::numeric_limits<int64_t>::max());
+static_assert(SubSaturate<int64_t>(std::numeric_limits<int64_t>::min(), 1) ==
+              std::numeric_limits<int64_t>::min());
+static_assert(MulSaturate<uint64_t>(uint64_t{1} << 40, uint64_t{1} << 30) ==
+              std::numeric_limits<uint64_t>::max());
 
 TEST(AddTest, Overflow) {
   EXPECT_EQ(int32_t{-0x80000000LL},
@@ -170,24 +195,78 @@ TEST(AddSaturate, Uint32) {
   EXPECT_EQ(0xffffffffu, AddSaturate<uint32_t>(0x80000000u, 0x80000000u));
 }
 
-TEST(SaturateNarrowAnd64Bit, BoundariesAndSignedPromotions) {
+TEST(SubSaturate, Int32) {
+  EXPECT_EQ(0x7fffffff, SubSaturate<int32_t>(0x40000000, -0x3fffffff));
+  EXPECT_EQ(0x7fffffff, SubSaturate<int32_t>(0x40000000, -0x40000000));
+  EXPECT_EQ(0x7fffffff,
+            SubSaturate<int32_t>(0, std::numeric_limits<int32_t>::min()));
+  EXPECT_EQ(-0x80000000, SubSaturate<int32_t>(-0x40000000, 0x40000000));
+  EXPECT_EQ(-0x80000000, SubSaturate<int32_t>(-0x40000001, 0x40000000));
+}
+
+TEST(SubSaturate, Uint32) {
+  EXPECT_EQ(1u, SubSaturate<uint32_t>(0x80000000u, 0x7fffffffu));
+  EXPECT_EQ(0u, SubSaturate<uint32_t>(0x7fffffffu, 0x80000000u));
+}
+
+TEST(MulSaturate, Int32) {
+  EXPECT_EQ(0x7ffffffe, MulSaturate<int32_t>(0x3fffffff, 2));
+  EXPECT_EQ(0x7fffffff, MulSaturate<int32_t>(0x40000000, 2));
+  EXPECT_EQ(0x7fffffff, MulSaturate<int32_t>(-0x40000000, -2));
+  EXPECT_EQ(0x7fffffff,
+            MulSaturate<int32_t>(std::numeric_limits<int32_t>::min(), -1));
+  EXPECT_EQ(-0x80000000, MulSaturate<int32_t>(-0x40000000, 2));
+  EXPECT_EQ(-0x80000000, MulSaturate<int32_t>(0x40000000, -3));
+  EXPECT_EQ(-0x80000000,
+            MulSaturate<int32_t>(std::numeric_limits<int32_t>::min(), 2));
+  EXPECT_EQ(0, MulSaturate<int32_t>(std::numeric_limits<int32_t>::max(), 0));
+}
+
+TEST(MulSaturate, Uint32) {
+  EXPECT_EQ(0xfffffffeu, MulSaturate<uint32_t>(0x7fffffffu, 2u));
+  EXPECT_EQ(0xffffffffu, MulSaturate<uint32_t>(0x80000000u, 2u));
+  EXPECT_EQ(0u, MulSaturate<uint32_t>(0xffffffffu, 0u));
+}
+
+TEST(SaturateNarrow, Int8AndUint8) {
   EXPECT_EQ(int8_t{127}, AddSaturate<int8_t>(100, 40));
   EXPECT_EQ(int8_t{-128}, AddSaturate<int8_t>(-100, -40));
   EXPECT_EQ(uint8_t{255}, AddSaturate<uint8_t>(200, 100));
+  EXPECT_EQ(int8_t{127}, SubSaturate<int8_t>(100, -40));
+  EXPECT_EQ(int8_t{-128}, SubSaturate<int8_t>(-100, 40));
+  EXPECT_EQ(uint8_t{0}, SubSaturate<uint8_t>(10, 20));
+  EXPECT_EQ(int8_t{127}, MulSaturate<int8_t>(-128, -1));
+  EXPECT_EQ(int8_t{-128}, MulSaturate<int8_t>(64, -3));
+  EXPECT_EQ(uint8_t{255}, MulSaturate<uint8_t>(20, 20));
+}
 
-#if 0
-  // Fails `--config=ubsan` at HEAD: `wrap_on_overflow::Multiply<uint16_t>`
-  // casts operands to `uint16_t`, which C++ integral promotion promotes to
-  // signed 32-bit `int` before multiplying (`65535 * 65535 > INT_MAX`).
+TEST(SaturateNarrow, Int16AndUint16SignedPromotionSafety) {
+  // `uint16_t{0xffff} * uint16_t{0xffff}` and `int16_t{-1} * int16_t{-1}` test
+  // against signed 32-bit integral-promotion overflow (`65535 * 65535 >
+  // INT_MAX`).
   EXPECT_EQ(uint16_t{1}, Multiply<uint16_t>(0xffffu, 0xffffu));
-#endif
+  EXPECT_EQ(uint16_t{0xffff}, MulSaturate<uint16_t>(0xffffu, 0xffffu));
+  EXPECT_EQ(int16_t{1}, MulSaturate<int16_t>(-1, -1));
+  EXPECT_EQ(int16_t{32767},
+            MulSaturate<int16_t>(std::numeric_limits<int16_t>::min(), -1));
+  EXPECT_EQ(int16_t{-32768}, MulSaturate<int16_t>(256, -256));
+}
 
+TEST(Saturate64Bit, Int64AndUint64Boundaries) {
   constexpr int64_t kI64Min = std::numeric_limits<int64_t>::min();
   constexpr int64_t kI64Max = std::numeric_limits<int64_t>::max();
   constexpr uint64_t kU64Max = std::numeric_limits<uint64_t>::max();
   EXPECT_EQ(kI64Max, AddSaturate<int64_t>(kI64Max - 5, 10));
   EXPECT_EQ(kI64Min, AddSaturate<int64_t>(kI64Min + 5, -10));
   EXPECT_EQ(kU64Max, AddSaturate<uint64_t>(kU64Max - 5, 10));
+  EXPECT_EQ(kI64Max, SubSaturate<int64_t>(0, kI64Min));
+  EXPECT_EQ(kI64Min, SubSaturate<int64_t>(kI64Min + 5, 10));
+  EXPECT_EQ(uint64_t{0}, SubSaturate<uint64_t>(5, 10));
+  EXPECT_EQ(kI64Max, MulSaturate<int64_t>(kI64Min, -1));
+  EXPECT_EQ(kI64Min,
+            MulSaturate<int64_t>(int64_t{1} << 40, -(int64_t{1} << 30)));
+  EXPECT_EQ(kU64Max,
+            MulSaturate<uint64_t>(uint64_t{1} << 40, uint64_t{1} << 30));
 }
 
 TEST(SubOverflow, Uint32) {
