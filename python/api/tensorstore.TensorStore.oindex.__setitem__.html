@@ -1834,9 +1834,9 @@
 <p>This is similar to <a class="reference internal" href="tensorstore.TensorStore.__setitem__-indices.html" title="tensorstore.TensorStore.__setitem__(indices) (Python method) — Synchronously writes using NumPy-style indexing with default index array semantics."><code class="xref py py-obj docutils literal notranslate"><span class="pre">__setitem__(indices)</span></code></a>, but differs in that any integer or
 boolean array indexing terms are applied orthogonally:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">},</span>
 <span class="gp">... </span>                  <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>

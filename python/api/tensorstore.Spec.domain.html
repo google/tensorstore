@@ -1911,13 +1911,13 @@ by driver-specific options.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;&lt;u2&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s1">'metadata'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'dtype'</span><span class="p">:</span> <span class="s1">'&lt;u2'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'shape'</span><span class="p">:</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">domain</span>

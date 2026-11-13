@@ -1705,9 +1705,9 @@
 integer or boolean array indexing terms are applied orthogonally:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
@@ -1716,37 +1716,37 @@ integer or boolean array indexing terms are applied orthogonally:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">view</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">oindex</span><span class="p">[[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">],</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">]]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">view</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {</span>
-<span class="go">    &#39;cache_pool&#39;: {},</span>
-<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
-<span class="go">    &#39;memory_key_value_store&#39;: {},</span>
+<span class="go">  'context': {</span>
+<span class="go">    'cache_pool': {},</span>
+<span class="go">    'data_copy_concurrency': {},</span>
+<span class="go">    'memory_key_value_store': {},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;metadata&#39;: {</span>
-<span class="go">    &#39;chunks&#39;: [70, 80],</span>
-<span class="go">    &#39;compressor&#39;: {</span>
-<span class="go">      &#39;blocksize&#39;: 0,</span>
-<span class="go">      &#39;clevel&#39;: 5,</span>
-<span class="go">      &#39;cname&#39;: &#39;lz4&#39;,</span>
-<span class="go">      &#39;id&#39;: &#39;blosc&#39;,</span>
-<span class="go">      &#39;shuffle&#39;: -1,</span>
+<span class="go">  'driver': 'zarr',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'metadata': {</span>
+<span class="go">    'chunks': [70, 80],</span>
+<span class="go">    'compressor': {</span>
+<span class="go">      'blocksize': 0,</span>
+<span class="go">      'clevel': 5,</span>
+<span class="go">      'cname': 'lz4',</span>
+<span class="go">      'id': 'blosc',</span>
+<span class="go">      'shuffle': -1,</span>
 <span class="go">    },</span>
-<span class="go">    &#39;dimension_separator&#39;: &#39;.&#39;,</span>
-<span class="go">    &#39;dtype&#39;: &#39;&lt;u4&#39;,</span>
-<span class="go">    &#39;fill_value&#39;: None,</span>
-<span class="go">    &#39;filters&#39;: None,</span>
-<span class="go">    &#39;order&#39;: &#39;C&#39;,</span>
-<span class="go">    &#39;shape&#39;: [70, 80],</span>
-<span class="go">    &#39;zarr_format&#39;: 2,</span>
+<span class="go">    'dimension_separator': '.',</span>
+<span class="go">    'dtype': '&lt;u4',</span>
+<span class="go">    'fill_value': None,</span>
+<span class="go">    'filters': None,</span>
+<span class="go">    'order': 'C',</span>
+<span class="go">    'shape': [70, 80],</span>
+<span class="go">    'zarr_format': 2,</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [3, 3],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
-<span class="go">    &#39;output&#39;: [</span>
-<span class="go">      {&#39;index_array&#39;: [[5], [10], [20]]},</span>
-<span class="go">      {&#39;index_array&#39;: [[7, 8, 10]]},</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [3, 3],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
+<span class="go">    'output': [</span>
+<span class="go">      {'index_array': [[5], [10], [20]]},</span>
+<span class="go">      {'index_array': [[7, 8, 10]]},</span>
 <span class="go">    ],</span>
 <span class="go">  },</span>
 <span class="go">})</span>

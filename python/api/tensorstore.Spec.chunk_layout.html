@@ -1911,13 +1911,13 @@ by driver-specific options.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;chunks&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">],</span>
-<span class="gp">... </span>        <span class="s1">&#39;order&#39;</span><span class="p">:</span> <span class="s1">&#39;C&#39;</span>
+<span class="gp">... </span>    <span class="s1">'metadata'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'chunks'</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">'order'</span><span class="p">:</span> <span class="s1">'C'</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">chunk_layout</span>

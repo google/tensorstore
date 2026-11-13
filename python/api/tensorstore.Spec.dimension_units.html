@@ -1911,17 +1911,17 @@ constraints implied by driver-specific options.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'n5'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;nm&#39;</span><span class="p">,</span> <span class="s1">&#39;nm&#39;</span><span class="p">,</span> <span class="s1">&#39;um&#39;</span><span class="p">],</span>
-<span class="gp">... </span>        <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s1">'metadata'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'units'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'nm'</span><span class="p">,</span> <span class="s1">'nm'</span><span class="p">,</span> <span class="s1">'um'</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">'resolution'</span><span class="p">:</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">dimension_units</span>
-<span class="go">(Unit(200, &quot;nm&quot;), Unit(300, &quot;nm&quot;), Unit(1, &quot;um&quot;))</span>
+<span class="go">(Unit(200, "nm"), Unit(300, "nm"), Unit(1, "um"))</span>
 </code></pre></div>
 </div>
 </div>

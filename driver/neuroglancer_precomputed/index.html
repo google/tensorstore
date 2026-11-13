@@ -2734,7 +2734,7 @@ writing, and creating new volumes.</p>
 <dt class="field-odd" id="required-members-json-driver/neuroglancer_precomputed">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/neuroglancer_precomputed" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;neuroglancer_precomputed&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"neuroglancer_precomputed"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -2787,16 +2787,16 @@ with any driver-specific constraints.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.path">
-<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.path" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">""</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Additional path relative to <a class="reference internal" href="#json-driver/neuroglancer_precomputed.kvstore" title="driver/neuroglancer_precomputed.kvstore (JSON member) — Base key-value store for the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.</p>
-  </span><p>This is joined as an additional <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>-separated path
+  </span><p>This is joined as an additional <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>-separated path
 component after any <a class="reference internal" href="../../kvstore/index.html#json-KvStore.path" title="KvStore.path (JSON member) — Key prefix within the key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">path</span></code></a> member directly
 within <a class="reference internal" href="#json-driver/neuroglancer_precomputed.kvstore" title="driver/neuroglancer_precomputed.kvstore (JSON member) — Base key-value store for the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.  This is supported for backwards
 compatibility only; the <a class="reference internal" href="../../kvstore/index.html#json-KvStore.path" title="KvStore.path (JSON member) — Key prefix within the key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore.path</span></code></a> member should be
 used instead.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">&quot;path/to/data&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">"path/to/data"</span>
 </code></pre></div>
 </div>
 </div>
@@ -2804,7 +2804,7 @@ used instead.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.cache_pool">
-<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.cache_pool" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"cache_pool"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.cache_pool" title="Link to this definition">¶</a></dt>
 <dd><span><p>Cache pool for data.</p>
   </span><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It is normally more convenient to
@@ -2814,7 +2814,7 @@ specify a default <a class="reference internal" href="../../context.html#json-Co
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.data_copy_concurrency" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"data_copy_concurrency"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more convenient to
 specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in the <a class="reference internal" href="#json-driver/neuroglancer_precomputed.context" title="driver/neuroglancer_precomputed.context (JSON member) — Specifies context resources that augment/override the parent context."><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
@@ -2831,7 +2831,7 @@ of the value of this option.</p>
 on every read.  To enable in-memory data caching, you must both specify
 a <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a> with a non-zero
 <a class="reference internal" href="../../context.html#json-Context.cache_pool.total_bytes_limit" title="Context.cache_pool.total_bytes_limit (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></a> and also specify <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>,
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, or an explicit time bound for <a class="reference internal" href="#json-driver/neuroglancer_precomputed.recheck_cached_data" title="driver/neuroglancer_precomputed.recheck_cached_data (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"open"</span></code>, or an explicit time bound for <a class="reference internal" href="#json-driver/neuroglancer_precomputed.recheck_cached_data" title="driver/neuroglancer_precomputed.recheck_cached_data (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -2911,13 +2911,13 @@ different assumed metadata.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.recheck_cached_metadata">
-<span class="sig-name descname"><span class="pre">recheck_cached_metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-CacheRevalidationBound" title="CacheRevalidationBound (JSON type)"><span class="pre">CacheRevalidationBound</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;open&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.recheck_cached_metadata" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">recheck_cached_metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-CacheRevalidationBound" title="CacheRevalidationBound (JSON type)"><span class="pre">CacheRevalidationBound</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"open"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.recheck_cached_metadata" title="Link to this definition">¶</a></dt>
 <dd><p>Time after which cached metadata is assumed to be fresh.  Cached
 metadata older than the specified time is revalidated prior to use.  The
 metadata is used to check the bounds of every read or write operation.</p>
 <p>Specifying <code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code> means that the metadata will be revalidated
 prior to every read or write operation.  With the default value of
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, any cached metadata is revalidated when the TensorStore
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"open"</span></code>, any cached metadata is revalidated when the TensorStore
 is opened but is not rechecked for each read or write operation.</p>
 </dd></dl>
 
@@ -2968,7 +2968,7 @@ existing metadata.</p>
 <dt class="field-odd" id="optional-members-json-driver/neuroglancer_precomputed.multiscale_metadata">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-driver/neuroglancer_precomputed.multiscale_metadata" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.multiscale_metadata.type">
-<span class="sig-name descname"><span class="pre">type</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;image&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;segmentation&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.multiscale_metadata.type" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">type</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"image"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"segmentation"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.multiscale_metadata.type" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifying the type of volume.</p>
   </span><p>This has no bearing on TensorStore, but is used by Neuroglancer to
 pick the default layer type to use.  Required when creating a new
@@ -2977,7 +2977,7 @@ multiscale volume.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.multiscale_metadata.data_type">
-<span class="sig-name descname"><span class="pre">data_type</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint8&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint32&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float32&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.multiscale_metadata.data_type" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_type</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"uint8"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"uint16"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"uint32"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"uint64"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"float32"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.multiscale_metadata.data_type" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the data type.</p>
   </span><p>Required when creating a new multiscale volume.</p>
 </dd></dl>
@@ -3011,7 +3011,7 @@ to open and constrains the existing metadata.</p>
 <dd><span><p>Specifies the scale key (relative to <a class="reference internal" href="#json-driver/neuroglancer_precomputed.path" title="driver/neuroglancer_precomputed.path (JSON member) — Additional path relative to kvstore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">path</span></code></a>).</p>
   </span><p>When opening an existing scale, may be specified to select the
 scale by <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.key" title="driver/neuroglancer_precomputed.scale_metadata.key (JSON member) — Specifies the scale key (relative to path)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">key</span></code></a>.  When creating a new scale, if not specified,
-defaults to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;xres&gt;_&lt;yres&gt;_&lt;zres&gt;&quot;</span></code>, where <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="n">xres</span><span class="p">,</span> <span class="n">yres</span><span class="p">,</span>
+defaults to <code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;xres&gt;_&lt;yres&gt;_&lt;zres&gt;"</span></code>, where <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="n">xres</span><span class="p">,</span> <span class="n">yres</span><span class="p">,</span>
 <span class="n">zres</span><span class="p">]</span></code> is the <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.resolution" title="driver/neuroglancer_precomputed.scale_metadata.resolution (JSON member) — Voxel size in nanometers (XYZ order)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">resolution</span></code></a>.</p>
 </dd></dl>
 
@@ -3063,7 +3063,7 @@ scale by <a class="reference internal" href="#json-driver/neuroglancer_precomput
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.scale_metadata.encoding">
-<span class="sig-name descname"><span class="pre">encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;raw&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;jpeg&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;png&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"raw"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"jpeg"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"png"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"compressed_segmentation"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the chunk encoding.</p>
   </span><p>Required when creating a new scale.</p>
 </dd></dl>
@@ -3072,7 +3072,7 @@ scale by <a class="reference internal" href="#json-driver/neuroglancer_precomput
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.scale_metadata.jpeg_quality">
 <span class="sig-name descname"><span class="pre">jpeg_quality</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">100</span></code><span class="p"><span class="pre">]</span></span></sub><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">75</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.jpeg_quality" title="Link to this definition">¶</a></dt>
 <dd><span><p>JPEG encoding quality.</p>
-  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="driver/neuroglancer_precomputed.scale_metadata.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;jpeg&quot;</span></code>.  The
+  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="driver/neuroglancer_precomputed.scale_metadata.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"jpeg"</span></code>.  The
 quality is specified using the IJG (Independent JPEG Group) [0, 100]
 recommended scale, with 0 having the worst quality (smallest file
 size) and 100 the best quality (largest file size).</p>
@@ -3082,7 +3082,7 @@ size) and 100 the best quality (largest file size).</p>
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.scale_metadata.png_level">
 <span class="sig-name descname"><span class="pre">png_level</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">9</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.png_level" title="Link to this definition">¶</a></dt>
 <dd><span><p>PNG compression level.</p>
-  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="driver/neuroglancer_precomputed.scale_metadata.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;png&quot;</span></code>.  Specifies the zlib compression level
+  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="driver/neuroglancer_precomputed.scale_metadata.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"png"</span></code>.  Specifies the zlib compression level
 between [0, 9], where 0 is uncompressed, with 1 having the fastest compression
 (largest file size), and 9 the slowest compression (smallest file size).
 When unset, the library default compression level is used.</p>
@@ -3092,7 +3092,7 @@ When unset, the library default compression level is used.</p>
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.scale_metadata.compressed_segmentation_block_size">
 <span class="sig-name descname"><span class="pre">compressed_segmentation_block_size</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">3</span></code><span class="p"><span class="pre">]</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">number</span></span><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.compressed_segmentation_block_size" title="Link to this definition">¶</a></dt>
 <dd><span><p>Block size for compressed segmentation encoding.</p>
-  </span><p>If <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="driver/neuroglancer_precomputed.scale_metadata.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code>,
+  </span><p>If <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="driver/neuroglancer_precomputed.scale_metadata.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"compressed_segmentation"</span></code>,
 required when creating a new scale, and serves as a constraint when
 opening an existing scale.  Otherwise, must not be specified.</p>
 </dd></dl>
@@ -3135,10 +3135,10 @@ specified using the URL syntax.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/dataset/|neuroglancer-precomputed:&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer-precomputed&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/dataset/&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/dataset/|neuroglancer-precomputed:"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer-precomputed"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/dataset/"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -3161,8 +3161,8 @@ specified using the URL syntax.</p>
 <div class="code-block-caption highlight"><span class="filename"><span class="caption-text">
 </span>Example: Opening the first (or only) scale of an existing multiscale volume.<a class="headerlink" href="#id5" title="Permalink to this code">¶</a></span></div>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/volume/&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/volume/"</span><span class="p">,</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -3171,9 +3171,9 @@ specified using the URL syntax.</p>
 <div class="code-block-caption highlight"><span class="filename"><span class="caption-text">
 </span>Example: Opening an existing scale by index.<a class="headerlink" href="#id6" title="Permalink to this code">¶</a></span></div>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/volume/&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;scale_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/volume/"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"scale_index"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -3182,10 +3182,10 @@ specified using the URL syntax.</p>
 <div class="code-block-caption highlight"><span class="filename"><span class="caption-text">
 </span>Example: Opening an existing scale by resolution.<a class="headerlink" href="#id7" title="Permalink to this code">¶</a></span></div>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/volume/&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;scale_metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/volume/"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"scale_metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"resolution"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -3195,10 +3195,10 @@ specified using the URL syntax.</p>
 <div class="code-block-caption highlight"><span class="filename"><span class="caption-text">
 </span>Example: Opening an existing scale by dimension units.<a class="headerlink" href="#id8" title="Permalink to this code">¶</a></span></div>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/volume/&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;dimension_units&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;4nm&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;4nm&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;40nm&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/volume/"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"schema"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"dimension_units"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"4nm"</span><span class="p">,</span><span class="w"> </span><span class="s2">"4nm"</span><span class="p">,</span><span class="w"> </span><span class="s2">"40nm"</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">]</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -3208,10 +3208,10 @@ specified using the URL syntax.</p>
 <div class="code-block-caption highlight"><span class="filename"><span class="caption-text">
 </span>Example: Opening an existing scale by key.<a class="headerlink" href="#id9" title="Permalink to this code">¶</a></span></div>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/volume/&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;scale_metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;4_4_40&quot;</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/volume/"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"scale_metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"4_4_40"</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -3221,14 +3221,14 @@ specified using the URL syntax.</p>
 <div class="code-block-caption highlight"><span class="filename"><span class="caption-text">
 </span>Example: Creating a new scale in an existing multiscale volume.<a class="headerlink" href="#id10" title="Permalink to this code">¶</a></span></div>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/volume/&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;scale_metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">40000</span><span class="p">,</span><span class="w"> </span><span class="mi">50000</span><span class="p">,</span><span class="w"> </span><span class="mi">10000</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;compressed_segmentation&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;compressed_segmentation_block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;chunk_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/volume/"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"scale_metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">40000</span><span class="p">,</span><span class="w"> </span><span class="mi">50000</span><span class="p">,</span><span class="w"> </span><span class="mi">10000</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"compressed_segmentation"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"compressed_segmentation_block_size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"chunk_size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"resolution"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -3238,19 +3238,19 @@ specified using the URL syntax.</p>
 <div class="code-block-caption highlight"><span class="filename"><span class="caption-text">
 </span>Example: Creating a new multiscale volume.<a class="headerlink" href="#id11" title="Permalink to this code">¶</a></span></div>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/volume/&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;multiscale_metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;segmentation&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint64&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;num_channels&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/volume/"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"multiscale_metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"segmentation"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"data_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint64"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"num_channels"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;scale_metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">40000</span><span class="p">,</span><span class="w"> </span><span class="mi">50000</span><span class="p">,</span><span class="w"> </span><span class="mi">10000</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;compressed_segmentation&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;compressed_segmentation_block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;chunk_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"scale_metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">40000</span><span class="p">,</span><span class="w"> </span><span class="mi">50000</span><span class="p">,</span><span class="w"> </span><span class="mi">10000</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"compressed_segmentation"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"compressed_segmentation_block_size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"chunk_size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"resolution"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -3261,38 +3261,38 @@ specified using the URL syntax.</p>
 <p class="admonition-title">Example with unsharded raw encoding</p>
 <p>For the following <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/volume.md#info-json-file-specification">info</a> metadata file:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;@type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_multiscale_volume&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;num_channels&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;scales&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;chunk_sizes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">]],</span>
-<span class="w">      </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;8_8_8&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;voxel_offset&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"@type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_multiscale_volume"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"data_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint8"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"num_channels"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"scales"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"chunk_sizes"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">]],</span>
+<span class="w">      </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raw"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"8_8_8"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"resolution"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"voxel_offset"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
 <span class="w">    </span><span class="p">}],</span>
-<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 <p>the corresponding <a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema</span></code></a> is:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;chunk_layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;grid_origin&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inner_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;read_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]},</span>
-<span class="w">    </span><span class="nt">&quot;write_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]}</span>
+<span class="w">  </span><span class="nt">"chunk_layout"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"grid_origin"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inner_order"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"read_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]},</span>
+<span class="w">    </span><span class="nt">"write_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]}</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;codec&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw&quot;</span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;dimension_units&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="kc">null</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;exclusive_max&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1020</span><span class="p">,</span><span class="w"> </span><span class="mi">2030</span><span class="p">,</span><span class="w"> </span><span class="mi">3040</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inclusive_min&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;z&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;channel&quot;</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"codec"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raw"</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"dimension_units"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="kc">null</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"domain"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"exclusive_max"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1020</span><span class="p">,</span><span class="w"> </span><span class="mi">2030</span><span class="p">,</span><span class="w"> </span><span class="mi">3040</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inclusive_min"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y"</span><span class="p">,</span><span class="w"> </span><span class="s2">"z"</span><span class="p">,</span><span class="w"> </span><span class="s2">"channel"</span><span class="p">]</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">  </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint8"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"rank"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -3301,40 +3301,40 @@ specified using the URL syntax.</p>
 <p class="admonition-title">Example with unsharded compressed segmentation encoding</p>
 <p>For the following <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/volume.md#info-json-file-specification">info</a> metadata file:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;@type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_multiscale_volume&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint64&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;num_channels&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;scales&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;chunk_sizes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">]],</span>
-<span class="w">      </span><span class="nt">&quot;compressed_segmentation_block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;compressed_segmentation&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;8_8_8&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;voxel_offset&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"@type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_multiscale_volume"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"data_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint64"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"num_channels"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"scales"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"chunk_sizes"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">]],</span>
+<span class="w">      </span><span class="nt">"compressed_segmentation_block_size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"compressed_segmentation"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"8_8_8"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"resolution"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"voxel_offset"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
 <span class="w">    </span><span class="p">}],</span>
-<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;segmentation&quot;</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"segmentation"</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 <p>the corresponding <a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema</span></code></a> is:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;chunk_layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;codec_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]},</span>
-<span class="w">    </span><span class="nt">&quot;grid_origin&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inner_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;read_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]},</span>
-<span class="w">    </span><span class="nt">&quot;write_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]}</span>
+<span class="w">  </span><span class="nt">"chunk_layout"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"codec_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]},</span>
+<span class="w">    </span><span class="nt">"grid_origin"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inner_order"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"read_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]},</span>
+<span class="w">    </span><span class="nt">"write_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]}</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;codec&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;compressed_segmentation&quot;</span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;dimension_units&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="kc">null</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;exclusive_max&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1020</span><span class="p">,</span><span class="w"> </span><span class="mi">2030</span><span class="p">,</span><span class="w"> </span><span class="mi">3040</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inclusive_min&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;z&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;channel&quot;</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"codec"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"compressed_segmentation"</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"dimension_units"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="kc">null</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"domain"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"exclusive_max"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1020</span><span class="p">,</span><span class="w"> </span><span class="mi">2030</span><span class="p">,</span><span class="w"> </span><span class="mi">3040</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inclusive_min"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y"</span><span class="p">,</span><span class="w"> </span><span class="s2">"z"</span><span class="p">,</span><span class="w"> </span><span class="s2">"channel"</span><span class="p">]</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint64&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">  </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint64"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"rank"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -3343,51 +3343,51 @@ specified using the URL syntax.</p>
 <p class="admonition-title">Example with sharded raw encoding</p>
 <p>For the following <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/volume.md#info-json-file-specification">info</a> metadata file:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;@type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_multiscale_volume&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;num_channels&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;scales&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;chunk_sizes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">]],</span>
-<span class="w">      </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;8_8_8&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;sharding&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;@type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_uint64_sharded_v1&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gzip&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;identity&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;minishard_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;minishard_index_encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gzip&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;preshift_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;shard_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span>
+<span class="w">  </span><span class="nt">"@type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_multiscale_volume"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"data_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint8"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"num_channels"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"scales"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"chunk_sizes"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">]],</span>
+<span class="w">      </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raw"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"8_8_8"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"resolution"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"sharding"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"@type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_uint64_sharded_v1"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"data_encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gzip"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"hash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"identity"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"minishard_bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"minishard_index_encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gzip"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"preshift_bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"shard_bits"</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">34432</span><span class="p">,</span><span class="w"> </span><span class="mi">39552</span><span class="p">,</span><span class="w"> </span><span class="mi">51508</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;voxel_offset&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
+<span class="w">      </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">34432</span><span class="p">,</span><span class="w"> </span><span class="mi">39552</span><span class="p">,</span><span class="w"> </span><span class="mi">51508</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"voxel_offset"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
 <span class="w">    </span><span class="p">}],</span>
-<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 <p>the corresponding <a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema</span></code></a> is:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;chunk_layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;grid_origin&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inner_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;read_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]},</span>
-<span class="w">    </span><span class="nt">&quot;write_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2048</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]}</span>
+<span class="w">  </span><span class="nt">"chunk_layout"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"grid_origin"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inner_order"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"read_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]},</span>
+<span class="w">    </span><span class="nt">"write_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2048</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]}</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;codec&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;shard_data_encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gzip&quot;</span>
+<span class="w">  </span><span class="nt">"codec"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_precomputed"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raw"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"shard_data_encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gzip"</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;dimension_units&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">],</span><span class="w"> </span><span class="kc">null</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;exclusive_max&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">34452</span><span class="p">,</span><span class="w"> </span><span class="mi">39582</span><span class="p">,</span><span class="w"> </span><span class="mi">51548</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inclusive_min&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;z&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;channel&quot;</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"dimension_units"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">],</span><span class="w"> </span><span class="kc">null</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"domain"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"exclusive_max"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">34452</span><span class="p">,</span><span class="w"> </span><span class="mi">39582</span><span class="p">,</span><span class="w"> </span><span class="mi">51548</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inclusive_min"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y"</span><span class="p">,</span><span class="w"> </span><span class="s2">"z"</span><span class="p">,</span><span class="w"> </span><span class="s2">"channel"</span><span class="p">]</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">  </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint8"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"rank"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -3415,33 +3415,33 @@ to <a class="reference internal" href="#json-driver/neuroglancer_precomputed.sca
 <a class="reference internal" href="../../index_space.html#json-IndexDomain.inclusive_min" title="IndexDomain.inclusive_min (JSON member) — Inclusive lower bounds of the domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">IndexDomain.inclusive_min</span></code></a> corresponds to
 <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.voxel_offset" title="driver/neuroglancer_precomputed.scale_metadata.voxel_offset (JSON member) — Voxel origin of the volume (XYZ order)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed.scale_metadata.voxel_offset</span></code></a>.  The
 channel dimension always has an origin of 0.</p>
-<p>The <a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">dimension labels</span></a> are always <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;z&quot;</span><span class="p">,</span>
-<span class="s2">&quot;channel&quot;</span><span class="p">]</span></code>.</p>
+<p>The <a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">dimension labels</span></a> are always <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y"</span><span class="p">,</span><span class="w"> </span><span class="s2">"z"</span><span class="p">,</span>
+<span class="s2">"channel"</span><span class="p">]</span></code>.</p>
 <p>The bounds are not resizable.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <p>For the following <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/volume.md#info-json-file-specification">info</a> metadata file:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;@type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;neuroglancer_multiscale_volume&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;num_channels&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;scales&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;chunk_sizes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">]],</span>
-<span class="w">      </span><span class="nt">&quot;encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;8_8_8&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;voxel_offset&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"@type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"neuroglancer_multiscale_volume"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"data_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint8"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"num_channels"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"scales"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"chunk_sizes"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">]],</span>
+<span class="w">      </span><span class="nt">"encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raw"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"8_8_8"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"resolution"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span><span class="w"> </span><span class="mf">8.0</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"voxel_offset"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">]</span>
 <span class="w">    </span><span class="p">}],</span>
-<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 <p>the corresponding <a class="reference internal" href="../../index_space.html#json-IndexDomain" title="IndexDomain (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">IndexDomain</span></code></a> is:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;exclusive_max&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1020</span><span class="p">,</span><span class="w"> </span><span class="mi">2030</span><span class="p">,</span><span class="w"> </span><span class="mi">3040</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;inclusive_min&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;z&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;channel&quot;</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"exclusive_max"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1020</span><span class="p">,</span><span class="w"> </span><span class="mi">2030</span><span class="p">,</span><span class="w"> </span><span class="mi">3040</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"inclusive_min"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y"</span><span class="p">,</span><span class="w"> </span><span class="s2">"z"</span><span class="p">,</span><span class="w"> </span><span class="s2">"channel"</span><span class="p">]</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -3455,7 +3455,7 @@ number of channels.</p>
 <p>The <a class="reference internal" href="../../schema.html#json-ChunkLayout.grid_origin" title="ChunkLayout.grid_origin (JSON member) — Specifies hard constraints on the origin of the chunk grid."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.grid_origin</span></code></a> always matches the origin of the
 <a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">domain</span></code></a>.</p>
 <p>With respect to the dimension order of <code class="docutils literal notranslate"><span class="pre">[x,</span> <span class="pre">y,</span> <span class="pre">z,</span> <span class="pre">channel]</span></code>, when using the
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;raw&quot;</span></code> <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed/Codec.encoding</span></code></a>, the
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"raw"</span></code> <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed/Codec.encoding</span></code></a>, the
 <code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> format always stores the data within chunks in
 colexicographic order (i.e. Fortran order).</p>
 <p>When using the unsharded format, the <a class="reference internal" href="../../schema.html#json-ChunkLayout.write_chunk" title="ChunkLayout.write_chunk (JSON member) — Constraints on the chunk grid over which writes may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.write_chunk</span></code></a>
@@ -3466,10 +3466,10 @@ shard corresponds to a rectangular region, then the
 shard.  Otherwise, the <a class="reference internal" href="../../schema.html#json-ChunkLayout.write_chunk" title="ChunkLayout.write_chunk (JSON member) — Constraints on the chunk grid over which writes may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">write_chunk</span></code></a> shape corresponds
 to the shape of the entire volume, rounded up to a multiple of the
 <a class="reference internal" href="../../schema.html#json-ChunkLayout.read_chunk" title="ChunkLayout.read_chunk (JSON member) — Constraints on the chunk grid over which reads may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">read_chunk</span></code></a> shape.</p>
-<p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;raw&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;png&quot;</span></code>, or <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;jpeg&quot;</span></code>
+<p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">"raw"</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"png"</span></code>, or <code class="code highlight json docutils literal highlight-json"><span class="s2">"jpeg"</span></code>
 <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed/Codec.encoding</span></code></a>, hard constraints
 on the <a class="reference internal" href="../../schema.html#json-ChunkLayout.codec_chunk" title="ChunkLayout.codec_chunk (JSON member) — Constraints on the chunk grid used by the codec, if applicable."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.codec_chunk</span></code></a> must not be specified.</p>
-<p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code>
+<p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">"compressed_segmentation"</span></code>
 <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed/Codec.encoding</span></code></a>, the
 <a class="reference internal" href="../../schema.html#json-ChunkLayout.codec_chunk" title="ChunkLayout.codec_chunk (JSON member) — Constraints on the chunk grid used by the codec, if applicable."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.codec_chunk</span></code></a> shape corresponds to the
 <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.compressed_segmentation_block_size" title="driver/neuroglancer_precomputed.scale_metadata.compressed_segmentation_block_size (JSON member) — Block size for compressed segmentation encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">compressed_segmentation_block_size</span></code></a>.
@@ -3493,7 +3493,7 @@ chosen automatically to satisfy the constraints.  If
 the unsharded format is used.  Due to the limitations of the sharding format,
 any <a class="reference internal" href="../../schema.html#json-ChunkLayout/Grid.aspect_ratio" title="ChunkLayout/Grid.aspect_ratio (JSON member) — Aspect ratio of the chunk shape."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout/Grid.aspect_ratio</span></code></a> constraints on the write chunk
 shape are ignored.</p>
-<p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code>
+<p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">"compressed_segmentation"</span></code>
 <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed/Codec.encoding</span></code></a>, the compressed
 segmentation block size is chosen automatically based on the
 <a class="reference internal" href="../../schema.html#json-ChunkLayout.codec_chunk" title="ChunkLayout.codec_chunk (JSON member) — Constraints on the chunk grid used by the codec, if applicable."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.codec_chunk</span></code></a> constraints.  Both explicit constraints
@@ -3506,9 +3506,9 @@ elements per chunk.</p>
 <p class="admonition-title">Example of unconstrained chunk layout</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer_precomputed&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'neuroglancer_precomputed'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -3518,10 +3518,10 @@ elements per chunk.</p>
 <span class="gp">... </span>        <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="p">))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;grid_origin&#39;: [20, 30, 40, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [3, 2, 1, 0],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [80, 80, 80, 2]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [80, 80, 80, 2]},</span>
+<span class="go">  'grid_origin': [20, 30, 40, 0],</span>
+<span class="go">  'inner_order': [3, 2, 1, 0],</span>
+<span class="go">  'read_chunk': {'shape': [80, 80, 80, 2]},</span>
+<span class="go">  'write_chunk': {'shape': [80, 80, 80, 2]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
@@ -3530,27 +3530,27 @@ elements per chunk.</p>
 <p class="admonition-title">Example of unconstrained chunk layout with compressed segmentation encoding</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer_precomputed&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'neuroglancer_precomputed'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="n">codec</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">CodecSpec</span><span class="p">({</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer_precomputed&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;encoding&#39;</span><span class="p">:</span> <span class="s1">&#39;compressed_segmentation&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'neuroglancer_precomputed'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'encoding'</span><span class="p">:</span> <span class="s1">'compressed_segmentation'</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="p">}),</span>
 <span class="gp">... </span>    <span class="n">domain</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span>
 <span class="gp">... </span>        <span class="n">inclusive_min</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
 <span class="gp">... </span>        <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="p">))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;codec_chunk&#39;: {&#39;shape&#39;: [8, 8, 8, 1]},</span>
-<span class="go">  &#39;grid_origin&#39;: [20, 30, 40, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [3, 2, 1, 0],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [80, 80, 80, 2]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [80, 80, 80, 2]},</span>
+<span class="go">  'codec_chunk': {'shape': [8, 8, 8, 1]},</span>
+<span class="go">  'grid_origin': [20, 30, 40, 0],</span>
+<span class="go">  'inner_order': [3, 2, 1, 0],</span>
+<span class="go">  'read_chunk': {'shape': [80, 80, 80, 2]},</span>
+<span class="go">  'write_chunk': {'shape': [80, 80, 80, 2]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
@@ -3559,9 +3559,9 @@ elements per chunk.</p>
 <p class="admonition-title">Example of chunk layout with separate read and write chunk constraints</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer_precomputed&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'neuroglancer_precomputed'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -3576,10 +3576,10 @@ elements per chunk.</p>
 <span class="gp">... </span>        <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="p">))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;grid_origin&#39;: [20, 30, 40, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [3, 2, 1, 0],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [159, 79, 79, 2]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [1113, 1264, 632, 2]},</span>
+<span class="go">  'grid_origin': [20, 30, 40, 0],</span>
+<span class="go">  'inner_order': [3, 2, 1, 0],</span>
+<span class="go">  'read_chunk': {'shape': [159, 79, 79, 2]},</span>
+<span class="go">  'write_chunk': {'shape': [1113, 1264, 632, 2]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
@@ -3588,9 +3588,9 @@ elements per chunk.</p>
 <p class="admonition-title">Example of chunk layout with explicit chunk shapes</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer_precomputed&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'neuroglancer_precomputed'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -3604,10 +3604,10 @@ elements per chunk.</p>
 <span class="gp">... </span>        <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="p">))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;grid_origin&#39;: [20, 30, 40, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [3, 2, 1, 0],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [64, 64, 64, 2]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [512, 512, 512, 2]},</span>
+<span class="go">  'grid_origin': [20, 30, 40, 0],</span>
+<span class="go">  'inner_order': [3, 2, 1, 0],</span>
+<span class="go">  'read_chunk': {'shape': [64, 64, 64, 2]},</span>
+<span class="go">  'write_chunk': {'shape': [512, 512, 512, 2]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
@@ -3631,7 +3631,7 @@ represented in the same way as in the
 <dt class="field-odd" id="required-members-json-driver/neuroglancer_precomputed/Codec">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/neuroglancer_precomputed/Codec" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed/Codec.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;neuroglancer_precomputed&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"neuroglancer_precomputed"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd>
@@ -3640,7 +3640,7 @@ represented in the same way as in the
 <dt class="field-odd" id="optional-members-json-driver/neuroglancer_precomputed/Codec">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-driver/neuroglancer_precomputed/Codec" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed/Codec.encoding">
-<span class="sig-name descname"><span class="pre">encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;raw&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;jpeg&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;png&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"raw"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"jpeg"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"png"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"compressed_segmentation"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the chunk encoding.</p>
   </span><p>Required when creating a new scale.</p>
 </dd></dl>
@@ -3649,7 +3649,7 @@ represented in the same way as in the
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed/Codec.jpeg_quality">
 <span class="sig-name descname"><span class="pre">jpeg_quality</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">100</span></code><span class="p"><span class="pre">]</span></span></sub><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">75</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.jpeg_quality" title="Link to this definition">¶</a></dt>
 <dd><span><p>JPEG encoding quality.</p>
-  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;jpeg&quot;</span></code>.  The
+  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"jpeg"</span></code>.  The
 quality is specified using the IJG (Independent JPEG Group) [0, 100]
 recommended scale, with 0 having the worst quality (smallest file
 size) and 100 the best quality (largest file size).</p>
@@ -3659,7 +3659,7 @@ size) and 100 the best quality (largest file size).</p>
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed/Codec.png_level">
 <span class="sig-name descname"><span class="pre">png_level</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">9</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.png_level" title="Link to this definition">¶</a></dt>
 <dd><span><p>PNG compression level.</p>
-  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;png&quot;</span></code>.  Specifies the zlib compression level
+  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"png"</span></code>.  Specifies the zlib compression level
 between [0, 9], where 0 is uncompressed, with 1 having the fastest compression
 (largest file size), and 9 the slowest compression (smallest file size).
 When unset, the library default compression level is used.</p>
@@ -3667,13 +3667,13 @@ When unset, the library default compression level is used.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed/Codec.shard_data_encoding">
-<span class="sig-name descname"><span class="pre">shard_data_encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;raw&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;gzip&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.shard_data_encoding" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">shard_data_encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"raw"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"gzip"</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.shard_data_encoding" title="Link to this definition">¶</a></dt>
 <dd><span><p>Additional data compression when using the sharded format.</p>
   </span><p>This specifies the value of
 <a class="reference internal" href="../../kvstore/neuroglancer_uint64_sharded/index.html#json-kvstore/neuroglancer_uint64_sharded/ShardingSpec.data_encoding" title="kvstore/neuroglancer_uint64_sharded/ShardingSpec.data_encoding (JSON member) — Specifies the encoding of the data chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/neuroglancer_uint64_sharded/ShardingSpec.data_encoding</span></code></a>. If
-not specified, defaults to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;gzip&quot;</span></code> if the <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is
-equal to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;raw&quot;</span></code> or <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code>, and
-to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;raw&quot;</span></code> if <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is equal to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;jpeg&quot;</span></code> or <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;png&quot;</span></code>.</p>
+not specified, defaults to <code class="code highlight json docutils literal highlight-json"><span class="s2">"gzip"</span></code> if the <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is
+equal to <code class="code highlight json docutils literal highlight-json"><span class="s2">"raw"</span></code> or <code class="code highlight json docutils literal highlight-json"><span class="s2">"compressed_segmentation"</span></code>, and
+to <code class="code highlight json docutils literal highlight-json"><span class="s2">"raw"</span></code> if <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is equal to <code class="code highlight json docutils literal highlight-json"><span class="s2">"jpeg"</span></code> or <code class="code highlight json docutils literal highlight-json"><span class="s2">"png"</span></code>.</p>
 </dd></dl>
 
 </dd>
@@ -3686,14 +3686,14 @@ to <code class="code highlight json docutils literal highlight-json"><span class
 value.  TensorStore always assumes a fill value of <code class="code highlight json docutils literal highlight-json"><span class="mi">0</span></code>.</p>
 <h3 id="dimension-units">Dimension Units<a class="headerlink" href="#dimension-units" title="Link to this heading">¶</a></h3>
 <p>The dimension units of the first three (<code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">z</span></code>) dimensions
-always have a base unit of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;nm&quot;</span></code>; the multiplier corresponds to the
+always have a base unit of <code class="code highlight json docutils literal highlight-json"><span class="s2">"nm"</span></code>; the multiplier corresponds to the
 <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.resolution" title="driver/neuroglancer_precomputed.scale_metadata.resolution (JSON member) — Voxel size in nanometers (XYZ order)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">resolution</span></code></a>.  It
-is an error to specify a base unit other than <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;nm&quot;</span></code> for these dimensions.</p>
+is an error to specify a base unit other than <code class="code highlight json docutils literal highlight-json"><span class="s2">"nm"</span></code> for these dimensions.</p>
 <p>The final (<code class="docutils literal notranslate"><span class="pre">channel</span></code>) dimension always has an unspecified base unit.  It is an
 error to specify a unit for this dimension.</p>
 <p>When creating a new scale, if neither <a class="reference internal" href="../../schema.html#json-Schema.dimension_units" title="Schema.dimension_units (JSON member) — Physical units of each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">dimension_units</span></code></a> nor
 <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.resolution" title="driver/neuroglancer_precomputed.scale_metadata.resolution (JSON member) — Voxel size in nanometers (XYZ order)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">resolution</span></code></a> is
-specified, a unit of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;1nm&quot;</span></code> is used by default.</p>
+specified, a unit of <code class="code highlight json docutils literal highlight-json"><span class="s2">"1nm"</span></code> is used by default.</p>
 <p>When opening an existing scale, the scale to open may be selected based on the
 specified <a class="reference internal" href="../../schema.html#json-Schema.dimension_units" title="Schema.dimension_units (JSON member) — Physical units of each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">dimension_units</span></code></a>.</p>
 <h2 id="auto-detection">Auto detection<a class="headerlink" href="#auto-detection" title="Link to this heading">¶</a></h2>

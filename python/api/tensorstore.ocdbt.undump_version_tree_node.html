@@ -1315,36 +1315,36 @@ returned by <a class="reference internal" href="tensorstore.ocdbt.dump.html" tit
 </dl>
 <h2 id="examples">Examples:<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s2">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;ocdbt&quot;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s2">&quot;version_tree_arity_log2&quot;</span><span class="p">:</span> <span class="mi">1</span>
+<span class="gp">... </span>    <span class="s2">"driver"</span><span class="p">:</span> <span class="s2">"ocdbt"</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s2">"config"</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s2">"version_tree_arity_log2"</span><span class="p">:</span> <span class="mi">1</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="s2">&quot;memory://&quot;</span>
+<span class="gp">... </span>    <span class="s2">"base"</span><span class="p">:</span> <span class="s2">"memory://"</span>
 <span class="gp">... </span><span class="p">})</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;b&quot;</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;c&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="p">[</span><span class="s2">"a"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"b"</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="p">[</span><span class="s2">"a"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"c"</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">manifest</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">ocdbt</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">base</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">manifest</span>
-<span class="go">{&#39;config&#39;: {&#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
-<span class="go">            &#39;max_decoded_node_bytes&#39;: 8388608,</span>
-<span class="go">            &#39;max_inline_value_bytes&#39;: 100,</span>
-<span class="go">            &#39;uuid&#39;: &#39;...&#39;,</span>
-<span class="go">            &#39;version_tree_arity_log2&#39;: 1},</span>
-<span class="go"> &#39;version_tree_nodes&#39;: [{&#39;commit_time&#39;: ...,</span>
-<span class="go">                         &#39;generation_number&#39;: 2,</span>
-<span class="go">                         &#39;height&#39;: 1,</span>
-<span class="go">                         &#39;location&#39;: &#39;versionnode::d/...&#39;,</span>
-<span class="go">                         &#39;num_generations&#39;: 2}],</span>
-<span class="go"> &#39;versions&#39;: [{&#39;commit_time&#39;: ...,</span>
-<span class="go">               &#39;generation_number&#39;: 3,</span>
-<span class="go">               &#39;root&#39;: {&#39;location&#39;: &#39;btreenode::d/...&#39;,</span>
-<span class="go">                        &#39;statistics&#39;: {&#39;num_indirect_value_bytes&#39;: 0,</span>
-<span class="go">                                       &#39;num_keys&#39;: 1,</span>
-<span class="go">                                       &#39;num_tree_bytes&#39;: 35}},</span>
-<span class="go">               &#39;root_height&#39;: 0}]}</span>
+<span class="go">{'config': {'compression': {'id': 'zstd'},</span>
+<span class="go">            'max_decoded_node_bytes': 8388608,</span>
+<span class="go">            'max_inline_value_bytes': 100,</span>
+<span class="go">            'uuid': '...',</span>
+<span class="go">            'version_tree_arity_log2': 1},</span>
+<span class="go"> 'version_tree_nodes': [{'commit_time': ...,</span>
+<span class="go">                         'generation_number': 2,</span>
+<span class="go">                         'height': 1,</span>
+<span class="go">                         'location': 'versionnode::d/...',</span>
+<span class="go">                         'num_generations': 2}],</span>
+<span class="go"> 'versions': [{'commit_time': ...,</span>
+<span class="go">               'generation_number': 3,</span>
+<span class="go">               'root': {'location': 'btreenode::d/...',</span>
+<span class="go">                        'statistics': {'num_indirect_value_bytes': 0,</span>
+<span class="go">                                       'num_keys': 1,</span>
+<span class="go">                                       'num_tree_bytes': 35}},</span>
+<span class="go">               'root_height': 0}]}</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">version_tree_node_json</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">ocdbt</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="n">store</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="n">manifest</span><span class="p">[</span><span class="s2">&quot;version_tree_nodes&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;location&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">encoded</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">ocdbt</span><span class="o">.</span><span class="n">undump_version_tree_node</span><span class="p">(</span><span class="n">manifest</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="n">store</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="n">manifest</span><span class="p">[</span><span class="s2">"version_tree_nodes"</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">"location"</span><span class="p">])</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">encoded</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">ocdbt</span><span class="o">.</span><span class="n">undump_version_tree_node</span><span class="p">(</span><span class="n">manifest</span><span class="p">[</span><span class="s2">"config"</span><span class="p">],</span>
 <span class="gp">... </span>                                            <span class="n">version_tree_node_json</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">isinstance</span><span class="p">(</span><span class="n">encoded</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span>
 <span class="go">True</span>

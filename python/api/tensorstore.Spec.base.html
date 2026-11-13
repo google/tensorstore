@@ -1917,62 +1917,62 @@ underlying <a class="reference internal" href="tensorstore.TensorStore.html" tit
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="s1">&#39;memory://&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="s1">'memory://'</span><span class="p">,</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cast_spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cast_spec</span>
 <span class="go">Spec({</span>
-<span class="go">  &#39;base&#39;: {</span>
-<span class="go">    &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">    &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">    &#39;schema&#39;: {</span>
-<span class="go">      &#39;domain&#39;: {&#39;exclusive_max&#39;: [100, 200], &#39;inclusive_min&#39;: [0, 0]},</span>
+<span class="go">  'base': {</span>
+<span class="go">    'driver': 'zarr',</span>
+<span class="go">    'dtype': 'uint32',</span>
+<span class="go">    'kvstore': {'driver': 'memory'},</span>
+<span class="go">    'schema': {</span>
+<span class="go">      'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]},</span>
 <span class="go">    },</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;float32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [[100], [200]],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">  'driver': 'cast',</span>
+<span class="go">  'dtype': 'float32',</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [[100], [200]],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cast_spec</span><span class="p">[</span><span class="mi">30</span><span class="p">:</span><span class="mi">40</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">25</span><span class="p">]</span><span class="o">.</span><span class="n">base</span>
 <span class="go">Spec({</span>
-<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;schema&#39;: {&#39;domain&#39;: {&#39;exclusive_max&#39;: [100, 200], &#39;inclusive_min&#39;: [0, 0]}},</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [40, 25],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [30, 20],</span>
+<span class="go">  'driver': 'zarr',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'schema': {'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]}},</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [40, 25],</span>
+<span class="go">    'input_inclusive_min': [30, 20],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">downsampled_spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">downsample</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span>
 <span class="gp">... </span>                                 <span class="n">downsample_factors</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
-<span class="gp">... </span>                                 <span class="n">method</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">)</span>
+<span class="gp">... </span>                                 <span class="n">method</span><span class="o">=</span><span class="s1">'mean'</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">downsampled_spec</span>
 <span class="go">Spec({</span>
-<span class="go">  &#39;base&#39;: {</span>
-<span class="go">    &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">    &#39;schema&#39;: {</span>
-<span class="go">      &#39;domain&#39;: {&#39;exclusive_max&#39;: [100, 200], &#39;inclusive_min&#39;: [0, 0]},</span>
+<span class="go">  'base': {</span>
+<span class="go">    'driver': 'zarr',</span>
+<span class="go">    'kvstore': {'driver': 'memory'},</span>
+<span class="go">    'schema': {</span>
+<span class="go">      'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]},</span>
 <span class="go">    },</span>
-<span class="go">    &#39;transform&#39;: {</span>
-<span class="go">      &#39;input_exclusive_max&#39;: [[100], [200]],</span>
-<span class="go">      &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">    'transform': {</span>
+<span class="go">      'input_exclusive_max': [[100], [200]],</span>
+<span class="go">      'input_inclusive_min': [0, 0],</span>
 <span class="go">    },</span>
 <span class="go">  },</span>
-<span class="go">  &#39;downsample_factors&#39;: [2, 4],</span>
-<span class="go">  &#39;downsample_method&#39;: &#39;mean&#39;,</span>
-<span class="go">  &#39;driver&#39;: &#39;downsample&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [[50], [50]],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">  'downsample_factors': [2, 4],</span>
+<span class="go">  'downsample_method': 'mean',</span>
+<span class="go">  'driver': 'downsample',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [[50], [50]],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">downsampled_spec</span><span class="p">[</span><span class="mi">30</span><span class="p">:</span><span class="mi">40</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">25</span><span class="p">]</span><span class="o">.</span><span class="n">base</span>

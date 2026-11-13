@@ -1287,13 +1287,13 @@
 </dl>
 <h2 id="examples">Examples:<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s2">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;ocdbt&quot;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="s2">&quot;memory://&quot;</span>
+<span class="gp">... </span>    <span class="s2">"driver"</span><span class="p">:</span> <span class="s2">"ocdbt"</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s2">"base"</span><span class="p">:</span> <span class="s2">"memory://"</span>
 <span class="gp">... </span><span class="p">})</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;b&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="p">[</span><span class="s2">"a"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"b"</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">manifest</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">ocdbt</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">base</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">encoded</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">ocdbt</span><span class="o">.</span><span class="n">undump_manifest</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">encoded</span> <span class="o">==</span> <span class="n">store</span><span class="o">.</span><span class="n">base</span><span class="p">[</span><span class="s2">&quot;manifest.ocdbt&quot;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">encoded</span> <span class="o">==</span> <span class="n">store</span><span class="o">.</span><span class="n">base</span><span class="p">[</span><span class="s2">"manifest.ocdbt"</span><span class="p">]</span>
 </code></pre></div>
 </div>
 </dd></dl>

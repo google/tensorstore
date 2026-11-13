@@ -1658,29 +1658,29 @@
 <span class="gp">... </span>                  <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;stack&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;layers&#39;: [</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'stack',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'layers': [</span>
 <span class="go">    {</span>
-<span class="go">      &#39;array&#39;: [1, 2, 3, 4],</span>
-<span class="go">      &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">      &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">      &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [4], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">      'array': [1, 2, 3, 4],</span>
+<span class="go">      'driver': 'array',</span>
+<span class="go">      'dtype': 'uint32',</span>
+<span class="go">      'transform': {'input_exclusive_max': [4], 'input_inclusive_min': [0]},</span>
 <span class="go">    },</span>
 <span class="go">    {</span>
-<span class="go">      &#39;array&#39;: [5, 6, 7, 8],</span>
-<span class="go">      &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">      &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">      &#39;transform&#39;: {</span>
-<span class="go">        &#39;input_exclusive_max&#39;: [8],</span>
-<span class="go">        &#39;input_inclusive_min&#39;: [4],</span>
-<span class="go">        &#39;output&#39;: [{&#39;input_dimension&#39;: 0, &#39;offset&#39;: -4}],</span>
+<span class="go">      'array': [5, 6, 7, 8],</span>
+<span class="go">      'driver': 'array',</span>
+<span class="go">      'dtype': 'uint32',</span>
+<span class="go">      'transform': {</span>
+<span class="go">        'input_exclusive_max': [8],</span>
+<span class="go">        'input_inclusive_min': [4],</span>
+<span class="go">        'output': [{'input_dimension': 0, 'offset': -4}],</span>
 <span class="go">      },</span>
 <span class="go">    },</span>
 <span class="go">  ],</span>
-<span class="go">  &#39;schema&#39;: {&#39;domain&#39;: {&#39;exclusive_max&#39;: [8], &#39;inclusive_min&#39;: [0]}},</span>
-<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [8], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">  'schema': {'domain': {'exclusive_max': [8], 'inclusive_min': [0]}},</span>
+<span class="go">  'transform': {'input_exclusive_max': [8], 'input_inclusive_min': [0]},</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 <span class="go">array([1, 2, 3, 4, 5, 6, 7, 8], dtype=uint32)</span>
@@ -1691,35 +1691,35 @@
 <span class="gp">... </span>                  <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;stack&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;layers&#39;: [</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'stack',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'layers': [</span>
 <span class="go">    {</span>
-<span class="go">      &#39;array&#39;: [[1, 2, 3], [4, 5, 6]],</span>
-<span class="go">      &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">      &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">      &#39;transform&#39;: {</span>
-<span class="go">        &#39;input_exclusive_max&#39;: [2, 3],</span>
-<span class="go">        &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">      'array': [[1, 2, 3], [4, 5, 6]],</span>
+<span class="go">      'driver': 'array',</span>
+<span class="go">      'dtype': 'uint32',</span>
+<span class="go">      'transform': {</span>
+<span class="go">        'input_exclusive_max': [2, 3],</span>
+<span class="go">        'input_inclusive_min': [0, 0],</span>
 <span class="go">      },</span>
 <span class="go">    },</span>
 <span class="go">    {</span>
-<span class="go">      &#39;array&#39;: [[7, 8, 9], [10, 11, 12]],</span>
-<span class="go">      &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">      &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">      &#39;transform&#39;: {</span>
-<span class="go">        &#39;input_exclusive_max&#39;: [4, 3],</span>
-<span class="go">        &#39;input_inclusive_min&#39;: [2, 0],</span>
-<span class="go">        &#39;output&#39;: [</span>
-<span class="go">          {&#39;input_dimension&#39;: 0, &#39;offset&#39;: -2},</span>
-<span class="go">          {&#39;input_dimension&#39;: 1},</span>
+<span class="go">      'array': [[7, 8, 9], [10, 11, 12]],</span>
+<span class="go">      'driver': 'array',</span>
+<span class="go">      'dtype': 'uint32',</span>
+<span class="go">      'transform': {</span>
+<span class="go">        'input_exclusive_max': [4, 3],</span>
+<span class="go">        'input_inclusive_min': [2, 0],</span>
+<span class="go">        'output': [</span>
+<span class="go">          {'input_dimension': 0, 'offset': -2},</span>
+<span class="go">          {'input_dimension': 1},</span>
 <span class="go">        ],</span>
 <span class="go">      },</span>
 <span class="go">    },</span>
 <span class="go">  ],</span>
-<span class="go">  &#39;schema&#39;: {&#39;domain&#39;: {&#39;exclusive_max&#39;: [4, 3], &#39;inclusive_min&#39;: [0, 0]}},</span>
-<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [4, 3], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">  'schema': {'domain': {'exclusive_max': [4, 3], 'inclusive_min': [0, 0]}},</span>
+<span class="go">  'transform': {'input_exclusive_max': [4, 3], 'input_inclusive_min': [0, 0]},</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 <span class="go">array([[ 1,  2,  3],</span>
@@ -1733,44 +1733,44 @@
 <span class="gp">... </span>                  <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;stack&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;layers&#39;: [</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'stack',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'layers': [</span>
 <span class="go">    {</span>
-<span class="go">      &#39;array&#39;: [[1, 2, 3], [4, 5, 6]],</span>
-<span class="go">      &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">      &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">      &#39;transform&#39;: {</span>
-<span class="go">        &#39;input_exclusive_max&#39;: [2, 3],</span>
-<span class="go">        &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">      'array': [[1, 2, 3], [4, 5, 6]],</span>
+<span class="go">      'driver': 'array',</span>
+<span class="go">      'dtype': 'uint32',</span>
+<span class="go">      'transform': {</span>
+<span class="go">        'input_exclusive_max': [2, 3],</span>
+<span class="go">        'input_inclusive_min': [0, 0],</span>
 <span class="go">      },</span>
 <span class="go">    },</span>
 <span class="go">    {</span>
-<span class="go">      &#39;array&#39;: [[7, 8, 9], [10, 11, 12]],</span>
-<span class="go">      &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">      &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">      &#39;transform&#39;: {</span>
-<span class="go">        &#39;input_exclusive_max&#39;: [2, 6],</span>
-<span class="go">        &#39;input_inclusive_min&#39;: [0, 3],</span>
-<span class="go">        &#39;output&#39;: [</span>
-<span class="go">          {&#39;input_dimension&#39;: 0},</span>
-<span class="go">          {&#39;input_dimension&#39;: 1, &#39;offset&#39;: -3},</span>
+<span class="go">      'array': [[7, 8, 9], [10, 11, 12]],</span>
+<span class="go">      'driver': 'array',</span>
+<span class="go">      'dtype': 'uint32',</span>
+<span class="go">      'transform': {</span>
+<span class="go">        'input_exclusive_max': [2, 6],</span>
+<span class="go">        'input_inclusive_min': [0, 3],</span>
+<span class="go">        'output': [</span>
+<span class="go">          {'input_dimension': 0},</span>
+<span class="go">          {'input_dimension': 1, 'offset': -3},</span>
 <span class="go">        ],</span>
 <span class="go">      },</span>
 <span class="go">    },</span>
 <span class="go">  ],</span>
-<span class="go">  &#39;schema&#39;: {&#39;domain&#39;: {&#39;exclusive_max&#39;: [2, 6], &#39;inclusive_min&#39;: [0, 0]}},</span>
-<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2, 6], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">  'schema': {'domain': {'exclusive_max': [2, 6], 'inclusive_min': [0, 0]}},</span>
+<span class="go">  'transform': {'input_exclusive_max': [2, 6], 'input_inclusive_min': [0, 0]},</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 <span class="go">array([[ 1,  2,  3,  7,  8,  9],</span>
 <span class="go">       [ 4,  5,  6, 10, 11, 12]], dtype=uint32)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span>
-<span class="gp">... </span>    <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
 <span class="gp">... </span><span class="p">],</span>
-<span class="gp">... </span>                <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+<span class="gp">... </span>                <span class="n">axis</span><span class="o">=</span><span class="s2">"y"</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 <span class="go">array([[ 1,  2,  3,  7,  8,  9],</span>
 <span class="go">       [ 4,  5,  6, 10, 11, 12]], dtype=uint32)</span>
 </code></pre></div>
@@ -1838,7 +1838,7 @@ space, not the output space.</p>
 <p>The <em>physical unit</em> for a dimension is the physical quantity corresponding to a
 single index increment along each dimension.</p>
 <p>A value of <code class="code highlight python docutils literal highlight-python"><span class="kc">None</span></code> indicates that the unit is unknown.  A dimension-less
-quantity can be indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="s2">&quot;&quot;</span></code>.</p>
+quantity can be indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="s2">""</span></code>.</p>
 </p>
 </dd>
 <dt id="p-schema"><span class="n sig-name">schema</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.Schema.html" title="tensorstore.Schema (Python class) — Driver-independent options for defining a TensorStore schema.">Schema</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-schema" title="Permalink to this definition">¶</a></dt><dd><p>Additional schema constraints to merge with existing constraints.</p>

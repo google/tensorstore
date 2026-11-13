@@ -1902,26 +1902,26 @@
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;transform&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;input_shape&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">60</span><span class="p">],</span> <span class="p">[</span><span class="mi">70</span><span class="p">],</span> <span class="p">[</span><span class="mi">80</span><span class="p">]],</span>
-<span class="gp">... </span>        <span class="s1">&#39;input_labels&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s1">'transform'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'input_shape'</span><span class="p">:</span> <span class="p">[[</span><span class="mi">60</span><span class="p">],</span> <span class="p">[</span><span class="mi">70</span><span class="p">],</span> <span class="p">[</span><span class="mi">80</span><span class="p">]],</span>
+<span class="gp">... </span>        <span class="s1">'input_labels'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">domain</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">domain</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">],</span>
 <span class="gp">... </span>                        <span class="n">inclusive_min</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
 <span class="gp">... </span>                        <span class="n">exclusive_max</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span>
 <span class="go">Spec({</span>
-<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [8, [70], 9],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [5, 0, 6],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;y&#39;, &#39;z&#39;],</span>
+<span class="go">  'driver': 'zarr',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [8, [70], 9],</span>
+<span class="go">    'input_inclusive_min': [5, 0, 6],</span>
+<span class="go">    'input_labels': ['x', 'y', 'z'],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>

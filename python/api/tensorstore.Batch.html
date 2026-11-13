@@ -1525,10 +1525,10 @@ reduce the number of separate I/O requests performed.</p>
 <p>Example usage as a context manager (recommended):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr3&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span>
-<span class="gp">... </span>            <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;tmp/dataset/&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr3'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'file'</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s1">'path'</span><span class="p">:</span> <span class="s1">'tmp/dataset/'</span>
 <span class="gp">... </span>        <span class="p">},</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>

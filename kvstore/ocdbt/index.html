@@ -2709,7 +2709,7 @@
 <dt class="field-odd" id="required-members-json-kvstore/ocdbt">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/ocdbt" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;ocdbt&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"ocdbt"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -2727,7 +2727,7 @@
 <span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/ocdbt.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Key prefix within the key-value store.</p>
   </span><p>If the prefix is intended to correspond to a Unix-style directory path, it
-should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>.</p>
+should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -2769,7 +2769,7 @@ configuration must match any specified constraints.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config.manifest_kind">
-<span class="sig-name descname"><span class="pre">manifest_kind</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;single&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;numbered&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.manifest_kind" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">manifest_kind</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"single"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"numbered"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.manifest_kind" title="Link to this definition">¶</a></dt>
 <dd><span><p>Manifest format to use.</p>
   </span><p>If not specified, the format is chosen automatically when creating
 the database based on the capabilities of the underlying kvstore.
@@ -2780,13 +2780,13 @@ specify a value when creating the database.</p>
 <dt class="field-odd" id="one-of-json-kvstore/ocdbt.config.manifest_kind">One of<span class="colon">:</span><a class="headerlink" href="#one-of-json-kvstore/ocdbt.config.manifest_kind" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config.manifest_kind.single">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;single&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.manifest_kind.single" title="Link to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">"single"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.manifest_kind.single" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference internal" href="#ocdbt-manifest-kind-single"><span class="std std-ref">Single-file manifest format</span></a></p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config.manifest_kind.numbered">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;numbered&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.manifest_kind.numbered" title="Link to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">"numbered"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.manifest_kind.numbered" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference internal" href="#ocdbt-manifest-kind-numbered"><span class="std std-ref">Numbered-file manifest format</span></a></p>
   </span></dd></dl>
 
@@ -2819,7 +2819,7 @@ the specified arity.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight sig-wrap json" id="json-kvstore/ocdbt.config.compression">
-<span class="sig-name descname"><span class="pre">compression</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-kvstore/ocdbt/Compression/zstd" title="kvstore/ocdbt/Compression/zstd (JSON type) — Specifies Zstandard compression."><span class="pre">kvstore/ocdbt/Compression/zstd</span></a></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zstd&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.compression" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">compression</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-kvstore/ocdbt/Compression/zstd" title="kvstore/ocdbt/Compression/zstd (JSON type) — Specifies Zstandard compression."><span class="pre">kvstore/ocdbt/Compression/zstd</span></a></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zstd"</span><span class="p">,</span><span class="w"> </span><span class="nt">"level"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.compression" title="Link to this definition">¶</a></dt>
 <dd><span><p>Compression method used to encode the manifest and B+Tree nodes.</p>
   </span></dd></dl>
 
@@ -2858,7 +2858,7 @@ behind.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.value_data_prefix">
-<span class="sig-name descname"><span class="pre">value_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;d/&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.value_data_prefix" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">value_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"d/"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.value_data_prefix" title="Link to this definition">¶</a></dt>
 <dd><span><p>Prefix for writing data files containing indirect values.</p>
   </span><p>Values that are not stored inline within B+tree nodes are written to
 data files under this prefix. This option has no effect when reading,
@@ -2870,13 +2870,13 @@ safely use different values of <a class="reference internal" href="#json-kvstore
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.btree_node_data_prefix">
-<span class="sig-name descname"><span class="pre">btree_node_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;d/&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.btree_node_data_prefix" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">btree_node_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"d/"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.btree_node_data_prefix" title="Link to this definition">¶</a></dt>
 <dd><span><p>Prefix for writing data files containing B+tree nodes.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.version_tree_node_data_prefix">
-<span class="sig-name descname"><span class="pre">version_tree_node_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;d/&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.version_tree_node_data_prefix" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">version_tree_node_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"d/"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.version_tree_node_data_prefix" title="Link to this definition">¶</a></dt>
 <dd><span><p>Prefix for writing data files containing version tree nodes.</p>
   </span></dd></dl>
 
@@ -2890,7 +2890,7 @@ When set to 0, data flles may be an arbitrary size.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.cache_pool">
-<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.cache_pool" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"cache_pool"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.cache_pool" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It
 is typically more convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a>
 in the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvstore/ocdbt.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
@@ -2898,7 +2898,7 @@ in the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="k
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.data_copy_concurrency" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"data_copy_concurrency"</span></code><a class="headerlink" href="#json-kvstore/ocdbt.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is typically more
 convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
@@ -2924,33 +2924,33 @@ the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvst
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/db.ocdbt/|ocdbt:path/within/database&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocdbt&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/within/database&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/db.ocdbt/&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/db.ocdbt/|ocdbt:path/within/database"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ocdbt"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/within/database"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"base"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/db.ocdbt/"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
 </tr>
-<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/db.ocdbt/|ocdbt:@v1/path/within/database&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocdbt&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/within/database&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/db.ocdbt/&quot;</span><span class="p">}</span>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/db.ocdbt/|ocdbt:@v1/path/within/database"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ocdbt"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/within/database"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"base"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/db.ocdbt/"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
 </tr>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/db.ocdbt/|ocdbt:@2025-01-01T01:23:45.678Z/path/within/database&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocdbt&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/within/database&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-01-01T01:23:45.678Z&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/db.ocdbt/&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/db.ocdbt/|ocdbt:@2025-01-01T01:23:45.678Z/path/within/database"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ocdbt"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/within/database"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-01-01T01:23:45.678Z"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"base"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/db.ocdbt/"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -2976,7 +2976,7 @@ the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvst
 <dt class="field-odd" id="required-members-json-kvstore/ocdbt/Compression/zstd">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/ocdbt/Compression/zstd" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt/Compression/zstd.id">
-<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zstd&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt/Compression/zstd.id" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zstd"</span></code><a class="headerlink" href="#json-kvstore/ocdbt/Compression/zstd.id" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd>
@@ -3008,7 +3008,7 @@ the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvst
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.ocdbt_coordinator.lease_duration">
-<span class="sig-name descname"><span class="pre">lease_duration</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;10s&quot;</span></code><a class="headerlink" href="#json-Context.ocdbt_coordinator.lease_duration" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">lease_duration</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"10s"</span></code><a class="headerlink" href="#json-Context.ocdbt_coordinator.lease_duration" title="Link to this definition">¶</a></dt>
 <dd><span><p>Duration of lease to request from coordinator for B+tree key ranges.</p>
   </span></dd></dl>
 

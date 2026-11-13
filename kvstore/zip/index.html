@@ -1461,7 +1461,7 @@ files on top of a base key-value store. (Not all ZIP features are supported.)</p
 <dt class="field-odd" id="required-members-json-kvstore/zip">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/zip" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zip.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zip&quot;</span></code><a class="headerlink" href="#json-kvstore/zip.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zip"</span></code><a class="headerlink" href="#json-kvstore/zip.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -1479,7 +1479,7 @@ files on top of a base key-value store. (Not all ZIP features are supported.)</p
 <span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/zip.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Key prefix within the key-value store.</p>
   </span><p>If the prefix is intended to correspond to a Unix-style directory path, it
-should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>.</p>
+should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1490,7 +1490,7 @@ should end with <code class="code highlight json docutils literal highlight-json
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zip.cache_pool">
-<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-kvstore/zip.cache_pool" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"cache_pool"</span></code><a class="headerlink" href="#json-kvstore/zip.cache_pool" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It
 is typically more convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a>
 in the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstore/zip.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
@@ -1498,7 +1498,7 @@ in the <a class="reference internal" href="#json-kvstore/zip.context" title="kvs
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zip.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/zip.data_copy_concurrency" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"data_copy_concurrency"</span></code><a class="headerlink" href="#json-kvstore/zip.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is typically more
 convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
@@ -1524,23 +1524,23 @@ the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstor
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/archive.zip|zip:path/within/archive&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zip&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/within/archive&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/archive.zip&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/archive.zip|zip:path/within/archive"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zip"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/within/archive"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"base"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/archive.zip"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
 </tr>
-<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/archive.zip|zip:nested.zip|zip:path/within/inner_zip&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zip&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/within/inner_zip&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zip&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;nested.zip&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">                   </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/archive.zip&quot;</span><span class="p">}}</span>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/archive.zip|zip:nested.zip|zip:path/within/inner_zip"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zip"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/within/inner_zip"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"base"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zip"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nested.zip"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"base"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">                   </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/archive.zip"</span><span class="p">}}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -1559,8 +1559,8 @@ the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstor
 </dd></dl>
 
 <h2 id="example-json-specifications">Example JSON specifications<a class="headerlink" href="#example-json-specifications" title="Link to this heading">¶</a></h2>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zip&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/file.zip&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zip"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/file.zip"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 </div>
 <h2 id="auto-detection">Auto detection<a class="headerlink" href="#auto-detection" title="Link to this heading">¶</a></h2>

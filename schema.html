@@ -1853,13 +1853,13 @@ that the unit is unknown.</p>
 <div class="admonition">
 <p class="admonition-title">Example
 class: example</p>
-<p><code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="s2">&quot;4nm&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;4nm&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">]</span></code> specifies that the voxel size is 4nm along
+<p><code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="s2">"4nm"</span><span class="p">,</span><span class="w"> </span><span class="s2">"4nm"</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">]</span></code> specifies that the voxel size is 4nm along
 the first two dimensions, and unknown along the third dimension.</p>
 </div>
 <div class="note admonition">
 <p class="admonition-title">Note</p>
-<p><code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code> is not equivalent to specifying <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&quot;</span></code> (or
-equivalently, <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">]</span></code>), which indicates a dimensionless unit of
+<p><code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code> is not equivalent to specifying <code class="code highlight json docutils literal highlight-json"><span class="s2">""</span></code> (or
+equivalently, <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="s2">""</span><span class="p">]</span></code>), which indicates a dimensionless unit of
 <code class="code highlight json docutils literal highlight-json"><span class="mi">1</span></code>.</p>
 </div>
 </dd></dl>
@@ -2110,9 +2110,9 @@ codec is applicable.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;compressor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cname&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lz4&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;clevel&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;5&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;shuffle&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"compressor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"cname"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lz4"</span><span class="p">,</span><span class="w"> </span><span class="nt">"clevel"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"5"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"shuffle"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"filters"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -2120,8 +2120,8 @@ codec is applicable.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;n5&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;compression&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gzip&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;6&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;useZlib&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">}</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"n5"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"compression"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gzip"</span><span class="p">,</span><span class="w"> </span><span class="nt">"level"</span><span class="p">:</span><span class="w"> </span><span class="s2">"6"</span><span class="p">,</span><span class="w"> </span><span class="nt">"useZlib"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -2164,11 +2164,11 @@ multiplier.</p></li>
 <p class="admonition-title">Example
 class: example</p>
 <ul class="simple">
-<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;4.5e-9m&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;4.5e-9 m&quot;</span></code>, and <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mf">4.5e-9</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;m&quot;</span><span class="p">]</span></code> are
+<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"4.5e-9m"</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"4.5e-9 m"</span></code>, and <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mf">4.5e-9</span><span class="p">,</span><span class="w"> </span><span class="s2">"m"</span><span class="p">]</span></code> are
 all equivalent.</p></li>
-<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;1nm&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;nm&quot;</span></code>, and <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nm&quot;</span><span class="p">]</span></code> are all
+<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"1nm"</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"nm"</span></code>, and <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="s2">"nm"</span><span class="p">]</span></code> are all
 equivalent.</p></li>
-<li><p><code class="code highlight json docutils literal highlight-json"><span class="mi">5</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;5&quot;</span></code>, and <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">]</span></code> are all equivalent.</p></li>
+<li><p><code class="code highlight json docutils literal highlight-json"><span class="mi">5</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"5"</span></code>, and <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s2">""</span><span class="p">]</span></code> are all equivalent.</p></li>
 </ul>
 </div>
 </dd></dl>

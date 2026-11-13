@@ -1881,21 +1881,21 @@ being made).</p>
 <p>Example usage:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">txn</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Transaction</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;tmp/dataset/&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'n5'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'file'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'path'</span><span class="p">:</span> <span class="s1">'tmp/dataset/'</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;dataType&#39;</span><span class="p">:</span> <span class="s1">&#39;uint16&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;blockSize&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
-<span class="gp">... </span>        <span class="s1">&#39;dimensions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
-<span class="gp">... </span>        <span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;raw&#39;</span>
+<span class="gp">... </span>    <span class="s1">'metadata'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'dataType'</span><span class="p">:</span> <span class="s1">'uint16'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'blockSize'</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">'dimensions'</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">'compression'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'type'</span><span class="p">:</span> <span class="s1">'raw'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;create&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;delete_existing&#39;</span><span class="p">:</span> <span class="kc">True</span>
+<span class="gp">... </span>    <span class="s1">'create'</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'delete_existing'</span><span class="p">:</span> <span class="kc">True</span>
 <span class="gp">... </span><span class="p">})</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="mi">43</span>

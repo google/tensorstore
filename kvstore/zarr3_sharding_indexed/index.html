@@ -1442,7 +1442,7 @@ consecutive <code class="docutils literal notranslate"><span class="pre">uint32b
 <dt class="field-odd" id="required-members-json-kvstore/zarr3_sharding_indexed">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/zarr3_sharding_indexed" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zarr3_sharding_indexed.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zarr3_sharding_indexed&quot;</span></code><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zarr3_sharding_indexed"</span></code><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -1472,7 +1472,7 @@ consecutive <code class="docutils literal notranslate"><span class="pre">uint32b
 <span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Key prefix within the key-value store.</p>
   </span><p>If the prefix is intended to correspond to a Unix-style directory path, it
-should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>.</p>
+should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1483,13 +1483,13 @@ should end with <code class="code highlight json docutils literal highlight-json
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zarr3_sharding_indexed.index_location">
-<span class="sig-name descname"><span class="pre">index_location</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;start&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;end&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;end&quot;</span></code><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.index_location" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">index_location</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"start"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"end"</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"end"</span></code><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.index_location" title="Link to this definition">¶</a></dt>
 <dd><span><p>Location of the shard index within the shard.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zarr3_sharding_indexed.cache_pool">
-<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.cache_pool" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"cache_pool"</span></code><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.cache_pool" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It
 is normally more convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a>
 in the <a class="reference internal" href="#json-kvstore/zarr3_sharding_indexed.context" title="kvstore/zarr3_sharding_indexed.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
@@ -1503,7 +1503,7 @@ operation will require an additional read to obtain the shard index.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zarr3_sharding_indexed.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.data_copy_concurrency" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"data_copy_concurrency"</span></code><a class="headerlink" href="#json-kvstore/zarr3_sharding_indexed.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.
 It is normally more convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
 the <a class="reference internal" href="#json-kvstore/zarr3_sharding_indexed.context" title="kvstore/zarr3_sharding_indexed.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
@@ -1515,15 +1515,15 @@ the <a class="reference internal" href="#json-kvstore/zarr3_sharding_indexed.con
 
 <h2 id="example-json-specifications">Example JSON specifications<a class="headerlink" href="#example-json-specifications" title="Link to this heading">¶</a></h2>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr3_sharding_indexed&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/sharded/data&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;grid_shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span>
-<span class="w">  </span><span class="s2">&quot;index_codecs&quot;</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bytes&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;configuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;endian&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;little&quot;</span><span class="p">}},</span>
-<span class="w">    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;crc32c&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr3_sharding_indexed"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/sharded/data"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"grid_shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">"index_codecs"</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bytes"</span><span class="p">,</span><span class="w"> </span><span class="nt">"configuration"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"endian"</span><span class="p">:</span><span class="w"> </span><span class="s2">"little"</span><span class="p">}},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"crc32c"</span><span class="p">}</span>
 <span class="w">  </span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;context&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;cache_pool&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;total_bytes_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1000000000</span><span class="p">}</span>
+<span class="w">  </span><span class="nt">"context"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"cache_pool"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"total_bytes_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">1000000000</span><span class="p">}</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>

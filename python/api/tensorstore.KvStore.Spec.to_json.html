@@ -1879,19 +1879,19 @@
 <dd><p>Converts to the <a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span> <span class="pre">representation</span></code></a>.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span> <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;tmp/dataset/&#39;</span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">/=</span> <span class="s1">&#39;abc/&#39;</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'file'</span><span class="p">,</span> <span class="s1">'path'</span><span class="p">:</span> <span class="s1">'tmp/dataset/'</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">/=</span> <span class="s1">'abc/'</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
-<span class="go">{&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset/abc/&#39;}</span>
+<span class="go">{'driver': 'file', 'path': 'tmp/dataset/abc/'}</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">include_defaults</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="go">{&#39;context&#39;: {},</span>
-<span class="go"> &#39;driver&#39;: &#39;file&#39;,</span>
-<span class="go"> &#39;file_io_concurrency&#39;: &#39;file_io_concurrency&#39;,</span>
-<span class="go"> &#39;file_io_locking&#39;: &#39;file_io_locking&#39;,</span>
-<span class="go"> &#39;file_io_mode&#39;: &#39;file_io_mode&#39;,</span>
-<span class="go"> &#39;file_io_retries&#39;: &#39;file_io_retries&#39;,</span>
-<span class="go"> &#39;file_io_sync&#39;: &#39;file_io_sync&#39;,</span>
-<span class="go"> &#39;path&#39;: &#39;tmp/dataset/abc/&#39;}</span>
+<span class="go">{'context': {},</span>
+<span class="go"> 'driver': 'file',</span>
+<span class="go"> 'file_io_concurrency': 'file_io_concurrency',</span>
+<span class="go"> 'file_io_locking': 'file_io_locking',</span>
+<span class="go"> 'file_io_mode': 'file_io_mode',</span>
+<span class="go"> 'file_io_retries': 'file_io_retries',</span>
+<span class="go"> 'file_io_sync': 'file_io_sync',</span>
+<span class="go"> 'path': 'tmp/dataset/abc/'}</span>
 </code></pre></div>
 </div>
 </div>

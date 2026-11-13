@@ -1630,7 +1630,7 @@
 <h1 id="json-driver"><code class="docutils literal notranslate"><span class="pre">json</span></code> Driver<a class="headerlink" href="#json-driver" title="Link to this heading">¶</a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">json</span></code> driver provides read/write access to JSON values stored in any
 supported <a class="reference internal" href="../../kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  JSON values are accessed as rank-0 arrays
-with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;json&quot;</span></code> data type.</p>
+with <code class="code highlight json docutils literal highlight-json"><span class="s2">"json"</span></code> data type.</p>
 <div class="note admonition">
 <p class="admonition-title">Note</p>
 <p>Even if the JSON value is itself an array value, TensorStore still exposes it
@@ -1658,7 +1658,7 @@ store</span></a>.
 <dt class="field-odd" id="required-members-json-driver/json">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/json" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/json.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;json&quot;</span></code><a class="headerlink" href="#json-driver/json.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"json"</span></code><a class="headerlink" href="#json-driver/json.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -1679,8 +1679,8 @@ store</span></a>.
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/json.dtype">
-<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;json&quot;</span></code><a class="headerlink" href="#json-driver/json.dtype" title="Link to this definition">¶</a></dt>
-<dd><p>Optional.  If specified, must be <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;json&quot;</span></code>.</p>
+<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"json"</span></code><a class="headerlink" href="#json-driver/json.dtype" title="Link to this definition">¶</a></dt>
+<dd><p>Optional.  If specified, must be <code class="code highlight json docutils literal highlight-json"><span class="s2">"json"</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1709,16 +1709,16 @@ with any driver-specific constraints.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/json.path">
-<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;&quot;</span></code><a class="headerlink" href="#json-driver/json.path" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">""</span></code><a class="headerlink" href="#json-driver/json.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Additional path relative to <a class="reference internal" href="#json-driver/json.kvstore" title="driver/json.kvstore (JSON member) — Base key-value store for the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.</p>
-  </span><p>This is joined as an additional <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>-separated path
+  </span><p>This is joined as an additional <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>-separated path
 component after any <a class="reference internal" href="../../kvstore/index.html#json-KvStore.path" title="KvStore.path (JSON member) — Key prefix within the key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">path</span></code></a> member directly
 within <a class="reference internal" href="#json-driver/json.kvstore" title="driver/json.kvstore (JSON member) — Base key-value store for the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.  This is supported for backwards
 compatibility only; the <a class="reference internal" href="../../kvstore/index.html#json-KvStore.path" title="KvStore.path (JSON member) — Key prefix within the key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore.path</span></code></a> member should be
 used instead.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">&quot;path/to/data&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">"path/to/data"</span>
 </code></pre></div>
 </div>
 </div>
@@ -1726,7 +1726,7 @@ used instead.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/json.cache_pool">
-<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-driver/json.cache_pool" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"cache_pool"</span></code><a class="headerlink" href="#json-driver/json.cache_pool" title="Link to this definition">¶</a></dt>
 <dd><span><p>Cache pool for data.</p>
   </span><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It is normally more convenient to
@@ -1736,7 +1736,7 @@ specify a default <a class="reference internal" href="../../context.html#json-Co
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/json.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-driver/json.data_copy_concurrency" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"data_copy_concurrency"</span></code><a class="headerlink" href="#json-driver/json.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more convenient to
 specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in the <a class="reference internal" href="#json-driver/json.context" title="driver/json.context (JSON member) — Specifies context resources that augment/override the parent context."><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
@@ -1744,7 +1744,7 @@ specify a default <a class="reference internal" href="../../context.html#json-Co
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/json.recheck_cached_data">
-<span class="sig-name descname"><span class="pre">recheck_cached_data</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-CacheRevalidationBound" title="CacheRevalidationBound (JSON type)"><span class="pre">CacheRevalidationBound</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;open&quot;</span></code><a class="headerlink" href="#json-driver/json.recheck_cached_data" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">recheck_cached_data</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-CacheRevalidationBound" title="CacheRevalidationBound (JSON type)"><span class="pre">CacheRevalidationBound</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"open"</span></code><a class="headerlink" href="#json-driver/json.recheck_cached_data" title="Link to this definition">¶</a></dt>
 <dd><span><p>Time after which cached data is assumed to be fresh.</p>
   </span><p>Cached data older than the specified time is revalidated
 prior to being returned from a read operation.  Writes
@@ -1752,7 +1752,7 @@ are always consistent regardless of the value of this
 option.</p>
 <p>Specifying <code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code> means that the data will be
 revalidated prior to every read operation.  With a value
-of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, any cached data is revalidated when
+of <code class="code highlight json docutils literal highlight-json"><span class="s2">"open"</span></code>, any cached data is revalidated when
 the TensorStore is opened but is not rechecked for each
 read operation.</p>
 <div class="note admonition">
@@ -1760,20 +1760,20 @@ read operation.</p>
 <p>To enable in-memory data caching, you must both specify
 a <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a> with a non-zero
 <a class="reference internal" href="../../context.html#json-Context.cache_pool.total_bytes_limit" title="Context.cache_pool.total_bytes_limit (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></a> and also
-specify <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, or an explicit time
+specify <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"open"</span></code>, or an explicit time
 bound for <a class="reference internal" href="#json-driver/json.recheck_cached_data" title="driver/json.recheck_cached_data (JSON member) — Time after which cached data is assumed to be fresh."><code class="xref json json-schema docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
 </div>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/json.json_pointer">
-<span class="sig-name descname"><span class="pre">json_pointer</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;&quot;</span></code><a class="headerlink" href="#json-driver/json.json_pointer" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">json_pointer</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">""</span></code><a class="headerlink" href="#json-driver/json.json_pointer" title="Link to this definition">¶</a></dt>
 <dd><p>JSON Pointer (<span class="target" id="index-1"></span><a class="rfc reference external" href="https://datatracker.ietf.org/doc/html/rfc6901.html"><strong>RFC 6901</strong></a>) specifying a path within the JSON file.  With
-the default value of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&quot;</span></code>, read and write operations apply to the
+the default value of <code class="code highlight json docutils literal highlight-json"><span class="s2">""</span></code>, read and write operations apply to the
 entire JSON file.  Specifying a non-empty pointer permits
 reading/writing a sub-value within the full JSON file.  For example, if
-the full JSON file contains <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">&quot;a&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;b&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">}}</span></code>, specifying a
-<a class="reference internal" href="#json-driver/json.json_pointer" title="driver/json.json_pointer (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">json_pointer</span></code></a> of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/a/b&quot;</span></code> refers to the value
+the full JSON file contains <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">"a"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"b"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">}}</span></code>, specifying a
+<a class="reference internal" href="#json-driver/json.json_pointer" title="driver/json.json_pointer (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">json_pointer</span></code></a> of <code class="code highlight json docutils literal highlight-json"><span class="s2">"/a/b"</span></code> refers to the value
 <code class="code highlight json docutils literal highlight-json"><span class="mi">42</span></code>.  If the pointer refers to a non-existent member, read
 operations return an error.  Write operations attempt to create the
 member (and any ancestor objects), and return an error if the pointer is
@@ -1787,9 +1787,9 @@ value.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/attributes.json&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;json_pointer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/a/2/b&quot;</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"json"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path/to/attributes.json"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"json_pointer"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/a/2/b"</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -1811,20 +1811,20 @@ URL syntax.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/file.json/|json:&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/file.json&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/file.json/|json:"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"json"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/file.json"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
 </tr>
-<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/file.json/|json:/path/within/json&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;json_pointer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/path/within/json&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/file.json&quot;</span><span class="p">}</span>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/file.json/|json:/path/within/json"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"json"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"json_pointer"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/path/within/json"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/file.json"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>

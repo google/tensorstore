@@ -1935,41 +1935,41 @@
 <dd><p>Sets (or changes) the <a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">labels</span></a> of the selected dimensions.</p>
 <div class="example admonition">
 <p class="admonition-title">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">'x'</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    0: (-inf*, +inf*) "x"</span>
 <span class="go">    1: (-inf*, +inf*)</span>
 <span class="go">    2: (-inf*, +inf*)</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
 <span class="go">    out[2] = 0 + 1 * in[2]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    0: (-inf*, +inf*) "x"</span>
 <span class="go">    1: (-inf*, +inf*)</span>
-<span class="go">    2: (-inf*, +inf*) &quot;z&quot;</span>
+<span class="go">    2: (-inf*, +inf*) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
 <span class="go">    out[2] = 0 + 1 * in[2]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
-<span class="go">    1: (-inf*, +inf*) &quot;y&quot;</span>
-<span class="go">    2: (-inf*, +inf*) &quot;z&quot;</span>
+<span class="go">    0: (-inf*, +inf*) "x"</span>
+<span class="go">    1: (-inf*, +inf*) "y"</span>
+<span class="go">    2: (-inf*, +inf*) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
 <span class="go">    out[2] = 0 + 1 * in[2]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">translate_by</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">]</span><span class="o">.</span><span class="n">translate_by</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
-<span class="go">    1: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">    0: (-inf*, +inf*) "x"</span>
+<span class="go">    1: (-inf*, +inf*) "y"</span>
 <span class="go">    2: (-inf*, +inf*)</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = -2 + 1 * in[0]</span>

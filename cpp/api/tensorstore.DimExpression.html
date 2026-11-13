@@ -3185,7 +3185,7 @@
 <dl class="cpp class objdesc">
 <dt class="sig sig-object highlight api-include-path cpp">
 <div class="docutils container">
-<code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/index_space/dim_expression.h&quot;</span></code></div>
+<code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">"tensorstore/index_space/dim_expression.h"</span></code></div>
 </dt>
 <dt class="sig sig-object highlight cpp">
 <span class="k">template&nbsp;</span><span class="p">&lt;</span><span><span class="k">typename</span><span class="p">...&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::DimExpression::Op (C++ type template parameter)"><span class="n">Op</span></a></span></span><span class="p">&gt;<br></span><span class="k">class</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">DimExpression</span></span><span class="p">;</span></dt>
@@ -3213,7 +3213,7 @@ member functions, e.g. <code class="cpp-expr sig sig-inline cpp highlight"><a cl
 <p>A <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::DimExpression (C++ class) — A DimExpression represents an ordered &quot;selection&quot; of dimensions of an index space and a sequence of &quot;operations&quot; to apply to those dimensions."><span class="n">DimExpression</span></a></code> may hold references to temporary values, in which case
 it must not be used after evaluation of the complete expression in which
 those temporaries were created.  For example:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">Dims</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;y&quot;</span><span class="p">)).</span><span class="n">IndexSlice</span><span class="p">({</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">})</span>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">Dims</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">"x"</span><span class="p">),</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">"y"</span><span class="p">)).</span><span class="n">IndexSlice</span><span class="p">({</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">})</span>
 </code></pre></div>
 </div>
 <p>refers to data owned by two temporary <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string" title="std::string (C++ standard type alias)"><span class="n">string</span></a></code> values and a
@@ -3222,7 +3222,7 @@ store the resulting <code class="cpp-expr sig sig-inline cpp highlight"><a class
 the complete expression in which it was created, as in the following
 unsafe code:</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="k">auto</span><span class="w"> </span><span class="n">do_not_use</span><span class="w"> </span><span class="o">=</span>
-<span class="w">  </span><span class="n">Dims</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;y&quot;</span><span class="p">)).</span><span class="n">IndexSlice</span><span class="p">({</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">});</span>
+<span class="w">  </span><span class="n">Dims</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">"x"</span><span class="p">),</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">"y"</span><span class="p">)).</span><span class="n">IndexSlice</span><span class="p">({</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">});</span>
 </code></pre></div>
 </div>
 </div>

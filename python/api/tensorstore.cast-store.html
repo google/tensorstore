@@ -1287,15 +1287,15 @@
 <span class="gp">&gt;&gt;&gt; </span><span class="n">view</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">view</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;base&#39;: {</span>
-<span class="go">    &#39;array&#39;: [1.5, 2.5, 3.5, 4.5, 5.5],</span>
-<span class="go">    &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">    &#39;dtype&#39;: &#39;float32&#39;,</span>
+<span class="go">  'base': {</span>
+<span class="go">    'array': [1.5, 2.5, 3.5, 4.5, 5.5],</span>
+<span class="go">    'driver': 'array',</span>
+<span class="go">    'dtype': 'float32',</span>
 <span class="go">  },</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [5], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'cast',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'transform': {'input_exclusive_max': [5], 'input_inclusive_min': [0]},</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">view</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 <span class="go">array([1, 2, 3, 4, 5], dtype=uint32)</span>

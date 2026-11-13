@@ -1654,7 +1654,7 @@ downsampled view that are read.</p>
 <dt class="field-odd" id="required-members-json-driver/downsample">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/downsample" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/downsample.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;downsample&quot;</span></code><a class="headerlink" href="#json-driver/downsample.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"downsample"</span></code><a class="headerlink" href="#json-driver/downsample.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -1732,10 +1732,10 @@ with any driver-specific constraints.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;downsample&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;downsample_factors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;downsample_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mean&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-bucket&quot;</span><span class="p">}}</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"downsample"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"downsample_factors"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"downsample_method"</span><span class="p">:</span><span class="w"> </span><span class="s2">"mean"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"base"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gcs"</span><span class="p">,</span><span class="w"> </span><span class="nt">"bucket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-bucket"</span><span class="p">}}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -1745,13 +1745,13 @@ with any driver-specific constraints.</p>
 <p>The following downsampling methods are supported:</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight sig-wrap json" id="json-DownsampleMethod">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">DownsampleMethod</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;stride&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;median&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;mode&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;mean&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;min&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;max&quot;</span></code><a class="headerlink" href="#json-DownsampleMethod" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">DownsampleMethod</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"stride"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"median"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"mode"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"mean"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"min"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"max"</span></code><a class="headerlink" href="#json-DownsampleMethod" title="Link to this definition">¶</a></dt>
 <dd><span><p>Downsample method</p>
   </span><dl class="field-list">
 <dt class="field-odd" id="one-of-json-DownsampleMethod">One of<span class="colon">:</span><a class="headerlink" href="#one-of-json-DownsampleMethod" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-DownsampleMethod.stride">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;stride&quot;</span></code><a class="headerlink" href="#json-DownsampleMethod.stride" title="Link to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">"stride"</span></code><a class="headerlink" href="#json-DownsampleMethod.stride" title="Link to this definition">¶</a></dt>
 <dd><p>Downsampling is performed by striding: reading a given position
 <code class="code highlight python docutils literal highlight-python"><span class="n">position</span></code> in the downsampled view is exactly equivalent to
 reading <code class="code highlight python docutils literal highlight-python"><span class="n">position</span> <span class="o">*</span> <span class="n">downsample_factors</span></code> in the original view.
@@ -1769,7 +1769,7 @@ use a different offset, translate the domain of
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-DownsampleMethod.median">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;median&quot;</span></code><a class="headerlink" href="#json-DownsampleMethod.median" title="Link to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">"median"</span></code><a class="headerlink" href="#json-DownsampleMethod.median" title="Link to this definition">¶</a></dt>
 <dd><p>Downsampling computes the median value: reading a given <code class="docutils literal notranslate"><span class="pre">position</span></code>
 in the downsampled view returns the median value within the
 rectangular region <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="n">position</span> <span class="o">*</span> <span class="n">downsample_factors</span><span class="p">,</span> <span class="p">(</span><span class="n">position</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
@@ -1783,7 +1783,7 @@ lower value is always used.  For example, the median computed for
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-DownsampleMethod.mode">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;mode&quot;</span></code><a class="headerlink" href="#json-DownsampleMethod.mode" title="Link to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">"mode"</span></code><a class="headerlink" href="#json-DownsampleMethod.mode" title="Link to this definition">¶</a></dt>
 <dd><p>Downsampling computes the mode (most frequent value): reading a
 given <code class="docutils literal notranslate"><span class="pre">position</span></code> in the downsampled view returns the mode within
 the rectangular region <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="n">position</span> <span class="o">*</span> <span class="n">downsample_factors</span><span class="p">,</span> <span class="p">(</span><span class="n">position</span> <span class="o">+</span>
@@ -1797,16 +1797,16 @@ a given version of TensorStore) most frequent value is chosen.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-DownsampleMethod.mean">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;mean&quot;</span></code><a class="headerlink" href="#json-DownsampleMethod.mean" title="Link to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">"mean"</span></code><a class="headerlink" href="#json-DownsampleMethod.mean" title="Link to this definition">¶</a></dt>
 <dd><p>Downsampling is performed by arithmetic mean (averaging): reading a
 given <code class="docutils literal notranslate"><span class="pre">position</span></code> in the downsampled view returns the arithmetic
 mean within the rectangular region :python`[position * downsample_factors,
 (position + 1) * downsample_factors)` of the original view, where
 the average is computed only over positions that are within the
 bounds of the original view.  Only numeric data types and
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;bool&quot;</span></code> are supported.  For integer data types, the means are
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"bool"</span></code> are supported.  For integer data types, the means are
 computed exactly and rounded to the nearest integer, and rounded to
-even in the case of a tie.  For the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;bool&quot;</span></code> data type, the
+even in the case of a tie.  For the <code class="code highlight json docutils literal highlight-json"><span class="s2">"bool"</span></code> data type, the
 mode is chosen.</p>
 <p>Note that the blocks used for averaging start with an origin of 0 in
 all dimensions.  For example, downsampling a 1-dimensional TensorStore
@@ -1817,7 +1817,7 @@ translate the domain of <a class="reference internal" href="#json-driver/downsam
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-DownsampleMethod.min">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;min&quot;</span></code><a class="headerlink" href="#json-DownsampleMethod.min" title="Link to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">"min"</span></code><a class="headerlink" href="#json-DownsampleMethod.min" title="Link to this definition">¶</a></dt>
 <dd><p>Downsampling computes the minimum value: reading a given
 <code class="docutils literal notranslate"><span class="pre">position</span></code> in the downsampled view returns the minimum value
 within the rectangular region <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="n">position</span> <span class="o">*</span> <span class="n">downsample_factors</span><span class="p">,</span>
@@ -1827,7 +1827,7 @@ non-complex numeric data types and bool are supported.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-DownsampleMethod.max">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;max&quot;</span></code><a class="headerlink" href="#json-DownsampleMethod.max" title="Link to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">"max"</span></code><a class="headerlink" href="#json-DownsampleMethod.max" title="Link to this definition">¶</a></dt>
 <dd><p>Downsampling computes the maximum value: reading a given
 <code class="docutils literal notranslate"><span class="pre">position</span></code> in the downsampled view returns the maximum value
 within the rectangular region <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="n">position</span> <span class="o">*</span> <span class="n">downsample_factors</span><span class="p">,</span>

@@ -1915,13 +1915,13 @@
 <dd><p>Transposes the selected dimensions to the specified target indices.</p>
 <p>A dimension range may be specified to reverse the order of all dimensions:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
-<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">])</span>
+<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [0, 4) &quot;z&quot;</span>
-<span class="go">    1: [0, 3) &quot;y&quot;</span>
-<span class="go">    2: [0, 2) &quot;x&quot;</span>
+<span class="go">    0: [0, 4) "z"</span>
+<span class="go">    1: [0, 3) "y"</span>
+<span class="go">    2: [0, 2) "x"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[2]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
@@ -1931,13 +1931,13 @@
 <p>Dimensions not in the selection retain their relative order and fill in the
 dimension indices not in <code class="code highlight python docutils literal highlight-python"><span class="n">target</span></code>:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
-<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [0, 2) &quot;x&quot;</span>
-<span class="go">    1: [0, 4) &quot;z&quot;</span>
-<span class="go">    2: [0, 3) &quot;y&quot;</span>
+<span class="go">    0: [0, 2) "x"</span>
+<span class="go">    1: [0, 4) "z"</span>
+<span class="go">    2: [0, 3) "y"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[2]</span>
@@ -1947,14 +1947,14 @@ dimension indices not in <code class="code highlight python docutils literal hig
 <p>A single non-negative <code class="code highlight python docutils literal highlight-python"><span class="n">target</span></code> index may be specified to reorder all of
 the selected dimensions to start at the specified index:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="s2">&quot;d&quot;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">,</span> <span class="s2">"d"</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'a'</span><span class="p">,</span> <span class="s1">'d'</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
 <span class="go">Rank 4 -&gt; 4 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [0, 3) &quot;b&quot;</span>
-<span class="go">    1: [0, 2) &quot;a&quot;</span>
-<span class="go">    2: [0, 5) &quot;d&quot;</span>
-<span class="go">    3: [0, 4) &quot;c&quot;</span>
+<span class="go">    0: [0, 3) "b"</span>
+<span class="go">    1: [0, 2) "a"</span>
+<span class="go">    2: [0, 5) "d"</span>
+<span class="go">    3: [0, 4) "c"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[1]</span>
 <span class="go">    out[1] = 0 + 1 * in[0]</span>
@@ -1965,14 +1965,14 @@ the selected dimensions to start at the specified index:</p>
 <p>A single negative <code class="code highlight python docutils literal highlight-python"><span class="n">target</span></code> index may be specified to order all of the
 selected dimensions to end at the specified index from end:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="s2">&quot;d&quot;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">,</span> <span class="s2">"d"</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'a'</span><span class="p">,</span> <span class="s1">'d'</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
 <span class="go">Rank 4 -&gt; 4 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [0, 3) &quot;b&quot;</span>
-<span class="go">    1: [0, 4) &quot;c&quot;</span>
-<span class="go">    2: [0, 2) &quot;a&quot;</span>
-<span class="go">    3: [0, 5) &quot;d&quot;</span>
+<span class="go">    0: [0, 3) "b"</span>
+<span class="go">    1: [0, 4) "c"</span>
+<span class="go">    2: [0, 2) "a"</span>
+<span class="go">    3: [0, 5) "d"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[2]</span>
 <span class="go">    out[1] = 0 + 1 * in[0]</span>

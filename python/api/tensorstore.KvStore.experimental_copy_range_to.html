@@ -1746,16 +1746,16 @@
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;ocdbt&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;base&#39;</span><span class="p">:</span> <span class="s1">&#39;memory://&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'ocdbt'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'base'</span><span class="p">:</span> <span class="s1">'memory://'</span>
 <span class="gp">... </span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;x/a&#39;</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;value&#39;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;x/b&#39;</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;value&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s1">'x/a'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'value'</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s1">'x/b'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'value'</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>
-<span class="go">[b&#39;x/a&#39;, b&#39;x/b&#39;]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="p">(</span><span class="n">store</span> <span class="o">/</span> <span class="s2">&quot;x/&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">experimental_copy_range_to</span><span class="p">(</span><span class="n">store</span> <span class="o">/</span> <span class="s2">&quot;y/&quot;</span><span class="p">)</span>
+<span class="go">[b'x/a', b'x/b']</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="p">(</span><span class="n">store</span> <span class="o">/</span> <span class="s2">"x/"</span><span class="p">)</span><span class="o">.</span><span class="n">experimental_copy_range_to</span><span class="p">(</span><span class="n">store</span> <span class="o">/</span> <span class="s2">"y/"</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>
-<span class="go">[b&#39;x/a&#39;, b&#39;x/b&#39;, b&#39;y/a&#39;, b&#39;y/b&#39;]</span>
+<span class="go">[b'x/a', b'x/b', b'y/a', b'y/b']</span>
 </code></pre></div>
 </div>
 </div>
@@ -1785,10 +1785,10 @@ Unix epoch.  If specified, data that is cached internally by the kvstore
 implementation may be used without validation if not older than the
 <a class="reference internal" href="#p-source_staleness_bound" title="tensorstore.KvStore.experimental_copy_range_to.source_staleness_bound (Python parameter) — Specifies a time in (fractional) seconds since the Unix epoch."><code class="xref py py-param docutils literal notranslate"><span class="pre">source_staleness_bound</span></code></a>.  Cached data older than
 <a class="reference internal" href="#p-source_staleness_bound" title="tensorstore.KvStore.experimental_copy_range_to.source_staleness_bound (Python parameter) — Specifies a time in (fractional) seconds since the Unix epoch."><code class="xref py py-param docutils literal notranslate"><span class="pre">source_staleness_bound</span></code></a> must be validated before being returned.
-A value of <code class="code highlight python docutils literal highlight-python"><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span></code> indicates that the result must be current
+A value of <code class="code highlight python docutils literal highlight-python"><span class="nb">float</span><span class="p">(</span><span class="s1">'inf'</span><span class="p">)</span></code> indicates that the result must be current
 as of the time the <a class="reference internal" href="tensorstore.KvStore.read.html" title="tensorstore.KvStore.read (Python method) — Reads the value of a single key."><code class="xref py py-obj docutils literal notranslate"><span class="pre">read</span></code></a> request was made, i.e. it is equivalent
 to specifying a value of <code class="code highlight python docutils literal highlight-python"><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span></code>.  A value of
-<code class="code highlight python docutils literal highlight-python"><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)</span></code> indicates that cached data may be returned without
+<code class="code highlight python docutils literal highlight-python"><span class="nb">float</span><span class="p">(</span><span class="s1">'-inf'</span><span class="p">)</span></code> indicates that cached data may be returned without
 validation irrespective of its age.</p>
 </dd>
 </dl>

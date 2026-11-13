@@ -2029,7 +2029,7 @@ safely allow concurrent access from multiple machines.</p>
 <dt class="field-odd" id="required-members-json-kvstore/gcs_grpc">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/gcs_grpc" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/gcs_grpc.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;gcs_grpc&quot;</span></code><a class="headerlink" href="#json-kvstore/gcs_grpc.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"gcs_grpc"</span></code><a class="headerlink" href="#json-kvstore/gcs_grpc.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -2051,7 +2051,7 @@ billing project must be specified using <a class="reference internal" href="#jso
 <span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/gcs_grpc.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Key prefix within the key-value store.</p>
   </span><p>If the prefix is intended to correspond to a Unix-style directory path, it
-should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>.</p>
+should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -2068,13 +2068,13 @@ should end with <code class="code highlight json docutils literal highlight-json
 Setting this is normally only useful for testing against a fake server.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">&quot;localhost:8080&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">"localhost:8080"</span>
 </code></pre></div>
 </div>
 </div>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">&quot;dns:///storage.googleapis.com&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">"dns:///storage.googleapis.com"</span>
 </code></pre></div>
 </div>
 </div>
@@ -2096,7 +2096,7 @@ for workloads that issue many concurrent requests.</p>
 <dt class="sig sig-object highlight json" id="json-kvstore/gcs_grpc.timeout">
 <span class="sig-name descname"><span class="pre">timeout</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/gcs_grpc.timeout" title="Link to this definition">¶</a></dt>
 <dd><span><p>Timeout applied to each individual gRPC call.</p>
-  </span><p>Specified as a duration string, e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;5s&quot;</span></code>.  This should
+  </span><p>Specified as a duration string, e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">"5s"</span></code>.  This should
 generally not be set; values less than 250ms are ignored.  When unset,
 no per-call deadline is applied.</p>
 </dd></dl>
@@ -2105,14 +2105,14 @@ no per-call deadline is applied.</p>
 <dt class="sig sig-object highlight json" id="json-kvstore/gcs_grpc.wait_for_connection">
 <span class="sig-name descname"><span class="pre">wait_for_connection</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/gcs_grpc.wait_for_connection" title="Link to this definition">¶</a></dt>
 <dd><span><p>Maximum duration to wait for the gRPC channel to become ready.</p>
-  </span><p>Specified as a duration string, e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;1s&quot;</span></code>.  When unset,
+  </span><p>Specified as a duration string, e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">"1s"</span></code>.  When unset,
 requests do not wait for the channel to become connected before being
 issued.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/gcs_grpc.experimental_mode">
-<span class="sig-name descname"><span class="pre">experimental_mode</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;standard&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zonal&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code><a class="headerlink" href="#json-kvstore/gcs_grpc.experimental_mode" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">experimental_mode</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"standard"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zonal"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"non_atomic"</span></code><a class="headerlink" href="#json-kvstore/gcs_grpc.experimental_mode" title="Link to this definition">¶</a></dt>
 <dd><span><p>Experimental write mode for Google Cloud Storage objects.</p>
   </span><div class="warning admonition">
 <p class="admonition-title">Warning</p>
@@ -2124,19 +2124,19 @@ backward compatibility.</p>
 <li><p>When omitted, TensorStore starts with standard non-appendable writes
 and automatically switches to atomic zonal writes if the bucket
 requires appendable objects.</p></li>
-<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;standard&quot;</span></code>: Always uses direct non-appendable writes without
+<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"standard"</span></code>: Always uses direct non-appendable writes without
 fallback.  Writes to zonal (<code class="docutils literal notranslate"><span class="pre">RAPID</span></code>) buckets will fail.</p></li>
-<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;zonal&quot;</span></code>: Always uses atomic zonal writes by uploading an
+<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"zonal"</span></code>: Always uses atomic zonal writes by uploading an
 appendable object to a temporary key and renaming it via
 <code class="docutils literal notranslate"><span class="pre">MoveObject</span></code>.  Writes to non-zonal buckets will fail.</p></li>
-<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code>: Exclusively for zonal (<code class="docutils literal notranslate"><span class="pre">RAPID</span></code>)
+<li><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"non_atomic"</span></code>: Exclusively for zonal (<code class="docutils literal notranslate"><span class="pre">RAPID</span></code>)
 buckets.  Writes directly to the destination key as an appendable
 object without a temporary object or <code class="docutils literal notranslate"><span class="pre">MoveObject</span></code>.
 Concurrent readers may observe partial data during an in-flight write.</p></li>
 </ul>
 <p>Zonal buckets do not support Requester Pays, so specifying a non-empty
-<a class="reference internal" href="#json-Context.gcs_user_project" title="Context.gcs_user_project (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.gcs_user_project</span></code></a> together with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;zonal&quot;</span></code> or
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code> is an error when the store is opened.  See
+<a class="reference internal" href="#json-Context.gcs_user_project" title="Context.gcs_user_project (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.gcs_user_project</span></code></a> together with <code class="code highlight json docutils literal highlight-json"><span class="s2">"zonal"</span></code> or
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"non_atomic"</span></code> is an error when the store is opened.  See
 <a class="reference internal" href="#gcs-grpc-rapid-buckets"><span class="std std-ref">RAPID storage class buckets</span></a>.</p>
 </dd></dl>
 
@@ -2179,7 +2179,7 @@ unless the Google Cloud account has additional permissions.</p>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.gcs_user_project.project_id">
 <span class="sig-name descname"><span class="pre">project_id</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-Context.gcs_user_project.project_id" title="Link to this definition">¶</a></dt>
-<dd><span><p>Google Cloud project id, e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;my-project&quot;</span></code>.  The Google Cloud
+<dd><span><p>Google Cloud project id, e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">"my-project"</span></code>.  The Google Cloud
 account that is used must have appropriate permissions to bill to the
 specified project.</p>
   </span></dd></dl>
@@ -2204,13 +2204,13 @@ default values are appropriate for GCS.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.gcs_request_retries.initial_delay">
-<span class="sig-name descname"><span class="pre">initial_delay</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;1s&quot;</span></code><a class="headerlink" href="#json-Context.gcs_request_retries.initial_delay" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">initial_delay</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"1s"</span></code><a class="headerlink" href="#json-Context.gcs_request_retries.initial_delay" title="Link to this definition">¶</a></dt>
 <dd><p>Initial backoff delay for transient errors.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.gcs_request_retries.max_delay">
-<span class="sig-name descname"><span class="pre">max_delay</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;32s&quot;</span></code><a class="headerlink" href="#json-Context.gcs_request_retries.max_delay" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">max_delay</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"32s"</span></code><a class="headerlink" href="#json-Context.gcs_request_retries.max_delay" title="Link to this definition">¶</a></dt>
 <dd><p>Maximum backoff delay for transient errors.</p>
 </dd></dl>
 
@@ -2227,9 +2227,9 @@ copying/encoding/decoding.</p>
 <dt class="field-odd" id="optional-members-json-Context.data_copy_concurrency">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-Context.data_copy_concurrency" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.data_copy_concurrency.limit">
-<span class="sig-name descname"><span class="pre">limit</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;shared&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;shared&quot;</span></code><a class="headerlink" href="#json-Context.data_copy_concurrency.limit" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">limit</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"shared"</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"shared"</span></code><a class="headerlink" href="#json-Context.data_copy_concurrency.limit" title="Link to this definition">¶</a></dt>
 <dd><p>The maximum number of CPU cores that may be used.  If the special
-value of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;shared&quot;</span></code> is specified, a shared global limit equal to the
+value of <code class="code highlight json docutils literal highlight-json"><span class="s2">"shared"</span></code> is specified, a shared global limit equal to the
 number of CPU cores/threads available applies.</p>
 </dd></dl>
 
@@ -2257,17 +2257,17 @@ is still used when needed.  See <a class="reference internal" href="#gcs-grpc-ra
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;gcs_grpc://my-bucket&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs_grpc&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-bucket&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"gcs_grpc://my-bucket"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gcs_grpc"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"bucket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-bucket"</span><span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
 </tr>
-<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;gcs_grpc://my-bucket/path/to/dataset&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs_grpc&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-bucket&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/dataset&quot;</span><span class="p">}</span>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"gcs_grpc://my-bucket/path/to/dataset"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gcs_grpc"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"bucket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-bucket"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/dataset"</span><span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
@@ -2298,29 +2298,29 @@ once the data is persisted and finalized.</p>
 and may be modified or removed in a future release without backward
 compatibility guarantees.</p>
 </div>
-<p>Set <a class="reference internal" href="#json-kvstore/gcs_grpc.experimental_mode" title="kvstore/gcs_grpc.experimental_mode (JSON member) — Experimental write mode for Google Cloud Storage objects."><code class="xref json json-schema docutils literal notranslate"><span class="pre">experimental_mode</span></code></a> to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;zonal&quot;</span></code> to
+<p>Set <a class="reference internal" href="#json-kvstore/gcs_grpc.experimental_mode" title="kvstore/gcs_grpc.experimental_mode (JSON member) — Experimental write mode for Google Cloud Storage objects."><code class="xref json json-schema docutils literal notranslate"><span class="pre">experimental_mode</span></code></a> to <code class="code highlight json docutils literal highlight-json"><span class="s2">"zonal"</span></code> to
 select this atomic zonal write path upfront:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs_grpc&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-rapid-bucket&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;experimental_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zonal&quot;</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gcs_grpc"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"bucket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-rapid-bucket"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"experimental_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zonal"</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 <p>For zonal bucket workloads that do not require atomic writes or lack
 <code class="docutils literal notranslate"><span class="pre">storage.objects.move</span></code> and <code class="docutils literal notranslate"><span class="pre">storage.objects.delete</span></code> permissions, set
-<a class="reference internal" href="#json-kvstore/gcs_grpc.experimental_mode" title="kvstore/gcs_grpc.experimental_mode (JSON member) — Experimental write mode for Google Cloud Storage objects."><code class="xref json json-schema docutils literal notranslate"><span class="pre">experimental_mode</span></code></a> to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code> to
+<a class="reference internal" href="#json-kvstore/gcs_grpc.experimental_mode" title="kvstore/gcs_grpc.experimental_mode (JSON member) — Experimental write mode for Google Cloud Storage objects."><code class="xref json json-schema docutils literal notranslate"><span class="pre">experimental_mode</span></code></a> to <code class="code highlight json docutils literal highlight-json"><span class="s2">"non_atomic"</span></code> to
 write appendable objects directly to the destination key without a temporary
 object or rename:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs_grpc&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-rapid-bucket&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;experimental_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;non_atomic&quot;</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gcs_grpc"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"bucket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-rapid-bucket"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"experimental_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"non_atomic"</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 <p>If <a class="reference internal" href="#json-kvstore/gcs_grpc.experimental_mode" title="kvstore/gcs_grpc.experimental_mode (JSON member) — Experimental write mode for Google Cloud Storage objects."><code class="xref json json-schema docutils literal notranslate"><span class="pre">experimental_mode</span></code></a> is set to
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;standard&quot;</span></code>, TensorStore forces the direct non-appendable write path as a
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"standard"</span></code>, TensorStore forces the direct non-appendable write path as a
 hard constraint without fallback; writes to buckets requiring appendable objects
 will fail.</p>
 <p>If <a class="reference internal" href="#json-kvstore/gcs_grpc.experimental_mode" title="kvstore/gcs_grpc.experimental_mode (JSON member) — Experimental write mode for Google Cloud Storage objects."><code class="xref json json-schema docutils literal notranslate"><span class="pre">experimental_mode</span></code></a> is omitted, TensorStore
@@ -2346,17 +2346,17 @@ rather than resumed.</p></li>
 <a class="reference internal" href="#json-kvstore/gcs_grpc.experimental_mode" title="kvstore/gcs_grpc.experimental_mode (JSON member) — Experimental write mode for Google Cloud Storage objects."><code class="xref json json-schema docutils literal notranslate"><span class="pre">experimental_mode</span></code></a>.</p></li>
 </ul>
 <h3 id="additional-permissions">Additional permissions<a class="headerlink" href="#additional-permissions" title="Link to this heading">¶</a></h3>
-<p>The atomic zonal write path (<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;zonal&quot;</span></code> or auto-detected) needs more than
+<p>The atomic zonal write path (<code class="code highlight json docutils literal highlight-json"><span class="s2">"zonal"</span></code> or auto-detected) needs more than
 the <code class="docutils literal notranslate"><span class="pre">storage.objects.create</span></code> permission required by the standard write path:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">storage.objects.move</span></code>, to rename the temporary object;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">storage.objects.delete</span></code>, both to overwrite an existing destination key and
 to remove a temporary object that was not renamed.</p></li>
 </ul>
-<p>Workloads using <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code> write directly to the target object and
+<p>Workloads using <code class="code highlight json docutils literal highlight-json"><span class="s2">"non_atomic"</span></code> write directly to the target object and
 require only <code class="docutils literal notranslate"><span class="pre">storage.objects.create</span></code>.  A credential scoped only to
 <code class="docutils literal notranslate"><span class="pre">storage.objects.create</span></code> and <code class="docutils literal notranslate"><span class="pre">storage.objects.get</span></code> works on regional
-buckets and with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code>, but fails on the atomic zonal write path.</p>
+buckets and with <code class="code highlight json docutils literal highlight-json"><span class="s2">"non_atomic"</span></code>, but fails on the atomic zonal write path.</p>
 <h3 id="orphaned-temporary-objects">Orphaned temporary objects<a class="headerlink" href="#orphaned-temporary-objects" title="Link to this heading">¶</a></h3>
 <p>If a process crashes between writing the temporary object and renaming it, or
 if deleting a temporary object fails, the temporary object remains in the
@@ -2382,9 +2382,9 @@ credentials are only supported for local test endpoints (e.g. emulators).</p>
 such as <a class="reference external" href="https://github.com/googleapis/storage-testbench">storage-testbench</a>,
 specify the <a class="reference internal" href="#json-kvstore/gcs_grpc.endpoint" title="kvstore/gcs_grpc.endpoint (JSON member) — Endpoint to use for the gRPC connection."><code class="xref json json-schema docutils literal notranslate"><span class="pre">endpoint</span></code></a> property:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs_grpc&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-test-bucket&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;endpoint&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;localhost:9000&quot;</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gcs_grpc"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"bucket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-test-bucket"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"endpoint"</span><span class="p">:</span><span class="w"> </span><span class="s2">"localhost:9000"</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>

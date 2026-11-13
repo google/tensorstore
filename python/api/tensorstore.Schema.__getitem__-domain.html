@@ -1902,23 +1902,23 @@
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Schema</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="n">domain</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="n">domain</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">],</span>
 <span class="gp">... </span>                          <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">]),</span>
 <span class="gp">... </span>    <span class="n">chunk_layout</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">ChunkLayout</span><span class="p">(</span><span class="n">grid_origin</span><span class="o">=</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">],</span>
 <span class="gp">... </span>                                <span class="n">inner_order</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span>
 <span class="gp">... </span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">domain</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">domain</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">],</span>
 <span class="gp">... </span>                        <span class="n">inclusive_min</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
 <span class="gp">... </span>                        <span class="n">exclusive_max</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span>
 <span class="go">Schema({</span>
-<span class="go">  &#39;chunk_layout&#39;: {&#39;grid_origin&#39;: [100, 200, 300], &#39;inner_order&#39;: [0, 1, 2]},</span>
-<span class="go">  &#39;domain&#39;: {</span>
-<span class="go">    &#39;exclusive_max&#39;: [8, 2000, 9],</span>
-<span class="go">    &#39;inclusive_min&#39;: [5, 0, 6],</span>
-<span class="go">    &#39;labels&#39;: [&#39;x&#39;, &#39;y&#39;, &#39;z&#39;],</span>
+<span class="go">  'chunk_layout': {'grid_origin': [100, 200, 300], 'inner_order': [0, 1, 2]},</span>
+<span class="go">  'domain': {</span>
+<span class="go">    'exclusive_max': [8, 2000, 9],</span>
+<span class="go">    'inclusive_min': [5, 0, 6],</span>
+<span class="go">    'labels': ['x', 'y', 'z'],</span>
 <span class="go">  },</span>
-<span class="go">  &#39;rank&#39;: 3,</span>
+<span class="go">  'rank': 3,</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>

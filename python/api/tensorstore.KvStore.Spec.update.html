@@ -1930,29 +1930,29 @@
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;abc/&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;memory_key_value_store&#39;</span><span class="p">:</span> <span class="s1">&#39;memory_key_value_store#a&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'path'</span><span class="p">:</span> <span class="s1">'abc/'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'memory_key_value_store'</span><span class="p">:</span> <span class="s1">'memory_key_value_store#a'</span>
 <span class="gp">... </span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">({</span><span class="s1">&#39;memory_key_value_store#a&#39;</span><span class="p">:</span> <span class="p">{}}))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">({</span><span class="s1">'memory_key_value_store#a'</span><span class="p">:</span> <span class="p">{}}))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span>
 <span class="go">KvStore.Spec({</span>
-<span class="go">  &#39;context&#39;: {&#39;memory_key_value_store#a&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;memory&#39;,</span>
-<span class="go">  &#39;memory_key_value_store&#39;: [&#39;memory_key_value_store#a&#39;],</span>
-<span class="go">  &#39;path&#39;: &#39;abc/&#39;,</span>
+<span class="go">  'context': {'memory_key_value_store#a': {}},</span>
+<span class="go">  'driver': 'memory',</span>
+<span class="go">  'memory_key_value_store': ['memory_key_value_store#a'],</span>
+<span class="go">  'path': 'abc/',</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">unbind_context</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span>
 <span class="go">KvStore.Spec({</span>
-<span class="go">  &#39;context&#39;: {&#39;memory_key_value_store#a&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;memory&#39;,</span>
-<span class="go">  &#39;memory_key_value_store&#39;: &#39;memory_key_value_store#a&#39;,</span>
-<span class="go">  &#39;path&#39;: &#39;abc/&#39;,</span>
+<span class="go">  'context': {'memory_key_value_store#a': {}},</span>
+<span class="go">  'driver': 'memory',</span>
+<span class="go">  'memory_key_value_store': 'memory_key_value_store#a',</span>
+<span class="go">  'path': 'abc/',</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">strip_context</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span>
-<span class="go">KvStore.Spec({&#39;driver&#39;: &#39;memory&#39;, &#39;path&#39;: &#39;abc/&#39;})</span>
+<span class="go">KvStore.Spec({'driver': 'memory', 'path': 'abc/'})</span>
 </code></pre></div>
 </div>
 </div>

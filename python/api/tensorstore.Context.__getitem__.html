@@ -1523,12 +1523,12 @@
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="p">{</span><span class="s1">&#39;cache_pool#a&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;total_bytes_limit&#39;</span><span class="p">:</span> <span class="mi">10000000</span>
+<span class="gp">... </span>    <span class="p">{</span><span class="s1">'cache_pool#a'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'total_bytes_limit'</span><span class="p">:</span> <span class="mi">10000000</span>
 <span class="gp">... </span>    <span class="p">}})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;cache_pool#a&#39;</span><span class="p">]</span>
-<span class="go">Context.Resource({&#39;total_bytes_limit&#39;: 10000000})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;cache_pool&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span><span class="p">[</span><span class="s1">'cache_pool#a'</span><span class="p">]</span>
+<span class="go">Context.Resource({'total_bytes_limit': 10000000})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span><span class="p">[</span><span class="s1">'cache_pool'</span><span class="p">]</span>
 <span class="go">Context.Resource({})</span>
 </code></pre></div>
 </div>
@@ -1536,7 +1536,7 @@
 <dl class="field-list simple">
 <dt class="field-odd" id="parameters">Parameters<span class="colon">:</span><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd"><dl class="simple api-field highlight">
-<dt id="p-key"><span class="n sig-name">key</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></span></span><a class="headerlink" href="#p-key" title="Permalink to this definition">¶</a></dt><dd><p>Resource key, of the form <code class="code highlight python docutils literal highlight-python"><span class="s1">&#39;&lt;resource-type&gt;&#39;</span></code> or
+<dt id="p-key"><span class="n sig-name">key</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></span></span><a class="headerlink" href="#p-key" title="Permalink to this definition">¶</a></dt><dd><p>Resource key, of the form <code class="code highlight python docutils literal highlight-python"><span class="s1">'&lt;resource-type&gt;'</span></code> or
 <code class="code highlight python docutils literal highlight-python"><span class="o">&lt;</span><span class="n">resource</span><span class="o">-</span><span class="nb">type</span><span class="o">&gt;</span><span class="c1">#&lt;id&gt;</span></code>.</p>
 </dd>
 </dl>

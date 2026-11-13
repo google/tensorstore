@@ -1568,14 +1568,14 @@
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;gcs&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;bucket&#39;</span><span class="p">:</span> <span class="s1">&#39;my-bucket&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;path/to/object&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'gcs'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'bucket'</span><span class="p">:</span> <span class="s1">'my-bucket'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'path'</span><span class="p">:</span> <span class="s1">'path/to/object'</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">spec</span><span class="p">()</span>
-<span class="go">KvStore.Spec({&#39;bucket&#39;: &#39;my-bucket&#39;, &#39;driver&#39;: &#39;gcs&#39;, &#39;path&#39;: &#39;path/to/object&#39;})</span>
+<span class="go">KvStore.Spec({'bucket': 'my-bucket', 'driver': 'gcs', 'path': 'path/to/object'})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">path</span>
-<span class="go">&#39;path/to/object&#39;</span>
+<span class="go">'path/to/object'</span>
 </code></pre></div>
 </div>
 </div>

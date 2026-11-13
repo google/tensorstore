@@ -1754,7 +1754,7 @@
 <p>The <em>physical unit</em> for a dimension is the physical quantity corresponding to a
 single index increment along each dimension.</p>
 <p>A value of <code class="code highlight python docutils literal highlight-python"><span class="kc">None</span></code> indicates that the unit is unknown/unconstrained.  A
-dimension-less quantity is indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="n">ts</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></code>.</p>
+dimension-less quantity is indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="n">ts</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span></code>.</p>
 <p>When creating a new TensorStore, the specified units may be stored as part of
 the metadata.</p>
 <p>When opening an existing TensorStore, the specified units serve as a constraint,
@@ -1770,12 +1770,12 @@ the units.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="o">.</span><span class="n">dimension_units</span>
 <span class="go">(None, None, None)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dimension_units</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;3nm&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dimension_units</span><span class="o">=</span><span class="p">[</span><span class="s1">'3nm'</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">''</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="o">.</span><span class="n">dimension_units</span>
-<span class="go">(Unit(3, &quot;nm&quot;), None, Unit(1, &quot;&quot;))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dimension_units</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;4nm&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">])</span>
+<span class="go">(Unit(3, "nm"), None, Unit(1, ""))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dimension_units</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s1">'4nm'</span><span class="p">,</span> <span class="kc">None</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span><span class="o">.</span><span class="n">dimension_units</span>
-<span class="go">(Unit(3, &quot;nm&quot;), Unit(4, &quot;nm&quot;), Unit(1, &quot;&quot;))</span>
+<span class="go">(Unit(3, "nm"), Unit(4, "nm"), Unit(1, ""))</span>
 </code></pre></div>
 </div>
 </div>

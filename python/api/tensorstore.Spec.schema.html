@@ -1910,32 +1910,32 @@
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;&lt;u2&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;chunks&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">],</span>
-<span class="gp">... </span>        <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">],</span>
-<span class="gp">... </span>        <span class="s1">&#39;order&#39;</span><span class="p">:</span> <span class="s1">&#39;C&#39;</span>
+<span class="gp">... </span>    <span class="s1">'metadata'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'dtype'</span><span class="p">:</span> <span class="s1">'&lt;u2'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'chunks'</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">'shape'</span><span class="p">:</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">'order'</span><span class="p">:</span> <span class="s1">'C'</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">schema</span>
 <span class="go">Schema({</span>
-<span class="go">  &#39;chunk_layout&#39;: {</span>
-<span class="go">    &#39;grid_origin&#39;: [0, 0, 0],</span>
-<span class="go">    &#39;inner_order&#39;: [0, 1, 2],</span>
-<span class="go">    &#39;read_chunk&#39;: {&#39;shape&#39;: [100, 200, 300]},</span>
-<span class="go">    &#39;write_chunk&#39;: {&#39;shape&#39;: [100, 200, 300]},</span>
+<span class="go">  'chunk_layout': {</span>
+<span class="go">    'grid_origin': [0, 0, 0],</span>
+<span class="go">    'inner_order': [0, 1, 2],</span>
+<span class="go">    'read_chunk': {'shape': [100, 200, 300]},</span>
+<span class="go">    'write_chunk': {'shape': [100, 200, 300]},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;codec&#39;: {&#39;driver&#39;: &#39;zarr&#39;, &#39;filters&#39;: None},</span>
-<span class="go">  &#39;domain&#39;: {</span>
-<span class="go">    &#39;exclusive_max&#39;: [[1000], [2000], [3000]],</span>
-<span class="go">    &#39;inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">  'codec': {'driver': 'zarr', 'filters': None},</span>
+<span class="go">  'domain': {</span>
+<span class="go">    'exclusive_max': [[1000], [2000], [3000]],</span>
+<span class="go">    'inclusive_min': [0, 0, 0],</span>
 <span class="go">  },</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint16&#39;,</span>
-<span class="go">  &#39;rank&#39;: 3,</span>
+<span class="go">  'dtype': 'uint16',</span>
+<span class="go">  'rank': 3,</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>

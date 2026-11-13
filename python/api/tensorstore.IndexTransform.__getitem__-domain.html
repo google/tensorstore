@@ -1997,10 +1997,10 @@ normal <a class="reference internal" href="../../index_space.html#index-domain-a
 <p class="admonition-title">Example with fully labeled dimensions</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_inclusive_min</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
 <span class="gp">... </span>                      <span class="n">input_exclusive_max</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
-<span class="gp">... </span>                      <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">])</span>
+<span class="gp">... </span>                      <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">inclusive_min</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
 <span class="gp">... </span>                   <span class="n">exclusive_max</span><span class="o">=</span><span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
-<span class="gp">... </span>                   <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">])</span>
+<span class="gp">... </span>                   <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"y"</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
@@ -2018,17 +2018,17 @@ normal <a class="reference internal" href="../../index_space.html#index-domain-a
 <p class="admonition-title">Example with mixed labeled and unlabeled dimensions</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_inclusive_min</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
 <span class="gp">... </span>                      <span class="n">input_exclusive_max</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
-<span class="gp">... </span>                      <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">])</span>
+<span class="gp">... </span>                      <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">inclusive_min</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
 <span class="gp">... </span>                   <span class="n">exclusive_max</span><span class="o">=</span><span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span>
-<span class="gp">... </span>                   <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">])</span>
+<span class="gp">... </span>                   <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"y"</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="s2">""</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
 <span class="go">Rank 4 -&gt; 4 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [3, 8) &quot;x&quot;</span>
+<span class="go">    0: [3, 8) "x"</span>
 <span class="go">    1: [2, 7)</span>
 <span class="go">    2: [4, 9)</span>
-<span class="go">    3: [1, 6) &quot;y&quot;</span>
+<span class="go">    3: [1, 6) "y"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>

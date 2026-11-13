@@ -2037,46 +2037,46 @@
 <li><p>Asynchronously with <a class="reference external" href="https://docs.python.org/3/library/asyncio.html#module-asyncio" title="(in Python v3.11)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a>, using the <a class="reference external" href="https://docs.python.org/3/reference/expressions.html#await" title="(in Python v3.11)"><span class="xref std std-ref">await</span></a>
 keyword:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">future</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;array&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
-<span class="gp">... </span>    <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;uint32&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'array'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'array'</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s1">'dtype'</span><span class="p">:</span> <span class="s1">'uint32'</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">future</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;array&#39;: [1, 2, 3],</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">  'array': [1, 2, 3],</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'array',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
 </li>
 <li><p>Synchronously blocking the current thread, by calling <a class="reference internal" href="tensorstore.Future.result.html" title="tensorstore.Future.result (Python method) — Blocks until the asynchronous operation completes, and returns the result."><code class="xref py py-meth docutils literal notranslate"><span class="pre">result()</span></code></a>.</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">future</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;array&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
-<span class="gp">... </span>    <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;uint32&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'array'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'array'</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s1">'dtype'</span><span class="p">:</span> <span class="s1">'uint32'</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;array&#39;: [1, 2, 3],</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">  'array': [1, 2, 3],</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'array',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
 </li>
 <li><p>Asynchronously, by registering a callback using <a class="reference internal" href="tensorstore.Future.add_done_callback.html" title="tensorstore.Future.add_done_callback (Python method) — Registers a callback to be invoked upon completion of the asynchronous operation."><code class="xref py py-meth docutils literal notranslate"><span class="pre">add_done_callback()</span></code></a>:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">future</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;array&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
-<span class="gp">... </span>    <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;uint32&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'array'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'array'</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s1">'dtype'</span><span class="p">:</span> <span class="s1">'uint32'</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">future</span><span class="o">.</span><span class="n">add_done_callback</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Callback: </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">domain</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Callback: </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">domain</span><span class="si">}</span><span class="s1">'</span><span class="p">))</span>
 <span class="gp">... </span><span class="n">future</span><span class="o">.</span><span class="n">force</span><span class="p">()</span>  <span class="c1"># ensure the operation is started</span>
 <span class="gp">... </span><span class="c1"># wait for completion (for testing only)</span>
 <span class="gp">... </span><span class="n">result</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
@@ -2101,8 +2101,8 @@ not guarantee that the callback is invoked from the current event loop.  To
 convert to a real <a class="reference external" href="https://docs.python.org/3/library/asyncio-future.html#asyncio.Future" title="(in Python v3.11)"><code class="docutils literal notranslate"><span class="pre">asyncio.Future</span></code></a>, use
 <a class="reference external" href="https://docs.python.org/3/library/asyncio-future.html#asyncio.ensure_future" title="(in Python v3.11)"><code class="docutils literal notranslate"><span class="pre">asyncio.ensure_future</span></code></a>:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="s1">&#39;memory://&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="s1">'memory://'</span>
 <span class="gp">... </span><span class="p">},</span>
 <span class="gp">... </span>                        <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
 <span class="gp">... </span>                        <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">70</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span>

@@ -1697,17 +1697,17 @@
 <dd><p>Spec that may be used to re-open or re-create the key-value store.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">kvstore</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span><span class="p">,</span> <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;abc/&#39;</span><span class="p">})</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">kvstore</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span><span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span><span class="p">,</span> <span class="s1">'path'</span><span class="p">:</span> <span class="s1">'abc/'</span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">kvstore</span><span class="o">.</span><span class="n">spec</span><span class="p">()</span>
-<span class="go">KvStore.Spec({&#39;driver&#39;: &#39;memory&#39;, &#39;path&#39;: &#39;abc/&#39;})</span>
+<span class="go">KvStore.Spec({'driver': 'memory', 'path': 'abc/'})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">kvstore</span><span class="o">.</span><span class="n">spec</span><span class="p">(</span><span class="n">unbind_context</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="go">KvStore.Spec({&#39;context&#39;: {&#39;memory_key_value_store&#39;: {}}, &#39;driver&#39;: &#39;memory&#39;, &#39;path&#39;: &#39;abc/&#39;})</span>
+<span class="go">KvStore.Spec({'context': {'memory_key_value_store': {}}, 'driver': 'memory', 'path': 'abc/'})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">kvstore</span><span class="o">.</span><span class="n">spec</span><span class="p">(</span><span class="n">retain_context</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="go">KvStore.Spec({</span>
-<span class="go">  &#39;context&#39;: {&#39;memory_key_value_store&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;memory&#39;,</span>
-<span class="go">  &#39;memory_key_value_store&#39;: [&#39;memory_key_value_store&#39;],</span>
-<span class="go">  &#39;path&#39;: &#39;abc/&#39;,</span>
+<span class="go">  'context': {'memory_key_value_store': {}},</span>
+<span class="go">  'driver': 'memory',</span>
+<span class="go">  'memory_key_value_store': ['memory_key_value_store'],</span>
+<span class="go">  'path': 'abc/',</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>

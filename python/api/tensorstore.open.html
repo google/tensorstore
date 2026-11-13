@@ -1995,9 +1995,9 @@
 <dd><p>Opens or creates a <a class="reference internal" href="tensorstore.TensorStore.html" title="tensorstore.TensorStore (Python class) — Asynchronous multi-dimensional array handle."><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorStore</span></code></a> from a <a class="reference internal" href="tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><code class="xref py py-class docutils literal notranslate"><span class="pre">Spec</span></code></a>.</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -2007,34 +2007,34 @@
 <span class="gp">... </span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {</span>
-<span class="go">    &#39;cache_pool&#39;: {},</span>
-<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
-<span class="go">    &#39;memory_key_value_store&#39;: {},</span>
+<span class="go">  'context': {</span>
+<span class="go">    'cache_pool': {},</span>
+<span class="go">    'data_copy_concurrency': {},</span>
+<span class="go">    'memory_key_value_store': {},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;metadata&#39;: {</span>
-<span class="go">    &#39;chunks&#39;: [101, 101, 101],</span>
-<span class="go">    &#39;compressor&#39;: {</span>
-<span class="go">      &#39;blocksize&#39;: 0,</span>
-<span class="go">      &#39;clevel&#39;: 5,</span>
-<span class="go">      &#39;cname&#39;: &#39;lz4&#39;,</span>
-<span class="go">      &#39;id&#39;: &#39;blosc&#39;,</span>
-<span class="go">      &#39;shuffle&#39;: -1,</span>
+<span class="go">  'driver': 'zarr',</span>
+<span class="go">  'dtype': 'int32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'metadata': {</span>
+<span class="go">    'chunks': [101, 101, 101],</span>
+<span class="go">    'compressor': {</span>
+<span class="go">      'blocksize': 0,</span>
+<span class="go">      'clevel': 5,</span>
+<span class="go">      'cname': 'lz4',</span>
+<span class="go">      'id': 'blosc',</span>
+<span class="go">      'shuffle': -1,</span>
 <span class="go">    },</span>
-<span class="go">    &#39;dimension_separator&#39;: &#39;.&#39;,</span>
-<span class="go">    &#39;dtype&#39;: &#39;&lt;i4&#39;,</span>
-<span class="go">    &#39;fill_value&#39;: None,</span>
-<span class="go">    &#39;filters&#39;: None,</span>
-<span class="go">    &#39;order&#39;: &#39;F&#39;,</span>
-<span class="go">    &#39;shape&#39;: [1000, 2000, 3000],</span>
-<span class="go">    &#39;zarr_format&#39;: 2,</span>
+<span class="go">    'dimension_separator': '.',</span>
+<span class="go">    'dtype': '&lt;i4',</span>
+<span class="go">    'fill_value': None,</span>
+<span class="go">    'filters': None,</span>
+<span class="go">    'order': 'F',</span>
+<span class="go">    'shape': [1000, 2000, 3000],</span>
+<span class="go">    'zarr_format': 2,</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [[1000], [2000], [3000]],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [[1000], [2000], [3000]],</span>
+<span class="go">    'input_inclusive_min': [0, 0, 0],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2125,7 +2125,7 @@ key-value store.</p>
 than the specified time is revalidated prior to use. The metadata is used to
 check the bounds of every read or write operation.</p>
 <p>Specifying <code class="code highlight python docutils literal highlight-python"><span class="kc">True</span></code> means that the metadata will be revalidated prior to every
-read or write operation. With the default value of <code class="code highlight python docutils literal highlight-python"><span class="s2">&quot;open&quot;</span></code>, any cached
+read or write operation. With the default value of <code class="code highlight python docutils literal highlight-python"><span class="s2">"open"</span></code>, any cached
 metadata is revalidated when the TensorStore is opened but is not rechecked for
 each read or write operation.</p>
 </p>
@@ -2138,7 +2138,7 @@ option.</p>
 read. To enable in-memory data caching, you must both specify a
 <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a> with a non-zero
 <a class="reference internal" href="../../context.html#json-Context.cache_pool.total_bytes_limit" title="Context.cache_pool.total_bytes_limit (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></a> and also specify <code class="code highlight python docutils literal highlight-python"><span class="kc">False</span></code>,
-<code class="code highlight python docutils literal highlight-python"><span class="s2">&quot;open&quot;</span></code>, or an explicit time bound for <a class="reference internal" href="#p-recheck_cached_data" title="tensorstore.open.recheck_cached_data (Python parameter) — Time after which cached data is assumed to be fresh."><code class="xref py py-param docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
+<code class="code highlight python docutils literal highlight-python"><span class="s2">"open"</span></code>, or an explicit time bound for <a class="reference internal" href="#p-recheck_cached_data" title="tensorstore.open.recheck_cached_data (Python parameter) — Time after which cached data is assumed to be fresh."><code class="xref py py-param docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
 </p>
 </dd>
 <dt id="p-recheck_cached"><span class="n sig-name">recheck_cached</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.RecheckCacheOption.html" title="tensorstore.RecheckCacheOption (Python data) — Determines under what circumstances cached data is revalidated.">RecheckCacheOption</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-recheck_cached" title="Permalink to this definition">¶</a></dt><dd><p>Sets both <a class="reference internal" href="#p-recheck_cached_data" title="tensorstore.open.recheck_cached_data (Python parameter) — Time after which cached data is assumed to be fresh."><code class="xref py py-param docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a> and
@@ -2192,7 +2192,7 @@ normalization by broadcasting).</p>
 <p>The <em>physical unit</em> for a dimension is the physical quantity corresponding to a
 single index increment along each dimension.</p>
 <p>A value of <code class="code highlight python docutils literal highlight-python"><span class="kc">None</span></code> indicates that the unit is unknown.  A dimension-less
-quantity can be indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="s2">&quot;&quot;</span></code>.</p>
+quantity can be indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="s2">""</span></code>.</p>
 </p>
 </dd>
 <dt id="p-schema"><span class="n sig-name">schema</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.Schema.html" title="tensorstore.Schema (Python class) — Driver-independent options for defining a TensorStore schema.">Schema</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-schema" title="Permalink to this definition">¶</a></dt><dd><p>Additional schema constraints to merge with existing constraints.</p>
@@ -2208,54 +2208,54 @@ Information that can be determined automatically from the existing metadata,
 like the data type, domain, and chunk layout, may be omitted:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer_precomputed&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;gcs&#39;</span><span class="p">,</span>
-<span class="gp">... </span>            <span class="s1">&#39;bucket&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer-janelia-flyem-hemibrain&#39;</span><span class="p">,</span>
-<span class="gp">... </span>            <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;v1.2/segmentation/&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'neuroglancer_precomputed'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'gcs'</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s1">'bucket'</span><span class="p">:</span> <span class="s1">'neuroglancer-janelia-flyem-hemibrain'</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s1">'path'</span><span class="p">:</span> <span class="s1">'v1.2/segmentation/'</span><span class="p">,</span>
 <span class="gp">... </span>        <span class="p">},</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {</span>
-<span class="go">    &#39;cache_pool&#39;: {},</span>
-<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
-<span class="go">    &#39;gcs_request_concurrency&#39;: {},</span>
+<span class="go">  'context': {</span>
+<span class="go">    'cache_pool': {},</span>
+<span class="go">    'data_copy_concurrency': {},</span>
+<span class="go">    'gcs_request_concurrency': {},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;neuroglancer_precomputed&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint64&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {</span>
-<span class="go">    &#39;bucket&#39;: &#39;neuroglancer-janelia-flyem-hemibrain&#39;,</span>
-<span class="go">    &#39;driver&#39;: &#39;gcs&#39;,</span>
-<span class="go">    &#39;gcs_request_retries&#39;: {},</span>
-<span class="go">    &#39;gcs_user_project&#39;: {},</span>
-<span class="go">    &#39;path&#39;: &#39;v1.2/segmentation/&#39;,</span>
+<span class="go">  'driver': 'neuroglancer_precomputed',</span>
+<span class="go">  'dtype': 'uint64',</span>
+<span class="go">  'kvstore': {</span>
+<span class="go">    'bucket': 'neuroglancer-janelia-flyem-hemibrain',</span>
+<span class="go">    'driver': 'gcs',</span>
+<span class="go">    'gcs_request_retries': {},</span>
+<span class="go">    'gcs_user_project': {},</span>
+<span class="go">    'path': 'v1.2/segmentation/',</span>
 <span class="go">  },</span>
-<span class="go">  &#39;multiscale_metadata&#39;: {&#39;num_channels&#39;: 1, &#39;type&#39;: &#39;segmentation&#39;},</span>
-<span class="go">  &#39;scale_index&#39;: 0,</span>
-<span class="go">  &#39;scale_metadata&#39;: {</span>
-<span class="go">    &#39;chunk_size&#39;: [64, 64, 64],</span>
-<span class="go">    &#39;compressed_segmentation_block_size&#39;: [8, 8, 8],</span>
-<span class="go">    &#39;encoding&#39;: &#39;compressed_segmentation&#39;,</span>
-<span class="go">    &#39;key&#39;: &#39;8.0x8.0x8.0&#39;,</span>
-<span class="go">    &#39;resolution&#39;: [8.0, 8.0, 8.0],</span>
-<span class="go">    &#39;sharding&#39;: {</span>
-<span class="go">      &#39;@type&#39;: &#39;neuroglancer_uint64_sharded_v1&#39;,</span>
-<span class="go">      &#39;data_encoding&#39;: &#39;gzip&#39;,</span>
-<span class="go">      &#39;hash&#39;: &#39;identity&#39;,</span>
-<span class="go">      &#39;minishard_bits&#39;: 6,</span>
-<span class="go">      &#39;minishard_index_encoding&#39;: &#39;gzip&#39;,</span>
-<span class="go">      &#39;preshift_bits&#39;: 9,</span>
-<span class="go">      &#39;shard_bits&#39;: 15,</span>
+<span class="go">  'multiscale_metadata': {'num_channels': 1, 'type': 'segmentation'},</span>
+<span class="go">  'scale_index': 0,</span>
+<span class="go">  'scale_metadata': {</span>
+<span class="go">    'chunk_size': [64, 64, 64],</span>
+<span class="go">    'compressed_segmentation_block_size': [8, 8, 8],</span>
+<span class="go">    'encoding': 'compressed_segmentation',</span>
+<span class="go">    'key': '8.0x8.0x8.0',</span>
+<span class="go">    'resolution': [8.0, 8.0, 8.0],</span>
+<span class="go">    'sharding': {</span>
+<span class="go">      '@type': 'neuroglancer_uint64_sharded_v1',</span>
+<span class="go">      'data_encoding': 'gzip',</span>
+<span class="go">      'hash': 'identity',</span>
+<span class="go">      'minishard_bits': 6,</span>
+<span class="go">      'minishard_index_encoding': 'gzip',</span>
+<span class="go">      'preshift_bits': 9,</span>
+<span class="go">      'shard_bits': 15,</span>
 <span class="go">    },</span>
-<span class="go">    &#39;size&#39;: [34432, 39552, 41408],</span>
-<span class="go">    &#39;voxel_offset&#39;: [0, 0, 0],</span>
+<span class="go">    'size': [34432, 39552, 41408],</span>
+<span class="go">    'voxel_offset': [0, 0, 0],</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [34432, 39552, 41408, 1],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0, 0],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;y&#39;, &#39;z&#39;, &#39;channel&#39;],</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [34432, 39552, 41408, 1],</span>
+<span class="go">    'input_inclusive_min': [0, 0, 0, 0],</span>
+<span class="go">    'input_labels': ['x', 'y', 'z', 'channel'],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2264,7 +2264,7 @@ like the data type, domain, and chunk layout, may be omitted:</p>
 <p>The same TensorStore opened in the previous section can be specified more concisely using a
 <a class="reference internal" href="../../spec.html#json-TensorStoreUrl" title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStore</span> <span class="pre">URL</span></code></a>:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="s1">&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:'</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 </div>
@@ -2277,22 +2277,22 @@ specified but is convenient in simple cases.</p>
 <p>Many formats can be <a class="reference internal" href="../../driver/auto/index.html#driver-auto"><span class="std std-ref">auto-detected</span></a> from a
 <a class="reference internal" href="../../kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span> <span class="pre">URL</span></code></a> alone:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="s1">&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/'</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">url</span>
-<span class="go">&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:&#39;</span>
+<span class="go">'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:'</span>
 </code></pre></div>
 </div>
 <p>A full <a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span> <span class="pre">JSON</span> <span class="pre">spec</span></code></a> can also be specified instead of a URL:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;gcs&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;bucket&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer-janelia-flyem-hemibrain&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;v1.2/segmentation/&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'gcs'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'bucket'</span><span class="p">:</span> <span class="s1">'neuroglancer-janelia-flyem-hemibrain'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'path'</span><span class="p">:</span> <span class="s1">'v1.2/segmentation/'</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">url</span>
-<span class="go">&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:&#39;</span>
+<span class="go">'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:'</span>
 </code></pre></div>
 </div>
 <h3 id="creating-a-new-tensorstore">Creating a new TensorStore<a class="headerlink" href="#creating-a-new-tensorstore" title="Link to this heading">¶</a></h3>
@@ -2302,9 +2302,9 @@ data type and domain.  Suitable defaults are chosen automatically for schema
 properties that are left unconstrained:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">},</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -2313,34 +2313,34 @@ properties that are left unconstrained:</p>
 <span class="gp">... </span>    <span class="n">fill_value</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {</span>
-<span class="go">    &#39;cache_pool&#39;: {},</span>
-<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
-<span class="go">    &#39;memory_key_value_store&#39;: {},</span>
+<span class="go">  'context': {</span>
+<span class="go">    'cache_pool': {},</span>
+<span class="go">    'data_copy_concurrency': {},</span>
+<span class="go">    'memory_key_value_store': {},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;float32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;metadata&#39;: {</span>
-<span class="go">    &#39;chunks&#39;: [101, 101, 101],</span>
-<span class="go">    &#39;compressor&#39;: {</span>
-<span class="go">      &#39;blocksize&#39;: 0,</span>
-<span class="go">      &#39;clevel&#39;: 5,</span>
-<span class="go">      &#39;cname&#39;: &#39;lz4&#39;,</span>
-<span class="go">      &#39;id&#39;: &#39;blosc&#39;,</span>
-<span class="go">      &#39;shuffle&#39;: -1,</span>
+<span class="go">  'driver': 'zarr',</span>
+<span class="go">  'dtype': 'float32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'metadata': {</span>
+<span class="go">    'chunks': [101, 101, 101],</span>
+<span class="go">    'compressor': {</span>
+<span class="go">      'blocksize': 0,</span>
+<span class="go">      'clevel': 5,</span>
+<span class="go">      'cname': 'lz4',</span>
+<span class="go">      'id': 'blosc',</span>
+<span class="go">      'shuffle': -1,</span>
 <span class="go">    },</span>
-<span class="go">    &#39;dimension_separator&#39;: &#39;.&#39;,</span>
-<span class="go">    &#39;dtype&#39;: &#39;&lt;f4&#39;,</span>
-<span class="go">    &#39;fill_value&#39;: 42.0,</span>
-<span class="go">    &#39;filters&#39;: None,</span>
-<span class="go">    &#39;order&#39;: &#39;C&#39;,</span>
-<span class="go">    &#39;shape&#39;: [1000, 2000, 3000],</span>
-<span class="go">    &#39;zarr_format&#39;: 2,</span>
+<span class="go">    'dimension_separator': '.',</span>
+<span class="go">    'dtype': '&lt;f4',</span>
+<span class="go">    'fill_value': 42.0,</span>
+<span class="go">    'filters': None,</span>
+<span class="go">    'order': 'C',</span>
+<span class="go">    'shape': [1000, 2000, 3000],</span>
+<span class="go">    'zarr_format': 2,</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [[1000], [2000], [3000]],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [[1000], [2000], [3000]],</span>
+<span class="go">    'input_inclusive_min': [0, 0, 0],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2349,9 +2349,9 @@ properties that are left unconstrained:</p>
 determine a matching chunk layout automatically:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">},</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -2365,34 +2365,34 @@ determine a matching chunk layout automatically:</p>
 <span class="gp">... </span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {</span>
-<span class="go">    &#39;cache_pool&#39;: {},</span>
-<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
-<span class="go">    &#39;memory_key_value_store&#39;: {},</span>
+<span class="go">  'context': {</span>
+<span class="go">    'cache_pool': {},</span>
+<span class="go">    'data_copy_concurrency': {},</span>
+<span class="go">    'memory_key_value_store': {},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;float32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;metadata&#39;: {</span>
-<span class="go">    &#39;chunks&#39;: [10, 1414, 707],</span>
-<span class="go">    &#39;compressor&#39;: {</span>
-<span class="go">      &#39;blocksize&#39;: 0,</span>
-<span class="go">      &#39;clevel&#39;: 5,</span>
-<span class="go">      &#39;cname&#39;: &#39;lz4&#39;,</span>
-<span class="go">      &#39;id&#39;: &#39;blosc&#39;,</span>
-<span class="go">      &#39;shuffle&#39;: -1,</span>
+<span class="go">  'driver': 'zarr',</span>
+<span class="go">  'dtype': 'float32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'metadata': {</span>
+<span class="go">    'chunks': [10, 1414, 707],</span>
+<span class="go">    'compressor': {</span>
+<span class="go">      'blocksize': 0,</span>
+<span class="go">      'clevel': 5,</span>
+<span class="go">      'cname': 'lz4',</span>
+<span class="go">      'id': 'blosc',</span>
+<span class="go">      'shuffle': -1,</span>
 <span class="go">    },</span>
-<span class="go">    &#39;dimension_separator&#39;: &#39;.&#39;,</span>
-<span class="go">    &#39;dtype&#39;: &#39;&lt;f4&#39;,</span>
-<span class="go">    &#39;fill_value&#39;: None,</span>
-<span class="go">    &#39;filters&#39;: None,</span>
-<span class="go">    &#39;order&#39;: &#39;C&#39;,</span>
-<span class="go">    &#39;shape&#39;: [1000, 2000, 3000],</span>
-<span class="go">    &#39;zarr_format&#39;: 2,</span>
+<span class="go">    'dimension_separator': '.',</span>
+<span class="go">    'dtype': '&lt;f4',</span>
+<span class="go">    'fill_value': None,</span>
+<span class="go">    'filters': None,</span>
+<span class="go">    'order': 'C',</span>
+<span class="go">    'shape': [1000, 2000, 3000],</span>
+<span class="go">    'zarr_format': 2,</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [[1000], [2000], [3000]],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [[1000], [2000], [3000]],</span>
+<span class="go">    'input_inclusive_min': [0, 0, 0],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2401,9 +2401,9 @@ determine a matching chunk layout automatically:</p>
 independent of the driver/format:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'n5'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">},</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -2417,29 +2417,29 @@ independent of the driver/format:</p>
 <span class="gp">... </span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {</span>
-<span class="go">    &#39;cache_pool&#39;: {},</span>
-<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
-<span class="go">    &#39;memory_key_value_store&#39;: {},</span>
+<span class="go">  'context': {</span>
+<span class="go">    'cache_pool': {},</span>
+<span class="go">    'data_copy_concurrency': {},</span>
+<span class="go">    'memory_key_value_store': {},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;n5&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;float32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;metadata&#39;: {</span>
-<span class="go">    &#39;blockSize&#39;: [10, 1414, 707],</span>
-<span class="go">    &#39;compression&#39;: {</span>
-<span class="go">      &#39;blocksize&#39;: 0,</span>
-<span class="go">      &#39;clevel&#39;: 5,</span>
-<span class="go">      &#39;cname&#39;: &#39;lz4&#39;,</span>
-<span class="go">      &#39;shuffle&#39;: 1,</span>
-<span class="go">      &#39;type&#39;: &#39;blosc&#39;,</span>
+<span class="go">  'driver': 'n5',</span>
+<span class="go">  'dtype': 'float32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'metadata': {</span>
+<span class="go">    'blockSize': [10, 1414, 707],</span>
+<span class="go">    'compression': {</span>
+<span class="go">      'blocksize': 0,</span>
+<span class="go">      'clevel': 5,</span>
+<span class="go">      'cname': 'lz4',</span>
+<span class="go">      'shuffle': 1,</span>
+<span class="go">      'type': 'blosc',</span>
 <span class="go">    },</span>
-<span class="go">    &#39;dataType&#39;: &#39;float32&#39;,</span>
-<span class="go">    &#39;dimensions&#39;: [1000, 2000, 3000],</span>
+<span class="go">    'dataType': 'float32',</span>
+<span class="go">    'dimensions': [1000, 2000, 3000],</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [[1000], [2000], [3000]],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [[1000], [2000], [3000]],</span>
+<span class="go">    'input_inclusive_min': [0, 0, 0],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2448,46 +2448,46 @@ independent of the driver/format:</p>
 schema constraints:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">},</span>
-<span class="gp">... </span>        <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;&gt;f4&#39;</span>
+<span class="gp">... </span>        <span class="s1">'metadata'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'dtype'</span><span class="p">:</span> <span class="s1">'&gt;f4'</span>
 <span class="gp">... </span>        <span class="p">},</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {</span>
-<span class="go">    &#39;cache_pool&#39;: {},</span>
-<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
-<span class="go">    &#39;memory_key_value_store&#39;: {},</span>
+<span class="go">  'context': {</span>
+<span class="go">    'cache_pool': {},</span>
+<span class="go">    'data_copy_concurrency': {},</span>
+<span class="go">    'memory_key_value_store': {},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;float32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;metadata&#39;: {</span>
-<span class="go">    &#39;chunks&#39;: [101, 101, 101],</span>
-<span class="go">    &#39;compressor&#39;: {</span>
-<span class="go">      &#39;blocksize&#39;: 0,</span>
-<span class="go">      &#39;clevel&#39;: 5,</span>
-<span class="go">      &#39;cname&#39;: &#39;lz4&#39;,</span>
-<span class="go">      &#39;id&#39;: &#39;blosc&#39;,</span>
-<span class="go">      &#39;shuffle&#39;: -1,</span>
+<span class="go">  'driver': 'zarr',</span>
+<span class="go">  'dtype': 'float32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'metadata': {</span>
+<span class="go">    'chunks': [101, 101, 101],</span>
+<span class="go">    'compressor': {</span>
+<span class="go">      'blocksize': 0,</span>
+<span class="go">      'clevel': 5,</span>
+<span class="go">      'cname': 'lz4',</span>
+<span class="go">      'id': 'blosc',</span>
+<span class="go">      'shuffle': -1,</span>
 <span class="go">    },</span>
-<span class="go">    &#39;dimension_separator&#39;: &#39;.&#39;,</span>
-<span class="go">    &#39;dtype&#39;: &#39;&gt;f4&#39;,</span>
-<span class="go">    &#39;fill_value&#39;: None,</span>
-<span class="go">    &#39;filters&#39;: None,</span>
-<span class="go">    &#39;order&#39;: &#39;C&#39;,</span>
-<span class="go">    &#39;shape&#39;: [1000, 2000, 3000],</span>
-<span class="go">    &#39;zarr_format&#39;: 2,</span>
+<span class="go">    'dimension_separator': '.',</span>
+<span class="go">    'dtype': '&gt;f4',</span>
+<span class="go">    'fill_value': None,</span>
+<span class="go">    'filters': None,</span>
+<span class="go">    'order': 'C',</span>
+<span class="go">    'shape': [1000, 2000, 3000],</span>
+<span class="go">    'zarr_format': 2,</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [[1000], [2000], [3000]],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [[1000], [2000], [3000]],</span>
+<span class="go">    'input_inclusive_min': [0, 0, 0],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2510,8 +2510,8 @@ corruption.</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># First create the array normally</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s2">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;zarr&quot;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s2">&quot;kvstore&quot;</span><span class="p">:</span> <span class="s2">&quot;memory://&quot;</span>
+<span class="gp">... </span>    <span class="s2">"driver"</span><span class="p">:</span> <span class="s2">"zarr"</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s2">"kvstore"</span><span class="p">:</span> <span class="s2">"memory://"</span>
 <span class="gp">... </span><span class="p">},</span>
 <span class="gp">... </span>                      <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
 <span class="gp">... </span>                      <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
@@ -2519,32 +2519,32 @@ corruption.</p>
 <span class="gp">... </span>                      <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Note that the .zarray metadata has been written.</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">kvstore</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>
-<span class="go">[b&#39;.zarray&#39;]</span>
+<span class="go">[b'.zarray']</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">spec</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span>
 <span class="go">Spec({</span>
-<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;float32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;metadata&#39;: {</span>
-<span class="go">    &#39;chunks&#39;: [5],</span>
-<span class="go">    &#39;compressor&#39;: {</span>
-<span class="go">      &#39;blocksize&#39;: 0,</span>
-<span class="go">      &#39;clevel&#39;: 5,</span>
-<span class="go">      &#39;cname&#39;: &#39;lz4&#39;,</span>
-<span class="go">      &#39;id&#39;: &#39;blosc&#39;,</span>
-<span class="go">      &#39;shuffle&#39;: -1,</span>
+<span class="go">  'driver': 'zarr',</span>
+<span class="go">  'dtype': 'float32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'metadata': {</span>
+<span class="go">    'chunks': [5],</span>
+<span class="go">    'compressor': {</span>
+<span class="go">      'blocksize': 0,</span>
+<span class="go">      'clevel': 5,</span>
+<span class="go">      'cname': 'lz4',</span>
+<span class="go">      'id': 'blosc',</span>
+<span class="go">      'shuffle': -1,</span>
 <span class="go">    },</span>
-<span class="go">    &#39;dimension_separator&#39;: &#39;.&#39;,</span>
-<span class="go">    &#39;dtype&#39;: &#39;&lt;f4&#39;,</span>
-<span class="go">    &#39;fill_value&#39;: None,</span>
-<span class="go">    &#39;filters&#39;: None,</span>
-<span class="go">    &#39;order&#39;: &#39;C&#39;,</span>
-<span class="go">    &#39;shape&#39;: [5],</span>
-<span class="go">    &#39;zarr_format&#39;: 2,</span>
+<span class="go">    'dimension_separator': '.',</span>
+<span class="go">    'dtype': '&lt;f4',</span>
+<span class="go">    'fill_value': None,</span>
+<span class="go">    'filters': None,</span>
+<span class="go">    'order': 'C',</span>
+<span class="go">    'shape': [5],</span>
+<span class="go">    'zarr_format': 2,</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">  'transform': {'input_exclusive_max': [[5]], 'input_inclusive_min': [0]},</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Re-open later without re-reading metadata</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store2</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span>
@@ -2559,7 +2559,7 @@ corruption.</p>
 <div class="example admonition">
 <p class="admonition-title">Example of skipping writing the metadata when creating a new array</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;zarr&quot;</span><span class="p">,</span> <span class="s2">&quot;kvstore&quot;</span><span class="p">:</span> <span class="s2">&quot;memory://&quot;</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">"driver"</span><span class="p">:</span> <span class="s2">"zarr"</span><span class="p">,</span> <span class="s2">"kvstore"</span><span class="p">:</span> <span class="s2">"memory://"</span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Open the array without writing the metadata.  If using a distributed</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># filesystem, this can safely be executed on multiple machines concurrently,</span>
@@ -2574,14 +2574,14 @@ corruption.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Note that the data chunk has been written but not the .zarray metadata</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">kvstore</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>
-<span class="go">[b&#39;0&#39;]</span>
+<span class="go">[b'0']</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># From a single machine, actually write the metadata to ensure the array</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># can be re-opened knowing the metadata.  This can be done in parallel with</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># any other writing.</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span> <span class="nb">open</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Metadata has now been written.</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">kvstore</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>
-<span class="go">[b&#39;.zarray&#39;, b&#39;0&#39;]</span>
+<span class="go">[b'.zarray', b'0']</span>
 </code></pre></div>
 </div>
 </div>

@@ -1668,7 +1668,7 @@ store</span></a>.
 <dt class="field-odd" id="required-members-json-driver/tiff">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/tiff" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/tiff.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;tiff&quot;</span></code><a class="headerlink" href="#json-driver/tiff.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"tiff"</span></code><a class="headerlink" href="#json-driver/tiff.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -1689,8 +1689,8 @@ store</span></a>.
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/tiff.dtype">
-<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint8&quot;</span></code><a class="headerlink" href="#json-driver/tiff.dtype" title="Link to this definition">¶</a></dt>
-<dd><p>Optional.  If specified, must be <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;uint8&quot;</span></code>.</p>
+<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"uint8"</span></code><a class="headerlink" href="#json-driver/tiff.dtype" title="Link to this definition">¶</a></dt>
+<dd><p>Optional.  If specified, must be <code class="code highlight json docutils literal highlight-json"><span class="s2">"uint8"</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1721,16 +1721,16 @@ with any driver-specific constraints.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/tiff.path">
-<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;&quot;</span></code><a class="headerlink" href="#json-driver/tiff.path" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">""</span></code><a class="headerlink" href="#json-driver/tiff.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Additional path relative to <a class="reference internal" href="#json-driver/tiff.kvstore" title="driver/tiff.kvstore (JSON member) — Base key-value store for the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.</p>
-  </span><p>This is joined as an additional <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>-separated path
+  </span><p>This is joined as an additional <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>-separated path
 component after any <a class="reference internal" href="../../../kvstore/index.html#json-KvStore.path" title="KvStore.path (JSON member) — Key prefix within the key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">path</span></code></a> member directly
 within <a class="reference internal" href="#json-driver/tiff.kvstore" title="driver/tiff.kvstore (JSON member) — Base key-value store for the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.  This is supported for backwards
 compatibility only; the <a class="reference internal" href="../../../kvstore/index.html#json-KvStore.path" title="KvStore.path (JSON member) — Key prefix within the key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore.path</span></code></a> member should be
 used instead.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">&quot;path/to/data&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">"path/to/data"</span>
 </code></pre></div>
 </div>
 </div>
@@ -1738,7 +1738,7 @@ used instead.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/tiff.cache_pool">
-<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-driver/tiff.cache_pool" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"cache_pool"</span></code><a class="headerlink" href="#json-driver/tiff.cache_pool" title="Link to this definition">¶</a></dt>
 <dd><span><p>Cache pool for data.</p>
   </span><p>Specifies or references a previously defined
 <a class="reference internal" href="../../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It is normally more convenient to
@@ -1748,7 +1748,7 @@ specify a default <a class="reference internal" href="../../../context.html#json
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/tiff.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-driver/tiff.data_copy_concurrency" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"data_copy_concurrency"</span></code><a class="headerlink" href="#json-driver/tiff.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
 <a class="reference internal" href="../../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more convenient to
 specify a default <a class="reference internal" href="../../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in the <a class="reference internal" href="#json-driver/tiff.context" title="driver/tiff.context (JSON member) — Specifies context resources that augment/override the parent context."><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
@@ -1756,7 +1756,7 @@ specify a default <a class="reference internal" href="../../../context.html#json
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/tiff.recheck_cached_data">
-<span class="sig-name descname"><span class="pre">recheck_cached_data</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../index.html#json-CacheRevalidationBound" title="CacheRevalidationBound (JSON type)"><span class="pre">CacheRevalidationBound</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;open&quot;</span></code><a class="headerlink" href="#json-driver/tiff.recheck_cached_data" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">recheck_cached_data</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../index.html#json-CacheRevalidationBound" title="CacheRevalidationBound (JSON type)"><span class="pre">CacheRevalidationBound</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"open"</span></code><a class="headerlink" href="#json-driver/tiff.recheck_cached_data" title="Link to this definition">¶</a></dt>
 <dd><span><p>Time after which cached data is assumed to be fresh.</p>
   </span><p>Cached data older than the specified time is revalidated
 prior to being returned from a read operation.  Writes
@@ -1764,7 +1764,7 @@ are always consistent regardless of the value of this
 option.</p>
 <p>Specifying <code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code> means that the data will be
 revalidated prior to every read operation.  With a value
-of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, any cached data is revalidated when
+of <code class="code highlight json docutils literal highlight-json"><span class="s2">"open"</span></code>, any cached data is revalidated when
 the TensorStore is opened but is not rechecked for each
 read operation.</p>
 <div class="note admonition">
@@ -1772,7 +1772,7 @@ read operation.</p>
 <p>To enable in-memory data caching, you must both specify
 a <a class="reference internal" href="../../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a> with a non-zero
 <a class="reference internal" href="../../../context.html#json-Context.cache_pool.total_bytes_limit" title="Context.cache_pool.total_bytes_limit (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></a> and also
-specify <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, or an explicit time
+specify <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"open"</span></code>, or an explicit time
 bound for <a class="reference internal" href="#json-driver/tiff.recheck_cached_data" title="driver/tiff.recheck_cached_data (JSON member) — Time after which cached data is assumed to be fresh."><code class="xref json json-schema docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
 </div>
 </dd></dl>
@@ -1787,7 +1787,7 @@ bound for <a class="reference internal" href="#json-driver/tiff.recheck_cached_d
 </dl>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tiff&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path-to-image.tiff&quot;</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tiff"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gs://my-bucket/path-to-image.tiff"</span><span class="p">}</span>
 </code></pre></div>
 </div>
 </div>
@@ -1808,11 +1808,11 @@ URL syntax.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;gs://my-bucket/path-to-image.tiff/|tiff:&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tiff&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs&quot;</span><span class="p">,</span>
-<span class="w">             </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-bucket&quot;</span><span class="p">,</span>
-<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path-to-image.tiff&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"gs://my-bucket/path-to-image.tiff/|tiff:"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tiff"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gcs"</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">"bucket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-bucket"</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path-to-image.tiff"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>

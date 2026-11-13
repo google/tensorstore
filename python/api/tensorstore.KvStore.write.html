@@ -1741,15 +1741,15 @@
 <dd><p>Writes or deletes a single key.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;value&#39;</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span><span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s1">'a'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'value'</span><span class="p">)</span>
 <span class="go">KvStore.TimestampedStorageGeneration(...)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;a&#39;</span><span class="p">)</span>
-<span class="go">KvStore.ReadResult(state=&#39;value&#39;, value=b&#39;value&#39;, stamp=KvStore.TimestampedStorageGeneration(...))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">b</span><span class="s1">'a'</span><span class="p">)</span>
+<span class="go">KvStore.ReadResult(state='value', value=b'value', stamp=KvStore.TimestampedStorageGeneration(...))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s1">'a'</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 <span class="go">KvStore.TimestampedStorageGeneration(...)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;a&#39;</span><span class="p">)</span>
-<span class="go">KvStore.ReadResult(state=&#39;missing&#39;, value=b&#39;&#39;, stamp=KvStore.TimestampedStorageGeneration(...))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">b</span><span class="s1">'a'</span><span class="p">)</span>
+<span class="go">KvStore.ReadResult(state='missing', value=b'', stamp=KvStore.TimestampedStorageGeneration(...))</span>
 </code></pre></div>
 </div>
 </div>

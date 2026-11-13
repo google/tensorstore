@@ -1834,22 +1834,22 @@
 <p>The <em>physical unit</em> for a dimension is the physical quantity corresponding to a
 single index increment along each dimension.</p>
 <p>A value of <code class="code highlight python docutils literal highlight-python"><span class="kc">None</span></code> indicates that the unit is unknown.  A dimension-less
-quantity is indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="n">ts</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></code>.</p>
+quantity is indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="n">ts</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span></code>.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'n5'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">dimension_units</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;5nm&#39;</span><span class="p">,</span> <span class="s1">&#39;8nm&#39;</span><span class="p">])</span>
+<span class="gp">... </span>    <span class="n">dimension_units</span><span class="o">=</span><span class="p">[</span><span class="s1">'5nm'</span><span class="p">,</span> <span class="s1">'8nm'</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">dimension_units</span>
-<span class="go">(Unit(5, &quot;nm&quot;), Unit(8, &quot;nm&quot;))</span>
+<span class="go">(Unit(5, "nm"), Unit(8, "nm"))</span>
 </code></pre></div>
 </div>
 </div>

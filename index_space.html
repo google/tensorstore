@@ -1919,7 +1919,7 @@ equal to the <a class="reference internal" href="#json-IndexTransform.input_rank
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-OutputIndexMap.index_array_bounds">
-<span class="sig-name descname"><span class="pre">index_array_bounds</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-IndexInterval" title="IndexInterval (JSON type) — Specifies a closed interval of integer index values."><span class="pre">IndexInterval</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="p">[</span><span class="s2">&quot;-inf&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;+inf&quot;</span><span class="p">]</span></code><a class="headerlink" href="#json-OutputIndexMap.index_array_bounds" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">index_array_bounds</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-IndexInterval" title="IndexInterval (JSON type) — Specifies a closed interval of integer index values."><span class="pre">IndexInterval</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="p">[</span><span class="s2">"-inf"</span><span class="p">,</span><span class="w"> </span><span class="s2">"+inf"</span><span class="p">]</span></code><a class="headerlink" href="#json-OutputIndexMap.index_array_bounds" title="Link to this definition">¶</a></dt>
 <dd><p>If present, specifies constraints on the values within
 <a class="reference internal" href="#json-OutputIndexMap.index_array" title="OutputIndexMap.index_array (JSON member) — If present, indicates that this output dimension uses an index array map, with the index array specified as a nested list of rank equal to the input_rank."><code class="xref json json-schema docutils literal notranslate"><span class="pre">index_array</span></code></a> (which must also be specified).  If
 <a class="reference internal" href="#json-OutputIndexMap.index_array" title="OutputIndexMap.index_array (JSON member) — If present, indicates that this output dimension uses an index array map, with the index array specified as a nested list of rank equal to the input_rank."><code class="xref json json-schema docutils literal notranslate"><span class="pre">index_array</span></code></a> contains an out-of-bounds index, an error
@@ -1937,13 +1937,13 @@ JSON, but normally need not be specified manually.</p>
 </div>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">[</span><span class="s2">&quot;-inf&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">]</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">[</span><span class="s2">"-inf"</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">]</span>
 </code></pre></div>
 </div>
 </div>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">[</span><span class="mi">-20</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;+inf&quot;</span><span class="p">]</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">[</span><span class="mi">-20</span><span class="p">,</span><span class="w"> </span><span class="s2">"+inf"</span><span class="p">]</span>
 </code></pre></div>
 </div>
 </div>
@@ -1955,7 +1955,7 @@ JSON, but normally need not be specified manually.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexInterval">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">IndexInterval</span></span><span class="p"> <span class="pre">:</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;-inf&quot;</span></code><span class="p"><span class="pre">,</span></span> <span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;+inf&quot;</span></code><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexInterval" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">IndexInterval</span></span><span class="p"> <span class="pre">:</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"-inf"</span></code><span class="p"><span class="pre">,</span></span> <span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"+inf"</span></code><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexInterval" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a closed interval of integer index values.</p>
   </span></dd></dl>
 

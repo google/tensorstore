@@ -1781,13 +1781,13 @@
 <dd><p>Indicates if the range contains no keys.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">KeyRange</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">KeyRange</span><span class="p">(</span><span class="sa">b</span><span class="s1">'x'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'y'</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">empty</span>
 <span class="go">False</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">KeyRange</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">KeyRange</span><span class="p">(</span><span class="sa">b</span><span class="s1">'x'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'x'</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">empty</span>
 <span class="go">True</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">KeyRange</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">KeyRange</span><span class="p">(</span><span class="sa">b</span><span class="s1">'y'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'x'</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">empty</span>
 <span class="go">True</span>
 </code></pre></div>

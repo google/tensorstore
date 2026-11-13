@@ -1937,33 +1937,33 @@ origins without affecting the output range.</p>
 <div class="example admonition">
 <p class="admonition-title">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
-<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">translate_to</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">]]</span>
+<span class="gp">... </span>                              <span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">]</span><span class="o">.</span><span class="n">translate_to</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [10, 14) &quot;x&quot;</span>
-<span class="go">    1: [20, 25) &quot;y&quot;</span>
-<span class="go">    2: [0, 6) &quot;z&quot;</span>
+<span class="go">    0: [10, 14) "x"</span>
+<span class="go">    1: [20, 25) "y"</span>
+<span class="go">    2: [0, 6) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = -10 + 1 * in[0]</span>
 <span class="go">    out[1] = -20 + 1 * in[1]</span>
 <span class="go">    out[2] = 0 + 1 * in[2]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">translate_to</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">]</span><span class="o">.</span><span class="n">translate_to</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [10, 14) &quot;x&quot;</span>
-<span class="go">    1: [0, 5) &quot;y&quot;</span>
-<span class="go">    2: [0, 6) &quot;z&quot;</span>
+<span class="go">    0: [10, 14) "x"</span>
+<span class="go">    1: [0, 5) "y"</span>
+<span class="go">    2: [0, 6) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = -10 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
 <span class="go">    out[2] = 0 + 1 * in[2]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">translate_to</span><span class="p">[</span><span class="mi">10</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">]</span><span class="o">.</span><span class="n">translate_to</span><span class="p">[</span><span class="mi">10</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [10, 14) &quot;x&quot;</span>
-<span class="go">    1: [10, 15) &quot;y&quot;</span>
-<span class="go">    2: [0, 6) &quot;z&quot;</span>
+<span class="go">    0: [10, 14) "x"</span>
+<span class="go">    1: [10, 15) "y"</span>
+<span class="go">    2: [0, 6) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = -10 + 1 * in[0]</span>
 <span class="go">    out[1] = -10 + 1 * in[1]</span>

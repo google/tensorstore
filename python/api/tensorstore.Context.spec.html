@@ -1396,23 +1396,23 @@
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">parent</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;cache_pool&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;total_bytes_limit&#39;</span><span class="p">:</span> <span class="mi">5000000</span>
+<span class="gp">... </span>    <span class="s1">'cache_pool'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'total_bytes_limit'</span><span class="p">:</span> <span class="mi">5000000</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;file_io_concurrency&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;limit&#39;</span><span class="p">:</span> <span class="mi">10</span>
+<span class="gp">... </span>    <span class="s1">'file_io_concurrency'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'limit'</span><span class="p">:</span> <span class="mi">10</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">child</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">({</span><span class="s1">&#39;cache_pool&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>    <span class="s1">&#39;total_bytes_limit&#39;</span><span class="p">:</span> <span class="mi">10000000</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">child</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">({</span><span class="s1">'cache_pool'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>    <span class="s1">'total_bytes_limit'</span><span class="p">:</span> <span class="mi">10000000</span>
 <span class="gp">... </span><span class="p">}},</span>
 <span class="gp">... </span>                   <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">child</span><span class="o">.</span><span class="n">spec</span>
-<span class="go">Context.Spec({&#39;cache_pool&#39;: {&#39;total_bytes_limit&#39;: 10000000}})</span>
+<span class="go">Context.Spec({'cache_pool': {'total_bytes_limit': 10000000}})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">child</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">spec</span>
 <span class="go">Context.Spec({</span>
-<span class="go">  &#39;cache_pool&#39;: {&#39;total_bytes_limit&#39;: 5000000},</span>
-<span class="go">  &#39;file_io_concurrency&#39;: {&#39;limit&#39;: 10},</span>
+<span class="go">  'cache_pool': {'total_bytes_limit': 5000000},</span>
+<span class="go">  'file_io_concurrency': {'limit': 10},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>

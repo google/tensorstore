@@ -1987,7 +1987,7 @@ machines to a network filesystem is also safe.</p>
 <dt class="field-odd" id="required-members-json-kvstore/file">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/file" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/file.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;file&quot;</span></code><a class="headerlink" href="#json-kvstore/file.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"file"</span></code><a class="headerlink" href="#json-kvstore/file.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -2055,16 +2055,16 @@ machines to a network filesystem is also safe.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/dataset/&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/dataset/&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/dataset/"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/dataset/"</span><span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
 </tr>
-<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file://C:/Users/abc/dataset/&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:/Users/abc/dataset/&quot;</span><span class="p">}</span>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file://C:/Users/abc/dataset/"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C:/Users/abc/dataset/"</span><span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
@@ -2090,9 +2090,9 @@ operations.</p>
 <dt class="field-odd" id="optional-members-json-Context.file_io_concurrency">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-Context.file_io_concurrency" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.file_io_concurrency.limit">
-<span class="sig-name descname"><span class="pre">limit</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;shared&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;shared&quot;</span></code><a class="headerlink" href="#json-Context.file_io_concurrency.limit" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">limit</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"shared"</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"shared"</span></code><a class="headerlink" href="#json-Context.file_io_concurrency.limit" title="Link to this definition">¶</a></dt>
 <dd><p>The maximum number of concurrent operations.  If the special value of
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;shared&quot;</span></code> is specified, a shared global limit equal to the number
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"shared"</span></code> is specified, a shared global limit equal to the number
 of CPU cores/threads available (or 4 if there are fewer than 4
 cores/threads available) applies.</p>
 </dd></dl>
@@ -2120,32 +2120,32 @@ make write operations faster.</p>
 <dt class="field-odd" id="optional-members-json-Context.file_io_locking">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-Context.file_io_locking" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.file_io_locking.mode">
-<span class="sig-name descname"><span class="pre">mode</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;os&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;lockfile&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;none&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;os&quot;</span></code><a class="headerlink" href="#json-Context.file_io_locking.mode" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">mode</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"os"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"lockfile"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"none"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"non_atomic"</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"os"</span></code><a class="headerlink" href="#json-Context.file_io_locking.mode" title="Link to this definition">¶</a></dt>
 <dd><span><p>Selects the locking mode.</p>
-  </span><p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;os&quot;</span></code>, os locking such as <code class="docutils literal notranslate"><span class="pre">flock</span></code> is used.  Stale lock files with
-the suffix <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;.__lock&quot;</span></code> may remain if a failure occurs while a write is in progress, but
+  </span><p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">"os"</span></code>, os locking such as <code class="docutils literal notranslate"><span class="pre">flock</span></code> is used.  Stale lock files with
+the suffix <code class="code highlight json docutils literal highlight-json"><span class="s2">".__lock"</span></code> may remain if a failure occurs while a write is in progress, but
 these files will be cleaned up automatically by any subsequent write to the same key.</p>
-<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;lockfile&quot;</span></code>, lockfiles are used. Stale lock files with the suffix 
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;.__lock&quot;</span></code> may remain if a failure occurs while a write is in progress, and these files
+<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">"lockfile"</span></code>, lockfiles are used. Stale lock files with the suffix 
+<code class="code highlight json docutils literal highlight-json"><span class="s2">".__lock"</span></code> may remain if a failure occurs while a write is in progress, and these files
 will need to be deleted manually to unblock any subsequent writes.</p>
-<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;none&quot;</span></code>, no locking is used. Conditional writes, as used for 
+<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">"none"</span></code>, no locking is used. Conditional writes, as used for 
 read-modify-write operations, such as partial array chunk writes, are not atomic. In the 
 case of concurrent writes to the same key, the conditions may not be respected and updates
 may be lost. Partial writes will not be observed; unconditional writes are still atomic.
 If a failure occurs while a write is in progress, stale temporary files with the suffix
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;.__lock&quot;</span></code> may remain. These files will not impact subsequent operations but will need
+<code class="code highlight json docutils literal highlight-json"><span class="s2">".__lock"</span></code> may remain. These files will not impact subsequent operations but will need
 to be cleaned up manually to reclaim space.</p>
-<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;non_atomic&quot;</span></code>, no locking is used. This mode avoids writing to a temporary
+<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">"non_atomic"</span></code>, no locking is used. This mode avoids writing to a temporary
 file and a subsequent rename, which may improve efficiency on some filesystems such as
 gcsfuse. Writes are not atomic, and concurrent writes or reads to the same key may result
 in data corruption or a corrupted result. When used in conjunction with
-<code class="code highlight json docutils literal highlight-json"><span class="nt">&quot;file_io_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memmap&quot;</span></code>, access to the memory-mapped file may result in a crash.</p>
+<code class="code highlight json docutils literal highlight-json"><span class="nt">"file_io_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"memmap"</span></code>, access to the memory-mapped file may result in a crash.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.file_io_locking.acquire_timeout">
-<span class="sig-name descname"><span class="pre">acquire_timeout</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;60s&quot;</span></code><a class="headerlink" href="#json-Context.file_io_locking.acquire_timeout" title="Link to this definition">¶</a></dt>
-<dd><p>Timeout for acquiring a lock when using <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;lockfile&quot;</span></code> locking.</p>
+<span class="sig-name descname"><span class="pre">acquire_timeout</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"60s"</span></code><a class="headerlink" href="#json-Context.file_io_locking.acquire_timeout" title="Link to this definition">¶</a></dt>
+<dd><p>Timeout for acquiring a lock when using <code class="code highlight json docutils literal highlight-json"><span class="s2">"lockfile"</span></code> locking.</p>
 </dd></dl>
 
 </dd>
@@ -2160,11 +2160,11 @@ in data corruption or a corrupted result. When used in conjunction with
 <dt class="field-odd" id="optional-members-json-Context.file_io_mode">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-Context.file_io_mode" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.file_io_mode.mode">
-<span class="sig-name descname"><span class="pre">mode</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;default&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;memmap&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;direct&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;default&quot;</span></code><a class="headerlink" href="#json-Context.file_io_mode.mode" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">mode</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"default"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"memmap"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"direct"</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"default"</span></code><a class="headerlink" href="#json-Context.file_io_mode.mode" title="Link to this definition">¶</a></dt>
 <dd><span><p>Selects the file io mode.</p>
-  </span><p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;default&quot;</span></code>, no special options are used for reads.</p>
-<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;memmap&quot;</span></code>, the file system uses memory-mapped io on reads. Experimental.
-Using <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;memmap&quot;</span></code> may improve performance for large read with the following caveats:</p>
+  </span><p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">"default"</span></code>, no special options are used for reads.</p>
+<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">"memmap"</span></code>, the file system uses memory-mapped io on reads. Experimental.
+Using <code class="code highlight json docutils literal highlight-json"><span class="s2">"memmap"</span></code> may improve performance for large read with the following caveats:</p>
 <ul class="simple">
 <li><p>TensorStore may retain references to memory-mapped buffers, which due to batching may cover
 a larger region of the file than an individual read request, even after the read competes,
@@ -2175,8 +2175,8 @@ it is memory-mapped, the TensorStore process may crash, or some combination of t
 and new data may be observed by TensorStore.  Overwriting the entire file via rename, as
 TenosrStore itself does, is safe.</p></li>
 </ul>
-<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;direct&quot;</span></code>, the file system uses direct I/O on reads. Experimental.
-Using <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;direct&quot;</span></code> may improve performance for large read with the following caveats:</p>
+<p>When set to <code class="code highlight json docutils literal highlight-json"><span class="s2">"direct"</span></code>, the file system uses direct I/O on reads. Experimental.
+Using <code class="code highlight json docutils literal highlight-json"><span class="s2">"direct"</span></code> may improve performance for large read with the following caveats:</p>
 <ul class="simple">
 <li><p>Performance properties of direct mode depend on the operating sytem, filesystem, and
 data layout.  For some workloads this may result in higher latency.</p></li>
@@ -2201,13 +2201,13 @@ data layout.  For some workloads this may result in higher latency.</p></li>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.file_io_retries.initial_delay">
-<span class="sig-name descname"><span class="pre">initial_delay</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;1s&quot;</span></code><a class="headerlink" href="#json-Context.file_io_retries.initial_delay" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">initial_delay</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"1s"</span></code><a class="headerlink" href="#json-Context.file_io_retries.initial_delay" title="Link to this definition">¶</a></dt>
 <dd><p>Initial backoff delay for transient errors.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.file_io_retries.max_delay">
-<span class="sig-name descname"><span class="pre">max_delay</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;32s&quot;</span></code><a class="headerlink" href="#json-Context.file_io_retries.max_delay" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">max_delay</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"32s"</span></code><a class="headerlink" href="#json-Context.file_io_retries.max_delay" title="Link to this definition">¶</a></dt>
 <dd><p>Maximum backoff delay for transient errors.</p>
 </dd></dl>
 
@@ -2220,9 +2220,9 @@ data layout.  For some workloads this may result in higher latency.</p></li>
 data won’t be lost in the event that the process or machine crashes.</p>
 <p>In cases where durability is not necessary, faster write performance may be
 achieved by setting <a class="reference internal" href="#json-Context.file_io_sync" title="Context.file_io_sync (JSON type) — Specifies durability of writes."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.file_io_sync</span></code></a> to :json:<code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/local/path/&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;file_io_sync&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/local/path/"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"file_io_sync"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">}</span>
 </code></pre></div>
 </div>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Link to this heading">¶</a></h2>

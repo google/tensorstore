@@ -1835,9 +1835,9 @@
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">],</span>
@@ -1845,10 +1845,10 @@
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;grid_origin&#39;: [0, 0, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [0, 1, 2],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [101, 101, 101]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [101, 101, 101]},</span>
+<span class="go">  'grid_origin': [0, 0, 0],</span>
+<span class="go">  'inner_order': [0, 1, 2],</span>
+<span class="go">  'read_chunk': {'shape': [101, 101, 101]},</span>
+<span class="go">  'write_chunk': {'shape': [101, 101, 101]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>

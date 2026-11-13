@@ -2019,20 +2019,20 @@ addition of an <a class="reference external" href="https://docs.python.org/3/lib
 </dl>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
 <h3 id="integer-indexing"><a class="reference internal" href="../indexing.html#python-indexing-integer"><span class="std std-ref">Integer indexing</span></a><a class="headerlink" href="#integer-indexing" title="Link to this heading">¶</a></h3>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">][</span><span class="mi">5</span><span class="p">]]</span>
 <span class="go">Rank 2 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: (-inf*, +inf*) &quot;y&quot;</span>
-<span class="go">    1: (-inf*, +inf*) &quot;z&quot;</span>
+<span class="go">    0: (-inf*, +inf*) "y"</span>
+<span class="go">    1: (-inf*, +inf*) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 5</span>
 <span class="go">    out[1] = 0 + 1 * in[0]</span>
 <span class="go">    out[2] = 0 + 1 * in[1]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">][</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]]</span>
 <span class="go">Rank 1 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">    0: (-inf*, +inf*) "y"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 5</span>
 <span class="go">    out[1] = 0 + 1 * in[0]</span>
@@ -2040,10 +2040,10 @@ addition of an <a class="reference external" href="https://docs.python.org/3/lib
 </code></pre></div>
 </div>
 <p>A single scalar index term applies to all selected dimensions:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">][</span><span class="mi">5</span><span class="p">]]</span>
 <span class="go">Rank 1 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: (-inf*, +inf*) &quot;z&quot;</span>
+<span class="go">    0: (-inf*, +inf*) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 5</span>
 <span class="go">    out[1] = 5</span>
@@ -2055,23 +2055,23 @@ addition of an <a class="reference external" href="https://docs.python.org/3/lib
 <p><a class="reference internal" href="../indexing.html#python-indexing-integer"><span class="std std-ref">Integer indexing</span></a></p>
 </div>
 <h3 id="interval-indexing"><a class="reference internal" href="../indexing.html#python-indexing-interval"><span class="std std-ref">Interval indexing</span></a><a class="headerlink" href="#interval-indexing" title="Link to this heading">¶</a></h3>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">:</span><span class="mi">10</span><span class="p">]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">][</span><span class="mi">5</span><span class="p">:</span><span class="mi">10</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [5, 10) &quot;x&quot;</span>
-<span class="go">    1: (-inf*, +inf*) &quot;y&quot;</span>
-<span class="go">    2: (-inf*, +inf*) &quot;z&quot;</span>
+<span class="go">    0: [5, 10) "x"</span>
+<span class="go">    1: (-inf*, +inf*) "y"</span>
+<span class="go">    2: (-inf*, +inf*) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
 <span class="go">    out[2] = 0 + 1 * in[2]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">30</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">][</span><span class="mi">5</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">30</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [5, 10) &quot;x&quot;</span>
-<span class="go">    1: (-inf*, +inf*) &quot;y&quot;</span>
-<span class="go">    2: [20, 30) &quot;z&quot;</span>
+<span class="go">    0: [5, 10) "x"</span>
+<span class="go">    1: (-inf*, +inf*) "y"</span>
+<span class="go">    2: [20, 30) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
@@ -2080,22 +2080,22 @@ addition of an <a class="reference external" href="https://docs.python.org/3/lib
 </div>
 <p>As an extension, TensorStore allows the <code class="code highlight python docutils literal highlight-python"><span class="n">start</span></code>, <code class="code highlight python docutils literal highlight-python"><span class="n">stop</span></code>, and <code class="code highlight python docutils literal highlight-python"><span class="n">step</span></code>
 <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><code class="docutils literal notranslate"><span class="pre">slice</span></code></a> terms to be vectors rather than scalars:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">][[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">]:[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">]]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">][[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">]:[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">]]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [5, 10) &quot;x&quot;</span>
-<span class="go">    1: (-inf*, +inf*) &quot;y&quot;</span>
-<span class="go">    2: [20, 30) &quot;z&quot;</span>
+<span class="go">    0: [5, 10) "x"</span>
+<span class="go">    1: (-inf*, +inf*) "y"</span>
+<span class="go">    2: [20, 30) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
 <span class="go">    out[2] = 0 + 1 * in[2]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">][[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">]:</span><span class="mi">30</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">][[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">]:</span><span class="mi">30</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [5, 30) &quot;x&quot;</span>
-<span class="go">    1: (-inf*, +inf*) &quot;y&quot;</span>
-<span class="go">    2: [20, 30) &quot;z&quot;</span>
+<span class="go">    0: [5, 30) "x"</span>
+<span class="go">    1: (-inf*, +inf*) "y"</span>
+<span class="go">    2: [20, 30) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
@@ -2104,12 +2104,12 @@ addition of an <a class="reference external" href="https://docs.python.org/3/lib
 </div>
 <p>As with integer indexing, a single scalar slice applies to all selected
 dimensions:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">:</span><span class="mi">30</span><span class="p">]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">][</span><span class="mi">5</span><span class="p">:</span><span class="mi">30</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [5, 30) &quot;x&quot;</span>
-<span class="go">    1: (-inf*, +inf*) &quot;y&quot;</span>
-<span class="go">    2: [5, 30) &quot;z&quot;</span>
+<span class="go">    0: [5, 30) "x"</span>
+<span class="go">    1: (-inf*, +inf*) "y"</span>
+<span class="go">    2: [5, 30) "z"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
@@ -2124,13 +2124,13 @@ dimensions:</p>
 <p>Specifying a value of <a class="reference internal" href="tensorstore.newaxis.html" title="tensorstore.newaxis (Python data) — Alias for None used in indexing expressions to specify a new singleton dimension."><code class="xref py py-obj docutils literal notranslate"><span class="pre">newaxis</span></code></a> (equal to <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) adds a new
 inert/singleton dimension with <a class="reference internal" href="../../index_space.html#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>
 <span class="math notranslate nohighlight">\([0, 1)\)</span>:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">])</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 2 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    0: (-inf*, +inf*) "x"</span>
 <span class="go">    1: [0*, 1*)</span>
-<span class="go">    2: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">    2: (-inf*, +inf*) "y"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[2]</span>
@@ -2138,8 +2138,8 @@ inert/singleton dimension with <a class="reference internal" href="../../index_s
 <span class="go">Rank 4 -&gt; 2 index space transform:</span>
 <span class="go">  Input domain:</span>
 <span class="go">    0: [0*, 1*)</span>
-<span class="go">    1: (-inf*, +inf*) &quot;x&quot;</span>
-<span class="go">    2: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">    1: (-inf*, +inf*) "x"</span>
+<span class="go">    2: (-inf*, +inf*) "y"</span>
 <span class="go">    3: [0*, 1*)</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[1]</span>
@@ -2152,8 +2152,8 @@ specified, it applies to all selected dimensions:</p>
 <span class="go">Rank 4 -&gt; 2 index space transform:</span>
 <span class="go">  Input domain:</span>
 <span class="go">    0: [0*, 1*)</span>
-<span class="go">    1: (-inf*, +inf*) &quot;x&quot;</span>
-<span class="go">    2: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">    1: (-inf*, +inf*) "x"</span>
+<span class="go">    2: (-inf*, +inf*) "y"</span>
 <span class="go">    3: [0*, 1*)</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[1]</span>
@@ -2176,7 +2176,7 @@ dimension selection necessarily refer to existing dimensions:</p>
 label:</p>
 <div class="failure admonition">
 <p class="admonition-title">Error</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]]</span>
 <span class="gt">Traceback (most recent call last):</span>
 <span class="w">    </span><span class="o">...</span>
 <span class="gr">IndexError</span>: <span class="n">New dimensions cannot be specified by label...</span>
@@ -2227,17 +2227,17 @@ selected dimensions not consumed by other indexing terms:</p>
 <p>Specifying an <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ArrayLike</span></code></a> <em>index array</em> of integer values selects
 the coordinates given by the elements of the array of the selected dimension:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'y'</span><span class="p">][[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]]</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;array&#39;: [[2, 2, 1], [5, 5, 4]],</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [2, 3],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;&#39;],</span>
+<span class="go">  'array': [[2, 2, 1], [5, 5, 4]],</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'array',</span>
+<span class="go">  'dtype': 'int32',</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [2, 3],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
+<span class="go">    'input_labels': ['x', ''],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2255,17 +2255,17 @@ indexing (not with a dimension expression), the behavior does not depend on
 whether the index array terms apply to consecutive dimensions, since consecutive
 dimensions are not well-defined for dimension expressions:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">]]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">][[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'z'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">][[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]]</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;array&#39;: [[4, 3], [8, 7]],</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [2, 2],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;&#39;],</span>
+<span class="go">  'array': [[4, 3], [8, 7]],</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'array',</span>
+<span class="go">  'dtype': 'int32',</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [2, 2],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
+<span class="go">    'input_labels': ['x', ''],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2281,32 +2281,32 @@ specifying a sequence of integer index arrays containing the coordinates of
 <p>Specifying a 1-d <a class="reference internal" href="tensorstore.bool.html" title="tensorstore.bool (Python data) — Boolean data type (0 or 1).  Corresponds to the python:bool type and numpy.bool_."><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a> array is equivalent to a single index array of the
 non-zero coordinates:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">]]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'y'</span><span class="p">][[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">]]]</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;array&#39;: [[2, 3], [5, 6]],</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [2, 2],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;&#39;],</span>
+<span class="go">  'array': [[2, 3], [5, 6]],</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'array',</span>
+<span class="go">  'dtype': 'int32',</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [2, 2],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
+<span class="go">    'input_labels': ['x', ''],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
 <p>Equivalently, using an index array:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'y'</span><span class="p">][[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]]]</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;array&#39;: [[2, 3], [5, 6]],</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [2, 2],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;&#39;],</span>
+<span class="go">  'array': [[2, 3], [5, 6]],</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'array',</span>
+<span class="go">  'dtype': 'int32',</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [2, 2],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
+<span class="go">    'input_labels': ['x', ''],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
@@ -2316,32 +2316,32 @@ specifying <code class="code highlight python docutils literal highlight-python"
 the <code class="code highlight python docutils literal highlight-python"><span class="n">i</span></code>th coordinate of the <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> values:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">]]],</span>
 <span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">][[[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]]]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">][[[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]]]]</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;array&#39;: [[1, 4], [7, 10], [8, 11]],</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [3, 2],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;&#39;, &#39;y&#39;],</span>
+<span class="go">  'array': [[1, 4], [7, 10], [8, 11]],</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'array',</span>
+<span class="go">  'dtype': 'int32',</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [3, 2],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
+<span class="go">    'input_labels': ['', 'y'],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
 <p>Equivalently, using an index array:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">][[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">][[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]]</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;array&#39;: [[1, 4], [7, 10], [8, 11]],</span>
-<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
-<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [3, 2],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;&#39;, &#39;y&#39;],</span>
+<span class="go">  'array': [[1, 4], [7, 10], [8, 11]],</span>
+<span class="go">  'context': {'data_copy_concurrency': {}},</span>
+<span class="go">  'driver': 'array',</span>
+<span class="go">  'dtype': 'int32',</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [3, 2],</span>
+<span class="go">    'input_inclusive_min': [0, 0],</span>
+<span class="go">    'input_labels': ['', 'y'],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>

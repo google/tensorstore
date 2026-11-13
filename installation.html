@@ -1542,7 +1542,7 @@ options containing spaces or other special characters should be encoded
 according to Posix shell escaping rules as implemented by
 <a class="reference external" href="https://docs.python.org/3/library/shlex.html#shlex.split" title="(in Python v3.11)"><code class="xref py py-func docutils literal notranslate"><span class="pre">shlex.split()</span></code></a>.</p>
 <p>This may be used to specify a non-standard cache directory:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><code><span class="nv">TENSORSTORE_BAZEL_STARTUP_OPTIONS</span><span class="o">=</span><span class="s2">&quot;--output_user_root /path/to/bazel_cache&quot;</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><code><span class="nv">TENSORSTORE_BAZEL_STARTUP_OPTIONS</span><span class="o">=</span><span class="s2">"--output_user_root /path/to/bazel_cache"</span>
 </code></pre></div>
 </div>
 </dd></dl>
@@ -1596,22 +1596,22 @@ dependency so that it is built from source and statically linked as part of the
 overall build.</p>
 <h3 id="bazel-integration"><span id="bazel-build"></span>Bazel integration<a class="headerlink" href="#bazel-integration" title="Link to this heading">¶</a></h3>
 <p>To add TensorStore as a dependency to an existing Bazel workspace:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span class="n">load</span><span class="p">(</span><span class="s2">&quot;@bazel_tools//tools/build_defs/repo:http.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;http_archive&quot;</span><span class="p">)</span>
-<span class="n">load</span><span class="p">(</span><span class="s2">&quot;@bazel_tools//tools/build_defs/repo:utils.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;maybe&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span class="n">load</span><span class="p">(</span><span class="s2">"@bazel_tools//tools/build_defs/repo:http.bzl"</span><span class="p">,</span> <span class="s2">"http_archive"</span><span class="p">)</span>
+<span class="n">load</span><span class="p">(</span><span class="s2">"@bazel_tools//tools/build_defs/repo:utils.bzl"</span><span class="p">,</span> <span class="s2">"maybe"</span><span class="p">)</span>
 
 <span class="n">maybe</span><span class="p">(</span>
     <span class="n">http_archive</span><span class="p">,</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;tensorstore&quot;</span><span class="p">,</span>
-    <span class="n">strip_prefix</span> <span class="o">=</span> <span class="s2">&quot;tensorstore-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX&quot;</span><span class="p">,</span>
-    <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.tar.gz&quot;</span><span class="p">,</span>
-    <span class="n">sha256</span> <span class="o">=</span> <span class="s2">&quot;YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY&quot;</span><span class="p">,</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"tensorstore"</span><span class="p">,</span>
+    <span class="n">strip_prefix</span> <span class="o">=</span> <span class="s2">"tensorstore-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"</span><span class="p">,</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="s2">"https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.tar.gz"</span><span class="p">,</span>
+    <span class="n">sha256</span> <span class="o">=</span> <span class="s2">"YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="n">load</span><span class="p">(</span><span class="s2">&quot;@tensorstore//:external.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;tensorstore_dependencies&quot;</span><span class="p">)</span>
+<span class="n">load</span><span class="p">(</span><span class="s2">"@tensorstore//:external.bzl"</span><span class="p">,</span> <span class="s2">"tensorstore_dependencies"</span><span class="p">)</span>
 
 <span class="n">tensorstore_dependencies</span><span class="p">()</span>
 
-<span class="n">load</span><span class="p">(</span><span class="s2">&quot;@bazel_features//:deps.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;bazel_features_deps&quot;</span><span class="p">)</span>
+<span class="n">load</span><span class="p">(</span><span class="s2">"@bazel_features//:deps.bzl"</span><span class="p">,</span> <span class="s2">"bazel_features_deps"</span><span class="p">)</span>
 
 <span class="n">bazel_features_deps</span><span class="p">()</span>
 </code></pre></div>
@@ -1635,7 +1635,7 @@ variable <code class="docutils literal notranslate"><span class="pre">TENSORSTOR
 
 <span class="nb">FetchContent_Declare</span><span class="p">(</span>
 <span class="w">  </span><span class="s">tensorstore</span>
-<span class="w">  </span><span class="s">URL</span><span class="w"> </span><span class="s2">&quot;https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.tar.gz&quot;</span>
+<span class="w">  </span><span class="s">URL</span><span class="w"> </span><span class="s2">"https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.tar.gz"</span>
 <span class="w">  </span><span class="s">URL_HASH</span><span class="w"> </span><span class="s">SHA256=YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY</span>
 <span class="p">)</span>
 

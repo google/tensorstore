@@ -1431,7 +1431,7 @@ support for multi-key transactions.</p>
 <dt class="field-odd" id="required-members-json-kvstore/memory">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/memory" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/memory.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;memory&quot;</span></code><a class="headerlink" href="#json-kvstore/memory.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"memory"</span></code><a class="headerlink" href="#json-kvstore/memory.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd>
@@ -1443,7 +1443,7 @@ support for multi-key transactions.</p>
 <span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/memory.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Key prefix within the key-value store.</p>
   </span><p>If the prefix is intended to correspond to a Unix-style directory path, it
-should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>.</p>
+should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1494,11 +1494,11 @@ all refer to the same in-memory set of key/value pairs.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;memory://&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory&quot;</span><span class="p">}</span></code></p></td>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"memory://"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"memory"</span><span class="p">}</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;memory://path/to/dataset&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/dataset&quot;</span><span class="p">}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"memory://path/to/dataset"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"memory"</span><span class="p">,</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/dataset"</span><span class="p">}</span></code></p></td>
 </tr>
 </tbody>
 </table>

@@ -1909,34 +1909,34 @@
 <dd><p>The <a class="reference internal" href="../../index_space.html#index-transform"><span class="std std-ref">index transform</span></a>, or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> if unspecified.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span> <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span><span class="p">}})</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'n5'</span><span class="p">,</span> <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span><span class="p">}})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">transform</span><span class="p">)</span>
 <span class="go">None</span>
 </code></pre></div>
 </div>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'n5'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;dimensions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
-<span class="gp">... </span>        <span class="s1">&#39;axes&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]</span>
+<span class="gp">... </span>    <span class="s1">'metadata'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'dimensions'</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">'axes'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">]</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">transform</span>
 <span class="go">Rank 2 -&gt; 2 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [0, 100*) &quot;x&quot;</span>
-<span class="go">    1: [0, 200*) &quot;y&quot;</span>
+<span class="go">    0: [0, 100*) "x"</span>
+<span class="go">    1: [0, 200*) "y"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = 0 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">translate_by</span><span class="p">[</span><span class="mi">5</span><span class="p">]]</span><span class="o">.</span><span class="n">transform</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">'x'</span><span class="p">]</span><span class="o">.</span><span class="n">translate_by</span><span class="p">[</span><span class="mi">5</span><span class="p">]]</span><span class="o">.</span><span class="n">transform</span>
 <span class="go">Rank 2 -&gt; 2 index space transform:</span>
 <span class="go">  Input domain:</span>
-<span class="go">    0: [5, 105*) &quot;x&quot;</span>
-<span class="go">    1: [0, 200*) &quot;y&quot;</span>
+<span class="go">    0: [5, 105*) "x"</span>
+<span class="go">    1: [0, 200*) "y"</span>
 <span class="go">  Output index maps:</span>
 <span class="go">    out[0] = -5 + 1 * in[0]</span>
 <span class="go">    out[1] = 0 + 1 * in[1]</span>

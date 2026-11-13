@@ -1833,44 +1833,44 @@
 <p class="admonition-title">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
-<span class="gp">... </span>        <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>            <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'n5'</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>        <span class="p">}</span>
 <span class="gp">... </span>    <span class="p">},</span>
 <span class="gp">... </span>    <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">domain</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">]),</span>
+<span class="gp">... </span>    <span class="n">domain</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">]),</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">domain</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">],</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">domain</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">],</span>
 <span class="gp">... </span>                        <span class="n">inclusive_min</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
 <span class="gp">... </span>                        <span class="n">exclusive_max</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span>
 <span class="go">TensorStore({</span>
-<span class="go">  &#39;context&#39;: {</span>
-<span class="go">    &#39;cache_pool&#39;: {},</span>
-<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
-<span class="go">    &#39;memory_key_value_store&#39;: {},</span>
+<span class="go">  'context': {</span>
+<span class="go">    'cache_pool': {},</span>
+<span class="go">    'data_copy_concurrency': {},</span>
+<span class="go">    'memory_key_value_store': {},</span>
 <span class="go">  },</span>
-<span class="go">  &#39;driver&#39;: &#39;n5&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
-<span class="go">  &#39;metadata&#39;: {</span>
-<span class="go">    &#39;axes&#39;: [&#39;x&#39;, &#39;y&#39;, &#39;z&#39;],</span>
-<span class="go">    &#39;blockSize&#39;: [60, 70, 80],</span>
-<span class="go">    &#39;compression&#39;: {</span>
-<span class="go">      &#39;blocksize&#39;: 0,</span>
-<span class="go">      &#39;clevel&#39;: 5,</span>
-<span class="go">      &#39;cname&#39;: &#39;lz4&#39;,</span>
-<span class="go">      &#39;shuffle&#39;: 1,</span>
-<span class="go">      &#39;type&#39;: &#39;blosc&#39;,</span>
+<span class="go">  'driver': 'n5',</span>
+<span class="go">  'dtype': 'uint32',</span>
+<span class="go">  'kvstore': {'driver': 'memory'},</span>
+<span class="go">  'metadata': {</span>
+<span class="go">    'axes': ['x', 'y', 'z'],</span>
+<span class="go">    'blockSize': [60, 70, 80],</span>
+<span class="go">    'compression': {</span>
+<span class="go">      'blocksize': 0,</span>
+<span class="go">      'clevel': 5,</span>
+<span class="go">      'cname': 'lz4',</span>
+<span class="go">      'shuffle': 1,</span>
+<span class="go">      'type': 'blosc',</span>
 <span class="go">    },</span>
-<span class="go">    &#39;dataType&#39;: &#39;uint32&#39;,</span>
-<span class="go">    &#39;dimensions&#39;: [60, 70, 80],</span>
+<span class="go">    'dataType': 'uint32',</span>
+<span class="go">    'dimensions': [60, 70, 80],</span>
 <span class="go">  },</span>
-<span class="go">  &#39;transform&#39;: {</span>
-<span class="go">    &#39;input_exclusive_max&#39;: [8, [70], 9],</span>
-<span class="go">    &#39;input_inclusive_min&#39;: [5, 0, 6],</span>
-<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;y&#39;, &#39;z&#39;],</span>
+<span class="go">  'transform': {</span>
+<span class="go">    'input_exclusive_max': [8, [70], 9],</span>
+<span class="go">    'input_inclusive_min': [5, 0, 6],</span>
+<span class="go">    'input_labels': ['x', 'y', 'z'],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>

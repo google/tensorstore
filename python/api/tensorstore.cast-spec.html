@@ -1283,13 +1283,13 @@
 <dd><p>Returns a view with the data type converted.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s2">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;zarr&quot;</span><span class="p">,</span> <span class="s2">&quot;kvstore&quot;</span><span class="p">:</span> <span class="s2">&quot;memory://&quot;</span><span class="p">})</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s2">"driver"</span><span class="p">:</span> <span class="s2">"zarr"</span><span class="p">,</span> <span class="s2">"kvstore"</span><span class="p">:</span> <span class="s2">"memory://"</span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">view</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">view</span>
 <span class="go">Spec({</span>
-<span class="go">  &#39;base&#39;: {&#39;driver&#39;: &#39;zarr&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;}},</span>
-<span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
-<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
+<span class="go">  'base': {'driver': 'zarr', 'kvstore': {'driver': 'memory'}},</span>
+<span class="go">  'driver': 'cast',</span>
+<span class="go">  'dtype': 'uint32',</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>

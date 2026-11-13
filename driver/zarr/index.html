@@ -3479,7 +3479,7 @@ separately.</p>
 <dt class="field-odd" id="required-members-json-driver/zarr2">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/zarr2" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zarr2&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zarr&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zarr2"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zarr"</span></code><a class="headerlink" href="#json-driver/zarr2.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
@@ -3532,16 +3532,16 @@ with any driver-specific constraints.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.path">
-<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.path" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">""</span></code><a class="headerlink" href="#json-driver/zarr2.path" title="Link to this definition">¶</a></dt>
 <dd><span><p>Additional path relative to <a class="reference internal" href="#json-driver/zarr2.kvstore" title="driver/zarr2.kvstore (JSON member) — Base key-value store for the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.</p>
-  </span><p>This is joined as an additional <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>-separated path
+  </span><p>This is joined as an additional <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code>-separated path
 component after any <a class="reference internal" href="../../kvstore/index.html#json-KvStore.path" title="KvStore.path (JSON member) — Key prefix within the key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">path</span></code></a> member directly
 within <a class="reference internal" href="#json-driver/zarr2.kvstore" title="driver/zarr2.kvstore (JSON member) — Base key-value store for the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.  This is supported for backwards
 compatibility only; the <a class="reference internal" href="../../kvstore/index.html#json-KvStore.path" title="KvStore.path (JSON member) — Key prefix within the key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore.path</span></code></a> member should be
 used instead.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">&quot;path/to/data&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="s2">"path/to/data"</span>
 </code></pre></div>
 </div>
 </div>
@@ -3549,7 +3549,7 @@ used instead.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.cache_pool">
-<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.cache_pool" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"cache_pool"</span></code><a class="headerlink" href="#json-driver/zarr2.cache_pool" title="Link to this definition">¶</a></dt>
 <dd><span><p>Cache pool for data.</p>
   </span><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It is normally more convenient to
@@ -3559,7 +3559,7 @@ specify a default <a class="reference internal" href="../../context.html#json-Co
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.data_copy_concurrency" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"data_copy_concurrency"</span></code><a class="headerlink" href="#json-driver/zarr2.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more convenient to
 specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in the <a class="reference internal" href="#json-driver/zarr2.context" title="driver/zarr2.context (JSON member) — Specifies context resources that augment/override the parent context."><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
@@ -3576,7 +3576,7 @@ of the value of this option.</p>
 on every read.  To enable in-memory data caching, you must both specify
 a <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a> with a non-zero
 <a class="reference internal" href="../../context.html#json-Context.cache_pool.total_bytes_limit" title="Context.cache_pool.total_bytes_limit (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></a> and also specify <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>,
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, or an explicit time bound for <a class="reference internal" href="#json-driver/zarr2.recheck_cached_data" title="driver/zarr2.recheck_cached_data (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"open"</span></code>, or an explicit time bound for <a class="reference internal" href="#json-driver/zarr2.recheck_cached_data" title="driver/zarr2.recheck_cached_data (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -3656,13 +3656,13 @@ different assumed metadata.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.recheck_cached_metadata">
-<span class="sig-name descname"><span class="pre">recheck_cached_metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-CacheRevalidationBound" title="CacheRevalidationBound (JSON type)"><span class="pre">CacheRevalidationBound</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;open&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.recheck_cached_metadata" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">recheck_cached_metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-CacheRevalidationBound" title="CacheRevalidationBound (JSON type)"><span class="pre">CacheRevalidationBound</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"open"</span></code><a class="headerlink" href="#json-driver/zarr2.recheck_cached_metadata" title="Link to this definition">¶</a></dt>
 <dd><p>Time after which cached metadata is assumed to be fresh.  Cached
 metadata older than the specified time is revalidated prior to use.  The
 metadata is used to check the bounds of every read or write operation.</p>
 <p>Specifying <code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code> means that the metadata will be revalidated
 prior to every read or write operation.  With the default value of
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, any cached metadata is revalidated when the TensorStore
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"open"</span></code>, any cached metadata is revalidated when the TensorStore
 is opened but is not rechecked for each read or write operation.</p>
 </dd></dl>
 
@@ -3692,7 +3692,7 @@ chunks equal to the fill value may be represented as missing chunks.</p>
 <dd><span><p>Name of field to open.</p>
   </span><p>Must be specified if the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">metadata.dtype</span></code></a> specified in the array
 metadata has more than one field.  Cannot be specified together with
-<code class="code highlight json docutils literal highlight-json"><span class="nt">&quot;open_as_void&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span></code>.</p>
+<code class="code highlight json docutils literal highlight-json"><span class="nt">"open_as_void"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -3756,16 +3756,16 @@ the <a class="reference internal" href="../../schema.html#json-Schema.chunk_layo
 <span class="sig-name descname"><span class="pre">dtype</span></span><a class="headerlink" href="#json-driver/zarr2.metadata.dtype" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the scalar or structured data type.</p>
   </span><p>Refer to the <a class="reference external" href="https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding">Zarr data type encoding specification</a>.
-As an extension, TensorStore also supports <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;bfloat16&quot;</span></code> for
+As an extension, TensorStore also supports <code class="code highlight json docutils literal highlight-json"><span class="s2">"bfloat16"</span></code> for
 specifying the <a class="reference external" href="https://en.wikipedia.org/wiki/Bfloat16_floating-point_format">bfloat16</a>
 data type with little endian byte order.
 TensorStore also supports experimental 8-bit floating-point types including
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e3m4&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3fn&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3fnuz&quot;</span></code>,
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3b11fnuz&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e5m2&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e5m2fnuz&quot;</span></code>,
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e8m0fnu&quot;</span></code>, and 4-bit floating-point type <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float4_e2m1fn&quot;</span></code>
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e3m4"</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e4m3fn"</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e4m3fnuz"</span></code>,
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e4m3b11fnuz"</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e5m2"</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e5m2fnuz"</span></code>,
+<code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e8m0fnu"</span></code>, and 4-bit floating-point type <code class="code highlight json docutils literal highlight-json"><span class="s2">"float4_e2m1fn"</span></code>
 described in <a class="reference external" href="https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz">ml_dtypes</a>
 with little endian byte order.
-2/4-bit integer type padded to 1 byte is supported as <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;int2&quot;</span></code> and <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;int4&quot;</span></code> by
+2/4-bit integer type padded to 1 byte is supported as <code class="code highlight json docutils literal highlight-json"><span class="s2">"int2"</span></code> and <code class="code highlight json docutils literal highlight-json"><span class="s2">"int4"</span></code> by
 specifying <a class="reference external" href="https://github.com/jax-ml/ml_dtypes#int2-int4-uint2-and-uint4">int2/int4</a>.</p>
 </dd></dl>
 
@@ -3778,10 +3778,10 @@ specifying <a class="reference external" href="https://github.com/jax-ml/ml_dtyp
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.metadata.order">
-<span class="sig-name descname"><span class="pre">order</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;C&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;F&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.metadata.order" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">order</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"C"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"F"</span></code><a class="headerlink" href="#json-driver/zarr2.metadata.order" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the data layout for encoded chunks.</p>
-  </span><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;C&quot;</span></code> for C order, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;F&quot;</span></code> for Fortran order.  When
-creating a new array, defaults to <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;C&quot;</span></code>.</p>
+  </span><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"C"</span></code> for C order, <code class="code highlight json docutils literal highlight-json"><span class="s2">"F"</span></code> for Fortran order.  When
+creating a new array, defaults to <code class="code highlight json docutils literal highlight-json"><span class="s2">"C"</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -3790,7 +3790,7 @@ creating a new array, defaults to <code class="code highlight json docutils lite
 <dd><span><p>Specifies the chunk compression method.</p>
   </span><p>Specifies the chunk compressor.  Specifying <code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code> disables
 compression.  When creating a new array, if not specified, the default
-compressor of <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosc&quot;</span><span class="p">}</span></code> is used.</p>
+compressor of <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosc"</span><span class="p">}</span></code> is used.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -3803,10 +3803,10 @@ Currently, filters are not supported.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.metadata.dimension_separator">
-<span class="sig-name descname"><span class="pre">dimension_separator</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;.&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;/&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.metadata.dimension_separator" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">dimension_separator</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"."</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"/"</span></code><a class="headerlink" href="#json-driver/zarr2.metadata.dimension_separator" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the encoding of chunk indices into key-value store keys.</p>
-  </span><p>The default value of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;.&quot;</span></code> corresponds to the default encoding
-used by Zarr, while <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code> corresponds to the encoding used by
+  </span><p>The default value of <code class="code highlight json docutils literal highlight-json"><span class="s2">"."</span></code> corresponds to the default encoding
+used by Zarr, while <code class="code highlight json docutils literal highlight-json"><span class="s2">"/"</span></code> corresponds to the encoding used by
 <a class="reference external" href="https://zarr.readthedocs.io/en/stable/api/storage.html#zarr.storage.NestedDirectoryStore" title="(in zarr v2.13.6)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">zarr.storage.NestedDirectoryStore</span></code></a>.</p>
 </dd></dl>
 
@@ -3816,19 +3816,19 @@ used by Zarr, while <code class="code highlight json docutils literal highlight-
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.metadata_key">
-<span class="sig-name descname"><span class="pre">metadata_key</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;.zarray&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.metadata_key" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">metadata_key</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">".zarray"</span></code><a class="headerlink" href="#json-driver/zarr2.metadata_key" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the key under which to store the array metadata in JSON format.</p>
   </span><p>By default, the array metadata is stored under the <code class="file docutils literal notranslate"><span class="pre">.zarray</span></code> key as
 required by the <a class="reference external" href="https://zarr.readthedocs.io/en/stable/spec/v2.html#metadata">Zarr storage specification</a>.  In
 rare cases it may be useful to specify a non-default value,
-e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;zarray&quot;</span></code> to avoid problems caused by the leading dot.
+e.g. <code class="code highlight json docutils literal highlight-json"><span class="s2">"zarray"</span></code> to avoid problems caused by the leading dot.
 However, be aware that specifying a non-default value breaks
 compatibility with other zarr implementations.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2.key_encoding">
-<span class="sig-name descname"><span class="pre">key_encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;.&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;/&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;.&quot;</span></code><a class="headerlink" href="#json-driver/zarr2.key_encoding" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">key_encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"."</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"/"</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"."</span></code><a class="headerlink" href="#json-driver/zarr2.key_encoding" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the encoding of chunk indices into key-value store keys.</p>
   </span><p>Deprecated.  Equivalent to specifying <a class="reference internal" href="#json-driver/zarr2.metadata.dimension_separator" title="driver/zarr2.metadata.dimension_separator (JSON member) — Specifies the encoding of chunk indices into key-value store keys."><code class="xref json json-schema docutils literal notranslate"><span class="pre">metadata.dimension_separator</span></code></a>.</p>
 </dd></dl>
@@ -3838,15 +3838,15 @@ compatibility with other zarr implementations.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr2&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-bucket&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/array/&quot;</span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;key_encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;.&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">1000</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;chunks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">100</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;i2&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;compressor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;shuffle&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;clevel&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cname&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lz4&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr2"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gcs"</span><span class="p">,</span><span class="w"> </span><span class="nt">"bucket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-bucket"</span><span class="p">,</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"path/to/array/"</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"key_encoding"</span><span class="p">:</span><span class="w"> </span><span class="s2">"."</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">1000</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"chunks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">100</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;i2"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"compressor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"shuffle"</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="nt">"clevel"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"cname"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lz4"</span><span class="p">}</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -3874,19 +3874,19 @@ hierarchy.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/dataset.zarr/|zarr2:&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr2&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/dataset.zarr/&quot;</span><span class="p">}</span>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/dataset.zarr/|zarr2:"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr2"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/dataset.zarr/"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 </td>
 </tr>
-<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/dataset.zarr|zarr2:path/within/hierarchy&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr2&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/dataset.zarr/path/within/hierarchy/&quot;</span><span class="p">}</span>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"file:///tmp/dataset.zarr|zarr2:path/within/hierarchy"</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr2"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"kvstore"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"file"</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/dataset.zarr/path/within/hierarchy/"</span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -3952,7 +3952,7 @@ header.</p>
 <dt class="field-odd" id="required-members-json-driver/zarr2/Compressor/zlib">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/zarr2/Compressor/zlib" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2/Compressor/zlib.id">
-<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zlib&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;gzip&quot;</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/zlib.id" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zlib"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"gzip"</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/zlib.id" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd>
@@ -3971,7 +3971,7 @@ the best compression ratio (slowest).</p>
 </dl>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gzip&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gzip"</span><span class="p">,</span><span class="w"> </span><span class="nt">"level"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">}</span>
 </code></pre></div>
 </div>
 </div>
@@ -3992,7 +3992,7 @@ the best compression ratio (slowest).</p>
 <dt class="field-odd" id="required-members-json-driver/zarr2/Compressor/blosc">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/zarr2/Compressor/blosc" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2/Compressor/blosc.id">
-<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;blosc&quot;</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/blosc.id" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"blosc"</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/blosc.id" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd>
@@ -4001,7 +4001,7 @@ the best compression ratio (slowest).</p>
 <dt class="field-odd" id="optional-members-json-driver/zarr2/Compressor/blosc">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-driver/zarr2/Compressor/blosc" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight sig-wrap json" id="json-driver/zarr2/Compressor/blosc.cname">
-<span class="sig-name descname"><span class="pre">cname</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;blosclz&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;lz4&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;lz4hc&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;snappy&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zlib&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zstd&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;lz4&quot;</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/blosc.cname" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">cname</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"blosclz"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"lz4"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"lz4hc"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"snappy"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zlib"</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zstd"</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"lz4"</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/blosc.cname" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the compression method used by Blosc.</p>
 </dd></dl>
 
@@ -4059,7 +4059,7 @@ automatically.</p>
 </dl>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cname&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosclz&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;clevel&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;shuffle&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"cname"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosclz"</span><span class="p">,</span><span class="w"> </span><span class="nt">"clevel"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span><span class="w"> </span><span class="nt">"shuffle"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span>
 </code></pre></div>
 </div>
 </div>
@@ -4080,7 +4080,7 @@ automatically.</p>
 <dt class="field-odd" id="required-members-json-driver/zarr2/Compressor/bz2">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/zarr2/Compressor/bz2" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2/Compressor/bz2.id">
-<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bz2&quot;</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/bz2.id" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"bz2"</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/bz2.id" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd>
@@ -4114,7 +4114,7 @@ indicates the best compression ratio (slowest).</p>
 <dt class="field-odd" id="required-members-json-driver/zarr2/Compressor/zstd">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/zarr2/Compressor/zstd" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2/Compressor/zstd.id">
-<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zstd&quot;</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/zstd.id" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zstd"</span></code><a class="headerlink" href="#json-driver/zarr2/Compressor/zstd.id" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd>
@@ -4133,7 +4133,7 @@ compression speed.</p>
 </dl>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zstd&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zstd"</span><span class="p">,</span><span class="w"> </span><span class="nt">"level"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">}</span>
 </code></pre></div>
 </div>
 </div>
@@ -4144,30 +4144,30 @@ compression speed.</p>
 <p class="admonition-title">Example with scalar data type</p>
 <p>For the following zarr <a class="reference internal" href="#json-driver/zarr2.metadata" title="driver/zarr2.metadata (JSON member) — Zarr array metadata."><code class="xref json json-schema docutils literal notranslate"><span class="pre">metadata</span></code></a>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;zarr_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;chunks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;compressor&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;fill_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">  </span><span class="nt">"zarr_format"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"chunks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;u2"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"compressor"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"fill_value"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"filters"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
 <p>the corresponding <a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema</span></code></a> is:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;chunk_layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;grid_origin&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inner_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;read_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">]},</span>
-<span class="w">    </span><span class="nt">&quot;write_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">]}</span>
+<span class="w">  </span><span class="nt">"chunk_layout"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"grid_origin"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inner_order"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"read_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">]},</span>
+<span class="w">    </span><span class="nt">"write_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">]}</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;codec&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;compressor&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;exclusive_max&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">2000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">3000</span><span class="p">]],</span><span class="w"> </span><span class="nt">&quot;inclusive_min&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]},</span>
-<span class="w">  </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint16&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;fill_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">  </span><span class="nt">"codec"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"compressor"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr"</span><span class="p">,</span><span class="w"> </span><span class="nt">"filters"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"domain"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"exclusive_max"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">2000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">3000</span><span class="p">]],</span><span class="w"> </span><span class="nt">"inclusive_min"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]},</span>
+<span class="w">  </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint16"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"fill_value"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"rank"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -4176,59 +4176,59 @@ compression speed.</p>
 <p class="admonition-title">Example with <a class="reference external" href="https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding">structured data type</a></p>
 <p>For the following zarr <a class="reference internal" href="#json-driver/zarr2.metadata" title="driver/zarr2.metadata (JSON member) — Zarr array metadata."><code class="xref json json-schema docutils literal notranslate"><span class="pre">metadata</span></code></a>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;zarr_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;chunks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]],</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&lt;f4&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">5</span><span class="p">]]],</span>
-<span class="w">  </span><span class="nt">&quot;compressor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cname&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lz4&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;clevel&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;shuffle&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;fill_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AQACAAMABAAFAAYAAAAgQQAAMEEAAEBBAABQQQAAYEE=&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;F&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">  </span><span class="nt">"zarr_format"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span><span class="w"> </span><span class="mi">3000</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"chunks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;u2"</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]],</span><span class="w"> </span><span class="p">[</span><span class="s2">"y"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;f4"</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">5</span><span class="p">]]],</span>
+<span class="w">  </span><span class="nt">"compressor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"cname"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lz4"</span><span class="p">,</span><span class="w"> </span><span class="nt">"clevel"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"shuffle"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"fill_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AQACAAMABAAFAAYAAAAgQQAAMEEAAEBBAABQQQAAYEE="</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="s2">"F"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"filters"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
-<p>the corresponding <a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema</span></code></a> for the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;x&quot;</span></code>
+<p>the corresponding <a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema</span></code></a> for the <code class="code highlight json docutils literal highlight-json"><span class="s2">"x"</span></code>
 <a class="reference internal" href="#json-driver/zarr2.field" title="driver/zarr2.field (JSON member) — Name of field to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">field</span></code></a> is:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;chunk_layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;grid_origin&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inner_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;read_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]},</span>
-<span class="w">    </span><span class="nt">&quot;write_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]}</span>
+<span class="w">  </span><span class="nt">"chunk_layout"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"grid_origin"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inner_order"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"read_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]},</span>
+<span class="w">    </span><span class="nt">"write_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]}</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;codec&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;compressor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;blocksize&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;clevel&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cname&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lz4&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;shuffle&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">  </span><span class="nt">"codec"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"compressor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"blocksize"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"clevel"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"cname"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lz4"</span><span class="p">,</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"shuffle"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"filters"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;exclusive_max&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">2000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">3000</span><span class="p">],</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inclusive_min&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span>
+<span class="w">  </span><span class="nt">"domain"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"exclusive_max"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">2000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">3000</span><span class="p">],</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inclusive_min"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint16&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;fill_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">]],</span>
-<span class="w">  </span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<span class="w">  </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"uint16"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"fill_value"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">]],</span>
+<span class="w">  </span><span class="nt">"rank"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
-<p>and the corresponding <a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema</span></code></a> for the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;y&quot;</span></code>
+<p>and the corresponding <a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema</span></code></a> for the <code class="code highlight json docutils literal highlight-json"><span class="s2">"y"</span></code>
 <a class="reference internal" href="#json-driver/zarr2.field" title="driver/zarr2.field (JSON member) — Name of field to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">field</span></code></a> is:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;chunk_layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;grid_origin&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;inner_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;read_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">]},</span>
-<span class="w">    </span><span class="nt">&quot;write_chunk&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">]}</span>
+<span class="w">  </span><span class="nt">"chunk_layout"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"grid_origin"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"inner_order"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">"read_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">]},</span>
+<span class="w">    </span><span class="nt">"write_chunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">]}</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;codec&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;compressor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;blocksize&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;clevel&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cname&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lz4&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;shuffle&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">  </span><span class="nt">"codec"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"compressor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"blocksize"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"clevel"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"cname"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lz4"</span><span class="p">,</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"shuffle"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zarr"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"filters"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;exclusive_max&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">2000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">3000</span><span class="p">],</span><span class="w"> </span><span class="mi">5</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;inclusive_min&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]},</span>
-<span class="w">  </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;float32&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;fill_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">11.0</span><span class="p">,</span><span class="w"> </span><span class="mf">12.0</span><span class="p">,</span><span class="w"> </span><span class="mf">13.0</span><span class="p">,</span><span class="w"> </span><span class="mf">14.0</span><span class="p">],</span>
-<span class="w">  </span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">  </span><span class="nt">"domain"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"exclusive_max"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">2000</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">3000</span><span class="p">],</span><span class="w"> </span><span class="mi">5</span><span class="p">],</span><span class="w"> </span><span class="nt">"inclusive_min"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]},</span>
+<span class="w">  </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"float32"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"fill_value"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">11.0</span><span class="p">,</span><span class="w"> </span><span class="mf">12.0</span><span class="p">,</span><span class="w"> </span><span class="mf">13.0</span><span class="p">,</span><span class="w"> </span><span class="mf">14.0</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">"rank"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
 <span class="p">}</span>
 </code></pre></div>
 </div>
@@ -4247,99 +4247,99 @@ compression speed.</p>
 </thead>
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.bool" title="dtype.bool (JSON member) — Boolean value (0 or 1)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">bool</span></code></a></p></td>
-<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;|b1&quot;</span></code></p></td>
+<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"|b1"</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.int2" title="dtype.int2 (JSON member) — 2-bit signed two's-complement integer, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">int2</span></code></a></p></td>
-<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;int2&quot;</span></code></p></td>
+<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"int2"</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.int4" title="dtype.int4 (JSON member) — 4-bit signed two's-complement integer, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">int4</span></code></a></p></td>
-<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;int4&quot;</span></code></p></td>
+<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"int4"</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.uint8" title="dtype.uint8 (JSON member) — 8-bit unsigned integer."><code class="xref json json-schema docutils literal notranslate"><span class="pre">uint8</span></code></a></p></td>
-<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;|u1&quot;</span></code></p></td>
+<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"|u1"</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.int8" title="dtype.int8 (JSON member) — 8-bit signed two's-complement integer."><code class="xref json json-schema docutils literal notranslate"><span class="pre">int8</span></code></a></p></td>
-<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;|i1&quot;</span></code></p></td>
+<td colspan="2"><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"|i1"</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.uint16" title="dtype.uint16 (JSON member) — 16-bit unsigned integer."><code class="xref json json-schema docutils literal notranslate"><span class="pre">uint16</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;u2&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;u2&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;u2"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;u2"</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.int16" title="dtype.int16 (JSON member) — 16-bit signed two's-complement integer."><code class="xref json json-schema docutils literal notranslate"><span class="pre">int16</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;i2&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;i2&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;i2"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;i2"</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.uint32" title="dtype.uint32 (JSON member) — 32-bit unsigned integer."><code class="xref json json-schema docutils literal notranslate"><span class="pre">uint32</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;u2&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;u2&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;u2"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;u2"</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.int32" title="dtype.int32 (JSON member) — 32-bit signed two's-complement integer."><code class="xref json json-schema docutils literal notranslate"><span class="pre">int32</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;i4&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;i4&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;i4"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;i4"</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.uint64" title="dtype.uint64 (JSON member) — 64-bit unsigned integer."><code class="xref json json-schema docutils literal notranslate"><span class="pre">uint64</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;u8&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;u8&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;u8"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;u8"</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.int64" title="dtype.int64 (JSON member) — 64-bit signed two's-complement integer."><code class="xref json json-schema docutils literal notranslate"><span class="pre">int64</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;i8&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;i8&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;i8"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;i8"</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float4_e2m1fn" title="dtype.float4_e2m1fn (JSON member) — 4-bit floating point - Exponent: 2, Mantissa: 1, bias: 1, without NaN and infinities. ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float4_e2m1fn</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float4_e2m1fn&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"float4_e2m1fn"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e3m4" title="dtype.float8_e3m4 (JSON member) — 8-bit floating point - Exponent: 3, Mantissa: 4, bias: 3, IEEE 754, with NaN,  with infinities ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e3m4</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e3m4&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e3m4"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e4m3fn" title="dtype.float8_e4m3fn (JSON member) — 8-bit floating point - Exponent: 4, Mantissa: 3, bias: 7, with NaN,  without infinities ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e4m3fn</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3fn&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e4m3fn"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e4m3fnuz" title="dtype.float8_e4m3fnuz (JSON member) — 8-bit floating point - Exponent: 4, Mantissa: 3, bias: 8, with NaN,  without infinities ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e4m3fnuz</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3fnuz&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e4m3fnuz"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e4m3b11fnuz" title="dtype.float8_e4m3b11fnuz (JSON member) — 8-bit floating point - Exponent: 4, Mantissa: 3, bias: 11, with NaN,  without infinities ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e4m3b11fnuz</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3b11fnuz&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e4m3b11fnuz"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e5m2" title="dtype.float8_e5m2 (JSON member) — 8-bit floating point - Exponent: 5, Mantissa: 2, bias: 15, IEEE 754, with NaN and infinities. ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e5m2</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e5m2&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e5m2"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e5m2fnuz" title="dtype.float8_e5m2fnuz (JSON member) — 8-bit floating point - Exponent: 5, Mantissa: 2, bias: 16, with NaN, without infinities. ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e5m2fnuz</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e5m2fnuz&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e5m2fnuz"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e8m0fnu" title="dtype.float8_e8m0fnu (JSON member) — 8-bit floating point - Exponent: 8, Mantissa: 0, bias: 127, with NaN, without zero and infinities. ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e8m0fnu</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e8m0fnu&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"float8_e8m0fnu"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float16" title="dtype.float16 (JSON member) — IEEE 754 binary16 half-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float16</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;f2&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;f2&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;f2"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;f2"</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.bfloat16" title="dtype.bfloat16 (JSON member) — bfloat16 floating-point format number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">bfloat16</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;bfloat16&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"bfloat16"</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float32" title="dtype.float32 (JSON member) — IEEE 754 binary32 single-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float32</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;f4&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;f4&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;f4"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;f4"</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float64" title="dtype.float64 (JSON member) — IEEE 754 binary64 double-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float64</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;f8&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;f8&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;f8"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;f8"</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.complex64" title="dtype.complex64 (JSON member) — Complex number, where the real and imaginary components are each represented by a float32."><code class="xref json json-schema docutils literal notranslate"><span class="pre">complex64</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;c8&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;c8&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;c8"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;c8"</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.complex128" title="dtype.complex128 (JSON member) — Complex number, where the real and imaginary components are each represented by a float64."><code class="xref json json-schema docutils literal notranslate"><span class="pre">complex128</span></code></a></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;c16&quot;</span></code></p></td>
-<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;c16&quot;</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;c16"</span></code></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">"&gt;c16"</span></code></p></td>
 </tr>
 </tbody>
 </table>
@@ -4368,15 +4368,15 @@ a data type, as does TensorFlow and JAX.</p>
 any <em>subarray</em> dimensions in the case of a <a class="reference external" href="https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding">structured data type</a>.</p>
 <div class="example admonition">
 <p class="admonition-title">Example with scalar data type</p>
-<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;u2&quot;</span></code> and the
+<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;u2"</span></code> and the
 <a class="reference internal" href="#json-driver/zarr2.metadata.shape" title="driver/zarr2.metadata.shape (JSON member) — Chunked dimensions of the array."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.shape</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">]</span></code>, then the
-<a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.domain</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">100</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">200</span><span class="p">]]}</span></code>.</p>
+<a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.domain</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">100</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">200</span><span class="p">]]}</span></code>.</p>
 </div>
 <div class="example admonition">
 <p class="admonition-title">Example with structured data type</p>
-<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span>
+<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;u2"</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span>
 <span class="mi">3</span><span class="p">]]]</span></code>, and the <a class="reference internal" href="#json-driver/zarr2.metadata.shape" title="driver/zarr2.metadata.shape (JSON member) — Chunked dimensions of the array."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.shape</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">100</span><span class="p">,</span>
-<span class="mi">200</span><span class="p">]</span></code>, then the <a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.domain</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">100</span><span class="p">],</span>
+<span class="mi">200</span><span class="p">]</span></code>, then the <a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.domain</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">100</span><span class="p">],</span>
 <span class="p">[</span><span class="mi">200</span><span class="p">],</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]}</span></code>.</p>
 </div>
 <p>As zarr does not natively support a non-zero origin, the underlying domain
@@ -4397,13 +4397,13 @@ as any subarray dimensions in the case of a <a class="reference external" href="
 chunk size for subarray dimensions is always the full extent.</p>
 <div class="example admonition">
 <p class="admonition-title">Example with scalar data type</p>
-<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;u2&quot;</span></code> and
+<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;u2"</span></code> and
 <a class="reference internal" href="#json-driver/zarr2.metadata.chunks" title="driver/zarr2.metadata.chunks (JSON member) — Chunk dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.chunks</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">]</span></code>, then the
 <a class="reference internal" href="../../schema.html#json-ChunkLayout/Grid.shape" title="ChunkLayout/Grid.shape (JSON member) — Hard constraints on the chunk size for each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout/Grid.shape</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">]</span></code>.</p>
 </div>
 <div class="example admonition">
 <p class="admonition-title">Example with structured data type</p>
-<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span>
+<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;u2"</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span>
 <span class="mi">3</span><span class="p">]]]</span></code>, and <a class="reference internal" href="#json-driver/zarr2.metadata.chunks" title="driver/zarr2.metadata.chunks (JSON member) — Chunk dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.chunks</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">]</span></code>,
 then the <a class="reference internal" href="../../schema.html#json-ChunkLayout/Grid.shape" title="ChunkLayout/Grid.shape (JSON member) — Hard constraints on the chunk size for each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout/Grid.shape</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span></code>.</p>
 </div>
@@ -4417,29 +4417,29 @@ constraints are combined, and hard constraints on
 dimensions, which are always the inner-most dimensions.</p>
 <div class="example admonition">
 <p class="admonition-title">Example with scalar data type and C order</p>
-<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;u2&quot;</span></code>,
-<a class="reference internal" href="#json-driver/zarr2.metadata.order" title="driver/zarr2.metadata.order (JSON member) — Specifies the data layout for encoded chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.order</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;C&quot;</span></code>, and there are 3
+<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;u2"</span></code>,
+<a class="reference internal" href="#json-driver/zarr2.metadata.order" title="driver/zarr2.metadata.order (JSON member) — Specifies the data layout for encoded chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.order</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"C"</span></code>, and there are 3
 chunked dimensions, then the <a class="reference internal" href="../../schema.html#json-ChunkLayout.inner_order" title="ChunkLayout.inner_order (JSON member) — Permutation specifying the element storage order within the innermost chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.inner_order</span></code></a> is
 <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span></code>.</p>
 </div>
 <div class="example admonition">
 <p class="admonition-title">Example with scalar data type and Fortran order</p>
-<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;u2&quot;</span></code>,
-<a class="reference internal" href="#json-driver/zarr2.metadata.order" title="driver/zarr2.metadata.order (JSON member) — Specifies the data layout for encoded chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.order</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;F&quot;</span></code>, and there are 3
+<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"&lt;u2"</span></code>,
+<a class="reference internal" href="#json-driver/zarr2.metadata.order" title="driver/zarr2.metadata.order (JSON member) — Specifies the data layout for encoded chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.order</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"F"</span></code>, and there are 3
 chunked dimensions, then the <a class="reference internal" href="../../schema.html#json-ChunkLayout.inner_order" title="ChunkLayout.inner_order (JSON member) — Permutation specifying the element storage order within the innermost chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.inner_order</span></code></a> is
 <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span></code>.</p>
 </div>
 <div class="example admonition">
 <p class="admonition-title">Example with structured data type and C order</p>
-<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span>
-<span class="mi">3</span><span class="p">]]]</span></code>, <a class="reference internal" href="#json-driver/zarr2.metadata.order" title="driver/zarr2.metadata.order (JSON member) — Specifies the data layout for encoded chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.order</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;C&quot;</span></code>, and there
+<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;u2"</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span>
+<span class="mi">3</span><span class="p">]]]</span></code>, <a class="reference internal" href="#json-driver/zarr2.metadata.order" title="driver/zarr2.metadata.order (JSON member) — Specifies the data layout for encoded chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.order</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"C"</span></code>, and there
 are 3 chunked dimensions, then the <a class="reference internal" href="../../schema.html#json-ChunkLayout.inner_order" title="ChunkLayout.inner_order (JSON member) — Permutation specifying the element storage order within the innermost chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.inner_order</span></code></a> is
 <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">]</span></code>.</p>
 </div>
 <div class="example admonition">
 <p class="admonition-title">Example with structured data type and Fortran order</p>
-<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&lt;u2&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span>
-<span class="mi">3</span><span class="p">]]]</span></code>, <a class="reference internal" href="#json-driver/zarr2.metadata.order" title="driver/zarr2.metadata.order (JSON member) — Specifies the data layout for encoded chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.order</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;F&quot;</span></code>, and there
+<p>If the <a class="reference internal" href="#json-driver/zarr2.metadata.dtype" title="driver/zarr2.metadata.dtype (JSON member) — Specifies the scalar or structured data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.dtype</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="p">[[</span><span class="s2">"x"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;u2"</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span>
+<span class="mi">3</span><span class="p">]]]</span></code>, <a class="reference internal" href="#json-driver/zarr2.metadata.order" title="driver/zarr2.metadata.order (JSON member) — Specifies the data layout for encoded chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2.metadata.order</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">"F"</span></code>, and there
 are 3 chunked dimensions, then the <a class="reference internal" href="../../schema.html#json-ChunkLayout.inner_order" title="ChunkLayout.inner_order (JSON member) — Permutation specifying the element storage order within the innermost chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.inner_order</span></code></a> is
 <code class="code highlight json docutils literal highlight-json"><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">]</span></code>.</p>
 </div>
@@ -4453,19 +4453,19 @@ not specified, the default is 1 million elements per chunk:</p>
 <div class="example admonition">
 <p class="admonition-title">Example of unconstrained chunk layout</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">},</span>
 <span class="gp">... </span>        <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="gp">... </span>        <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint16</span><span class="p">,</span>
 <span class="gp">... </span>        <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">])</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;grid_origin&#39;: [0, 0, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [0, 1, 2],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [101, 101, 101]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [101, 101, 101]},</span>
+<span class="go">  'grid_origin': [0, 0, 0],</span>
+<span class="go">  'inner_order': [0, 1, 2],</span>
+<span class="go">  'read_chunk': {'shape': [101, 101, 101]},</span>
+<span class="go">  'write_chunk': {'shape': [101, 101, 101]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
@@ -4473,9 +4473,9 @@ not specified, the default is 1 million elements per chunk:</p>
 <div class="example admonition">
 <p class="admonition-title">Example of explicit chunk shape constraint</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">},</span>
 <span class="gp">... </span>        <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -4484,10 +4484,10 @@ not specified, the default is 1 million elements per chunk:</p>
 <span class="gp">... </span>        <span class="n">chunk_layout</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">ChunkLayout</span><span class="p">(</span>
 <span class="gp">... </span>            <span class="n">chunk_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">]))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;grid_origin&#39;: [0, 0, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [0, 1, 2],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [100, 200, 300]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [100, 200, 300]},</span>
+<span class="go">  'grid_origin': [0, 0, 0],</span>
+<span class="go">  'inner_order': [0, 1, 2],</span>
+<span class="go">  'read_chunk': {'shape': [100, 200, 300]},</span>
+<span class="go">  'write_chunk': {'shape': [100, 200, 300]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
@@ -4495,9 +4495,9 @@ not specified, the default is 1 million elements per chunk:</p>
 <div class="example admonition">
 <p class="admonition-title">Example of chunk aspect ratio constraint</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">},</span>
 <span class="gp">... </span>        <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -4506,10 +4506,10 @@ not specified, the default is 1 million elements per chunk:</p>
 <span class="gp">... </span>        <span class="n">chunk_layout</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">ChunkLayout</span><span class="p">(</span>
 <span class="gp">... </span>            <span class="n">chunk_aspect_ratio</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;grid_origin&#39;: [0, 0, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [0, 1, 2],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [64, 128, 128]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [64, 128, 128]},</span>
+<span class="go">  'grid_origin': [0, 0, 0],</span>
+<span class="go">  'inner_order': [0, 1, 2],</span>
+<span class="go">  'read_chunk': {'shape': [64, 128, 128]},</span>
+<span class="go">  'write_chunk': {'shape': [64, 128, 128]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
@@ -4517,9 +4517,9 @@ not specified, the default is 1 million elements per chunk:</p>
 <div class="example admonition">
 <p class="admonition-title">Example of chunk aspect ratio and elements constraint</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
+<span class="gp">... </span>    <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'zarr'</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'kvstore'</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">'driver'</span><span class="p">:</span> <span class="s1">'memory'</span>
 <span class="gp">... </span>    <span class="p">}</span>
 <span class="gp">... </span><span class="p">},</span>
 <span class="gp">... </span>        <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -4529,10 +4529,10 @@ not specified, the default is 1 million elements per chunk:</p>
 <span class="gp">... </span>            <span class="n">chunk_aspect_ratio</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
 <span class="gp">... </span>            <span class="n">chunk_elements</span><span class="o">=</span><span class="mi">2000000</span><span class="p">))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span><span class="o">.</span><span class="n">chunk_layout</span>
 <span class="go">ChunkLayout({</span>
-<span class="go">  &#39;grid_origin&#39;: [0, 0, 0],</span>
-<span class="go">  &#39;inner_order&#39;: [0, 1, 2],</span>
-<span class="go">  &#39;read_chunk&#39;: {&#39;shape&#39;: [79, 159, 159]},</span>
-<span class="go">  &#39;write_chunk&#39;: {&#39;shape&#39;: [79, 159, 159]},</span>
+<span class="go">  'grid_origin': [0, 0, 0],</span>
+<span class="go">  'inner_order': [0, 1, 2],</span>
+<span class="go">  'read_chunk': {'shape': [79, 159, 159]},</span>
+<span class="go">  'write_chunk': {'shape': [79, 159, 159]},</span>
 <span class="go">})</span>
 </code></pre></div>
 </div>
@@ -4554,7 +4554,7 @@ represented in the same way as in the <a class="reference internal" href="#json-
 <dt class="field-odd" id="required-members-json-driver/zarr2/Codec">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/zarr2/Codec" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr2/Codec.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zarr&quot;</span></code><a class="headerlink" href="#json-driver/zarr2/Codec.driver" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">"zarr"</span></code><a class="headerlink" href="#json-driver/zarr2/Codec.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd>
@@ -4567,7 +4567,7 @@ represented in the same way as in the <a class="reference internal" href="#json-
 <dd><span><p>Specifies the chunk compression method.</p>
   </span><p>Specifies the chunk compressor.  Specifying <code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code> disables
 compression.  When creating a new array, if not specified, the default
-compressor of <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blosc&quot;</span><span class="p">}</span></code> is used.</p>
+compressor of <code class="code highlight json docutils literal highlight-json"><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blosc"</span><span class="p">}</span></code> is used.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
