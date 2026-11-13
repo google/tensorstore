@@ -45,6 +45,7 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
+#include "tensorstore/internal/image/png_writer.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/parse_json_matches.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
@@ -94,6 +95,7 @@ using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::JpegWriter;
+using ::tensorstore::internal_image::PngWriter;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::testing::HasSubstr;
@@ -1054,6 +1056,65 @@ TEST(DriverTest, Jpeg1Channel) {
                  HasSubstr("Image dimensions (3, 5, 1) are not compatible with "
                            "expected chunk shape")));
   }
+}
+
+TEST(DriverTest, PngDataTypeMismatch) {
+  auto context = Context::Default();
+
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix/"},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint8"},
+           {"num_channels", 1},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "png"},
+           {"chunk_size", {3, 4, 2}},
+           {"size", {3, 4, 2}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kvs, kvstore::Open({{"driver", "memory"}}, context).result());
+
+  // Write a valid 16-bit PNG with matching dimensions (width=3, height=4*2,
+  // num_components=1) into a uint8 store.
+  absl::Cord png16_data;
+  {
+    std::vector<uint16_t> tmp(3 * 4 * 2, 0x1234);
+    ImageInfo info{/*.height =*/4 * 2,
+                   /*.width =*/3,
+                   /*.num_components =*/1,
+                   /*.dtype =*/dtype_v<uint16_t>};
+    PngWriter writer;
+    riegeli::CordWriter<> cord_writer(&png16_data);
+    TENSORSTORE_ASSERT_OK(writer.Initialize(&cord_writer));
+    TENSORSTORE_ASSERT_OK(writer.Encode(
+        info,
+        tensorstore::span(reinterpret_cast<const unsigned char*>(tmp.data()),
+                          tmp.size() * sizeof(uint16_t))));
+    TENSORSTORE_ASSERT_OK(writer.Done());
+  }
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", png16_data));
+
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(store).result(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               ::testing::AllOf(
+                   HasSubstr("Error reading \"prefix/1_1_1/0-3_0-4_0-2\":"),
+                   HasSubstr("Image data type (uint16) is not compatible with "
+                             "expected chunk data type (uint8)"))));
 }
 
 // Verify that jpeg quality has an effect.

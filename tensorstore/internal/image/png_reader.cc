@@ -162,7 +162,7 @@ ImageInfo PngReader::Context::GetImageInfo() {
 
 absl::Status PngReader::Context::Decode(tensorstore::span<unsigned char> dest) {
   auto info = GetImageInfo();
-  if (auto required = ImageRequiredBytes(info); required > dest.size()) {
+  if (auto required = ImageRequiredBytes(info); required != dest.size()) {
     return absl::InternalError(
         absl::StrFormat("Cannot read PNG; required buffer size %d, got %d",
                         required, dest.size()));
@@ -170,7 +170,8 @@ absl::Status PngReader::Context::Decode(tensorstore::span<unsigned char> dest) {
 
   ImageView dest_view(info, dest);
   std::vector<uint8_t*> row_ptrs;
-  absl::Status status;
+  int64_t height = 0;
+  size_t rowbytes = 0;
 
   bool ok = [&]() {
     // Setjump is problematic with C++; by convention we put it in a
@@ -181,7 +182,6 @@ absl::Status PngReader::Context::Decode(tensorstore::span<unsigned char> dest) {
 
     // http://www.libpng.org/pub/png/libpng-1.2.5-manual.html
     if (png_get_bit_depth(png_ptr_, info_ptr_) > 8) {
-      png_set_expand_16(png_ptr_);
       if constexpr (tensorstore::endian::native ==
                     tensorstore::endian::little) {
         // png is big endian.
@@ -194,9 +194,12 @@ absl::Status PngReader::Context::Decode(tensorstore::span<unsigned char> dest) {
     // Update info after we have set decoding options.
     png_read_update_info(png_ptr_, info_ptr_);
 
-    int64_t height = png_get_image_height(png_ptr_, info_ptr_);
-    assert(png_get_rowbytes(png_ptr_, info_ptr_) ==
-           dest_view.row_stride_bytes());
+    height = png_get_image_height(png_ptr_, info_ptr_);
+    rowbytes = png_get_rowbytes(png_ptr_, info_ptr_);
+    if (height != info.height ||
+        rowbytes != static_cast<size_t>(dest_view.row_stride_bytes())) {
+      return false;
+    }
 
     if (png_get_interlace_type(png_ptr_, info_ptr_) != PNG_INTERLACE_NONE) {
       // Interleaved images require that allocation of an image-sized buffer.
@@ -214,6 +217,14 @@ absl::Status PngReader::Context::Decode(tensorstore::span<unsigned char> dest) {
     return true;
   }();
 
+  if (!ok && reader_->ok() && last_error_.ok() &&
+      (height != info.height ||
+       rowbytes != static_cast<size_t>(dest_view.row_stride_bytes()))) {
+    return absl::InternalError(absl::StrFormat(
+        "Cannot read PNG; decoded dimensions (%d rows, %d bytes/row) do not "
+        "match expected (%d rows, %d bytes/row)",
+        height, rowbytes, info.height, dest_view.row_stride_bytes()));
+  }
   if (!ok || !reader_->ok() || !last_error_.ok()) {
     return StatusBuilder(!reader_->ok() ? reader_->status() : last_error_)
         .SetCode(absl::StatusCode::kDataLoss)
