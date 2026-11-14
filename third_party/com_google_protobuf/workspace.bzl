@@ -37,6 +37,8 @@ def repo():
             Label("//third_party:com_google_protobuf/patches/no_rules_java.diff"),
             # Probe NonConstexprAllocator for C++20 constexpr std::string on Clang 14.
             Label("//third_party:com_google_protobuf/patches/port_constexpr_string.diff"),
+            # Fix crash compiling upb arm64 assembly with clang-cl.
+            Label("//third_party:com_google_protobuf/patches/upb_clang_cl_arm64_seh.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {
