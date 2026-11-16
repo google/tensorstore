@@ -21,6 +21,7 @@
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/string_reader.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/png_reader.h"
 #include "tensorstore/internal/image/png_writer.h"
@@ -115,6 +116,69 @@ TEST(PngTest, CorruptData) {
   PngReader decoder;
   EXPECT_THAT(decoder.Initialize(&string_reader),
               StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(PngTest, DecodeBufferSizeMismatch) {
+  uint8_t pixels[2] = {10, 20};
+  absl::Cord encoded;
+  {
+    PngWriter encoder;
+    riegeli::CordWriter cord_writer(&encoded);
+    ASSERT_THAT(encoder.Initialize(&cord_writer), IsOk());
+    ASSERT_THAT(encoder.Encode(ImageInfo{1, 2, 1}, pixels), IsOk());
+    ASSERT_THAT(encoder.Done(), IsOk());
+  }
+
+  {
+    PngReader decoder;
+    riegeli::CordReader cord_reader(&encoded);
+    ASSERT_THAT(decoder.Initialize(&cord_reader), IsOk());
+    uint8_t small_buf[1] = {};
+    EXPECT_THAT(decoder.Decode(small_buf),
+                StatusIs(absl::StatusCode::kInternal));
+  }
+
+  {
+    PngReader decoder;
+    riegeli::CordReader cord_reader(&encoded);
+    ASSERT_THAT(decoder.Initialize(&cord_reader), IsOk());
+    uint8_t large_buf[4] = {};
+    EXPECT_THAT(decoder.Decode(large_buf),
+                StatusIs(absl::StatusCode::kInternal));
+  }
+}
+
+TEST(PngTest, Decode16BitGrayWithTrns) {
+  // 1x2 16-bit grayscale PNG (color_type=0, bit_depth=16) containing a tRNS
+  // chunk (transparent value = 0x0001) and pixels {0x0001, 0x1234}.
+  // GetImageInfo() reports num_components=1 and dtype=uint16, so Decode() must
+  // not expand tRNS into an extra alpha channel that would overflow dest.
+  static constexpr unsigned char kPng16GrayTrns[] = {
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00,
+      0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+      0x00, 0x02, 0x10, 0x00, 0x00, 0x00, 0x00, 0xec, 0x7a, 0x35, 0xb8,
+      0x00, 0x00, 0x00, 0x02, 0x74, 0x52, 0x4e, 0x53, 0x00, 0x01, 0x01,
+      0x94, 0xfd, 0xae, 0x00, 0x00, 0x00, 0x0e, 0x49, 0x44, 0x41, 0x54,
+      0x78, 0x9c, 0x63, 0x60, 0x60, 0x64, 0x10, 0x32, 0x01, 0x00, 0x00,
+      0x62, 0x00, 0x48, 0xbc, 0xf6, 0xe8, 0x85, 0x00, 0x00, 0x00, 0x00,
+      0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+  };
+  riegeli::StringReader string_reader(
+      reinterpret_cast<const char*>(kPng16GrayTrns), sizeof(kPng16GrayTrns));
+
+  PngReader decoder;
+  ASSERT_THAT(decoder.Initialize(&string_reader), IsOk());
+  const ImageInfo info = decoder.GetImageInfo();
+  EXPECT_EQ(1, info.width);
+  EXPECT_EQ(2, info.height);
+  EXPECT_EQ(1, info.num_components);
+  EXPECT_EQ(tensorstore::dtype_v<uint16_t>, info.dtype);
+
+  uint16_t pixels[2] = {};
+  ASSERT_THAT(decoder.Decode(tensorstore::span(
+                  reinterpret_cast<unsigned char*>(pixels), sizeof(pixels))),
+              IsOk());
+  EXPECT_THAT(pixels, ::testing::ElementsAre(0x0001, 0x1234));
 }
 
 }  // namespace

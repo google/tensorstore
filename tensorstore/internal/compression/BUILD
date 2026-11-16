@@ -134,6 +134,7 @@ tensorstore_cc_library(
     hdrs = ["neuroglancer_compressed_segmentation.h"],
     deps = [
         "//tensorstore/internal:integer_overflow",
+        "//tensorstore/internal/meta:attributes",
         "//tensorstore/util:endian",
         "@abseil-cpp//absl/container:flat_hash_map",
     ],

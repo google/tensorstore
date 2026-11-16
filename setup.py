@@ -295,7 +295,7 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             '--//tensorstore/internal/version=%s' % version_stamp
         )
 
-      if sysconfig.get_config_var('Py_GIL_DISABLED') == '1':
+      if str(sysconfig.get_config_var('Py_GIL_DISABLED')) == '1':
         build_flags.append(
             '--@rules_python//python/config_settings:py_freethreaded=yes'
         )

@@ -27,19 +27,12 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/nditerable_array.h"
 #include "tensorstore/internal/nditerable_copy.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-
-#if defined(__clang__) || defined(__GNUC__)
-#define TENSORSTORE_INTERNAL_RESTRICT __restrict__
-#elif defined(_MSC_VER)
-#define TENSORSTORE_INTERNAL_RESTRICT __restrict
-#else
-#define TENSORSTORE_INTERNAL_RESTRICT
-#endif
 
 namespace {
 

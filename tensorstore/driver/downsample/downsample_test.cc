@@ -605,18 +605,10 @@ TEST(DownsampleTest, ReadChunkWithIndexTransform) {
   }
 }
 
-#if 0
 // Tests reading a chunk where `IndexSlice` / `IndexArraySlice` on a downsampled
 // dimension eliminates the target dimension (`target_rank == 1 < base_rank ==
 // 2`), and the selected output index (`1`) maps to a clipped boundary window
 // `[2, 3)` of extent 1 in the base domain.
-//
-// Aborts at HEAD with `assert(target_rank == base_domain.rank())` at
-// `downsample_nditerable.cc:1315` because `DownsampleNDIterable` treats any
-// dimension with `base_domain.shape()[i] == 1` as a non-downsampled dimension
-// (`has_downsample_dim == false`) and returns the untransformed rank-2
-// `base_iterable` instead of truncating the synthetic dimension to
-// `target_rank`.
 TEST(DownsampleTest, ReadChunkIndexSlicedToClippedExtent1Window) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -649,10 +641,6 @@ TEST(DownsampleTest, ReadChunkIndexSlicedToClippedExtent1Window) {
 
 // Tests reading a chunk from a 1-D extent-1 store downsampled by factor 3 and
 // `IndexSlice`d to a 0-D scalar (`target_rank == 0 < base_rank == 1`).
-//
-// Aborts at HEAD with `assert(target_rank == base_domain.rank())` at
-// `downsample_nditerable.cc:1315` for the same reason as
-// `ReadChunkIndexSlicedToClippedExtent1Window`.
 TEST(DownsampleTest, ReadChunkIndexSlicedExtent1StoreToScalar) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store_1d, tensorstore::FromArray(MakeArray<float>({42.0f})));
@@ -671,7 +659,6 @@ TEST(DownsampleTest, ReadChunkIndexSlicedExtent1StoreToScalar) {
       tensorstore::TransformedArray(scalar_target)));
   EXPECT_EQ(scalar_target, tensorstore::MakeScalarArray<float>(42.0f));
 }
-#endif
 
 // Tests reading a chunk from a Fortran-order `4 x 4` store downsampled by
 // `{2, 2}` and jointly `IndexArraySlice`d across both dimensions into a 1-D

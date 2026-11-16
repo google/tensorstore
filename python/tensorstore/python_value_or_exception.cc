@@ -45,17 +45,15 @@ type_caster<tensorstore::internal_python::PythonValueOrExceptionWeakRef>::cast(
     const tensorstore::internal_python::PythonValueOrExceptionWeakRef& obj,
     return_value_policy policy, handle parent) {
   if (obj.value) {
-    return obj.value.get_value_or_none().inc_ref();
+    return obj.value.get_value_or_none().release();
   }
-  auto error_type =
-      reinterpret_borrow<object>(obj.error_type.get_value_or_null());
-  auto error_value =
-      reinterpret_borrow<object>(obj.error_value.get_value_or_null());
-  auto error_traceback =
-      reinterpret_borrow<object>(obj.error_traceback.get_value_or_null());
+  auto error_type = obj.error_type.get_value_or_null();
+  auto error_value = obj.error_value.get_value_or_null();
   if (!error_type || !error_value) {
     throw value_error("internal error: weak referent destroyed");
   }
+
+  auto error_traceback = obj.error_traceback.get_value_or_null();
   ::PyErr_Restore(error_type.release().ptr(), error_value.release().ptr(),
                   error_traceback.release().ptr());
   throw error_already_set();

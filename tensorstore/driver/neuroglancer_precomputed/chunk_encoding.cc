@@ -28,6 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
@@ -110,9 +111,7 @@ Result<SharedArray<const void>> DecodeImageChunk(
   //
   // If number of channels is 1, then this is equivalent to the
   // `(channel, z, y, x)` layout in `chunk_layout`.
-  auto array = AllocateArray(
-      {partial_shape[1], partial_shape[2], partial_shape[3], partial_shape[0]},
-      c_order, default_init, dtype);
+  SharedArray<void, 4> array;
 
   {
     riegeli::CordReader<> cord_reader(&encoded_input);
@@ -121,6 +120,12 @@ Result<SharedArray<const void>> DecodeImageChunk(
     auto info = reader.GetImageInfo();
 
     // Check constraints.
+    if (info.dtype != dtype) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Image data type (%v) is not compatible with expected chunk data "
+          "type (%v)",
+          info.dtype, dtype));
+    }
     const Index num_elements = ProductOfExtents(partial_shape.subspan<1>());
     size_t total_pixels;
     if (internal::MulOverflow(static_cast<size_t>(info.width),
@@ -136,9 +141,12 @@ Result<SharedArray<const void>> DecodeImageChunk(
           GenericStringify(partial_shape)));
     }
 
+    array = AllocateArray({partial_shape[1], partial_shape[2], partial_shape[3],
+                           partial_shape[0]},
+                          c_order, default_init, dtype);
     TENSORSTORE_RETURN_IF_ERROR(reader.Decode(
         tensorstore::span(reinterpret_cast<unsigned char*>(array.data()),
-                          ImageRequiredBytes(info))));
+                          array.num_elements() * array.dtype().size())));
     if (!cord_reader.Close()) {
       return cord_reader.status();
     }

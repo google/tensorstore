@@ -105,22 +105,84 @@ Result<DataTypeConversionLookupResult> GetDataTypeConverterOrError(
 
 /// Converts a floating-point value to an integer data type `T` (`int8_t` ..
 /// `uint64_t`, `int2_t`, `int4_t`), mapping NaN to 0 and clamping out-of-range
-/// values to `[lowest(), max()]` so that conversion is well-defined for all
-/// inputs (including in `constexpr` evaluation).
+/// values (including +/-infinity) to `[lowest(), max()]` of `T` so that
+/// conversion is well-defined for all inputs (including in `constexpr`
+/// evaluation).
+///
+/// `double` inputs are range-checked in `double` precision; all other
+/// floating-point types (`float`, `float16_t`, `bfloat16_t`, and the 1-byte
+/// float types) are first converted losslessly to `float`.
 template <typename T, typename From>
 constexpr T SaturatedFloatToInt(From x) {
-  if constexpr (!std::is_integral_v<T> && std::numeric_limits<T>::is_integer) {
-    return static_cast<T>(SaturatedFloatToInt<int8_t>(x));
+  static_assert(!std::numeric_limits<From>::is_integer &&
+                sizeof(From) <= sizeof(double));
+  using F = std::conditional_t<std::is_same_v<From, double>, double, float>;
+  using FLimits = std::numeric_limits<F>;
+  using TLimits = std::numeric_limits<T>;
+  const F f = static_cast<F>(x);
+#if defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__
+  constexpr bool kUseBitcastNanCheck = true;
+#else
+  // GCC enables `-ftrapping-math` by default, which rejects ordered relational
+  // comparisons (`>`, `<`, `>=`, `<=`) on `NaN` in `constexpr` evaluation.
+  const bool kUseBitcastNanCheck = std::is_constant_evaluated();
+#endif
+  if (kUseBitcastNanCheck) {
+    using UInt =
+        std::conditional_t<std::is_same_v<F, double>, uint64_t, uint32_t>;
+    constexpr UInt kAbsMask =
+        std::is_same_v<F, double> ? 0x7fffffffffffffffULL : 0x7fffffffU;
+    constexpr UInt kInfBits =
+        std::is_same_v<F, double> ? 0x7ff0000000000000ULL : 0x7f800000U;
+    if ((__builtin_bit_cast(UInt, f) & kAbsMask) > kInfBits) return T{0};
+  }
+  if constexpr (std::is_unsigned_v<T> && TLimits::digits <= FLimits::digits) {
+    // Unsigned integers whose `max()` is exact in `F` (`uint8_t`, `uint16_t`
+    // from `float`/`double`; plus `uint32_t` from `double`): `f > 0` maps both
+    // `NaN` and negatives to `0` in a single `vmax` instruction. Casting via
+    // `int32_t` when `sizeof(T) < sizeof(int32_t)` enables AVX2
+    // `vcvttps2dq`/`vcvttpd2dq`.
+    static_assert(!std::is_same_v<T, bool>);
+    using ConvInt =
+        std::conditional_t<(sizeof(T) < sizeof(int32_t)), int32_t, T>;
+    constexpr F kMax = static_cast<F>(TLimits::max());
+    const F pos = (f > F{0}) ? f : F{0};
+    const F clamped = (pos < kMax) ? pos : kMax;
+    return static_cast<T>(static_cast<ConvInt>(clamped));
+  } else if constexpr (TLimits::digits <= FLimits::digits) {
+    // Narrow signed (`int2_t`, `int4_t`, `int8_t`, `int16_t` from
+    // `float`/`double`; plus `int32_t` from `double`): both `lowest()` and
+    // `max()` are exact in `F` and fit in `int32_t`, allowing branchless
+    // `vmax` + `vmin` + `NaN` zero-masking.
+    static_assert(TLimits::is_integer && TLimits::is_signed);
+    constexpr F kLowest =
+        static_cast<F>(static_cast<int32_t>(TLimits::lowest()));
+    constexpr F kMax = static_cast<F>(static_cast<int32_t>(TLimits::max()));
+    const F lo = (f > kLowest) ? f : kLowest;
+    const F clamped = (lo < kMax) ? lo : kMax;
+    const int32_t conv = (f == f) ? static_cast<int32_t>(clamped) : 0;
+    if constexpr (!std::is_integral_v<T>) {
+      return T(typename T::bitcast_construct_t{}, static_cast<int8_t>(conv));
+    } else {
+      return static_cast<T>(conv);
+    }
+  } else if constexpr (std::is_unsigned_v<T>) {
+    // Wide unsigned (`uint32_t` from `float`; `uint64_t` from
+    // `float`/`double`): `!(f > 0)` folds `NaN -> 0` and `<= 0 -> 0` into a
+    // single comparison, and `>=` catches `max()` rounded up to `2^k`.
+    static_assert(!std::is_same_v<T, bool>);
+    constexpr F kMaxRounded = static_cast<F>(TLimits::max());
+    if (!(f > F{0})) return T{0};
+    if (f >= kMaxRounded) return TLimits::max();
+    return static_cast<T>(f);
   } else {
-    static_assert(std::is_integral_v<T> && !std::is_same_v<T, bool>);
-    const float f = static_cast<float>(x);
-    if (constexpr_is_nan(f)) return T{0};
-    if (f >= static_cast<float>(std::numeric_limits<T>::max())) {
-      return std::numeric_limits<T>::max();
-    }
-    if (f <= static_cast<float>(std::numeric_limits<T>::lowest())) {
-      return std::numeric_limits<T>::lowest();
-    }
+    // Wide signed (`int32_t` from `float`; `int64_t` from `float`/`double`).
+    static_assert(std::is_integral_v<T> && std::is_signed_v<T>);
+    constexpr F kLowest = static_cast<F>(TLimits::lowest());
+    constexpr F kMaxRounded = static_cast<F>(TLimits::max());
+    if (f != f) return T{0};
+    if (f >= kMaxRounded) return TLimits::max();
+    if (f <= kLowest) return TLimits::lowest();
     return static_cast<T>(f);
   }
 }
@@ -217,7 +279,7 @@ struct IntegerJsonDataTypeConversionTraits {
 template <typename From, typename To>
 struct FloatJsonDataTypeConversionTraits {
   // float -> json conversion is always supported, and has `kSafeAndImplicit`
-  // flag iff the conversion from `From` to `double` does.
+  // flag if and only if the conversion from `From` to `double` does.
   constexpr static DataTypeConversionFlags flags =
       DataTypeConversionTraits<From, double>::flags &
       (DataTypeConversionFlags::kSupported |
@@ -233,8 +295,6 @@ struct DataTypeConversionTraits<std::complex<T>, ::tensorstore::dtypes::json_t>
 #define TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(FROM, TO, ...) \
   template <>                                                     \
   struct DataTypeConversionTraits<FROM, TO> {                     \
-    using From = FROM;                                            \
-    using To = TO;                                                \
     constexpr static DataTypeConversionFlags flags = __VA_ARGS__; \
   };                                                              \
   /**/

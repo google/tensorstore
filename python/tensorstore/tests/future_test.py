@@ -273,69 +273,109 @@ def test_future_concurrent_wait() -> None:
 
 
 def test_future_concurrent_ops() -> None:
-  """Test multi-treaded races between adding callbacks and cancellation."""
+  """Test multi-threaded races across Future and Promise operations."""
 
-  def _do_concurrent_ops() -> None:
+  def _do_concurrent_ops(iteration: int) -> None:
     callback_called = threading.Event()
-    callback_result = [None]
-    callback_error = [None]
+    callback_result: list[Any] = [None]
+    callback_error: list[BaseException | None] = [None]
+    waiter_outcomes: list[tuple[Any, BaseException | None]] = []
+    exc_waiter_outcomes: list[tuple[Any, BaseException | None]] = []
+    outcomes_lock = threading.Lock()
+    expected_value = [42, {'iteration': iteration}]
 
     def callback(f: ts.Future) -> None:
-      nonlocal callback_called
-      nonlocal callback_result
-      nonlocal callback_error
       try:
         callback_result[0] = f.result()
-      except asyncio.CancelledError as e:
-        callback_error[0] = e  # pyrefly: ignore[unsupported-operation]
-      except Exception as e:  # pylint: disable=broad-exception-caught
-        callback_error[0] = e  # pyrefly: ignore[unsupported-operation]
+      except BaseException as e:  # pylint: disable=broad-exception-caught
+        callback_error[0] = e
       finally:
         callback_called.set()
 
+    def removable_callback(f: ts.Future) -> None:
+      del f
+
     promise, future = ts.Promise.new()
-    start = threading.Event()
     stop = threading.Event()
+    num_workers = 8
+    barrier = threading.Barrier(num_workers)
 
     def do_add_callback() -> None:
-      start.wait(timeout=5)
+      barrier.wait(timeout=5)
       future.add_done_callback(callback)
 
+    def do_add_and_remove_callback() -> None:
+      barrier.wait(timeout=5)
+      future.add_done_callback(removable_callback)
+      future.remove_done_callback(removable_callback)
+
     def do_cancel() -> None:
-      start.wait(timeout=5)
+      barrier.wait(timeout=5)
       future.cancel()
 
     def do_set_result() -> None:
-      start.wait(timeout=5)
+      barrier.wait(timeout=5)
       try:
-        promise.set_result(42)
-      except:  # pylint: disable=bare-except
+        promise.set_result(expected_value)
+      except BaseException:  # pylint: disable=broad-exception-caught
         pass
+
+    def do_set_exception() -> None:
+      barrier.wait(timeout=5)
+      try:
+        promise.set_exception(ValueError('concurrent error'))
+      except BaseException:  # pylint: disable=broad-exception-caught
+        pass
+
+    def do_wait_result() -> None:
+      barrier.wait(timeout=5)
+      try:
+        res = future.result(timeout=5)
+        with outcomes_lock:
+          waiter_outcomes.append((res, None))
+      except BaseException as e:  # pylint: disable=broad-exception-caught
+        with outcomes_lock:
+          waiter_outcomes.append((None, e))
+
+    def do_wait_exception() -> None:
+      barrier.wait(timeout=5)
+      try:
+        exc = future.exception(timeout=5)
+        with outcomes_lock:
+          exc_waiter_outcomes.append((exc, None))
+      except BaseException as e:  # pylint: disable=broad-exception-caught
+        with outcomes_lock:
+          exc_waiter_outcomes.append((None, e))
 
     def read_props() -> None:
       while not stop.is_set():
         _ = future.done()
         _ = future.cancelled()
 
-    threads = [
+    worker_threads = [
         threading.Thread(target=do_set_result),
+        threading.Thread(target=do_set_exception),
         threading.Thread(target=do_add_callback),
+        threading.Thread(target=do_add_and_remove_callback),
         threading.Thread(target=do_cancel),
         threading.Thread(target=do_cancel),
-        threading.Thread(target=read_props),
+        threading.Thread(target=do_wait_result),
+        threading.Thread(target=do_wait_exception),
     ]
-    random.shuffle(threads)
+    assert len(worker_threads) == num_workers
+    random.shuffle(worker_threads)
+    props_thread = threading.Thread(target=read_props)
+    threads = worker_threads + [props_thread]
 
     for t in threads:
       t.start()
 
-    time.sleep(0.01)
-    start.set()
-    time.sleep(0.1)
+    for t in worker_threads:
+      t.join(timeout=10)
+      assert not t.is_alive()
     stop.set()
-
-    for t in threads:
-      t.join()
+    props_thread.join(timeout=10)
+    assert not props_thread.is_alive()
 
     assert future.done()
     assert callback_called.wait(timeout=5)
@@ -344,11 +384,73 @@ def test_future_concurrent_ops() -> None:
       assert isinstance(callback_error[0], asyncio.CancelledError)
       with pytest.raises(asyncio.CancelledError):
         future.result()
+      with pytest.raises(asyncio.CancelledError):
+        future.exception()
+      for res, err in waiter_outcomes:
+        assert res is None
+        assert isinstance(err, asyncio.CancelledError)
+      for exc, err in exc_waiter_outcomes:
+        assert exc is None
+        assert isinstance(err, asyncio.CancelledError)
+    elif future.exception() is not None:
+      assert isinstance(future.exception(), ValueError)
+      assert isinstance(callback_error[0], ValueError)
+      with pytest.raises(ValueError, match='concurrent error'):
+        future.result()
+      for res, err in waiter_outcomes:
+        assert res is None
+        assert isinstance(err, ValueError)
+      for exc, err in exc_waiter_outcomes:
+        assert err is None
+        assert isinstance(exc, ValueError)
     else:
-      # If not cancelled, result must have been set.
       assert callback_error[0] is None
-      assert future.result() == 42
-      assert callback_result[0] == 42
+      assert future.result() == expected_value
+      assert callback_result[0] == expected_value
+      for res, err in waiter_outcomes:
+        assert err is None
+        assert res == expected_value
+      for exc, err in exc_waiter_outcomes:
+        assert err is None
+        assert exc is None
 
-  for _ in range(4):
-    _do_concurrent_ops()
+  for i in range(100):
+    _do_concurrent_ops(i)
+
+
+def test_future_concurrent_dealloc() -> None:
+  """Test races between Promise fulfillment and Future/Promise deallocation."""
+
+  def _do_dealloc_race(iteration: int) -> None:
+    pair: list[Any] = list(ts.Promise.new())
+    barrier = threading.Barrier(2)
+
+    def do_resolve() -> None:
+      promise = pair[0]
+      pair[0] = None
+      barrier.wait(timeout=5)
+      if iteration % 3 == 0:
+        promise.set_result([iteration, {'k': iteration}])
+      elif iteration % 3 == 1:
+        promise.set_exception(ValueError(f'err {iteration}'))
+      del promise
+
+    def do_drop_future() -> None:
+      future = pair[1]
+      pair[1] = None
+      barrier.wait(timeout=5)
+      if iteration % 2 == 0:
+        future.cancel()
+      del future
+
+    t1 = threading.Thread(target=do_resolve)
+    t2 = threading.Thread(target=do_drop_future)
+    t1.start()
+    t2.start()
+    t1.join(timeout=10)
+    t2.join(timeout=10)
+    assert not t1.is_alive()
+    assert not t2.is_alive()
+
+  for i in range(100):
+    _do_dealloc_race(i)

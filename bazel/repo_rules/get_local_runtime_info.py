@@ -155,7 +155,7 @@ def _get_python_library_info(base_executable) -> dict[str, Any]:
       version = f"{sys.version_info.major}.{sys.version_info.minor}"
 
   defines = []
-  if config_vars.get("Py_GIL_DISABLED", "0") == "1":
+  if str(config_vars.get("Py_GIL_DISABLED", "0")) == "1":
     defines.append("Py_GIL_DISABLED")
 
   # Avoid automatically linking the libraries on windows via pydefine.h

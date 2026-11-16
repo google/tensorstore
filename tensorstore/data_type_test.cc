@@ -20,6 +20,7 @@
 #include <stdint.h>
 
 #include <cmath>
+#include <complex>
 #include <limits>
 #include <memory>
 #include <string>
@@ -46,6 +47,7 @@ using ::tensorstore::DataTypeIdOf;
 using ::tensorstore::dtype_v;
 using ::tensorstore::EqualityComparisonKind;
 using ::tensorstore::Index;
+using ::tensorstore::IsComplex;
 using ::tensorstore::IsElementType;
 using ::tensorstore::IsTrivial;
 using ::tensorstore::StaticDataTypeCast;
@@ -89,7 +91,72 @@ static_assert(IsElementType<UnionT>);
 static_assert(IsElementType<EnumT>);
 static_assert(IsElementType<int ClassT::*>);
 static_assert(IsElementType<int (ClassT::*)(int)>);
+
+static_assert(IsComplex<complex64_t>);
+static_assert(IsComplex<complex128_t>);
+static_assert(IsComplex<const complex64_t>);
+static_assert(IsComplex<volatile complex128_t>);
+static_assert(IsComplex<const volatile std::complex<double>>);
+static_assert(!IsComplex<float>);
+static_assert(!IsComplex<double>);
+static_assert(!IsComplex<int>);
+static_assert(!IsComplex<void>);
+static_assert(!IsComplex<complex64_t&>);
+static_assert(!IsComplex<const complex64_t&>);
+static_assert(!IsComplex<complex64_t*>);
+static_assert(!IsComplex<string_t>);
+static_assert(!IsComplex<json_t>);
 }  // namespace is_element_type_tests
+
+static_assert(IsTrivial<bool>);
+static_assert(IsTrivial<int2_t>);
+static_assert(IsTrivial<int4_t>);
+
+static_assert(IsTrivial<float8_e3m4_t>);
+static_assert(IsTrivial<float8_e4m3fn_t>);
+static_assert(IsTrivial<float8_e4m3fnuz_t>);
+static_assert(IsTrivial<float8_e4m3b11fnuz_t>);
+static_assert(IsTrivial<float8_e5m2_t>);
+static_assert(IsTrivial<float8_e5m2fnuz_t>);
+static_assert(IsTrivial<float4_e2m1fn_t>);
+
+static_assert(IsTrivial<bfloat16_t>);
+static_assert(IsTrivial<float16_t>);
+static_assert(IsTrivial<float32_t>);
+static_assert(IsTrivial<float64_t>);
+static_assert(IsTrivial<uint64_t>);
+static_assert(IsTrivial<complex64_t>);
+static_assert(IsTrivial<complex128_t>);
+static_assert(!IsTrivial<string_t>);
+static_assert(!IsTrivial<ustring_t>);
+static_assert(!IsTrivial<json_t>);
+
+static_assert(DataTypeIdOf<int> == DataTypeIdOf<int32_t>);
+static_assert(DataTypeIdOf<unsigned int> == DataTypeIdOf<uint32_t>);
+static_assert(DataTypeIdOf<long long> == DataTypeIdOf<int64_t>);
+static_assert(DataTypeIdOf<unsigned long long> == DataTypeIdOf<uint64_t>);
+static_assert(sizeof(long) == 4 || sizeof(long) == 8);
+static_assert(sizeof(long) != 4 || DataTypeIdOf<long> == DataTypeIdOf<int32_t>);
+static_assert(sizeof(long) != 4 ||
+              DataTypeIdOf<unsigned long> == DataTypeIdOf<uint32_t>);
+static_assert(sizeof(long) == 4 || DataTypeIdOf<long> == DataTypeIdOf<int64_t>);
+static_assert(sizeof(long) == 4 ||
+              DataTypeIdOf<unsigned long> == DataTypeIdOf<uint64_t>);
+
+#define TENSORSTORE_INTERNAL_CHECK_GET_COPY_ASSIGN_IF_NOT_TRIVIAL(T, ...)   \
+  static_assert((tensorstore::internal::GetCopyAssignIfNotTrivial(          \
+                     dtype_v<::tensorstore::dtypes::T>) == nullptr) ==      \
+                IsTrivial<::tensorstore::dtypes::T>);                       \
+  static_assert((tensorstore::internal::GetCopyAssignIfNotTrivial(DataType( \
+                     dtype_v<::tensorstore::dtypes::T>)) == nullptr) ==     \
+                IsTrivial<::tensorstore::dtypes::T>);
+TENSORSTORE_FOR_EACH_DATA_TYPE(
+    TENSORSTORE_INTERNAL_CHECK_GET_COPY_ASSIGN_IF_NOT_TRIVIAL)
+#undef TENSORSTORE_INTERNAL_CHECK_GET_COPY_ASSIGN_IF_NOT_TRIVIAL
+
+static_assert(tensorstore::internal::GetCopyAssignIfNotTrivial(
+                  dtype_v<is_element_type_tests::ClassT>) ==
+              &dtype_v<is_element_type_tests::ClassT>->copy_assign);
 
 TEST(ElementOperationsTest, DataTypeIdOrder) {
   int i = 0;
@@ -634,18 +701,6 @@ TEST(DataTypeCastTest, Basic) {
           HasSubstr("Cannot cast data type of float32 to data type of int32")));
 }
 
-static_assert(DataTypeIdOf<int> == DataTypeIdOf<int32_t>);
-static_assert(DataTypeIdOf<unsigned int> == DataTypeIdOf<uint32_t>);
-static_assert(DataTypeIdOf<long long> == DataTypeIdOf<int64_t>);
-static_assert(DataTypeIdOf<unsigned long long> == DataTypeIdOf<uint64_t>);
-static_assert(sizeof(long) == 4 || sizeof(long) == 8);
-static_assert(sizeof(long) != 4 || DataTypeIdOf<long> == DataTypeIdOf<int32_t>);
-static_assert(sizeof(long) != 4 ||
-              DataTypeIdOf<unsigned long> == DataTypeIdOf<uint32_t>);
-static_assert(sizeof(long) == 4 || DataTypeIdOf<long> == DataTypeIdOf<int64_t>);
-static_assert(sizeof(long) == 4 ||
-              DataTypeIdOf<unsigned long> == DataTypeIdOf<uint64_t>);
-
 TEST(DataTypesOrder, Valid) {
   // Ensure that the kDataTypes is in the same order as the enum.
   for (size_t i = 0; i < tensorstore::kNumDataTypeIds; i++) {
@@ -666,28 +721,5 @@ TEST(SerializationTest, Invalid) {
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Cannot serialize custom data type:")));
 }
-
-static_assert(IsTrivial<bool>);
-static_assert(IsTrivial<int2_t>);
-static_assert(IsTrivial<int4_t>);
-
-static_assert(IsTrivial<float8_e3m4_t>);
-static_assert(IsTrivial<float8_e4m3fn_t>);
-static_assert(IsTrivial<float8_e4m3fnuz_t>);
-static_assert(IsTrivial<float8_e4m3b11fnuz_t>);
-static_assert(IsTrivial<float8_e5m2_t>);
-static_assert(IsTrivial<float8_e5m2fnuz_t>);
-static_assert(IsTrivial<float4_e2m1fn_t>);
-
-static_assert(IsTrivial<bfloat16_t>);
-static_assert(IsTrivial<float16_t>);
-static_assert(IsTrivial<float32_t>);
-static_assert(IsTrivial<float64_t>);
-static_assert(IsTrivial<uint64_t>);
-static_assert(IsTrivial<complex64_t>);
-static_assert(IsTrivial<complex128_t>);
-static_assert(!IsTrivial<string_t>);
-static_assert(!IsTrivial<ustring_t>);
-static_assert(!IsTrivial<json_t>);
 
 }  // namespace

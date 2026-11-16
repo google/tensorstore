@@ -232,6 +232,122 @@ TEST(ChunkEncodingRawPartialTest, FragmentedPartialChunk) {
   }
 }
 
+TEST(ChunkEncodingPngMismatchTest, Uint16PngInUint8Volume) {
+  for (const int num_channels : {1, 3}) {
+    ::nlohmann::json base_json{{"@type", "neuroglancer_multiscale_volume"},
+                               {"num_channels", num_channels},
+                               {"scales",
+                                {{{"chunk_sizes", {{3, 4, 5}}},
+                                  {"encoding", "png"},
+                                  {"key", "k"},
+                                  {"resolution", {1, 1, 1}},
+                                  {"size", {3, 4, 5}}}}},
+                               {"type", "image"}};
+    auto uint16_json = base_json;
+    uint16_json["data_type"] = "uint16";
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto uint16_metadata,
+                                     MultiscaleMetadata::FromJson(uint16_json));
+
+    auto uint8_json = base_json;
+    uint8_json["data_type"] = "uint8";
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto uint8_metadata,
+                                     MultiscaleMetadata::FromJson(uint8_json));
+
+    auto uint16_array =
+        tensorstore::AllocateArray<uint16_t>({num_channels, 5, 4, 3});
+    std::fill_n(uint16_array.data(), uint16_array.num_elements(),
+                uint16_t{0x1234});
+    const std::vector<Index> chunk_indices{0, 0, 0};
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        absl::Cord png16_chunk, EncodeChunk(chunk_indices, uint16_metadata,
+                                            /*scale_index=*/0, uint16_array));
+
+    tensorstore::StridedLayout uint8_layout(
+        tensorstore::c_order, sizeof(uint8_t), {num_channels, 5, 4, 3});
+    EXPECT_THAT(DecodeChunk(chunk_indices, uint8_metadata, /*scale_index=*/0,
+                            uint8_layout, png16_chunk),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         testing::HasSubstr(
+                             "Image data type (uint16) is not compatible with "
+                             "expected chunk data type (uint8)")));
+  }
+}
+
+TEST(ChunkEncodingPngMismatchTest, Uint8PngInUint16Volume) {
+  for (const int num_channels : {1, 3}) {
+    ::nlohmann::json base_json{{"@type", "neuroglancer_multiscale_volume"},
+                               {"num_channels", num_channels},
+                               {"scales",
+                                {{{"chunk_sizes", {{3, 4, 5}}},
+                                  {"encoding", "png"},
+                                  {"key", "k"},
+                                  {"resolution", {1, 1, 1}},
+                                  {"size", {3, 4, 5}}}}},
+                               {"type", "image"}};
+    auto uint8_json = base_json;
+    uint8_json["data_type"] = "uint8";
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto uint8_metadata,
+                                     MultiscaleMetadata::FromJson(uint8_json));
+
+    auto uint16_json = base_json;
+    uint16_json["data_type"] = "uint16";
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto uint16_metadata,
+                                     MultiscaleMetadata::FromJson(uint16_json));
+
+    auto uint8_array =
+        tensorstore::AllocateArray<uint8_t>({num_channels, 5, 4, 3});
+    std::fill_n(uint8_array.data(), uint8_array.num_elements(), uint8_t{0x42});
+    const std::vector<Index> chunk_indices{0, 0, 0};
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        absl::Cord png8_chunk, EncodeChunk(chunk_indices, uint8_metadata,
+                                           /*scale_index=*/0, uint8_array));
+
+    tensorstore::StridedLayout uint16_layout(
+        tensorstore::c_order, sizeof(uint16_t), {num_channels, 5, 4, 3});
+    EXPECT_THAT(DecodeChunk(chunk_indices, uint16_metadata, /*scale_index=*/0,
+                            uint16_layout, png8_chunk),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         testing::HasSubstr(
+                             "Image data type (uint8) is not compatible with "
+                             "expected chunk data type (uint16)")));
+  }
+}
+
+TEST(ChunkEncodingPngMismatchTest, BoolPngInUint8Volume) {
+  // 2x1 1-bit grayscale PNG (color_type=0, bit_depth=1), ImageInfo dtype=bool.
+  static constexpr unsigned char kPng1Bit2x1[] = {
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01,
+      0x01, 0x00, 0x00, 0x00, 0x00, 0xdc, 0x59, 0x42, 0x27, 0x00, 0x00, 0x00,
+      0x0a, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x68, 0x00, 0x00, 0x00,
+      0x82, 0x00, 0x81, 0x77, 0xcd, 0x72, 0xb6, 0x00, 0x00, 0x00, 0x00, 0x49,
+      0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+  };
+  ::nlohmann::json uint8_json{{"@type", "neuroglancer_multiscale_volume"},
+                              {"data_type", "uint8"},
+                              {"num_channels", 1},
+                              {"scales",
+                               {{{"chunk_sizes", {{2, 1, 1}}},
+                                 {"encoding", "png"},
+                                 {"key", "k"},
+                                 {"resolution", {1, 1, 1}},
+                                 {"size", {2, 1, 1}}}}},
+                              {"type", "image"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto uint8_metadata,
+                                   MultiscaleMetadata::FromJson(uint8_json));
+  absl::Cord png1_chunk(std::string_view(
+      reinterpret_cast<const char*>(kPng1Bit2x1), sizeof(kPng1Bit2x1)));
+  tensorstore::StridedLayout uint8_layout(tensorstore::c_order, sizeof(uint8_t),
+                                          {1, 1, 1, 2});
+  const std::vector<Index> chunk_indices{0, 0, 0};
+  EXPECT_THAT(DecodeChunk(chunk_indices, uint8_metadata, /*scale_index=*/0,
+                          uint8_layout, png1_chunk),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       testing::HasSubstr(
+                           "Image data type (bool) is not compatible with "
+                           "expected chunk data type (uint8)")));
+}
+
 std::vector<P> GenerateParams() {
   std::vector<P> result;
   for (const int num_channels : {1, 2, 3, 4}) {

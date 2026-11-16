@@ -19,13 +19,13 @@
 #include "python/tensorstore/garbage_collection.h"
 
 // Other headers
+#include <atomic>
 #include <cassert>
 #include <typeinfo>
 #include <utility>
 
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 
@@ -92,24 +92,38 @@ void PythonObjectReferenceManager::Visitor::DoIndirect(
     const std::type_info& type, ErasedVisitFunction visit, const void* ptr) {
   if (type == typeid(PythonWeakRef)) {
     auto& obj = *static_cast<const PythonWeakRef*>(ptr);
-
-    auto weak_ref = obj.weak_ref_.get();
-    if (weak_ref.tag()) {
-      // Actually a strong reference.
-      if (PyObject_IS_GC(weak_ref.get())) {
-        // Strong reference that needs to be converted to a weak reference.
-        PythonWeakRef new_weak_ref(manager_, weak_ref.get());
-        obj.weak_ref_ = std::move(new_weak_ref.weak_ref_);
-      }
+    auto weak_ref = obj.weak_ref_.load(std::memory_order_acquire);
+    if (!weak_ref || weak_ref.tag() == 1) {
+      // Null or permanent strong reference to non-GC object.
       return;
     }
 
-    // Actual weak reference.
+    // Actual weak reference (tag == 0 or tag == 2).
+#if PY_VERSION_HEX >= 0x030D0000
+    PyObject* python_obj = nullptr;
+    if (PyWeakref_GetRef(weak_ref.get(), &python_obj) <= 0) {
+      PyErr_Clear();
+      return;
+    }
+    if (!manager_.python_refs_.insert(python_obj).second) {
+      Py_DECREF(python_obj);
+    }
+#else
     PyObject* python_obj = PyWeakref_GET_OBJECT(weak_ref.get());
     if (python_obj == Py_None) return;
 
     if (manager_.python_refs_.insert(python_obj).second) {
       Py_INCREF(python_obj);
+    }
+#endif
+    if (weak_ref.tag() == 2) {
+      if (obj.weak_ref_.compare_exchange_strong(
+              weak_ref, PythonWeakRef::TaggedObjectPtr(weak_ref.get(), 0),
+              std::memory_order_acq_rel)) {
+        // Release the initial strong reference owned by tag == 2 now that
+        // `manager_.python_refs_` holds a strong reference to `python_obj`.
+        Py_DECREF(python_obj);
+      }
     }
     return;
   }
@@ -150,6 +164,106 @@ PyTypeObject WeakRefAdapterType = [] {
   return t;
 }();
 
+PythonWeakRef::TaggedObjectPtr PythonWeakRef::AcquireRef(
+    TaggedObjectPtr p) noexcept {
+  if (!p) return nullptr;
+  Py_INCREF(p.get());
+  if (p.tag() == 2) {
+#if PY_VERSION_HEX >= 0x030D0000
+    PyObject* target = nullptr;
+    if (PyWeakref_GetRef(p.get(), &target) <= 0) {
+      PyErr_Clear();
+      return TaggedObjectPtr(p.get(), 0);
+    }
+#else
+    PyObject* target = PyWeakref_GET_OBJECT(p.get());
+    if (target == Py_None) {
+      return TaggedObjectPtr(p.get(), 0);
+    }
+    Py_INCREF(target);
+#endif
+  }
+  return p;
+}
+
+void PythonWeakRef::ReleaseRef(TaggedObjectPtr p) noexcept {
+  if (!p) return;
+  if (p.tag() == 2) {
+#if PY_VERSION_HEX >= 0x030D0000
+    PyObject* target = nullptr;
+    if (PyWeakref_GetRef(p.get(), &target) > 0) {
+      // Release both the reference returned by `PyWeakref_GetRef` and the
+      // unclaimed strong reference owned by tag == 2.
+      Py_DECREF(target);
+      Py_DECREF(target);
+    } else {
+      PyErr_Clear();
+    }
+#else
+    PyObject* target = PyWeakref_GET_OBJECT(p.get());
+    if (target != Py_None) {
+      Py_DECREF(target);
+    }
+#endif
+  }
+  Py_DECREF(p.get());
+}
+
+PythonWeakRef::PythonWeakRef(const PythonWeakRef& other)
+    : weak_ref_(AcquireRef(other.weak_ref_.load(std::memory_order_acquire))) {}
+
+PythonWeakRef::PythonWeakRef(PythonWeakRef&& other) noexcept
+    : weak_ref_(other.weak_ref_.exchange(nullptr, std::memory_order_acq_rel)) {}
+
+PythonWeakRef& PythonWeakRef::operator=(const PythonWeakRef& other) {
+  if (this != &other) {
+    TaggedObjectPtr new_ref =
+        AcquireRef(other.weak_ref_.load(std::memory_order_acquire));
+    ReleaseRef(weak_ref_.exchange(new_ref, std::memory_order_acq_rel));
+  }
+  return *this;
+}
+
+PythonWeakRef& PythonWeakRef::operator=(PythonWeakRef&& other) noexcept {
+  if (this != &other) {
+    TaggedObjectPtr new_ref =
+        other.weak_ref_.exchange(nullptr, std::memory_order_acq_rel);
+    ReleaseRef(weak_ref_.exchange(new_ref, std::memory_order_acq_rel));
+  }
+  return *this;
+}
+
+PythonWeakRef::~PythonWeakRef() {
+  ReleaseRef(weak_ref_.load(std::memory_order_relaxed));
+}
+
+PythonWeakRef::PythonWeakRef(pybind11::object obj) {
+  if (!obj) return;
+  if (!PyObject_IS_GC(obj.ptr())) {
+    assert(!PyWeakref_CheckRefExact(obj.ptr()));
+    weak_ref_.store(TaggedObjectPtr(obj.release().ptr(), 1),
+                    std::memory_order_relaxed);
+    return;
+  }
+  pybind11::object target;
+  if (!PyType_SUPPORTS_WEAKREFS(Py_TYPE(obj.ptr()))) {
+    auto* wrapper_type = &WeakRefAdapterType;
+    PyObject* wrapper_object = wrapper_type->tp_alloc(wrapper_type, 0);
+    if (!wrapper_object) throw py::error_already_set();
+    reinterpret_cast<WeakRefAdapterObject*>(wrapper_object)->owned_object =
+        obj.release().ptr();
+    target = pybind11::reinterpret_steal<pybind11::object>(wrapper_object);
+  } else {
+    target = std::move(obj);
+  }
+  PyObject* weak_ref = PyWeakref_NewRef(target.ptr(), nullptr);
+  if (!weak_ref) {
+    throw py::error_already_set();
+  }
+  (void)target.release();
+  weak_ref_.store(TaggedObjectPtr(weak_ref, 2), std::memory_order_relaxed);
+}
+
 PythonWeakRef::PythonWeakRef(PythonObjectReferenceManager& manager,
                              pybind11::handle obj) {
   if (!obj) return;
@@ -163,8 +277,8 @@ PythonWeakRef::PythonWeakRef(PythonObjectReferenceManager& manager,
     // occur since weak references implement the garbage collection protocol.
     assert(!PyWeakref_CheckRefExact(obj.ptr()));
 
-    weak_ref_.reset(TaggedObjectPtr(obj.ptr(), 1),
-                    internal::acquire_object_ref);
+    weak_ref_.store(TaggedObjectPtr(obj.inc_ref().ptr(), 1),
+                    std::memory_order_relaxed);
     return;
   }
   if (!PyType_SUPPORTS_WEAKREFS(Py_TYPE(obj.ptr()))) {
@@ -184,40 +298,54 @@ PythonWeakRef::PythonWeakRef(PythonObjectReferenceManager& manager,
       obj.inc_ref();
     }
   }
-  weak_ref_.reset(PyWeakref_NewRef(obj.ptr(), nullptr));
-  if (!weak_ref_) {
+  PyObject* weak_ref = PyWeakref_NewRef(obj.ptr(), nullptr);
+  if (!weak_ref) {
     // Should not happen
     throw py::error_already_set();
   }
+  weak_ref_.store(TaggedObjectPtr(weak_ref, 0), std::memory_order_relaxed);
 }
 
-pybind11::handle PythonWeakRef::get_value_or_null() const {
-  auto weak_ref = weak_ref_.get();
+pybind11::object PythonWeakRef::get_value_or_null() const {
+  auto weak_ref = weak_ref_.load(std::memory_order_acquire);
   if (!weak_ref) return {};
-  if (weak_ref.tag()) {
+  if (weak_ref.tag() == 1) {
     // Actually a strong reference.
-    return weak_ref.get();
+    return pybind11::reinterpret_borrow<pybind11::object>(weak_ref.get());
   }
+#if PY_VERSION_HEX >= 0x030D0000
+  PyObject* obj = nullptr;
+  if (PyWeakref_GetRef(weak_ref.get(), &obj) < 0) {
+    throw pybind11::error_already_set();
+  }
+  if (obj == nullptr) {
+    return {};
+  }
+  auto ref = pybind11::reinterpret_steal<pybind11::object>(obj);
+#else
   PyObject* obj = PyWeakref_GET_OBJECT(weak_ref.get());
   if (obj == Py_None) {
     // Since `None` does not support weak references, we know that the actual
     // value was not `None`.
-    return pybind11::handle();
+    return {};
   }
-  auto* python_type = Py_TYPE(obj);
+  auto ref = pybind11::reinterpret_borrow<pybind11::object>(obj);
+#endif
+  auto* python_type = Py_TYPE(ref.ptr());
   if (python_type == &WeakRefAdapterType) {
-    return reinterpret_cast<WeakRefAdapterObject*>(obj)->owned_object;
+    return pybind11::reinterpret_borrow<pybind11::object>(
+        reinterpret_cast<WeakRefAdapterObject*>(ref.ptr())->owned_object);
   }
-  return obj;
+  return ref;
 }
 
-pybind11::handle PythonWeakRef::get_value_or_none() const {
+pybind11::object PythonWeakRef::get_value_or_none() const {
   auto h = get_value_or_null();
-  if (!h) return Py_None;
+  if (!h) return pybind11::none();
   return h;
 }
 
-pybind11::handle PythonWeakRef::get_value_or_throw() const {
+pybind11::object PythonWeakRef::get_value_or_throw() const {
   auto h = get_value_or_null();
   if (!h) throw pybind11::value_error("Expired weak reference");
   return h;

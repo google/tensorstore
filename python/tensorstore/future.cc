@@ -288,7 +288,7 @@ static inline bool StateIsDone(internal_future::FutureStatePointer& state) {
 
 void InterruptibleWaitImpl(tensorstore::AnyFuture future, absl::Time deadline,
                            PythonFutureObject* python_future) {
-  if (future.ready()) return;
+  if (!python_future && future.ready()) return;
   {
     GilScopedRelease gil_release;
     future.Force();
@@ -299,7 +299,13 @@ void InterruptibleWaitImpl(tensorstore::AnyFuture future, absl::Time deadline,
   std::optional<CancelCallback> cancel_callback;
   if (python_future) {
     absl::MutexLock lock(python_future->cpp_data.mutex);
+    if (StateIsCancelled(python_future->cpp_data.state)) {
+      ThrowCancelledError();
+    }
+    if (future.ready()) return;
     cancel_callback.emplace(python_future, notify_done);
+  } else if (future.ready()) {
+    return;
   }
   ScopedFutureCallbackRegistration registration{
       future.UntypedExecuteWhenReady([&event](auto future) { event.Set(); })};
@@ -340,12 +346,15 @@ void InterruptibleWaitImpl(tensorstore::AnyFuture future, absl::Time deadline,
 }
 
 bool PythonFutureObject::Cancel() {
+  FutureCallbackRegistration do_unregister;
+  PythonObjectReferenceManager refs;
   std::vector<pybind11::object> done_callbacks;
   {
     absl::MutexLock lock(cpp_data.mutex);
     if (StateIsDone(cpp_data.state)) return false;
     cpp_data.state = {};
-    cpp_data.registration.Unregister();
+    do_unregister = std::exchange(cpp_data.registration, {});
+    refs = std::move(cpp_data.reference_manager);
     done_callbacks = std::move(cpp_data.callbacks);
 
     // Run cancel callbacks. Note that the only user of cancel callbacks
@@ -357,7 +366,11 @@ bool PythonFutureObject::Cancel() {
       callback = next;
     }
   }
-
+  {
+    GilScopedRelease gil_release;
+    do_unregister.Unregister();
+  }
+  refs.Clear();
   RunCallbacks(std::move(done_callbacks));
   return true;
 }
@@ -430,25 +443,35 @@ pybind11::object PythonFutureObject::GetAwaitable() {
 
 pybind11::object PythonFutureObject::GetResult(absl::Time deadline) {
   internal_future::FutureStatePointer state;
+  bool ready;
   {
     absl::MutexLock lock(cpp_data.mutex);
+    if (StateIsCancelled(cpp_data.state)) ThrowCancelledError();
     state = cpp_data.state;
+    ready = state->ready();
   }
-  if (StateIsCancelled(state)) ThrowCancelledError();
-  auto any_future = internal_future::FutureAccess::Construct<AnyFuture>(state);
-  InterruptibleWaitImpl(any_future, deadline, this);
+  if (!ready) {
+    auto any_future =
+        internal_future::FutureAccess::Construct<AnyFuture>(state);
+    InterruptibleWaitImpl(any_future, deadline, this);
+  }
   return vtable->get_result(*state);
 }
 
 pybind11::object PythonFutureObject::GetException(absl::Time deadline) {
   internal_future::FutureStatePointer state;
+  bool ready;
   {
     absl::MutexLock lock(cpp_data.mutex);
     if (StateIsCancelled(cpp_data.state)) ThrowCancelledError();
     state = cpp_data.state;
+    ready = state->ready();
   }
-  auto any_future = internal_future::FutureAccess::Construct<AnyFuture>(state);
-  InterruptibleWaitImpl(any_future, deadline, this);
+  if (!ready) {
+    auto any_future =
+        internal_future::FutureAccess::Construct<AnyFuture>(state);
+    InterruptibleWaitImpl(any_future, deadline, this);
+  }
   return vtable->get_exception(*state);
 }
 
@@ -1235,6 +1258,7 @@ void DefinePromiseAttributes(PromiseCls& cls) {
                 self.cpp_data.reference_manager,
                 PythonValueOrException{std::move(result.value)})};
         cs = std::nullopt;
+        GilScopedRelease gil_release;
         self.cpp_data.promise.SetResult(std::move(value));
       },
       py::arg("result"), R"(
@@ -1266,6 +1290,7 @@ Group:
                 self.cpp_data.reference_manager,
                 PythonValueOrException::FromErrorIndicator())};
         cs = std::nullopt;
+        GilScopedRelease gil_release;
         self.cpp_data.promise.SetResult(std::move(value));
       },
       py::arg("exception"), R"(

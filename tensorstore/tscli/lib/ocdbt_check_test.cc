@@ -27,6 +27,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
@@ -627,6 +628,107 @@ TEST_F(OcdbtCheckTest, ChildKeyExceedsSiblingExclusiveMax) {
   auto status = tensorstore::cli::OcdbtCheck(context_, spec, output);
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kDataLoss));
   EXPECT_THAT(output.str(), HasSubstr("exclusive_max"));
+}
+
+TEST_F(OcdbtCheckTest, MissingIndirectValueFile) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store, kvstore::Open({{"driver", "ocdbt"},
+                                       {"target_data_file_size", 10},
+                                       {"config",
+                                        {{"version_tree_arity_log2", 1},
+                                         {"max_decoded_node_bytes", 1},
+                                         {"max_inline_value_bytes", 0}}},
+                                       {"base", "memory://missing_val_file/"}},
+                                      context_)
+                            .result());
+
+  std::string value_data = "value_data_that_is_indirect";
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(ocdbt_store, "key", absl::Cord(value_data)));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      kvstore::Open({{"driver", "memory"}, {"path", "missing_val_file/"}},
+                    context_)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto keys,
+                                   kvstore::ListFuture(base_store).result());
+  std::string value_file_key;
+  for (const auto& entry : keys) {
+    if (entry.key.rfind("d/", 0) == 0 && entry.size == value_data.size()) {
+      value_file_key = entry.key;
+      break;
+    }
+  }
+  ASSERT_FALSE(value_file_key.empty());
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(base_store, value_file_key));
+
+  std::stringstream output;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, kvstore::Spec::FromJson(
+                     {{"driver", "memory"}, {"path", "missing_val_file/"}}));
+  auto status = tensorstore::cli::OcdbtCheck(context_, spec, output);
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kDataLoss));
+  EXPECT_THAT(output.str(), HasSubstr("is missing"));
+}
+
+TEST_F(OcdbtCheckTest, IndirectValueReadError) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store, kvstore::Open({{"driver", "ocdbt"},
+                                       {"target_data_file_size", 10},
+                                       {"config",
+                                        {{"version_tree_arity_log2", 1},
+                                         {"max_decoded_node_bytes", 1},
+                                         {"max_inline_value_bytes", 0}}},
+                                       {"base", "memory://read_err_val/"}},
+                                      context_)
+                            .result());
+
+  std::string value_data = "value_data_that_is_indirect";
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(ocdbt_store, "key", absl::Cord(value_data)));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      kvstore::Open({{"driver", "memory"}, {"path", "read_err_val/"}}, context_)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto keys,
+                                   kvstore::ListFuture(base_store).result());
+  std::string value_file_key;
+  for (const auto& entry : keys) {
+    if (entry.key.rfind("d/", 0) == 0 && entry.size == value_data.size()) {
+      value_file_key = entry.key;
+      break;
+    }
+  }
+  ASSERT_FALSE(value_file_key.empty());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_kvstore_resource,
+      context_.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto* mock_kvstore = mock_kvstore_resource->get();
+  mock_kvstore->list_handler = [base = base_store.driver](auto req) {
+    req(base);
+  };
+  mock_kvstore->read_handler = [base = base_store.driver,
+                                value_file_key](auto req) {
+    if (req.key == "read_err_val/" + value_file_key) {
+      req.promise.SetResult(absl::UnavailableError("simulated read error"));
+      return;
+    }
+    req(base);
+  };
+
+  std::stringstream output;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, kvstore::Spec::FromJson({{"driver", "mock_key_value_store"},
+                                          {"path", "read_err_val/"}}));
+  auto status = tensorstore::cli::OcdbtCheck(context_, spec, output);
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kDataLoss));
+  EXPECT_THAT(output.str(), HasSubstr("Error stat'ing indirect value"));
+  EXPECT_THAT(output.str(), HasSubstr("simulated read error"));
 }
 
 }  // namespace

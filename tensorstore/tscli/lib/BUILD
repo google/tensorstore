@@ -190,6 +190,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:transaction",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore/memory",
         "//tensorstore/kvstore/ocdbt",
         "//tensorstore/kvstore/ocdbt/format",

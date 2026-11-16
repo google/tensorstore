@@ -160,6 +160,7 @@ tensorstore_cc_test(
     deps = [
         ":image",
         ":png",
+        "//tensorstore:data_type",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",

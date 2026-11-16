@@ -247,9 +247,7 @@ struct FunctionAdapterBase {
           auto python_params = py::cast(params);
           future_like =
               py::reinterpret_steal<py::object>(PyObject_CallFunctionObjArgs(
-                  py::reinterpret_borrow<py::object>(
-                      state->python_function.get_value_or_throw())
-                      .ptr(),
+                  state->python_function.get_value_or_throw().ptr(),
                   python_domain.ptr(), python_array.ptr(), python_params.ptr(),
                   nullptr));
         })) {

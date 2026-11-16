@@ -80,6 +80,7 @@ using ::tensorstore::MatchesJson;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
+using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
@@ -274,11 +275,12 @@ TEST(FileKeyValueStoreTest, LockFiles) {
   EXPECT_THAT(GetDirectoryContents(root),
               ::testing::UnorderedElementsAre("a", "a/foo"));
 
-  // Create a lock file to simulate a stale lock file left by a process that
-  // crashes in the middle of a Write/Delete operation.
+  // Create a non-empty lock file to simulate a stale lock file left by a
+  // process that crashes in the middle of a Write/Delete operation.
   {
     std::string lock_path = root + "/a/foo.__lock";
-    std::ofstream x(lock_path);
+    std::ofstream x(lock_path, std::ios::binary);
+    x << std::string(200, 'a');
 
     // Set the mtime to be stale.
     auto now = absl::Now();
@@ -295,9 +297,24 @@ TEST(FileKeyValueStoreTest, LockFiles) {
       ListFuture(store).result(),
       IsOkAndHolds(::testing::UnorderedElementsAre(MatchesListEntry("a/foo"))));
 
-  // Test that a stale lock file does not interfere with writing.
+  // Test that a stale lock file with leftover bytes is truncated and does not
+  // corrupt a subsequent shorter write.
   TENSORSTORE_ASSERT_OK(
       kvstore::Write(store, "a/foo", absl::Cord("xyz")).result());
+  EXPECT_THAT(kvstore::Read(store, "a/foo").result(),
+              MatchesKvsReadResult(absl::Cord("xyz")));
+
+  // Test that an empty write after a non-empty stale lock file also truncates
+  // the lock file properly.
+  {
+    std::string lock_path = root + "/a/foo.__lock";
+    std::ofstream x(lock_path, std::ios::binary);
+    x << std::string(200, 'a');
+  }
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(store, "a/foo", absl::Cord("")).result());
+  EXPECT_THAT(kvstore::Read(store, "a/foo").result(),
+              MatchesKvsReadResult(absl::Cord("")));
 
   // Recreate the lock file.
   {

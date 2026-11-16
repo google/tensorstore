@@ -101,7 +101,6 @@ using ::tensorstore::internal_downsample::DownsampleTransformedArray;
 using ::tensorstore::internal_downsample::IsDownsampleMethodSupported;
 using ::testing::Optional;
 
-#if 0
 // Matches a 1-element `complex64_t` `SharedOffsetArray<void>` whose element has
 // a NaN real or imaginary component.
 MATCHER(HasSingleComplex64NaN, "") {
@@ -117,7 +116,6 @@ MATCHER(HasSingleComplex64NaN, "") {
   }
   return true;
 }
-#endif
 
 TEST(DownsampleArrayTest, MeanRank0) {
   EXPECT_THAT(DownsampleArray(tensorstore::MakeScalarArray<float>(42.0),
@@ -646,11 +644,10 @@ TEST(DownsampleArrayTest, FiniteOnlyFloat8MeanMedianMode) {
           MakeArray<float8_e4m3fnuz_t>({float8_e4m3fnuz_t{4.0f}}))));
 }
 
-#if 0
-// Fails at HEAD: `kMin`/`kMax` initialize accumulators to
-// `+/-std::numeric_limits<T>::infinity()`, which is `NaN` on finite-only
-// `float8_*` types (`float8_e4m3fn_t`, `float8_e4m3b11fnuz_t`,
-// `float8_e5m2fnuz_t`, and `float8_e8m0fnu_t`), producing `NaN`.
+// Verifies `kMin`/`kMax` on finite-only `float8_*` types (`float8_e4m3fn_t`,
+// `float8_e4m3b11fnuz_t`, `float8_e5m2fnuz_t`, and `float8_e8m0fnu_t`), where
+// `std::numeric_limits<T>::infinity()` is `NaN` so accumulation must promote
+// to `float32_t`.
 TEST(DownsampleArrayTest, FiniteOnlyFloat8MinAndMax) {
   const auto f8_in = MakeArray<float8_e4m3fn_t>(
       {float8_e4m3fn_t{1.0f}, float8_e4m3fn_t{3.0f}, float8_e4m3fn_t{-2.0f},
@@ -682,7 +679,6 @@ TEST(DownsampleArrayTest, FiniteOnlyFloat8MinAndMax) {
       Optional(
           MatchesArray(MakeArray<float8_e8m0fnu_t>({float8_e8m0fnu_t{1.0f}}))));
 }
-#endif
 
 TEST(DownsampleArrayTest, Float4Bfloat16AndFloat16Mean) {
   EXPECT_THAT(
@@ -820,11 +816,9 @@ TEST(DownsampleArrayTest, Uint64LargeSumsAndTieRounding) {
       Optional(MakeArray<uint64_t>({kLargeU64 + 2})));
 }
 
-#if 0
-// Fails at HEAD: when a single 1D output cell is clipped at both its start and
-// end (`[1, 3)` inside `[0, 4)`), `PartitionDim` at HEAD does not clamp
-// `first_block_factor` to `base_block_shape`, computing `{22}` instead of
-// `{15}` for `kMean`.
+// Verifies a single 1D output cell clipped at both its start and end
+// (`[1, 3)` inside `[0, 4)`), where `PartitionDim` must clamp
+// `first_block_factor` to `base_block_shape`.
 TEST(DownsampleArrayTest, DoublyClippedSingleCell1D) {
   const auto arr_1d = MakeOffsetArray<int32_t>({1}, {10, 20});
   EXPECT_THAT(
@@ -847,10 +841,8 @@ TEST(DownsampleArrayTest, DoublyClippedSingleCell1D) {
               Optional(MakeOffsetArray<int32_t>({0}, {20})));
 }
 
-// Fails at HEAD: when a single 2D output cell is clipped at both its start and
-// end (`[1, 3) x [2, 5)` inside `[0, 4) x [0, 6)`), `PartitionDim` at HEAD
-// reads out-of-window elements and computes `{{7.41981}}` instead of `{{7}}`
-// for `kMean` and `{{0}}` / `{{2}}` for `kMin`/`kMedian`/`kMode`.
+// Verifies a single 2D output cell clipped at both its start and end
+// (`[1, 3) x [2, 5)` inside `[0, 4) x [0, 6)`).
 TEST(DownsampleArrayTest, DoublyClippedSingleCell2D) {
   const auto arr_2d = MakeOffsetArray<float>(
       {1, 2}, {{2.0f, 4.0f, 6.0f}, {8.0f, 10.0f, 12.0f}});
@@ -870,7 +862,6 @@ TEST(DownsampleArrayTest, DoublyClippedSingleCell2D) {
                               DownsampleMethod::kMode),
               Optional(MakeOffsetArray<float>({0, 0}, {{2.0f}})));
 }
-#endif
 
 TEST(DownsampleArrayTest, FloatMinAndMaxNaN) {
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
@@ -884,11 +875,7 @@ TEST(DownsampleArrayTest, FloatMinAndMaxNaN) {
       Optional(MatchesArrayIdentically(MakeArray<float>({2.0f, 5.0f}))));
 }
 
-#if 0
-// Aborts at HEAD with SIGABRT in libc++ hardening
-// (`strict_weak_ordering_check.h:59: Your comparator is not a valid
-// strict-weak ordering`) when `StoreReductionTraitsBase::Finalize` passes
-// NaN-containing windows to `std::nth_element` / `std::sort`.
+// Verifies NaN-ignoring `kMedian` and `kMode` on `float` windows.
 TEST(DownsampleArrayTest, FloatMedianAndModeNaN) {
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
   EXPECT_THAT(
@@ -903,8 +890,7 @@ TEST(DownsampleArrayTest, FloatMedianAndModeNaN) {
       Optional(MatchesArrayIdentically(MakeArray<float>({3.0f, kNaN}))));
 }
 
-// Fails at HEAD because finite-only `float8_*` `kMin`/`kMax` initialize
-// accumulators to `numeric_limits::infinity()`, which is `NaN`.
+// Verifies `kMin`/`kMax` on finite-only `float8_*` windows with NaNs.
 TEST(DownsampleArrayTest, Float8MinAndMaxNaN) {
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
   const float8_e4m3fn_t f8_nan{kNaN};
@@ -935,7 +921,6 @@ TEST(DownsampleArrayTest, Float8MinAndMaxNaN) {
               Optional(MatchesArrayIdentically(MakeArray<float8_e8m0fnu_t>(
                   {float8_e8m0fnu_t{4.0f}, e8m0_nan}))));
 }
-#endif
 
 TEST(DownsampleArrayTest, Strided2DTransformedArrayMeanAndMedian) {
   const auto backing = MakeArray<int32_t>({
@@ -1122,10 +1107,8 @@ TYPED_TEST(MisalignedComplexDownsampleTest, StridedContiguousAndIndexed) {
                    Complex{Real{5} / Real{3}, Real{8} / Real{3}}})));
 }
 
-#if 0
-// Aborts at HEAD with SIGABRT in libc++ hardening
-// (`strict_weak_ordering_check`) when sorting complex values containing NaN in
-// `kMode`.
+// Verifies complex `kMode` total ordering and NaN exclusion when sorting
+// complex values containing NaN in either component.
 TEST(DownsampleArrayTest, ComplexModeNaNSymmetry) {
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
 
@@ -1181,8 +1164,9 @@ TEST(DownsampleArrayTest, ComplexModeNaNSymmetry) {
               Optional(HasSingleComplex64NaN()));
 }
 
-// Fails at HEAD: `std::complex::operator/=` produces `(inf, NaN)` under Annex G
-// complex division when dividing `(inf, finite)` by a real scalar divisor.
+// Verifies component-wise real scalar division in complex `kMean` when one
+// component is infinite (`std::complex::operator/=` produces `(inf, NaN)` under
+// Annex G complex division).
 TEST(DownsampleArrayTest, ComplexMeanInfiniteRealComponent) {
   constexpr float kInf = std::numeric_limits<float>::infinity();
   EXPECT_THAT(DownsampleArray(MakeArray<complex64_t>({complex64_t{kInf, 0.0f},
@@ -1198,9 +1182,7 @@ TEST(DownsampleArrayTest, ComplexMeanInfiniteRealComponent) {
                   MakeArray<complex64_t>({complex64_t{kInf, 3.0f}}))));
 }
 
-// Aborts at HEAD with SIGABRT in libc++ hardening
-// (`strict_weak_ordering_check`) when `std::nth_element` / `std::sort`
-// encounter NaN values in `divisor == 2` windows.
+// Verifies `kMedian` and `kMode` with NaNs in `divisor == 2` windows.
 TEST(DownsampleArrayTest, FloatMedianAndModeNaNDivisor2) {
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
   const auto div2_in =
@@ -1225,9 +1207,7 @@ TEST(DownsampleArrayTest, FloatMedianAndModeNaNDivisor2) {
       Optional(MatchesArrayIdentically(MakeArray<float>({10.0f, 7.0f}))));
 }
 
-// Aborts at HEAD with SIGABRT in libc++ hardening
-// (`strict_weak_ordering_check`) when `std::nth_element` / `std::sort`
-// encounter NaN values in `divisor == 3` windows.
+// Verifies `kMedian` and `kMode` with NaNs in `divisor == 3` windows.
 TEST(DownsampleArrayTest, FloatMedianAndModeNaNDivisor3) {
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
   const auto div3_in = MakeArray<float>({
@@ -1254,9 +1234,7 @@ TEST(DownsampleArrayTest, FloatMedianAndModeNaNDivisor3) {
           MatchesArrayIdentically(MakeArray<float>({1.0f, 1.0f, 5.0f, kNaN}))));
 }
 
-// Aborts at HEAD with SIGABRT in libc++ hardening
-// (`strict_weak_ordering_check`) when `std::nth_element` / `std::sort`
-// encounter NaN values in `divisor == 4` windows.
+// Verifies `kMedian` and `kMode` with NaNs in `divisor == 4` windows.
 TEST(DownsampleArrayTest, FloatMedianAndModeNaNDivisor4) {
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
   const auto div4_in = MakeArray<float>({
@@ -1286,9 +1264,7 @@ TEST(DownsampleArrayTest, FloatMedianAndModeNaNDivisor4) {
                   MakeOffsetArray<float>({0}, {2.0f, 10.0f}))));
 }
 
-// Aborts at HEAD with SIGABRT in libc++ hardening
-// (`strict_weak_ordering_check`) when `std::nth_element` / `std::sort`
-// encounter NaN values in `divisor == 25` windows.
+// Verifies `kMedian` and `kMode` with NaNs in `divisor == 25` windows.
 TEST(DownsampleArrayTest, FloatMedianAndModeNaNDivisor25) {
   constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
   auto div25_in = AllocateArray<float>({75});
@@ -1307,7 +1283,6 @@ TEST(DownsampleArrayTest, FloatMedianAndModeNaNDivisor25) {
                       DownsampleMethod::kMode),
       Optional(MatchesArrayIdentically(MakeArray<float>({2.0f, 4.0f, kNaN}))));
 }
-#endif
 
 TEST(DownsampleArrayTest, MedianAndModeRank3ThreeDownsampleDims) {
   // `{3, 3, 3}` input downsampled by `{2, 2, 2}` exercises `prior_calls > 0`
@@ -1407,10 +1382,6 @@ TEST(DownsampleArrayTest, MinAndMaxInt32StridedAndIndexedOutputs) {
   EXPECT_THAT(indexed_i32_buf, MatchesArray(MakeArray<int32_t>({{7, 9}})));
 }
 
-#if 0
-// Fails at HEAD (`{{nan, 0, nan, 0}}` / `{{-nan, 0, -nan, 0}}` /
-// `{{nan, nan}}` / `{{-nan, -nan}}`) because
-// `numeric_limits<float8_e4m3fn_t>::infinity()` is NaN.
 TEST(DownsampleArrayTest, MinAndMaxFloat8StridedAndIndexedOutputs) {
   // Promoted `float8_e4m3fn_t` `kMin`/`kMax` into `kStrided` and `kIndexed`
   // targets (exercising `from_compute_` + `raw_row_scratch_` scatter).
@@ -1458,11 +1429,7 @@ TEST(DownsampleArrayTest, MinAndMaxFloat8StridedAndIndexedOutputs) {
               MatchesArray(MakeArray<float8_e4m3fn_t>(
                   {{float8_e4m3fn_t{6.0f}, float8_e4m3fn_t{10.0f}}})));
 }
-#endif
 
-#if 0
-// Hangs / triggers signed integer overflow at HEAD when
-// `kMaxFactor == INT64_MAX` on an offset domain spanning `[-1, 1)`.
 TEST(DownsampleArrayTest, MaxIndexDownsampleFactorOffsetDomain) {
   // `kMaxFactor` on offset domain `[-1, 1)^3` spans `2 x 2 x 2` output cells
   // (`[-1, 1)^3`, each containing 1 input element), exercising both outer and
@@ -1510,8 +1477,6 @@ TEST(DownsampleArrayTest, MaxIndexDownsampleFactorOffsetDomain) {
 #endif
 }
 
-// Triggers signed integer overflow at HEAD when `product(min(factor, shape))`
-// (`100000^4`) overflows `Index` in `GetWorkingMemoryBytesPerElement`.
 TEST(DownsampleArrayTest, HugeDownsampleFactorWorkingMemoryOverflowSafety) {
   // Verify `GetWorkingMemoryBytesPerElement` and `NDIterationInfo` saturate
   // safely without UB or `SIGFPE` when `product(min(factor, shape))` (`10^20`)
@@ -1540,7 +1505,6 @@ TEST(DownsampleArrayTest, HugeDownsampleFactorWorkingMemoryOverflowSafety) {
   EXPECT_EQ(info.block_shape,
             (tensorstore::internal::IterationBufferShape{1, 1}));
 }
-#endif
 
 using IntegerAndBoolBoundaryTestTypes =
     ::testing::Types<bool, int2_t, int4_t, int8_t, uint8_t, int16_t, uint16_t,
@@ -1587,10 +1551,8 @@ TEST(DownsampleArrayTest, Float64MinMaxAndMeanWithInfinityAndNaN) {
       Optional(MatchesArrayIdentically(MakeArray<double>({7.0 / 3.0, kNaND}))));
 }
 
-#if 0
-// Aborts at HEAD with SIGABRT in libc++ hardening
-// (`strict_weak_ordering_check`) when `std::nth_element` / `std::sort`
-// encounter NaN values in `double` windows.
+// Verifies `double` `kMedian` and `kMode` ignore NaNs unless all elements are
+// NaN.
 TEST(DownsampleArrayTest, Float64MedianAndModeWithNaN) {
   constexpr double kNaND = std::numeric_limits<double>::quiet_NaN();
   EXPECT_THAT(
@@ -1602,7 +1564,6 @@ TEST(DownsampleArrayTest, Float64MedianAndModeWithNaN) {
                       span<const Index>({3}), DownsampleMethod::kMode),
       Optional(MatchesArrayIdentically(MakeArray<double>({4.0, 2.0}))));
 }
-#endif
 
 // Exercises 8-bit `InsertionSort` (`5 <= divisor <= 32`) vs 256-bin histogram
 // (`divisor >= 33`).
@@ -2044,21 +2005,16 @@ TEST(DownsampleArrayTest, Uint16MeanLargeDivisor) {
               Optional(MakeArray<uint16_t>({65535, 65535})));
 }
 
-#if 0
-// Fails at HEAD (`{+0.0f}` instead of `{-0.0f}`) because `kMean` initializes
-// its floating-point accumulator to `+0.0f` (`AccumulateElement{}`) rather than
-// the IEEE-754 additive identity `-0.0f` (`+0.0f + -0.0f == +0.0f`).
+// Verifies that `kMean` initializes its floating-point accumulator to the
+// IEEE-754 additive identity `-0.0f` so an all-`-0.0f` window preserves
+// `-0.0f`.
 TEST(DownsampleArrayTest, FloatSignedZeroMeanPreservation) {
   EXPECT_THAT(DownsampleArray(MakeArray<float>({-0.0f, -0.0f}),
                               span<const Index>({2}), DownsampleMethod::kMean),
               Optional(MatchesArrayIdentically(MakeArray<float>({-0.0f}))));
 }
-#endif
 
-#if 0
-// Aborts at HEAD with SIGABRT in libc++ hardening
-// (`strict_weak_ordering_check`) when `std::nth_element` / `std::sort`
-// encounter `signaling_NaN()`.
+// Verifies `kMedian` and `kMode` with `signaling_NaN()`.
 TEST(DownsampleArrayTest, FloatSignalingNaNMedianAndMode) {
   constexpr float kSNaN = std::numeric_limits<float>::signaling_NaN();
   const auto snan_arr = MakeArray<float>({kSNaN, 3.0f, 3.0f, kSNaN});
@@ -2071,7 +2027,6 @@ TEST(DownsampleArrayTest, FloatSignalingNaNMedianAndMode) {
                       DownsampleMethod::kMode),
       Optional(MatchesArrayIdentically(MakeArray<float>({3.0f, 3.0f}))));
 }
-#endif
 
 // Parameterized test case for `DownsampleArray` across data types, methods,
 // and special floating-point values (`NaN`, `+/-0.0`, `+/-Inf`).
@@ -2124,18 +2079,14 @@ void AddIEEEFloatSpecialCasesForType(
   // `bfloat16_t` (`0x7fc0` vs `0x7fc1`).
   const T qnan = static_cast<T>(std::numeric_limits<float>::quiet_NaN());
 
-  // All `-0.0` window preserves `-0.0` for `kMin`, `kMax`, `kMedian`, `kMode`
-  // (`kMean` is excluded here and covered by `#if 0`
-  // `FloatSignedZeroMeanPreservation` because HEAD initializes the `kMean`
-  // accumulator to `+0.0`).
+  // All `-0.0` window preserves `-0.0` across `kMean`, `kMin`, `kMax`,
+  // `kMedian`, and `kMode`.
   for (DownsampleMethod m :
-       {DownsampleMethod::kMin, DownsampleMethod::kMax,
+       {DownsampleMethod::kMean, DownsampleMethod::kMin, DownsampleMethod::kMax,
         DownsampleMethod::kMedian, DownsampleMethod::kMode}) {
     Add1DCase<T>(out, "AllNegZero", m, 2, {neg_zero, neg_zero}, {neg_zero});
     Add1DCase<T>(out, "AllPosZero", m, 2, {pos_zero, pos_zero}, {pos_zero});
   }
-  Add1DCase<T>(out, "AllPosZero", DownsampleMethod::kMean, 2,
-               {pos_zero, pos_zero}, {pos_zero});
   // Mixed `{-0.0, +0.0}` and `{+0.0, -0.0}` windows: IEEE-754 treats `-0.0 ==
   // +0.0`, so `kMin`, `kMax`, `kMedian`, and `kMode` may return either sign
   // depending on reduction order; compare with `EqualityComparisonKind::equal`.
@@ -2205,14 +2156,12 @@ std::vector<DownsampleSpecialValuesParam> GetPassingSpecialValuesParams() {
   AddIEEEFloatSpecialCasesForType<float8_e3m4_t>(&out);
   AddIEEEFloatSpecialCasesForType<float8_e5m2_t>(&out);
 
-  // `kMin`/`kMax` with `quiet_NaN` and `signaling_NaN`: at HEAD, promoted float
-  // types (`float16_t`, `bfloat16_t`, `float8_*`) use `std::min`/`std::max` on
-  // `float`, where `std::min(+Inf, NaN)` returns `+Inf` if `NaN` is the first
-  // element (`std::min(a, b)` returns `a` when `!(b < a)`), whereas native
-  // `float32_t`/`float64_t` use `<`/`>` directly (`NaN < +Inf` is false, so
-  // the first finite element overwrites `+Inf`).
+  AddStandardFloatNaNMinMaxCasesForType<float16_t>(&out);
+  AddStandardFloatNaNMinMaxCasesForType<bfloat16_t>(&out);
   AddStandardFloatNaNMinMaxCasesForType<float32_t>(&out);
   AddStandardFloatNaNMinMaxCasesForType<float64_t>(&out);
+  AddStandardFloatNaNMinMaxCasesForType<float8_e3m4_t>(&out);
+  AddStandardFloatNaNMinMaxCasesForType<float8_e5m2_t>(&out);
   return out;
 }
 

@@ -28,6 +28,12 @@
 #endif
 #endif  // defined(__has_attribute) && !defined(_WIN32)
 
+#if defined(__clang__) || defined(__GNUC__)
+#define TENSORSTORE_INTERNAL_RESTRICT __restrict__
+#elif defined(_MSC_VER)
+#define TENSORSTORE_INTERNAL_RESTRICT __restrict
+#endif
+
 #else
 // Expand to nothing to avoid cluttering the documentation and because the
 // Sphinx C++ parser chokes on it.
@@ -43,6 +49,10 @@
 
 #ifndef TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN
 #define TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN
+#endif
+
+#ifndef TENSORSTORE_INTERNAL_RESTRICT
+#define TENSORSTORE_INTERNAL_RESTRICT
 #endif
 
 // When defining a conditionally-explicit constructor, this may be used on the
