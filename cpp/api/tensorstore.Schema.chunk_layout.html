@@ -500,14 +500,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Batch.html" class="md-nav__link">
+      <a href="tensorstore.Context.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Batch (C++ class) — Batch provides a mechanism for defining a batch of asynchronous operations that will potentially be deferred until all references to the batch are released."><span>Batch</span></span>
+    <span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;."><span>Context</span></span>
     
   </span>
   
@@ -552,14 +552,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Context.html" class="md-nav__link">
+      <a href="tensorstore.Batch.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;."><span>Context</span></span>
+    <span title="tensorstore::Batch (C++ class) — Batch provides a mechanism for defining a batch of asynchronous operations that will potentially be deferred until all references to the batch are released."><span>Batch</span></span>
     
   </span>
   
@@ -986,6 +986,58 @@
 
               
             
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Schema.ToJson.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Schema::ToJson (C++ function) — Converts to a JSON representation."><span>To<wbr>Json</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Schema.FromJson.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Schema::FromJson (C++ function) — Parses from a JSON representation."><span>From<wbr>Json</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1027,12 +1079,12 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Schema.html#data-members" class="md-nav__link">
+      <a href="tensorstore.Schema.html#friend-functions" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    <span>Data members</span>
+    <span>Friend functions</span>
     
   </span>
   
@@ -1051,12 +1103,12 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Schema.html#friend-functions" class="md-nav__link">
+      <a href="tensorstore.Schema.html#conversion-operators" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    <span>Friend functions</span>
+    <span>Conversion operators</span>
     
   </span>
   
@@ -1657,7 +1709,7 @@
 <dt class="sig sig-object highlight cpp">
 <span><span class="k">explicit</span></span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Schema.html#c:&#64;N&#64;tensorstore&#64;S&#64;Schema" title="tensorstore::Schema (C++ class) — Collection of constraints for a TensorStore schema."><span class="n">Schema</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="k">operator</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ChunkLayout.html#c:&#64;N&#64;tensorstore&#64;S&#64;ChunkLayout" title="tensorstore::ChunkLayout (C++ class) — Specifies a precise chunk layout or constraints on a chunk layout."><span class="n">ChunkLayout</span></a></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
 <dt class="sig sig-object highlight cpp">
-<span class="k">template&nbsp;</span><span class="p">&lt;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::Schema::Set::Option (C++ type template parameter)"><span class="n">Option</span></a></span></span><span class="p">&gt;<br>&nbsp;&nbsp;</span><span><span class="k">requires</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ChunkLayout.html#c:&#64;N&#64;tensorstore&#64;S&#64;ChunkLayout" title="tensorstore::ChunkLayout (C++ class) — Specifies a precise chunk layout or constraints on a chunk layout."><span class="n">ChunkLayout</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.ChunkLayout.IsOption.html#c:&#64;N&#64;tensorstore&#64;S&#64;ChunkLayout&#64;IsOption" title="tensorstore::ChunkLayout::IsOption (C++ member) — Evaluates to true for option types compatible with Set.  Supported types are:"><span class="n">IsOption</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::Schema::Set::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&gt;<br></span></span><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status" title="C++ class"><span class="n">Status</span></a><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Schema.html#c:&#64;N&#64;tensorstore&#64;S&#64;Schema" title="tensorstore::Schema (C++ class) — Collection of constraints for a TensorStore schema."><span class="n">Schema</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">Set</span></span><span class="p">(</span><span><a class="desctype reference internal" href="#" title="tensorstore::Schema::Set::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::Schema::Set::value (C++ function parameter)"><span class="n sig-param">value</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<span class="k">template&nbsp;</span><span class="p">&lt;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::Schema::Set::Option (C++ type template parameter)"><span class="n">Option</span></a></span></span><span class="p">&gt;<br></span><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status" title="C++ class"><span class="n">Status</span></a><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Schema.html#c:&#64;N&#64;tensorstore&#64;S&#64;Schema" title="tensorstore::Schema (C++ class) — Collection of constraints for a TensorStore schema."><span class="n">Schema</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">Set</span></span><span class="p">(</span><span><a class="desctype reference internal" href="#" title="tensorstore::Schema::Set::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::Schema::Set::value (C++ function parameter)"><span class="n sig-param">value</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Specifies the data storage layout.</p>
 <p>If additional chunk layout constraints are specified when existing chunk
 layout constraints are set, they are merged.</p>

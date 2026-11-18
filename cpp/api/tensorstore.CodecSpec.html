@@ -11,7 +11,7 @@
       
       
       
-        <link rel="prev" href="tensorstore.ChunkLayout.IsOption.html">
+        <link rel="prev" href="tensorstore.TransformInputDimensionOrder.html">
       
       
         <link rel="next" href="tensorstore.CodecSpec.ToJsonOptions.html">
@@ -505,14 +505,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Batch.html" class="md-nav__link">
+      <a href="tensorstore.Context.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Batch (C++ class) — Batch provides a mechanism for defining a batch of asynchronous operations that will potentially be deferred until all references to the batch are released."><span>Batch</span></span>
+    <span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;."><span>Context</span></span>
     
   </span>
   
@@ -557,14 +557,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Context.html" class="md-nav__link">
+      <a href="tensorstore.Batch.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;."><span>Context</span></span>
+    <span title="tensorstore::Batch (C++ class) — Batch provides a mechanism for defining a batch of asynchronous operations that will potentially be deferred until all references to the batch are released."><span>Batch</span></span>
     
   </span>
   
@@ -680,12 +680,12 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Schema.html#data-members" class="md-nav__link">
+      <a href="tensorstore.Schema.html#friend-functions" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    <span>Data members</span>
+    <span>Friend functions</span>
     
   </span>
   
@@ -704,12 +704,12 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Schema.html#friend-functions" class="md-nav__link">
+      <a href="tensorstore.Schema.html#conversion-operators" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    <span>Friend functions</span>
+    <span>Conversion operators</span>
     
   </span>
   
@@ -1088,6 +1088,58 @@
   
   
     <li class="md-nav__item">
+      <a href="tensorstore.CodecSpec.ToJson.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::CodecSpec::ToJson (C++ function) — Converts to a JSON representation."><span>To<wbr>Json</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.CodecSpec.FromJson.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::CodecSpec::FromJson (C++ function) — Parses from a JSON representation."><span>From<wbr>Json</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="tensorstore.CodecSpec.MergeFrom.html" class="md-nav__link">
         
   
@@ -1162,12 +1214,12 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="#friend-functions" class="md-nav__link ">
+            <a href="#conversion-operators" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
-    <span>Friend functions</span>
+    <span>Conversion operators</span>
     
   </span>
   
@@ -1183,6 +1235,88 @@
         
         <nav class="md-nav" data-md-level="7" aria-labelledby="__nav_2_1_1_4_5_2_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_1_1_4_5_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            <span>Conversion operators</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.CodecSpec.operator-cast.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::CodecSpec::operator ::nlohmann::json (C++ function) — Converts to a JSON representation."><span>operator ::<wbr>nlohmann::<wbr>json</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_1_1_4_5_2_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="#friend-functions" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    <span>Friend functions</span>
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1_1_4_5_2_5" id="__nav_2_1_1_4_5_2_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="7" aria-labelledby="__nav_2_1_1_4_5_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1_1_4_5_2_5">
             <span class="md-nav__icon md-icon"></span>
             <span>Friend functions</span>
           </label>
@@ -1412,6 +1546,30 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="tensorstore.CodecSpec.ToJson.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::CodecSpec::ToJson (C++ function) — Converts to a JSON representation."><span>To<wbr>Json</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.CodecSpec.FromJson.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::CodecSpec::FromJson (C++ function) — Parses from a JSON representation."><span>From<wbr>Json</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="tensorstore.CodecSpec.MergeFrom.html" class="md-nav__link">
     
       <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
@@ -1430,6 +1588,34 @@
     
     <span class="md-ellipsis">
       <span title="tensorstore::CodecSpec::Merge (C++ function) — Merges two codec specs."><span>Merge</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conversion-operators" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Conversion operators</span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Conversion operators">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.CodecSpec.operator-cast.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::CodecSpec::operator ::nlohmann::json (C++ function) — Converts to a JSON representation."><span>operator ::<wbr>nlohmann::<wbr>json</span></span>
     </span>
   </a>
   
@@ -2143,6 +2329,16 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#conversion-operators" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Conversion operators</span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#friend-functions" class="md-nav__link">
     
     <span class="md-ellipsis">
@@ -2210,6 +2406,18 @@ always associated with a particular driver.</p>
 
 <dl class="cpp function summary objdesc">
 <dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><span class="p">::</span><span class="n">nlohmann</span><span class="p">::</span><a class="desctype reference external" href="https://json.nlohmann.me/api/json/" title="C++ type alias"><span class="n">json</span></a><span class="p">&gt;</span><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.CodecSpec.ToJson.html"><span class="doc"><span class="pre">ToJson</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.CodecSpec.ToJsonOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;ToJsonOptions" title="tensorstore::CodecSpec::ToJsonOptions (C++ type) — JSON serialization options."><span class="n">ToJsonOptions</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.CodecSpec.ToJson.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;F&#64;ToJson#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;JsonSerializationOptions#1" title="tensorstore::CodecSpec::ToJson::options (C++ function parameter)"><span class="n sig-param">options</span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.CodecSpec.ToJsonOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;ToJsonOptions" title="tensorstore::CodecSpec::ToJsonOptions (C++ type) — JSON serialization options."><span class="n">ToJsonOptions</span></a><span class="p">{</span><span class="p">}</span></span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Converts to a JSON representation.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::CodecSpec (C++ class) — Specifies compression and other encoding/decoding parameters for a TensorStore driver."><span class="n">CodecSpec</span></a><span class="p">&gt;</span><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.CodecSpec.FromJson.html"><span class="doc"><span class="pre">FromJson</span></span></a><span class="p">(</span><span><span class="p">::</span><span class="n">nlohmann</span><span class="p">::</span><a class="desctype reference external" href="https://json.nlohmann.me/api/json/" title="C++ type alias"><span class="n">json</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.CodecSpec.FromJson.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;F&#64;FromJson#$&#64;N&#64;nlohmann&#64;N&#64;json_abi&#64;S&#64;basic_json&gt;#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;4#T#T#T#T&#64;map#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;2#T#T&#64;vector#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#C#b#L#l#d#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;1#T&#64;allocator#&#64;N&#64;nlohmann&#64;N&#64;json_abi&#64;ST&gt;2#T#T&#64;adl_serializer#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;vector&gt;#c#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#c#v#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;JsonSerializationOptions#S" title="tensorstore::CodecSpec::FromJson::j (C++ function parameter)"><span class="n sig-param">j</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.CodecSpec.ToJsonOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;FromJsonOptions" title="tensorstore::CodecSpec::FromJsonOptions (C++ type) — JSON serialization options."><span class="n">FromJsonOptions</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.CodecSpec.FromJson.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;F&#64;FromJson#$&#64;N&#64;nlohmann&#64;N&#64;json_abi&#64;S&#64;basic_json&gt;#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;4#T#T#T#T&#64;map#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;2#T#T&#64;vector#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#C#b#L#l#d#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;1#T&#64;allocator#&#64;N&#64;nlohmann&#64;N&#64;json_abi&#64;ST&gt;2#T#T&#64;adl_serializer#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;vector&gt;#c#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#c#v#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;JsonSerializationOptions#S" title="tensorstore::CodecSpec::FromJson::options (C++ function parameter)"><span class="n sig-param">options</span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.CodecSpec.ToJsonOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;FromJsonOptions" title="tensorstore::CodecSpec::FromJsonOptions (C++ type) — JSON serialization options."><span class="n">FromJsonOptions</span></a><span class="p">{</span><span class="p">}</span></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Parses from a JSON representation.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
 <span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status" title="C++ class"><span class="n">Status</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.CodecSpec.MergeFrom.html"><span class="doc"><span class="pre">MergeFrom</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="#" title="tensorstore::CodecSpec (C++ class) — Specifies compression and other encoding/decoding parameters for a TensorStore driver."><span class="n">CodecSpec</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.CodecSpec.MergeFrom.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;F&#64;MergeFrom#$&#64;N&#64;tensorstore&#64;S&#64;CodecSpec#" title="tensorstore::CodecSpec::MergeFrom::other (C++ function parameter)"><span class="n sig-param">other</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Merges this codec spec with another codec spec.</p>
 </dd></dl>
@@ -2218,6 +2426,15 @@ always associated with a particular driver.</p>
 <dt class="sig sig-object highlight cpp">
 <span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::CodecSpec (C++ class) — Specifies compression and other encoding/decoding parameters for a TensorStore driver."><span class="n">CodecSpec</span></a><span class="p">&gt;</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.CodecSpec.Merge.html"><span class="doc"><span class="pre">Merge</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="#" title="tensorstore::CodecSpec (C++ class) — Specifies compression and other encoding/decoding parameters for a TensorStore driver."><span class="n">CodecSpec</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.CodecSpec.Merge.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;F&#64;Merge#$&#64;N&#64;tensorstore&#64;S&#64;CodecSpec#S0_#S" title="tensorstore::CodecSpec::Merge::a (C++ function parameter)"><span class="n sig-param">a</span></a></span><span class="p">,&nbsp;</span><span><a class="desctype reference internal" href="#" title="tensorstore::CodecSpec (C++ class) — Specifies compression and other encoding/decoding parameters for a TensorStore driver."><span class="n">CodecSpec</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.CodecSpec.Merge.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;CodecSpec&#64;F&#64;Merge#$&#64;N&#64;tensorstore&#64;S&#64;CodecSpec#S0_#S" title="tensorstore::CodecSpec::Merge::b (C++ function parameter)"><span class="n sig-param">b</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Merges two codec specs.</p>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+<h2 id="conversion-operators">Conversion operators<a class="headerlink" href="#conversion-operators" title="Link to this heading">¶</a></h2>
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span><span class="k">explicit</span></span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.CodecSpec.operator-cast.html"><span class="doc"><span class="pre">operator</span> <span class="pre">::nlohmann::json</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Converts to a JSON representation.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">

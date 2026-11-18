@@ -505,14 +505,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Batch.html" class="md-nav__link">
+      <a href="tensorstore.Context.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Batch (C++ class) — Batch provides a mechanism for defining a batch of asynchronous operations that will potentially be deferred until all references to the batch are released."><span>Batch</span></span>
+    <span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;."><span>Context</span></span>
     
   </span>
   
@@ -557,14 +557,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.Context.html" class="md-nav__link">
+      <a href="tensorstore.Batch.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;."><span>Context</span></span>
+    <span title="tensorstore::Batch (C++ class) — Batch provides a mechanism for defining a batch of asynchronous operations that will potentially be deferred until all references to the batch are released."><span>Batch</span></span>
     
   </span>
   
@@ -1714,14 +1714,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.SourceDataReferenceRestriction.html" class="md-nav__link">
+      <a href="tensorstore.ReadWriteMode.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::SourceDataReferenceRestriction (C++ enum) — Specifies restrictions on how references to the source array/source TensorStore may be used by write operations."><span>Source<wbr>Data<wbr>Reference<wbr>Restriction</span></span>
+    <span title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span>Read<wbr>Write<wbr>Mode</span></span>
     
   </span>
   
@@ -1740,14 +1740,14 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.ReadWriteMode.html" class="md-nav__link">
+      <a href="tensorstore.SourceDataReferenceRestriction.html" class="md-nav__link">
         
   
   
     <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span>Read<wbr>Write<wbr>Mode</span></span>
+    <span title="tensorstore::SourceDataReferenceRestriction (C++ enum) — Specifies restrictions on how references to the source array/source TensorStore may be used by write operations."><span>Source<wbr>Data<wbr>Reference<wbr>Restriction</span></span>
     
   </span>
   
@@ -1800,6 +1800,32 @@
   
   <span class="md-ellipsis">
     <span title="tensorstore::TensorWriter (C++ type) — Write-only TensorStore alias."><span>Tensor<wbr>Writer</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StackOpenOptions.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::StackOpenOptions (C++ type) — Options for Overlay, Stack, and Concat."><span>Stack<wbr>Open<wbr>Options</span></span>
     
   </span>
   
@@ -1986,6 +2012,84 @@
   
   <span class="md-ellipsis">
     <span title="tensorstore::Open (C++ function) — Opens a TensorStore from a Spec."><span>Open</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Overlay.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Overlay (C++ function) — Virtually overlays a sequence of TensorStore or Spec layers within a common domain."><span>Overlay</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Stack.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Stack (C++ function) — Virtually stacks a sequence of TensorStore or Spec layers along a new dimension."><span>Stack</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Concat.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::Concat (C++ function) — Virtually concatenates a sequence of TensorStore or Spec layers along an existing dimension."><span>Concat</span></span>
     
   </span>
   
@@ -2254,6 +2358,322 @@
   
   <span class="md-ellipsis">
     <span title="tensorstore::IsJsonSpecLike (C++ member) — Indicates that T may be passed as a JSON spec to tensorstore::Open."><span>Is<wbr>Json<wbr>Spec<wbr>Like</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_1_1_6_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="#virtual-chunked" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    <span>Virtual chunked</span>
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1_1_6_10" id="__nav_2_1_1_6_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_2_1_1_6_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1_1_6_10">
+            <span class="md-nav__icon md-icon"></span>
+            <span>Virtual chunked</span>
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.virtual_chunked.ReadParameters.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::virtual_chunked::ReadParameters (C++ class) — Parameters available to the read function for computing the content of a chunk."><span>Read<wbr>Parameters</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.virtual_chunked.ReadFunction.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::virtual_chunked::ReadFunction (C++ type) — Type-erased function called to read a single chunk."><span>Read<wbr>Function</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.virtual_chunked.IsReadFunction.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::virtual_chunked::IsReadFunction (C++ member) — Metafunction that evaluates to true if Func may be used as a &#34;read function&#34; for the specified compile-time Element type and Rank."><span>Is<wbr>Read<wbr>Function</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.virtual_chunked.WriteParameters.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::virtual_chunked::WriteParameters (C++ class) — Parameters available to the write function for storing the content of a chunk."><span>Write<wbr>Parameters</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.virtual_chunked.WriteFunction.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::virtual_chunked::WriteFunction (C++ type) — Type-erased function called to write a single chunk."><span>Write<wbr>Function</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.virtual_chunked.IsWriteFunction.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::virtual_chunked::IsWriteFunction (C++ member) — Metafunction that evaluates to true if Func may be used as a &#34;write function&#34; for the specified compile-time Element type and Rank."><span>Is<wbr>Write<wbr>Function</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.virtual_chunked.OpenOptions.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::virtual_chunked::OpenOptions (C++ class) — Options to the VirtualChunked function for creating a virtual_chunked TensorStore."><span>Open<wbr>Options</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.VirtualChunked-read.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::VirtualChunked (C++ function) — Creates a read-only TensorStore where the content is read chunk-wise by the specified user-defined function."><span>Virtual<wbr>Chunked <wbr>[read]</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.VirtualChunked-read_write.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::VirtualChunked (C++ function) — Creates a read-write TensorStore where the content is read and written chunk-wise by the specified user-defined functions."><span>Virtual<wbr>Chunked <wbr>[read_<wbr>write]</span></span>
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.VirtualChunkedWriteOnly.html" class="md-nav__link">
+        
+  
+  
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::VirtualChunkedWriteOnly (C++ function) — Creates a write-only TensorStore where the content is written chunk-wise by the specified user-defined function."><span>Virtual<wbr>Chunked<wbr>Write<wbr>Only</span></span>
     
   </span>
   
@@ -2798,24 +3218,24 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="tensorstore.SourceDataReferenceRestriction.html" class="md-nav__link">
-    
-      <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span>
-    
-    <span class="md-ellipsis">
-      <span title="tensorstore::SourceDataReferenceRestriction (C++ enum) — Specifies restrictions on how references to the source array/source TensorStore may be used by write operations."><span>Source<wbr>Data<wbr>Reference<wbr>Restriction</span></span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="tensorstore.ReadWriteMode.html" class="md-nav__link">
     
       <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span>
     
     <span class="md-ellipsis">
       <span title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span>Read<wbr>Write<wbr>Mode</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.SourceDataReferenceRestriction.html" class="md-nav__link">
+    
+      <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::SourceDataReferenceRestriction (C++ enum) — Specifies restrictions on how references to the source array/source TensorStore may be used by write operations."><span>Source<wbr>Data<wbr>Reference<wbr>Restriction</span></span>
     </span>
   </a>
   
@@ -2840,6 +3260,18 @@
     
     <span class="md-ellipsis">
       <span title="tensorstore::TensorWriter (C++ type) — Write-only TensorStore alias."><span>Tensor<wbr>Writer</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.StackOpenOptions.html" class="md-nav__link">
+    
+      <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::StackOpenOptions (C++ type) — Options for Overlay, Stack, and Concat."><span>Stack<wbr>Open<wbr>Options</span></span>
     </span>
   </a>
   
@@ -2916,6 +3348,42 @@
     
     <span class="md-ellipsis">
       <span title="tensorstore::Open (C++ function) — Opens a TensorStore from a Spec."><span>Open</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Overlay.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::Overlay (C++ function) — Virtually overlays a sequence of TensorStore or Spec layers within a common domain."><span>Overlay</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Stack.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::Stack (C++ function) — Virtually stacks a sequence of TensorStore or Spec layers along a new dimension."><span>Stack</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Concat.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::Concat (C++ function) — Virtually concatenates a sequence of TensorStore or Spec layers along an existing dimension."><span>Concat</span></span>
     </span>
   </a>
   
@@ -3020,6 +3488,142 @@
     
     <span class="md-ellipsis">
       <span title="tensorstore::IsJsonSpecLike (C++ member) — Indicates that T may be passed as a JSON spec to tensorstore::Open."><span>Is<wbr>Json<wbr>Spec<wbr>Like</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#virtual-chunked" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Virtual chunked</span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Virtual chunked">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.virtual_chunked.ReadParameters.html" class="md-nav__link">
+    
+      <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::virtual_chunked::ReadParameters (C++ class) — Parameters available to the read function for computing the content of a chunk."><span>Read<wbr>Parameters</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.virtual_chunked.ReadFunction.html" class="md-nav__link">
+    
+      <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::virtual_chunked::ReadFunction (C++ type) — Type-erased function called to read a single chunk."><span>Read<wbr>Function</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.virtual_chunked.IsReadFunction.html" class="md-nav__link">
+    
+      <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::virtual_chunked::IsReadFunction (C++ member) — Metafunction that evaluates to true if Func may be used as a &#34;read function&#34; for the specified compile-time Element type and Rank."><span>Is<wbr>Read<wbr>Function</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.virtual_chunked.WriteParameters.html" class="md-nav__link">
+    
+      <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::virtual_chunked::WriteParameters (C++ class) — Parameters available to the write function for storing the content of a chunk."><span>Write<wbr>Parameters</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.virtual_chunked.WriteFunction.html" class="md-nav__link">
+    
+      <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::virtual_chunked::WriteFunction (C++ type) — Type-erased function called to write a single chunk."><span>Write<wbr>Function</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.virtual_chunked.IsWriteFunction.html" class="md-nav__link">
+    
+      <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::virtual_chunked::IsWriteFunction (C++ member) — Metafunction that evaluates to true if Func may be used as a &#34;write function&#34; for the specified compile-time Element type and Rank."><span>Is<wbr>Write<wbr>Function</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.virtual_chunked.OpenOptions.html" class="md-nav__link">
+    
+      <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::virtual_chunked::OpenOptions (C++ class) — Options to the VirtualChunked function for creating a virtual_chunked TensorStore."><span>Open<wbr>Options</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.VirtualChunked-read.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::VirtualChunked (C++ function) — Creates a read-only TensorStore where the content is read chunk-wise by the specified user-defined function."><span>Virtual<wbr>Chunked <wbr>[read]</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.VirtualChunked-read_write.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::VirtualChunked (C++ function) — Creates a read-write TensorStore where the content is read and written chunk-wise by the specified user-defined functions."><span>Virtual<wbr>Chunked <wbr>[read_<wbr>write]</span></span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.VirtualChunkedWriteOnly.html" class="md-nav__link">
+    
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span>
+    
+    <span class="md-ellipsis">
+      <span title="tensorstore::VirtualChunkedWriteOnly (C++ function) — Creates a write-only TensorStore where the content is written chunk-wise by the specified user-defined function."><span>Virtual<wbr>Chunked<wbr>Write<wbr>Only</span></span>
     </span>
   </a>
   
@@ -3670,6 +4274,16 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#virtual-chunked" class="md-nav__link">
+    
+    <span class="md-ellipsis">
+      <span>Virtual chunked</span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3914,17 +4528,17 @@ determine efficient read/write access patterns.</p>
 </dd></dl>
 
 <h2 id="related-types">Related Types<a class="headerlink" href="#related-types" title="Link to this heading">¶</a></h2>
+<dl class="cpp enum-class summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">enum</span><span class="w">&nbsp;</span><span class="k">class</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.ReadWriteMode.html"><span class="doc"><span class="pre">ReadWriteMode</span></span></a><span class="p">;</span></dt>
+<dd><p>Specifies whether reading and/or writing is permitted.</p>
+</dd></dl>
+
 <dl class="cpp enum summary objdesc">
 <dt class="sig sig-object highlight cpp">
 <span class="k">enum</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.SourceDataReferenceRestriction.html"><span class="doc"><span class="pre">SourceDataReferenceRestriction</span></span></a><span class="p">;</span></dt>
 <dd><p>Specifies restrictions on how references to the source array/source
 TensorStore may be used by write operations.</p>
-</dd></dl>
-
-<dl class="cpp enum-class summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">enum</span><span class="w">&nbsp;</span><span class="k">class</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.ReadWriteMode.html"><span class="doc"><span class="pre">ReadWriteMode</span></span></a><span class="p">;</span></dt>
-<dd><p>Specifies whether reading and/or writing is permitted.</p>
 </dd></dl>
 
 <dl class="cpp type summary objdesc">
@@ -3937,6 +4551,12 @@ TensorStore may be used by write operations.</p>
 <dt class="sig sig-object highlight cpp">
 <span class="k">using</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.TensorWriter.html"><span class="doc"><span class="pre">TensorWriter</span></span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.TensorWriter.html#_CPPv4c:&#64;N&#64;tensorstore&#64;TensorWriter" title="tensorstore::TensorWriter::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.TensorWriter.html#_CPPv4c:&#64;N&#64;tensorstore&#64;TensorWriter" title="tensorstore::TensorWriter::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">&gt;</span><span class="w">&nbsp;</span><span class="p">=<br></span><span class="w">&nbsp;&nbsp;&nbsp;&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.TensorWriter.html#_CPPv4c:&#64;N&#64;tensorstore&#64;TensorWriter" title="tensorstore::TensorWriter::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.TensorWriter.html#_CPPv4c:&#64;N&#64;tensorstore&#64;TensorWriter" title="tensorstore::TensorWriter::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode" title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span class="n">ReadWriteMode</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;write" title="tensorstore::ReadWriteMode::write (C++ enumerator) — Indicates that writing is supported."><span class="n">write</span></a><span class="p">&gt;</span><span class="p">;</span></dt>
 <dd><p>Write-only <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a></code> alias.</p>
+</dd></dl>
+
+<dl class="cpp type summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">using</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.StackOpenOptions.html"><span class="doc"><span class="pre">StackOpenOptions</span></span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.TransactionalOpenOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions" title="tensorstore::TransactionalOpenOptions (C++ class) — Options for opening a Spec with optional transaction and optional batch."><span class="n">TransactionalOpenOptions</span></a><span class="p">;</span></dt>
+<dd><p>Options for <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Overlay.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TOverlay#&amp;1t0.0#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;" title="tensorstore::Overlay (C++ function) — Virtually overlays a sequence of TensorStore or Spec layers within a common domain."><span class="n">Overlay</span></a></code>, <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Stack.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TStack#&amp;1t0.0#L#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;" title="tensorstore::Stack (C++ function) — Virtually stacks a sequence of TensorStore or Spec layers along a new dimension."><span class="n">Stack</span></a></code>, and <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Concat.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;" title="tensorstore::Concat (C++ function) — Virtually concatenates a sequence of TensorStore or Spec layers along an existing dimension."><span class="n">Concat</span></a></code>.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">
@@ -3982,6 +4602,33 @@ TensorStore may be used by write operations.</p>
 <dt class="sig sig-object highlight cpp">
 <a class="desctype reference internal" href="tensorstore.Future.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future" title="tensorstore::Future (C++ class) — &quot;Consumer&quot; interface to a one-time channel."><span class="n">Future</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Open.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode#TOpen#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#^enable_if&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;type-parameter-0-0, Rank, Mode&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;Element, Rank, Mode&gt;&gt;&gt;" title="tensorstore::Open::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.Open.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode#TOpen#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#^enable_if&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;type-parameter-0-0, Rank, Mode&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;Element, Rank, Mode&gt;&gt;&gt;" title="tensorstore::Open::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.Open.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode#TOpen#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#^enable_if&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;type-parameter-0-0, Rank, Mode&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;Element, Rank, Mode&gt;&gt;&gt;" title="tensorstore::Open::Mode (C++ non-type template parameter)"><span class="n">Mode</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.Open.html"><span class="doc"><span class="pre">Open</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="tensorstore.Open.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode#TOpen#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#^enable_if&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;type-parameter-0-0, Rank, Mode&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;Element, Rank, Mode&gt;&gt;&gt;" title="tensorstore::Open::J (C++ type template parameter)"><span class="n">J</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Open.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode#TOpen#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#^enable_if&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;type-parameter-0-0, Rank, Mode&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;Element, Rank, Mode&gt;&gt;&gt;" title="tensorstore::Open::json_spec (C++ function parameter)"><span class="n sig-param">json_spec</span></a></span><span class="p">,&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.TransactionalOpenOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions" title="tensorstore::TransactionalOpenOptions (C++ class) — Options for opening a Spec with optional transaction and optional batch."><span class="n">TransactionalOpenOptions</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Open.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode#TOpen#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#^enable_if&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;type-parameter-0-0, Rank, Mode&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsJsonSpecLike&lt;J&gt;, Future&lt;TensorStore&lt;Element, Rank, Mode&gt;&gt;&gt;" title="tensorstore::Open::options (C++ function parameter)"><span class="n sig-param">options</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Opens a TensorStore from a Spec.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="kt">auto</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.Overlay.html"><span class="doc"><span class="pre">Overlay</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Overlay.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TOverlay#&amp;1t0.0#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;" title="tensorstore::Overlay::Layers (C++ type template parameter)"><span class="n">Layers</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Overlay.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TOverlay#&amp;1t0.0#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;-p-layers" title="tensorstore::Overlay::layers (C++ function parameter) — Sequence of layers to overlay."><span class="n sig-param">layers</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.StackOpenOptions.html#c:&#64;N&#64;tensorstore&#64;StackOpenOptions" title="tensorstore::StackOpenOptions (C++ type) — Options for Overlay, Stack, and Concat."><span class="n">StackOpenOptions</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Overlay.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TOverlay#&amp;1t0.0#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;-p-options" title="tensorstore::Overlay::options (C++ function parameter) — Options for opening the overlay view."><span class="n sig-param">options</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<span class="kt">auto</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.Overlay.html"><span class="doc"><span class="pre">Overlay</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Overlay.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTOverlay#&amp;1t0.0#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Overlay::Layers (C++ type template parameter)"><span class="n">Layers</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Overlay.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTOverlay#&amp;1t0.0#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Overlay::layers (C++ function parameter)"><span class="n sig-param">layers</span></a></span><span class="p">,&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.Overlay.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTOverlay#&amp;1t0.0#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Overlay::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&amp;</span><span class="p">&amp;</span><span class="p">...</span><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Overlay.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTOverlay#&amp;1t0.0#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;-p-option" title="tensorstore::Overlay::option (C++ function parameter) — Individual option compatible with StackOpenOptions."><span class="n sig-param">option</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Virtually overlays a sequence of <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a></code> or <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> layers within a
+common domain.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="kt">auto</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.Stack.html"><span class="doc"><span class="pre">Stack</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Stack.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TStack#&amp;1t0.0#L#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;" title="tensorstore::Stack::Layers (C++ type template parameter)"><span class="n">Layers</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Stack.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TStack#&amp;1t0.0#L#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;-p-layers" title="tensorstore::Stack::layers (C++ function parameter) — Sequence of layers to stack."><span class="n sig-param">layers</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.DimensionIndex.html#c:&#64;N&#64;tensorstore&#64;DimensionIndex" title="tensorstore::DimensionIndex (C++ type) — Type for representing a dimension index or rank."><span class="n">DimensionIndex</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Stack.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TStack#&amp;1t0.0#L#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;-p-stack_dimension" title="tensorstore::Stack::stack_dimension (C++ function parameter) — Dimension index along which to stack the layers."><span class="n sig-param">stack_dimension</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.StackOpenOptions.html#c:&#64;N&#64;tensorstore&#64;StackOpenOptions" title="tensorstore::StackOpenOptions (C++ type) — Options for Overlay, Stack, and Concat."><span class="n">StackOpenOptions</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Stack.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TStack#&amp;1t0.0#L#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;-p-options" title="tensorstore::Stack::options (C++ function parameter) — Options for opening the stacked view."><span class="n sig-param">options</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<span class="kt">auto</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.Stack.html"><span class="doc"><span class="pre">Stack</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Stack.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTStack#&amp;1t0.0#L#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Stack::Layers (C++ type template parameter)"><span class="n">Layers</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Stack.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTStack#&amp;1t0.0#L#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Stack::layers (C++ function parameter)"><span class="n sig-param">layers</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.DimensionIndex.html#c:&#64;N&#64;tensorstore&#64;DimensionIndex" title="tensorstore::DimensionIndex (C++ type) — Type for representing a dimension index or rank."><span class="n">DimensionIndex</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Stack.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTStack#&amp;1t0.0#L#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Stack::stack_dimension (C++ function parameter)"><span class="n sig-param">stack_dimension</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.Stack.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTStack#&amp;1t0.0#L#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Stack::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&amp;</span><span class="p">&amp;</span><span class="p">...</span><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Stack.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTStack#&amp;1t0.0#L#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename StackResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::StackResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;-p-option" title="tensorstore::Stack::option (C++ function parameter) — Individual option compatible with StackOpenOptions."><span class="n sig-param">option</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Virtually stacks a sequence of <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a></code> or <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> layers along a new
+dimension.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="kt">auto</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.Concat.html"><span class="doc"><span class="pre">Concat</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Concat.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;" title="tensorstore::Concat::Layers (C++ type template parameter)"><span class="n">Layers</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Concat.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;-p-layers" title="tensorstore::Concat::layers (C++ function parameter) — Sequence of layers to concatenate."><span class="n sig-param">layers</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.DimensionIdentifier.html#c:&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier" title="tensorstore::DimensionIdentifier (C++ class) — Specifies a dimension of an index space by index or by label."><span class="n">DimensionIdentifier</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Concat.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;-p-concat_dimension" title="tensorstore::Concat::concat_dimension (C++ function parameter) — Dimension along which to concatenate the layers."><span class="n sig-param">concat_dimension</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.StackOpenOptions.html#c:&#64;N&#64;tensorstore&#64;StackOpenOptions" title="tensorstore::StackOpenOptions (C++ type) — Options for Overlay, Stack, and Concat."><span class="n">StackOpenOptions</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Concat.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1^OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;:::type# Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;-p-options" title="tensorstore::Concat::options (C++ function parameter) — Options for opening the concatenated view."><span class="n sig-param">options</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<span class="kt">auto</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.Concat.html"><span class="doc"><span class="pre">Concat</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Concat.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Concat::Layers (C++ type template parameter)"><span class="n">Layers</span></a><span class="w">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Concat.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Concat::layers (C++ function parameter)"><span class="n sig-param">layers</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.DimensionIdentifier.html#c:&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier" title="tensorstore::DimensionIdentifier (C++ class) — Specifies a dimension of an index space by index or by label."><span class="n">DimensionIdentifier</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Concat.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Concat::concat_dimension (C++ function parameter)"><span class="n sig-param">concat_dimension</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.Concat.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;" title="tensorstore::Concat::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&amp;</span><span class="p">&amp;</span><span class="p">...</span><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Concat.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;2#T#pTConcat#&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;DimensionIdentifier#P&amp;&amp;t0.1#^enable_if&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename OverlayResult&lt;typename remove_cvref&lt;typename type-parameter-0-0::value_type&gt;::type&gt;::type&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;StackOpenOptions, Option...&gt;, Result&lt;typename internal_stack::OverlayResult&lt;absl::remove_cvref_t&lt;typename Layers::value_type&gt;&gt;::type&gt;&gt;-p-option" title="tensorstore::Concat::option (C++ function parameter) — Individual option compatible with StackOpenOptions."><span class="n sig-param">option</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Virtually concatenates a sequence of <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a></code> or <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> layers along an
+existing dimension.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">
@@ -4036,6 +4683,83 @@ bounds resolved if possible, and explicit bounds checked.</p>
 <dt class="sig sig-object highlight cpp">
 <span class="k">constexpr</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.IsJsonSpecLike.html"><span class="doc"><span class="pre">IsJsonSpecLike</span></span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.IsJsonSpecLike.html#_CPPv4c:&#64;N&#64;tensorstore&#64;IsJsonSpecLike" title="tensorstore::IsJsonSpecLike::T (C++ type template parameter)"><span class="n">T</span></a><span class="p">&gt;</span><span class="p">;</span></dt>
 <dd><p>Indicates that <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.IsJsonSpecLike.html#_CPPv4c:&#64;N&#64;tensorstore&#64;IsJsonSpecLike" title="tensorstore::IsJsonSpecLike::T (C++ type template parameter)"><span class="n">T</span></a></code> may be passed as a JSON spec to <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><a class="reference internal" href="tensorstore.Open.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteModeOpen#$&#64;N&#64;tensorstore&#64;S&#64;Spec#&amp;&amp;$&#64;N&#64;tensorstore&#64;S&#64;TransactionalOpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Future1&gt;&#64;N&#64;tensorstore&#64;ST&gt;3#T#NL#NS0_&#64;TensorStore3t0.0# Future&lt;TensorStore&lt;Element, Rank, Mode&gt;&gt;" title="tensorstore::Open (C++ function) — Opens a TensorStore from a Spec."><span class="n">Open</span></a></code>.</p>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+<h2 id="virtual-chunked">Virtual chunked<a class="headerlink" href="#virtual-chunked" title="Link to this heading">¶</a></h2>
+<dl class="cpp class summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">class</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><span class="n">virtual_chunked</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.virtual_chunked.ReadParameters.html"><span class="doc"><span class="pre">ReadParameters</span></span></a><span class="p">;</span></dt>
+<dd><p>Parameters available to the read function for computing the content of a
+chunk.</p>
+</dd></dl>
+
+<dl class="cpp type summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">type</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><span class="n">virtual_chunked</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.virtual_chunked.ReadFunction.html"><span class="doc"><span class="pre">ReadFunction</span></span></a><span class="p">;</span></dt>
+<dd><p>Type-erased function called to read a single chunk.</p>
+</dd></dl>
+
+<dl class="cpp var summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">constexpr</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><span class="n">virtual_chunked</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.virtual_chunked.IsReadFunction.html"><span class="doc"><span class="pre">IsReadFunction</span></span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.virtual_chunked.IsReadFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsReadFunction" title="tensorstore::virtual_chunked::IsReadFunction::Func (C++ type template parameter)"><span class="n">Func</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.virtual_chunked.IsReadFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsReadFunction" title="tensorstore::virtual_chunked::IsReadFunction::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.virtual_chunked.IsReadFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsReadFunction" title="tensorstore::virtual_chunked::IsReadFunction::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">&gt;</span><span class="p">;</span></dt>
+<dd><p>Metafunction that evaluates to <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.virtual_chunked.IsReadFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsReadFunction" title="tensorstore::virtual_chunked::IsReadFunction::Func (C++ type template parameter)"><span class="n">Func</span></a></code> may be used as a “read
+function” for the specified compile-time <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.virtual_chunked.IsReadFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsReadFunction" title="tensorstore::virtual_chunked::IsReadFunction::Element (C++ type template parameter)"><span class="n">Element</span></a></code> type and <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.virtual_chunked.IsReadFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsReadFunction" title="tensorstore::virtual_chunked::IsReadFunction::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a></code>.</p>
+</dd></dl>
+
+<dl class="cpp class summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">class</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><span class="n">virtual_chunked</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.virtual_chunked.WriteParameters.html"><span class="doc"><span class="pre">WriteParameters</span></span></a><span class="p">;</span></dt>
+<dd><p>Parameters available to the write function for storing the content of a
+chunk.</p>
+</dd></dl>
+
+<dl class="cpp type summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">type</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><span class="n">virtual_chunked</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.virtual_chunked.WriteFunction.html"><span class="doc"><span class="pre">WriteFunction</span></span></a><span class="p">;</span></dt>
+<dd><p>Type-erased function called to write a single chunk.</p>
+</dd></dl>
+
+<dl class="cpp var summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">constexpr</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><span class="n">virtual_chunked</span><span class="p">::<br>&nbsp;&nbsp;&nbsp;&nbsp;</span></span><a class="sig-name descname reference internal" href="tensorstore.virtual_chunked.IsWriteFunction.html"><span class="doc"><span class="pre">IsWriteFunction</span></span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.virtual_chunked.IsWriteFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsWriteFunction" title="tensorstore::virtual_chunked::IsWriteFunction::Func (C++ type template parameter)"><span class="n">Func</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.virtual_chunked.IsWriteFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsWriteFunction" title="tensorstore::virtual_chunked::IsWriteFunction::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.virtual_chunked.IsWriteFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsWriteFunction" title="tensorstore::virtual_chunked::IsWriteFunction::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">&gt;</span><span class="p">;</span></dt>
+<dd><p>Metafunction that evaluates to <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.virtual_chunked.IsWriteFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsWriteFunction" title="tensorstore::virtual_chunked::IsWriteFunction::Func (C++ type template parameter)"><span class="n">Func</span></a></code> may be used as a “write
+function” for the specified compile-time <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.virtual_chunked.IsWriteFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsWriteFunction" title="tensorstore::virtual_chunked::IsWriteFunction::Element (C++ type template parameter)"><span class="n">Element</span></a></code> type and <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.virtual_chunked.IsWriteFunction.html#_CPPv4c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;IsWriteFunction" title="tensorstore::virtual_chunked::IsWriteFunction::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a></code>.</p>
+</dd></dl>
+
+<dl class="cpp struct summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">struct</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><span class="n">virtual_chunked</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.virtual_chunked.OpenOptions.html"><span class="doc"><span class="pre">OpenOptions</span></span></a><span class="w">&nbsp;</span><span class="p">:</span><span class="w">&nbsp;</span><span class="k">public</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Schema.html#c:&#64;N&#64;tensorstore&#64;S&#64;Schema" title="tensorstore::Schema (C++ class) — Collection of constraints for a TensorStore schema."><span class="n">Schema</span></a><span class="p">;</span></dt>
+<dd><p>Options to the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.VirtualChunked-read.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunked#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked (C++ function) — Creates a read-only TensorStore where the content is read chunk-wise by the specified user-defined function."><span class="n">VirtualChunked</span></a></code> function for creating a
+<code class="code highlight cpp docutils literal highlight-cpp"><span class="n">virtual_chunked</span></code> TensorStore.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunked#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.VirtualChunked-read.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunked#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode" title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span class="n">ReadWriteMode</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;read" title="tensorstore::ReadWriteMode::read (C++ enumerator) — Indicates that reading is supported."><span class="n">read</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.VirtualChunked-read.html"><span class="doc"><span class="pre">VirtualChunked</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunked#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked::ReadFunc (C++ type template parameter)"><span class="n">ReadFunc</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunked#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;-p-read_function" title="tensorstore::VirtualChunked::read_function (C++ function parameter) — Function called to read each chunk."><span class="n sig-param">read_function</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="n">virtual_chunked</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.virtual_chunked.OpenOptions.html#c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions" title="tensorstore::virtual_chunked::OpenOptions (C++ class) — Options to the VirtualChunked function for creating a virtual_chunked TensorStore."><span class="n">OpenOptions</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunked#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;-p-options" title="tensorstore::VirtualChunked::options (C++ function parameter) — Open options."><span class="n sig-param">options</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunked#t0.2#P&amp;&amp;t0.3#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.VirtualChunked-read.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunked#t0.2#P&amp;&amp;t0.3#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode" title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span class="n">ReadWriteMode</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;read" title="tensorstore::ReadWriteMode::read (C++ enumerator) — Indicates that reading is supported."><span class="n">read</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.VirtualChunked-read.html"><span class="doc"><span class="pre">VirtualChunked</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunked#t0.2#P&amp;&amp;t0.3#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked::ReadFunc (C++ type template parameter)"><span class="n">ReadFunc</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunked#t0.2#P&amp;&amp;t0.3#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked::read_function (C++ function parameter)"><span class="n sig-param">read_function</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunked#t0.2#P&amp;&amp;t0.3#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&amp;</span><span class="p">&amp;</span><span class="p">...</span><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunked#t0.2#P&amp;&amp;t0.3#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read&gt;&gt;&gt;-p-option" title="tensorstore::VirtualChunked::option (C++ function parameter) — Option compatible with virtual_chunked::OpenOptions, which may be specified in any order."><span class="n sig-param">option</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Creates a read-only TensorStore where the content is read chunk-wise by the
+specified user-defined function.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#TVirtualChunked#t0.2#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#TVirtualChunked#t0.2#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode" title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span class="n">ReadWriteMode</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;read_write" title="tensorstore::ReadWriteMode::read_write (C++ enumerator) — Indicates that reading and writing are supported."><span class="n">read_write</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.VirtualChunked-read_write.html"><span class="doc"><span class="pre">VirtualChunked</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#TVirtualChunked#t0.2#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::ReadFunc (C++ type template parameter)"><span class="n">ReadFunc</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read_write.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#TVirtualChunked#t0.2#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;-p-read_function" title="tensorstore::VirtualChunked::read_function (C++ function parameter) — Function called to read each chunk."><span class="n sig-param">read_function</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#TVirtualChunked#t0.2#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::WriteFunc (C++ type template parameter)"><span class="n">WriteFunc</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read_write.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#TVirtualChunked#t0.2#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;-p-write_function" title="tensorstore::VirtualChunked::write_function (C++ function parameter) — Function called to store each chunk."><span class="n sig-param">write_function</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="n">virtual_chunked</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.virtual_chunked.OpenOptions.html#c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions" title="tensorstore::virtual_chunked::OpenOptions (C++ class) — Options to the VirtualChunked function for creating a virtual_chunked TensorStore."><span class="n">OpenOptions</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read_write.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#TVirtualChunked#t0.2#t0.3#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;-p-options" title="tensorstore::VirtualChunked::options (C++ function parameter) — Open options."><span class="n sig-param">options</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;5#T#NL#T#T#pTVirtualChunked#t0.2#t0.3#P&amp;&amp;t0.4#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;5#T#NL#T#T#pTVirtualChunked#t0.2#t0.3#P&amp;&amp;t0.4#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode" title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span class="n">ReadWriteMode</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;read_write" title="tensorstore::ReadWriteMode::read_write (C++ enumerator) — Indicates that reading and writing are supported."><span class="n">read_write</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.VirtualChunked-read_write.html"><span class="doc"><span class="pre">VirtualChunked</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;5#T#NL#T#T#pTVirtualChunked#t0.2#t0.3#P&amp;&amp;t0.4#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::ReadFunc (C++ type template parameter)"><span class="n">ReadFunc</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;5#T#NL#T#T#pTVirtualChunked#t0.2#t0.3#P&amp;&amp;t0.4#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::read_function (C++ function parameter)"><span class="n sig-param">read_function</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;5#T#NL#T#T#pTVirtualChunked#t0.2#t0.3#P&amp;&amp;t0.4#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::WriteFunc (C++ type template parameter)"><span class="n">WriteFunc</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;5#T#NL#T#T#pTVirtualChunked#t0.2#t0.3#P&amp;&amp;t0.4#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::write_function (C++ function parameter)"><span class="n sig-param">write_function</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunked-read_write.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;5#T#NL#T#T#pTVirtualChunked#t0.2#t0.3#P&amp;&amp;t0.4#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;" title="tensorstore::VirtualChunked::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&amp;</span><span class="p">&amp;</span><span class="p">...</span><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunked-read_write.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;5#T#NL#T#T#pTVirtualChunked#t0.2#t0.3#P&amp;&amp;t0.4#^enable_if&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::read_write&gt;&gt;&gt;:::type# std::enable_if_t&lt;(virtual_chunked::IsReadFunction&lt;ReadFunc, Element, Rank&gt; &amp;&amp; virtual_chunked::IsWriteFunction&lt;WriteFunc, Element, Rank&gt; &amp;&amp; IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;), Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::read_write&gt;&gt;&gt;-p-option" title="tensorstore::VirtualChunked::option (C++ function parameter) — Option compatible with virtual_chunked::OpenOptions, which may be specified in any order."><span class="n sig-param">option</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Creates a read-write TensorStore where the content is read and written
+chunk-wise by the specified user-defined functions.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunkedWriteOnly#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1&gt;&#64;N&#64;tensorstore&#64;ST&gt;3#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;TensorStore3t0.0VS5_2# Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;" title="tensorstore::VirtualChunkedWriteOnly::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunkedWriteOnly#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1&gt;&#64;N&#64;tensorstore&#64;ST&gt;3#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;TensorStore3t0.0VS5_2# Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;" title="tensorstore::VirtualChunkedWriteOnly::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode" title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span class="n">ReadWriteMode</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;write" title="tensorstore::ReadWriteMode::write (C++ enumerator) — Indicates that writing is supported."><span class="n">write</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.VirtualChunkedWriteOnly.html"><span class="doc"><span class="pre">VirtualChunkedWriteOnly</span></span></a><span class="p">(<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunkedWriteOnly#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1&gt;&#64;N&#64;tensorstore&#64;ST&gt;3#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;TensorStore3t0.0VS5_2# Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;" title="tensorstore::VirtualChunkedWriteOnly::WriteFunc (C++ type template parameter)"><span class="n">WriteFunc</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunkedWriteOnly#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1&gt;&#64;N&#64;tensorstore&#64;ST&gt;3#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;TensorStore3t0.0VS5_2# Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;-p-write_function" title="tensorstore::VirtualChunkedWriteOnly::write_function (C++ function parameter) — Function called to store each chunk."><span class="n sig-param">write_function</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="n">virtual_chunked</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.virtual_chunked.OpenOptions.html#c:&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions" title="tensorstore::virtual_chunked::OpenOptions (C++ class) — Options to the VirtualChunked function for creating a virtual_chunked TensorStore."><span class="n">OpenOptions</span></a><span class="p">&amp;</span><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;3#T#NL#TVirtualChunkedWriteOnly#t0.2#&amp;&amp;$&#64;N&#64;tensorstore&#64;N&#64;virtual_chunked&#64;S&#64;OpenOptions#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1&gt;&#64;N&#64;tensorstore&#64;ST&gt;3#T#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;TensorStore3t0.0VS5_2# Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;-p-options" title="tensorstore::VirtualChunkedWriteOnly::options (C++ function parameter) — Open options."><span class="n sig-param">options</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array."><span class="n">TensorStore</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunkedWriteOnly#t0.2#P&amp;&amp;t0.3#^enable_if&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::write&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;&gt;" title="tensorstore::VirtualChunkedWriteOnly::Element (C++ type template parameter)"><span class="n">Element</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunkedWriteOnly#t0.2#P&amp;&amp;t0.3#^enable_if&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::write&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;&gt;" title="tensorstore::VirtualChunkedWriteOnly::Rank (C++ non-type template parameter)"><span class="n">Rank</span></a><span class="p">,</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode" title="tensorstore::ReadWriteMode (C++ enum) — Specifies whether reading and/or writing is permitted."><span class="n">ReadWriteMode</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.ReadWriteMode.html#c:&#64;N&#64;tensorstore&#64;E&#64;ReadWriteMode&#64;write" title="tensorstore::ReadWriteMode::write (C++ enumerator) — Indicates that writing is supported."><span class="n">write</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.VirtualChunkedWriteOnly.html"><span class="doc"><span class="pre">VirtualChunkedWriteOnly</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunkedWriteOnly#t0.2#P&amp;&amp;t0.3#^enable_if&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::write&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;&gt;" title="tensorstore::VirtualChunkedWriteOnly::WriteFunc (C++ type template parameter)"><span class="n">WriteFunc</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunkedWriteOnly#t0.2#P&amp;&amp;t0.3#^enable_if&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::write&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;&gt;" title="tensorstore::VirtualChunkedWriteOnly::write_function (C++ function parameter)"><span class="n sig-param">write_function</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunkedWriteOnly#t0.2#P&amp;&amp;t0.3#^enable_if&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::write&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;&gt;" title="tensorstore::VirtualChunkedWriteOnly::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&amp;</span><span class="p">&amp;</span><span class="p">...</span><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.VirtualChunkedWriteOnly.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;4#T#NL#T#pTVirtualChunkedWriteOnly#t0.2#P&amp;&amp;t0.3#^enable_if&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;type-parameter-0-0, Rank, tensorstore::ReadWriteMode::write&gt;&gt;&gt;:::type# std::enable_if_t&lt;IsCompatibleOptionSequence&lt;virtual_chunked::OpenOptions, Option...&gt;, Result&lt;TensorStore&lt;Element, Rank, ReadWriteMode::write&gt;&gt;&gt;-p-option" title="tensorstore::VirtualChunkedWriteOnly::option (C++ function parameter) — Option compatible with virtual_chunked::OpenOptions, which may be specified in any order."><span class="n sig-param">option</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Creates a write-only TensorStore where the content is written chunk-wise by
+the specified user-defined function.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">
