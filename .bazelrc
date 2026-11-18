@@ -123,6 +123,10 @@ build:gcc_or_clang --host_copt='-Wno-unknown-warning-option'
 build:gcc_or_clang --copt='-Wno-stringop-overflow'
 build:gcc_or_clang --host_copt='-Wno-stringop-overflow'
 
+# disable warnings from clang about incomplete nullability annotations
+build:gcc_or_clang --copt='-Wno-nullability-completeness'
+build:gcc_or_clang --host_copt='-Wno-nullability-completeness'
+
 # Disable warning regarding `msvc::no_unique_address`
 build:msvc --copt=/wd4848
 build:msvc --host_copt=/wd4848
