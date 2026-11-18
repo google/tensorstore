@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="tensorstore.MaybeHardConstraintIndex.hard_constraint.html">
+        <link rel="prev" href="tensorstore.Utf8String.AbslStringify.html">
       
       
-        <link rel="next" href="TENSORSTORE_RETURN_IF_ERROR.html">
+        <link rel="next" href="tensorstore.SmallBitSet.html">
       
       
       <link rel="icon" href="../../_static/logo.svg">
@@ -692,6 +692,40 @@
                 
   
   
+    
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        
+  
+  
+    <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span>
+  
+  <span class="md-ellipsis">
+    <span title="tensorstore::IsCompatibleOptionSequence (C++ member) — Checks if every Option is compatible with the specified Options type."><span>Is<wbr>Compatible<wbr>Option<wbr>Sequence</span></span>
+    
+  </span>
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
   
   
   
@@ -770,31 +804,23 @@
                 
   
   
-    
-  
-    
   
   
   
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      <a href="#" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="tensorstore.Rational.html" class="md-nav__link">
         
   
   
-    <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span>
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span>
   
   <span class="md-ellipsis">
-    <span title="tensorstore::IsCompatibleOptionSequence (C++ member) — Checks if every Option is compatible with the specified Options type."><span>Is<wbr>Compatible<wbr>Option<wbr>Sequence</span></span>
+    <span title="tensorstore::Rational (C++ class) — Represents a rational number (numerator / denominator), with explicit NaN state."><span>Rational</span></span>
     
   </span>
   
 
       </a>
-      
     </li>
   
 
@@ -1277,7 +1303,7 @@
 <code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">"tensorstore/util/option.h"</span></code></div>
 </dt>
 <dt class="sig sig-object highlight cpp">
-<span class="k">template&nbsp;</span><span class="p">&lt;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Options (C++ type template parameter)"><span class="n">Options</span></a></span></span><span class="p">,</span><span class="w">&nbsp;</span><span><span class="k">typename</span><span class="p">...&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Option (C++ type template parameter)"><span class="n">Option</span></a></span></span><span class="p">&gt;<br></span><span class="k">constexpr</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">IsCompatibleOptionSequence</span></span><span class="w">&nbsp;</span><span class="p">=<br>&nbsp;&nbsp;&nbsp;</span><span class="w">&nbsp;</span><span class="p">(</span><span class="p">(</span><span class="o">!</span><span class="n">std</span><span class="p">::</span><a class="reference external" href="https://en.cppreference.com/w/cpp/types/is_same" title="std::is_same_v (C++17 standard var)"><span class="n">is_same_v</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Options (C++ type template parameter)"><span class="n">Options</span></a><span class="p">,</span><span class="w">&nbsp;</span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/types/remove_cvref" title="std::remove_cvref_t (C++20 standard type alias)"><span class="n">remove_cvref_t</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w">&nbsp;</span><span class="o">&amp;&amp;<br></span><span class="w">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Options (C++ type template parameter)"><span class="n">Options</span></a><span class="p">::</span><span class="k">template</span><span class="w">&nbsp;</span><span class="n">IsOption</span><span class="p">&lt;</span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/types/remove_cvref" title="std::remove_cvref_t (C++20 standard type alias)"><span class="n">remove_cvref_t</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Option (C++ type template parameter)"><span class="n">Option</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="p">)</span><span class="w">&nbsp;</span><span class="o">&amp;&amp;<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="w">&nbsp;</span><span class="p">...</span><span class="p">)</span><span class="p">;</span></dt>
+<span class="k">template&nbsp;</span><span class="p">&lt;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Options (C++ type template parameter)"><span class="n">Options</span></a></span></span><span class="p">,</span><span class="w">&nbsp;</span><span><span class="k">typename</span><span class="p">...&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Option (C++ type template parameter)"><span class="n">Option</span></a></span></span><span class="p">&gt;<br></span><span class="k">constexpr</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">IsCompatibleOptionSequence</span></span><span class="p">;</span></dt>
 <dd><p>Checks if every <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Option (C++ type template parameter)"><span class="n">Option</span></a></code> is compatible with the specified <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::IsCompatibleOptionSequence::Options (C++ type template parameter)"><span class="n">Options</span></a></code> type.</p>
 </dd></dl>
 
