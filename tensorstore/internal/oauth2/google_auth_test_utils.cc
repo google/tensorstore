@@ -26,12 +26,7 @@ GoogleAuthTestScope::GoogleAuthTestScope() {
   internal::UnsetEnv("GOOGLE_AUTH_TOKEN_FOR_TESTING");
 }
 
-GoogleAuthTestScope::~GoogleAuthTestScope() {
-  internal::UnsetEnv("GOOGLE_APPLICATION_CREDENTIALS");
-  internal::UnsetEnv("GCE_METADATA_ROOT");
-  internal::UnsetEnv("CLOUDSDK_CONFIG");
-  internal::UnsetEnv("GOOGLE_AUTH_TOKEN_FOR_TESTING");
-}
+GoogleAuthTestScope::~GoogleAuthTestScope() = default;
 
 }  // namespace internal_oauth2
 }  // namespace tensorstore

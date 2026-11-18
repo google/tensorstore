@@ -27,6 +27,7 @@
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::IsOk;
@@ -41,6 +42,7 @@ using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_aws::MakeImds;
 using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_testing::EnvSaver;
 using ::testing::HasSubstr;
 
 namespace {
@@ -61,6 +63,7 @@ class ImdsCredentialsProviderTest : public ::testing::Test {
   }
   void TearDown() override { DisableAwsHttpMocking(); }
 
+  EnvSaver env_saver_;
   absl::Time expiry;
 };
 

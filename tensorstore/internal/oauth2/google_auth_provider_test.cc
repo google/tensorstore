@@ -48,7 +48,6 @@ namespace {
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
-using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_http::ApplyResponseToHandler;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
@@ -173,7 +172,6 @@ TEST_F(GoogleAuthProviderTest, Invalid) {
   SetEnv("GCE_METADATA_ROOT", "invalidmetadata.google.internal");
   auto auth_provider = GetGoogleAuthProvider(mock_transport);
   EXPECT_FALSE(auth_provider.ok());
-  UnsetEnv("GCE_METADATA_ROOT");
 }
 
 TEST_F(GoogleAuthProviderTest, AuthTokenForTesting) {

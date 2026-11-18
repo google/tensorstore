@@ -20,6 +20,7 @@
 #include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/aws/credentials/common.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -30,6 +31,7 @@ using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_aws::AwsCredentialsProvider;
 using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_aws::MakeEnvironment;
+using ::tensorstore::internal_testing::EnvSaver;
 
 class EnvironmentCredentialProviderTest : public ::testing::Test {
  protected:
@@ -43,6 +45,8 @@ class EnvironmentCredentialProviderTest : public ::testing::Test {
       UnsetEnv(var);
     }
   }
+
+  EnvSaver env_saver_;
 };
 
 TEST_F(EnvironmentCredentialProviderTest, Basic) {

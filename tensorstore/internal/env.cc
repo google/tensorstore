@@ -14,13 +14,18 @@
 
 #include "tensorstore/internal/env.h"
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 // keep below windows.h
 #include <processenv.h>
+#elif defined(__APPLE__)
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+#else
+extern char** environ;
 #endif
 
 #include <stddef.h>
@@ -33,10 +38,6 @@
 
 #include "absl/container/flat_hash_map.h"
 
-#ifndef _WIN32
-extern char** environ;
-#endif
-
 namespace tensorstore {
 namespace internal {
 
@@ -44,17 +45,21 @@ absl::flat_hash_map<std::string, std::string> GetEnvironmentMap() {
   absl::flat_hash_map<std::string, std::string> result;
 #if _WIN32
   char* envblock = GetEnvironmentStrings();
-  for (auto p = envblock; *p; /**/) {
-    if (const char* eq = strchr(p, '=')) {
-      result[std::string(p, eq - p)] = eq + 1;
+  if (envblock) {
+    for (auto p = envblock; *p; /**/) {
+      if (const char* eq = strchr(p, '='); eq && eq != p) {
+        result[std::string(p, eq - p)] = eq + 1;
+      }
+      p += strlen(p) + 1;
     }
-    p += strlen(p) + 1;
+    FreeEnvironmentStrings(envblock);
   }
-  FreeEnvironmentStrings(envblock);
 #else
-  for (auto p = environ; *p; ++p) {
-    if (const char* eq = strchr(*p, '=')) {
-      result[std::string(*p, eq - *p)] = eq + 1;
+  if (environ) {
+    for (auto p = environ; *p; ++p) {
+      if (const char* eq = strchr(*p, '='); eq && eq != *p) {
+        result[std::string(*p, eq - *p)] = eq + 1;
+      }
     }
   }
 #endif

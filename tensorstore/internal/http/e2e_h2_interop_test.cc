@@ -32,6 +32,7 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/test_httpserver.h"
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -327,24 +328,14 @@ TEST_P(H2InteropTransportTest, TransparentGzipDecompression) {
               HasStatusAndPayload(200, absl::Cord(expected_payload)));
 }
 
-class ScopedEnvVar {
- public:
-  ScopedEnvVar(const char* name, const char* value) : name_(name) {
-    internal::SetEnv(name_, value);
-  }
-  ~ScopedEnvVar() { internal::UnsetEnv(name_); }
-
- private:
-  const char* name_;
-};
-
 // Verifies HTTP/2 requests tunnel through an HTTP CONNECT proxy when
 // https_proxy / http_proxy environment variables are configured.
 TEST_P(H2InteropTransportTest, WithProxy) {
   auto& server = GetTlsHttpServer();
   const std::string proxy_url = absl::StrCat("http://", server.proxy_address());
-  ScopedEnvVar https_proxy("https_proxy", proxy_url.c_str());
-  ScopedEnvVar http_proxy("http_proxy", proxy_url.c_str());
+  internal_testing::EnvSaver env_saver;
+  internal::SetEnv("https_proxy", proxy_url.c_str());
+  internal::SetEnv("http_proxy", proxy_url.c_str());
 
   auto transport = CreateTransport(TestServerTlsOptions(server));
   const std::string url =
@@ -373,8 +364,9 @@ TEST_P(H2InteropTransportTest, WithProxy) {
 TEST_P(H2InteropTransportTest, WithInvalidProxy) {
   auto& server = GetTlsHttpServer();
   const std::string base_url = absl::StrCat("https://", server.http_address());
-  ScopedEnvVar https_proxy("https_proxy", base_url.c_str());
-  ScopedEnvVar http_proxy("http_proxy", base_url.c_str());
+  internal_testing::EnvSaver env_saver;
+  internal::SetEnv("https_proxy", base_url.c_str());
+  internal::SetEnv("http_proxy", base_url.c_str());
 
   auto transport = CreateTransport(TestServerTlsOptions(server));
 

@@ -379,6 +379,7 @@ tensorstore_cc_test(
     srcs = ["env_test.cc"],
     deps = [
         ":env",
+        "//tensorstore/internal/testing:env_saver",
         "@googletest//:gtest_main",
     ],
 )

@@ -81,6 +81,28 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "env_saver",
+    testonly = 1,
+    srcs = ["env_saver.cc"],
+    hdrs = ["env_saver.h"],
+    deps = [
+        "//tensorstore/internal:env",
+        "@abseil-cpp//absl/container:flat_hash_map",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "env_saver_test",
+    size = "small",
+    srcs = ["env_saver_test.cc"],
+    deps = [
+        ":env_saver",
+        "//tensorstore/internal:env",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "hardening",
     testonly = 1,
     hdrs = ["hardening.h"],

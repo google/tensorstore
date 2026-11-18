@@ -26,6 +26,7 @@
 #include "tensorstore/internal/aws/http_mocking.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -43,6 +44,7 @@ using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_aws::MakeAnonymous;
 using ::tensorstore::internal_aws::MakeDefault;
 using ::tensorstore::internal_aws::MakeDefaultWithAnonymous;
+using ::tensorstore::internal_testing::EnvSaver;
 using ::testing::HasSubstr;
 
 static constexpr char kAccessKeyId[] = "ASIA1234567890";
@@ -100,6 +102,7 @@ class DefaultCredentialProviderTest : public ::testing::Test {
   }
   void TearDown() override { DisableAwsHttpMocking(); }
 
+  EnvSaver env_saver_;
   absl::Time expiry;
 };
 

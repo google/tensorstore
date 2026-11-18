@@ -24,6 +24,7 @@
 #include <curl/curl.h>  // IWYU pragma: keep
 #include "tensorstore/internal/curl/default_factory.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/testing/env_saver.h"
 
 ABSL_DECLARE_FLAG(std::optional<uint32_t>,
                   tensorstore_curl_connect_timeout_seconds);
@@ -48,12 +49,12 @@ TEST(DefaultCurlHandleFactoryTest, FlagOverride) {
 
 TEST(DefaultCurlHandleFactoryTest, EnvOverride) {
   absl::FlagSaver flag_saver;
+  tensorstore::internal_testing::EnvSaver env_saver;
   absl::SetFlag(&FLAGS_tensorstore_curl_connect_timeout_seconds, std::nullopt);
   tensorstore::internal::SetEnv("TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS",
                                 "45");
   auto config = DefaultCurlHandleFactory::DefaultConfig();
   EXPECT_EQ(config.connect_timeout_seconds, 45);
-  tensorstore::internal::UnsetEnv("TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS");
 }
 
 TEST(DefaultCurlHandleFactoryTest, CreateHandle) {

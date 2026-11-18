@@ -283,6 +283,7 @@ tensorstore_cc_library(
         ":http",
         ":test_httpserver",
         "//tensorstore/internal:env",
+        "//tensorstore/internal/testing:env_saver",
         "//tensorstore/util:future",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/base",

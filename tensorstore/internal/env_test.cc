@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/testing/env_saver.h"
 
 namespace {
 
@@ -24,8 +25,10 @@ using ::tensorstore::internal::GetEnvironmentMap;
 using ::tensorstore::internal::GetEnvValue;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_testing::EnvSaver;
 
 TEST(GetEnvTest, Basic) {
+  EnvSaver env_saver;
   // Env is set
   SetEnv("TENSORSTORE_TEST_ENV_VAR", "test env var");
   {
@@ -43,6 +46,7 @@ TEST(GetEnvTest, Basic) {
 }
 
 TEST(GetEnvTest, GetEnvironmentMap) {
+  EnvSaver env_saver;
   // Env is set
   SetEnv("TENSORSTORE_TEST_ENV_VAR", "test env var");
 
@@ -55,6 +59,7 @@ TEST(GetEnvTest, GetEnvironmentMap) {
 }
 
 TEST(GetEnvTest, ParseBool) {
+  EnvSaver env_saver;
   // Env is set
   SetEnv("TENSORSTORE_TEST_ENV_VAR", "trUe");
   {
@@ -71,6 +76,7 @@ TEST(GetEnvTest, ParseBool) {
 }
 
 TEST(GetEnvTest, ParseInt) {
+  EnvSaver env_saver;
   // Env is set
   SetEnv("TENSORSTORE_TEST_ENV_VAR", "123");
   {

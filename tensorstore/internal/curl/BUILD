@@ -87,6 +87,7 @@ tensorstore_cc_test(
     deps = [
         ":default_factory",
         "//tensorstore/internal:env",
+        "//tensorstore/internal/testing:env_saver",
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/flags:reflection",
         "@curl",

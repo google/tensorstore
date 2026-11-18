@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_AUTH_TEST_UTILS_H_
 #define TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_AUTH_TEST_UTILS_H_
 
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 
 namespace tensorstore {
@@ -29,6 +30,7 @@ class GoogleAuthTestScope {
   ~GoogleAuthTestScope();
 
  private:
+  internal_testing::EnvSaver env_saver_;
   internal_testing::ScopedTemporaryDirectory temp_dir_;
 };
 

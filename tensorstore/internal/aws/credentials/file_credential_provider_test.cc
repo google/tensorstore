@@ -25,6 +25,7 @@
 #include "tensorstore/internal/aws/http_mocking.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -39,6 +40,7 @@ using ::tensorstore::internal_aws::DisableAwsHttpMocking;
 using ::tensorstore::internal_aws::EnableAwsHttpMocking;
 using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_aws::MakeProfile;
+using ::tensorstore::internal_testing::EnvSaver;
 
 class TestData
     : public tensorstore::internal_testing::ScopedTemporaryDirectory {
@@ -83,6 +85,8 @@ class FileCredentialProviderTest : public ::testing::Test {
     }
   }
   void TearDown() override { DisableAwsHttpMocking(); }
+
+  EnvSaver env_saver_;
 };
 
 TEST_F(FileCredentialProviderTest, DefaultSharedCredentialsFile) {

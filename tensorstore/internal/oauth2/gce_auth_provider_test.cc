@@ -21,6 +21,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/time/clock.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -123,13 +124,14 @@ TEST(GceAuthProviderTest, Status400) {
 }
 
 TEST(GceAuthProviderTest, Hostname) {
+  tensorstore::internal_testing::EnvSaver env_saver;
+  tensorstore::internal::UnsetEnv("GCE_METADATA_ROOT");
   // GCE_METADATA_ROOT overrides the default GCE metadata hostname.
   EXPECT_EQ("metadata.google.internal",
             tensorstore::internal_oauth2::GceMetadataHostname());
 
   tensorstore::internal::SetEnv("GCE_METADATA_ROOT", "localhost");
   EXPECT_EQ("localhost", tensorstore::internal_oauth2::GceMetadataHostname());
-  tensorstore::internal::UnsetEnv("GCE_METADATA_ROOT");
 }
 
 }  // namespace

@@ -31,6 +31,7 @@ tensorstore_cc_test(
     deps = [
         ":oauth2",
         "//tensorstore/internal:env",
+        "//tensorstore/internal/testing:env_saver",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/container:flat_hash_map",
@@ -101,6 +102,7 @@ tensorstore_cc_library(
     hdrs = ["google_auth_test_utils.h"],
     deps = [
         "//tensorstore/internal:env",
+        "//tensorstore/internal/testing:env_saver",
         "//tensorstore/internal/testing:scoped_directory",
     ],
 )
