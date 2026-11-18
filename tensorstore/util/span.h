@@ -82,37 +82,37 @@ struct SpanTypeHelper {};
 template <typename T, ptrdiff_t Extent>
 struct SpanTypeHelper<span<T, Extent>> {
   using element_type = T;
-  constexpr static ptrdiff_t extent = Extent;
+  static constexpr ptrdiff_t extent = Extent;
 };
 
 template <typename T, ptrdiff_t Extent>
 struct SpanTypeHelper<const span<T, Extent>> {
   using element_type = T;
-  constexpr static ptrdiff_t extent = Extent;
+  static constexpr ptrdiff_t extent = Extent;
 };
 
 template <typename T, size_t Extent>
 struct SpanTypeHelper<T[Extent]> {
   using element_type = T;
-  constexpr static ptrdiff_t extent = Extent;
+  static constexpr ptrdiff_t extent = Extent;
 };
 
 template <typename T, size_t Extent>
 struct SpanTypeHelper<std::array<T, Extent>> {
   using element_type = T;
-  constexpr static ptrdiff_t extent = Extent;
+  static constexpr ptrdiff_t extent = Extent;
 };
 
 template <typename T, size_t Extent>
 struct SpanTypeHelper<const std::array<T, Extent>> {
   using element_type = const T;
-  constexpr static ptrdiff_t extent = Extent;
+  static constexpr ptrdiff_t extent = Extent;
 };
 
 template <typename T>
 struct SpanTypeHelper<T, std::void_t<internal_span::ContainerElementType<T>>> {
   using element_type = internal_span::ContainerElementType<T>;
-  constexpr static ptrdiff_t extent = dynamic_extent;
+  static constexpr ptrdiff_t extent = dynamic_extent;
 };
 
 constexpr ptrdiff_t SubspanExtent(ptrdiff_t extent, ptrdiff_t offset,
@@ -477,7 +477,8 @@ span(const Container& cont)
 /// This definition (along with the partial specializations of std::tuple_size
 /// and std::tuple_element defined below) makes fixed-size spans compatible with
 /// C++17 structured bindings.
-
+///
+/// \relates span
 template <size_t I, typename T, ptrdiff_t Extent>
 T& get(const ::tensorstore::span<T, Extent>& s) {
   static_assert(

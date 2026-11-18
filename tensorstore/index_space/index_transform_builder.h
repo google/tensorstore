@@ -161,45 +161,45 @@ constexpr inline bool IsStaticExtentCompatibleWithRange<
 ///
 /// The `output_map`, `output_constant`, `output_single_input_dimension`, and
 /// `output_index_array` methods specify the output index map for just the
-/// single output dimension specified by the first argument, `output_dim` (and
-/// override the output index map specified by any prior call to a `output_*`
-/// method with the same `output_dim`).  In most cases, at most one of the
-/// `output_*` method methods should be called for each output dimension.
+/// single output dimension specified by the first argument, ``output_dim`` (and
+/// override the output index map specified by any prior call to a ``output_*``
+/// method with the same ``output_dim``).  In most cases, at most one of the
+/// ``output_*`` methods should be called for each output dimension.
 ///
 /// Default values:
 ///
-/// - If neither `input_shape` nor `input_origin` is called, the default origin
-///   is `-kInfIndex`, equivalent to `input_origin({-kInfIndex, ...})`.  If
+/// - If neither `input_origin` nor `input_shape` is called, the default origin
+///   is `-kInfIndex`, equivalent to ``input_origin({-kInfIndex, ...})``.  If
 ///   `input_shape` is called but `input_origin` is not called, the default
 ///   origin is `0`.
 ///
 /// - The default inclusive_max is `+kInfSize`, equivalent to
-///   `input_inclusive_max({kInfIndex, ...})`.
+///   ``input_inclusive_max({kInfIndex, ...})``.
 ///
 /// - The default label is `""` for all input dimensions, equivalent to
-///   `input_labels({"", ...})`.
+///   ``input_labels({"", ...})``.
 ///
 /// - If neither `input_origin`, `input_shape`, nor `implicit_lower_bounds` is
 ///   called, the lower bounds are marked "implicit", equivalent to
-///   `implicit_lower_bounds(1, ...)`.  Otherwise, if `input_origin` or
+///   ``implicit_lower_bounds(1, ...)``.  Otherwise, if `input_origin` or
 ///   `input_shape` is called but `implicit_lower_bounds` is not called, the
-///   lower bounds are marked "explicit, equivalent to
-///   `implicit_lower_bounds(0, ...)`.  Refer to the documentation of the
+///   lower bounds are marked "explicit", equivalent to
+///   ``implicit_lower_bounds(0, ...)``.  Refer to the documentation of the
 ///   `IndexTransform` class for details on the meaning of implicit
 ///   vs. explicit.
 ///
 /// - If none of `input_shape`, `input_inclusive_max`, `input_exclusive_max`, or
 ///   `implicit_upper_bounds` are called, the upper bounds are marked
-///   "implicit", equivalent to `implicit_upper_bounds(1, ...)`.  If
+///   "implicit", equivalent to ``implicit_upper_bounds(1, ...)``.  If
 ///   `input_shape`, `input_inclusive_max`, or `input_exclusive_max` is called
 ///   but `implicit_upper_bounds` is not called, the upper bounds are marked
-///   "explicit", equivalent to `implicit_upper_bounds(0, ...)`.
+///   "explicit", equivalent to ``implicit_upper_bounds(0, ...)``.
 ///
-/// - If `input_labels` is not called, are dimensions are unlabeled (assigned
+/// - If `input_labels` is not called, all dimensions are unlabeled (assigned
 ///   empty labels).
 ///
 /// - The default output index map is a constant output index map with an offset
-///   of `0`, equivalent to `output_constant(output_dim, 0)`.
+///   of `0`, equivalent to ``output_constant(output_dim, 0)``.
 ///
 /// After calling the setter methods, call `Finalize()` to obtain a
 /// `Result<IndexTransform<InputRank, OutputRank>>`.  `Finalize` must be called
@@ -219,9 +219,9 @@ constexpr inline bool IsStaticExtentCompatibleWithRange<
 ///            .value();
 ///
 ///    Creates an index transform from an rank-3 input domain
-///    `[1, 5], [2, 7], [3, 9]` to a rank 2 output space, where
-///    `output[0] = 1 + 2 * input[0]` and `output[1] = 5`.  Both the input and
-///    output ranks are specified at compile time.
+///    ``[1, 5], [2, 7], [3, 9]`` to a rank 2 output space, where
+///    ``output[0] = 1 + 2 * input[0]`` and ``output[1] = 5``.  Both the input
+///    and output ranks are specified at compile time.
 ///
 ///    .. code-block:: cpp
 ///
@@ -259,8 +259,8 @@ constexpr inline bool IsStaticExtentCompatibleWithRange<
 ///    Invalid arguments specified to `IndexTransformBuilder` are handled in two
 ///    different ways.  Calling `input_origin`, `input_shape`,
 ///    `input_inclusive_max`, `input_exclusive_max`, or `input_labels` with a
-///    sequence of length not equal to `input_rank()`, and calling `output_*`
-///    with an invalid `output_dim` are fatal errors.  Specifying an invalid
+///    sequence of length not equal to `input_rank()`, and calling ``output_*``
+///    with an invalid ``output_dim`` are fatal errors.  Specifying an invalid
 ///    input domain or invalid output index map is not a fatal error; the
 ///    `Finalize` method will simply return an error `Result` if the invalid
 ///    input domain or output index map has not been overridden with a valid one
@@ -277,37 +277,43 @@ class IndexTransformBuilder {
   /// Constructs an invalid `IndexTransformBuilder`.
   ///
   /// \post `valid() == false`
+  /// \id null
   IndexTransformBuilder(std::nullptr_t) {}
 
   /// Constructs a valid `IndexTransformBuilder` with the specified input and
   /// output ranks.
   ///
+  /// When `InputRank` or `OutputRank` is not `dynamic_rank`, the corresponding
+  /// rank argument is optional.
+  ///
   /// \post `valid() == true`
+  /// \id rank
   template <DimensionIndex IRank = InputRank, DimensionIndex ORank = OutputRank,
             typename = std::enable_if_t<(IRank == dynamic_rank &&
                                          ORank == dynamic_rank)>>
   IndexTransformBuilder(DimensionIndex input_rank, DimensionIndex output_rank)
       : IndexTransformBuilder(std::true_type{}, input_rank, output_rank) {}
-
-  /// Overload for case where neither `InputRank` nor `OutputRank` is
-  /// `dynamic_rank`.  Both arguments are optional in this case.
   template <DimensionIndex IRank = InputRank, DimensionIndex ORank = OutputRank,
             typename = std::enable_if_t<(IRank != dynamic_rank &&
                                          ORank != dynamic_rank)>>
   IndexTransformBuilder(
       std::integral_constant<DimensionIndex, IRank> input_rank = {},
       std::integral_constant<DimensionIndex, ORank> output_rank = {})
-      : IndexTransformBuilder(std::true_type{}, input_rank, output_rank) {}
-
-  /// Overload for case where `InputRank` is `dynamic_rank` but `OutputRank` is
-  /// not `dynamic_rank`.  The `output_rank` arguments is optional in this case.
+      : IndexTransformBuilder(std::true_type{}, input_rank, output_rank) {
+    // Overload for case where neither `InputRank` nor `OutputRank` is
+    // `dynamic_rank`.  Both arguments are optional in this case.
+  }
   template <DimensionIndex IRank = InputRank, DimensionIndex ORank = OutputRank,
             typename = std::enable_if_t<(IRank == dynamic_rank &&
                                          ORank != dynamic_rank)>>
   IndexTransformBuilder(
       DimensionIndex input_rank,
       std::integral_constant<DimensionIndex, ORank> output_rank = {})
-      : IndexTransformBuilder(std::true_type{}, input_rank, output_rank) {}
+      : IndexTransformBuilder(std::true_type{}, input_rank, output_rank) {
+    // Overload for case where `InputRank` is `dynamic_rank` but `OutputRank` is
+    // not `dynamic_rank`.  The `output_rank` arguments is optional in this
+    // case.
+  }
 
   IndexTransformBuilder(const IndexTransformBuilder&) = default;
   IndexTransformBuilder(IndexTransformBuilder&&) = default;
@@ -335,6 +341,7 @@ class IndexTransformBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<Index, InputRank> input_origin() {
     flags_ |= internal_index_space::BuilderFlags::kSetLower;
     return {rep_->input_origin().data(), input_rank()};
@@ -342,12 +349,17 @@ class IndexTransformBuilder {
 
   /// Sets the `input_origin` vector to the specified value.
   ///
-  /// \param indices A sequence with `value_type` convertible to Index
+  /// \param indices A sequence with ``value_type`` convertible to `Index`
   ///     specifying the inclusive_min index for each input dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `indices` vector must equal `input_rank()`.
-  /// \remarks Calling this method after it has already been called simply
-  ///     overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after it has already been called simply overrides
+  ///    the previous value.
+  ///
+  /// \id set
   template <typename Indices>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
                        InputRank, Indices>,
@@ -356,12 +368,6 @@ class IndexTransformBuilder {
     internal_index_space::AssignRange(indices, span<Index>(input_origin()));
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `input_origin({1, 2})`.
-  ///
-  /// \schecks `N` is compatible with `InputRank`.
-  /// \pre `valid() == true`
   template <size_t N>
   IndexTransformBuilder& input_origin(const Index (&indices)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
@@ -372,6 +378,7 @@ class IndexTransformBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<Index, InputRank> input_shape() {
     flags_ |= internal_index_space::BuilderFlags::kSetUpper;
     interval_form_ = IntervalForm::sized;
@@ -381,12 +388,17 @@ class IndexTransformBuilder {
   /// Sets the `input_shape` vector to the specified value.  Specify a value of
   /// `kInfSize` to indicate an unbounded (infinite) upper bound.
   ///
-  /// \param indices A sequence with `value_type` convertible to Index
+  /// \param indices A sequence with ``value_type`` convertible to `Index`
   ///     specifying the size for each input dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `indices` vector must equal `input_rank()`.
-  /// \remarks Calling this method after the upper bound of the input domain has
-  ///     already been specified simply overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after the upper bound of the input domain has
+  ///    already been specified simply overrides the previous value.
+  ///
+  /// \id set
   template <typename Indices>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
                        InputRank, Indices>,
@@ -395,11 +407,6 @@ class IndexTransformBuilder {
     internal_index_space::AssignRange(indices, span<Index>(input_shape()));
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `input_shape({1, 2})`.
-  ///
-  /// \pre `valid() == true`
   template <size_t N>
   IndexTransformBuilder& input_shape(const Index (&indices)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
@@ -410,6 +417,7 @@ class IndexTransformBuilder {
   /// bound as having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<Index, InputRank> input_exclusive_max() {
     flags_ |= internal_index_space::BuilderFlags::kSetUpper;
     interval_form_ = IntervalForm::half_open;
@@ -419,12 +427,17 @@ class IndexTransformBuilder {
   /// Specifies the exclusive upper bounds of the input domain.  Specify a value
   /// of `kInfIndex+1` to indicate an unbounded (infinite) upper bound.
   ///
-  /// \param indices A sequence with `value_type` convertible to Index
+  /// \param indices A sequence with ``value_type`` convertible to `Index`
   ///     specifying the exclusive_max index for each input dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `indices` vector must equal `input_rank()`.
-  /// \remarks Calling this method after the upper bound of the input domain has
-  ///     already been specified simply overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after the upper bound of the input domain has
+  ///    already been specified simply overrides the previous value.
+  ///
+  /// \id set
   template <typename Indices>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
                        InputRank, Indices>,
@@ -434,12 +447,6 @@ class IndexTransformBuilder {
                                       span<Index>(input_exclusive_max()));
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `input_exclusive_max({1, 2})`.
-  ///
-  /// \schecks `N` is compatible with `InputRank`.
-  /// \pre `valid() == true`
   template <size_t N>
   IndexTransformBuilder& input_exclusive_max(const Index (&indices)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
@@ -450,6 +457,7 @@ class IndexTransformBuilder {
   /// bound as having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<Index, InputRank> input_inclusive_max() {
     flags_ |= internal_index_space::BuilderFlags::kSetUpper;
     interval_form_ = IntervalForm::closed;
@@ -459,12 +467,17 @@ class IndexTransformBuilder {
   /// Specifies the inclusive upper bounds of the input domain.  Specify a value
   /// of `kInfIndex` to indicate an unbounded (infinite) upper bound.
   ///
-  /// \param indices A sequence with `value_type` convertible to Index
+  /// \param indices A sequence with ``value_type`` convertible to `Index`
   ///     specifying the inclusive_max index for each input dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `indices` vector must equal `input_rank()`.
-  /// \remarks Calling this method after the upper bound of the input domain has
-  ///     already been specified simply overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after the upper bound of the input domain has
+  ///    already been specified simply overrides the previous value.
+  ///
+  /// \id set
   template <typename Indices>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
                        InputRank, Indices>,
@@ -474,12 +487,6 @@ class IndexTransformBuilder {
                                       span<Index>(input_inclusive_max()));
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `input_inclusive_max({1, 2})`.
-  ///
-  /// \schecks `N` is compatible with `InputRank`.
-  /// \pre `valid() == true`
   template <size_t N>
   IndexTransformBuilder& input_inclusive_max(const Index (&indices)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
@@ -490,14 +497,19 @@ class IndexTransformBuilder {
   ///
   /// Equivalent to `input_origin(box.origin()).input_shape(box.shape())`.
   ///
-  /// \tparam BoxLike An instance of `Box` or `BoxView` with a `static_rank`
+  /// \tparam BoxLike An instance of `Box` or `BoxView` with a ``static_rank``
   ///     implicitly convertible to `InputRank`.
   /// \param box The box specifying the domain.
   /// \pre `valid() == true`
   /// \checks `box.size() == input_rank()`.
-  /// \remarks Calling this method after the lower and/or upper bounds of the
-  ///     input domain have already been specified simply overrides the previous
-  ///     values.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after the lower and/or upper bounds of the input
+  ///    domain have already been specified simply overrides the previous
+  ///    values.
+  ///
+  /// \id set
   template <typename BoxLike>
   std::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<BoxLike, InputRank>,
                    IndexTransformBuilder&>
@@ -510,6 +522,7 @@ class IndexTransformBuilder {
   /// bounds as having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   MutableBoxView<InputRank> input_bounds() {
     flags_ |= (internal_index_space::BuilderFlags::kSetLower |
                internal_index_space::BuilderFlags::kSetUpper);
@@ -522,8 +535,11 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   /// \checks `domain.size() == input_rank()`
-  /// \remarks Calling this method after any portion of the input domain has
-  ///     already been specified simply overrides the previous values.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after any portion of the input domain has already
+  ///    been specified simply overrides the previous values.
   IndexTransformBuilder& input_domain(IndexDomainView<InputRank> domain) {
     input_origin(domain.origin());
     input_shape(domain.shape());
@@ -536,18 +552,24 @@ class IndexTransformBuilder {
   /// Returns the mutable `input_labels` vector.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<std::string, InputRank> input_labels() {
     return {rep_->input_labels().data(), input_rank()};
   }
 
-  /// Sets the `input_labels` vector the specified value.
+  /// Sets the `input_labels` vector to the specified value.
   ///
-  /// \param labels A sequence with `value_type` convertible to
+  /// \param labels A sequence with ``value_type`` convertible to
   ///     `std::string_view` specifying the label for each input dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `labels` vector must equal `input_rank()`.
-  /// \remarks Calling this method after it has already been called simply
-  ///     overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after it has already been called simply overrides
+  ///    the previous value.
+  ///
+  /// \id set
   template <typename Labels>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
                        InputRank, Labels>,
@@ -557,11 +579,6 @@ class IndexTransformBuilder {
                                       span<std::string>(input_labels()));
     return *this;
   }
-
-  /// Overload that can be called with a braced list of string literals, e.g.
-  /// `input_labels({"a", "b"})`.
-  ///
-  /// \pre `valid() == true`
   template <size_t N>
   IndexTransformBuilder& input_labels(const std::string_view (&labels)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
@@ -572,6 +589,7 @@ class IndexTransformBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   DimensionSet& implicit_lower_bounds() {
     flags_ |= internal_index_space::BuilderFlags::kSetImplicitLower;
     return rep_->implicit_lower_bounds;
@@ -580,17 +598,17 @@ class IndexTransformBuilder {
   /// Sets the `implicit_lower_bounds` bit-vector to the specified value.
   ///
   /// \pre `valid() == true`
-  /// \remarks Calling this method after it has already been called simply
-  ///     overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after it has already been called simply overrides
+  ///    the previous value.
+  ///
+  /// \id set
   IndexTransformBuilder& implicit_lower_bounds(DimensionSet x) {
     implicit_lower_bounds() = x;
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `implicit_lower_bounds({1, 0})`.
-  ///
-  /// \pre `valid() == true`
   template <size_t N>
   IndexTransformBuilder& implicit_lower_bounds(const bool (&x)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N);
@@ -602,6 +620,7 @@ class IndexTransformBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   DimensionSet& implicit_upper_bounds() {
     flags_ |= internal_index_space::BuilderFlags::kSetImplicitUpper;
     return rep_->implicit_upper_bounds;
@@ -610,17 +629,17 @@ class IndexTransformBuilder {
   /// Sets the `implicit_upper_bounds` bit-vector to the specified value.
   ///
   /// \pre `valid() == true`
-  /// \remarks Calling this method after it has already been called simply
-  ///     overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after it has already been called simply overrides
+  ///    the previous value.
+  ///
+  /// \id set
   IndexTransformBuilder& implicit_upper_bounds(DimensionSet x) {
     implicit_upper_bounds() = x;
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `implicit_upper_bounds({1, 0})`.
-  ///
-  /// \pre `valid() == true`
   template <size_t N>
   IndexTransformBuilder& implicit_upper_bounds(const bool (&x)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N);
@@ -636,8 +655,11 @@ class IndexTransformBuilder {
   /// \param map The output index map to copy.
   /// \pre `valid() == true`
   /// \checks `0 <= output_dim && output_dim < output_rank()`.
-  /// \remarks This method overrides any output index map for `output_dim`
-  ///     specified by a previous `output_*(output_dim, ...)` call.
+  ///
+  /// .. note::
+  ///
+  ///    This method overrides any output index map for `output_dim` specified
+  ///    by a previous ``output_*(output_dim, ...)`` call.
   template <DimensionIndex OtherInputRank>
   IndexTransformBuilder& output_map(DimensionIndex output_dim,
                                     OutputIndexMapRef<OtherInputRank> map) {
@@ -665,11 +687,11 @@ class IndexTransformBuilder {
   }
 
   /// Sets the output index map for output dimension `output_dim` to a
-  /// `constant` map with the specified `offset`.
+  /// `OutputIndexMethod::constant` map with the specified `offset`.
   ///
   /// Specifically, specifies the mapping:
   ///
-  ///     `output[output_dim] = offset`.
+  ///     ``output[output_dim] = offset``.
   ///
   /// This type of mapping has the effect of slicing a single index of the
   /// output dimension, and is used to implement `DimExpression::IndexSlice`.
@@ -679,8 +701,11 @@ class IndexTransformBuilder {
   /// \param offset The constant output index for `output_dim`.
   /// \pre `valid() == true`
   /// \checks `0 <= output_dim && output_dim < output_rank()`.
-  /// \remarks This method overrides any output index map for `output_dim`
-  ///     specified by a previous `output_*(output_dim, ...)` call.
+  ///
+  /// .. note::
+  ///
+  ///    This method overrides any output index map for `output_dim` specified
+  ///    by a previous ``output_*(output_dim, ...)`` call.
   IndexTransformBuilder& output_constant(DimensionIndex output_dim,
                                          Index offset) {
     AssignOutput(output_dim, offset, 0,
@@ -689,12 +714,15 @@ class IndexTransformBuilder {
   }
 
   /// Sets the output index map for output dimension `output_dim` to a
-  /// `single_input_dimension` map with the specified `offset`, `stride`, and
-  /// `input_dim`.
+  /// `OutputIndexMethod::single_input_dimension` map with the specified
+  /// `offset`, `stride`, and `input_dim`.
   ///
   /// Specifically, specifies the mapping:
   ///
-  ///     `output[output_dim] = offset + stride * input[input_dim]`.
+  ///     ``output[output_dim] = offset + stride * input[input_dim]``.
+  ///
+  /// If `offset` and `stride` are omitted, defaults to an identity map
+  /// ``output[output_dim] = input[input_dim]`` (`offset = 0`, `stride = 1`).
   ///
   /// \param output_dim The output dimension for which to set the output index
   ///     map.
@@ -706,8 +734,11 @@ class IndexTransformBuilder {
   ///     error).
   /// \pre `valid() == true`
   /// \checks `0 <= output_dim && output_dim < output_rank()`.
-  /// \remarks This method overrides any output index map for `output_dim`
-  ///     specified by a previous `output_*(output_dim, ...)` call.
+  ///
+  /// .. note::
+  ///
+  ///    This method overrides any output index map for `output_dim` specified
+  ///    by a previous ``output_*(output_dim, ...)`` call.
   IndexTransformBuilder& output_single_input_dimension(
       DimensionIndex output_dim, Index offset, Index stride,
       DimensionIndex input_dim) {
@@ -715,33 +746,27 @@ class IndexTransformBuilder {
                  internal_index_space::OutputIndexMapInitializer(input_dim));
     return *this;
   }
-
-  /// Equivalent to:
-  /// `output_single_input_dimension(output_dim, 0, 1, input_dim)`.
-  ///
-  /// Specifies that output dimension `output_dim` is an identity map of input
-  /// dimension `input_dim`:
-  ///
-  ///     `output[output_dim] = input[input_dim]`.
   IndexTransformBuilder& output_single_input_dimension(
       DimensionIndex output_dim, DimensionIndex input_dim) {
     return output_single_input_dimension(output_dim, 0, 1, input_dim);
   }
 
-  /// Sets the output index map for output dimension `output_dim` to an `array`
-  /// map with the specified `offset`, `stride`, `index_array`, and optional
-  /// `index_range`.
+  /// Sets the output index map for output dimension `output_dim` to an
+  /// `OutputIndexMethod::array` map with the specified `offset`, `stride`,
+  /// `index_array`, and optional `index_range`.
   ///
   /// Specifically, specifies the mapping:
   ///
-  ///     `output[output_dim]
-  ///         = offset
-  ///         + stride * bounded(index_array(input - input_origin),
-  ///                            index_range)`,
+  /// .. code-block:: none
   ///
-  /// where `bounded(index, index_interval)` is equivalent to `index` if `index`
-  /// is contained in `index_interval.FiniteSubset()`, and results in an error
-  /// otherwise.
+  ///    output[output_dim]
+  ///        = offset
+  ///        + stride * bounded(index_array(input - input_origin),
+  ///                           index_range)
+  ///
+  /// where ``bounded(index, index_interval)`` is equivalent to ``index`` if
+  /// ``index`` is contained in ``index_interval.FiniteSubset()``, and results
+  /// in an error otherwise.
   ///
   /// \param output_dim The output dimension for which to set the output index
   ///     map.
@@ -759,8 +784,11 @@ class IndexTransformBuilder {
   ///     specified, this output index map is considered invalid (resulting in
   ///     `Finalize` returning an error).
   /// \pre `valid() == true`
-  /// \remarks This method overrides any output index map for `output_dim`
-  ///     specified by a previous `output_*(output_dim, ...)` call.
+  ///
+  /// .. note::
+  ///
+  ///    This method overrides any output index map for `output_dim` specified
+  ///    by a previous ``output_*(output_dim, ...)`` call.
   IndexTransformBuilder& output_index_array(
       DimensionIndex output_dim, Index offset, Index stride,
       const SharedArrayView<const Index, dynamic_rank, offset_origin>&
@@ -772,7 +800,7 @@ class IndexTransformBuilder {
     return *this;
   }
 
-  /// Sets the first `min(input_rank(), output_rank())` output dimensions to
+  /// Sets the first ``min(input_rank(), output_rank())`` output dimensions to
   /// identity map to input dimensions.
   ///
   /// \pre `valid() == true`
@@ -785,8 +813,8 @@ class IndexTransformBuilder {
     return *this;
   }
 
-  /// Copies the first `min(output_rank(), output_maps.size())` output maps from
-  /// `output_maps`.
+  /// Copies the first ``min(output_rank(), output_maps.size())`` output maps
+  /// from `output_maps`.
   ///
   /// \pre `valid() == true`
   template <DimensionIndex OtherInputRank, DimensionIndex OtherOutputRank>

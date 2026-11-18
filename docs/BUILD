@@ -176,8 +176,10 @@ tensorstore_cc_library(
     copts = [
         # Generated preprocessed output rather than object file.
         "-E",
-        # Retain comments.
-        "-C",
+        # Retain comments, including comments inside macro expansions (such as
+        # TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER under
+        # TENSORSTORE_CPP_DOC_GENERATION).
+        "-CC",
         # GCC/clang flag to output macro definitions.
         "-dD",
     ],
@@ -190,11 +192,16 @@ tensorstore_cc_library(
     linkstatic = True,
     local_defines = [
         "TENSORSTORE_CPP_DOC_GENERATION",
+        # Avoid expanding NLOHMANN_JSON_NAMESPACE_VERSION_CONCAT under -CC,
+        # where trailing comments on NLOHMANN_JSON_VERSION_MAJOR/MINOR/PATCH
+        # in nlohmann/json 3.12.0 break token concatenation.
+        "NLOHMANN_JSON_NAMESPACE_NO_VERSION=1",
     ],
     tags = ["manual"],
     deps = [
         "//tensorstore",
         "//tensorstore:array",
+        "//tensorstore:auto",
         "//tensorstore:box",
         "//tensorstore:cast",
         "//tensorstore:context",
@@ -203,7 +210,9 @@ tensorstore_cc_library(
         "//tensorstore:index_interval",
         "//tensorstore:open",
         "//tensorstore:rank",
+        "//tensorstore:stack",
         "//tensorstore:strided_layout",
+        "//tensorstore:virtual_chunked",
         "//tensorstore/index_space:alignment",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
@@ -215,6 +224,7 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:generic_stringify",
         "//tensorstore/util:quote_string",
+        "//tensorstore/util:rational",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",

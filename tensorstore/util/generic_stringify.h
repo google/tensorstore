@@ -243,13 +243,29 @@ struct GenericStringifyNiebloid {
 
 }  // namespace internal_stringify
 
-// Allows passing arbitrary C++ value references to `absl::StrFormat`,
-// `absl::StrCat`, and similar string formatting functions.
+// Formats arbitrary C++ values for use with `absl::StrFormat`, `absl::StrCat`,
+// and `std::ostream`.
+//
+// Values are formatted according to the following rules (in order of
+// precedence):
+//
+// - Types supporting `AbslStringify` or `std::ostream` `operator<<` are
+//   formatted using that implementation (`AbslStringify` takes precedence over
+//   `operator<<`).
+// - `nullptr` and `std::nullopt` format as `"null"`.
+// - `bool` values format as `"true"` or `"false"`.
+// - Unstreamable enum values format as their underlying integer value.
+// - `std::optional` values format as `"<v>"` when engaged, or `"null"` when
+//   disengaged.
+// - `std::tuple`, `std::pair`, and iterable or indexable containers format
+//   recursively as `"{elem0, elem1, ...}"` (with `std::vector<bool>` elements
+//   formatted as `"0"` or `"1"`).
 //
 // Example::
 //
-//   std::vector<int> v = {1, 2, 3};
-//   absl::StrFormat("%sv", GenericStringify(v));
+//     std::vector<int> v = {1, 2, 3};
+//     absl::StrFormat("%v", GenericStringify(v));
+//     // Evaluates to "{1, 2, 3}"
 //
 inline constexpr auto GenericStringify =
     internal_stringify::GenericStringifyNiebloid{};

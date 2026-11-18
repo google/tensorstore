@@ -275,10 +275,15 @@ namespace virtual_chunked {
 
 /// Parameters available to the read function for computing the content of a
 /// chunk.
+///
+/// \relates TensorStore
+/// \membergroup Virtual chunked
 class ReadParameters {
  public:
+  /// Constructs default read parameters.
   ReadParameters() = default;
 
+  /// Executor associated with the read request.
   const Executor& executor() const { return executor_; }
 
   /// Cached generation, read request can be skipped if no newer data is
@@ -299,13 +304,25 @@ class ReadParameters {
 };
 
 /// Type-erased function called to read a single chunk.
+///
+/// .. code-block:: cpp
+///
+///    Future<TimestampedStorageGeneration>(
+///        Array<void, dynamic_rank, offset_origin> output,
+///        ReadParameters read_params)
+///
+/// \relates TensorStore
+/// \membergroup Virtual chunked
 using ReadFunction =
     serialization::SerializableFunction<Future<TimestampedStorageGeneration>(
         Array<void, dynamic_rank, offset_origin> output,
         ReadParameters read_params)>;
 
-/// Metafunction that evaluates to `true` if `Func` may be used as an "read
+/// Metafunction that evaluates to `true` if `Func` may be used as a "read
 /// function" for the specified compile-time `Element` type and `Rank`.
+///
+/// \relates TensorStore
+/// \membergroup Virtual chunked
 template <typename Func, typename Element, DimensionIndex Rank>
 constexpr inline bool IsReadFunction =
     serialization::IsSerializableFunctionLike<
@@ -314,10 +331,15 @@ constexpr inline bool IsReadFunction =
 
 /// Parameters available to the write function for storing the content of a
 /// chunk.
+///
+/// \relates TensorStore
+/// \membergroup Virtual chunked
 class WriteParameters {
  public:
+  /// Constructs default write parameters.
   WriteParameters() = default;
 
+  /// Executor associated with the write request.
   const Executor& executor() const { return executor_; }
 
   /// Write is conditioned on the existing generation being equal to the
@@ -331,6 +353,15 @@ class WriteParameters {
 };
 
 /// Type-erased function called to write a single chunk.
+///
+/// .. code-block:: cpp
+///
+///    Future<TimestampedStorageGeneration>(
+///        Array<const void, dynamic_rank, offset_origin> input,
+///        WriteParameters write_params)
+///
+/// \relates TensorStore
+/// \membergroup Virtual chunked
 using WriteFunction =
     serialization::SerializableFunction<Future<TimestampedStorageGeneration>(
         Array<const void, dynamic_rank, offset_origin> input,
@@ -338,22 +369,27 @@ using WriteFunction =
 
 /// Metafunction that evaluates to `true` if `Func` may be used as a "write
 /// function" for the specified compile-time `Element` type and `Rank`.
+///
+/// \relates TensorStore
+/// \membergroup Virtual chunked
 template <typename Func, typename Element, DimensionIndex Rank>
 constexpr inline bool IsWriteFunction =
     serialization::IsSerializableFunctionLike<
         Future<TimestampedStorageGeneration>, Func,
         Array<const Element, Rank, offset_origin>, WriteParameters>;
 
-/// Options to the `tensorstore::VirtualChunked` function for creating an
-/// `virtual_chunked` TensorStore.
+/// Options to the `VirtualChunked` function for creating a
+/// ``virtual_chunked`` TensorStore.
 ///
 /// The following option types are supported:
 ///
-/// - `Context`: used to obtain the `cache_pool`, which is used for caching, and
-///   `data_copy_concurrency`, which determine the number of concurrent calls to
-///   the `read_function` that will be supported.  To enable caching, specify a
-///   `cache_pool` resource with a non-zero `total_bytes_limit`, and also
-///   optionally specify `RecheckCachedData{false}`.
+/// - `Context`: used to obtain the :json:schema:`Context.cache_pool`, which is
+///   used for caching, and :json:schema:`Context.data_copy_concurrency`, which
+///   determines the number of concurrent calls to the ``read_function`` that
+///   will be supported.  To enable caching, specify a
+///   :json:schema:`Context.cache_pool` resource with a non-zero
+///   ``total_bytes_limit``, and also optionally specify
+///   `RecheckCachedData{false}`.
 ///
 /// - `RankConstraint`: May be used to specify a rank constraint, which is
 ///   useful to indicate an unbounded domain if the rank is not otherwise
@@ -364,39 +400,54 @@ constexpr inline bool IsWriteFunction =
 ///
 /// - `DataType`: Specifies the data type of the returned TensorStore.  Must be
 ///   specified, if not specified at compile-time via a template parameter to
-///   `ChunkedComputed`.
+///   `VirtualChunked`.
 ///
 /// - `ChunkLayout`, and any options supported by `ChunkLayout`: Specifies the
-///   chunk layout that will be used.  The `grid_origin`, `inner_order`, and
-///   `read_chunk` constraints may be specified.  It is not valid to specify
-///   `write_chunk` and `codec_chunk` constraints.  If not specified,
-///   `inner_order` defaults to lexicographic, `grid_origin` defaults to the
-///   origin of the domain (or 0 if unbounded), and a chunk shape is chosen
-///   heuristically.
+///   chunk layout that will be used.  The `ChunkLayout::grid_origin`,
+///   `ChunkLayout::inner_order`, and `ChunkLayout::read_chunk` constraints may
+///   be specified.  It is not valid to specify `ChunkLayout::write_chunk` and
+///   `ChunkLayout::codec_chunk` constraints.  If not specified,
+///   `ChunkLayout::inner_order` defaults to lexicographic,
+///   `ChunkLayout::grid_origin` defaults to the origin of the domain (or 0 if
+///   unbounded), and a chunk shape is chosen heuristically.
 ///
 /// - `RecheckCachedData`: May be specified in conjunction with a `Context` with
-///   non-zero `total_bytes_limit` specified for the `cache_pool` to avoid
-///   re-invoking the `read_function` to validate cached data.
+///   non-zero ``total_bytes_limit`` specified for the
+///   :json:schema:`Context.cache_pool` to avoid re-invoking the
+///   ``read_function`` to validate cached data.
+///
+/// \relates TensorStore
+/// \membergroup Virtual chunked
 struct OpenOptions : public Schema {
+  /// Context for obtaining :json:schema:`Context.cache_pool` and
+  /// :json:schema:`Context.data_copy_concurrency` resources.
   Context context;
+  /// Transaction to bind to the returned `TensorStore`.
   Transaction transaction{no_transaction};
+  /// Cache staleness bound for cached chunks.
   RecheckCachedData recheck_cached_data;
 
   template <typename T>
-  static inline constexpr bool IsOption = Schema::IsOption<T>;
+  static constexpr bool IsOption = Schema::IsOption<T>;
 
   using Schema::Set;
 
+  /// Sets the `Context` option.
+  /// \id context
   absl::Status Set(Context value) {
     context = std::move(value);
     return absl::OkStatus();
   }
 
+  /// Sets the `Transaction` option.
+  /// \id transaction
   absl::Status Set(Transaction value) {
     transaction = std::move(value);
     return absl::OkStatus();
   }
 
+  /// Sets the `RecheckCachedData` option.
+  /// \id recheck_cached_data
   absl::Status Set(RecheckCachedData value) {
     if (value.specified()) {
       recheck_cached_data = value;
@@ -432,29 +483,36 @@ struct FunctionAdapter {
                  std::move(params));
   }
   ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Func func_;
-  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+  static constexpr auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.func_);
   };
 };
 
 }  // namespace internal_virtual_chunked
+}  // namespace virtual_chunked
 
 /// Creates a read-only TensorStore where the content is read chunk-wise by the
 /// specified user-defined function.
 ///
 /// \param read_function Function called to read each chunk.  Must be callable
-///     with `(Array<Element, Rank, offset_origin>, ReadParameters)` and have a
-///     return value convertible to `Future<TimestampedStorageGeneration>`.  By
-///     default must be serializable.  To specify a non-serializable function,
-///     wrap it in `NonSerializable`.
+///     with (`Array<Element, Rank, offset_origin>`,
+///     `virtual_chunked::ReadParameters`) and have a return value
+///     convertible to `Future<TimestampedStorageGeneration>`.  By default must
+///     be serializable.  To specify a non-serializable function, wrap it in
+///     ``NonSerializable``.
 /// \param options Open options.  The domain must always be specified (either
 ///     via an `IndexDomain` or `tensorstore::Schema::Shape`).  If `Element` is
 ///     `void`, the data type must also be specified.
+/// \param option Option compatible with `virtual_chunked::OpenOptions`, which
+///     may be specified in any order.
+/// \relates TensorStore
+/// \membergroup Virtual chunked
+/// \id read
 template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           typename ReadFunc>
-std::enable_if_t<IsReadFunction<ReadFunc, Element, Rank>,
+std::enable_if_t<virtual_chunked::IsReadFunction<ReadFunc, Element, Rank>,
                  Result<TensorStore<Element, Rank, ReadWriteMode::read>>>
-VirtualChunked(ReadFunc read_function, OpenOptions&& options) {
+VirtualChunked(ReadFunc read_function, virtual_chunked::OpenOptions&& options) {
   static_assert(std::is_same_v<Element, absl::remove_cvref_t<Element>>,
                 "Element type must be unqualified");
   static_assert(Rank >= dynamic_rank,
@@ -465,13 +523,13 @@ VirtualChunked(ReadFunc read_function, OpenOptions&& options) {
   if constexpr (!std::is_void_v<Element>) {
     TENSORSTORE_RETURN_IF_ERROR(options.Set(dtype_v<Element>));
   }
-  ReadFunction serializable_read_function;
+  virtual_chunked::ReadFunction serializable_read_function;
   if constexpr (std::is_void_v<Element> && Rank == dynamic_rank) {
     serializable_read_function = std::move(read_function);
   } else {
     serializable_read_function =
-        internal_virtual_chunked::FunctionAdapter<void, Element, Rank,
-                                                  ReadParameters, ReadFunc>{
+        virtual_chunked::internal_virtual_chunked::FunctionAdapter<
+            void, Element, Rank, virtual_chunked::ReadParameters, ReadFunc>{
             std::move(read_function)};
     if (!serializable_read_function) {
       return absl::InvalidArgumentError("Invalid read_function specified");
@@ -479,177 +537,104 @@ VirtualChunked(ReadFunc read_function, OpenOptions&& options) {
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto handle,
-      internal_virtual_chunked::MakeDriver(
+      virtual_chunked::internal_virtual_chunked::MakeDriver(
           std::move(serializable_read_function), {}, std::move(options)));
   return internal::TensorStoreAccess::Construct<
       TensorStore<Element, Rank, ReadWriteMode::read>>(std::move(handle));
 }
-
-/// Creates a read-write TensorStore where the content is read chunk-wise by the
-/// specified user-defined function.
-///
-/// \param read_function Function called to read each chunk.  Must be callable
-///     with `(Array<Element, Rank, offset_origin>, ReadParameters)` and have a
-///     return value convertible to `Future<TimestampedStorageGeneration>`.  By
-///     default must be serializable.  To specify a non-serializable function,
-///     wrap it in `NonSerializable`.
-/// \param write_function Function called to store each chunk.  Must be callable
-///     with `(Array<const Element, Rank, offset_origin>, WriteParameters)` and
-///     have a return value convertible to
-///     `Future<TimestampedStorageGeneration>`.  By default must be
-///     serializable.  To specify a non-serializable function, wrap it in
-///     `NonSerializable`.
-/// \param options Open options.  The domain must always be specified (either
-///     via an `IndexDomain` or `tensorstore::Schema::Shape`).  If `Element` is
-///     `void`, the data type must also be specified.
-template <typename Element = void, DimensionIndex Rank = dynamic_rank,
-          typename ReadFunc, typename WriteFunc>
-std::enable_if_t<(IsReadFunction<ReadFunc, Element, Rank> &&
-                  IsWriteFunction<WriteFunc, Element, Rank>),
-                 Result<TensorStore<Element, Rank, ReadWriteMode::read_write>>>
-VirtualChunked(ReadFunc read_function, WriteFunc write_function,
-               OpenOptions&& options) {
-  static_assert(std::is_same_v<Element, absl::remove_cvref_t<Element>>,
-                "Element type must be unqualified");
-  static_assert(Rank >= dynamic_rank,
-                "Rank must equal dynamic_rank (-1) or be non-negative.");
-  if constexpr (Rank != dynamic_rank) {
-    TENSORSTORE_RETURN_IF_ERROR(options.Set(RankConstraint{Rank}));
-  }
-  if constexpr (!std::is_void_v<Element>) {
-    TENSORSTORE_RETURN_IF_ERROR(options.Set(dtype_v<Element>));
-  }
-  ReadFunction serializable_read_function;
-  WriteFunction serializable_write_function;
-  if constexpr (std::is_void_v<Element> && Rank == dynamic_rank) {
-    serializable_read_function = std::move(read_function);
-    serializable_write_function = std::move(write_function);
-  } else {
-    serializable_read_function =
-        internal_virtual_chunked::FunctionAdapter<void, Element, Rank,
-                                                  ReadParameters, ReadFunc>{
-            std::move(read_function)};
-    if (!serializable_read_function) {
-      return absl::InvalidArgumentError("Invalid read_function specified");
-    }
-    serializable_write_function =
-        internal_virtual_chunked::FunctionAdapter<const void, Element, Rank,
-                                                  WriteParameters, WriteFunc>{
-            std::move(write_function)};
-    if (!serializable_write_function) {
-      return absl::InvalidArgumentError("Invalid write_function specified");
-    }
-  }
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto handle,
-      internal_virtual_chunked::MakeDriver(
-          std::move(serializable_read_function),
-          std::move(serializable_write_function), std::move(options)));
-  return internal::TensorStoreAccess::Construct<
-      TensorStore<Element, Rank, ReadWriteMode::read_write>>(std::move(handle));
-}
-
-/// Creates a write-only TensorStore where the content is written chunk-wise by
-/// the specified user-defined function.
-///
-/// \param write_function Function called to store each chunk.  Must be callable
-///     with `(Array<const Element, Rank, offset_origin>, WriteParameters)` and
-///     have a return value convertible to
-///     `Future<TimestampedStorageGeneration>`.  By default must be
-///     serializable.  To specify a non-serializable function, wrap it in
-///     `NonSerializable`.
-/// \param options Open options.  The domain must always be specified (either
-///     via an `IndexDomain` or `tensorstore::Schema::Shape`).  If `Element` is
-///     `void`, the data type must also be specified.
-template <typename Element = void, DimensionIndex Rank = dynamic_rank,
-          typename WriteFunc>
-Result<TensorStore<Element, Rank, ReadWriteMode::write>>
-VirtualChunkedWriteOnly(WriteFunc write_function, OpenOptions&& options) {
-  static_assert(std::is_same_v<Element, absl::remove_cvref_t<Element>>,
-                "Element type must be unqualified");
-  static_assert(Rank >= dynamic_rank,
-                "Rank must equal dynamic_rank (-1) or be non-negative.");
-  static_assert(IsWriteFunction<WriteFunc, Element, Rank>);
-  if constexpr (Rank != dynamic_rank) {
-    TENSORSTORE_RETURN_IF_ERROR(options.Set(RankConstraint{Rank}));
-  }
-  if constexpr (!std::is_void_v<Element>) {
-    TENSORSTORE_RETURN_IF_ERROR(options.Set(dtype_v<Element>));
-  }
-  WriteFunction serializable_write_function;
-  if constexpr (std::is_void_v<Element> && Rank == dynamic_rank) {
-    serializable_write_function = std::move(write_function);
-    if (!serializable_write_function) {
-      return absl::InvalidArgumentError("Invalid write_function specified");
-    }
-  } else {
-    serializable_write_function =
-        internal_virtual_chunked::FunctionAdapter<const void, Element, Rank,
-                                                  WriteParameters, WriteFunc>{
-            std::move(write_function)};
-  }
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto handle,
-      internal_virtual_chunked::MakeDriver(
-          {}, std::move(serializable_write_function), std::move(options)));
-  return internal::TensorStoreAccess::Construct<
-      TensorStore<Element, Rank, ReadWriteMode::write>>(std::move(handle));
-}
-
-/// Creates a read-only TensorStore where the content is read chunk-wise by the
-/// specified user-defined function.
-///
-/// \param read_function Function called to compute each chunk.  Must be
-///     callable with `(Array<Element, Rank, offset_origin>, ReadParameters)`
-///     and have a return value convertible to
-///     `Future<TimestampedStorageGeneration>`.  By default must be
-///     serializable.  To specify a non-serializable function, wrap it in
-///     `NonSerializable`.
-/// \param option Option compatible with `OpenOptions`, which may be specified
-///     in any order.  If `Rank == dynamic_rank`, the rank must always be
-///     specified.  If `Element` is `void`, the data type must also be
-///     specified.
 template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           typename ReadFunc, typename... Option>
-std::enable_if_t<(IsReadFunction<ReadFunc, Element, Rank> &&
-                  IsCompatibleOptionSequence<OpenOptions, Option...>),
-                 Result<TensorStore<Element, Rank, ReadWriteMode::read>>>
+std::enable_if_t<
+    (virtual_chunked::IsReadFunction<ReadFunc, Element, Rank> &&
+     IsCompatibleOptionSequence<virtual_chunked::OpenOptions, Option...>),
+    Result<TensorStore<Element, Rank, ReadWriteMode::read>>>
 VirtualChunked(ReadFunc read_function, Option&&... option) {
-  OpenOptions options;
+  virtual_chunked::OpenOptions options;
   TENSORSTORE_RETURN_IF_ERROR(
       internal::SetAll(options, std::forward<Option>(option)...));
   return VirtualChunked<Element, Rank>(std::move(read_function),
                                        std::move(options));
 }
 
-/// Creates a read-write TensorStore where the content is read/written
-/// chunk-wise by specified user-defined functions.
+/// Creates a read-write TensorStore where the content is read and written
+/// chunk-wise by the specified user-defined functions.
 ///
-/// \param read_function Function called to compute each chunk.  Must be
-///     callable with `(Array<Element, Rank, offset_origin>, ReadParameters)`
-///     and have a return value convertible to
-///     `Future<TimestampedStorageGeneration>`.  By default must be
-///     serializable.  To specify a non-serializable function, wrap it in
-///     `NonSerializable`.
+/// \param read_function Function called to read each chunk.  Must be callable
+///     with (`Array<Element, Rank, offset_origin>`,
+///     `virtual_chunked::ReadParameters`) and have a return value
+///     convertible to `Future<TimestampedStorageGeneration>`.  By default must
+///     be serializable.  To specify a non-serializable function, wrap it in
+///     ``NonSerializable``.
 /// \param write_function Function called to store each chunk.  Must be callable
-///     with `(Array<const Element, Rank, offset_origin>, WriteParameters)` and
-///     have a return value convertible to
-///     `Future<TimestampedStorageGeneration>`.  By default must be
-///     serializable.  To specify a non-serializable function, wrap it in
-///     `NonSerializable`.
-/// \param option Option compatible with `OpenOptions`, which may be specified
-///     in any order.  If `Rank == dynamic_rank`, the rank must always be
-///     specified.  If `Element` is `void`, the data type must also be
-///     specified.
+///     with (`Array<const Element, Rank, offset_origin>`,
+///     `virtual_chunked::WriteParameters`) and have a return value
+///     convertible to `Future<TimestampedStorageGeneration>`.  By default must
+///     be serializable.  To specify a non-serializable function, wrap it in
+///     ``NonSerializable``.
+/// \param options Open options.  The domain must always be specified (either
+///     via an `IndexDomain` or `tensorstore::Schema::Shape`).  If `Element` is
+///     `void`, the data type must also be specified.
+/// \param option Option compatible with `virtual_chunked::OpenOptions`, which
+///     may be specified in any order.
+/// \relates TensorStore
+/// \membergroup Virtual chunked
+/// \id read_write
 template <typename Element = void, DimensionIndex Rank = dynamic_rank,
-          typename ReadFunc, typename WriteFunc, typename... Option>
-std::enable_if_t<(IsReadFunction<ReadFunc, Element, Rank> &&
-                  IsWriteFunction<WriteFunc, Element, Rank> &&
-                  IsCompatibleOptionSequence<OpenOptions, Option...>),
+          typename ReadFunc, typename WriteFunc>
+std::enable_if_t<(virtual_chunked::IsReadFunction<ReadFunc, Element, Rank> &&
+                  virtual_chunked::IsWriteFunction<WriteFunc, Element, Rank>),
                  Result<TensorStore<Element, Rank, ReadWriteMode::read_write>>>
 VirtualChunked(ReadFunc read_function, WriteFunc write_function,
+               virtual_chunked::OpenOptions&& options) {
+  static_assert(std::is_same_v<Element, absl::remove_cvref_t<Element>>,
+                "Element type must be unqualified");
+  static_assert(Rank >= dynamic_rank,
+                "Rank must equal dynamic_rank (-1) or be non-negative.");
+  if constexpr (Rank != dynamic_rank) {
+    TENSORSTORE_RETURN_IF_ERROR(options.Set(RankConstraint{Rank}));
+  }
+  if constexpr (!std::is_void_v<Element>) {
+    TENSORSTORE_RETURN_IF_ERROR(options.Set(dtype_v<Element>));
+  }
+  virtual_chunked::ReadFunction serializable_read_function;
+  virtual_chunked::WriteFunction serializable_write_function;
+  if constexpr (std::is_void_v<Element> && Rank == dynamic_rank) {
+    serializable_read_function = std::move(read_function);
+    serializable_write_function = std::move(write_function);
+  } else {
+    serializable_read_function =
+        virtual_chunked::internal_virtual_chunked::FunctionAdapter<
+            void, Element, Rank, virtual_chunked::ReadParameters, ReadFunc>{
+            std::move(read_function)};
+    if (!serializable_read_function) {
+      return absl::InvalidArgumentError("Invalid read_function specified");
+    }
+    serializable_write_function =
+        virtual_chunked::internal_virtual_chunked::FunctionAdapter<
+            const void, Element, Rank, virtual_chunked::WriteParameters,
+            WriteFunc>{std::move(write_function)};
+    if (!serializable_write_function) {
+      return absl::InvalidArgumentError("Invalid write_function specified");
+    }
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto handle,
+      virtual_chunked::internal_virtual_chunked::MakeDriver(
+          std::move(serializable_read_function),
+          std::move(serializable_write_function), std::move(options)));
+  return internal::TensorStoreAccess::Construct<
+      TensorStore<Element, Rank, ReadWriteMode::read_write>>(std::move(handle));
+}
+template <typename Element = void, DimensionIndex Rank = dynamic_rank,
+          typename ReadFunc, typename WriteFunc, typename... Option>
+std::enable_if_t<
+    (virtual_chunked::IsReadFunction<ReadFunc, Element, Rank> &&
+     virtual_chunked::IsWriteFunction<WriteFunc, Element, Rank> &&
+     IsCompatibleOptionSequence<virtual_chunked::OpenOptions, Option...>),
+    Result<TensorStore<Element, Rank, ReadWriteMode::read_write>>>
+VirtualChunked(ReadFunc read_function, WriteFunc write_function,
                Option&&... option) {
-  OpenOptions options;
+  virtual_chunked::OpenOptions options;
   TENSORSTORE_RETURN_IF_ERROR(
       internal::SetAll(options, std::forward<Option>(option)...));
   return VirtualChunked<Element, Rank>(
@@ -657,35 +642,74 @@ VirtualChunked(ReadFunc read_function, WriteFunc write_function,
 }
 
 /// Creates a write-only TensorStore where the content is written chunk-wise by
-/// specified user-defined functions.
+/// the specified user-defined function.
 ///
 /// \param write_function Function called to store each chunk.  Must be callable
-///     with `(Array<const Element, Rank, offset_origin>, WriteParameters)` and
-///     have a return value convertible to
-///     `Future<TimestampedStorageGeneration>`.  By default must be
-///     serializable.  To specify a non-serializable function, wrap it in
-///     `NonSerializable`.
-/// \param option Option compatible with `OpenOptions`, which may be specified
-///     in any order.  If `Rank == dynamic_rank`, the rank must always be
-///     specified.  If `Element` is `void`, the data type must also be
-///     specified.
+///     with (`Array<const Element, Rank, offset_origin>`,
+///     `virtual_chunked::WriteParameters`) and have a return value
+///     convertible to `Future<TimestampedStorageGeneration>`.  By default must
+///     be serializable.  To specify a non-serializable function, wrap it in
+///     ``NonSerializable``.
+/// \param options Open options.  The domain must always be specified (either
+///     via an `IndexDomain` or `tensorstore::Schema::Shape`).  If `Element` is
+///     `void`, the data type must also be specified.
+/// \param option Option compatible with `virtual_chunked::OpenOptions`, which
+///     may be specified in any order.
+/// \relates TensorStore
+/// \membergroup Virtual chunked
+template <typename Element = void, DimensionIndex Rank = dynamic_rank,
+          typename WriteFunc>
+Result<TensorStore<Element, Rank, ReadWriteMode::write>>
+VirtualChunkedWriteOnly(WriteFunc write_function,
+                        virtual_chunked::OpenOptions&& options) {
+  static_assert(std::is_same_v<Element, absl::remove_cvref_t<Element>>,
+                "Element type must be unqualified");
+  static_assert(Rank >= dynamic_rank,
+                "Rank must equal dynamic_rank (-1) or be non-negative.");
+  static_assert(virtual_chunked::IsWriteFunction<WriteFunc, Element, Rank>);
+  if constexpr (Rank != dynamic_rank) {
+    TENSORSTORE_RETURN_IF_ERROR(options.Set(RankConstraint{Rank}));
+  }
+  if constexpr (!std::is_void_v<Element>) {
+    TENSORSTORE_RETURN_IF_ERROR(options.Set(dtype_v<Element>));
+  }
+  virtual_chunked::WriteFunction serializable_write_function;
+  if constexpr (std::is_void_v<Element> && Rank == dynamic_rank) {
+    serializable_write_function = std::move(write_function);
+    if (!serializable_write_function) {
+      return absl::InvalidArgumentError("Invalid write_function specified");
+    }
+  } else {
+    serializable_write_function =
+        virtual_chunked::internal_virtual_chunked::FunctionAdapter<
+            const void, Element, Rank, virtual_chunked::WriteParameters,
+            WriteFunc>{std::move(write_function)};
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto handle,
+      virtual_chunked::internal_virtual_chunked::MakeDriver(
+          {}, std::move(serializable_write_function), std::move(options)));
+  return internal::TensorStoreAccess::Construct<
+      TensorStore<Element, Rank, ReadWriteMode::write>>(std::move(handle));
+}
 template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           typename WriteFunc, typename... Option>
-std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
-                 Result<TensorStore<Element, Rank, ReadWriteMode::write>>>
+std::enable_if_t<
+    IsCompatibleOptionSequence<virtual_chunked::OpenOptions, Option...>,
+    Result<TensorStore<Element, Rank, ReadWriteMode::write>>>
 VirtualChunkedWriteOnly(WriteFunc write_function, Option&&... option) {
-  static_assert(IsWriteFunction<WriteFunc, Element, Rank>);
-  OpenOptions options;
+  static_assert(virtual_chunked::IsWriteFunction<WriteFunc, Element, Rank>);
+  virtual_chunked::OpenOptions options;
   TENSORSTORE_RETURN_IF_ERROR(
       internal::SetAll(options, std::forward<Option>(option)...));
   return VirtualChunkedWriteOnly<Element, Rank>(std::move(write_function),
                                                 std::move(options));
 }
 
+namespace virtual_chunked {
+using tensorstore::VirtualChunked;           // NOLINT
+using tensorstore::VirtualChunkedWriteOnly;  // NOLINT
 }  // namespace virtual_chunked
-
-using virtual_chunked::VirtualChunked;           // NOLINT
-using virtual_chunked::VirtualChunkedWriteOnly;  // NOLINT
 
 }  // namespace tensorstore
 

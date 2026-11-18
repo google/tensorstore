@@ -33,35 +33,41 @@ namespace tensorstore {
 ///
 /// \relates Spec
 struct SpecOptions : public Schema {
+  /// Open mode constraint.
   OpenMode open_mode = {};
+  /// Staleness bound on cached array data.
   RecheckCachedData recheck_cached_data;
+  /// Staleness bound on cached metadata.
   RecheckCachedMetadata recheck_cached_metadata;
+  /// Specifies whether to omit metadata known to be redundant when opening.
   bool minimal_spec = false;
-  kvstore::Spec kvstore;
+  /// Underlying key-value store specification.
+  tensorstore::kvstore::Spec kvstore;
 
-  // Excludes `Schema`, `MinimalSpec`, and `kvstore::Spec`.
+  // Evaluates to `true` for common option types shared across `Spec` and
+  // `Open` operations (excludes `Schema`, `MinimalSpec`, and
+  // `tensorstore::kvstore::Spec`).
   template <typename T>
-  constexpr static inline bool IsCommonOption = false;
+  static constexpr bool IsCommonOption = false;
 
+  /// Applies an `OpenMode`, `RecheckCachedData`, `RecheckCachedMetadata`,
+  /// `RecheckCached`, or `tensorstore::kvstore::Spec` option.
   absl::Status Set(OpenMode mode) {
     open_mode = open_mode | mode;
     return absl::OkStatus();
   }
-
   absl::Status Set(RecheckCachedData value) {
     if (value.specified()) {
       recheck_cached_data = value;
     }
     return absl::OkStatus();
   }
-
   absl::Status Set(RecheckCachedMetadata value) {
     if (value.specified()) {
       recheck_cached_metadata = value;
     }
     return absl::OkStatus();
   }
-
   absl::Status Set(RecheckCached value) {
     if (value.specified()) {
       static_cast<RecheckCacheOption&>(recheck_cached_data) = value;
@@ -69,8 +75,7 @@ struct SpecOptions : public Schema {
     }
     return absl::OkStatus();
   }
-
-  absl::Status Set(kvstore::Spec value);
+  absl::Status Set(tensorstore::kvstore::Spec value);
 };
 
 // While C++17 allows these explicit specialization to be defined at class
@@ -92,18 +97,19 @@ constexpr inline bool SpecOptions::IsCommonOption<RecheckCached> = true;
 ///
 /// \relates Spec
 struct SpecRequestOptions : public SpecOptions {
+  /// Specifies how bound context resources are handled in the returned `Spec`.
   ContextBindingMode context_binding_mode = ContextBindingMode::unspecified;
 
   template <typename T>
-  constexpr static inline bool IsOption = SpecOptions::IsCommonOption<T>;
+  static constexpr bool IsOption = SpecOptions::IsCommonOption<T>;
 
   using SpecOptions::Set;
 
+  /// Applies a `MinimalSpec` or `ContextBindingMode` option.
   absl::Status Set(MinimalSpec value) {
     minimal_spec = value.minimal_spec();
     return absl::OkStatus();
   }
-
   absl::Status Set(ContextBindingMode value) {
     if (value > context_binding_mode) context_binding_mode = value;
     return absl::OkStatus();
@@ -120,17 +126,17 @@ constexpr inline bool SpecRequestOptions::IsOption<ContextBindingMode> = true;
 ///
 /// \relates Spec
 struct SpecConvertOptions : public SpecRequestOptions {
+  /// Context to bind to the `Spec`.
   Context context;
 
   template <typename T>
-  constexpr static inline bool IsOption =
+  static constexpr bool IsOption =
       SpecRequestOptions::IsOption<T> || Schema::IsOption<T>;
 
   using Schema::Set;
   using SpecRequestOptions::Set;
 
-  // Additionally supports `Context`.
-
+  /// Applies a `Context` option.
   absl::Status Set(Context value);
 };
 
@@ -144,26 +150,25 @@ constexpr inline bool SpecConvertOptions::IsOption<kvstore::Spec> = true;
 ///
 /// \relates Spec
 struct OpenOptions : public SpecOptions {
+  /// Context from which unbound resources in the `Spec` are resolved.
   Context context;
+  /// Read/write mode for opening the `TensorStore`.
   ReadWriteMode read_write_mode = ReadWriteMode::dynamic;
 
   // Supports all common options of `SpecOptions`, and all options of
   // `Schema`.
   template <typename T>
-  constexpr static inline bool IsOption =
+  static constexpr bool IsOption =
       SpecOptions::IsCommonOption<T> || Schema::IsOption<T>;
+
   using Schema::Set;
   using SpecOptions::Set;
 
-  // Additionally supports `ReadWriteMode`.
-
+  /// Applies a `ReadWriteMode` or `Context` option.
   absl::Status Set(ReadWriteMode value) {
     read_write_mode = read_write_mode | value;
     return absl::OkStatus();
   }
-
-  // Additionally supports `Context`.
-
   absl::Status Set(Context value) {
     context = std::move(value);
     return absl::OkStatus();
@@ -181,29 +186,28 @@ constexpr inline bool OpenOptions::IsOption<kvstore::Spec> = true;
 
 /// Options for opening a `Spec` with optional transaction and optional batch.
 ///
-/// Allows the key-value store to be specified as either a `kvstore::Spec` or an
-/// already-open `KvStore`.
+/// Allows the key-value store to be specified as either a
+/// `tensorstore::kvstore::Spec` or an already-open `KvStore`.
 ///
 /// \relates Spec
 struct TransactionalOpenOptions : public OpenOptions {
+  /// Transaction to bind to the opened `TensorStore`.
   Transaction transaction{no_transaction};
+  /// Batch for coalescing I/O operations performed during open.
   Batch batch{no_batch};
 
   // Supports all options of `OpenOptions`.
   template <typename T>
-  constexpr static inline bool IsOption = OpenOptions::IsOption<T>;
+  static constexpr bool IsOption = OpenOptions::IsOption<T>;
+
   using OpenOptions::Set;
 
-  // Additionally supports `Transaction`.
+  /// Applies a `Transaction`, `Batch`, or `KvStore` option.
   absl::Status Set(Transaction value);
-
-  // Additionally supports `Batch`.
   absl::Status Set(Batch value) {
     batch = std::move(value);
     return absl::OkStatus();
   }
-
-  // Additionally supports already-open `KvStore`.
   absl::Status Set(KvStore value);
 };
 

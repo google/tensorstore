@@ -112,6 +112,7 @@ class Schema {
   /// constraint.
   struct Shape : public tensorstore::span<const Index> {
    public:
+    /// Constructs from a span or braced list of extents.
     explicit Shape(tensorstore::span<const Index> s)
         : tensorstore::span<const Index>(s) {}
     template <size_t N>
@@ -140,7 +141,14 @@ class Schema {
   /// Strongly-typed alias of `SharedArrayView<const void>` for representing a
   /// `fill_value` constraint.
   struct FillValue : public SharedArrayView<const void> {
+    /// Constructs an unspecified fill value.
+    ///
+    /// \id default
     FillValue() = default;
+
+    /// Constructs from an array view.
+    ///
+    /// \id array
     explicit FillValue(SharedArrayView<const void> value)
         : SharedArrayView<const void>(std::move(value)) {}
 
@@ -172,23 +180,36 @@ class Schema {
   /// dimension unit constraints.
   struct DimensionUnits : public tensorstore::span<const std::optional<Unit>> {
    public:
+    /// Constructs an empty (unspecified) dimension units constraint.
+    ///
+    /// \id default
     explicit DimensionUnits() = default;
+
+    /// Constructs from a span or braced list of optional units.
+    ///
+    /// \id units
     explicit DimensionUnits(tensorstore::span<const std::optional<Unit>> s)
         : tensorstore::span<const std::optional<Unit>>(s) {}
     template <size_t N>
     explicit DimensionUnits(const std::optional<Unit> (&s)[N])
         : tensorstore::span<const std::optional<Unit>>(s) {}
+
+    /// Returns `true` if any dimension unit constraints are specified.
     bool valid() const { return !this->empty(); }
 
+    /// Converts to an owned vector of optional units.
     explicit operator DimensionUnitsVector() const {
       return DimensionUnitsVector(this->begin(), this->end());
     }
 
+    /// Prints a string representation of the dimension units.
     friend std::ostream& operator<<(std::ostream& os, DimensionUnits u);
     template <typename Sink>
     friend void AbslStringify(Sink& sink, DimensionUnits u) {
       sink.Append(DimensionUnitsToString(u));
     }
+
+    /// Compares two dimension unit constraints for equality.
     friend bool operator==(DimensionUnits a, DimensionUnits b);
     friend bool operator!=(DimensionUnits a, DimensionUnits b) {
       return !(a == b);
@@ -218,29 +239,29 @@ class Schema {
   /// \id Schema
   absl::Status Set(Schema value);
 
-  /// Evaluates to `true` for option types compatible with `Set`.  Supported
-  /// types are:
-  ///
-  /// - `Schema`
-  /// - `RankConstraint`
-  /// - `DataType`, and `StaticDataType`
-  /// - `IndexDomain`
-  /// - `Schema::Shape`
-  /// - `Schema::FillValue`
-  /// - `CodecSpec`
-  /// - `Schema::DimensionUnits`
-  ///
-  /// Additionally, all `ChunkLayout` options are also supported:
-  ///
-  /// - `ChunkLayout`
-  /// - `ChunkLayout::GridOrigin`
-  /// - `ChunkLayout::InnerOrder`
-  /// - `ChunkLayout::GridViewFor`
-  /// - `ChunkLayout::ChunkElementsFor`
-  /// - `ChunkLayout::ChunkShapeFor`
-  /// - `ChunkLayout::ChunkAspectRatioFor`
+  // Evaluates to `true` for option types compatible with `Set`.  Supported
+  // types are:
+  //
+  // - `Schema`
+  // - `RankConstraint`
+  // - `DataType`, and `StaticDataType`
+  // - `IndexDomain`
+  // - `Schema::Shape`
+  // - `Schema::FillValue`
+  // - `CodecSpec`
+  // - `Schema::DimensionUnits`
+  //
+  // Additionally, all `ChunkLayout` options are also supported:
+  //
+  // - `ChunkLayout`
+  // - `ChunkLayout::GridOrigin`
+  // - `ChunkLayout::InnerOrder`
+  // - `ChunkLayout::GridViewFor`
+  // - `ChunkLayout::ChunkElementsFor`
+  // - `ChunkLayout::ChunkShapeFor`
+  // - `ChunkLayout::ChunkAspectRatioFor`
   template <typename T>
-  static inline constexpr bool IsOption = ChunkLayout::IsOption<T>;
+  static constexpr bool IsOption = ChunkLayout::IsOption<T>;
 
   /// Transforms a `Schema` by an index transform.
   ///
@@ -268,6 +289,7 @@ class Schema {
   friend Result<Schema> ApplyIndexTransform(IndexTransform<> transform,
                                             Schema schema);
 
+  /// JSON serialization options.
   using ToJsonOptions = JsonSerializationOptions;
   using FromJsonOptions = JsonSerializationOptions;
 

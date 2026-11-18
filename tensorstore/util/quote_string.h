@@ -29,10 +29,11 @@
 
 namespace tensorstore {
 
-// Returns a representation using C++ string literal syntax (including opening
-// and closing quotes) of the contents of `s`.
+// Formats `s` using C++ string literal syntax (including opening and closing
+// quotes) for use with `absl::StrFormat`, `absl::StrCat`, and `std::ostream`.
 //
-// Example:
+// Example::
+//
 //     EXPECT_EQ("\"hello\\nworld\"",
 //               absl::StrFormat("%v", QuoteString("hello\nworld")));
 //

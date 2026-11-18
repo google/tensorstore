@@ -68,21 +68,25 @@ class IndexDomainBuilder {
   /// Constructs an invalid `IndexDomainBuilder`.
   ///
   /// \post `valid() == false`
+  /// \id null
   IndexDomainBuilder(std::nullptr_t) : builder_(nullptr) {}
 
   /// Constructs a valid `IndexDomainBuilder` with the specified rank.
   ///
+  /// When `Rank != dynamic_rank`, the `rank` argument is optional.
+  ///
   /// \post `valid() == true`
+  /// \id rank
   template <DimensionIndex R = Rank,
             typename = std::enable_if_t<(R == dynamic_rank)>>
   IndexDomainBuilder(DimensionIndex rank) : builder_(rank) {}
-
-  /// Overload for case where neither `Rank` is not `dynamic_rank`.  The
-  /// argument is optional in this case.
   template <DimensionIndex R = Rank,
             typename = std::enable_if_t<(R != dynamic_rank)>>
   IndexDomainBuilder(std::integral_constant<DimensionIndex, R> rank = {})
-      : builder_(rank) {}
+      : builder_(rank) {
+    // Overload for case where `Rank` is not `dynamic_rank`.  The argument is
+    // optional in this case.
+  }
 
   /// Returns `true` if this is a valid, initialized builder.
   bool valid() const { return builder_.valid(); }
@@ -95,16 +99,22 @@ class IndexDomainBuilder {
   /// set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<Index, Rank> origin() { return builder_.input_origin(); }
 
   /// Sets the `origin` vector to the specified value.
   ///
-  /// \param indices A sequence with `value_type` convertible to Index
+  /// \param indices A sequence with ``value_type`` convertible to `Index`
   ///     specifying the inclusive_min index for each dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `indices` vector must equal `rank()`.
-  /// \remarks Calling this method after it has already been called simply
-  ///     overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after it has already been called simply overrides
+  ///    the previous value.
+  ///
+  /// \id set
   template <typename Indices>
   std::enable_if_t<
       internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Indices>,
@@ -113,11 +123,6 @@ class IndexDomainBuilder {
     builder_.input_origin(indices);
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.  `origin({1, 2})`.
-  ///
-  /// \schecks `N` is compatible with `Rank`.
-  /// \pre `valid() == true`
   template <size_t N>
   IndexDomainBuilder& origin(const Index (&indices)[N]) {
     builder_.input_origin(indices);
@@ -128,17 +133,23 @@ class IndexDomainBuilder {
   /// been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<Index, Rank> shape() { return builder_.input_shape(); }
 
   /// Sets the `shape` vector to the specified value.  Specify a value of
   /// `kInfSize` to indicate an unbounded (infinite) upper bound.
   ///
-  /// \param indices A sequence with `value_type` convertible to Index
+  /// \param indices A sequence with ``value_type`` convertible to `Index`
   ///     specifying the size for each dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `indices` vector must equal `rank()`.
-  /// \remarks Calling this method after the upper bound has already been
-  ///     specified simply overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after the upper bound has already been specified
+  ///    simply overrides the previous value.
+  ///
+  /// \id set
   template <typename Indices>
   std::enable_if_t<
       internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Indices>,
@@ -147,10 +158,6 @@ class IndexDomainBuilder {
     builder_.input_shape(indices);
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.  `shape({1, 2})`.
-  ///
-  /// \pre `valid() == true`
   template <size_t N>
   IndexDomainBuilder& shape(const Index (&indices)[N]) {
     builder_.input_shape(indices);
@@ -161,17 +168,23 @@ class IndexDomainBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<Index, Rank> exclusive_max() { return builder_.input_exclusive_max(); }
 
   /// Specifies the exclusive upper bounds of the input domain.  Specify a value
   /// of `kInfIndex+1` to indicate an unbounded (infinite) upper bound.
   ///
-  /// \param indices A sequence with `value_type` convertible to Index
+  /// \param indices A sequence with ``value_type`` convertible to `Index`
   ///     specifying the exclusive_max index for each input dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `indices` vector must equal `rank()`.
-  /// \remarks Calling this method after the upper bound has already been
-  ///     specified simply overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after the upper bound has already been specified
+  ///    simply overrides the previous value.
+  ///
+  /// \id set
   template <typename Indices>
   std::enable_if_t<
       internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Indices>,
@@ -180,14 +193,9 @@ class IndexDomainBuilder {
     builder_.input_exclusive_max(indices);
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `exclusive_max({1, 2})`.
-  ///
-  /// \schecks `N` is compatible with `Rank`.
-  /// \pre `valid() == true`
   template <size_t N>
   IndexDomainBuilder& exclusive_max(const Index (&indices)[N]) {
+    // Overload callable with a braced list.
     builder_.input_exclusive_max(indices);
     return *this;
   }
@@ -196,17 +204,23 @@ class IndexDomainBuilder {
   /// bound as having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<Index, Rank> inclusive_max() { return builder_.input_inclusive_max(); }
 
   /// Specifies the inclusive upper bounds.  Specify a value of `kInfIndex` to
   /// indicate an unbounded (infinite) upper bound.
   ///
-  /// \param indices A sequence with `value_type` convertible to Index
+  /// \param indices A sequence with ``value_type`` convertible to `Index`
   ///     specifying the inclusive_max index for each dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `indices` vector must equal `rank()`.
-  /// \remarks Calling this method after the upper bound of the input domain has
-  ///     already been specified simply overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after the upper bound of the input domain has
+  ///    already been specified simply overrides the previous value.
+  ///
+  /// \id set
   template <typename Indices>
   std::enable_if_t<
       internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Indices>,
@@ -215,14 +229,9 @@ class IndexDomainBuilder {
     builder_.input_inclusive_max(indices);
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `inclusive_max({1, 2})`.
-  ///
-  /// \schecks `N` is compatible with `Rank`.
-  /// \pre `valid() == true`
   template <size_t N>
   IndexDomainBuilder& inclusive_max(const Index (&indices)[N]) {
+    // Overload callable with a braced list.
     builder_.input_inclusive_max(indices);
     return *this;
   }
@@ -231,13 +240,18 @@ class IndexDomainBuilder {
   ///
   /// Equivalent to `origin(box.origin()).shape(box.shape())`.
   ///
-  /// \tparam BoxLike An instance of `Box` or `BoxView` with a `static_rank`
+  /// \tparam BoxLike An instance of `Box` or `BoxView` with a ``static_rank``
   ///     implicitly convertible to `Rank`.
   /// \param box The box specifying the domain.
   /// \pre `valid() == true`
   /// \checks `box.size() == rank()`.
-  /// \remarks Calling this method after the lower and/or upper bounds of the
-  ///     have already been specified simply overrides the previous values.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after the lower and/or upper bounds of the domain
+  ///    have already been specified simply overrides the previous values.
+  ///
+  /// \id set
   template <typename BoxLike>
   std::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<BoxLike, Rank>,
                    IndexDomainBuilder&>
@@ -250,6 +264,7 @@ class IndexDomainBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   MutableBoxView<Rank> bounds() { return builder_.input_bounds(); }
 
   /// Copies an existing domain.  Individual parts of the domain may then be
@@ -257,8 +272,11 @@ class IndexDomainBuilder {
   ///
   /// \pre `valid() == true`
   /// \checks `domain.size() == rank()`
-  /// \remarks Calling this method after any portion of the domain has already
-  ///     been specified simply overrides the previous values.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after any portion of the domain has already been
+  ///    specified simply overrides the previous values.
   IndexDomainBuilder& domain(IndexDomainView<Rank> domain) {
     builder_.input_domain(domain);
     return *this;
@@ -267,16 +285,22 @@ class IndexDomainBuilder {
   /// Returns the mutable `labels` vector.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   span<std::string, Rank> labels() { return builder_.input_labels(); }
 
-  /// Sets the `labels` vector the specified value.
+  /// Sets the `labels` vector to the specified value.
   ///
-  /// \param labels A sequence with `value_type` convertible to
+  /// \param labels A sequence with ``value_type`` convertible to
   ///     `std::string_view` specifying the label for each dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `labels` vector must equal `rank()`.
-  /// \remarks Calling this method after it has already been called simply
-  ///     overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after it has already been called simply overrides
+  ///    the previous value.
+  ///
+  /// \id set
   template <typename Labels>
   std::enable_if_t<
       internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Labels>,
@@ -285,13 +309,9 @@ class IndexDomainBuilder {
     builder_.input_labels(labels);
     return *this;
   }
-
-  /// Overload that can be called with a braced list of string literals, e.g.
-  /// `labels({"a", "b"})`.
-  ///
-  /// \pre `valid() == true`
   template <size_t N>
   IndexDomainBuilder& labels(const std::string_view (&labels)[N]) {
+    // Overload callable with a braced list.
     builder_.input_labels(labels);
     return *this;
   }
@@ -300,6 +320,7 @@ class IndexDomainBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   DimensionSet& implicit_lower_bounds() {
     return builder_.implicit_lower_bounds();
   }
@@ -307,17 +328,17 @@ class IndexDomainBuilder {
   /// Sets the `implicit_lower_bounds` bit-vector to the specified value.
   ///
   /// \pre `valid() == true`
-  /// \remarks Calling this method after it has already been called simply
-  ///     overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after it has already been called simply overrides
+  ///    the previous value.
+  ///
+  /// \id set
   IndexDomainBuilder& implicit_lower_bounds(DimensionSet x) {
     builder_.implicit_lower_bounds(x);
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `implicit_lower_bounds({1, 0})`.
-  ///
-  /// \pre `valid() == true`
   template <size_t N>
   IndexDomainBuilder& implicit_lower_bounds(const bool (&x)[N]) {
     builder_.implicit_lower_bounds(x);
@@ -328,6 +349,7 @@ class IndexDomainBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
+  /// \id mutable
   DimensionSet& implicit_upper_bounds() {
     return builder_.implicit_upper_bounds();
   }
@@ -335,17 +357,17 @@ class IndexDomainBuilder {
   /// Sets the `implicit_upper_bounds` bit-vector to the specified value.
   ///
   /// \pre `valid() == true`
-  /// \remarks Calling this method after it has already been called simply
-  ///     overrides the previous value.
+  ///
+  /// .. note::
+  ///
+  ///    Calling this method after it has already been called simply overrides
+  ///    the previous value.
+  ///
+  /// \id set
   IndexDomainBuilder& implicit_upper_bounds(DimensionSet x) {
     builder_.implicit_upper_bounds(x);
     return *this;
   }
-
-  /// Overload that can be called with a braced list, e.g.
-  /// `implicit_upper_bounds({1, 0})`.
-  ///
-  /// \pre `valid() == true`
   template <size_t N>
   IndexDomainBuilder& implicit_upper_bounds(const bool (&x)[N]) {
     builder_.implicit_upper_bounds(x);

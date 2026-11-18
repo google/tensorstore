@@ -22,6 +22,8 @@ namespace tensorstore {
 
 /// Returns a `TensorStore` :ref:`auto<driver/auto>` `Spec` that
 /// auto-detects the format at the specified key-value store.
+///
+/// \relates Spec
 Spec AutoSpec(kvstore::Spec base);
 
 }  // namespace tensorstore

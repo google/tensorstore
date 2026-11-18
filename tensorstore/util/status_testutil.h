@@ -228,13 +228,20 @@ class StatusIsMatcher {
 
 }  // namespace internal_status
 
-// Returns a gMock matcher that matches an OK Status/Result/Future.
+/// Returns a gMock matcher that matches an OK `absl::Status`, `Result`, or
+/// `Future`.
+///
+/// \relates Result
+/// \membergroup Test support
 inline internal_status::IsOkMatcher IsOk() {
   return internal_status::IsOkMatcher();
 }
 
-// Returns a gMock matcher that matches an OK Status/Result/Future
-// and whose value matches the inner matcher.
+/// Returns a gMock matcher that matches an OK `Result` or `Future` whose value
+/// matches `inner_matcher`.
+///
+/// \relates Result
+/// \membergroup Test support
 template <typename InnerMatcher>
 internal_status::IsOkAndHoldsMatcher<typename std::decay<InnerMatcher>::type>
 IsOkAndHolds(InnerMatcher&& inner_matcher) {
@@ -243,25 +250,30 @@ IsOkAndHolds(InnerMatcher&& inner_matcher) {
       std::forward<InnerMatcher>(inner_matcher));
 }
 
-// Returns a matcher that matches a Status/Result/Future whose code
-// matches code_matcher, and whose error message matches message_matcher.
+/// Returns a gMock matcher that matches an `absl::Status`, `Result`, or
+/// `Future` whose status code matches `code_matcher` and whose error message
+/// matches `message_matcher` (if specified).
+///
+/// \relates Result
+/// \membergroup Test support
 template <typename CodeMatcher, typename MessageMatcher>
 internal_status::StatusIsMatcher StatusIs(CodeMatcher code_matcher,
                                           MessageMatcher message_matcher) {
   return internal_status::StatusIsMatcher(std::move(code_matcher),
                                           std::move(message_matcher));
 }
-
-// Returns a matcher that matches a Status/Result/Future whose code
-// matches code_matcher.
 template <typename CodeMatcher>
 internal_status::StatusIsMatcher StatusIs(CodeMatcher code_matcher) {
   return internal_status::StatusIsMatcher(std::move(code_matcher),
                                           ::testing::_);
 }
 
-// Returns a matcher that matches a Status/Result/Future whose code
-// is code_matcher, and whose message matches the provided regex pattern.
+/// Returns a gMock matcher that matches an `absl::Status`, `Result`, or
+/// `Future` whose status code equals `status_code` and whose error message
+/// matches the regular expression `message_pattern`.
+///
+/// \relates Result
+/// \membergroup Test support
 internal_status::StatusIsMatcher MatchesStatus(
     absl::StatusCode status_code, const std::string& message_pattern);
 

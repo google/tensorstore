@@ -3455,8 +3455,8 @@ def repo_pypa_sphinx_immaterial():
         name = "pypa_sphinx_immaterial",
         target = "sphinx_immaterial",
         requirement = [
-            "sphinx-immaterial==0.13.9",
-            "--hash=sha256:5ea92d2ddc6befcd0fedbd3e6766ea4746e94d9a8a5cc0ab092a946e1fde4254",
+            "sphinx-immaterial==0.13.10",
+            "--hash=sha256:3aae700211bfca4d93aa778b0cd1c0f317190d15111acd87ebab4de88431b02c",
         ],
         deps = [
             "@pypa_appdirs//:appdirs",

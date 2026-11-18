@@ -109,7 +109,7 @@ struct ArrayStorageStatistics {
     sink.Append("}");
   }
 
-  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+  static constexpr auto ApplyMembers = [](auto& x, auto f) {
     return f(x.mask, x.not_stored, x.fully_stored);
   };
 };
@@ -123,22 +123,25 @@ struct ArrayStorageStatistics {
 ///
 /// \relates GetStorageStatistics
 struct GetArrayStorageStatisticsOptions {
+  /// Mask indicating which statistics to query.
   ArrayStorageStatistics::Mask mask = {};
 
+  /// Batch to use for coalescing requests.
   Batch batch{no_batch};
 
+  /// Applies an `ArrayStorageStatistics::Mask` or `Batch` option.
   absl::Status Set(ArrayStorageStatistics::Mask value) {
     mask |= value;
     return absl::OkStatus();
   }
-
   absl::Status Set(Batch value) {
     this->batch = std::move(value);
     return absl::OkStatus();
   }
 
+  // Evaluates to `true` for option types compatible with `Set`.
   template <typename T>
-  constexpr static inline bool IsOption = false;
+  static constexpr bool IsOption = false;
 };
 
 template <>

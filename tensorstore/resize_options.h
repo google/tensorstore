@@ -51,8 +51,8 @@ constexpr ResolveBoundsMode fix_resizable_bounds =
 ///
 /// \relates ResolveBoundsMode
 /// \id ResolveBoundsMode
-constexpr inline ResolveBoundsMode operator&(ResolveBoundsMode a,
-                                             ResolveBoundsMode b) {
+constexpr ResolveBoundsMode operator&(ResolveBoundsMode a,
+                                      ResolveBoundsMode b) {
   return static_cast<ResolveBoundsMode>(static_cast<int>(a) &
                                         static_cast<int>(b));
 }
@@ -61,8 +61,8 @@ constexpr inline ResolveBoundsMode operator&(ResolveBoundsMode a,
 ///
 /// \relates ResolveBoundsMode
 /// \id ResolveBoundsMode
-constexpr inline ResolveBoundsMode operator|(ResolveBoundsMode a,
-                                             ResolveBoundsMode b) {
+constexpr ResolveBoundsMode operator|(ResolveBoundsMode a,
+                                      ResolveBoundsMode b) {
   return static_cast<ResolveBoundsMode>(static_cast<int>(a) |
                                         static_cast<int>(b));
 }
@@ -71,9 +71,7 @@ constexpr inline ResolveBoundsMode operator|(ResolveBoundsMode a,
 ///
 /// \relates ResolveBoundsMode
 /// \id ResolveBoundsMode
-constexpr inline bool operator!(ResolveBoundsMode a) {
-  return !static_cast<int>(a);
-}
+constexpr bool operator!(ResolveBoundsMode a) { return !static_cast<int>(a); }
 
 /// Prints a debugging string representation to an `std::ostream`.
 ///
@@ -102,18 +100,19 @@ void AbslStringify(Sink& sink, ResolveBoundsMode mode) {
 /// \relates ResolveBounds
 struct ResolveBoundsOptions {
   template <typename T>
-  constexpr static inline bool IsOption = false;
+  static constexpr bool IsOption = false;
 
+  /// Applies a `ResolveBoundsMode` or `Batch` option.
   absl::Status Set(ResolveBoundsMode value) {
     this->mode = value;
     return absl::OkStatus();
   }
-
   absl::Status Set(Batch value) {
     this->batch = std::move(value);
     return absl::OkStatus();
   }
 
+  /// Specifies the mode for resolving bounds.
   ResolveBoundsMode mode = ResolveBoundsMode{};
 
   /// Optional batch.
@@ -164,7 +163,7 @@ constexpr ResizeMode shrink_only = ResizeMode::shrink_only;
 ///
 /// \relates ResizeMode
 /// \id ResizeMode
-constexpr inline ResizeMode operator&(ResizeMode a, ResizeMode b) {
+constexpr ResizeMode operator&(ResizeMode a, ResizeMode b) {
   return static_cast<ResizeMode>(static_cast<int>(a) & static_cast<int>(b));
 }
 
@@ -172,7 +171,7 @@ constexpr inline ResizeMode operator&(ResizeMode a, ResizeMode b) {
 ///
 /// \relates ResizeMode
 /// \id ResizeMode
-constexpr inline ResizeMode operator|(ResizeMode a, ResizeMode b) {
+constexpr ResizeMode operator|(ResizeMode a, ResizeMode b) {
   return static_cast<ResizeMode>(static_cast<int>(a) | static_cast<int>(b));
 }
 
@@ -180,7 +179,7 @@ constexpr inline ResizeMode operator|(ResizeMode a, ResizeMode b) {
 ///
 /// \relates ResizeMode
 /// \id ResizeMode
-constexpr inline bool operator!(ResizeMode a) { return !static_cast<int>(a); }
+constexpr bool operator!(ResizeMode a) { return !static_cast<int>(a); }
 
 /// Prints a debugging string representation to an `std::ostream`.
 ///
@@ -212,8 +211,9 @@ void AbslStringify(Sink& sink, ResizeMode mode) {
 /// \relates Resize
 struct ResizeOptions {
   template <typename T>
-  constexpr static inline bool IsOption = false;
+  static constexpr bool IsOption = false;
 
+  /// Applies a `ResizeMode` option.
   absl::Status Set(ResizeMode value) {
     this->mode = value;
     return absl::OkStatus();

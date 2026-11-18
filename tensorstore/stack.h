@@ -34,12 +34,21 @@
 
 namespace tensorstore {
 
+/// Options for `Overlay`, `Stack`, and `Concat`.
+///
+/// \relates TensorStore
 using StackOpenOptions = TransactionalOpenOptions;
 
 /// Virtually overlays a sequence of `TensorStore` or `Spec` layers within a
 /// common domain.
 ///
 /// \param layers Sequence of layers to overlay.  Later layers take precedence.
+/// \param options Options for opening the overlay view.
+/// \param option Individual option compatible with `StackOpenOptions`.
+/// \returns The overlaid ``TensorStore<Element, Rank, Mode>`` if the layer
+///     value type is ``TensorStore<Element, Rank, Mode>``, or `TensorStore<>`
+///     otherwise.
+/// \relates TensorStore
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>>
 Result<typename internal_stack::OverlayResult<
     absl::remove_cvref_t<typename Layers::value_type>>::type>
@@ -71,6 +80,14 @@ Overlay(const Layers& layers, Option&&... option) {
 /// dimension.
 ///
 /// \param layers Sequence of layers to stack.
+/// \param stack_dimension Dimension index along which to stack the layers.
+/// \param options Options for opening the stacked view.
+/// \param option Individual option compatible with `StackOpenOptions`.
+/// \returns The stacked
+///     ``TensorStore<Element, RankConstraint::Add(Rank, 1).rank, Mode>`` if the
+///     layer value type is ``TensorStore<Element, Rank, Mode>``, or
+///     `TensorStore<>` otherwise.
+/// \relates TensorStore
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>>
 Result<typename internal_stack::StackResult<
     absl::remove_cvref_t<typename Layers::value_type>>::type>
@@ -104,6 +121,13 @@ Stack(const Layers& layers, DimensionIndex stack_dimension,
 /// existing dimension.
 ///
 /// \param layers Sequence of layers to concatenate.
+/// \param concat_dimension Dimension along which to concatenate the layers.
+/// \param options Options for opening the concatenated view.
+/// \param option Individual option compatible with `StackOpenOptions`.
+/// \returns The concatenated ``TensorStore<Element, Rank, Mode>`` if the layer
+///     value type is ``TensorStore<Element, Rank, Mode>``, or `TensorStore<>`
+///     otherwise.
+/// \relates TensorStore
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>>
 Result<typename internal_stack::OverlayResult<
     absl::remove_cvref_t<typename Layers::value_type>>::type>

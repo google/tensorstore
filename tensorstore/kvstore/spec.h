@@ -41,16 +41,18 @@ namespace kvstore {
 ///
 /// \relates Spec
 struct DriverSpecOptions {
+  /// Indicates whether to omit metadata known to be redundant when opening.
   bool minimal_spec = false;
 
-  /// Indicates which option types are supported.
-  ///
-  /// Supported types include:
-  ///
-  /// - `MinimalSpec`
+  // Indicates which option types are supported.
+  //
+  // Supported types include:
+  //
+  // - `MinimalSpec`
   template <typename T>
-  constexpr static bool IsOption = false;
+  static constexpr bool IsOption = false;
 
+  /// Applies a `MinimalSpec` option.
   absl::Status Set(MinimalSpec value) {
     minimal_spec = value.minimal_spec();
     return absl::OkStatus();
@@ -72,18 +74,19 @@ struct SpecConvertOptions : public DriverSpecOptions {
   /// Specifies the context to bind.
   Context context;
 
-  /// Indicates which option types are supported.
-  ///
-  /// Supported types include:
-  ///
-  /// - `MinimalSpec`
-  /// - `Context`
-  /// - `ContextBindingMode`
+  // Indicates which option types are supported.
+  //
+  // Supported types include:
+  //
+  // - `MinimalSpec`
+  // - `Context`
+  // - `ContextBindingMode`
   template <typename T>
-  constexpr static bool IsOption = DriverSpecOptions::IsOption<T>;
+  static constexpr bool IsOption = DriverSpecOptions::IsOption<T>;
 
   using DriverSpecOptions::Set;
 
+  /// Applies a `Context` or `ContextBindingMode` option.
   absl::Status Set(Context value);
   absl::Status Set(ContextBindingMode value) {
     if (value > context_binding_mode) context_binding_mode = value;

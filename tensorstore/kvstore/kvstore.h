@@ -45,13 +45,15 @@ namespace kvstore {
 ///
 /// \relates Spec
 struct SpecRequestOptions : public DriverSpecOptions {
+  /// Specifies how bound context resources are handled in the returned `Spec`.
   ContextBindingMode context_binding_mode = ContextBindingMode::unspecified;
 
   template <typename T>
-  constexpr static bool IsOption = DriverSpecOptions::IsOption<T>;
+  static constexpr bool IsOption = DriverSpecOptions::IsOption<T>;
 
   using DriverSpecOptions::Set;
 
+  /// Applies a `ContextBindingMode` option.
   absl::Status Set(ContextBindingMode value) {
     if (value > context_binding_mode) context_binding_mode = value;
     return absl::OkStatus();
@@ -94,6 +96,9 @@ class KvStore {
     internal::AppendPathComponent(path, component);
   }
 
+  /// Returns a new `KvStore` with `suffix` appended to `path`.
+  ///
+  /// There is no special treatment of '/'.
   KvStore WithPathSuffix(std::string_view suffix) && {
     AppendSuffix(suffix);
     return std::move(*this);
@@ -198,7 +203,7 @@ class KvStore {
   /// Bound transaction to use for I/O.
   Transaction transaction = no_transaction;
 
-  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+  static constexpr auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.driver, x.path, x.transaction);
   };
 };
@@ -209,11 +214,13 @@ class KvStore {
 ///
 /// \relates Spec
 struct DriverOpenOptions {
+  /// Context from which unbound resources in the `Spec` are resolved.
   Context context;
 
   template <typename T>
-  constexpr static bool IsOption = false;
+  static constexpr bool IsOption = false;
 
+  /// Applies a `Context` option.
   absl::Status Set(Context value);
 };
 
@@ -223,13 +230,15 @@ struct DriverOpenOptions {
 ///
 /// \relates Spec
 struct OpenOptions : public DriverOpenOptions {
+  /// Transaction to bind to the opened `KvStore`.
   Transaction transaction = no_transaction;
 
   template <typename T>
-  constexpr static bool IsOption = DriverOpenOptions::IsOption<T>;
+  static constexpr bool IsOption = DriverOpenOptions::IsOption<T>;
 
   using DriverOpenOptions::Set;
 
+  /// Applies a `Transaction` option.
   absl::Status Set(Transaction value);
 };
 

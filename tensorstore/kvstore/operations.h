@@ -234,10 +234,13 @@ struct ListOptions {
 ///
 /// \relates ListFuture
 struct ListEntry {
+  /// Key name.
   Key key;
 
+  /// Size of the value in bytes, or `-1` if unknown.
   int64_t size;
 
+  /// Returns `true` if `size` is known (`size >= 0`).
   bool has_size() const { return size >= 0; }
 
   template <typename T>
@@ -248,11 +251,13 @@ struct ListEntry {
                : -1;
   }
 
+  /// Formats `entry.key`.
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const ListEntry& entry) {
     absl::Format(&sink, "%s", entry.key);
   }
 
+  /// Compares two entries for equality.
   friend bool operator==(const ListEntry& a, const ListEntry& b) {
     return a.key == b.key && a.size == b.size;
   }

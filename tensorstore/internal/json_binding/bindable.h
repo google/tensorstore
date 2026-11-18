@@ -186,6 +186,7 @@ class StaticBinder {
 ///     namespace jb = tensorstore::internal_json_binding;
 ///     TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(X, jb::Object(...));
 ///
+#ifndef TENSORSTORE_CPP_DOC_GENERATION
 #define TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(name, ...)               \
   TENSORSTORE_INTERNAL_DECLARE_JSON_BINDER_IMPL(JsonBinderImpl, name,    \
                                                 __VA_ARGS__)             \
@@ -207,6 +208,27 @@ class StaticBinder {
     return this->ToJson().value();                                       \
   }                                                                      \
   /**/
+#else
+#define TENSORSTORE_INTERNAL_DECLARE_JSON_DEFAULT_BINDER_METHODS(          \
+    name, from_json_options_type, to_json_options_type, ...)               \
+  /** Converts to a JSON representation. */                                \
+  tensorstore::Result<::nlohmann::json> ToJson(                            \
+      const to_json_options_type& options = to_json_options_type{}) const; \
+  /** Parses from a JSON representation. */                                \
+  static tensorstore::Result<name> FromJson(                               \
+      ::nlohmann::json j,                                                  \
+      const from_json_options_type& options = from_json_options_type{});   \
+  /** Converts to a JSON representation. */                                \
+  explicit operator ::nlohmann::json() const;                              \
+  /**/
+#define TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(name, ...)                    \
+  TENSORSTORE_INTERNAL_DECLARE_JSON_BINDER_IMPL(JsonBinderImpl, name,         \
+                                                __VA_ARGS__)                  \
+  static inline constexpr JsonBinderImpl default_json_binder = {};            \
+  TENSORSTORE_INTERNAL_DECLARE_JSON_DEFAULT_BINDER_METHODS(name, __VA_ARGS__, \
+                                                           ::nlohmann::json)  \
+  /**/
+#endif
 
 #define TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(name, ...)            \
   TENSORSTORE_INTERNAL_DEFINE_JSON_BINDER_IMPL(name::JsonBinderImpl, \

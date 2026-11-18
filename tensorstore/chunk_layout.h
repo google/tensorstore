@@ -147,17 +147,17 @@ class ChunkLayout {
   /// Identifies parameters that apply to multiple `Usage` values.
   ///
   /// \relates Usage
-  constexpr static Usage kUnspecifiedUsage = static_cast<Usage>(3);
+  static constexpr Usage kUnspecifiedUsage = static_cast<Usage>(3);
 
   // Range-based for loop-compatible range containing
   // ``{kWrite, kRead, kCodec}``.
-  constexpr static internal::IntegerRange<Usage> kUsages =
+  static constexpr internal::IntegerRange<Usage> kUsages =
       internal::IntegerRange<Usage>::Inclusive(kWrite, kCodec);
 
-  constexpr static size_t kNumUsages = 3;
+  static constexpr size_t kNumUsages = 3;
 
-  constexpr static double kDefaultAspectRatioValue = 0;
-  constexpr static Index kDefaultShapeValue = 0;
+  static constexpr double kDefaultAspectRatioValue = 0;
+  static constexpr Index kDefaultShapeValue = 0;
 
   static const char* ToString(Usage usage);
 
@@ -178,6 +178,7 @@ class ChunkLayout {
   /// \relates Usage
   static Result<Usage> ParseUsage(std::string_view s);
 
+  /// JSON serialization options.
   using ToJsonOptions = JsonSerializationOptions;
   using FromJsonOptions = JsonSerializationOptions;
 
@@ -698,6 +699,8 @@ class ChunkLayout {
   struct GridOrigin : public MaybeHardConstraintSpan<Index> {
     using MaybeHardConstraintSpan<Index>::MaybeHardConstraintSpan;
 
+    /// Bit vector specifying the dimensions for which the origin constraint is
+    /// a hard constraint.
     using MaybeHardConstraintSpan<Index>::hard_constraint;
   };
 
@@ -987,18 +990,18 @@ class ChunkLayout {
     return std::forward<Func>(func)(std::move(layout));
   }
 
-  /// Evaluates to `true` for option types compatible with `Set`.  Supported
-  /// types are:
-  ///
-  /// - `ChunkLayout`
-  /// - `ChunkLayout::GridOrigin`
-  /// - `ChunkLayout::InnerOrder`
-  /// - `ChunkLayout::GridViewFor`
-  /// - `ChunkLayout::ChunkElementsFor`
-  /// - `ChunkLayout::ChunkShapeFor`
-  /// - `ChunkLayout::ChunkAspectRatioFor`
+  // Evaluates to `true` for option types compatible with `Set`.  Supported
+  // types are:
+  //
+  // - `ChunkLayout`
+  // - `ChunkLayout::GridOrigin`
+  // - `ChunkLayout::InnerOrder`
+  // - `ChunkLayout::GridViewFor`
+  // - `ChunkLayout::ChunkElementsFor`
+  // - `ChunkLayout::ChunkShapeFor`
+  // - `ChunkLayout::ChunkAspectRatioFor`
   template <typename T>
-  static inline constexpr bool IsOption = false;
+  static constexpr bool IsOption = false;
 
   // Treat as private:
 

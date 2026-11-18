@@ -1,7 +1,7 @@
 # Packages required to build the documentation.
 # Limit sphinx version due to https://github.com/jbms/sphinx-immaterial/pull/395
 sphinx<9.0.0
-sphinx-immaterial>=0.13.8
+sphinx-immaterial>=0.13.10
 libclang
 clang-format
 black

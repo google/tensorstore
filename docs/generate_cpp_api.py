@@ -125,15 +125,21 @@ def main():
       hide_initializers=[
           r"^=\s*(?:(true|false)\s*$|\[)",
       ],
-      # Return types, SFINAE terms, and initializer expressions that match any
-      # of these regular expressions will be elided. Return types will be shown
-      # as `auto`.
+      # Return types, variable/field types, underlying type alias targets,
+      # SFINAE terms, and initializer expressions that match any of these
+      # regular expressions will be elided. Return and variable/field types
+      # will be shown as `auto`.
       hide_types=[
           r"(\b|_)internal(\b|_)",
           r"\bdecltype\b",
           r"\bpoly::",
+          # Hides `serialization::SerializableFunction` and
+          # `serialization::IsSerializableFunctionLike` implementation details
+          # in `virtual_chunked.h`.
+          r"\bserialization::",
           r"\bStaticCastTraitsType\b",
           r"\bDataTypeConversionTraits\b",
+          r"\bIsOption\b",
           r"Impl\b",
       ],
       # Specifies type substitutions.
