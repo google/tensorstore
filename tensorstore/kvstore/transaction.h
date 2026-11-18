@@ -754,6 +754,7 @@ template <typename TransactionNode, typename... Arg>
 absl::Status AddDeleteRange(Driver* driver,
                             const internal::OpenTransactionPtr& transaction,
                             KeyRange&& range, Arg&&... arg) {
+  if (range.empty()) return absl::OkStatus();
   auto transaction_copy = transaction;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto node, internal_kvstore::GetTransactionNode<TransactionNode>(

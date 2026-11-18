@@ -16,6 +16,8 @@ cc_library(
         "c/blake3.h",
         "c/blake3_impl.h",
     ],
+    strip_include_prefix = "c",
+    visibility = ["//visibility:public"],
     implementation_deps = select({
         "@platforms//cpu:aarch64": [":blake3_neon"],
         "@platforms//cpu:x86_32": [
@@ -29,8 +31,6 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    strip_include_prefix = "c",
-    visibility = ["//visibility:public"],
 )
 
 cc_library(

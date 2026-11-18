@@ -13,9 +13,9 @@ cc_library(
         "zlib.h",
     ],
     defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
-    implementation_deps = [":zlib_impl"],
     includes = ["."],  # for include <zlib.h>
     visibility = ["//visibility:public"],
+    implementation_deps = [":zlib_impl"],
 )
 
 ###############################################

@@ -74,6 +74,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -120,12 +121,16 @@ using internal_kvstore::kReadModifyWrite;
 using internal_kvstore::MutationEntry;
 using internal_kvstore::MutationEntryTree;
 
+struct IndirectValueReadModifyWriteSource;
+
 struct ReadModifyWriteEntry
     : public internal_kvstore::AtomicMultiPhaseMutationBase::
           ReadModifyWriteEntryWithStamp {
  public:
+  ~ReadModifyWriteEntry() override;
   kvstore::ReadResult::State value_state_;
   LeafNodeValueReference value_;
+  std::unique_ptr<IndirectValueReadModifyWriteSource> owned_source_;
 };
 
 class BtreeWriterTransactionNode
@@ -321,6 +326,7 @@ struct IndirectValueReadModifyWriteSource final
   void KvsSetTarget(kvstore::ReadModifyWriteTarget& target) override {
     target_ =
         static_cast<BtreeWriterTransactionNode::ReadModifyWriteEntry*>(&target);
+    target_->owned_source_.reset(this);
     target_->flags_.fetch_or(BtreeWriterTransactionNode::ReadModifyWriteEntry::
                                  kSupportsByteRangeReads,
                              std::memory_order_relaxed);
@@ -380,11 +386,9 @@ struct IndirectValueReadModifyWriteSource final
   }
 
   void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp,
-                           const StorageGeneration& orig_generation) override {
-    delete this;
-  }
+                           const StorageGeneration& orig_generation) override {}
 
-  void KvsWritebackError() override { delete this; }
+  void KvsWritebackError() override {}
 
   void KvsRevoke() override {}
 
@@ -395,6 +399,8 @@ struct IndirectValueReadModifyWriteSource final
   const StorageGeneration::MutationId mutation_id_ =
       StorageGeneration::AllocateMutationId();
 };
+
+ReadModifyWriteEntry::~ReadModifyWriteEntry() = default;
 
 struct CopySubtreeListReceiver {
   internal::OpenTransactionNodePtr<BtreeWriterTransactionNode> writer;
@@ -426,10 +432,10 @@ struct CopySubtreeListReceiver {
     for (size_t i = 0; i < entries.size(); ++i) {
       auto& entry = entries[i];
       auto& key = keys[i];
-      auto* source = new IndirectValueReadModifyWriteSource;
+      auto source = std::make_unique<IndirectValueReadModifyWriteSource>();
       source->value_ref_ = entry.value_reference;
       size_t phase;
-      writer->ReadModifyWrite(phase, std::move(key), *source);
+      writer->ReadModifyWrite(phase, std::move(key), *source.release());
     }
   }
 

@@ -36,6 +36,9 @@ cc_library(
         "src/webp/mux_types.h",
         "src/webp/types.h",
     ],
+    includes = ["src"],
+    local_defines = WEBP_DEFINES,
+    visibility = ["//visibility:public"],
     implementation_deps = [
         ":dec",
         ":dsp",
@@ -44,9 +47,6 @@ cc_library(
         ":utils",
         ":utils_dec",
     ],
-    includes = ["src"],
-    local_defines = WEBP_DEFINES,
-    visibility = ["//visibility:public"],
 )
 
 ####################################################################################

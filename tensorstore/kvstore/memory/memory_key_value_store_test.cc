@@ -26,12 +26,14 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -296,6 +298,30 @@ TEST(MemoryKeyValueStoreTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("memory:abc~xyz"),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Scheme \"memory://\" not present in url")));
+}
+
+TEST(MemoryKeyValueStoreTest, ListInvertedAndEmptyKeyRange) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open("memory://").result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("1")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "b", absl::Cord("2")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "c", absl::Cord("3")));
+
+  kvstore::ListOptions inverted_options;
+  inverted_options.range = tensorstore::KeyRange{"c", "a"};
+  EXPECT_THAT(kvstore::ListFuture(store, inverted_options).result(),
+              ::testing::Optional(::testing::IsEmpty()));
+
+  kvstore::ListOptions empty_options;
+  empty_options.range = tensorstore::KeyRange{"b", "b"};
+  EXPECT_THAT(kvstore::ListFuture(store, empty_options).result(),
+              ::testing::Optional(::testing::IsEmpty()));
+
+  tensorstore::Transaction txn(tensorstore::atomic_isolated);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+  EXPECT_THAT(kvstore::ListFuture(txn_store, inverted_options).result(),
+              ::testing::Optional(::testing::IsEmpty()));
+  TENSORSTORE_ASSERT_OK(txn.CommitAsync());
 }
 
 }  // namespace

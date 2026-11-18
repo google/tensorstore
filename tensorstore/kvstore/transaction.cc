@@ -1049,6 +1049,10 @@ void MultiPhaseMutation::CommitNextPhase() {
   {
     DebugCheckInvariantsInDestructor debug_check(*this, true);
     if (cur_phase_number == 0) {
+      if (phases_.phase_number_ == internal::TransactionState::kInvalidPhase) {
+        this->PhaseCommitDone(/*next_phase=*/0);
+        return;
+      }
       if (phases_.next_ != &phases_) {
         // Multiple phases
 

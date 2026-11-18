@@ -430,7 +430,8 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
   if (version_spec_) {
     return GetReadOnlyError(*this);
   }
-  if (typeid(*source.driver) == typeid(OcdbtDriver)) {
+  if ((!transaction || (transaction->atomic() && !coordinator_->address)) &&
+      typeid(*source.driver) == typeid(OcdbtDriver)) {
     auto& source_driver = static_cast<OcdbtDriver&>(*source.driver);
     if (source.transaction != no_transaction) {
       return absl::UnimplementedError("Source transactions not supported");

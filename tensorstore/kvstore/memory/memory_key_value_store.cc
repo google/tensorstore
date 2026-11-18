@@ -97,6 +97,10 @@ struct StoredKeyValuePairs
   std::pair<Map::iterator, Map::iterator> Find(const std::string& inclusive_min,
                                                const std::string& exclusive_max)
       ABSL_SHARED_LOCKS_REQUIRED(mutex) {
+    if (KeyRange::CompareKeyAndExclusiveMax(inclusive_min, exclusive_max) >=
+        0) {
+      return {values.end(), values.end()};
+    }
     return {values.lower_bound(inclusive_min),
             exclusive_max.empty() ? values.end()
                                   : values.lower_bound(exclusive_max)};
@@ -463,7 +467,7 @@ void MemoryDriver::ListImpl(ListOptions options, ListReceiver receiver) {
 
   // Collect the keys.
   std::vector<ListEntry> entries;
-  {
+  if (!options.range.empty()) {
     absl::ReaderMutexLock lock(data.mutex);
     auto it_range = data.Find(options.range);
     for (auto it = it_range.first; it != it_range.second; ++it) {

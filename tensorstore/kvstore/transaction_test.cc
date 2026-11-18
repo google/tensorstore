@@ -620,4 +620,23 @@ TEST(KvStoreTest, ConditionalWriteGenerationMismatchErrorIncludesKey) {
                        HasSubstr("Error writing \"a\": Generation mismatch")));
 }
 
+TEST(KvStoreTest, AtomicIsolatedDeleteEmptyKeyRange) {
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  TENSORSTORE_ASSERT_OK(memory_store->Write("b", absl::Cord("v")));
+
+  // Empty and inverted `KeyRange` as the only operations in an
+  // `atomic_isolated` transaction.
+  {
+    Transaction txn(tensorstore::atomic_isolated);
+    KvStore store(memory_store, "", txn);
+    TENSORSTORE_ASSERT_OK(kvstore::DeleteRange(store, KeyRange{"b", "b"}));
+    TENSORSTORE_ASSERT_OK(kvstore::DeleteRange(store, KeyRange{"z", "a"}));
+    TENSORSTORE_ASSERT_OK(txn.CommitAsync().result());
+  }
+
+  EXPECT_THAT(kvstore::Read(KvStore(memory_store), "b").result(),
+              ::testing::Optional(MatchesKvsReadResult(absl::Cord("v"))));
+}
+
 }  // namespace

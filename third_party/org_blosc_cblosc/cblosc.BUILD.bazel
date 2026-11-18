@@ -33,6 +33,22 @@ cc_library(
             "-Wno-unused-function",
         ],
     }),
+    local_defines = _BLOSC_LOCAL_DEFINES + [
+        "HAVE_ZLIB",
+        "HAVE_LZ4",
+        "HAVE_ZSTD",
+        "HAVE_SNAPPY",
+    ] + select({
+        "@platforms//cpu:x86_64": [
+            "SHUFFLE_SSE2_ENABLED",
+            # Always build AVX2 support.  It is only used at runtime if the CPU
+            # supports it.
+            "SHUFFLE_AVX2_ENABLED",
+        ],
+        "//conditions:default": [],
+    }),
+    strip_include_prefix = "blosc",
+    visibility = ["//visibility:public"],
     implementation_deps = [
         ":shuffle_common",
         "@lz4",
@@ -51,22 +67,6 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    local_defines = _BLOSC_LOCAL_DEFINES + [
-        "HAVE_ZLIB",
-        "HAVE_LZ4",
-        "HAVE_ZSTD",
-        "HAVE_SNAPPY",
-    ] + select({
-        "@platforms//cpu:x86_64": [
-            "SHUFFLE_SSE2_ENABLED",
-            # Always build AVX2 support.  It is only used at runtime if the CPU
-            # supports it.
-            "SHUFFLE_AVX2_ENABLED",
-        ],
-        "//conditions:default": [],
-    }),
-    strip_include_prefix = "blosc",
-    visibility = ["//visibility:public"],
 )
 
 cc_library(

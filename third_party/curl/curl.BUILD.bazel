@@ -88,22 +88,6 @@ cc_library(
         },
     ),
     defines = ["CURL_STATICLIB"],
-    implementation_deps = [
-        ":curl_lib_includes",
-        "@zlib",
-        "@zstd",
-        "@brotli//:brotlidec",
-        # "@c-ares//:ares",
-        "@org_nghttp2//:nghttp2",
-    ] + select(
-        {
-            "@platforms//os:ios": [],
-            "@platforms//os:windows": [],
-            "//conditions:default": [
-                "@boringssl//:ssl",
-            ],
-        },
-    ),
     includes = ["include"],
     linkopts = select(
                    {
@@ -146,6 +130,22 @@ cc_library(
                ),
     local_defines = LOCAL_DEFINES,
     visibility = ["//visibility:public"],
+    implementation_deps = [
+        ":curl_lib_includes",
+        "@zlib",
+        "@zstd",
+        "@brotli//:brotlidec",
+        # "@c-ares//:ares",
+        "@org_nghttp2//:nghttp2",
+    ] + select(
+        {
+            "@platforms//os:ios": [],
+            "@platforms//os:windows": [],
+            "//conditions:default": [
+                "@boringssl//:ssl",
+            ],
+        },
+    ),
 )
 
 cc_library(

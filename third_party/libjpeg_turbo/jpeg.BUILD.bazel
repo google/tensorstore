@@ -18,11 +18,11 @@ cc_library(
         "public/jpegint.h",
         "public/jpeglib.h",
     ],
+    includes = ["public"],
+    visibility = ["//visibility:public"],
     implementation_deps = [
         ":jpeg_impl",
     ],
-    includes = ["public"],
-    visibility = ["//visibility:public"],
 )
 
 [

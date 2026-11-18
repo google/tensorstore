@@ -910,6 +910,102 @@ TEST(OcdbtTest, TransactionalCopyRange) {
                              })));
 }
 
+TEST(OcdbtTest, TransactionalCopyRangeNonAtomic) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({
+                                    {"driver", "ocdbt"},
+                                    {"base", "memory://"},
+                                    {"config", {{"max_inline_value_bytes", 0}}},
+                                })
+                      .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+
+  // Non-atomic transaction after an existing NonAtomicTransactionNode has been
+  // created by `kvstore::Write`.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+    TENSORSTORE_ASSERT_OK(kvstore::Write(txn_store, "w/k", absl::Cord("val")));
+    EXPECT_THAT(kvstore::ExperimentalCopyRange(store.WithPathSuffix("x/"),
+                                               txn_store.WithPathSuffix("y/"))
+                    .result(),
+                StatusIs(absl::StatusCode::kUnimplemented));
+    TENSORSTORE_ASSERT_OK(txn.CommitAsync());
+  }
+
+  // Non-atomic transaction starting with `ExperimentalCopyRange` followed by
+  // `kvstore::Write`.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+    EXPECT_THAT(kvstore::ExperimentalCopyRange(store.WithPathSuffix("x/"),
+                                               txn_store.WithPathSuffix("y/"))
+                    .result(),
+                StatusIs(absl::StatusCode::kUnimplemented));
+    TENSORSTORE_ASSERT_OK(kvstore::Write(txn_store, "w/k2", absl::Cord("v2")));
+    TENSORSTORE_ASSERT_OK(txn.CommitAsync());
+  }
+
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("w/k", absl::Cord("val")),
+                                 ::testing::Pair("w/k2", absl::Cord("v2")),
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                             })));
+}
+
+TEST(OcdbtTest, TransactionalCopyRangeAbortAndEmptyPrefix) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({
+                                    {"driver", "ocdbt"},
+                                    {"base", "memory://"},
+                                    {"config", {{"max_inline_value_bytes", 0}}},
+                                })
+                      .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+
+  // Overwriting, deleting, and aborting `IndirectValueReadModifyWriteSource`
+  // entries must not leak memory.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::atomic_isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), txn_store.WithPathSuffix("y/")));
+    // Overwrite one key and range-delete the other before aborting.
+    TENSORSTORE_ASSERT_OK(
+        kvstore::Write(txn_store, "y/a", absl::Cord("overwritten")));
+    TENSORSTORE_ASSERT_OK(
+        kvstore::DeleteRange(txn_store, KeyRange::Singleton("y/b")));
+    // Overwrite an entire copied range with another `ExperimentalCopyRange`.
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), txn_store.WithPathSuffix("z/")));
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), txn_store.WithPathSuffix("z/")));
+    txn.Abort();
+    txn.future().Wait();
+  }
+
+  // Copying an empty source prefix and deleting an empty `KeyRange` in an
+  // `atomic_isolated` transaction leaves the `BtreeWriterTransactionNode` with
+  // no mutation entries (`phases_.phase_number_ == kInvalidPhase`) and must
+  // commit cleanly without tripping `assert(!transaction.atomic())`.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::atomic_isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+    TENSORSTORE_ASSERT_OK(kvstore::DeleteRange(txn_store, KeyRange{"z", "a"}));
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("empty/"), txn_store.WithPathSuffix("y/")));
+    TENSORSTORE_ASSERT_OK(txn.CommitAsync());
+  }
+
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                             })));
+}
+
 TEST(OcdbtTest, AssumeConfig) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
                                    kvstore::Open("memory://").result());

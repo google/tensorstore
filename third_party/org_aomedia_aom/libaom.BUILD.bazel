@@ -88,10 +88,10 @@ LIBAOM_HEADERS = select({
 cc_library(
     name = "libaom",
     hdrs = LIBAOM_HEADERS,
+    visibility = ["//visibility:public"],
     implementation_deps = [
         ":aom",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
