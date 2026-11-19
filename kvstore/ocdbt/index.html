@@ -2804,9 +2804,10 @@ data file.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config.max_decoded_node_bytes">
-<span class="sig-name descname"><span class="pre">max_decoded_node_bytes</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">4294967295</span></code><span class="p"><span class="pre">]</span></span></sub><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">83951616</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.max_decoded_node_bytes" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">max_decoded_node_bytes</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">268435456</span></code><span class="p"><span class="pre">]</span></span></sub><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">8388608</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.max_decoded_node_bytes" title="Link to this definition">¶</a></dt>
 <dd><span><p>Maximum size of an (uncompressed) B+tree node.</p>
-  </span><p>Nodes are split to ensure they do not exceed this limit.</p>
+  </span><p>Nodes are split to ensure they do not exceed this limit. A value
+of 0 specifies the maximum limit of 268435456 bytes (256 MiB).</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
