@@ -164,11 +164,13 @@ corresponds to :json:schema:`driver/zarr3/Metadata.shape`.
   simply leaves all dimensions unlabeled.
 
 The upper bounds of the domain are resizable
-(i.e. :ref:`implicit<implicit-bounds>`).
+(i.e. :ref:`implicit<implicit-bounds>`), and so are the lower bounds when the
+metadata uses :json:schema:`~driver/zarr3/Metadata.bounds`.
 
-As Zarr v3 does not natively support a non-zero origin, the underlying domain always
-has a zero origin (:json:schema:`IndexDomain.inclusive_min` is all zero), but it
-may be translated by the :json:schema:`~driver/zarr3.transform`.
+The underlying domain starts at zero, or at
+:json:schema:`~driver/zarr3/Metadata.bounds.inclusive_min` when the metadata
+uses ``bounds``, and it may be translated by the
+:json:schema:`~driver/zarr3.transform`.
 
 .. admonition:: Example
    :class: example
@@ -209,7 +211,8 @@ The :json:schema:`ChunkLayout.write_chunk` shape, specifying the granularity at
 which writes may be performed efficiently, corresponds to the top-level
 :json:schema:`~driver/zarr3/Metadata.chunk_grid.configuration.chunk_shape`.
 
-The :json:schema:`ChunkLayout.grid_origin` is always the zero vector.
+The :json:schema:`ChunkLayout.grid_origin` is the zero vector, or the
+``offset`` of an ``"offset"`` :json:schema:`~driver/zarr3/Metadata.chunk_grid`.
 
 The :json:schema:`ChunkLayout.inner_order` depends on the
 :json:schema:`driver/zarr3/Metadata.codecs` that are in use.  With just the

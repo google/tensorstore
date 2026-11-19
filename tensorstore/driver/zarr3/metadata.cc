@@ -57,6 +57,7 @@
 #include "tensorstore/driver/zarr3/dtype.h"
 #include "tensorstore/driver/zarr3/name_configuration_json_binder.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -526,15 +527,157 @@ constexpr auto MetadataJsonBinder = [] {
     }
   };
 
+  // In constraints, `chunk_grid` as a whole may be absent.
+  constexpr auto maybe_optional_chunk_grid = [](auto binder) {
+    return [=](auto is_loading, const auto& options, auto* obj,
+               auto* j) -> absl::Status {
+      if constexpr (Constraints) {
+        if constexpr (is_loading) {
+          if (j->is_discarded()) return absl::OkStatus();
+        } else {
+          if (!obj->chunk_shape && !obj->offset_grid &&
+              !obj->chunk_grid_origin) {
+            *j = ::nlohmann::json::value_t::discarded;
+            return absl::OkStatus();
+          }
+        }
+      }
+      return binder(is_loading, options, obj, j);
+    };
+  };
+
   return [maybe_optional = maybe_optional,
           maybe_optional_member = maybe_optional_member,
-          non_compatibility_field = non_compatibility_field](
+          non_compatibility_field = non_compatibility_field,
+          maybe_optional_chunk_grid = maybe_optional_chunk_grid](
              auto is_loading, const auto& options, auto* obj, auto* j) {
     using Self = absl::remove_cvref_t<decltype(*obj)>;
     DimensionIndex* rank = nullptr;
     if constexpr (is_loading) {
       rank = &obj->rank;
     }
+
+    // Exactly one of `shape` and `bounds`; `bounds` sets `lower_bound` too.
+    auto shape_or_bounds =
+        [&](auto is_loading, const auto& options, auto* obj,
+            ::nlohmann::json::object_t* j_obj) -> absl::Status {
+      auto shape_binder =
+          jb::Projection<&Self::shape>(maybe_optional(jb::ShapeVector(rank)));
+      if constexpr (is_loading) {
+        ::nlohmann::json j_shape(::nlohmann::json::value_t::discarded);
+        ::nlohmann::json j_bounds(::nlohmann::json::value_t::discarded);
+        if (auto it = j_obj->find("shape"); it != j_obj->end()) {
+          j_shape = std::move(j_obj->extract(it).mapped());
+        }
+        if (auto it = j_obj->find("bounds"); it != j_obj->end()) {
+          j_bounds = std::move(j_obj->extract(it).mapped());
+        }
+        if (!j_shape.is_discarded() && !j_bounds.is_discarded()) {
+          return absl::InvalidArgumentError(
+              "Only one of \"shape\" and \"bounds\" may be specified");
+        }
+        if (j_bounds.is_discarded()) {
+          if (j_shape.is_discarded() && !Constraints) {
+            return absl::InvalidArgumentError(
+                "Exactly one of \"shape\" and \"bounds\" must be specified");
+          }
+          TENSORSTORE_RETURN_IF_ERROR(
+              shape_binder(is_loading, options, obj, &j_shape),
+              _.Format("Error parsing object member \"shape\""));
+          return absl::OkStatus();
+        }
+        std::vector<Index> inclusive_min, exclusive_max;
+        auto bound_member = [&](const char* name, std::vector<Index>* bound) {
+          return jb::Member(name, [=](auto is_loading, const auto& options,
+                                      auto* obj, auto* j) {
+            return jb::DimensionIndexedVector(rank, jb::Integer<Index>())(
+                is_loading, options, bound, j);
+          });
+        };
+        TENSORSTORE_RETURN_IF_ERROR(
+            jb::Object(bound_member("inclusive_min", &inclusive_min),
+                       bound_member("exclusive_max", &exclusive_max))(
+                is_loading, options, obj, &j_bounds),
+            _.Format("Error parsing object member \"bounds\""));
+        std::vector<Index> shape(inclusive_min.size());
+        for (size_t i = 0; i < shape.size(); ++i) {
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              auto interval,
+              IndexInterval::HalfOpen(inclusive_min[i], exclusive_max[i]),
+              _.Format("Error parsing object member \"bounds\""));
+          shape[i] = interval.size();
+        }
+        obj->shape = std::move(shape);
+        obj->lower_bound = std::move(inclusive_min);
+        obj->bounded = true;
+        return absl::OkStatus();
+      } else {
+        const std::vector<Index>* lower_bound = nullptr;
+        const std::vector<Index>* shape = nullptr;
+        if constexpr (Constraints) {
+          if (obj->bounded.value_or(false) && obj->lower_bound && obj->shape) {
+            lower_bound = &*obj->lower_bound;
+            shape = &*obj->shape;
+          }
+        } else {
+          if (obj->bounded) {
+            lower_bound = &obj->lower_bound;
+            shape = &obj->shape;
+          }
+        }
+        if constexpr (CompatibilityOnly) {
+          // The form fixes whether the lower bounds are implicit.
+          if (lower_bound) {
+            j_obj->emplace("bounds", ::nlohmann::json::object_t());
+          }
+          return absl::OkStatus();
+        }
+        if (!lower_bound) {
+          ::nlohmann::json j_shape(::nlohmann::json::value_t::discarded);
+          TENSORSTORE_RETURN_IF_ERROR(
+              shape_binder(is_loading, options, obj, &j_shape));
+          if (!j_shape.is_discarded()) {
+            j_obj->emplace("shape", std::move(j_shape));
+          }
+          return absl::OkStatus();
+        }
+        std::vector<Index> exclusive_max(shape->size());
+        for (size_t i = 0; i < shape->size(); ++i) {
+          exclusive_max[i] = (*lower_bound)[i] + (*shape)[i];
+        }
+        j_obj->emplace("bounds",
+                       ::nlohmann::json{{"inclusive_min", *lower_bound},
+                                        {"exclusive_max", exclusive_max}});
+        return absl::OkStatus();
+      }
+    };
+
+    auto regular_configuration = jb::Object(jb::Member(
+        "chunk_shape", jb::Projection<&Self::chunk_shape>(
+                           maybe_optional(jb::ChunkShapeVector(rank)))));
+    auto offset_configuration = jb::Object(
+        jb::Member("offset", jb::Projection<&Self::chunk_grid_origin>(
+                                 maybe_optional(jb::DimensionIndexedVector(
+                                     rank, jb::Integer<Index>())))),
+        jb::Member(
+            "base_chunk_grid",
+            jb::Object(
+                jb::Member("name", jb::Constant([] { return "regular"; })),
+                jb::Member("configuration", regular_configuration))));
+    // `regular` takes `chunk_shape` alone; `offset` wraps it.
+    auto chunk_grid_configuration = [=](auto is_loading, const auto& options,
+                                        auto* obj, auto* j) -> absl::Status {
+      bool offset_grid;
+      if constexpr (Constraints) {
+        offset_grid = obj->offset_grid.value_or(false);
+      } else {
+        offset_grid = obj->offset_grid;
+      }
+      if (offset_grid) {
+        return offset_configuration(is_loading, options, obj, j);
+      }
+      return regular_configuration(is_loading, options, obj, j);
+    };
 
     auto ensure_zarr_dtype = [&]() -> Result<ZarrDType> {
       if constexpr (std::is_same_v<Self, ZarrMetadata>) {
@@ -594,9 +737,7 @@ constexpr auto MetadataJsonBinder = [] {
                 })(is_loading, options, &obj->fill_value, j);
               }
             }),
-        non_compatibility_field(
-            jb::Member("shape", jb::Projection<&Self::shape>(
-                                    maybe_optional(jb::ShapeVector(rank))))),
+        shape_or_bounds,
         jb::Member("dimension_names",
                    jb::Projection<&Self::dimension_names>(maybe_optional(
                        [rank](auto is_loading, const auto& options, auto* obj,
@@ -623,13 +764,14 @@ constexpr auto MetadataJsonBinder = [] {
                        maybe_optional(jb::DefaultBinder<>))),
         jb::Member(
             "chunk_grid",
-            jb::Projection<&Self::chunk_shape>(maybe_optional(jb::Object(
-                jb::Member("name", jb::Constant([] { return "regular"; })),
-                jb::Member(
-                    "configuration",
-                    jb::Object(jb::Member("chunk_shape",
-                                          jb::ChunkShapeVector(rank))))  //
-                )))),                                                    //
+            maybe_optional_chunk_grid(jb::Object(
+                jb::Member("name",
+                           jb::Projection<&Self::offset_grid>(
+                               maybe_optional(jb::Enum<bool, std::string_view>({
+                                   {false, "regular"},
+                                   {true, "offset"},
+                               })))),
+                jb::Member("configuration", chunk_grid_configuration)))),
         jb::Member("codecs", jb::Projection<&Self::codec_specs>(maybe_optional(
                                  ZarrCodecChainJsonBinder<Constraints>))),
         // Allow empty storage_transformers list.
@@ -977,6 +1119,36 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
     return MetadataMismatchError("chunk_shape", *constraints.chunk_shape,
                                  metadata.chunk_shape);
   }
+  if (constraints.shape || constraints.lower_bound) {
+    std::vector<Index> metadata_lower_bound(metadata.shape.size());
+    for (size_t i = 0; i < metadata_lower_bound.size(); ++i) {
+      metadata_lower_bound[i] = metadata.LowerBound(i);
+    }
+    const std::vector<Index> constraint_lower_bound =
+        constraints.lower_bound
+            ? *constraints.lower_bound
+            : std::vector<Index>(constraints.shape->size(), 0);
+    if (constraint_lower_bound != metadata_lower_bound) {
+      return MetadataMismatchError(
+          "bounds.inclusive_min", constraint_lower_bound, metadata_lower_bound);
+    }
+  }
+  if (constraints.offset_grid &&
+      *constraints.offset_grid != metadata.offset_grid) {
+    return MetadataMismatchError(
+        "chunk_grid", *constraints.offset_grid ? "offset" : "regular",
+        metadata.offset_grid ? "offset" : "regular");
+  }
+  if (constraints.chunk_grid_origin) {
+    std::vector<Index> metadata_origin(metadata.shape.size());
+    for (size_t i = 0; i < metadata_origin.size(); ++i) {
+      metadata_origin[i] = metadata.GridOrigin(i);
+    }
+    if (*constraints.chunk_grid_origin != metadata_origin) {
+      return MetadataMismatchError("offset", *constraints.chunk_grid_origin,
+                                   metadata_origin);
+    }
+  }
   if (constraints.chunk_key_encoding &&
       *constraints.chunk_key_encoding != metadata.chunk_key_encoding) {
     return MetadataMismatchError("chunk_key_encoding",
@@ -1171,7 +1343,8 @@ Result<IndexDomain<>> GetEffectiveDomain(
     const SpecRankAndFieldInfo& info,
     std::optional<tensorstore::span<const Index>> metadata_shape,
     std::optional<span<const std::optional<std::string>>> dimension_names,
-    const Schema& schema, bool* dimension_names_used) {
+    const Schema& schema, bool* dimension_names_used,
+    std::optional<span<const Index>> lower_bound = std::nullopt) {
   const DimensionIndex rank = info.chunked_rank;
   if (dimension_names_used) *dimension_names_used = false;
   auto domain = schema.domain();
@@ -1201,8 +1374,20 @@ Result<IndexDomain<>> GetEffectiveDomain(
       builder.shape(*metadata_shape);
       builder.implicit_upper_bounds(true);
     }
+    if (lower_bound) {
+      std::fill(builder.origin().begin(), builder.origin().end(), Index{0});
+      std::copy(lower_bound->begin(), lower_bound->end(),
+                builder.origin().begin());
+    }
   } else {
     builder.origin(GetConstantVector<Index, 0>(builder.rank()));
+    if (domain.valid()) {
+      for (DimensionIndex i = 0; i < domain.rank(); ++i) {
+        if (!domain.implicit_lower_bounds()[i]) {
+          builder.origin()[i] = domain.origin()[i];
+        }
+      }
+    }
   }
   if (dimension_names) {
     std::string_view normalized_dimension_names[kMaxRank];
@@ -1225,7 +1410,11 @@ Result<IndexDomain<>> GetEffectiveDomain(
       domain, MergeIndexDomains(domain, domain_from_metadata),
       _.Format("Mismatch between metadata and schema")
           .With(internal::ConvertInvalidArgumentToFailedPrecondition));
-  return WithImplicitDimensions(domain, false, true);
+  return WithImplicitDimensions(domain,
+                                lower_bound
+                                    ? DimensionSet::UpTo(lower_bound->size())
+                                    : DimensionSet(false),
+                                true);
 }
 
 Result<IndexDomain<>> GetEffectiveDomain(
@@ -1248,21 +1437,27 @@ Result<IndexDomain<>> GetEffectiveDomain(
                        metadata_constraints.dimension_names->size());
   }
 
+  std::optional<span<const Index>> lower_bound_span;
+  if (metadata_constraints.lower_bound) {
+    lower_bound_span.emplace(metadata_constraints.lower_bound->data(),
+                             metadata_constraints.lower_bound->size());
+  }
   return GetEffectiveDomain(info, shape_span, names_span, schema,
-                            dimension_names_used);
+                            dimension_names_used, lower_bound_span);
 }
 
 absl::Status SetChunkLayoutFromMetadata(
     const SpecRankAndFieldInfo& info,
     std::optional<span<const Index>> chunk_shape,
-    const ZarrCodecChainSpec* codecs, ChunkLayout& chunk_layout) {
+    const ZarrCodecChainSpec* codecs, ChunkLayout& chunk_layout,
+    std::optional<span<const Index>> grid_origin) {
   const DimensionIndex rank = info.chunked_rank;
   if (rank == dynamic_rank) {
     return absl::OkStatus();
   }
   TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(RankConstraint(rank)));
-  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
-      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(ChunkLayout::GridOrigin(
+      grid_origin ? *grid_origin : GetConstantVector<Index, 0>(rank))));
 
   if (chunk_shape) {
     assert(chunk_shape->size() == rank);
@@ -1328,11 +1523,16 @@ Result<ChunkLayout> GetEffectiveChunkLayout(
     chunk_shape_span.emplace(metadata_constraints.chunk_shape->data(),
                              metadata_constraints.chunk_shape->size());
   }
+  std::optional<span<const Index>> grid_origin_span;
+  if (metadata_constraints.chunk_grid_origin) {
+    grid_origin_span.emplace(metadata_constraints.chunk_grid_origin->data(),
+                             metadata_constraints.chunk_grid_origin->size());
+  }
   TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
       info, chunk_shape_span,
       metadata_constraints.codec_specs ? &*metadata_constraints.codec_specs
                                        : nullptr,
-      chunk_layout));
+      chunk_layout, grid_origin_span));
   return chunk_layout;
 }
 
@@ -1396,9 +1596,14 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
     std::optional<span<const std::optional<std::string>>> dimension_names_span;
     dimension_names_span.emplace(metadata.dimension_names.data(),
                                  metadata.dimension_names.size());
+    std::optional<span<const Index>> lower_bound_span;
+    if (metadata.bounded) {
+      lower_bound_span.emplace(metadata.lower_bound.data(),
+                               metadata.lower_bound.size());
+    }
     TENSORSTORE_RETURN_IF_ERROR(GetEffectiveDomain(
         info, metadata_shape_span, dimension_names_span, schema,
-        /*dimension_names_used=*/nullptr));
+        /*dimension_names_used=*/nullptr, lower_bound_span));
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
@@ -1406,8 +1611,14 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
     std::optional<span<const Index>> chunk_shape_span;
     chunk_shape_span.emplace(metadata.chunk_shape.data(),
                              metadata.chunk_shape.size());
+    std::optional<span<const Index>> grid_origin_span;
+    if (metadata.offset_grid) {
+      grid_origin_span.emplace(metadata.chunk_grid_origin.data(),
+                               metadata.chunk_grid_origin.size());
+    }
     TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
-        info, chunk_shape_span, &metadata.codec_specs, chunk_layout));
+        info, chunk_shape_span, &metadata.codec_specs, chunk_layout,
+        grid_origin_span));
     if (chunk_layout.codec_chunk_shape().hard_constraint) {
       return absl::InvalidArgumentError("codec_chunk_shape not supported");
     }
@@ -1559,10 +1770,17 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
     constraint_names_span.emplace(metadata_constraints.dimension_names->data(),
                                   metadata_constraints.dimension_names->size());
   }
+  std::optional<span<const Index>> constraint_lower_bound_span;
+  if (metadata_constraints.lower_bound) {
+    constraint_lower_bound_span.emplace(
+        metadata_constraints.lower_bound->data(),
+        metadata_constraints.lower_bound->size());
+  }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto domain,
       GetEffectiveDomain(info, constraint_shape_span, constraint_names_span,
-                         schema, &dimension_names_used));
+                         schema, &dimension_names_used,
+                         constraint_lower_bound_span));
   if (!domain.valid() || !IsFinite(domain.box())) {
     return absl::InvalidArgumentError("domain must be specified");
   }
@@ -1571,11 +1789,30 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
   // (the bytes dimension), but the persisted metadata stores only the
   // logical chunked dimensions.
   const DimensionIndex logical_rank = domain.rank() - extra_field_dims;
+  if (std::any_of(domain.origin().begin() + logical_rank, domain.origin().end(),
+                  [](Index origin) { return origin != 0; })) {
+    return absl::InvalidArgumentError(
+        "Field dimensions of the domain must start at 0");
+  }
   metadata->rank = logical_rank;
   metadata->shape.assign(domain.shape().begin(),
                          domain.shape().begin() + logical_rank);
   metadata->dimension_names.assign(domain.labels().begin(),
                                    domain.labels().begin() + logical_rank);
+  metadata->bounded = metadata_constraints.bounded.value_or(false) ||
+                      std::any_of(domain.origin().begin(),
+                                  domain.origin().begin() + logical_rank,
+                                  [](Index origin) { return origin != 0; });
+  if (metadata->bounded) {
+    metadata->lower_bound.assign(domain.origin().begin(),
+                                 domain.origin().begin() + logical_rank);
+  }
+  metadata->offset_grid = metadata_constraints.offset_grid.value_or(false);
+  if (metadata->offset_grid) {
+    metadata->chunk_grid_origin =
+        metadata_constraints.chunk_grid_origin.value_or(
+            std::vector<Index>(logical_rank, 0));
+  }
 
   for (DimensionIndex i = 0; i < logical_rank; ++i) {
     auto& name = metadata->dimension_names[i];
@@ -1771,6 +2008,13 @@ ZarrMetadataConstraints::ZarrMetadataConstraints(const ZarrMetadata& metadata)
       dimension_names(metadata.dimension_names),
       chunk_key_encoding(metadata.chunk_key_encoding),
       chunk_shape(metadata.chunk_shape),
+      bounded(metadata.bounded),
+      lower_bound(metadata.bounded ? std::optional(metadata.lower_bound)
+                                   : std::nullopt),
+      offset_grid(metadata.offset_grid),
+      chunk_grid_origin(metadata.offset_grid
+                            ? std::optional(metadata.chunk_grid_origin)
+                            : std::nullopt),
       codec_specs(metadata.codec_specs),
       fill_value(metadata.fill_value),
       unknown_extension_attributes(metadata.unknown_extension_attributes) {}

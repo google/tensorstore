@@ -76,9 +76,32 @@ definitions:
         title: Dimensions of the array.
         description: |
           Required when creating a new array if the `Schema.domain` is not
-          otherwise specified.
+          otherwise specified.  Exactly one of `.shape` and `.bounds` may be
+          specified.
         examples:
         - [300, 400, 500]
+      bounds:
+        type: object
+        title: Bounds of the array, as an alternative to `.shape`.
+        description: |
+          The domain starts at ``"inclusive_min"`` rather than at 0, so chunk
+          grid indices, and the keys formed from them, may be negative and the
+          first chunk may be partly filled.  The lower bound is resizable.
+          Written when creating a new array if the `Schema.domain` has a
+          non-zero origin.
+        properties:
+          inclusive_min:
+            type: array
+            items:
+              type: integer
+            title: Coordinate of the first element, for each dimension.
+          exclusive_max:
+            type: array
+            items:
+              type: integer
+            title: One past the last element, for each dimension.
+        examples:
+        - {"inclusive_min": [-3, 0], "exclusive_max": [6, 4]}
       data_type:
         type: string
         title: "Data type of the array."
@@ -87,7 +110,13 @@ definitions:
         type: object
         properties:
           name:
-            const: "regular"
+            oneOf:
+            - const: "regular"
+            - const: "offset"
+            title: Chunk grid.
+            description: |
+              ``"offset"`` wraps a ``"regular"`` grid so that its chunk 0
+              starts at array coordinate ``"offset"`` instead of 0.
           configuration:
             type: object
             properties:
@@ -104,6 +133,19 @@ definitions:
                   to the `Schema.chunk_layout`.
                 examples:
                 - [64, 64, 64]
+              offset:
+                type: array
+                items:
+                  type: integer
+                title: |
+                  Array coordinate where chunk 0 starts, for each dimension.
+                  ``"offset"`` only.
+              base_chunk_grid:
+                type: object
+                title: |
+                  The wrapped ``"regular"`` grid, with its own
+                  ``"configuration"`` holding ``"chunk_shape"``.  ``"offset"``
+                  only.
       chunk_key_encoding:
         $ref: driver/zarr3/ChunkKeyEncoding
       fill_value:
