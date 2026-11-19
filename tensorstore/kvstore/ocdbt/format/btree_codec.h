@@ -127,6 +127,7 @@ struct LeafNodeValueReferenceArrayCodec {
     }
 
     // Read value kinds
+    uint64_t total_inline_value_bytes = 0;
     for (size_t i = 0; i < entries.size(); ++i) {
       auto& entry = entries[i];
       auto& value_reference = getter(entry);
@@ -142,6 +143,13 @@ struct LeafNodeValueReferenceArrayCodec {
           reader.Fail(absl::DataLossError(absl::StrFormat(
               "value_length[%d]=%d exceeds maximum of %d for an inline value",
               i, value_lengths[i], kMaxInlineValueLength)));
+          return false;
+        }
+        total_inline_value_bytes += value_lengths[i];
+        if (total_inline_value_bytes > kMaxDecodedObjectSize) {
+          reader.Fail(absl::DataLossError(
+              absl::StrFormat("Total inline value length exceeds maximum of %d",
+                              kMaxDecodedObjectSize)));
           return false;
         }
         value_reference.template emplace<absl::Cord>();

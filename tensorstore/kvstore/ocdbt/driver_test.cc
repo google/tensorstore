@@ -41,7 +41,6 @@
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/internal/uri/path.h"
-#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -1927,6 +1926,57 @@ TEST(OcdbtTest, SeparateManifestSupportedFeatures) {
                   MatchesListEntry("manifest_dir/manifest.ocdbt"),
                   MatchesListEntry("manifest_dir/manifest.0000000000000001"),
                   MatchesListEntry("manifest_dir/manifest.0000000000000002"))));
+}
+
+TEST(OcdbtTest, MaxDecodedNodeBytesValidation) {
+  TENSORSTORE_EXPECT_OK(kvstore::Spec::FromJson(
+      {{"driver", "ocdbt"},
+       {"base", "memory://"},
+       {"config", {{"max_decoded_node_bytes", 268435456}}}}));
+  EXPECT_THAT(kvstore::Spec::FromJson(
+                  {{"driver", "ocdbt"},
+                   {"base", "memory://"},
+                   {"config", {{"max_decoded_node_bytes", 268435457}}}}),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  // Verify that a legacy manifest with `max_decoded_node_bytes > 256 MiB` can
+  // be opened, its bound spec round-tripped through JSON, reopened with that
+  // bound spec, and written/read without error.
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://legacy_max/", context).result());
+  Manifest manifest;
+  manifest.config.max_decoded_node_bytes = 1000000000;
+  auto& v = manifest.versions.emplace_back();
+  v.generation_number = 1;
+  v.root_height = 0;
+  v.commit_time = CommitTime{1};
+  v.root.location = IndirectDataReference::Missing();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_manifest,
+                                   EncodeManifest(manifest));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "manifest.ocdbt", encoded_manifest));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://legacy_max/"}},
+                    context)
+          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("v1")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_json, bound_spec.ToJson());
+  EXPECT_EQ(bound_json["config"]["max_decoded_node_bytes"], 268435456);
+  // Use a separate cache pool so `store2` re-reads and validates the manifest.
+  bound_json["cache_pool"] = {{"total_bytes_limit", 0}};
+  TENSORSTORE_EXPECT_OK(kvstore::Spec::FromJson(bound_json));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store2,
+                                   kvstore::Open(bound_json, context).result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store2, "b", absl::Cord("v2")));
+  EXPECT_THAT(kvstore::Read(store2, "a").result(),
+              MatchesKvsReadResult(absl::Cord("v1")));
+  EXPECT_THAT(kvstore::Read(store2, "b").result(),
+              MatchesKvsReadResult(absl::Cord("v2")));
 }
 
 }  // namespace

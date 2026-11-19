@@ -182,7 +182,6 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/internal/uri:path",
-        "//tensorstore/internal/uri:percent_coder",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:key_range",

@@ -125,6 +125,11 @@ struct NoOpCodec {
 // TODO(jbms): Consider changing `{Decode,Encode}WithOptionalCompression` to use
 // class interface rather than callback interface.
 
+/// Maximum allowed uncompressed size in bytes when decoding a compressed
+/// manifest, version tree node, or B+tree node, or total inline value bytes
+/// within a B+tree leaf node.
+constexpr size_t kMaxDecodedObjectSize = 512 * 1024 * 1024;
+
 /// Decodes the common compression header.
 ///
 /// \param encoded The encoded representation.

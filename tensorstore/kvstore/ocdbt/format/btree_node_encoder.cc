@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <cassert>
@@ -48,7 +49,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -365,23 +365,26 @@ Result<std::vector<EncodedNode>> BtreeNodeEncoder<Entry>::Finalize(
            (end_i - start_i - 1) * common_prefix_length_;
   };
 
+  const size_t max_decoded_node_bytes =
+      config_.max_decoded_node_bytes == 0
+          ? kMaxDecodedNodeBytes
+          : std::min<size_t>(config_.max_decoded_node_bytes,
+                             kMaxDecodedNodeBytes);
+
   while (start_i < buffered_entries_.size()) {
     size_t size_upper_bound = get_range_size(buffered_entries_.size());
     size_t num_nodes = tensorstore::CeilOfRatio<size_t>(
         buffered_entries_.size() - start_i, kMaxNodeArity);
-    if (config_.max_decoded_node_bytes != 0) {
-      num_nodes = std::max(
-          num_nodes, tensorstore::CeilOfRatio<size_t>(
-                         size_upper_bound, config_.max_decoded_node_bytes));
-    }
+    num_nodes =
+        std::max(num_nodes, tensorstore::CeilOfRatio<size_t>(
+                                size_upper_bound, max_decoded_node_bytes));
     size_t target_size = tensorstore::CeilOfRatio(size_upper_bound, num_nodes);
     size_t end_i;
     for (end_i = start_i + 1; end_i < buffered_entries_.size(); ++end_i) {
       if (end_i - start_i >= kMaxNodeArity) break;
       size_t size = get_range_size(end_i);
       if (size >= target_size && end_i >= start_i + kMinArity) {
-        if (size > config_.max_decoded_node_bytes &&
-            end_i > start_i + kMinArity) {
+        if (size > max_decoded_node_bytes && end_i > start_i + kMinArity) {
           --end_i;
         }
         break;

@@ -112,6 +112,8 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest_main",
+        "@riegeli//riegeli/base:byte_fill",
+        "@riegeli//riegeli/bytes:reader",
         "@riegeli//riegeli/bytes:writer",
     ],
 )

@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <atomic>
 #include <string_view>
 #include <tuple>
@@ -81,7 +82,8 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                 jb::Optional(jb::Integer<uint32_t>(0, kMaxInlineValueLength)))),
         jb::Member(
             "max_decoded_node_bytes",
-            jb::Projection<&ConfigConstraints::max_decoded_node_bytes>()),
+            jb::Projection<&ConfigConstraints::max_decoded_node_bytes>(
+                jb::Optional(jb::Integer<uint32_t>(0, kMaxDecodedNodeBytes)))),
         jb::Member("version_tree_arity_log2",
                    jb::Projection<&ConfigConstraints::version_tree_arity_log2>(
                        jb::Optional(
@@ -128,7 +130,10 @@ absl::Status ValidateConfig(const Config& config,
   TENSORTORE_INTERNAL_DO_VALIDATE(uuid)
   TENSORTORE_INTERNAL_DO_VALIDATE(manifest_kind)
   TENSORTORE_INTERNAL_DO_VALIDATE(max_inline_value_bytes)
-  TENSORTORE_INTERNAL_DO_VALIDATE(max_decoded_node_bytes)
+  TENSORSTORE_RETURN_IF_ERROR(
+      validate("max_decoded_node_bytes",
+               std::min(config.max_decoded_node_bytes, kMaxDecodedNodeBytes),
+               constraints.max_decoded_node_bytes));
   TENSORTORE_INTERNAL_DO_VALIDATE(version_tree_arity_log2)
   TENSORTORE_INTERNAL_DO_VALIDATE(compression)
 
@@ -180,7 +185,8 @@ absl::Status CreateConfig(const ConfigConstraints& constraints,
 ConfigConstraints::ConfigConstraints(const Config& config)
     : uuid(config.uuid),
       max_inline_value_bytes(config.max_inline_value_bytes),
-      max_decoded_node_bytes(config.max_decoded_node_bytes),
+      max_decoded_node_bytes(
+          std::min(config.max_decoded_node_bytes, kMaxDecodedNodeBytes)),
       version_tree_arity_log2(config.version_tree_arity_log2),
       compression(config.compression) {}
 

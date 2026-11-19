@@ -153,7 +153,11 @@ absl::Status DecodeWithOptionalCompression(
         success = decode_decompressed(digesting_reader, version);
         break;
       case 1: {
-        riegeli::ZstdReader zstd_reader(&digesting_reader);
+        riegeli::LimitingReader zstd_reader(
+            riegeli::ZstdReader<>{&digesting_reader},
+            riegeli::LimitingReaderBase::Options()
+                .set_max_length(kMaxDecodedObjectSize)
+                .set_fail_if_longer(true));
         success = decode_decompressed(zstd_reader, version) &&
                   zstd_reader.VerifyEndAndClose();
         if (!success && !zstd_reader.ok()) {

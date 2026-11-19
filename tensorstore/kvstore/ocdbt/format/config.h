@@ -163,6 +163,7 @@ struct Config {
 using ManifestKind = Config::ManifestKind;
 
 constexpr size_t kMaxInlineValueLength = 1024 * 1024;
+constexpr uint32_t kMaxDecodedNodeBytes = 256 * 1024 * 1024;
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

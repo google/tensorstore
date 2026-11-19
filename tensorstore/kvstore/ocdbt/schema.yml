@@ -61,11 +61,12 @@ allOf:
           max_decoded_node_bytes:
             type: integer
             minimum: 0
-            maximum: 4294967295
-            default: 83951616
+            maximum: 268435456
+            default: 8388608
             title: "Maximum size of an (uncompressed) B+tree node."
             description: |
-              Nodes are split to ensure they do not exceed this limit.
+              Nodes are split to ensure they do not exceed this limit. A value
+              of 0 specifies the maximum limit of 268435456 bytes (256 MiB).
           version_tree_arity_log2:
             type: integer
             minimum: 1
