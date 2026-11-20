@@ -857,6 +857,19 @@ TEST_P(Http1TransportTest, PutWithoutExplicitExpectOmits100ContinueHeader) {
   EXPECT_EQ(seen_expect, std::nullopt);
 }
 
+// Verifies dot segments in request URLs are transmitted verbatim rather than
+// normalized client-side by the HTTP transport.
+TEST_P(Http1TransportTest, PreservesDotSegmentsInRequestTarget) {
+  Http1LoopbackServer server({}, Echo);
+  auto transport = CreateTransport();
+
+  EXPECT_THAT(transport
+                  ->IssueRequest(server.Request("GET", "/a/./b/../c"),
+                                 Http1Options(request_timeout()))
+                  .result(),
+              HasStatusAndPayload(200, "GET /a/./b/../c body="));
+}
+
 }  // namespace
 }  // namespace internal_http
 }  // namespace tensorstore

@@ -252,4 +252,28 @@ TEST(ParseHostPortTest, ValidationAndRedaction) {
       ::testing::Eq("https://[REDACTED]@example.com/path?[REDACTED]"));
 }
 
+TEST(ParseGenericUriTest, UriPathHasDotDotSegment) {
+  using ::tensorstore::internal_uri::UriPathHasDotDotSegment;
+
+  EXPECT_FALSE(UriPathHasDotDotSegment(""));
+  EXPECT_FALSE(UriPathHasDotDotSegment("."));
+  EXPECT_FALSE(UriPathHasDotDotSegment("..."));
+  EXPECT_FALSE(UriPathHasDotDotSegment("./a/./b"));
+  EXPECT_FALSE(UriPathHasDotDotSegment("a..b"));
+  EXPECT_FALSE(UriPathHasDotDotSegment("..a"));
+  EXPECT_FALSE(UriPathHasDotDotSegment("a.."));
+  EXPECT_FALSE(UriPathHasDotDotSegment("a/.../b"));
+  EXPECT_FALSE(UriPathHasDotDotSegment("%2e%2e/a"));
+  EXPECT_FALSE(UriPathHasDotDotSegment("..\\a"));
+  EXPECT_FALSE(UriPathHasDotDotSegment(std::string_view("a/..\0/b", 7)));
+
+  EXPECT_TRUE(UriPathHasDotDotSegment(".."));
+  EXPECT_TRUE(UriPathHasDotDotSegment("../a"));
+  EXPECT_TRUE(UriPathHasDotDotSegment("/.."));
+  EXPECT_TRUE(UriPathHasDotDotSegment("a/.."));
+  EXPECT_TRUE(UriPathHasDotDotSegment("a/../b"));
+  EXPECT_TRUE(UriPathHasDotDotSegment("a//../b"));
+  EXPECT_TRUE(UriPathHasDotDotSegment(std::string_view("a\0/../b", 7)));
+}
+
 }  // namespace

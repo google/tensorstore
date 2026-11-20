@@ -243,6 +243,7 @@ tensorstore_cc_library(
     hdrs = ["validate.h"],
     deps = [
         "//tensorstore/internal:utf8",
+        "//tensorstore/internal/uri:parse",
         "//tensorstore/kvstore:generation",
         "@abseil-cpp//absl/strings",
         "@re2",

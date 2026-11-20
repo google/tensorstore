@@ -28,6 +28,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/strip.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -124,6 +125,19 @@ absl::Status ValidateParsedHttpUrl(
   return absl::OkStatus();
 }
 
+absl::Status ValidatePercentEncodedPathNoDotDot(std::string_view path) {
+  for (std::string_view segment : absl::StrSplit(path, '/')) {
+    if (segment.empty()) continue;
+    TENSORSTORE_ASSIGN_OR_RETURN(std::string decoded,
+                                 internal_uri::PercentDecode(segment));
+    if (decoded == "..") {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "HTTP path %v must not contain \"..\" segments", QuoteString(path)));
+    }
+  }
+  return absl::OkStatus();
+}
+
 struct HttpKeyValueStoreSpecData {
   std::string base_url;
   Context::Resource<HttpRequestConcurrencyResource> request_concurrency;
@@ -205,6 +219,10 @@ class HttpKeyValueStoreSpec
   static constexpr char id[] = "http";
   Future<kvstore::DriverPtr> DoOpen() const override;
   Result<std::string> ToUrl(std::string_view path) const override {
+    if (internal_uri::UriPathHasDotDotSegment(path)) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "HTTP path %v must not contain \"..\" segments", QuoteString(path)));
+    }
     return data_.GetUrl(path);
   }
 
@@ -243,6 +261,12 @@ class HttpKeyValueStoreSpec
           "base URL %v which already includes the path component %v",
           QuoteString(path), QuoteString(data_.base_url),
           QuoteString(decoded_common_suffix)));
+    }
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidatePercentEncodedPathNoDotDot(path_prefix));
+    if (internal_uri::UriPathHasDotDotSegment(path)) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "HTTP path %v must not contain \"..\" segments", QuoteString(path)));
     }
     data_.base_url = std::move(base_url);
     return absl::OkStatus();
@@ -503,6 +527,10 @@ struct ReadTask : public internal::RateLimiterNode,
 Future<kvstore::ReadResult> HttpKeyValueStore::Read(Key key,
                                                     ReadOptions options) {
   http_read.Increment();
+  if (internal_uri::UriPathHasDotDotSegment(key)) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "HTTP path %v must not contain \"..\" segments", QuoteString(key)));
+  }
   return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
       *this, std::move(key), std::move(options));
 }

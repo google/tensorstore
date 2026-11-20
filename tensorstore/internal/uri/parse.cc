@@ -283,6 +283,11 @@ bool IsValidHttpAuthority(std::string_view authority) {
          IsValidHttpPort(authority.substr(colon + 1));
 }
 
+bool UriPathHasDotDotSegment(std::string_view path) {
+  return path == ".." || absl::StartsWith(path, "../") ||
+         absl::EndsWith(path, "/..") || absl::StrContains(path, "/../");
+}
+
 std::string RedactUrlForError(std::string_view raw_url) {
   const size_t q_or_f = raw_url.find_first_of("?#");
   const bool has_query_or_fragment = (q_or_f != std::string_view::npos);

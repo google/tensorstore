@@ -1213,4 +1213,86 @@ TEST(S3KeyValueStoreTest, RetryHeadOn429) {
   }
 }
 
+TEST(S3KeyValueStoreTest, DotDotSegmentsRejected) {
+  auto mock_transport = std::make_shared<
+      DefaultMockHttpTransport>(DefaultMockHttpTransport::Responses{
+      {"GET https://localhost:1234/my-bucket/prefix/.",
+       HttpResponse{200, absl::Cord("dot"), HeaderMap{{"etag", "\"etag1\""}}}},
+      {"GET https://localhost:1234/my-bucket/prefix/a..b",
+       HttpResponse{200, absl::Cord("ok"), HeaderMap{{"etag", "\"etag2\""}}}},
+      {"GET https://localhost:1234/my-bucket/prefix/%252e%252e/x",
+       HttpResponse{200, absl::Cord("pct"), HeaderMap{{"etag", "\"etag3\""}}}},
+      {"GET https://localhost:1234/my-bucket/prefix/..%5Cx",
+       HttpResponse{200, absl::Cord("bs"), HeaderMap{{"etag", "\"etag4\""}}}},
+  });
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  auto context = DefaultTestContext();
+
+  EXPECT_THAT(kvstore::Open("s3://my-bucket/../b", context).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 path")));
+  EXPECT_THAT(kvstore::Open("s3://my-bucket/a/../b", context).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 path")));
+  EXPECT_THAT(kvstore::Open("s3://my-bucket/a/%2e%2e/b", context).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 path")));
+  EXPECT_THAT(kvstore::Open({{"driver", "s3"},
+                             {"bucket", "my-bucket"},
+                             {"endpoint", "https://localhost:1234"},
+                             {"path", "prefix/../escape"}},
+                            context)
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 path")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto url_store,
+      kvstore::Open("s3://my-bucket/prefix/", context).result());
+  EXPECT_THAT(url_store.WithPathSuffix("../secret").ToUrl(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 path")));
+
+  // Rejects `..` in individual object requests even when combined with a
+  // non-empty base `path` (`prefix/`), preventing traversal into the base path
+  // as well as bucket escape (`../../other-bucket/secret`).
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "s3"},
+                                 {"bucket", "my-bucket"},
+                                 {"endpoint", "https://localhost:1234"},
+                                 {"path", "prefix/"}},
+                                context)
+                      .result());
+  EXPECT_THAT(kvstore::Read(store, "..").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 object name")));
+  EXPECT_THAT(kvstore::Read(store, "../secret").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 object name")));
+  EXPECT_THAT(kvstore::Read(store, "videos/2014/../../v.wmv").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 object name")));
+  EXPECT_THAT(kvstore::Read(store, "../../other-bucket/secret").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 object name")));
+  EXPECT_THAT(kvstore::Write(store, "../secret", absl::Cord("x")).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 object name")));
+  EXPECT_THAT(kvstore::Delete(store, "../secret").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("Invalid S3 object name")));
+  EXPECT_TRUE(mock_transport->requests().empty());
+
+  // Harmless `.`, substring `..`, percent-encoded, and backslash keys remain
+  // valid and are transmitted verbatim.
+  EXPECT_THAT(kvstore::Read(store, ".").result(),
+              MatchesKvsReadResult(absl::Cord("dot")));
+  EXPECT_THAT(kvstore::Read(store, "a..b").result(),
+              MatchesKvsReadResult(absl::Cord("ok")));
+  EXPECT_THAT(kvstore::Read(store, "%2e%2e/x").result(),
+              MatchesKvsReadResult(absl::Cord("pct")));
+  EXPECT_THAT(kvstore::Read(store, "..\\x").result(),
+              MatchesKvsReadResult(absl::Cord("bs")));
+}
+
 }  // namespace

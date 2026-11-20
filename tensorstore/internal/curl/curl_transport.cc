@@ -99,6 +99,10 @@ struct CurlRequestState {
     handle_.SetOption(CURLOPT_BUFFERSIZE, 512 * 1024);
     handle_.SetOption(CURLOPT_UPLOAD_BUFFERSIZE, 512 * 1024);
     handle_.SetOption(CURLOPT_TCP_NODELAY, 1L);
+    // Preserve dot segments verbatim so HTTP/S3 request URLs are not
+    // normalized client-side by libcurl (which would otherwise strip `.`
+    // segments and invalidate S3 SigV4 canonical paths).
+    handle_.SetOption(CURLOPT_PATH_AS_IS, 1L);
 
     handle_.SetOption(CURLOPT_WRITEDATA, this);
     handle_.SetOption(CURLOPT_WRITEFUNCTION,

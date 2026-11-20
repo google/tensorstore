@@ -18,6 +18,7 @@
 
 #include "absl/strings/match.h"
 #include "re2/re2.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/generation.h"
 
@@ -73,6 +74,7 @@ BucketNameType ClassifyBucketName(std::string_view bucket) {
 // ASCII characters 128-255 as well as any of: "'\{}^%`<>~[]#|
 bool IsValidObjectName(std::string_view name) {
   if (name.empty() || name.size() > 1024) return false;
+  if (internal_uri::UriPathHasDotDotSegment(name)) return false;
   return internal::IsValidUtf8(name);
 }
 

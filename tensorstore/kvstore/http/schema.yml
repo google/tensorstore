@@ -30,9 +30,11 @@ allOf:
         *additional* path component to any path specified in
         :json:schema:`.base_url`.
 
-        Unlike :json:schema:`.base_url`, which must be a valid URL, there are no
-        restrictions on the valid characters in :json:schema:`.path`.  Any
-        special characters will be :wikipedia:`percent encoded<Percent-encoding>`.
+        Unlike :json:schema:`.base_url`, which must be a valid URL, special
+        characters in :json:schema:`.path` do not need to be escaped and will be
+        :wikipedia:`percent encoded<Percent-encoding>`.  :json:`".."` path
+        segments are rejected to prevent path traversal outside a configured
+        prefix.
 
         .. note::
 

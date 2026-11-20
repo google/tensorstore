@@ -86,6 +86,9 @@ bool IsValidHttpPort(std::string_view port);
 /// without `userinfo@`.
 bool IsValidHttpAuthority(std::string_view authority);
 
+/// Returns true if `path` contains a '/'-separated `".."` URI path segment.
+bool UriPathHasDotDotSegment(std::string_view path);
+
 /// Redacts userinfo and query/fragment components from `raw_url` and C-escapes
 /// the result for safe inclusion in error messages and logs.
 std::string RedactUrlForError(std::string_view raw_url);

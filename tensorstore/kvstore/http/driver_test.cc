@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -848,6 +849,81 @@ TEST(SpecTest, CacheKeyDoesNotEmbedRawHeaders) {
               ::testing::Not(::testing::HasSubstr("secret_token_value_1")));
   EXPECT_NE(key_empty, key1);
   EXPECT_NE(key1, key2);
+}
+
+TEST_F(HttpKeyValueStoreTest, DotDotSegmentsRejected) {
+  EXPECT_THAT(kvstore::Open("https://example.com/a/../b").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Open("https://example.com/a/%2e%2e/b").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Open("https://example.com/a/%2E./x%2fy/b").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Open({{"driver", "http"},
+                             {"base_url", "https://example.com/my/path"},
+                             {"path", "../secret"}})
+                  .result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+
+  // Percent-encoded '/' attached to '..' is a single segment, not '..'.
+  TENSORSTORE_EXPECT_OK(kvstore::Open("https://example.com/a%2f../b").result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open("https://example.com/my/path/").result());
+  EXPECT_THAT(store.WithPathSuffix("../secret").ToUrl(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Read(store, "..").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Read(store, "../secret").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Read(store, "sub/../../secret").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Read(store, "sub/..").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Read(store, "/../secret").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Read(store, "a//../b").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_THAT(kvstore::Read(store, std::string("a\0/../b", 7)).result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  EXPECT_TRUE(mock_transport->requests().empty());
+}
+
+TEST_F(HttpKeyValueStoreTest, HarmlessDotAndEscapedKeysAllowed) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open("https://example.com/my/path/").result());
+
+  const auto expect_url = [&](std::string_view key,
+                              std::string_view expected_url) {
+    auto future = kvstore::Read(store, std::string(key));
+    auto req = mock_transport->queued_requests().pop();
+    EXPECT_THAT(req.request.url, StrEq(expected_url));
+    req.set_result(HttpResponse{200, absl::Cord("ok")});
+    EXPECT_THAT(future.result(), MatchesKvsReadResult(absl::Cord("ok")));
+  };
+
+  expect_url(".", "https://example.com/my/path/.");
+  expect_url("...", "https://example.com/my/path/...");
+  expect_url("a/.../b", "https://example.com/my/path/a/.../b");
+  expect_url("./a/./b", "https://example.com/my/path/./a/./b");
+  expect_url("a..b", "https://example.com/my/path/a..b");
+  expect_url("..a", "https://example.com/my/path/..a");
+  expect_url("a..", "https://example.com/my/path/a..");
+  expect_url(std::string_view("a/..\0/b", 7),
+             "https://example.com/my/path/a/..%00/b");
+  expect_url("%2e%2e/secret", "https://example.com/my/path/%252e%252e/secret");
+  expect_url("..\\secret", "https://example.com/my/path/..%5Csecret");
 }
 
 }  // namespace

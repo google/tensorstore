@@ -38,6 +38,10 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/http/default_transport.h"
+#include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/internal/uri/path.h"
@@ -81,6 +85,9 @@ using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal::UniqueNow;
+using ::tensorstore::internal_http::DefaultMockHttpTransport;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_ocdbt::BtreeNodeEncoder;
 using ::tensorstore::internal_ocdbt::BtreeNodeHeight;
 using ::tensorstore::internal_ocdbt::CommitTime;
@@ -1977,6 +1984,67 @@ TEST(OcdbtTest, MaxDecodedNodeBytesValidation) {
               MatchesKvsReadResult(absl::Cord("v1")));
   EXPECT_THAT(kvstore::Read(store2, "b").result(),
               MatchesKvsReadResult(absl::Cord("v2")));
+}
+
+TEST(OcdbtTest, HttpBaseRejectsDotDotDataFilePath) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mem_ocdbt, kvstore::Open({{"driver", "ocdbt"},
+                                     {"base", "memory://src/"},
+                                     {"config", {{"manifest_kind", "single"}}}},
+                                    context)
+                          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(mem_ocdbt, "k", absl::Cord("val")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mem_base, kvstore::Open("memory://src/", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded_manifest,
+      kvstore::Read(mem_base, "manifest.ocdbt").result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto orig_manifest,
+      tensorstore::internal_ocdbt::DecodeManifest(encoded_manifest.value));
+  ASSERT_FALSE(orig_manifest.versions.empty());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto node_read,
+      kvstore::Read(
+          mem_base,
+          orig_manifest.versions.back().root.location.file_id.FullPath())
+          .result());
+
+  auto crafted_manifest = orig_manifest;
+  crafted_manifest.versions.back().root.location.file_id =
+      DataFileId{"", "../secret"};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto crafted_bytes,
+                                   EncodeManifest(crafted_manifest));
+
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"GET https://example.com/ocdbt/manifest.ocdbt",
+           HttpResponse{200, crafted_bytes}},
+          {"GET https://example.com/ocdbt/../secret",
+           HttpResponse{200, node_read.value}},
+      });
+  auto prev_transport = SetDefaultHttpTransport(mock_transport);
+  struct RestoreTransport {
+    std::shared_ptr<tensorstore::internal_http::HttpTransport> prev;
+    ~RestoreTransport() { SetDefaultHttpTransport(std::move(prev)); }
+  } restore{std::move(prev_transport)};
+
+  // HTTP base blocks `..` data file paths before issuing a request.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto http_ocdbt,
+      kvstore::Open({{"driver", "ocdbt"},
+                     {"base", "https://example.com/ocdbt/"},
+                     {"cache_pool", {{"total_bytes_limit", 0}}}},
+                    context)
+          .result());
+  EXPECT_THAT(kvstore::Read(http_ocdbt, "k").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  for (const auto& req : mock_transport->requests()) {
+    EXPECT_THAT(req.url, ::testing::Not(HasSubstr("secret")));
+  }
 }
 
 }  // namespace

@@ -323,10 +323,22 @@ class S3KeyValueStoreSpec
 
   Future<kvstore::DriverPtr> DoOpen() const override;
 
+  absl::Status NormalizeSpec(std::string& path) override {
+    if (!path.empty() && !IsValidObjectName(path)) {
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Invalid S3 path: %v", QuoteString(path)));
+    }
+    return absl::OkStatus();
+  }
+
   Result<std::string> ToUrl(std::string_view path) const override {
     if (data_.endpoint || data_.bucket.empty()) {
       return absl::UnimplementedError(
           "S3 URL syntax not supported with explicit endpoint");
+    }
+    if (!path.empty() && !IsValidObjectName(path)) {
+      return absl::InvalidArgumentError(
+          absl::StrFormat("Invalid S3 path: %v", QuoteString(path)));
     }
     return GetS3Url(data_.bucket, path);
   }

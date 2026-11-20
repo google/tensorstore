@@ -104,7 +104,23 @@ TEST(ValidateTest, IsValidObjectName) {
 
   EXPECT_FALSE(IsValidObjectName(""));
   EXPECT_TRUE(IsValidObjectName("."));
-  EXPECT_TRUE(IsValidObjectName(".."));
+  EXPECT_TRUE(IsValidObjectName("./a/./b"));
+  EXPECT_TRUE(IsValidObjectName("..."));
+  EXPECT_TRUE(IsValidObjectName("a..b"));
+  EXPECT_TRUE(IsValidObjectName("..a"));
+  EXPECT_TRUE(IsValidObjectName("a.."));
+  EXPECT_TRUE(IsValidObjectName("%2e%2e/a"));
+  EXPECT_TRUE(IsValidObjectName("..\\a"));
+
+  // Reject any `".."` path segment to prevent base-path or object-key
+  // traversal.
+  EXPECT_FALSE(IsValidObjectName(".."));
+  EXPECT_FALSE(IsValidObjectName("../a"));
+  EXPECT_FALSE(IsValidObjectName("/../a"));
+  EXPECT_FALSE(IsValidObjectName("a/.."));
+  EXPECT_FALSE(IsValidObjectName("a/../b"));
+  EXPECT_FALSE(IsValidObjectName("a//../b"));
+  EXPECT_FALSE(IsValidObjectName("videos/2014/../../video1.wmv"));
 
   EXPECT_TRUE(IsValidObjectName("foo\rbar"));
   EXPECT_TRUE(IsValidObjectName("foo\nbar"));
