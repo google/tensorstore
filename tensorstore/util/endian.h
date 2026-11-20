@@ -55,7 +55,7 @@ inline std::ostream& operator<<(std::ostream& os, endian e) {
 namespace endian_internal {
 
 // clang-format off
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint64_t gbswap_64(uint64_t x) {
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline uint64_t gbswap_64(uint64_t x) {
 #if ABSL_HAVE_BUILTIN(__builtin_bswap64) || defined(__GNUC__)
   return __builtin_bswap64(x);
 #else
@@ -70,7 +70,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint64_t gbswap_64(uint64_t x) {
 #endif
 }
 
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint32_t gbswap_32(uint32_t x) {
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline uint32_t gbswap_32(uint32_t x) {
 #if ABSL_HAVE_BUILTIN(__builtin_bswap32) || defined(__GNUC__)
   return __builtin_bswap32(x);
 #else
@@ -81,7 +81,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint32_t gbswap_32(uint32_t x) {
 #endif
 }
 
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint16_t gbswap_16(uint16_t x) {
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline uint16_t gbswap_16(uint16_t x) {
 #if ABSL_HAVE_BUILTIN(__builtin_bswap16) || defined(__GNUC__)
   return __builtin_bswap16(x);
 #else
@@ -212,7 +212,7 @@ namespace internal {
 /// \param source Pointer to source element of `ElementSize` bytes.
 /// \param dest Pointer to destination element of `ElementSize` bytes.
 template <size_t ElementSize>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline void SwapEndianUnaligned(
     const void* absl_nonnull source, void* absl_nonnull dest) {
   static_assert((ElementSize == 1 || ElementSize == 2 || ElementSize == 4 ||
                  ElementSize == 8),
@@ -253,7 +253,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
 /// \param source Pointer to source array of `SubElementSize*Count` bytes.
 /// \param dest Pointer to destination array of `SubElementSize*Count` bytes.
 template <size_t SubElementSize, size_t Count>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline void SwapEndianUnaligned(
     const void* absl_nonnull source, void* absl_nonnull dest) {
   // Either source == dest, or the ranges [source, source + SubElementSize *
   // Count) and [dest, dest + SubElementSize * Count) must be non-overlapping.
@@ -279,7 +279,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
 ///
 /// This is equivalent to `SwapEndianUnaligned<ElementSize>(data, data)`.
 template <size_t ElementSize>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnalignedInplace(
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline void SwapEndianUnalignedInplace(
     void* absl_nonnull data) {
   SwapEndianUnaligned<ElementSize>(data, data);
 }
@@ -291,7 +291,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnalignedInplace(
 /// This is equivalent to
 /// `SwapEndianUnaligned<SubElementSize, Count>(data, data)`.
 template <size_t SubElementSize, size_t Count>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnalignedInplace(
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline void SwapEndianUnalignedInplace(
     void* absl_nonnull data) {
   SwapEndianUnaligned<SubElementSize, Count>(data, data);
 }

@@ -469,13 +469,13 @@ class InputDimensionsView {
   DimensionIndex size_;
 };
 
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE InputDimensionsView
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline InputDimensionsView
 TransformRep::all_input_dimensions(DimensionIndex rank) {
   assert(rank >= 0 && rank <= input_rank_capacity);
   return InputDimensionsView(this, rank);
 }
 
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE InputDimensionRef
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline InputDimensionRef
 TransformRep::input_dimension(DimensionIndex i) {
   assert(i >= 0 && i <= input_rank_capacity);
   return InputDimensionRef(this, i);

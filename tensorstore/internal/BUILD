@@ -364,7 +364,6 @@ tensorstore_cc_library(
     srcs = ["env.cc"],
     hdrs = ["env.h"],
     deps = [
-        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/flags:marshalling",

@@ -16,8 +16,9 @@ cc_library(
         ],
         exclude = [
             "src/**/*_tablegen.c",
-            "src/liblzma/check/sha256.c",
             "src/liblzma/check/crc*_small.c",
+            "src/liblzma/check/crc_clmul_consts_gen.c",
+            "src/liblzma/check/sha256.c",
             "src/liblzma/common/stream_decoder_mt.c",
             "src/liblzma/common/stream_encoder_mt.c",
         ],

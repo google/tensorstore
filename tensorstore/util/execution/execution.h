@@ -72,7 +72,7 @@ namespace internal_execution {
     return NAME(self, std::forward<Arg>(arg)...);                            \
   }                                                                          \
   template <typename Self, typename... Arg>                                  \
-  friend ABSL_ATTRIBUTE_ALWAYS_INLINE decltype(std::declval<NAME##_t>()(     \
+  ABSL_ATTRIBUTE_ALWAYS_INLINE friend decltype(std::declval<NAME##_t>()(     \
       std::declval<Self&>(), std::declval<Arg>()...))                        \
   PolyApply(Self& self, NAME##_t, Arg&&... arg) {                            \
     return NAME##_t{}(self, std::forward<Arg>(arg)...);                      \

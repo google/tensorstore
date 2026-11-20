@@ -24,11 +24,11 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/types/source_location.h"
+#include "tensorstore/internal/meta/attributes.h"
 
 namespace tensorstore {
 
@@ -54,7 +54,7 @@ namespace tensorstore {
 /// `TENSORSTORE_ASSIGN_OR_RETURN` macros.
 ///
 /// \ingroup error handling
-class ABSL_MUST_USE_RESULT StatusBuilder {
+class TENSORSTORE_NODISCARD StatusBuilder {
  public:
   /// Creates a `StatusBuilder` from an existing status. If the `status` is not
   /// `absl::StatusCode::kOk`, the source location may be added to it.
@@ -84,7 +84,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   StatusBuilder& operator=(const StatusBuilder& other) = default;
 
   /// Returns whether the current status code is `absl::StatusCode::kOk`.
-  ABSL_MUST_USE_RESULT bool ok() const { return status_.ok(); }
+  TENSORSTORE_NODISCARD bool ok() const { return status_.ok(); }
 
   /// Returns the status code of the underlying status, or the overridden code
   /// if one has been set.
@@ -196,13 +196,13 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   }
 
   /// Constructs an `absl::Status` from the current state.
-  ABSL_MUST_USE_RESULT absl::Status BuildStatus() const& {
+  TENSORSTORE_NODISCARD absl::Status BuildStatus() const& {
     if (do_build_status()) {
       return BuildStatusImpl();
     }
     return status_;
   }
-  ABSL_MUST_USE_RESULT absl::Status BuildStatus() && {
+  TENSORSTORE_NODISCARD absl::Status BuildStatus() && {
     if (do_build_status()) {
       return BuildStatusImpl();
     }

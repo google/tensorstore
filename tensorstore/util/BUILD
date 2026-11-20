@@ -645,6 +645,7 @@ tensorstore_cc_library(
         "status_builder.h",
     ],
     deps = [
+        "//tensorstore/internal/meta:attributes",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/meta:type_traits",
         "@abseil-cpp//absl/status",

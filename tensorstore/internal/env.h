@@ -19,7 +19,6 @@
 #include <string>
 #include <type_traits>
 
-#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/marshalling.h"
@@ -43,7 +42,7 @@ void UnsetEnv(const char* variable);
 
 // Returns the parsed value of an environment variable or empty.
 template <typename T>
-std::optional<T> GetEnvValue(const char* variable) {
+[[nodiscard]] std::optional<T> GetEnvValue(const char* variable) {
   auto env = internal::GetEnv(variable);
   if (!env) return std::nullopt;
   if constexpr (std::is_same_v<std::string, T>) {
@@ -77,7 +76,7 @@ std::optional<T> GetEnvValue(const char* variable) {
 
 // Returns the parsed value of an environment variable or empty.
 template <typename T>
-ABSL_MUST_USE_RESULT std::optional<T> GetFlagOrEnvValue(
+[[nodiscard]] std::optional<T> GetFlagOrEnvValue(
     absl::Flag<std::optional<T>>& flag, const char* variable) {
   if (auto val = absl::GetFlag(flag); val.has_value()) return val;
   if (auto env = internal::GetEnvValue<T>(variable); env.has_value()) {
