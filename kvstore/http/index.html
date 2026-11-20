@@ -1770,9 +1770,11 @@ path, and <a class="reference internal" href="#json-kvstore/http.base_url" title
 Otherwise, it is interpreted as a relative path and appended as an
 <em>additional</em> path component to any path specified in
 <a class="reference internal" href="#json-kvstore/http.base_url" title="kvstore/http.base_url (JSON member) — Base URL."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base_url</span></code></a>.</p>
-<p>Unlike <a class="reference internal" href="#json-kvstore/http.base_url" title="kvstore/http.base_url (JSON member) — Base URL."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base_url</span></code></a>, which must be a valid URL, there are no
-restrictions on the valid characters in <a class="reference internal" href="#json-kvstore/http.path" title="kvstore/http.path (JSON member) — Path relative to base_url."><code class="xref json json-schema docutils literal notranslate"><span class="pre">path</span></code></a>.  Any
-special characters will be <a class="extlink-wikipedia reference external" href="https://en.wikipedia.org/wiki/Percent-encoding">percent encoded</a>.</p>
+<p>Unlike <a class="reference internal" href="#json-kvstore/http.base_url" title="kvstore/http.base_url (JSON member) — Base URL."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base_url</span></code></a>, which must be a valid URL, special
+characters in <a class="reference internal" href="#json-kvstore/http.path" title="kvstore/http.path (JSON member) — Path relative to base_url."><code class="xref json json-schema docutils literal notranslate"><span class="pre">path</span></code></a> do not need to be escaped and will be
+<a class="extlink-wikipedia reference external" href="https://en.wikipedia.org/wiki/Percent-encoding">percent encoded</a>.  <code class="code highlight json docutils literal highlight-json"><span class="s2">".."</span></code> path
+segments are rejected to prevent path traversal outside a configured
+prefix.</p>
 <div class="note admonition">
 <p class="admonition-title">Note</p>
 <p>The treatment of relative paths differs slightly from web browsers in
