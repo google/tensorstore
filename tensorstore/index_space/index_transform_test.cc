@@ -1081,6 +1081,17 @@ TEST(IndexTransformTest, WithImplicitDimensionsStaticRank) {
                                    DimensionSet::FromBools({1, 0, 1})));
 }
 
+TEST(IndexTransformTest, WithImplicitDimensionsNull) {
+  EXPECT_FALSE(WithImplicitDimensions(IndexTransform<>(),
+                                      DimensionSet::FromBools({0, 1, 1}),
+                                      DimensionSet::FromBools({1, 0, 1}))
+                   .valid());
+  EXPECT_FALSE(WithImplicitDimensions(IndexTransform<3, 3>(),
+                                      DimensionSet::FromBools({0, 1, 1}),
+                                      DimensionSet::FromBools({1, 0, 1}))
+                   .valid());
+}
+
 TEST(IndexDomainTest, WithImplicitDimensions) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_domain,
                                    IndexDomainBuilder(3)
@@ -1103,6 +1114,17 @@ TEST(IndexDomainTest, WithImplicitDimensionsStaticRank) {
             WithImplicitDimensions(IndexDomain<3>(tensorstore::StaticRank<3>{}),
                                    DimensionSet::FromBools({0, 1, 1}),
                                    DimensionSet::FromBools({1, 0, 1})));
+}
+
+TEST(IndexDomainTest, WithImplicitDimensionsNull) {
+  EXPECT_FALSE(WithImplicitDimensions(IndexDomain<>(),
+                                      DimensionSet::FromBools({0, 1, 1}),
+                                      DimensionSet::FromBools({1, 0, 1}))
+                   .valid());
+  EXPECT_FALSE(WithImplicitDimensions(IndexDomain<3>(),
+                                      DimensionSet::FromBools({0, 1, 1}),
+                                      DimensionSet::FromBools({1, 0, 1}))
+                   .valid());
 }
 
 TEST(IndexDomainTest, ApplyIndexTransform) {

@@ -579,6 +579,7 @@ TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
                                            DimensionSet implicit_lower_bounds,
                                            DimensionSet implicit_upper_bounds,
                                            bool domain_only) {
+  if (!transform) return transform;
   transform = MutableRep(std::move(transform), domain_only);
   if (!domain_only && (implicit_lower_bounds || implicit_upper_bounds)) {
     // Ensure all dimensions on which an index array depends remain explicit.
