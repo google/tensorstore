@@ -21,6 +21,7 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -55,6 +56,7 @@ TEST(AwsCredentialsResourceTest, Default) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
+  EXPECT_THAT(resource->credentials_provider.get(), ::testing::NotNull());
 }
 
 TEST(AwsCredentialsResourceTest, ExplicitDefault) {
@@ -66,17 +68,35 @@ TEST(AwsCredentialsResourceTest, ExplicitDefault) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
+  EXPECT_THAT(resource->credentials_provider.get(), ::testing::NotNull());
 }
 
 TEST(AwsCredentialsResourceTest, ValidSpec) {
   auto context = Context::Default();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto resource_spec,
-      Context::Resource<AwsCredentialsResource>::FromJson(
-          {{"type", "profile"}, {"profile", "my_profile"}}));
+  for (const auto& json : {::nlohmann::json{{"type", "default"},
+                                            {"profile", "my_profile"}},
+                           ::nlohmann::json{{"type", "environment"}}}) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto resource_spec,
+        Context::Resource<AwsCredentialsResource>::FromJson(json));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
+                                     context.GetResource(resource_spec));
+    EXPECT_THAT(resource->credentials_provider.get(), ::testing::NotNull());
+  }
+}
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
-                                   context.GetResource(resource_spec));
+TEST(AwsCredentialsResourceTest, ProfileSpecMissingFilesFails) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto profile_spec,
+      Context::Resource<AwsCredentialsResource>::FromJson(
+          {{"type", "profile"},
+           {"profile", "my_profile"},
+           {"credentials_file", "/nonexistent/credentials"},
+           {"config_file", "/nonexistent/config"}}));
+  EXPECT_THAT(context.GetResource(profile_spec),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Failed to create credentials provider")));
 }
 
 TEST(AwsCredentialsResourceTest, ValidAnonymousSpec) {
@@ -87,6 +107,36 @@ TEST(AwsCredentialsResourceTest, ValidAnonymousSpec) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
+  EXPECT_THAT(resource->credentials_provider.get(), ::testing::NotNull());
+}
+
+TEST(AwsCredentialsResourceTest, SharesProviderWithinContext) {
+  auto parent = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource_spec,
+      Context::Resource<AwsCredentialsResource>::FromJson("aws_credentials"));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r1, parent.GetResource(resource_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r2, parent.GetResource(resource_spec));
+  EXPECT_THAT(r1->credentials_provider.get(), ::testing::NotNull());
+  EXPECT_EQ(r1->credentials_provider.get(), r2->credentials_provider.get());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto child, Context::FromJson(::nlohmann::json::object_t(), parent));
+  ASSERT_NE(child, parent);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r3, child.GetResource(resource_spec));
+  EXPECT_EQ(r1->credentials_provider.get(), r3->credentials_provider.get());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto child2,
+      Context::FromJson({{"aws_credentials", {{"type", "anonymous"}}}},
+                        parent));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r4, child2.GetResource(resource_spec));
+  EXPECT_NE(r1->credentials_provider.get(), r4->credentials_provider.get());
+
+  auto other = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto r5, other.GetResource(resource_spec));
+  EXPECT_NE(r1->credentials_provider.get(), r5->credentials_provider.get());
 }
 
 TEST(AwsCredentialsResourceTest, InvalidSpecs) {
