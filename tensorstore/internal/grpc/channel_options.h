@@ -43,9 +43,9 @@ bool IsDirectPathAddress(std::string_view address);
 
 /// Determines the number of subchannels to use for an address.
 ///
-/// When `num_channels` i is greater than 0, it is used directly.
-/// Otherwise, DirectPath uses 1, then override_channels (e.g. env/flag),
-/// then reasonable default values depending on the address.
+/// When `num_channels` is greater than 0, it is used directly.
+/// Otherwise, `override_channels` (e.g. env/flag) is used if greater than 0,
+/// DirectPath defaults to 1, and other addresses use reasonable defaults.
 uint32_t ResolveChannelCount(std::string_view address, uint32_t num_channels,
                              std::optional<uint32_t> override_channels);
 

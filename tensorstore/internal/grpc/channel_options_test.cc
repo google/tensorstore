@@ -45,10 +45,13 @@ TEST(ChannelOptionsTest, ResolveChannelCount) {
   // num_channels > 0 wins unconditionally.
   EXPECT_EQ(ResolveChannelCount("localhost:8080", 8, std::nullopt), 8);
   EXPECT_EQ(ResolveChannelCount("localhost:8080", 8, 16), 8);
-  // override_channels used when num_channels == 0.
+  EXPECT_EQ(ResolveChannelCount("google-c2p:///storage", 8, 16), 8);
+  // override_channels used when num_channels == 0, including on DirectPath.
   EXPECT_EQ(ResolveChannelCount("localhost:8080", 0, 16), 16);
-  // DirectPath forces 1.
+  EXPECT_EQ(ResolveChannelCount("google-c2p:///storage", 0, 4), 4);
+  // DirectPath defaults to 1 when num_channels == 0 and no positive override.
   EXPECT_EQ(ResolveChannelCount("google-c2p:///storage", 0, std::nullopt), 1);
+  EXPECT_EQ(ResolveChannelCount("google-c2p:///storage", 0, 0), 1);
   // Localhost defaults to 4.
   EXPECT_EQ(ResolveChannelCount("localhost:8080", 0, std::nullopt), 4);
   EXPECT_EQ(ResolveChannelCount("127.0.0.1:8080", 0, std::nullopt), 4);

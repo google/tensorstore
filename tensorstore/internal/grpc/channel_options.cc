@@ -48,14 +48,14 @@ uint32_t ResolveChannelCount(std::string_view address, uint32_t num_channels,
   if (num_channels != 0) {
     return num_channels;
   }
-  // DirectPath addresses manage multiple subchannels internally
-  // in gRPC via xDS; use a single logical channel.
-  if (IsDirectPathAddress(address)) {
-    return 1;
-  }
   // If an override is provided (e.g. flag or env var), use it.
   if (override_channels && *override_channels > 0) {
     return *override_channels;
+  }
+  // DirectPath addresses manage multiple subchannels internally
+  // in gRPC via xDS; use a single logical channel by default.
+  if (IsDirectPathAddress(address)) {
+    return 1;
   }
   // "localhost" is typically used in tests; limit to a small
   // number of channels to aid debugging, since
