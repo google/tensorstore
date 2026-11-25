@@ -14,12 +14,16 @@
 
 #include "tensorstore/kvstore/s3/aws_credentials_spec.h"
 
+#include <string>
 #include <type_traits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/aws/aws_credentials.h"
+#include "tensorstore/internal/env.h"
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/status_testutil.h"
@@ -30,9 +34,31 @@ namespace {
 
 namespace jb = ::tensorstore::internal_json_binding;
 using ::tensorstore::IsOk;
+using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal::SetEnv;
+using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_aws::GetAwsCredentials;
+using ::tensorstore::internal_kvstore_s3::MakeAwsCredentialsProvider;
+using ::tensorstore::internal_testing::EnvSaver;
 using ::testing::HasSubstr;
+
+MATCHER(IsAnonymousCredentials, "") {
+  if (arg.IsAnonymous()) return true;
+  *result_listener << "has access_key_id=" << arg.GetAccessKeyId();
+  return false;
+}
+
+MATCHER_P(HasAccessKeyId, expected, "") {
+  if (!arg.IsAnonymous() && arg.GetAccessKeyId() == expected) return true;
+  if (arg.IsAnonymous()) {
+    *result_listener << "is anonymous";
+  } else {
+    *result_listener << "has access_key_id=" << arg.GetAccessKeyId();
+  }
+  return false;
+}
 
 struct Params {
   Spec spec;
@@ -140,6 +166,64 @@ TEST(SpecTest, Error) {
                             &spec, &json),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Failed to parse AWS credentials spec")));
+}
+
+TEST(SpecTest, ProfileMissingFilesFails) {
+  EXPECT_THAT(
+      MakeAwsCredentialsProvider(Spec{Spec::Profile{
+          "my_profile", "/nonexistent/credentials", "/nonexistent/config"}}),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Failed to create credentials provider")));
+}
+
+TEST(SpecTest, DefaultLatchesAnonymousFallback) {
+  EnvSaver env_saver;
+  for (const char* var : {
+           "AWS_EC2_METADATA_DISABLED",
+           "AWS_WEB_IDENTITY_TOKEN_FILE",
+           "AWS_ROLE_ARN",
+           "AWS_ACCESS_KEY_ID",
+           "AWS_SECRET_ACCESS_KEY",
+           "AWS_SESSION_TOKEN",
+           "AWS_CONFIG_FILE",
+           "AWS_SHARED_CREDENTIALS_FILE",
+           "AWS_PROFILE",
+           "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+           "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+       }) {
+    UnsetEnv(var);
+  }
+  // Keep the test hermetic: no ~/.aws files and no EC2 IMDS requests.
+  SetEnv("AWS_EC2_METADATA_DISABLED", "true");
+  SetEnv("AWS_CONFIG_FILE", "/nonexistent/aws_config");
+  SetEnv("AWS_SHARED_CREDENTIALS_FILE", "/nonexistent/aws_credentials");
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider, MakeAwsCredentialsProvider(Spec{Spec::Default{}}));
+
+  // No credentials configured: latches anonymous fallback permanently.
+  EXPECT_THAT(GetAwsCredentials(provider.get()),
+              IsOkAndHolds(IsAnonymousCredentials()));
+
+  SetEnv("AWS_ACCESS_KEY_ID", "AKIDEXAMPLE");
+  SetEnv("AWS_SECRET_ACCESS_KEY", "secretexample");
+  EXPECT_THAT(GetAwsCredentials(provider.get()),
+              IsOkAndHolds(IsAnonymousCredentials()));
+}
+
+TEST(SpecTest, EnvironmentReflectsUpdatesImmediately) {
+  EnvSaver env_saver;
+  SetEnv("AWS_ACCESS_KEY_ID", "AKIDFIRST");
+  SetEnv("AWS_SECRET_ACCESS_KEY", "secret1");
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider, MakeAwsCredentialsProvider(Spec{Spec::Environment{}}));
+  EXPECT_THAT(GetAwsCredentials(provider.get()),
+              IsOkAndHolds(HasAccessKeyId("AKIDFIRST")));
+
+  SetEnv("AWS_ACCESS_KEY_ID", "AKIDSECOND");
+  EXPECT_THAT(GetAwsCredentials(provider.get()),
+              IsOkAndHolds(HasAccessKeyId("AKIDSECOND")));
 }
 
 }  // namespace

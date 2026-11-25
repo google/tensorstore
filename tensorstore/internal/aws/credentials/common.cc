@@ -14,15 +14,27 @@
 
 #include "tensorstore/internal/aws/credentials/common.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
 #include <cassert>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
+#include "absl/types/span.h"
+#include <aws/auth/auth.h>
 #include <aws/auth/credentials.h>
 #include <aws/common/allocator.h>
 #include <aws/common/atomics.h>
+#include <aws/common/error.h>
 #include <aws/common/zero.h>
 #include "tensorstore/internal/aws/aws_api.h"
 #include "tensorstore/internal/aws/aws_credentials.h"
@@ -40,14 +52,183 @@ inline AwsCredentialsProvider AsProvider(aws_credentials_provider* p) {
   return AwsCredentialsProvider(p, internal::adopt_object_ref);
 }
 
+int SyncFailureErrorCode() {
+  int err = aws_last_error();
+  return err != AWS_ERROR_SUCCESS
+             ? err
+             : AWS_AUTH_CREDENTIALS_PROVIDER_DELEGATE_FAILURE;
+}
+
+class FirstResolvedState
+    : public internal::AtomicReferenceCount<FirstResolvedState> {
+ public:
+  static AwsCredentialsProvider Make(
+      absl::Span<const AwsCredentialsProvider> providers) {
+    std::vector<AwsCredentialsProvider> valid;
+    valid.reserve(providers.size());
+    for (const auto& p : providers) {
+      if (p) valid.push_back(p);
+    }
+    if (valid.empty()) return nullptr;
+    if (valid.size() == 1) return std::move(valid[0]);
+
+    internal::IntrusivePtr<FirstResolvedState> state(
+        new FirstResolvedState(std::move(valid)));
+
+    aws_credentials_provider_delegate_options options;
+    AWS_ZERO_STRUCT(options);
+    options.get_credentials = &GetCredentials;
+    options.delegate_user_data = state.get();
+    options.shutdown_options.shutdown_callback = &OnShutdown;
+    options.shutdown_options.shutdown_user_data = state.get();
+
+    aws_credentials_provider* provider =
+        aws_credentials_provider_new_delegate(GetAwsAllocator(), &options);
+    if (!provider) return nullptr;
+    state.release();  // Owned by `OnShutdown`.
+    return AsProvider(provider);
+  }
+
+ private:
+  enum class Mode { kUnresolved, kResolving, kLatched };
+
+  struct PendingQuery {
+    aws_on_get_credentials_callback_fn* callback;
+    void* user_data;
+  };
+
+  explicit FirstResolvedState(std::vector<AwsCredentialsProvider> providers)
+      : providers_(std::move(providers)) {}
+
+  // Note: `aws_credentials_provider_new_delegate` invokes `OnShutdown` as soon
+  // as the outer provider's refcount hits zero. Any in-flight candidate query
+  // holds its own `IntrusivePtr<FirstResolvedState>` so `this` remains valid
+  // until the in-flight query finishes.
+  static void OnShutdown(void* user_data) {
+    internal::IntrusivePtr<FirstResolvedState>(
+        static_cast<FirstResolvedState*>(user_data),
+        internal::adopt_object_ref);
+  }
+
+  static void QueryCurrentProvider(
+      internal::IntrusivePtr<FirstResolvedState> self,
+      AwsCredentialsProvider provider) {
+    FirstResolvedState* raw_self = self.release();
+    if (aws_credentials_provider_get_credentials(provider.get(),
+                                                 &OnCandidateCredentials,
+                                                 raw_self) == AWS_OP_SUCCESS) {
+      return;  // `raw_self` adopted by `OnCandidateCredentials`.
+    }
+    OnCandidateCredentials(nullptr, SyncFailureErrorCode(), raw_self);
+  }
+
+  static void OnCandidateCredentials(aws_credentials* credentials,
+                                     int error_code, void* user_data) {
+    internal::IntrusivePtr<FirstResolvedState> self(
+        static_cast<FirstResolvedState*>(user_data),
+        internal::adopt_object_ref);
+    AwsCredentials creds_ref(credentials);
+
+    std::vector<AwsCredentialsProvider> unused_providers;
+    AwsCredentialsProvider next_to_try;
+    std::vector<PendingQuery> waiters;
+    bool succeeded = false;
+    int final_error = error_code;
+    {
+      absl::MutexLock lock(self->mutex_);
+      if (error_code == AWS_ERROR_SUCCESS && credentials != nullptr) {
+        succeeded = true;
+        self->mode_ = Mode::kLatched;
+        self->latched_ = std::move(self->providers_[self->current_index_]);
+        unused_providers.swap(self->providers_);
+        waiters.swap(self->pending_);
+      } else if (self->current_index_ + 1 < self->providers_.size()) {
+        ++self->current_index_;
+        next_to_try = self->providers_[self->current_index_];
+      } else {
+        self->mode_ = Mode::kUnresolved;
+        self->current_index_ = 0;
+        waiters.swap(self->pending_);
+        if (final_error == AWS_ERROR_SUCCESS) {
+          final_error = AWS_AUTH_CREDENTIALS_PROVIDER_DELEGATE_FAILURE;
+        }
+      }
+    }
+    // Release unused providers and invoke callbacks outside `mutex_` so
+    // synchronous callbacks or shutdown hooks cannot deadlock.
+    unused_providers.clear();
+
+    if (next_to_try) {
+      QueryCurrentProvider(std::move(self), std::move(next_to_try));
+      return;
+    }
+
+    if (succeeded) {
+      for (const auto& w : waiters) {
+        w.callback(creds_ref.get(), AWS_ERROR_SUCCESS, w.user_data);
+      }
+      return;
+    }
+    for (const auto& w : waiters) {
+      w.callback(nullptr, final_error, w.user_data);
+    }
+  }
+
+  static int GetCredentials(void* delegate_user_data,
+                            aws_on_get_credentials_callback_fn* callback,
+                            void* callback_user_data) {
+    auto* self = static_cast<FirstResolvedState*>(delegate_user_data);
+    AwsCredentialsProvider latched;
+    AwsCredentialsProvider first_to_try;
+    {
+      absl::MutexLock lock(self->mutex_);
+      if (self->mode_ == Mode::kLatched) {
+        latched = self->latched_;
+      } else {
+        self->pending_.push_back({callback, callback_user_data});
+        if (self->mode_ == Mode::kUnresolved) {
+          self->mode_ = Mode::kResolving;
+          self->current_index_ = 0;
+          first_to_try = self->providers_[0];
+        }
+      }
+    }
+    if (latched) {
+      if (aws_credentials_provider_get_credentials(
+              latched.get(), callback, callback_user_data) != AWS_OP_SUCCESS) {
+        callback(nullptr, SyncFailureErrorCode(), callback_user_data);
+      }
+      return AWS_OP_SUCCESS;
+    }
+    if (first_to_try) {
+      QueryCurrentProvider(internal::IntrusivePtr<FirstResolvedState>(self),
+                           std::move(first_to_try));
+    }
+    return AWS_OP_SUCCESS;
+  }
+
+  absl::Mutex mutex_;
+  Mode mode_ ABSL_GUARDED_BY(mutex_) = Mode::kUnresolved;
+  size_t current_index_ ABSL_GUARDED_BY(mutex_) = 0;
+  std::vector<AwsCredentialsProvider> providers_ ABSL_GUARDED_BY(mutex_);
+  AwsCredentialsProvider latched_ ABSL_GUARDED_BY(mutex_);
+  std::vector<PendingQuery> pending_ ABSL_GUARDED_BY(mutex_);
+};
+
 }  // namespace
 
-AwsCredentialsProvider MakeCache(AwsCredentialsProvider provider) {
+AwsCredentialsProvider MakeCache(AwsCredentialsProvider provider,
+                                 absl::Duration refresh_time) {
+  if (!provider || refresh_time <= absl::ZeroDuration()) return provider;
   aws_allocator* allocator = GetAwsAllocator();
 
   aws_credentials_provider_cached_options options;
   AWS_ZERO_STRUCT(options);
   options.source = provider.get();
+  if (refresh_time < absl::InfiniteDuration()) {
+    options.refresh_time_in_milliseconds = static_cast<uint64_t>(
+        std::max<int64_t>(1, absl::ToInt64Milliseconds(refresh_time)));
+  }
   return AsProvider(aws_credentials_provider_new_cached(allocator, &options));
 }
 
@@ -67,24 +248,18 @@ AwsCredentialsProvider MakeDefault(std::string_view profile_name_override) {
       aws_credentials_provider_new_chain_default(allocator, &options));
 }
 
+AwsCredentialsProvider MakeFirstResolved(
+    absl::Span<const AwsCredentialsProvider> providers) {
+  return FirstResolvedState::Make(providers);
+}
+
 AwsCredentialsProvider MakeDefaultWithAnonymous(
     std::string_view profile_name_override) {
-  aws_allocator* allocator = GetAwsAllocator();
-
   auto default_provider = MakeDefault(profile_name_override);
+  if (!default_provider) return nullptr;
   auto anonymous_provider = MakeAnonymous();
-
-  aws_credentials_provider* providers[2];
-  AWS_ZERO_ARRAY(providers);
-  providers[0] = default_provider.get();
-  providers[1] = anonymous_provider.get();
-
-  aws_credentials_provider_chain_options options;
-  AWS_ZERO_STRUCT(options);
-  options.provider_count = 2;
-  options.providers = providers;
-
-  return AsProvider(aws_credentials_provider_new_chain(allocator, &options));
+  if (!anonymous_provider) return nullptr;
+  return MakeFirstResolved({default_provider, anonymous_provider});
 }
 
 AwsCredentialsProvider MakeAnonymous() {

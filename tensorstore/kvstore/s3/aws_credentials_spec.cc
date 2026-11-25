@@ -24,6 +24,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/time/time.h"
 #include <aws/common/error.h>
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/aws/aws_api.h"
@@ -159,16 +160,23 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
     }
     R operator()(const Spec::Anonymous&) { return MakeAnonymous(); }
     R operator()(const Spec::Environment&) { return MakeEnvironment(); }
-    R operator()(const Spec::Imds&) { return MakeImds(); }
+    R operator()(const Spec::Imds&) { return MakeCache(MakeImds()); }
     R operator()(const Spec::Profile& v) {
-      return MakeProfile(v.profile, v.credentials_file, v.config_file);
+      // Refresh non-expiring file/process profiles every 5 minutes so rotated
+      // credentials files are picked up within standard 5m rotation lead times;
+      // STS role_arn profiles refresh 5 minutes before token Expiration.
+      return MakeCache(
+          MakeProfile(v.profile, v.credentials_file, v.config_file),
+          absl::Minutes(5));
     }
     R operator()(const Spec::EcsRole& v) {
-      return MakeEcsRole(v.endpoint, v.auth_token_file, v.auth_token);
+      return MakeCache(
+          MakeEcsRole(v.endpoint, v.auth_token_file, v.auth_token));
     }
   };
 
   (void)internal_aws::GetAwsAllocator();  // Force AWS library initialization.
+  aws_reset_error();
   AwsCredentialsProvider credentials_provider =
       std::visit(MakeCredentialsVisitor{}, spec.config);
 
@@ -177,11 +185,11 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
     return (err == 0)
                ? absl::InternalError("Failed to create credentials provider")
                : absl::InternalError(
-                     absl::StrCat("Failed to create credentials provider",
+                     absl::StrCat("Failed to create credentials provider: ",
                                   aws_error_debug_str(err)));
   }
 
-  return MakeCache(std::move(credentials_provider));
+  return credentials_provider;
 }
 
 }  // namespace internal_kvstore_s3

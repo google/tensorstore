@@ -410,6 +410,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
         "@aws_c_common",
         "@nlohmann_json//:json",
     ],
@@ -421,6 +422,9 @@ tensorstore_cc_test(
     deps = [
         ":aws_credentials_spec",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal/aws:aws_credentials",
+        "//tensorstore/internal/testing:env_saver",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
