@@ -1,0 +1,13 @@
+diff --git a/upb/wire/encode.c b/upb/wire/encode.c
+--- a/upb/wire/encode.c
++++ b/upb/wire/encode.c
+@@ -182,7 +182,8 @@ UPB_NOINLINE static char* encode_longvarint(char* ptr, upb_encstate* e,
+       "br %[addr]\n"
+       // Work around llvm/llvm-project#47432, where alignment directives inside
+       // functions crash the compiler when generating SEH info on windows.
+-      #ifndef __SEH__
++      // clang-cl does not define __SEH__, so also check for _WIN32.
++      #if !defined(__SEH__) && !defined(_WIN32)
+       ".p2align " UPB_BTI_SHIFT_IMM
+       #endif
+       "0:\n"

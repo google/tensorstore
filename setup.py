@@ -242,6 +242,103 @@ def _normalize_path(path: str) -> str:
   return os.pathsep.join(parts)
 
 
+def _find_windows_llvm() -> str | None:
+  """Returns an LLVM installation directory containing clang-cl, or `None`.
+
+  Uses `BAZEL_LLVM` if set, otherwise looks for the LLVM toolchain bundled with
+  Visual Studio and then a standalone LLVM installation.
+  """
+  candidates = []
+  bazel_llvm = os.getenv('BAZEL_LLVM')
+  if bazel_llvm:
+    candidates.append(bazel_llvm)
+  else:
+    host_arch = os.getenv('PROCESSOR_ARCHITEW6432') or os.getenv(
+        'PROCESSOR_ARCHITECTURE', ''
+    )
+    llvm_subdirs = ['ARM64', 'x64'] if host_arch.upper() == 'ARM64' else ['x64']
+    vswhere = os.path.join(
+        os.getenv('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+        'Microsoft Visual Studio',
+        'Installer',
+        'vswhere.exe',
+    )
+    vs_paths = []
+    if os.path.exists(vswhere):
+      try:
+        vs_paths = subprocess.check_output(
+            [vswhere, '-products', '*', '-prerelease', '-sort', '-utf8']
+            + ['-property', 'installationPath'],
+            encoding='utf-8',
+        ).splitlines()
+      except (OSError, subprocess.CalledProcessError):
+        pass
+    for vs_path in vs_paths:
+      for subdir in llvm_subdirs:
+        candidates.append(
+            os.path.join(vs_path.strip(), 'VC', 'Tools', 'Llvm', subdir)
+        )
+    candidates.append(
+        os.path.join(os.getenv('ProgramFiles', r'C:\Program Files'), 'LLVM')
+    )
+  # Tools required by Bazel's clang-cl toolchain configuration.
+  required_tools = ['clang-cl.exe', 'lld-link.exe', 'llvm-lib.exe']
+  for candidate in candidates:
+    if all(
+        os.path.exists(os.path.join(candidate, 'bin', tool))
+        for tool in required_tools
+    ):
+      return candidate
+  return None
+
+
+def _windows_arm64_clang_cl_options(
+    build_options: list[str],
+) -> list[str] | None:
+  """Returns Bazel options to build with clang-cl on Windows arm64.
+
+  clang-cl is ABI-compatible with MSVC, and unlike MSVC can compile the
+  GNU-syntax arm64 assembly and SIMD code in some third-party libraries.
+
+  Controlled by `TENSORSTORE_WINDOWS_ARM64_CLANG_CL`: unset or `auto` uses
+  clang-cl if found, `1` requires it, and `0` disables it.
+
+  Args:
+    build_options: Bazel build options specified by the user.
+
+  Returns:
+    Additional Bazel build options, or `None` if building with MSVC.
+  """
+  mode = os.getenv('TENSORSTORE_WINDOWS_ARM64_CLANG_CL', 'auto').lower()
+  if mode not in ('auto', '1', '0'):
+    raise ValueError(
+        'TENSORSTORE_WINDOWS_ARM64_CLANG_CL must be one of auto, 1, 0; got'
+        f' {mode!r}'
+    )
+  if any('windows_arm64_clang_cl' in x for x in build_options):
+    return []
+  if mode == '0' or sysconfig.get_platform() != 'win-arm64':
+    return None
+  llvm_path = _find_windows_llvm()
+  if llvm_path is None:
+    message = (
+        'clang-cl not found; install the Visual Studio "C++ Clang Compiler'
+        ' for Windows" component or set BAZEL_LLVM to an LLVM installation'
+        ' directory.'
+    )
+    if mode == '1':
+      raise RuntimeError(message)
+    print(
+        f'WARNING: {message} Building with MSVC, without arm64 SIMD'
+        ' optimizations in some third-party libraries.'
+    )
+    return None
+  return [
+      '--config=windows_arm64_clang_cl',
+      f'--repo_env=BAZEL_LLVM={llvm_path}',
+  ]
+
+
 if 'darwin' in sys.platform:
   _macos_deployment_target = _configure_macos_deployment_target()
 
@@ -343,13 +440,16 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         # https://developercommunity.visualstudio.com/t/Access-violation-with-std::mutex::lock-a/10664660#T-N10668856
         build_command += ['--copt=/D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR']
 
-        # Disable newer exception handling from Visual Studio 2019, since it
-        # requires a newer C++ runtime than shipped with Python.  This only
-        # affects C++ code, and is a cxxopt so that C libraries built with
-        # clang-cl (which ignores this flag) don't warn about it.
-        #
-        # https://cibuildwheel.readthedocs.io/en/stable/faq/#importerror-dll-load-failed-the-specific-module-could-not-be-found-error-on-windows
-        build_command += ['--cxxopt=/d2FH4-']
+        clang_cl_options = _windows_arm64_clang_cl_options(build_options)
+        if clang_cl_options is not None:
+          build_command += clang_cl_options
+        else:
+          # Disable newer exception handling from Visual Studio 2019, since it
+          # requires a newer C++ runtime than shipped with Python.  clang-cl
+          # does not use it.  This only affects C++ code.
+          #
+          # https://cibuildwheel.readthedocs.io/en/stable/faq/#importerror-dll-load-failed-the-specific-module-could-not-be-found-error-on-windows
+          build_command += ['--cxxopt=/d2FH4-']
       else:
         # Build with hidden visibility for more efficient code generation.
         # Note that this also hides most symbols, but ultimately has no effect
