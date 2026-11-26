@@ -116,6 +116,8 @@ class ZarrChunkCache {
     span<const Index> shape;
     IndexTransform<> transform;
     absl::Time staleness_bound;
+    /// Origin of the chunk grid domain; empty means 0 on every dimension.
+    span<const Index> origin = {};
   };
 
   virtual void GetStorageStatistics(

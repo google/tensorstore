@@ -240,8 +240,10 @@ struct GridStorageStatisticsChunkHandlerBase
     span<const Index> chunk_shape = grid.chunk_shape;
     Box<dynamic_rank(kMaxRank)> grid_bounds(rank);
     for (DimensionIndex i = 0; i < rank; ++i) {
-      const Index grid_size = CeilOfRatio(request.shape[i], chunk_shape[i]);
-      grid_bounds[i] = IndexInterval::UncheckedSized(0, grid_size);
+      const Index origin = request.origin.empty() ? 0 : request.origin[i];
+      grid_bounds[i] = IndexInterval::UncheckedHalfOpen(
+          FloorOfRatio(origin, chunk_shape[i]),
+          CeilOfRatio(origin + request.shape[i], chunk_shape[i]));
     }
     handler->chunk_shape = chunk_shape;
     handler->full_transform = std::move(request.transform);

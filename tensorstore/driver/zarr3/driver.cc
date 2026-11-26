@@ -745,10 +745,15 @@ Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
                        ReadyFuture<MetadataCache::MetadataPtr> future) mutable {
                      auto* metadata =
                          static_cast<const ZarrMetadata*>(future.value().get());
+                     std::vector<Index> origin(metadata->rank);
+                     for (DimensionIndex i = 0; i < metadata->rank; ++i) {
+                       origin[i] =
+                           metadata->LowerBound(i) - metadata->GridOrigin(i);
+                     }
                      cache->zarr_chunk_cache().GetStorageStatistics(
                          std::move(state),
                          {std::move(transaction), metadata->shape,
-                          std::move(transform), staleness_bound});
+                          std::move(transform), staleness_bound, origin});
                    }),
       state_ptr->promise,
       ResolveMetadata(std::move(transaction), metadata_staleness_bound_.time));

@@ -14,15 +14,12 @@
 
 /// End-to-end tests of the zarr3 driver.
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
 #include <cstring>
 #include <functional>
-#include <nlohmann/json.hpp>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -30,11 +27,14 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/array_testutil.h"
@@ -1499,6 +1499,36 @@ TEST(BoundsTest, ShardedChunksBelowZero) {
       ::testing::Optional(tensorstore::MakeScalarArray<uint16_t>(23)));
   EXPECT_THAT(ChunkKeys(store.kvstore()),
               ::testing::ElementsAre("c/-1/-1", "c/-1/0", "c/0/-1", "c/0/0"));
+}
+
+TEST(BoundsTest, StorageStatisticsCoverEveryCellOnAnOffsetGrid) {
+  // Chunk 0 begins at -1, so the 30 elements of [0, 30) span 11 cells, one
+  // more than shape / chunk_shape, and the last key has two digits.
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(BoundsSpec(/*lower_bound=*/0, /*shape=*/30,
+                                               /*origin=*/-1),
+                                    context, tensorstore::OpenMode::create)
+                      .result());
+  auto data = tensorstore::AllocateArray<uint8_t>(tensorstore::BoxView<1>({30}));
+  for (Index i = 0; i < 30; ++i) data(i) = static_cast<uint8_t>(i);
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(data, store));
+  EXPECT_EQ(ChunkKeys(store.kvstore()).size(), 11);
+  EXPECT_THAT(
+      tensorstore::GetStorageStatistics(
+          store, tensorstore::ArrayStorageStatistics::query_fully_stored)
+          .result(),
+      ::testing::Optional(tensorstore::ArrayStorageStatistics{
+          /*.mask=*/tensorstore::ArrayStorageStatistics::query_fully_stored,
+          /*.not_stored=*/false, /*.fully_stored=*/true}));
+  EXPECT_THAT(
+      tensorstore::GetStorageStatistics(
+          store | tensorstore::Dims(0).HalfOpenInterval(27, 30),
+          tensorstore::ArrayStorageStatistics::query_fully_stored)
+          .result(),
+      ::testing::Optional(tensorstore::ArrayStorageStatistics{
+          /*.mask=*/tensorstore::ArrayStorageStatistics::query_fully_stored,
+          /*.not_stored=*/false, /*.fully_stored=*/true}));
 }
 
 TEST(BoundsTest, CreatedFromADomainBelowZeroWritesBounds) {
