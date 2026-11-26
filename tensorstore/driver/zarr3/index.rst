@@ -172,6 +172,11 @@ The underlying domain starts at zero, or at
 uses ``bounds``, and it may be translated by the
 :json:schema:`~driver/zarr3.transform`.
 
+Which of the two forms the stored metadata uses is fixed for an open
+TensorStore: rewriting the metadata from ``shape`` to ``bounds`` (or back)
+while the array is open is reported as an incompatible metadata change, as
+a change of data type would be.
+
 .. admonition:: Example
    :class: example
 
