@@ -590,7 +590,8 @@ constexpr auto MetadataJsonBinder = [] {
         auto bound_member = [&](const char* name, std::vector<Index>* bound) {
           return jb::Member(name, [=](auto is_loading, const auto& options,
                                       auto* obj, auto* j) {
-            return jb::DimensionIndexedVector(rank, jb::Integer<Index>())(
+            return jb::DimensionIndexedVector(
+                rank, jb::Integer<Index>(kMinFiniteIndex, kMaxFiniteIndex + 1))(
                 is_loading, options, bound, j);
           });
         };
@@ -605,6 +606,11 @@ constexpr auto MetadataJsonBinder = [] {
               auto interval,
               IndexInterval::HalfOpen(inclusive_min[i], exclusive_max[i]),
               _.Format("Error parsing object member \"bounds\""));
+          if (!IsFinite(interval)) {
+            return absl::InvalidArgumentError(absl::StrCat(
+                "Error parsing object member \"bounds\": ", interval,
+                " is not a finite interval"));
+          }
           shape[i] = interval.size();
         }
         obj->shape = std::move(shape);
@@ -656,9 +662,11 @@ constexpr auto MetadataJsonBinder = [] {
         "chunk_shape", jb::Projection<&Self::chunk_shape>(
                            maybe_optional(jb::ChunkShapeVector(rank)))));
     auto offset_configuration = jb::Object(
-        jb::Member("offset", jb::Projection<&Self::chunk_grid_origin>(
-                                 maybe_optional(jb::DimensionIndexedVector(
-                                     rank, jb::Integer<Index>())))),
+        jb::Member("offset",
+                   jb::Projection<&Self::chunk_grid_origin>(
+                       maybe_optional(jb::DimensionIndexedVector(
+                           rank, jb::Integer<Index>(kMinFiniteIndex,
+                                                    kMaxFiniteIndex))))),
         jb::Member(
             "base_chunk_grid",
             jb::Object(
@@ -982,6 +990,19 @@ absl::Status ValidateStructEndianness(const ZarrDType& dtype,
 
 absl::Status ValidateMetadata(ZarrMetadata& metadata) {
   DeriveFieldShape(metadata);
+
+  // The domain is stored relative to the chunk grid origin.
+  for (DimensionIndex i = 0; i < metadata.rank; ++i) {
+    const Index inclusive_min = metadata.LowerBound(i) - metadata.GridOrigin(i);
+    if (!IsFiniteIndex(inclusive_min) ||
+        metadata.shape[i] - 1 > kMaxFiniteIndex - inclusive_min) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Dimension ", i, ": bounds ", "[", metadata.LowerBound(i), ", ",
+          metadata.LowerBound(i) + metadata.shape[i],
+          ") relative to the chunk grid offset ", metadata.GridOrigin(i),
+          " exceed the valid index range"));
+    }
+  }
 
   // Skip when codecs are already resolved: the create path runs the
   // pre-Resolve check itself in `GetNewMetadata`, and post-Resolve the

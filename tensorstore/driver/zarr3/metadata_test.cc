@@ -238,6 +238,41 @@ TEST(MetadataTest, RegularChunkGridRejectsOrigin) {
       StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"origin\"")));
 }
 
+TEST(MetadataTest, BoundsMustBeFinite) {
+  auto json = GetBasicMetadata();
+  json.erase("shape");
+  json["bounds"] = {{"inclusive_min", {-tensorstore::kInfIndex, 0, 2}},
+                    {"exclusive_max", {7, 11, 14}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"bounds\"")));
+  json["bounds"] = {{"inclusive_min", {-3, 0, 2}},
+                    {"exclusive_max", {tensorstore::kInfIndex + 1, 11, 14}}};
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"bounds\"")));
+}
+
+TEST(MetadataTest, OffsetMustBeFinite) {
+  auto json = GetBasicMetadata();
+  json["chunk_grid"] = OffsetChunkGrid({tensorstore::kInfIndex, 0, 0});
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("\"offset\"")));
+}
+
+TEST(MetadataTest, BoundsRelativeToTheOffsetMustBeFinite) {
+  auto json = GetBasicMetadata();
+  json.erase("shape");
+  json["bounds"] = {
+      {"inclusive_min", {tensorstore::kMinFiniteIndex, 0, 2}},
+      {"exclusive_max", {tensorstore::kMinFiniteIndex + 10, 11, 14}}};
+  json["chunk_grid"] = OffsetChunkGrid({tensorstore::kMaxFiniteIndex, 0, 0});
+  EXPECT_THAT(ZarrMetadata::FromJson(json),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("relative to the chunk grid offset")));
+}
+
 TEST(MetadataTest, OffsetChunkGridRejectsNestedOffset) {
   auto json = GetBasicMetadata();
   json["chunk_grid"] = OffsetChunkGrid({1, 0, 0});
