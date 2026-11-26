@@ -487,6 +487,112 @@ TEST(AccumulateRowTest, SumAndFloatMinMaxIgnoreNaN) {
   EXPECT_EQ(max_acc[1], -kInf);
 }
 
+class AccumulateRowFactorTest : public ::testing::TestWithParam<Index> {};
+
+TEST_P(AccumulateRowFactorTest, SumAndFloatMinMaxIgnoreNaN) {
+  const Index factor = GetParam();
+  constexpr Index kCount = 19;
+  constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
+  constexpr float kInf = std::numeric_limits<float>::infinity();
+
+  // Multi-row widening integer `SumOp` (`int32_t -> int64_t` and
+  // `uint8_t -> uint64_t`) across full SIMD vectors plus scalar tail.
+  std::vector<int32_t> i32_r0(kCount * factor);
+  std::vector<int32_t> i32_r1(kCount * factor);
+  std::vector<uint8_t> u8_r0(kCount * factor);
+  for (Index idx = 0; idx < kCount * factor; ++idx) {
+    i32_r0[idx] = static_cast<int32_t>((idx * 7) - 23);
+    i32_r1[idx] = static_cast<int32_t>(11 - (idx * 3));
+    u8_r0[idx] = static_cast<uint8_t>((idx * 13 + 5) & 0xff);
+  }
+  std::array<int64_t, kCount> i64_acc = {};
+  AccumulateRow<SumOp, int64_t, int32_t>(i64_acc.data(), i32_r0.data(), kCount,
+                                         factor);
+  AccumulateRow<SumOp, int64_t, int32_t>(i64_acc.data(), i32_r1.data(), kCount,
+                                         factor);
+  std::array<uint64_t, kCount> u64_acc = {};
+  AccumulateRow<SumOp, uint64_t, uint8_t>(u64_acc.data(), u8_r0.data(), kCount,
+                                          factor);
+  for (Index i = 0; i < kCount; ++i) {
+    int64_t expected_i64 = 0;
+    uint64_t expected_u64 = 0;
+    for (Index j = 0; j < factor; ++j) {
+      expected_i64 +=
+          int64_t{i32_r0[i * factor + j]} + int64_t{i32_r1[i * factor + j]};
+      expected_u64 += uint64_t{u8_r0[i * factor + j]};
+    }
+    EXPECT_EQ(i64_acc[i], expected_i64) << "factor=" << factor << " i=" << i;
+    EXPECT_EQ(u64_acc[i], expected_u64) << "factor=" << factor << " i=" << i;
+  }
+
+  // Float `MinOp` / `MaxOp` with leading, trailing, interior, and all-window
+  // NaNs across two accumulated rows (`count == 19` exercises SIMD + tail).
+  std::vector<float> f_r0(kCount * factor);
+  std::vector<float> f_r1(kCount * factor);
+  for (Index i = 0; i < kCount; ++i) {
+    for (Index j = 0; j < factor; ++j) {
+      const Index idx = i * factor + j;
+      if (i == 2) {
+        f_r0[idx] = kNaN;
+        f_r1[idx] = kNaN;
+      } else if (i % 4 == 0 && j == 0) {
+        f_r0[idx] = kNaN;
+        f_r1[idx] = static_cast<float>(idx) * 0.5f - 10.0f;
+      } else if (i % 4 == 1 && j == factor - 1) {
+        f_r0[idx] = static_cast<float>(20 - idx) * 0.25f;
+        f_r1[idx] = kNaN;
+      } else if (factor >= 3 && i % 4 == 3 && j == 1) {
+        f_r0[idx] = kNaN;
+        f_r1[idx] = static_cast<float>((idx % 11) - 5);
+      } else {
+        f_r0[idx] = static_cast<float>((idx * 5) % 17) - 8.0f;
+        f_r1[idx] = static_cast<float>((idx * 3) % 13) - 6.0f;
+      }
+    }
+  }
+  std::array<float, kCount> min_acc;
+  std::array<float, kCount> max_acc;
+  min_acc.fill(kInf);
+  max_acc.fill(-kInf);
+  AccumulateRow<MinOp, float, float>(min_acc.data(), f_r0.data(), kCount,
+                                     factor);
+  AccumulateRow<MinOp, float, float>(min_acc.data(), f_r1.data(), kCount,
+                                     factor);
+  AccumulateRow<MaxOp, float, float>(max_acc.data(), f_r0.data(), kCount,
+                                     factor);
+  AccumulateRow<MaxOp, float, float>(max_acc.data(), f_r1.data(), kCount,
+                                     factor);
+  for (Index i = 0; i < kCount; ++i) {
+    float expected_min = kInf;
+    float expected_max = -kInf;
+    for (Index j = 0; j < factor; ++j) {
+      for (float v : {f_r0[i * factor + j], f_r1[i * factor + j]}) {
+        if (!std::isnan(v)) {
+          expected_min = std::min(expected_min, v);
+          expected_max = std::max(expected_max, v);
+        }
+      }
+    }
+    EXPECT_EQ(min_acc[i], expected_min) << "factor=" << factor << " i=" << i;
+    EXPECT_EQ(max_acc[i], expected_max) << "factor=" << factor << " i=" << i;
+  }
+
+  // All-`-0.0f` `SumOp` preserves the negative-zero sign bit across lanes.
+  std::array<float, kCount> neg_zero_acc;
+  std::vector<float> neg_zero_src(kCount * factor, -0.0f);
+  neg_zero_acc.fill(-0.0f);
+  AccumulateRow<SumOp, float, float>(neg_zero_acc.data(), neg_zero_src.data(),
+                                     kCount, factor);
+  for (float v : neg_zero_acc) {
+    EXPECT_EQ(v, 0.0f);
+    EXPECT_TRUE(std::signbit(v));
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(Factors, AccumulateRowFactorTest,
+                         ::testing::Values(2, 3, 4),
+                         ::testing::PrintToStringParamName());
+
 TEST(FinalizeMeanBoolRowTest, TieBreakingRoundsToFalse) {
   // `bool` `FinalizeMeanBoolRow`: exact `divisor / 2` ties round to `false`
   // (0 is even).

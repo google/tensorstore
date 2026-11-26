@@ -80,7 +80,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         continue;
       }
       for (const DimensionIndex rank : {1, 2, 3}) {
-        for (const Index downsample_factor : {2, 3}) {
+        for (const Index downsample_factor : {2, 3, 4}) {
           for (const Index block_size : {16, 32, 64, 128, 256}) {
             ::benchmark::RegisterBenchmark(
                 absl::StrCat("DownsampleArray_", dtype, "_", downsample_method,

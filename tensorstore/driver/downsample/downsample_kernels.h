@@ -304,10 +304,10 @@ using ReduceStoredRowFn = void (*)(void* staged, Index stride, void* dst,
                                    Index count, Index divisor);
 
 /// Accumulates `count` contiguous windows of width `factor` from `src_void`
-/// into `acc_void` for `kMean`, `kMin`, and `kMax`.  `factor == 1` is
-/// SIMD-vectorized across `count`, while `factor >= 2` reduces each window
-/// without scalar-to-XMM strided-gather packing (`vpinsr*`) (retaining
-/// inner-loop SIMD vectorization for widening integer `SumOp`).
+/// into `acc_void` for `kMean`, `kMin`, and `kMax`.  `factor == 1` and
+/// `factor == 2` are SIMD-vectorized across `count`, while `factor >= 3`
+/// reduces each window without scalar-to-XMM strided-gather packing (`vpinsr*`)
+/// (retaining inner-loop SIMD vectorization for widening integer `SumOp`).
 template <typename Op, typename Acc, typename Src>
 TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN inline void AccumulateRow(
     void* TENSORSTORE_INTERNAL_RESTRICT acc_void,
@@ -321,6 +321,13 @@ TENSORSTORE_INTERNAL_ATTRIBUTE_HIDDEN inline void AccumulateRow(
 #endif
     for (Index i = 0; i < count; ++i) {
       acc[i] = Op::Combine(acc[i], src[i]);
+    }
+  } else if (factor == 2) {
+#if defined(__clang__)
+#pragma clang loop unroll(disable)
+#endif
+    for (Index i = 0; i < count; ++i) {
+      acc[i] = Op::Combine(Op::Combine(acc[i], src[2 * i]), src[2 * i + 1]);
     }
   } else {
 #if defined(__clang__)
