@@ -396,7 +396,7 @@ class DataCacheBase
       if (new_metadata->bounded) {
         new_metadata->lower_bound[i] = new_min + origin;
       } else {
-        assert(new_min == 0);
+        assert(new_min == old_min);
       }
       new_metadata->shape[i] = new_max - new_min;
     }
