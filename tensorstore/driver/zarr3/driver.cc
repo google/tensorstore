@@ -20,7 +20,6 @@
 #include <cassert>
 #include <cstring>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -35,6 +34,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
@@ -395,8 +395,11 @@ class DataCacheBase
                                             old_min + new_metadata->shape[i]);
       if (new_metadata->bounded) {
         new_metadata->lower_bound[i] = new_min + origin;
-      } else {
-        assert(new_min == old_min);
+      } else if (new_min != old_min) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Cannot change the lower bound of dimension ", i,
+            " of an array whose metadata gives \"shape\" rather than "
+            "\"bounds\""));
       }
       new_metadata->shape[i] = new_max - new_min;
     }

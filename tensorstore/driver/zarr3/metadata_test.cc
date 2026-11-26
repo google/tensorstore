@@ -14,22 +14,22 @@
 
 #include "tensorstore/driver/zarr3/metadata.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <cmath>
 #include <memory>
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include "absl/base/casts.h"
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/chunk_layout.h"
@@ -230,12 +230,12 @@ TEST(MetadataTest, BoundsInclusiveMinAboveExclusiveMaxRejected) {
                        HasSubstr("\"exclusive_max\"")));
 }
 
-TEST(MetadataTest, RegularChunkGridRejectsOrigin) {
+TEST(MetadataTest, RegularChunkGridRejectsOffset) {
   auto json = GetBasicMetadata();
-  json["chunk_grid"]["configuration"]["origin"] = {0, 0, 0};
+  json["chunk_grid"]["configuration"]["offset"] = {0, 0, 0};
   EXPECT_THAT(
       ZarrMetadata::FromJson(json),
-      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"origin\"")));
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("\"offset\"")));
 }
 
 TEST(MetadataTest, BoundsMustBeFinite) {

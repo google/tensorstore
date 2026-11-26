@@ -23,7 +23,6 @@
 
 #include <array>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -31,6 +30,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
