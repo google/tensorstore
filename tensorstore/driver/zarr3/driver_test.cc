@@ -1417,6 +1417,90 @@ TEST(BoundsTest, ResizeMovesTheLowerBound) {
   EXPECT_THAT(ChunkKeys(store.kvstore()), ::testing::ElementsAre("c/0", "c/1"));
 }
 
+TEST(BoundsTest, ResizeOnAnOffsetGridKeepsTheImplicitLowerBound) {
+  // `shape` form on an `offset` grid: element 0 lives in chunk -1, the lower
+  // bound stays at 0 and only the upper bound moves.
+  auto context = Context::Default();
+  ::nlohmann::json spec = BoundsSpec(/*lower_bound=*/0, /*shape=*/6,
+                                     /*origin=*/1);
+  spec["metadata"].erase("bounds");
+  spec["metadata"]["shape"] = {6};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(spec, context, tensorstore::OpenMode::create).result());
+  EXPECT_EQ(store.domain().box(), tensorstore::BoxView<1>({0}, {6}));
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<uint8_t>({1, 2, 3, 4, 5, 6}), store));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto grown,
+      tensorstore::Resize(store, {{tensorstore::kImplicit}}, {{8}}).result());
+  EXPECT_EQ(grown.domain().box(), tensorstore::BoxView<1>({0}, {8}));
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeOffsetArray<uint8_t>({6}, {7, 8}),
+                         grown | tensorstore::Dims(0).HalfOpenInterval(6, 8)));
+  EXPECT_THAT(tensorstore::Read(grown).result(),
+              ::testing::Optional(
+                  tensorstore::MakeArray<uint8_t>({1, 2, 3, 4, 5, 6, 7, 8})));
+  EXPECT_THAT(ChunkKeys(store.kvstore()),
+              ::testing::ElementsAre("c/-1", "c/0", "c/1", "c/2"));
+  EXPECT_FALSE(
+      tensorstore::Resize(grown, {{-1}}, {{tensorstore::kImplicit}}).result().ok());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto read_result,
+      tensorstore::kvstore::Read(store.kvstore(), "zarr.json").result());
+  auto metadata = ::nlohmann::json::parse(std::string(read_result.value));
+  EXPECT_FALSE(metadata.contains("bounds"));
+  EXPECT_THAT(metadata["shape"], MatchesJson({8}));
+}
+
+TEST(BoundsTest, ShardedChunksBelowZero) {
+  // The same array as neuroglancer's `zarr_v3/examples/bounds_sharded`
+  // fixture: 9 x 9 from (-3, -2), 8 x 10 shards of 4 x 5 chunks.
+  auto context = Context::Default();
+  ::nlohmann::json bytes_codec{{"name", "bytes"},
+                               {"configuration", {{"endian", "little"}}}};
+  ::nlohmann::json spec{
+      {"driver", "zarr3"},
+      {"kvstore", "memory://"},
+      {"metadata",
+       {{"bounds", {{"inclusive_min", {-3, -2}}, {"exclusive_max", {6, 7}}}},
+        {"data_type", "uint16"},
+        {"chunk_grid",
+         {{"name", "regular"}, {"configuration", {{"chunk_shape", {8, 10}}}}}},
+        {"codecs",
+         {{{"name", "sharding_indexed"},
+           {"configuration",
+            {{"chunk_shape", {4, 5}},
+             {"codecs", {bytes_codec}},
+             {"index_codecs", {bytes_codec, {{"name", "crc32c"}}}}}}}}}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(spec, context, tensorstore::OpenMode::create).result());
+  EXPECT_EQ(store.domain().box(), tensorstore::BoxView<2>({-3, -2}, {9, 9}));
+  auto data = tensorstore::AllocateArray<uint16_t>(
+      tensorstore::BoxView<2>({-3, -2}, {9, 9}));
+  for (Index i = -3; i < 6; ++i) {
+    for (Index j = -2; j < 7; ++j) {
+      data(i, j) = static_cast<uint16_t>((i + 3) * 9 + (j + 2) + 1);
+    }
+  }
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(data, store));
+  EXPECT_THAT(tensorstore::Read(store).result(), ::testing::Optional(data));
+  EXPECT_THAT(
+      tensorstore::Read(store | tensorstore::Dims(0, 1).IndexSlice({-3, -2}))
+          .result(),
+      ::testing::Optional(tensorstore::MakeScalarArray<uint16_t>(1)));
+  EXPECT_THAT(
+      tensorstore::Read(store | tensorstore::Dims(0, 1).IndexSlice({-1, 2}))
+          .result(),
+      ::testing::Optional(tensorstore::MakeScalarArray<uint16_t>(23)));
+  EXPECT_THAT(ChunkKeys(store.kvstore()),
+              ::testing::ElementsAre("c/-1/-1", "c/-1/0", "c/0/-1", "c/0/0"));
+}
+
 TEST(BoundsTest, CreatedFromADomainBelowZeroWritesBounds) {
   auto context = Context::Default();
   ::nlohmann::json spec{{"driver", "zarr3"}, {"kvstore", "memory://"}};
